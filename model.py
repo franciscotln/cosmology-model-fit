@@ -39,7 +39,7 @@ def model_distance_modulus(z, h0, p0):
     ydata=distance_modulus_values,
     sigma=sigma_distance_moduli,
     absolute_sigma=True,
-    p0=[70, 0.5]
+    p0=[70, 10]
 )
 
 # Extract the optimal value for H0
