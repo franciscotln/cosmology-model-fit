@@ -10,12 +10,12 @@ C = 299792.458
 
 
 # ΛCDM
-def integral_of_e_z(z, omega_m):
+def integral_of_e_z(zs, omega_m):
     i = 0
-    res = np.empty((len(z),), dtype=np.float64)
-    for z_item in z:
-        x_axis = np.linspace(0, z_item, 100)
-        integ = np.trapz([(1 / np.sqrt(omega_m * (1 + x) ** 3 + 1 - omega_m)) for x in x_axis], x=x_axis)
+    res = np.empty((len(zs),), dtype=np.float64)
+    for z_item in zs:
+        z_axis = np.linspace(0, z_item, 100)
+        integ = np.trapz([(1 / np.sqrt(omega_m * (1 + z) ** 3 + 1 - omega_m)) for z in z_axis], x=z_axis)
         res[i] = integ
         i = i + 1
     return res
@@ -23,7 +23,7 @@ def integral_of_e_z(z, omega_m):
 
 # Define a theoretical distance modulus:
 def model_distance_modulus(z, h0, a0):
-    luminosity_distance_model = (C / h0) * (1 + z) * integral_of_e_z(z = z, omega_m=a0)
+    luminosity_distance_model = (C / h0) * (1 + z) * integral_of_e_z(zs = z, omega_m=a0)
     return 25 + 5 * np.log10(luminosity_distance_model)
 
 
