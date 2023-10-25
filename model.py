@@ -19,8 +19,8 @@ def integral_of_e_z(zs, p0):
     integrals = np.empty((len(zs),), dtype=np.float64)
     i = 0
     for z_item in zs:
-        x_axis = np.linspace(0, z_item, 100)
-        integ = np.trapz([a_at_emission(z=z, p0=p0) for z in x_axis], x=x_axis)
+        z_axis = np.linspace(0, z_item, 100)
+        integ = np.trapz([a_at_emission(z=z, p0=p0)**1.5 for z in z_axis], x=z_axis)
         integrals[i] = integ
         i = i + 1
     return integrals
