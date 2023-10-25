@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.optimize import curve_fit
 from plotting import plot_predictions, print_color, plot_residuals
-from y2018pantheon.data import get_data
+from y2022pantheonSHOES.data import get_data
 
 legend, z_values, distance_modulus_values, sigma_distance_moduli = get_data()
 
