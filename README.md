@@ -1,5 +1,5 @@
 # cosmology-model-fit
-redshift-scale factor model without approximation
+redshift-scale factor model without approximation derived from General Relativity without the need for dark energy, for a purely matter-dominated flat universe.
 
 ## Necessary packages to run model.py in python3
 ```bash
