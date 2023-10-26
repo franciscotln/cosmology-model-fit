@@ -10,9 +10,9 @@ C = 299792.458
 
 
 def a_at_emission(z, p0):
-    param_a = (1/p0) + (1 + z) * (1 - (1 + (1 / p0 ** (1/3))) ** 3)
-    multiplier = -3/(2 * param_a * p0 ** (2/3))
-    return (multiplier + multiplier * np.sqrt(1 - (4/3) * param_a * p0)) ** 2
+    param_a = (1 + z) * (-1 + (1 + (1 / p0 ** (1/3))) ** 3) - (1/p0)
+    multiplier = 3 / (2 * param_a * p0 ** (2/3))
+    return (multiplier + multiplier * np.sqrt(1 + (4/3) * param_a * p0)) ** 2
 
 
 def integral_of_e_z(zs, p0):
