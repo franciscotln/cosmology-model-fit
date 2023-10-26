@@ -10,9 +10,10 @@ C = 299792.458
 
 
 def a_at_emission(z, p0):
-    param_A = p0 ** 1.5 + (1 + z) * (1 - (1 + p0 ** 0.5) ** 3) # this is negative
-    multiplier = -1.5 * p0 / param_A
-    return (multiplier + multiplier * np.sqrt(1 - (4 * param_A / (3 * p0 ** 1.5)))) ** 2
+    eta = p0 ** (-3/2) # eta = 1.5 * h0/alpha ** 3
+    param = eta ** 1.5 + (1 + z) * (1 - (1 + eta ** 0.5) ** 3) # this is negative
+    multiplier = -1.5 * eta / param
+    return (multiplier + multiplier * np.sqrt(1 - (4 * param / (3 * eta ** 1.5)))) ** 2
 
 
 def integral_of_e_z(zs, p0):
@@ -39,7 +40,7 @@ def model_distance_modulus(z, h0, p0):
     ydata=distance_modulus_values,
     sigma=sigma_distance_moduli,
     absolute_sigma=True,
-    p0=[70, 10]
+    p0=[70, 0.2]
 )
 
 # Extract the optimal value for H0
