@@ -8,11 +8,12 @@ legend, z_values, distance_modulus_values, sigma_distance_moduli = get_data()
 # Speed of light (km/s)
 C = 299792.458
 
+a_at_observer = 1
 
 def a_at_emission(z, p0):
-    param_a = (1 + z) * (-1 + (1 + (1 / p0 ** (1/3))) ** 3) - (1/p0)
-    multiplier = 3 / (2 * param_a * p0 ** (2/3))
-    return (multiplier + multiplier * np.sqrt(1 + (4/3) * param_a * p0)) ** 2
+    factor_z = (1 + z) * (-a_at_observer**(-1.5) + (a_at_observer**(-0.5) + (1 / p0 ** (1/3))) ** 3) - (1/p0)
+    multiplier = 3 / (2 * factor_z * p0 ** (2/3))
+    return (multiplier + multiplier * np.sqrt(1 + (4/3) * factor_z * p0)) ** 2
 
 
 def integral_of_e_z(zs, p0):
@@ -20,7 +21,7 @@ def integral_of_e_z(zs, p0):
     i = 0
     for z_item in zs:
         z_axis = np.linspace(0, z_item, 100)
-        integ = np.trapz([a_at_emission(z=z, p0=p0)**1.5 for z in z_axis], x=z_axis)
+        integ = np.trapz([(a_at_emission(z=z, p0=p0) / a_at_observer)**1.5 for z in z_axis], x=z_axis)
         integrals[i] = integ
         i = i + 1
     return integrals
@@ -28,7 +29,7 @@ def integral_of_e_z(zs, p0):
 
 # Define a theoretical distance modulus:
 def model_distance_modulus(z, h0, p0):
-    luminosity_distance_model = (C / h0) * (1 / a_at_emission(z=z, p0=p0)) * integral_of_e_z(zs=z, p0=p0)
+    luminosity_distance_model = (C / h0) * (a_at_observer / a_at_emission(z=z, p0=p0)) * integral_of_e_z(zs=z, p0=p0)
     return 25 + 5 * np.log10(luminosity_distance_model)
 
 
