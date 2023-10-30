@@ -8,28 +8,16 @@ legend, z_values, distance_modulus_values, sigma_distance_moduli = get_data()
 # Speed of light (km/s)
 C = 299792.458
 
-a_at_observer = 1
 
-def a_at_emission(z, p0):
-    factor_z = (1 + z) * (-a_at_observer**(-1.5) + (a_at_observer**(-0.5) + (1 / p0 ** (1/3))) ** 3) - (1/p0)
-    multiplier = 3 / (2 * factor_z * p0 ** (2/3))
-    return (multiplier + multiplier * np.sqrt(1 + (4/3) * factor_z * p0)) ** 2
-
-
-def integral_of_e_z(zs, p0):
-    integrals = np.empty((len(zs),), dtype=np.float64)
-    i = 0
-    for z_item in zs:
-        z_axis = np.linspace(0, z_item, 100)
-        integ = np.trapz([(a_at_emission(z=z, p0=p0) / a_at_observer)**1.5 for z in z_axis], x=z_axis)
-        integrals[i] = integ
-        i = i + 1
-    return integrals
-
-
-# Define a theoretical distance modulus:
-def model_distance_modulus(z, h0, p0):
-    luminosity_distance_model = (C / h0) * (a_at_observer / a_at_emission(z=z, p0=p0)) * integral_of_e_z(zs=z, p0=p0)
+# Define the theoretical distance modulus:
+def model_distance_modulus(z, h0, n0):
+    beta = n0**3 * ((1 + (1/n0))**3 - 1)
+    factor_z = -1 + (1 + z) * beta
+    sqr_z = np.sqrt(1 + (4 * factor_z / 3))
+    sqr_beta = np.sqrt(1 + (4 * (beta - 1) / 3))
+    integral_upper_limit = (1-2*sqr_z) / (sqr_z-1)**2
+    integral_lower_limit = (1-2*sqr_beta) / (sqr_beta-1)**2
+    luminosity_distance_model = (C/h0) * (8/3) * factor_z**2 * (1/(1 + sqr_z)**2) * (n0/beta) * (integral_upper_limit - integral_lower_limit)
     return 25 + 5 * np.log10(luminosity_distance_model)
 
 
@@ -40,15 +28,15 @@ def model_distance_modulus(z, h0, p0):
     ydata=distance_modulus_values,
     sigma=sigma_distance_moduli,
     absolute_sigma=True,
-    p0=[70, 0.01]
+    p0=[72, 0.3]
 )
 
-# Extract the optimal value for H0
-[h0, p0] = params_opt
-[h0_std, p0_std] = np.sqrt(np.diag(params_cov))
+# Extract the optimal value for H0 and n0 - n0 is dimensionless: has unit s^(-1/3) / s^(-1/3)
+[h0, n0] = params_opt
+[h0_std, n0_std] = np.sqrt(np.diag(params_cov))
 
 # Calculate residuals
-predicted_distance_modulus_values = model_distance_modulus(z=z_values, h0=h0, p0=p0)
+predicted_distance_modulus_values = model_distance_modulus(z=z_values, h0=h0, n0=n0)
 residuals = predicted_distance_modulus_values - distance_modulus_values
 
 # Calculate R-squared
@@ -68,7 +56,7 @@ print_color("Sample size", len(z_values))
 print_color("Estimated H0 (km/s/Mpc)", h0_label)
 print_color("R-squared (%)", f"{100 * r_squared:.5f}")
 print_color("RMSD (mag)", f"{rmsd:.5f}")
-print_color("p0", f"{p0:.3f} ± {p0_std:.3f}")
+print_color("n0", f"{n0:.5f} ± {n0_std:.5f}")
 
 # Plot the data and the fit
 plot_predictions(
@@ -78,7 +66,7 @@ plot_predictions(
     y_err=sigma_distance_moduli,
     y_model=predicted_distance_modulus_values,
     label=f"Model: H0 = {h0_label} km/s/Mpc",
-    x_scale='log'
+    x_scale="log"
 )
 
 # Plot the residual analysis
