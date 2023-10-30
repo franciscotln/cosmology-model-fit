@@ -11,13 +11,13 @@ C = 299792.458
 
 # Define the theoretical distance modulus:
 def model_distance_modulus(z, h0, n0):
-    beta = n0**3 * ((1 + (1/n0))**3 - 1)
-    factor_z = -1 + (1 + z) * beta
+    beta = (-1 + (1 + (1 / n0)) ** 3) * n0 ** 3
+    factor_z = -1 + beta * (1 + z)
     sqr_z = np.sqrt(1 + (4 * factor_z / 3))
     sqr_beta = np.sqrt(1 + (4 * (beta - 1) / 3))
-    integral_upper_limit = (1-2*sqr_z) / (sqr_z-1)**2
-    integral_lower_limit = (1-2*sqr_beta) / (sqr_beta-1)**2
-    luminosity_distance_model = (C/h0) * (8/3) * factor_z**2 * (1/(1 + sqr_z)**2) * (n0/beta) * (integral_upper_limit - integral_lower_limit)
+    integral_upper_limit = (1 - 2 * sqr_z) / (sqr_z - 1)**2
+    integral_lower_limit = (1 - 2 * sqr_beta) / (sqr_beta - 1)**2
+    luminosity_distance_model = (8/3) * (C/h0) * (factor_z / (1 + sqr_z)) ** 2 * (n0 / beta) * (integral_upper_limit - integral_lower_limit)
     return 25 + 5 * np.log10(luminosity_distance_model)
 
 
