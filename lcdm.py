@@ -37,7 +37,7 @@ def model_distance_modulus(z, h0, a0):
     p0=[70, 0.3]
 )
 
-# Extract the optimal value for H0
+# Extract the optimal values for H0 ~ 72.25 and Ω_m ~ 0.387
 [h0, a0] = params_opt
 [h0_std, a0_std] = np.sqrt(np.diag(params_cov))
 
