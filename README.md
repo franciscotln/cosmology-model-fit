@@ -6,12 +6,18 @@ redshift-scale factor model without approximation derived from General Relativit
 pip3 install numpy pandas matplotlib scipy
 ```
 
-## To run the model
+## To run the model for mass only universe (Einstein - de Sitter)
 ```bash
-python3 model.py
+python3 model-mass.py
 ```
+
 It will print the fit results to the console and display one plot with the fit.
 After closing the first plot, a second one will appear with the residual analysis.
+
+## To run the model for cosmological constant only universe (de Sitter)
+```bash
+python3 model-lambda.py
+```
 
 ## To run the current ΛCDM model
 ```bash
