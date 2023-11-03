@@ -10,8 +10,8 @@ C = 299792.458
 
 
 # Theoretical distance modulus for cosmological constant-dominated, flat universe:
-def model_distance_modulus(z, h0, a0):
-    luminosity_distance_model = (C * z / h0) *  (1 / a0) * (1 - np.power(1 - a0, 1 + z))
+def model_distance_modulus(z, h0, p0):
+    luminosity_distance_model = (C * z / h0) *  (1 / p0) * (1 - np.power(1 - p0, 1 + z))
     return 25 + 5 * np.log10(luminosity_distance_model)
 
 
@@ -25,12 +25,12 @@ def model_distance_modulus(z, h0, a0):
     p0=[72, 0.52]
 )
 
-# Extract the optimal value for H0 and a0
-[h0, a0] = params_opt
-[h0_std, a0_std] = np.sqrt(np.diag(params_cov))
+# Extract the optimal value for H0 and p0
+[h0, p0] = params_opt
+[h0_std, p0_std] = np.sqrt(np.diag(params_cov))
 
 # Calculate residuals
-predicted_distance_modulus_values = model_distance_modulus(z=z_values, h0=h0, a0=a0)
+predicted_distance_modulus_values = model_distance_modulus(z=z_values, h0=h0, p0=p0)
 residuals = predicted_distance_modulus_values - distance_modulus_values
 
 # Calculate R-squared
@@ -50,7 +50,7 @@ print_color("Sample size", len(z_values))
 print_color("Estimated H0 (km/s/Mpc)", h0_label)
 print_color("R-squared (%)", f"{100 * r_squared:.5f}")
 print_color("RMSD (mag)", f"{rmsd:.5f}")
-print_color("a0", f"{a0:.5f} ± {a0_std:.5f}")
+print_color("p0", f"{p0:.5f} ± {p0_std:.5f}")
 
 # Plot the data and the fit
 plot_predictions(
