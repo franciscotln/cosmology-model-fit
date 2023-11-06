@@ -13,9 +13,8 @@ C = 299792.458
 def model_distance_modulus(z, h0, dte_over_te):
     alfa = -1 + (1 + dte_over_te) ** (1 / 3)
     beta = 1 + (3 / alfa) + (3 / alfa ** 2)
-    gamma_z = (1 + z) * beta - 1
 
-    sqr_z = np.sqrt(1 + 4 * gamma_z / 3)
+    sqr_z = np.sqrt(1 + 4 * ((1 + z) * beta - 1) / 3)
     sqr_beta = np.sqrt(1 + 4 * (beta - 1) / 3)
 
     integral_upper_limit = (1 - 2 * sqr_z) / (sqr_z - 1) ** 2
