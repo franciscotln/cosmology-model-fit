@@ -10,14 +10,20 @@ C = 299792.458
 
 
 # Theoretical distance modulus for matter-dominated, flat universe:
-def model_distance_modulus(z, h0, n0):
-    beta = (-1 + (1 + (1 / n0)) ** 3) * n0 ** 3
-    factor_z = -1 + beta * (1 + z)
-    sqr_z = np.sqrt(1 + (4 * factor_z / 3))
-    sqr_beta = np.sqrt(1 + (4 * (beta - 1) / 3))
-    integral_upper_limit = (2 * sqr_z - 1) / (sqr_z - 1)**2
-    integral_lower_limit = (2 * sqr_beta - 1) / (sqr_beta - 1)**2
-    luminosity_distance_model = (8/3) * (C/h0) * (factor_z / (1 + sqr_z)) ** 2 * (n0 / beta) * (-integral_upper_limit + integral_lower_limit)
+def model_distance_modulus(z, h0, dte_over_te):
+    alfa = -1 + (1 + dte_over_te) ** (1 / 3)
+    beta = 1 + (3 / alfa) + (3 / alfa ** 2)
+    gamma_z = (1 + z) * beta - 1
+
+    sqr_z = np.sqrt(1 + 4 * gamma_z / 3)
+    sqr_beta = np.sqrt(1 + 4 * (beta - 1) / 3)
+
+    integral_upper_limit = (1 - 2 * sqr_z) / (sqr_z - 1) ** 2
+    integral_lower_limit = (1 - 2 * sqr_beta) / (sqr_beta - 1) ** 2
+
+    a0_over_ae = (0.5 * alfa * (sqr_z - 1)) ** 2
+
+    luminosity_distance_model = (C / h0) * a0_over_ae * (6 / (beta * alfa ** 3)) * (integral_upper_limit - integral_lower_limit)
     return 25 + 5 * np.log10(luminosity_distance_model)
 
 
@@ -28,15 +34,15 @@ def model_distance_modulus(z, h0, n0):
     ydata=distance_modulus_values,
     sigma=sigma_distance_moduli,
     absolute_sigma=True,
-    p0=[72, 0.3]
+    p0=[72, 63]
 )
 
-# Extract the optimal value for H0 and n0 - n0 is dimensionless: has unit s^(-1/3) / s^(-1/3)
-[h0, n0] = params_opt
-[h0_std, n0_std] = np.sqrt(np.diag(params_cov))
+# Extract the optimal value for H0 and dte_over_te
+[h0, dte_over_te] = params_opt
+[h0_std, dte_over_te_std] = np.sqrt(np.diag(params_cov))
 
 # Calculate residuals
-predicted_distance_modulus_values = model_distance_modulus(z=z_values, h0=h0, n0=n0)
+predicted_distance_modulus_values = model_distance_modulus(z=z_values, h0=h0, dte_over_te=dte_over_te)
 residuals = predicted_distance_modulus_values - distance_modulus_values
 
 # Calculate R-squared
@@ -56,7 +62,7 @@ print_color("Sample size", len(z_values))
 print_color("Estimated H0 (km/s/Mpc)", h0_label)
 print_color("R-squared (%)", f"{100 * r_squared:.5f}")
 print_color("RMSD (mag)", f"{rmsd:.5f}")
-print_color("n0", f"{n0:.5f} ± {n0_std:.5f}")
+print_color("dte/te", f"{dte_over_te:.5f} ± {dte_over_te_std:.5f}")
 
 # Plot the data and the fit
 plot_predictions(
