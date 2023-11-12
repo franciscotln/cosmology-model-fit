@@ -22,9 +22,12 @@ def integral_of_e_z(zs, omega_m):
 
 
 # Define a theoretical distance modulus:
-def model_distance_modulus(z, h0, p0):
-    luminosity_distance_model = (C / h0) * (1 + z) * integral_of_e_z(zs = z, omega_m=p0)
-    return 25 + 5 * np.log10(luminosity_distance_model)
+# max angular distance dA (minimum theta) occurs at z = 1.5404, dA = 1592.86 Mpc
+def model_distance_modulus(z, h0, omega_m):
+    a0_over_ae = 1 + z
+    comoving_distance = (C / h0) * integral_of_e_z(zs = z, omega_m=omega_m)
+    luminosity_distance = comoving_distance * a0_over_ae
+    return 25 + 5 * np.log10(luminosity_distance)
 
 
 # Fit the curve to the data
@@ -38,11 +41,11 @@ def model_distance_modulus(z, h0, p0):
 )
 
 # Extract the optimal values for H0 ~ 72.25 and p0 = Ω_m ~ 0.387
-[h0, p0] = params_opt
-[h0_std, p0_std] = np.sqrt(np.diag(params_cov))
+[h0, omega_m] = params_opt
+[h0_std, omega_m_std] = np.sqrt(np.diag(params_cov))
 
 # Calculate residuals
-predicted_distance_modulus_values = model_distance_modulus(z=z_values, h0=h0, p0=p0)
+predicted_distance_modulus_values = model_distance_modulus(z=z_values, h0=h0, omega_m=omega_m)
 residuals = predicted_distance_modulus_values - distance_modulus_values
 
 # Calculate R-squared
@@ -62,7 +65,7 @@ print_color("Sample size", len(z_values))
 print_color("Estimated H0 (km/s/Mpc)", h0_label)
 print_color("R-squared (%)", f"{100 * r_squared:.5f}")
 print_color("RMSD (mag)", f"{rmsd:5f}")
-print_color("Ω_m", f"{p0:.5f} ± {p0_std:.5f}")
+print_color("Ω_m", f"{omega_m:.5f} ± {omega_m_std:.5f}")
 
 # Plot the data and the fit
 plot_predictions(

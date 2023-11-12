@@ -13,8 +13,11 @@ C = 299792.458
 def model_distance_modulus(z, h0, dte):
     delta_t_emission = dte + 0.00001 #  Units: (km/s/Mpc)^-1
     p = 1 - np.exp(-h0 * delta_t_emission)
-    luminosity_distance_model = (C * z / h0) * (1 / p) * (1 - np.power(1 - p, 1 + z))
-    return 25 + 5 * np.log10(luminosity_distance_model)
+
+    a0_over_ae = (1 / p) * (1 - np.power(1 - p, 1 + z))
+    comoving_distance = C * z / h0
+    luminosity_distance = comoving_distance * a0_over_ae
+    return 25 + 5 * np.log10(luminosity_distance)
 
 
 # Fit the curve to the data
