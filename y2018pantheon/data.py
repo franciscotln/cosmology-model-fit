@@ -8,8 +8,8 @@ def get_data():
     df = pd.read_csv(path_to_data + 'data.txt', sep = ' ')
     selected_columns = df[['zcmb', 'mb', 'dmb']].sort_values(by = 'zcmb')
 
-    # Absolute Magnitude according to Union2.1 with systematics
-    M0 = -19.3081547178
+    # Absolute Magnitude according to https://arxiv.org/pdf/2112.04510.pdf
+    M0 = -19.253
 
     return (
         'Pantheon2018',
