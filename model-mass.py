@@ -10,16 +10,13 @@ C = 299792.458
 
 
 # Theoretical distance modulus for matter-dominated, flat universe:
-# max angular distance dA (minimum theta) occurs at z = 0.34061, dA = 387.82 Mpc
 def model_distance_modulus(z, h0, dte_over_te):
     alpha = -1 + (1 + dte_over_te) ** (1 / 3)
     beta = 1 + (3 / alpha) + (3 / alpha ** 2)
     sqr_z = np.sqrt(1 + 4 * ((1 + z) * beta - 1) / 3)
-    integral_upper_limit = (1 - 2 * sqr_z) / (sqr_z - 1) ** 2
-    integral_lower_limit = -(alpha / 4) * (alpha + 4)
 
     a0_over_ae = (0.5 * alpha * (sqr_z - 1)) ** 2
-    comoving_distance = (C / h0) * (6 / (beta * alpha ** 3)) * (integral_upper_limit - integral_lower_limit)
+    comoving_distance = (2 * C / h0) * (1 - 1 / np.sqrt(a0_over_ae))
     luminosity_distance = comoving_distance * a0_over_ae
     return 25 + 5 * np.log10(luminosity_distance)
 
@@ -31,7 +28,7 @@ def model_distance_modulus(z, h0, dte_over_te):
     ydata=distance_modulus_values,
     sigma=sigma_distance_moduli,
     absolute_sigma=True,
-    p0=[72, 63]
+    p0=[140, 17.5]
 )
 
 # Extract the optimal value for H0 and dte_over_te

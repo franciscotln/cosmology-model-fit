@@ -15,7 +15,7 @@ def model_distance_modulus(z, h0, dte):
     p = 1 - np.exp(-h0 * delta_t_emission)
 
     a0_over_ae = (1 / p) * (1 - np.power(1 - p, 1 + z))
-    comoving_distance = C * z / h0
+    comoving_distance = (C / h0) * (a0_over_ae - 1)
     luminosity_distance = comoving_distance * a0_over_ae
     return 25 + 5 * np.log10(luminosity_distance)
 
@@ -27,7 +27,7 @@ def model_distance_modulus(z, h0, dte):
     ydata=distance_modulus_values,
     sigma=sigma_distance_moduli,
     absolute_sigma=True,
-    p0=[72, 0]
+    p0=[61, 0]
 )
 
 # Extract the optimal value for H0 and n0
