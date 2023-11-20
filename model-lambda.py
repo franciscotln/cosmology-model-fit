@@ -11,7 +11,7 @@ C = 299792.458
 
 # Theoretical distance modulus for cosmological constant-dominated, flat universe:
 def model_distance_modulus(z, h0, dte):
-    delta_t_emission = dte + 0.00001 #  Units: (km/s/Mpc)^-1
+    delta_t_emission = dte + 0.000001 #  Units: (km/s/Mpc)^-1
     p = 1 - np.exp(-h0 * delta_t_emission)
 
     a0_over_ae = (1 / p) * (1 - np.power(1 - p, 1 + z))
@@ -27,7 +27,7 @@ def model_distance_modulus(z, h0, dte):
     ydata=distance_modulus_values,
     sigma=sigma_distance_moduli,
     absolute_sigma=True,
-    p0=[61, 0]
+    p0=[61.30, 0.0052]
 )
 
 # Extract the optimal value for H0 and n0
