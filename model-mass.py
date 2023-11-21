@@ -10,8 +10,9 @@ C = 299792.458
 
 
 # Theoretical distance modulus for matter-dominated, flat universe:
-def model_distance_modulus(z, h0, dte_over_te):
-    alpha = -1 + (1 + dte_over_te) ** (1 / 3)
+# max angular distance dA (minimum theta) occurs at z = 0.5832, dA = 631.31 Mpc
+def model_distance_modulus(z, h0, dte_He):
+    alpha = -1 + (1 + 1.5 * dte_He) ** (1 / 3)
     beta = 1 + (3 / alpha) + (3 / alpha ** 2)
     sqr_z = np.sqrt(1 + 4 * ((1 + z) * beta - 1) / 3)
 
@@ -28,15 +29,15 @@ def model_distance_modulus(z, h0, dte_over_te):
     ydata=distance_modulus_values,
     sigma=sigma_distance_moduli,
     absolute_sigma=True,
-    p0=[140, 17.5]
+    p0=[140, 11.7]
 )
 
 # Extract the optimal value for H0 and dte_over_te
-[h0, dte_over_te] = params_opt
-[h0_std, dte_over_te_std] = np.sqrt(np.diag(params_cov))
+[h0, dte_He] = params_opt
+[h0_std, dte_He_std] = np.sqrt(np.diag(params_cov))
 
 # Calculate residuals
-predicted_distance_modulus_values = model_distance_modulus(z=z_values, h0=h0, dte_over_te=dte_over_te)
+predicted_distance_modulus_values = model_distance_modulus(z=z_values, h0=h0, dte_He=dte_He)
 residuals = predicted_distance_modulus_values - distance_modulus_values
 
 # Calculate R-squared
@@ -56,7 +57,7 @@ print_color("Sample size", len(z_values))
 print_color("Estimated H0 (km/s/Mpc)", h0_label)
 print_color("R-squared (%)", f"{100 * r_squared:.5f}")
 print_color("RMSD (mag)", f"{rmsd:.5f}")
-print_color("dte/te", f"{dte_over_te:.5f} ± {dte_over_te_std:.5f}")
+print_color("Δte x He", f"{dte_He:.5f} ± {dte_He_std:.5f}")
 
 # Plot the data and the fit
 plot_predictions(
