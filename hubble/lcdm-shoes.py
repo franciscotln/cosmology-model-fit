@@ -1,5 +1,5 @@
 import sys
-sys.path.append('path/cosmology-model-fit')
+sys.path.append('/Users/francisco.neto/Documents/private/cosmology-model-fit')
 
 import emcee
 import corner
@@ -69,8 +69,8 @@ def log_probability(params, z, observed_mu):
 def main():
     # Set up MCMC sampler
     n_dim = 2
-    n_walkers = 4
-    n_steps = 500
+    n_walkers = 10
+    n_steps = 550
 
     # Initial positions for walkers (random within bounds)
     initial_pos = np.random.rand(n_walkers, n_dim)
@@ -108,7 +108,7 @@ def main():
     h0_std = np.std(h0_samples)
     omega_m_std = np.std(omega_m_samples)
 
-    correlation_coefficient = np.corrcoef(samples[:, 0], samples[:, 1])[0, 1]
+    correlation_coefficient = np.corrcoef(np.log(samples[:, 0]), np.log(samples[:, 1]))[0, 1]
     print(f"Correlation coefficient between h0 and omega_m: {correlation_coefficient:.5f}")
 
     fig1 = corner.corner(

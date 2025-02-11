@@ -1,5 +1,5 @@
 import sys
-sys.path.append('path/cosmology-model-fit')
+sys.path.append('/Users/francisco.neto/Documents/private/cosmology-model-fit')
 
 import emcee
 import corner
@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.optimize import curve_fit
 import scipy.stats as stats
+
 from multiprocessing import Pool
 from plotting import plot_predictions, print_color, plot_residuals
 from y2018pantheon.data import get_data
@@ -78,7 +79,7 @@ def main():
 
     # Extract samples
     chains_samples = sampler.get_chain(discard=0, flat=False)
-    samples = sampler.get_chain(discard=250, flat=True)
+    samples = sampler.get_chain(discard=100, flat=True)
 
     tau = sampler.get_autocorr_time()
     effective_samples = n_steps * n_walkers / np.max(tau)
@@ -98,10 +99,10 @@ def main():
     h0_std = np.std(h0_samples)
     p_std = np.std(p_samples)
 
-    correlation_coefficient = np.corrcoef(samples[:, 0], samples[:, 1])[0, 1]
-    print(f"Correlation coefficient between h0 and p: {correlation_coefficient:.5f}")
+    spearman_corr, _ = stats.spearmanr(np.log(p_samples), np.log(h0_samples))
+    print(f"Spearman correlation: {spearman_corr:.3f}")
 
-    fig1 = corner.corner(
+    corner.corner(
         samples,
         labels=["h0", "p"],
         truths=[h0, p],
@@ -171,21 +172,21 @@ def main():
     )
 
 
-    # correlation between h0 and p
-    def nonlinear_model(h0, k, a):
-        return k * h0 ** a
+    # Relation between h0 and p
+    def nonlinear_model_h0(p, z0, dL0):
+        return ((C/50)/dL0) * p * ((1 + z0)**(1/p) - (1 + z0)**(0.5/p))
 
-    params, covariance = curve_fit(nonlinear_model, h0_samples, p_samples)
-    k, a = params
+    params, covariance = curve_fit(nonlinear_model_h0, p_samples, h0_samples)
+    [z0, dL0] = params
+    [std_z0, std_dL0] = np.sqrt(np.diag(covariance))
 
-    print(f"Fitted relationship: p = {k:.4f} * h0^{a:.4f}")
-    print("std", np.sqrt(np.diag(covariance)))
+    print(f"Fit: z0 = {z0:.4f} ± {std_z0:.4f} and dL0 = {dL0:.4f} ± {std_dL0:.4f}")
 
-    x = np.linspace(min(h0_samples), max(h0_samples), 100)
-    y = nonlinear_model(x, k, a)
+    x = np.linspace(min(p_samples), max(p_samples), 100)
+    y = nonlinear_model_h0(x, z0=z0, dL0=dL0)
     plt.figure(figsize=(8, 6))
-    plt.scatter(h0_samples, p_samples, alpha=0.5, s=10, label="Samples")
-    plt.plot(x, y, color="orange", label=f"Fit: p = {k:.4f} * h0^{a:.4f}")
+    plt.scatter(p_samples, h0_samples, alpha=0.5, s=10, label="Samples")
+    plt.plot(x, y, color="orange", label=f"Fit: z0={z0:.3f} and dL0={dL0:.3f}")
     plt.xlabel(r"$h_0$")
     plt.ylabel(r"$p$")
     plt.title("non-linear fit of $p$ vs $h_0$")
@@ -197,17 +198,20 @@ if __name__ == '__main__':
     main()
 
 """
-Correlation coefficient between h0 and p: -0.79922
-Estimated autocorrelation time: [27.03444589 26.93657478]
-Effective samples: 12206.65
+Estimated autocorrelation time: [16.7484362  22.04414029]
+Effective samples: 2268.18
+Spearman correlation: -0.790
 
 Dataset:  Pantheon2018
 z range:  0.010 - 2.260
 Sample size:  1048
-Estimated h = H0 / 100 (km/s/Mpc):  0.71437 ± 0.00227
-p:  0.64794 ± 0.00606
+Estimated h = H0 / 100 (km/s/Mpc):  0.71446 ± 0.00228
+p:  0.64795 ± 0.00599
 R-squared (%):  99.69
 RMSD (mag):  0.147
 Skewness of residuals:  -0.072
 kurtosis of residuals:  0.801
+
+Relation h0 vs p
+Fit: z0 = 0.2674 ± 0.0010 and dL0 = 1309.7520 ± 5.8402
 """

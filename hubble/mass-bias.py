@@ -1,7 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
-import emcee
 
 # Speed of light (km/s)
 C = 299792.458
@@ -45,7 +44,7 @@ def simulate_bias(z, h_true, p_true, noise_level, num_simulations=10000):
 z = np.linspace(0.001, 2.3, 1700)
 h_true = 0.722
 p_true = 0.675
-noise_level = 0.15 # Observational noise
+noise_level = 0.20 # Observational noise
 
 # Run simulations
 num_simulations = 10000

@@ -1,5 +1,5 @@
 import sys
-sys.path.append('path/cosmology-model-fit')
+sys.path.append('/Users/francisco.neto/Documents/private/cosmology-model-fit')
 
 from y2018pantheon.data import get_data
 import numpy as np

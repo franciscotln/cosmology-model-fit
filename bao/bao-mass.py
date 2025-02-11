@@ -1,3 +1,6 @@
+import sys
+sys.path.append('/Users/francisco.neto/Documents/private/cosmology-model-fit')
+
 import numpy as np
 from scipy.optimize import curve_fit
 import matplotlib.pyplot as plt
@@ -111,42 +114,20 @@ C = 299792.458
 
 def integral_of_e_z(z, p):
     a0_over_ae = np.power(1 + z, 1 / (1 - p))
-    return 2 * (1 - p) * (1 - 1 / np.sqrt(a0_over_ae))
+    return 2 * ((1 - p)**(-p/(3-p))) * (1 - 1 / np.sqrt(a0_over_ae))
 
 
-def model_distance_modulus(z, h0, p):
-    a0_over_ae = np.power(1 + z, 1 / (1 - p))
-    comoving_distance = (C / h0) * integral_of_e_z(z=z, p=p)
-    luminosity_distance = comoving_distance * a0_over_ae
-    return 25 + 5 * np.log10(luminosity_distance)
-
-
-# Fit the curve to the data
-# [params_opt, params_cov] = curve_fit(
-#     f=model_distance_modulus,
-#     xdata=z_values,
-#     ydata=distance_modulus_values,
-#     sigma=sigma_distance_moduli,
-#     absolute_sigma=True,
-#     p0=[70, 0.3]
-# )
-
-# Extract the optimal values for H0 = 70.52 ± 0.22 and p = 0.352 ± 0.006 for y2018pantheon
-# [h0, p] = params_opt
-# [h0_std, p_std] = np.sqrt(np.diag(params_cov))
-
-
-h0=71.3
+h0=72
+# p = 1 - 0.675
+p = 1 - 0.68
 def DM(z):
     # flat universe
-    # comoving_distance = (C / h0) * integral_of_e_z(z=z, p=p)
-    comoving_distance = (C / h0) * integral_of_e_z(z=z, p=1-h0/100)
+    comoving_distance = (C / h0) * integral_of_e_z(z=z, p=p)
     return comoving_distance
 
 
 def DH(z):
-    p = 1 - h0 / 68
-    return (C * np.power(1 - p, 3)) / (h0 * np.power(1 + z, (1.5 - p) / (1 - p)))
+    return (C / h0) * np.power(1 + z, (-1.5 + p) / (1 - p))
 
 
 z_range = np.linspace(0.01, 3, 100)

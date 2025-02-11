@@ -1,5 +1,5 @@
 import sys
-sys.path.append('path/cosmology-model-fit')
+sys.path.append('/Users/francisco.neto/Documents/private/cosmology-model-fit')
 
 import emcee
 import corner
@@ -24,7 +24,7 @@ C = 299792.458
 # Theoretical distance modulus for matter-dominated, flat universe:
 def model_distance_modulus(z, h0, p):
     """
-    fixed p=0.675 yields stable h0~0.72 at different z bins. p and h0 are degenerate, highly correlated with coefficient ~-0.84
+    fixed p=0.675 yields stable h0~0.72 at different z bins. p and h0 are degenerate, highly correlated
     """
     normalized_h0 = 100 * h0 # (km/s/Mpc)
     a0_over_ae = (1 + z) ** (1 / p)
@@ -64,8 +64,8 @@ def log_probability(params, z, observed_mu):
 def main():
     # Set up MCMC sampler
     n_dim = 2
-    n_walkers = 20
-    n_steps = 1200
+    n_walkers = 40
+    n_steps = 2100
 
     # Initial positions for walkers (random within bounds)
     initial_pos = np.random.rand(n_walkers, n_dim)
@@ -85,7 +85,7 @@ def main():
 
     # Extract samples
     chains_samples = sampler.get_chain(discard=0, flat=False)
-    samples = sampler.get_chain(discard=200, flat=True)
+    samples = sampler.get_chain(discard=100, flat=True)
 
     tau = sampler.get_autocorr_time()
     effective_samples = n_steps * n_walkers / np.max(tau)
@@ -105,12 +105,14 @@ def main():
     h0_std = np.std(h0_samples)
     p_std = np.std(p_samples)
 
-    correlation_coefficient = np.corrcoef(samples[:, 0], samples[:, 1])[0, 1]
-    print(f"Correlation coefficient between h0 and p: {correlation_coefficient:.5f}")
+    spearman_corr, _ = stats.spearmanr(p_samples, h0_samples)
+    pearson_corr, _ = stats.pearsonr(np.log(p_samples), np.log(h0_samples))
+    print(f"Spearman correlation: {spearman_corr:.3f}")
+    print(f"Pearson correlation: {pearson_corr:.3f}")
 
-    fig1 = corner.corner(
+    corner.corner(
         samples,
-        labels=["h0", "p"],
+        labels=[r"$h_0$", r"$p$"],
         truths=[h0, p],
         show_titles=True,
         title_fmt=".5f",
@@ -179,26 +181,46 @@ def main():
 
 
     # correlation between h0 and p
-    def nonlinear_model(p, k, a):
-        return a + 2/(3*p**k)
+    def nonlinear_model(p, z0, dL0):
+        return (5995.85/dL0)*p*((1 + z0)**(1/p)-(1 + z0)**(0.5/p))
 
-    # params, covariance = curve_fit(nonlinear_model, p_samples, h0_samples)
-    # [k, a] = params
+    params, covariance = curve_fit(nonlinear_model, p_samples, h0_samples)
+    [z0, dL0] = params
+    [std_z0, std_dL0] = np.sqrt(np.diag(covariance))
 
-    # print(f"Fitted relationship: k = {k:.4f} and a = {a:.4f}")
-    # print("std", np.sqrt(np.diag(covariance)))
+    print(f"Fit: z0 = {z0:.4f} ± {std_z0:.4f} and dL0 = {dL0:.4f} ± {std_dL0:.4f}")
 
-    # x = np.linspace(min(p_samples), max(p_samples), 100)
-    # y = nonlinear_model(x, k=k, a=a)
-    # plt.figure(figsize=(8, 6))
-    # plt.scatter(p_samples, h0_samples, alpha=0.5, s=10, label="Samples")
-    # plt.plot(x, y, color="orange", label=f"Fit: k={k:.4f}")
-    # plt.xlabel(r"$h_0$")
-    # plt.ylabel(r"$p$")
-    # plt.title("non-linear fit of $p$ vs $h_0$")
-    # plt.legend()
-    # plt.grid()
-    # plt.show()
+    x = np.linspace(min(p_samples), max(p_samples), 100)
+    y = nonlinear_model(x, z0=z0, dL0=dL0)
+    plt.figure(figsize=(8, 6))
+    plt.scatter(p_samples, h0_samples, alpha=0.5, s=10, label="Samples")
+    plt.plot(x, y, color="orange", label=f"Fit: z0={z0:.3f} and dL0={dL0:.3f}")
+    plt.xlabel(r"$h_0$")
+    plt.ylabel(r"$p$")
+    plt.title("non-linear fit of $p$ vs $h_0$")
+    plt.legend()
+    plt.grid()
+    plt.show()
 
 if __name__ == '__main__':
     main()
+
+"""
+Estimated autocorrelation time: [16.4759074  22.42274373]
+Effective samples: 5351.71
+Spearman correlation: -0.835
+Pearson correlation: -0.889
+
+Dataset:  Pantheon+SHOES
+z range:  0.001 - 2.261
+Sample size:  1701
+Estimated h = H0 / 100 (km/s/Mpc):  0.72169 ± 0.00227
+Estimated p:  0.67527 ± 0.00873
+R-squared (%):  99.74
+RMSD (mag):  0.173
+Skewness of residuals:  0.005
+kurtosis of residuals:  4.206
+
+Relation h0 vs p:
+Fit: z0 = 0.2018 ± 0.0004 and dL0 = 937.4894 ± 2.1069
+"""
