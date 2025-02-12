@@ -1,6 +1,3 @@
-import sys
-sys.path.append('/Users/francisco.neto/Documents/private/cosmology-model-fit')
-
 import numpy as np
 from scipy.optimize import minimize
 import matplotlib.pyplot as plt
