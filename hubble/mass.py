@@ -9,7 +9,7 @@ from scipy.optimize import curve_fit
 import scipy.stats as stats
 from multiprocessing import Pool
 from plotting import plot_predictions, print_color, plot_residuals
-from y2018pantheon.data import get_data
+from y2011union.data import get_data
 
 legend, z_values, distance_modulus_values, sigma_distance_moduli = get_data()
 

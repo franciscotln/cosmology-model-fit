@@ -20,7 +20,7 @@ def get_data():
     range_1 = [0.01, 0.1]
     range_2 = [0.1, 0.25]
     range_3 = [0.25, 0.42]
-    range_4 = [0.46, 2.3]
+    range_4 = [0.42, 2.3]
     range_pantheon_full = [0.01, 2.3]
     range_shoes_full = [0, 2.3]
     bin_range = range_shoes_full
