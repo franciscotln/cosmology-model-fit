@@ -44,23 +44,27 @@ def simulate_bias(z, h_true, p_true, noise_level, num_simulations=10000):
 z = np.linspace(0.001, 2.3, 1700)
 h_true = 0.722
 p_true = 0.675
-noise_level = 0.20 # Observational noise
 
 # Run simulations
-num_simulations = 10000
-results = simulate_bias(z, h_true, p_true, noise_level, num_simulations)
+results = simulate_bias(z, h_true, p_true, noise_level=0.2, num_simulations=10000)
 
 # Analyze results
 h_recovered = results[:, 0]
 p_recovered = results[:, 1]
 
+# Print bias
+h_bias = np.mean(h_recovered) - h_true
+p_bias = np.mean(p_recovered) - p_true
+print(f"Bias in h: {h_bias:.4f}")
+print(f"Bias in p: {p_bias:.4f}")
+
 # Plot distributions
 plt.figure(figsize=(12, 5))
 
 plt.subplot(1, 2, 1)
-plt.hist(h_recovered, bins=30, alpha=0.7, label='Recovered $h$')
-plt.axvline(h_true, color='r', linestyle='--', label='True $h$')
-plt.xlabel('$h$')
+plt.hist(h_recovered, bins=30, alpha=0.7, label='Recovered $h_0$')
+plt.axvline(h_true, color='r', linestyle='--', label='True $h_0$')
+plt.xlabel('$h_0$')
 plt.ylabel('Frequency')
 plt.legend()
 
@@ -73,9 +77,3 @@ plt.legend()
 
 plt.tight_layout()
 plt.show()
-
-# Print bias
-h_bias = np.mean(h_recovered) - h_true
-p_bias = np.mean(p_recovered) - p_true
-print(f"Bias in h: {h_bias:.5f}")
-print(f"Bias in p: {p_bias:.5f}")

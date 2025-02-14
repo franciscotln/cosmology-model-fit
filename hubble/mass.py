@@ -7,7 +7,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.optimize import curve_fit
 import scipy.stats as stats
-
 from multiprocessing import Pool
 from plotting import plot_predictions, print_color, plot_residuals
 from y2018pantheon.data import get_data
@@ -34,20 +33,17 @@ def chi_squared(params, z, observed_mu):
     return np.sum((delta / sigma_distance_moduli) ** 2)
 
 
-# Log likelihood for MCMC sampling (negative chi-squared)
 def log_likelihood(params, z, observed_mu):
     return -0.5 * chi_squared(params, z, observed_mu)
 
 
-# Log prior function (uniform prior within bounds)
 def log_prior(params):
     h0, p = params
     if 0.4 < h0 < 1 and 0.4 < p < 1:
-        return 0.0  # Uniform prior
-    return -np.inf  # Outside of bounds
+        return 0.0
+    return -np.inf
 
 
-# Log probability function (posterior = likelihood * prior)
 def log_probability(params, z, observed_mu):
     lp = log_prior(params)
     if np.isinf(lp):
@@ -56,12 +52,10 @@ def log_probability(params, z, observed_mu):
 
 
 def main():
-    # Set up MCMC sampler
     n_dim = 2
     n_walkers = 20
     n_steps = 2500
 
-    # Initial positions for walkers (random within bounds)
     initial_pos = np.random.rand(n_walkers, n_dim)
     initial_pos[:, 0] = initial_pos[:, 0] * 0.60 + 0.40  # h0 between 0.60 and 0.8
     initial_pos[:, 1] = initial_pos[:, 1] * 0.60 + 0.40  # p between 0.40 and 1.0
@@ -205,7 +199,7 @@ Spearman correlation: -0.790
 Dataset:  Pantheon2018
 z range:  0.010 - 2.260
 Sample size:  1048
-Estimated h = H0 / 100 (km/s/Mpc):  0.71446 ± 0.00228
+Estimated H0:  71.446 ± 0.228 (km/s/Mpc)
 p:  0.64795 ± 0.00599
 R-squared (%):  99.69
 RMSD (mag):  0.147
