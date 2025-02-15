@@ -100,7 +100,7 @@ def main():
 
     # Calculate residuals
     predicted_distance_modulus_values = model_distance_modulus(z=z_values, h0=h0, p=p_50)
-    residuals = predicted_distance_modulus_values - distance_modulus_values
+    residuals = distance_modulus_values - predicted_distance_modulus_values
 
     # Compute skewness
     skewness = stats.skew(residuals)

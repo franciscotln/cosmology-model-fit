@@ -19,28 +19,28 @@ inv_cov_matrix = np.linalg.inv(cov_matrix)
 
 
 # ΛCDM
-def integral_of_e_z(zs, omega_m, w):
+def integral_of_e_z(zs, omega_m):
     i = 0
     res = np.empty((len(zs),), dtype=np.float64)
     for z_item in zs:
         z_axis = np.linspace(0, z_item, 100)
-        integ = np.trapz([(1 / np.sqrt(omega_m * (1 + z) ** 3 + (1 - omega_m) * (1 + z)**(3 * (1 + w)))) for z in z_axis], x=z_axis)
+        integ = np.trapz([(1 / np.sqrt(omega_m * (1 + z) ** 3 + (1 - omega_m))) for z in z_axis], x=z_axis)
         res[i] = integ
         i = i + 1
     return res
 
 h0 = 70 # Hubble constant (km/s/Mpc)
 
-def model_distance_modulus(z, w, omega_m):
+def model_distance_modulus(z, omega_m):
     a0_over_ae = 1 + z
-    comoving_distance = (C / h0) * integral_of_e_z(zs = z, omega_m=omega_m, w=w)
+    comoving_distance = (C / h0) * integral_of_e_z(zs = z, omega_m=omega_m)
     luminosity_distance = comoving_distance * a0_over_ae
     return 25 + 5 * np.log10(luminosity_distance)
 
 
 def chi_squared(params, z, observed_mu):
     [omega_m] = params
-    delta = observed_mu - model_distance_modulus(z=z, w=-1, omega_m=omega_m)
+    delta = observed_mu - model_distance_modulus(z=z, omega_m=omega_m)
     return delta.T @ inv_cov_matrix @ delta
 
 
@@ -112,8 +112,8 @@ def main():
     plt.show()
 
     # Calculate residuals
-    predicted_distance_modulus_values = model_distance_modulus(z=z_values, w=-1, omega_m=omega_m_50)
-    residuals = predicted_distance_modulus_values - distance_modulus_values
+    predicted_distance_modulus_values = model_distance_modulus(z=z_values, omega_m=omega_m_50)
+    residuals = distance_modulus_values - predicted_distance_modulus_values
 
     # Compute skewness
     skewness = stats.skew(residuals)
