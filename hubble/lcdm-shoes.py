@@ -90,10 +90,13 @@ def main():
     chains_samples = sampler.get_chain(discard=0, flat=False)
     samples = sampler.get_chain(discard=50, flat=True)
 
-    # tau = sampler.get_autocorr_time()
-    # effective_samples = n_steps * n_walkers / np.max(tau)
-    # print(f"Estimated autocorrelation time: {tau}")
-    # print(f"Effective samples: {effective_samples:.2f}")
+    try:
+        tau = sampler.get_autocorr_time()
+        effective_samples = n_steps * n_walkers / np.max(tau)
+        print(f"Estimated autocorrelation time: {tau}")
+        print(f"Effective samples: {effective_samples:.2f}")
+    except Exception as e:
+        print("could not calculate the autocorrelation time")
 
     # Calculate the posterior means and uncertainties
     h0_samples = samples[:, 0]
@@ -131,7 +134,7 @@ def main():
 
     # Calculate residuals
     predicted_distance_modulus_values = model_distance_modulus(z=z_values, h0=h0, omega_m=omega_m)
-    residuals = predicted_distance_modulus_values - distance_modulus_values
+    residuals = distance_modulus_values - predicted_distance_modulus_values
 
     # Compute skewness
     skewness = stats.skew(residuals)
@@ -209,24 +212,25 @@ if __name__ == '__main__':
 
 """
 -- RESULTS WITH SHOES - LCDM --
-Estimated autocorrelation time: [29.49769913 29.05677627]
+Estimated autocorrelation time: [29.50 29.06]
 Effective samples: 678.02
-Correlation coefficient between h0 and omega_m: -0.85556
+Pearson correlation: -0.86466
+Chi squared:  1752.51
 
 Dataset:  Pantheon+SHOES
 z range:  0.001 - 2.261
 Sample size:  1701
-Estimated h = H0 / 100 (km/s/Mpc):  0.72839 ± 0.00230
-omega_m:  0.36079 ± 0.01882
+Estimated h = H0 / 100 (km/s/Mpc):  0.72843 ± 0.00240
+omega_m:  0.36163 ± 0.01982
 R-squared (%):  99.74
 RMSD (mag):  0.172
-Skewness of residuals:  -0.108
+Skewness of residuals:  0.107
 kurtosis of residuals:  4.308
 
 -- RESULTS WITHOUT SHOES - LCDM --
-Estimated autocorrelation time: [27.18886618 22.38966759]
+Estimated autocorrelation time: [27.19 22.39]
 Effective samples: 735.60
-Correlation coefficient between h0 and omega_m: -0.84528
+Pearson correlation: -0.84528
 
 Dataset:  Pantheon+
 z range:  0.010 - 2.261

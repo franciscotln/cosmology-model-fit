@@ -130,7 +130,7 @@ def main():
 
     # Calculate residuals
     predicted_distance_modulus_values = model_distance_modulus(z=z_values, h0=h0, p=p)
-    residuals = predicted_distance_modulus_values - distance_modulus_values
+    residuals = distance_modulus_values - predicted_distance_modulus_values
 
     # Compute skewness
     skewness = stats.skew(residuals)
@@ -206,21 +206,20 @@ if __name__ == '__main__':
     main()
 
 """
-Estimated autocorrelation time: [16.4759074  22.42274373]
-Effective samples: 5351.71
-Spearman correlation: -0.835
-Pearson correlation: -0.889
+-- RESULTS WITH SHOES --
+Estimated autocorrelation time: [19.16 25.95]
+Effective samples: 3237
+Spearman correlation: -0.829
+Pearson correlation: -0.840
+Chi squared:  1753.49
 
 Dataset:  Pantheon+SHOES
 z range:  0.001 - 2.261
 Sample size:  1701
-Estimated h = H0 / 100 (km/s/Mpc):  0.72169 ± 0.00227
-Estimated p:  0.67527 ± 0.00873
+Estimated h = H0 / 100 (km/s/Mpc):  0.72161 ± 0.00224
+Estimated p:  0.67526 ± 0.00866
 R-squared (%):  99.74
 RMSD (mag):  0.173
-Skewness of residuals:  0.005
+Skewness of residuals:  -0.005
 kurtosis of residuals:  4.206
-
-Relation h0 vs p:
-Fit: z0 = 0.2018 ± 0.0004 and dL0 = 937.4894 ± 2.1069
 """

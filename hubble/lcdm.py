@@ -131,7 +131,7 @@ def main():
     rmsd = np.sqrt(np.mean(residuals ** 2))
 
     # Print the values in the console
-    omega_label = f"{omega_m_50:.5f} +{omega_m_84 - omega_m_50:.5f} / -{omega_m_50 - omega_m_16:.5f}"
+    omega_label = f"{omega_m_50:.5f} +{omega_m_84 - omega_m_50:.5f}/-{omega_m_50 - omega_m_16:.5f}"
     print_color("Dataset", legend)
     print_color("z range", f"{z_values[0]:.3f} - {z_values[-1]:.3f}")
     print_color("Sample size", len(z_values))
@@ -165,14 +165,16 @@ if __name__ == '__main__':
     main()
 
 """
-Effective samples: 1450.22
-
 Dataset:  Union2.1
 z range:  0.015 - 1.414
 Sample size:  580
-Ωm:  0.28736 +0.03118 / -0.02969
+
+Effective samples: 1314
+Chi squared:  545.23
+
+Ωm:  0.2874 +0.0310/-0.0298
 R-squared (%):  99.30
 RMSD (mag):  0.267
-Skewness of residuals:  -1.380
+Skewness of residuals:  1.380
 kurtosis of residuals:  8.225
 """

@@ -154,9 +154,13 @@ if __name__ == '__main__':
 Dataset:  Union2.1
 z range:  0.015 - 1.414
 Sample size:  580
-p:  0.35801  +0.01392/-0.01427
+
+Effective samples: 8242
+Chi squared:  549.09
+
+p:  0.3579  +0.0139/-0.0145
 R-squared (%):  99.28
-RMSD (mag):  0.271
-Skewness of residuals:  -1.343
-kurtosis of residuals:  8.322
+RMSD (mag):  0.272
+Skewness of residuals:  1.343
+kurtosis of residuals:  8.323
 """
