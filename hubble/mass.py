@@ -155,7 +155,7 @@ Dataset:  Union2.1
 z range:  0.015 - 1.414
 Sample size:  580
 
-Effective samples: 8242
+Effective chain samples: 8242
 Chi squared:  549.09
 
 p:  0.3579  +0.0139/-0.0145
@@ -163,4 +163,17 @@ R-squared (%):  99.28
 RMSD (mag):  0.272
 Skewness of residuals:  1.343
 kurtosis of residuals:  8.323
+
+==============================
+Dataset:  DES-SN5YR
+z range:  0.025 - 1.121
+Sample size:  1757
+
+Effective chain samples: 4778
+Chi squared: 1664.81
+p:  0.35831  +0.00269/-0.00279
+R-squared (%):  99.32
+RMSD (mag):  0.174
+Skewness of residuals:  0.148
+kurtosis of residuals:  0.670
 """

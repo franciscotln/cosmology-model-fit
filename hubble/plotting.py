@@ -58,15 +58,15 @@ def plot_residuals(z_values, residuals, y_err, bins):
     hist_plot.set_title('Normalised Histogram')
     hist_plot.set(xlabel='Residuals (mag)', ylabel='Density')
     hist_plot.set_ylim(0, 3.4)
-    hist_plot.set_xlim(-1.5, 1.5)
+    hist_plot.set_xlim(-2, 2)
 
     # residuals
     residuals_plot.scatter(z_values, residuals, marker='.', alpha=0.2)
-    residuals_plot.errorbar(z_values, residuals, yerr=y_err, fmt='|', capsize=0, alpha=0.4)
+    residuals_plot.errorbar(z_values, residuals, yerr=y_err, fmt='|', capsize=0, alpha=0.2)
     residuals_plot.axhline(y=0, color='red', linestyle='--')
     residuals_plot.set(xlabel='Redshift (z)', ylabel='Residuals (mag)', xscale='log')
     residuals_plot.xaxis.set_major_formatter(ScalarFormatter())
-    residuals_plot.set_ylim(-1.6, 1.6)
+    residuals_plot.set_ylim(-2, 2)
     plt.show()
 
 

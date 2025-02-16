@@ -70,11 +70,11 @@ def main():
     # Set up MCMC sampler
     n_dim = 2
     n_walkers = 10
-    n_steps = 550
+    n_steps = 1050
 
     # Initial positions for walkers (random within bounds)
     initial_pos = np.random.rand(n_walkers, n_dim)
-    initial_pos[:, 0] = initial_pos[:, 0] * 0.15 + 0.65  # h0 between 0.60 and 0.8
+    initial_pos[:, 0] = initial_pos[:, 0] * 0.15 + 0.65  # h0 between 0.65 and 0.8
     initial_pos[:, 1] = initial_pos[:, 1] * 1.00 + 0.00  # omega_m between 0 and 1.0
 
     with Pool() as pool:
@@ -183,48 +183,24 @@ def main():
         bins=40
     )
 
-
-
-    # correlation between h0 and p
-    def nonlinear_model(h0, k, a):
-        return k * h0 ** a
-
-    params, covariance = curve_fit(nonlinear_model, h0_samples, omega_m_samples)
-    k, a = params
-
-    print(f"Fitted relationship: omega_m = {k:.4f} * h0^{a:.4f}")
-    print("std", np.sqrt(np.diag(covariance)))
-
-    x = np.linspace(min(h0_samples), max(h0_samples), 100)
-    y = nonlinear_model(x, k, a)
-    plt.figure(figsize=(8, 6))
-    plt.scatter(h0_samples, omega_m_samples, alpha=0.5, s=10, label="Samples")
-    plt.plot(x, y, color="orange", label=f"Fit: p = {k:.4f} * h0^{a:.4f}")
-    plt.xlabel(r"$h_0$")
-    plt.ylabel(r"$omega_m$")
-    plt.title("non-linear fit of $omega_m$ vs $h_0$")
-    plt.legend()
-    plt.grid()
-    plt.show()
-
 if __name__ == '__main__':
     main()
 
 """
 -- RESULTS WITH SHOES - LCDM --
-Estimated autocorrelation time: [29.50 29.06]
-Effective samples: 678.02
-Pearson correlation: -0.86466
+Estimated autocorrelation time: [28.29 27.12]
+Effective samples: 724
+Pearson correlation: -0.86033
 Chi squared:  1752.51
 
 Dataset:  Pantheon+SHOES
 z range:  0.001 - 2.261
 Sample size:  1701
-Estimated h = H0 / 100 (km/s/Mpc):  0.72843 ± 0.00240
-omega_m:  0.36163 ± 0.01982
+Estimated h = H0 / 100 (km/s/Mpc):  0.72841 ± 0.00230
+omega_m:  0.36127 ± 0.01863
 R-squared (%):  99.74
 RMSD (mag):  0.172
-Skewness of residuals:  0.107
+Skewness of residuals:  0.108
 kurtosis of residuals:  4.308
 
 -- RESULTS WITHOUT SHOES - LCDM --

@@ -177,4 +177,15 @@ R-squared (%):  99.30
 RMSD (mag):  0.267
 Skewness of residuals:  1.380
 kurtosis of residuals:  8.225
+
+==============================
+Dataset:  DES-SN5YR
+z range:  0.025 - 1.121
+Sample size:  1757
+
+Ωm:  0.32064 +0.00586/-0.00587
+R-squared (%):  99.33
+RMSD (mag):  0.172
+Skewness of residuals:  0.207
+kurtosis of residuals:  0.701
 """
