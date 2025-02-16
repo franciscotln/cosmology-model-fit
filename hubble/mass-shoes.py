@@ -1,14 +1,10 @@
-import sys
-sys.path.append('/Users/francisco.neto/Documents/private/cosmology-model-fit')
-
 import emcee
 import corner
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.optimize import curve_fit
 import scipy.stats as stats
 from multiprocessing import Pool
-from plotting import plot_predictions, print_color, plot_residuals
+from .plotting import plot_predictions, print_color, plot_residuals
 from y2022pantheonSHOES.data import get_data
 
 legend, z_values, distance_modulus_values, cov_matrix = get_data()
@@ -178,29 +174,6 @@ def main():
         y_err=sigma_distance_moduli,
         bins=40
     )
-
-
-    # correlation between h0 and p
-    def nonlinear_model(p, z0, dL0):
-        return (5995.85/dL0)*p*((1 + z0)**(1/p)-(1 + z0)**(0.5/p))
-
-    params, covariance = curve_fit(nonlinear_model, p_samples, h0_samples)
-    [z0, dL0] = params
-    [std_z0, std_dL0] = np.sqrt(np.diag(covariance))
-
-    print(f"Fit: z0 = {z0:.4f} ± {std_z0:.4f} and dL0 = {dL0:.4f} ± {std_dL0:.4f}")
-
-    x = np.linspace(min(p_samples), max(p_samples), 100)
-    y = nonlinear_model(x, z0=z0, dL0=dL0)
-    plt.figure(figsize=(8, 6))
-    plt.scatter(p_samples, h0_samples, alpha=0.5, s=10, label="Samples")
-    plt.plot(x, y, color="orange", label=f"Fit: z0={z0:.3f} and dL0={dL0:.3f}")
-    plt.xlabel(r"$h_0$")
-    plt.ylabel(r"$p$")
-    plt.title("non-linear fit of $p$ vs $h_0$")
-    plt.legend()
-    plt.grid()
-    plt.show()
 
 if __name__ == '__main__':
     main()

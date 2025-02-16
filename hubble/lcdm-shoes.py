@@ -1,14 +1,10 @@
-import sys
-sys.path.append('/Users/francisco.neto/Documents/private/cosmology-model-fit')
-
 import emcee
 import corner
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.optimize import curve_fit
 import scipy.stats as stats
 from multiprocessing import Pool
-from plotting import plot_predictions, print_color, plot_residuals
+from .plotting import plot_predictions, print_color, plot_residuals
 from y2022pantheonSHOES.data import get_data
 
 legend, z_values, distance_modulus_values, cov_matrix = get_data()

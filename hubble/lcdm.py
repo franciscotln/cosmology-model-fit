@@ -1,12 +1,9 @@
-import sys
-sys.path.append('/Users/francisco.neto/Documents/private/cosmology-model-fit')
-
 import emcee
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats as stats
 from multiprocessing import Pool
-from plotting import plot_predictions, print_color, plot_residuals
+from .plotting import plot_predictions, print_color, plot_residuals
 from y2011union.data import get_data
 
 legend, z_values, distance_modulus_values, _, cov_matrix = get_data()
