@@ -23,8 +23,8 @@ def model_distance_modulus(z, h0, p):
     fixed p=0.675 yields stable h0~0.72 at different z bins. p and h0 are degenerate, highly correlated
     """
     normalized_h0 = 100 * h0 # (km/s/Mpc)
-    a0_over_ae = (1 + z) ** (1 / p)
-    comoving_distance = (2 * C * p/ normalized_h0) * (1 - 1 / np.sqrt(a0_over_ae))
+    a0_over_ae = (1 + z) ** (1 / (1 - p))
+    comoving_distance = (2 * C * (1 - p)/ normalized_h0) * (1 - 1 / np.sqrt(a0_over_ae))
     luminosity_distance = a0_over_ae * comoving_distance
     return 25 + 5 * np.log10(luminosity_distance)
 
@@ -44,9 +44,9 @@ def log_likelihood(params, z, observed_mu):
 # Log prior function (uniform prior within bounds)
 def log_prior(params):
     [h0, p] = params
-    if 0.4 < h0 < 1 and 0.4 < p < 1:
-        return 0.0  # Uniform prior
-    return -np.inf  # Outside of bounds
+    if 0.4 < h0 < 1 and 0.2 < p < 0.5:
+        return 0.0
+    return -np.inf
 
 
 # Log probability function (posterior = likelihood * prior)
@@ -66,7 +66,7 @@ def main():
     # Initial positions for walkers (random within bounds)
     initial_pos = np.random.rand(n_walkers, n_dim)
     initial_pos[:, 0] = initial_pos[:, 0] * 0.60 + 0.40  # h0 between 0.40 and 1.0
-    initial_pos[:, 1] = initial_pos[:, 1] * 0.60 + 0.40  # p between 0.40 and 1.0
+    initial_pos[:, 1] = initial_pos[:, 1] * 0.30 + 0.20  # p between 0.20 and 0.5
 
     with Pool() as pool:
         sampler = emcee.EnsembleSampler(
