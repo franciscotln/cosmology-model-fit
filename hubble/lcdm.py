@@ -26,7 +26,7 @@ def integral_of_e_z(zs, omega_m):
         i = i + 1
     return res
 
-h0 = 70 # Hubble constant (km/s/Mpc)
+h0 = 68.5 # Hubble constant (km/s/Mpc)
 
 def model_distance_modulus(z, omega_m):
     a0_over_ae = 1 + z
@@ -61,8 +61,8 @@ def log_probability(params, z, observed_mu):
 
 def main():
     n_dim = 1
-    n_walkers = 20
-    n_steps = 1600
+    n_walkers = 16
+    n_steps = 1100
     initial_pos = np.zeros((n_walkers, n_dim))
     initial_pos[:, 0] = np.random.uniform(0.1, 0.6, n_walkers)
 
@@ -136,6 +136,7 @@ def main():
     print_color("RMSD (mag)", f"{rmsd:.3f}")
     print_color("Skewness of residuals", f"{skewness:.3f}")
     print_color("kurtosis of residuals", f"{kurtosis:.3f}")
+    print_color("Chi squared", chi_squared([omega_m_50], z_values, distance_modulus_values))
 
     # Plot the data and the fit
     plot_predictions(
@@ -161,30 +162,30 @@ if __name__ == '__main__':
     main()
 
 """
-Dataset:  Union2.1
-z range:  0.015 - 1.414
-Sample size:  580
+Dataset: Union2.1
+z range: 0.015 - 1.414
+Sample size: 580
 
 Effective samples: 1314
-Chi squared:  545.23
+Chi squared: 546.77
 
-Ωm:  0.2874 +0.0310/-0.0298
-R-squared (%):  99.30
-RMSD (mag):  0.267
-Skewness of residuals:  1.380
-kurtosis of residuals:  8.225
+Ωm: 0.3304 +0.0319/-0.0300
+R-squared (%): 99.30
+RMSD (mag): 0.267
+Skewness of residuals: 1.463
+kurtosis of residuals: 8.215
 
 ==============================
-Dataset:  DES-SN5YR
-z range:  0.025 - 1.121
-Sample size:  1829
+Dataset: DES-SN5YR
+z range: 0.025 - 1.121
+Sample size: 1829
 
 Effective samples: 1342
-Chi squared:
+Chi squared: 1645.88
 
-Ωm:  0.3204 +0.0060/-0.0060
-R-squared (%): 98.40
-RMSD (mag): 0.264
-Skewness of residuals: 3.425
-kurtosis of residuals: 26.180
+Ωm: 0.3872 +0.0065/-0.0062
+R-squared (%): 98.41
+RMSD (mag): 0.263
+Skewness of residuals: 3.375
+kurtosis of residuals: 25.482
 """

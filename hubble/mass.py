@@ -22,7 +22,7 @@ def model_distance_modulus(z, h0, p):
     luminosity_distance = a0_over_ae * comoving_distance
     return 25 + 5 * np.log10(luminosity_distance)
 
-h0 = 70 # Hubble constant (km/s/Mpc)
+h0 = 68.5 # Hubble constant (km/s/Mpc)
 
 def chi_squared(params, z, observed_mu):
     [p] = params
@@ -50,8 +50,8 @@ def log_probability(params, z, observed_mu):
 
 def main():
     n_dim = 1
-    n_walkers = 50
-    n_steps = 4100
+    n_walkers = 20
+    n_steps = 2100
 
     initial_pos = np.zeros((n_walkers, n_dim))
     initial_pos[:, 0] = np.random.uniform(0, 0.7, n_walkers)
@@ -120,7 +120,7 @@ def main():
     rmsd = np.sqrt(np.mean(residuals ** 2))
 
     # Print the values in the console
-    p_label = f"{p_50:.5f}  +{p_84-p_50:.5f}/-{p_50-p_16:.5f}"
+    p_label = f"{p_50:.5f} +{p_84-p_50:.5f}/-{p_50-p_16:.5f}"
     print_color("Dataset", legend)
     print_color("z range", f"{z_values[0]:.3f} - {z_values[-1]:.3f}")
     print_color("Sample size", len(z_values))
@@ -129,6 +129,7 @@ def main():
     print_color("RMSD (mag)", f"{rmsd:.3f}")
     print_color("Skewness of residuals", f"{skewness:.3f}")
     print_color("kurtosis of residuals", f"{kurtosis:.3f}")
+    print_color("Chi squared", chi_squared([p_50], z_values, distance_modulus_values))
 
     # Plot the data and the fit
     plot_predictions(
@@ -153,30 +154,30 @@ if __name__ == '__main__':
     main()
 
 """
-Dataset:  Union2.1
-z range:  0.015 - 1.414
-Sample size:  580
+Dataset: Union2.1
+z range: 0.015 - 1.414
+Sample size: 580
 
 Effective chain samples: 8242
-Chi squared:  549.09
+Chi squared: 547.59
 
-p:  0.3579  +0.0139/-0.0145
-R-squared (%):  99.28
-RMSD (mag):  0.272
-Skewness of residuals:  1.343
-kurtosis of residuals:  8.323
+p: 0.3364 +0.0150/-0.0154
+R-squared (%): 99.29
+RMSD (mag): 0.269
+Skewness of residuals: 1.441
+kurtosis of residuals: 8.374
 
 ==============================
-Dataset:  DES-SN5YR
-z range:  0.025 - 1.121
-Sample size:  1829
+Dataset: DES-SN5YR
+z range: 0.025 - 1.121
+Sample size: 1829
 
-Effective chain samples: 2717
-Chi squared: 1665.21
+Effective chain samples: 2269
+Chi squared: 1645.60
 
-p: 0.3584 +0.0028/-0.0028
-R-squared (%): 98.37
-RMSD (mag): 0.267
-Skewness of residuals: 3.419
-kurtosis of residuals: 26.107
+p: 0.3277 +0.0030/-0.0029
+R-squared (%): 98.39
+RMSD (mag): 0.265
+Skewness of residuals: 3.417
+kurtosis of residuals: 25.876
 """
