@@ -121,7 +121,7 @@ def main():
     axes[1].set_ylabel(r"$p$")
     plt.show()
 
-    # Calculate residuals
+    # Compute residuals
     predicted_distance_modulus_values = model_distance_modulus(z=z_values, h0=h0, p=p)
     residuals = distance_modulus_values - predicted_distance_modulus_values
 
@@ -131,7 +131,7 @@ def main():
     # Compute kurtosis
     kurtosis = stats.kurtosis(residuals)
 
-    # Calculate R-squared
+    # Compute R-squared
     average_distance_modulus = np.mean(distance_modulus_values)
     ss_res = np.sum(residuals ** 2)
     ss_tot = np.sum((distance_modulus_values - average_distance_modulus) ** 2)
@@ -160,7 +160,7 @@ def main():
         y=distance_modulus_values,
         y_err=sigma_distance_moduli,
         y_model=predicted_distance_modulus_values,
-        label=f"Model: h = {h0_label}",
+        label=f"h0 = {h0_label} km/s/Mpc, p = {p:.5f}",
         x_scale="log"
     )
 
@@ -177,19 +177,19 @@ if __name__ == '__main__':
 
 """
 -- RESULTS WITH SHOES --
-Estimated autocorrelation time: [19.16 25.95]
-Effective samples: 3237
-Spearman correlation: -0.829
-Pearson correlation: -0.840
-Chi squared:  1753.49
+Estimated autocorrelation time: [17.30 21.28]
+Effective samples: 3947.03
+Spearman correlation: 0.836
+Pearson correlation: 0.846
+Chi squared: 1753.49
 
-Dataset:  Pantheon+SHOES
-z range:  0.001 - 2.261
-Sample size:  1701
-Estimated h = H0 / 100 (km/s/Mpc):  0.72161 ± 0.00224
-Estimated p:  0.67526 ± 0.00866
-R-squared (%):  99.74
-RMSD (mag):  0.173
-Skewness of residuals:  -0.005
-kurtosis of residuals:  4.206
+Dataset: Pantheon+SHOES
+Redshift range: 0.001 - 2.261
+Sample size: 1701
+Estimated H0: 72.16 ± 0.23 km/s/Mpc
+Estimated p: 0.325 ± 0.009
+R-squared: 99.74 %
+RMSD: 0.173 mag
+Skewness of residuals: -0.005
+kurtosis of residuals: 4.206
 """
