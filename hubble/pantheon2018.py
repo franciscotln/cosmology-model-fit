@@ -138,8 +138,8 @@ def main():
     rmsd = np.sqrt(np.mean(residuals ** 2))
 
     # Print the values in the console
-    M0_label = f"{M0_50:.5f}  +{M0_84-M0_50:.5f}/-{M0_50-M0_16:.5f}"
-    p_label = f"{p_50:.5f}  +{p_84-p_50:.5f}/-{p_50-p_16:.5f}"
+    M0_label = f"{M0_50:.5f} +{M0_84-M0_50:.5f}/-{M0_50-M0_16:.5f}"
+    p_label = f"{p_50:.5f} +{p_84-p_50:.5f}/-{p_50-p_16:.5f}"
 
     print_color("Dataset", legend)
     print_color("z range", f"{z_values[0]:.3f} - {z_values[-1]:.3f}")
@@ -150,6 +150,7 @@ def main():
     print_color("RMSD (mag)", f"{rmsd:.3f}")
     print_color("Skewness of residuals", f"{skewness:.3f}")
     print_color("kurtosis of residuals", f"{kurtosis:.3f}")
+    print_color("Reduced chi squared", chi_squared([M0_50, p_50], z_values, apparent_mag_values)/ (len(z_values) - 2))
 
     # Plot the data and the fit
     plot_predictions(
@@ -158,7 +159,7 @@ def main():
         y=apparent_mag_values,
         y_err=np.sqrt(np.diag(cov_matrix)),
         y_model=model_apparent_mag(z=z_values, p=p_50, M=M0_50),
-        label=f"apparent mag - $p$={p_50:.4} and $M_0$={M0_50:.4}",
+        label=f"Apparent mag: $p$={p_50:.4f} and $M_0$={M0_50:.4f}",
         x_scale="log"
     )
 

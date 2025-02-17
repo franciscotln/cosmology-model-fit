@@ -17,11 +17,12 @@ def get_data():
     covariance_matrix = variances + np.diag(selected_columns['dmb'].values ** 2)
 
     sort_indices = np.argsort(z_values)
+    bin = sort_indices[0:None]
 
     return (
         'Pantheon2018',
-        z_values[sort_indices],
-        apparent_magnitude_vals[sort_indices],
-        sigma_magnitudes[sort_indices],
-        covariance_matrix[sort_indices, :][:, sort_indices],
+        z_values[bin],
+        apparent_magnitude_vals[bin],
+        sigma_magnitudes[bin],
+        covariance_matrix[bin, :][:, bin],
     )
