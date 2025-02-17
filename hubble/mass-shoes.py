@@ -18,10 +18,8 @@ C = 299792.458
 
 
 # Theoretical distance modulus for matter-dominated, flat universe:
+# Fixed p=0.325 yields stable h0~0.72 at different z bins. p and h0 are highly correlated
 def model_distance_modulus(z, h0, p):
-    """
-    fixed p=0.675 yields stable h0~0.72 at different z bins. p and h0 are degenerate, highly correlated
-    """
     normalized_h0 = 100 * h0 # (km/s/Mpc)
     a0_over_ae = (1 + z) ** (1 / (1 - p))
     comoving_distance = (2 * C * (1 - p)/ normalized_h0) * (1 - 1 / np.sqrt(a0_over_ae))
@@ -29,7 +27,6 @@ def model_distance_modulus(z, h0, p):
     return 25 + 5 * np.log10(luminosity_distance)
 
 
-# Define chi-squared function
 def chi_squared(params, z, observed_mu):
     [h0, p] = params
     delta = observed_mu - model_distance_modulus(z=z, h0=h0, p=p)
@@ -80,33 +77,25 @@ def main():
     chains_samples = sampler.get_chain(discard=0, flat=False)
     samples = sampler.get_chain(discard=100, flat=True)
 
-    tau = sampler.get_autocorr_time()
-    effective_samples = n_steps * n_walkers / np.max(tau)
-    print(f"Estimated autocorrelation time: {tau}")
-    print(f"Effective samples: {effective_samples:.2f}")
+    try:
+        tau = sampler.get_autocorr_time()
+        effective_samples = n_steps * n_walkers / np.max(tau)
+        print(f"Estimated autocorrelation time: {tau}")
+        print(f"Effective samples: {effective_samples:.2f}")
+    except Exception as e:
+        print("Could not estimate the autocorrelation time")
 
-    # Calculate the posterior means and uncertainties
+    # Compute the posterior means and uncertainties
     h0_samples = samples[:, 0]
     p_samples = samples[:, 1]
 
     [h0_16, h0_50, h0_84] = np.percentile(h0_samples, [16, 50, 84])
     [p_16, p_50, p_84] = np.percentile(p_samples, [16, 50, 84])
 
-    h0 = h0_50
-    p = p_50
-
-    h0_std = np.std(h0_samples)
-    p_std = np.std(p_samples)
-
-    spearman_corr, _ = stats.spearmanr(p_samples, h0_samples)
-    pearson_corr, _ = stats.pearsonr(np.log(p_samples), np.log(h0_samples))
-    print(f"Spearman correlation: {spearman_corr:.3f}")
-    print(f"Pearson correlation: {pearson_corr:.3f}")
-
     corner.corner(
         samples,
         labels=[r"$h_0$", r"$p$"],
-        truths=[h0, p],
+        truths=[h0_50, p_50],
         show_titles=True,
         title_fmt=".5f",
         title_kwargs={"fontsize": 12},
@@ -122,7 +111,7 @@ def main():
     plt.show()
 
     # Compute residuals
-    predicted_distance_modulus_values = model_distance_modulus(z=z_values, h0=h0, p=p)
+    predicted_distance_modulus_values = model_distance_modulus(z=z_values, h0=h0_50, p=p_50)
     residuals = distance_modulus_values - predicted_distance_modulus_values
 
     # Compute skewness
@@ -137,21 +126,28 @@ def main():
     ss_tot = np.sum((distance_modulus_values - average_distance_modulus) ** 2)
     r_squared = 1 - (ss_res / ss_tot)
 
-    # Calculate root mean square deviation
+    # Compute root mean square deviation
     rmsd = np.sqrt(np.mean(residuals ** 2))
 
-    # Print the values in the console
-    h0_label = f"{h0:.5f} ± {h0_std:.5f}"
+    # Compute correlations
+    spearman_corr, _ = stats.spearmanr(h0_samples, p_samples)
+    pearson_corr, _ = stats.pearsonr(np.log(h0_samples), np.log(p_samples))
 
+    # Print the values in the console
+    h0_label = f"{h0_50:.5f} +{h0_84-h0_50:.5f}/-{h0_50-h0_16:.5f}"
+    p_label = f"{p_50:.5f} +{p_84-p_50:.5f}/-{p_50-p_16:.5f}"
     print_color("Dataset", legend)
     print_color("z range", f"{z_values[0]:.3f} - {z_values[-1]:.3f}")
     print_color("Sample size", len(z_values))
     print_color("Estimated h = H0 / 100 (km/s/Mpc)", h0_label)
-    print_color("Estimated p", f"{p:.5f} ± {p_std:.5f}")
+    print_color("Estimated p", p_label)
     print_color("R-squared (%)", f"{100 * r_squared:.2f}")
     print_color("RMSD (mag)", f"{rmsd:.3f}")
     print_color("Skewness of residuals", f"{skewness:.3f}")
     print_color("kurtosis of residuals", f"{kurtosis:.3f}")
+    print_color("Spearman correlation", f"{spearman_corr:.3f}")
+    print_color("Pearson correlation", f"{pearson_corr:.3f}")
+    print_color("Chi squared", chi_squared([h0_50, p_50], z_values, distance_modulus_values))
 
     # Plot the data and the fit
     plot_predictions(
@@ -160,7 +156,7 @@ def main():
         y=distance_modulus_values,
         y_err=sigma_distance_moduli,
         y_model=predicted_distance_modulus_values,
-        label=f"h0 = {h0_label} km/s/Mpc, p = {p:.5f}",
+        label=f"H0={(100 * h0_50):.4f} km/s/Mpc & p={p_50:.4f}",
         x_scale="log"
     )
 

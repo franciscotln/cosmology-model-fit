@@ -169,13 +169,14 @@ kurtosis of residuals:  8.323
 ==============================
 Dataset:  DES-SN5YR
 z range:  0.025 - 1.121
-Sample size:  1757
+Sample size:  1829
 
-Effective chain samples: 4778
-Chi squared: 1664.81
-p:  0.35831  +0.00269/-0.00279
-R-squared (%):  99.32
-RMSD (mag):  0.174
-Skewness of residuals:  0.148
-kurtosis of residuals:  0.670
+Effective chain samples: 2717
+Chi squared: 1665.21
+
+p: 0.3584 +0.0028/-0.0028
+R-squared (%): 98.37
+RMSD (mag): 0.267
+Skewness of residuals: 3.419
+kurtosis of residuals: 26.107
 """

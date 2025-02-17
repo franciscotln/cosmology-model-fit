@@ -47,7 +47,7 @@ def log_likelihood(params, z, observed_mu):
 
 def log_prior(params):
     [omega_m] = params
-    if 0.1 < omega_m < 0.5:
+    if 0.1 < omega_m < 0.6:
         return 0.0
     return -np.inf
 
@@ -64,7 +64,7 @@ def main():
     n_walkers = 20
     n_steps = 1600
     initial_pos = np.zeros((n_walkers, n_dim))
-    initial_pos[:, 0] = np.random.uniform(0.1, 0.5, n_walkers)
+    initial_pos[:, 0] = np.random.uniform(0.1, 0.6, n_walkers)
 
     with Pool() as pool:
         sampler = emcee.EnsembleSampler(
@@ -177,11 +177,14 @@ kurtosis of residuals:  8.225
 ==============================
 Dataset:  DES-SN5YR
 z range:  0.025 - 1.121
-Sample size:  1757
+Sample size:  1829
 
-Ωm:  0.32064 +0.00586/-0.00587
-R-squared (%):  99.33
-RMSD (mag):  0.172
-Skewness of residuals:  0.207
-kurtosis of residuals:  0.701
+Effective samples: 1342
+Chi squared:
+
+Ωm:  0.3204 +0.0060/-0.0060
+R-squared (%): 98.40
+RMSD (mag): 0.264
+Skewness of residuals: 3.425
+kurtosis of residuals: 26.180
 """
