@@ -36,7 +36,7 @@ def log_likelihood(params, z, observed_mu):
 
 def log_prior(params):
     [p] = params
-    if 0 < p < 0.6:
+    if 0 < p < 0.7:
         return 0.0
     return -np.inf
 
@@ -54,7 +54,7 @@ def main():
     n_steps = 4100
 
     initial_pos = np.zeros((n_walkers, n_dim))
-    initial_pos[:, 0] = np.random.uniform(0, 0.6, n_walkers)
+    initial_pos[:, 0] = np.random.uniform(0, 0.7, n_walkers)
 
     with Pool() as pool:
         sampler = emcee.EnsembleSampler(
@@ -82,6 +82,11 @@ def main():
     [p_16, p_50, p_84] = np.percentile(p_samples, [16, 50, 84])
 
     plt.hist(p_samples, bins=40, color='blue', alpha=0.3, density=True)
+    x_min, x_max = plt.gca().get_xlim()
+    x = np.linspace(x_min, x_max, 100)
+    mu, std = stats.norm.fit(p_samples)
+    p = stats.norm.pdf(x, mu, std)
+    plt.plot(x, p, 'r', linewidth=1)
     plt.axvline(x=p_50, color='red', linestyle='--', label=r"$p$_true")
     plt.xlabel(r"$p$")
     plt.ylabel('Density')
