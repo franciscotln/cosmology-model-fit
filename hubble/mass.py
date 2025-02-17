@@ -36,7 +36,7 @@ def log_likelihood(params, z, observed_mu):
 
 def log_prior(params):
     [p] = params
-    if 0.2 < p < 0.5:
+    if 0 < p < 0.6:
         return 0.0
     return -np.inf
 
@@ -53,8 +53,8 @@ def main():
     n_walkers = 50
     n_steps = 4100
 
-    initial_pos = np.random.rand(n_walkers, n_dim)
-    initial_pos[:, 0] = initial_pos[:, 0] * 0.30 + 0.20  # p between 0.2 and 0.5
+    initial_pos = np.zeros((n_walkers, n_dim))
+    initial_pos[:, 0] = np.random.uniform(0, 0.6, n_walkers)
 
     with Pool() as pool:
         sampler = emcee.EnsembleSampler(

@@ -67,11 +67,9 @@ def main():
     n_dim = 2
     n_walkers = 10
     n_steps = 1050
-
-    # Initial positions for walkers (random within bounds)
-    initial_pos = np.random.rand(n_walkers, n_dim)
-    initial_pos[:, 0] = initial_pos[:, 0] * 0.15 + 0.65  # h0 between 0.65 and 0.8
-    initial_pos[:, 1] = initial_pos[:, 1] * 1.00 + 0.00  # omega_m between 0 and 1.0
+    initial_pos = np.zeros((n_walkers, n_dim))
+    initial_pos[:, 0] = np.random.uniform(0.65, 0.8, n_walkers)
+    initial_pos[:, 1] = np.random.uniform(0.1, 0.6, n_walkers)
 
     with Pool() as pool:
         sampler = emcee.EnsembleSampler(
@@ -112,7 +110,7 @@ def main():
 
     fig1 = corner.corner(
         samples,
-        labels=["h0", "omega_m"],
+        labels=[r"$h_0$", r"$Ω_M$"],
         truths=[h0, omega_m],
         show_titles=True,
         title_fmt=".5f",
@@ -125,7 +123,7 @@ def main():
     axes[0].plot(chains_samples[:, :, 0], color='black', alpha=0.3)
     axes[0].set_ylabel(r"$h_0$")
     axes[1].plot(chains_samples[:, :, 1], color='black', alpha=0.3)
-    axes[1].set_ylabel(r"$omega_m$")
+    axes[1].set_ylabel(r"$Ω_M$")
     plt.show()
 
     # Calculate residuals
@@ -167,7 +165,7 @@ def main():
         y=distance_modulus_values,
         y_err=sigma_distance_moduli,
         y_model=predicted_distance_modulus_values,
-        label=f"Model: h = {h0_label}",
+        label=r"$h_0$ = {h0_label}",
         x_scale="log"
     )
 

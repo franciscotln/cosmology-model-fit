@@ -10,7 +10,7 @@ def plot_predictions(legend: str, x, y, y_model, label: str, y_err, x_scale='lin
     plt.scatter(x=x, y=y, label=legend, marker='.', alpha=0.6)
 
     # predicted values
-    plt.ylim(27, 50)
+    plt.ylim(y[0] - 1, y[-1] + 1)
     plt.plot(x, y_model, 'r-', label=label)
     plt.xscale(value=x_scale)
     plt.xlabel(xlabel='Redshift (z)')

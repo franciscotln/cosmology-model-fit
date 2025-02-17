@@ -63,9 +63,8 @@ def main():
     n_dim = 1
     n_walkers = 20
     n_steps = 1600
-
-    initial_pos = np.random.rand(n_walkers, n_dim)
-    initial_pos[:, 0] = initial_pos[:, 0] * 0.40 + 0.10  # omega_m between 0.1 and 0.5
+    initial_pos = np.zeros((n_walkers, n_dim))
+    initial_pos[:, 0] = np.random.uniform(0.1, 0.5, n_walkers)
 
     with Pool() as pool:
         sampler = emcee.EnsembleSampler(

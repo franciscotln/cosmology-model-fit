@@ -44,7 +44,7 @@ def log_likelihood(params, z, observed_mu):
 # Log prior function (uniform prior within bounds)
 def log_prior(params):
     [h0, p] = params
-    if 0.4 < h0 < 1 and 0.2 < p < 0.5:
+    if 0.4 < h0 < 1 and 0 < p < 0.6:
         return 0.0
     return -np.inf
 
@@ -58,15 +58,12 @@ def log_probability(params, z, observed_mu):
 
 
 def main():
-    # Set up MCMC sampler
     n_dim = 2
     n_walkers = 40
     n_steps = 2100
-
-    # Initial positions for walkers (random within bounds)
-    initial_pos = np.random.rand(n_walkers, n_dim)
-    initial_pos[:, 0] = initial_pos[:, 0] * 0.60 + 0.40  # h0 between 0.40 and 1.0
-    initial_pos[:, 1] = initial_pos[:, 1] * 0.30 + 0.20  # p between 0.20 and 0.5
+    initial_pos = np.zeros((n_walkers, n_dim))
+    initial_pos[:, 0] = np.random.uniform(0.4, 1, n_walkers)
+    initial_pos[:, 1] = np.random.uniform(0, 0.6, n_walkers)
 
     with Pool() as pool:
         sampler = emcee.EnsembleSampler(
