@@ -63,7 +63,6 @@ def log_probability(params, z, observed_mu):
 
 
 def main():
-    # Set up MCMC sampler
     n_dim = 2
     n_walkers = 10
     n_steps = 1050
@@ -102,12 +101,6 @@ def main():
     h0 = h0_50
     omega_m = omega_m_50
 
-    h0_std = np.std(h0_samples)
-    omega_m_std = np.std(omega_m_samples)
-
-    correlation_coefficient = np.corrcoef(np.log(samples[:, 0]), np.log(samples[:, 1]))[0, 1]
-    print(f"Correlation coefficient between h0 and omega_m: {correlation_coefficient:.5f}")
-
     fig1 = corner.corner(
         samples,
         labels=[r"$h_0$", r"$Ω_M$"],
@@ -145,18 +138,25 @@ def main():
     # Calculate root mean square deviation
     rmsd = np.sqrt(np.mean(residuals ** 2))
 
-    # Print the values in the console
-    h0_label = f"{h0:.5f} ± {h0_std:.5f}"
+    # Compute correlations
+    spearman_corr, _ = stats.spearmanr(h0_samples, omega_m_samples)
+    pearson_corr, _ = stats.pearsonr(np.log(h0_samples), np.log(omega_m_samples))
 
+    # Print the values in the console
+    h0_label = f"{h0_50:.5f} +{h0_84-h0_50:.5f}/-{h0_50-h0_16:.5f}"
+    omega_m_label = f"{omega_m_50:.5f} +{omega_m_84-omega_m_50:.5f}/-{omega_m_50-omega_m_16:.5f}"
     print_color("Dataset", legend)
     print_color("z range", f"{z_values[0]:.3f} - {z_values[-1]:.3f}")
     print_color("Sample size", len(z_values))
     print_color("Estimated h = H0 / 100 (km/s/Mpc)", h0_label)
-    print_color("omega_m", f"{omega_m:.5f} ± {omega_m_std:.5f}")
+    print_color("Ωm", f"{omega_m_label}")
     print_color("R-squared (%)", f"{100 * r_squared:.2f}")
     print_color("RMSD (mag)", f"{rmsd:.3f}")
     print_color("Skewness of residuals", f"{skewness:.3f}")
     print_color("kurtosis of residuals", f"{kurtosis:.3f}")
+    print_color("Spearman correlation", f"{spearman_corr:.3f}")
+    print_color("Pearson correlation", f"{pearson_corr:.3f}")
+    print_color("Chi squared", chi_squared([h0_50, omega_m_50], z_values, distance_modulus_values))
 
     # Plot the data and the fit
     plot_predictions(
@@ -165,7 +165,7 @@ def main():
         y=distance_modulus_values,
         y_err=sigma_distance_moduli,
         y_model=predicted_distance_modulus_values,
-        label=r"$h_0$ = {h0_label}",
+        label=f"$h_0$ = {h0_label} & $Ω_M$ = {omega_m_label}",
         x_scale="log"
     )
 
@@ -191,7 +191,7 @@ Dataset:  Pantheon+SHOES
 z range:  0.001 - 2.261
 Sample size:  1701
 Estimated h = H0 / 100 (km/s/Mpc):  0.72841 ± 0.00230
-omega_m:  0.36127 ± 0.01863
+Ωm:  0.36127 ± 0.01863
 R-squared (%):  99.74
 RMSD (mag):  0.172
 Skewness of residuals:  0.108
@@ -206,7 +206,7 @@ Dataset:  Pantheon+
 z range:  0.010 - 2.261
 Sample size:  1590
 Estimated h = H0 / 100 (km/s/Mpc):  0.73235 ± 0.00246
-omega_m:  0.33167 ± 0.01842
+Ωm:  0.33167 ± 0.01842
 R-squared (%):  99.74
 RMSD (mag):  0.154
 Skewness of residuals:  -0.091
