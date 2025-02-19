@@ -28,14 +28,14 @@ def integral_of_e_z(zs, omega_m):
 
 def model_lcdm_apparent_mag(z, omega_m, M):
     a0_over_ae = 1 + z
-    comoving_distance = integral_of_e_z(zs = z, omega_m=omega_m)
-    return M + 5 * np.log10(a0_over_ae * comoving_distance)
+    comoving_distance = C * integral_of_e_z(zs = z, omega_m=omega_m)
+    return M + 25 + 5 * np.log10(a0_over_ae * comoving_distance)
 
 # Apparent magnitude for alternative matter-dominated, flat universe:
 def model_apparent_mag(z, p, M):
     a0_over_ae = (1 + z)**(1 / (1 - p))
-    comoving_distance = 2 * (1 - p) * (1 - 1 / np.sqrt(a0_over_ae))
-    return M + 5 * np.log10(a0_over_ae * comoving_distance)
+    comoving_distance = 2 * C * (1 - p) * (1 - 1 / np.sqrt(a0_over_ae))
+    return M + 25 + 5 * np.log10(a0_over_ae * comoving_distance)
 
 
 def chi_squared(params, z, observed_mag):
@@ -50,7 +50,7 @@ def log_likelihood(params, z, observed_mag):
 
 def log_prior(params):
     [M0, p0] = params
-    if 21 < M0 < 26 and 0.2 < p0 < 0.6:
+    if -30 < M0 < -27 and 0.2 < p0 < 0.6:
         return 0.0
     return -np.inf
 
@@ -67,7 +67,7 @@ def main():
     n_walkers = 20
     n_steps = 2100
     initial_pos = np.zeros((n_walkers, n_dim))
-    initial_pos[:, 0] = np.random.uniform(21, 26, n_walkers)
+    initial_pos[:, 0] = np.random.uniform(-30, -27, n_walkers)
     initial_pos[:, 1] = np.random.uniform(0.2, 0.6, n_walkers)
 
     with Pool() as pool:
@@ -183,20 +183,22 @@ M0 contains Hubble constant and absolute magnitude
 =============================
 
 Alternative
-M0: 23.835 +/-0.011 
+M0: -28.549 +/-0.011
 p: 0.349 +0.010/-0.011
 R-squared (%): 99.69
 RMSD (mag): 0.147
-Skewness of residuals: 0.081
-kurtosis of residuals: 0.787
+Skewness of residuals: 0.082
+kurtosis of residuals: 0.786
+Reduced chi squared:  0.991
 
 =============================
 
 ΛCDM
-M0: 23.809 +0.010/-0.011
-Ωm: 0.297 +0.023/-0.021
+M0: -28.5749 +0.0116/-0.0096
+Ωm: 0.299 +0.022/-0.020
 R-squared (%): 99.71
 RMSD (mag): 0.143
 Skewness of residuals: 0.186
-kurtosis of residuals: 0.686
+kurtosis of residuals: 0.687
+Reduce chi squared: 0.9815
 """

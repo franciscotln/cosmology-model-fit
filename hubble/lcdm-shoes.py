@@ -50,7 +50,7 @@ def log_likelihood(params, z, observed_mu):
 # Log prior function (uniform prior within bounds)
 def log_prior(params):
     h0, omega_m = params
-    if 0.65 < h0 < 0.8 and 0 < omega_m < 1:
+    if 0.65 < h0 < 0.8 and 0.1 < omega_m < 0.6:
         return 0.0  # Uniform prior
     return -np.inf  # Outside of bounds
 

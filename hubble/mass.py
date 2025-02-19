@@ -1,4 +1,5 @@
 import emcee
+import corner
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats as stats
@@ -17,16 +18,15 @@ inv_cov_matrix = np.linalg.inv(cov_matrix)
 
 # Theoretical distance modulus for matter-dominated, flat universe:
 def model_distance_modulus(z, h0, p):
-    a0_over_ae = (1 + z)**(1/(1-p))
-    comoving_distance = (2 * C * (1-p) / h0) * (1 - 1 / np.sqrt(a0_over_ae))
-    luminosity_distance = a0_over_ae * comoving_distance
-    return 25 + 5 * np.log10(luminosity_distance)
+    normalized_h0 = 100 * h0 # (km/s/Mpc)
+    a0_over_ae = (1 + z)**(1/(1 - p))
+    comoving_distance = (2 * C * (1 - p) / normalized_h0) * (1 - 1 / np.sqrt(a0_over_ae))
+    return 25 + 5 * np.log10(a0_over_ae * comoving_distance)
 
-h0 = 68.5 # Hubble constant (km/s/Mpc)
 
 def chi_squared(params, z, observed_mu):
-    [p] = params
-    delta = observed_mu - model_distance_modulus(z=z, h0=h0, p=p)
+    [h0, p] = params
+    delta = observed_mu + 5 * np.log10(h0 / 0.70) - model_distance_modulus(z=z, h0=h0, p=p)
     return delta.T @ inv_cov_matrix @ delta
 
 
@@ -35,8 +35,8 @@ def log_likelihood(params, z, observed_mu):
 
 
 def log_prior(params):
-    [p] = params
-    if 0 < p < 0.7:
+    [h0, p] = params
+    if 0.6 < h0 < 0.8 and 0.2 < p < 0.5:
         return 0.0
     return -np.inf
 
@@ -49,12 +49,13 @@ def log_probability(params, z, observed_mu):
 
 
 def main():
-    n_dim = 1
-    n_walkers = 20
+    n_dim = 2
+    n_walkers = 30
     n_steps = 2100
 
     initial_pos = np.zeros((n_walkers, n_dim))
-    initial_pos[:, 0] = np.random.uniform(0, 0.7, n_walkers)
+    initial_pos[:, 0] = np.random.uniform(0.6, 0.8, n_walkers)
+    initial_pos[:, 1] = np.random.uniform(0.2, 0.5, n_walkers)
 
     with Pool() as pool:
         sampler = emcee.EnsembleSampler(
@@ -71,38 +72,42 @@ def main():
     chains_samples = sampler.get_chain(discard=0, flat=False)
     samples = sampler.get_chain(discard=100, flat=True)
 
-    tau = sampler.get_autocorr_time()
-    effective_samples = n_steps * n_walkers / np.max(tau)
-    print(f"Estimated autocorrelation time: {tau}")
-    print(f"Effective samples: {effective_samples:.2f}")
+    try:
+        tau = sampler.get_autocorr_time()
+        effective_samples = n_steps * n_walkers / np.max(tau)
+        print(f"Estimated autocorrelation time: {tau}")
+        print(f"Effective samples: {effective_samples:.2f}")
+    except Exception as e:
+        print("Could not calculate the autocorrelation time")
 
     # Calculate the posterior means and uncertainties
-    p_samples = samples[:, 0]
+    h0_samples = samples[:, 0]
+    p_samples = samples[:, 1]
 
+    [h0_16, h0_50, h0_84] = np.percentile(h0_samples, [16, 50, 84])
     [p_16, p_50, p_84] = np.percentile(p_samples, [16, 50, 84])
 
-    plt.hist(p_samples, bins=40, color='blue', alpha=0.3, density=True)
-    x_min, x_max = plt.gca().get_xlim()
-    x = np.linspace(x_min, x_max, 100)
-    mu, std = stats.norm.fit(p_samples)
-    p = stats.norm.pdf(x, mu, std)
-    plt.plot(x, p, 'r', linewidth=1)
-    plt.axvline(x=p_50, color='red', linestyle='--', label=r"$p$_true")
-    plt.xlabel(r"$p$")
-    plt.ylabel('Density')
-    plt.title('Posterior Distribution')
-    plt.legend()
+    corner.corner(
+        samples,
+        labels=[r"$h_0$", r"$p$"],
+        truths=[h0_50, p_50],
+        show_titles=True,
+        title_fmt=".5f",
+        title_kwargs={"fontsize": 12},
+    )
     plt.show()
 
     # Plot results: chains for each parameter
-    fig, axes = plt.subplots(1, figsize=(10, 7))
-    axes.plot(chains_samples[:, :, 0], color='blue', alpha=0.2)
-    axes.set_ylabel(r"$p$")
+    fig, axes = plt.subplots(2, figsize=(10, 7))
+    axes[0].plot(chains_samples[:, :, 0], color='black', alpha=0.3)
+    axes[0].set_ylabel(r"$h_0$")
+    axes[1].plot(chains_samples[:, :, 1], color='black', alpha=0.3)
+    axes[1].set_ylabel(r"$p$")
     plt.show()
 
     # Calculate residuals
-    predicted_distance_modulus_values = model_distance_modulus(z=z_values, h0=h0, p=p_50)
-    residuals = distance_modulus_values - predicted_distance_modulus_values
+    predicted_distance_modulus_values = model_distance_modulus(z=z_values, h0=h0_50, p=p_50)
+    residuals = distance_modulus_values + 5 * np.log10(h0_50 / 0.70) - predicted_distance_modulus_values
 
     # Compute skewness
     skewness = stats.skew(residuals)
@@ -120,16 +125,18 @@ def main():
     rmsd = np.sqrt(np.mean(residuals ** 2))
 
     # Print the values in the console
+    h0_label = f"{h0_50:.5f} +{h0_84-h0_50:.5f}/-{h0_50-h0_16:.5f}"
     p_label = f"{p_50:.5f} +{p_84-p_50:.5f}/-{p_50-p_16:.5f}"
     print_color("Dataset", legend)
     print_color("z range", f"{z_values[0]:.3f} - {z_values[-1]:.3f}")
     print_color("Sample size", len(z_values))
     print_color("p", p_label)
+    print_color("h0", h0_label)
     print_color("R-squared (%)", f"{100 * r_squared:.2f}")
     print_color("RMSD (mag)", f"{rmsd:.3f}")
     print_color("Skewness of residuals", f"{skewness:.3f}")
     print_color("kurtosis of residuals", f"{kurtosis:.3f}")
-    print_color("Chi squared", chi_squared([p_50], z_values, distance_modulus_values))
+    print_color("Chi squared", chi_squared([h0_50, p_50], z_values, distance_modulus_values))
 
     # Plot the data and the fit
     plot_predictions(
@@ -154,30 +161,30 @@ if __name__ == '__main__':
     main()
 
 """
+Rescaled considering H0 = 70 km/s/Mpc for the distance modulus data
+5 * np.log10(h0 / 0.70)
+
+==============================
 Dataset: Union2.1
 z range: 0.015 - 1.414
-Sample size: 580
-
-Effective chain samples: 8242
-Chi squared: 547.59
-
-p: 0.3364 +0.0150/-0.0154
+Sample size:  580
+Chi squared:  547.465
+p: 0.3409 +0.0194/-0.0207
+H0: 69.40 +0.45/-0.46
 R-squared (%): 99.29
-RMSD (mag): 0.269
-Skewness of residuals: 1.441
-kurtosis of residuals: 8.374
+RMSD (mag): 0.270
+Skewness of residuals: 1.424
+kurtosis of residuals: 8.377
 
 ==============================
 Dataset: DES-SN5YR
 z range: 0.025 - 1.121
 Sample size: 1829
-
-Effective chain samples: 2269
-Chi squared: 1645.60
-
-p: 0.3277 +0.0030/-0.0029
+Chi squared:  1645.596
+p: 0.3269 +0.0078/-0.0079
+h0: 69.23 +0.17-0.17
 R-squared (%): 98.39
 RMSD (mag): 0.265
-Skewness of residuals: 3.417
-kurtosis of residuals: 25.876
+Skewness of residuals: 3.416
+kurtosis of residuals: 25.863
 """
