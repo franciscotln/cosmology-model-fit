@@ -50,7 +50,7 @@ def log_likelihood(params, z, observed_mag):
 
 def log_prior(params):
     [M0, p0] = params
-    if -30 < M0 < -27 and 0.2 < p0 < 0.6:
+    if -29.5 < M0 < -27.5 and 0.1 < p0 < 0.6:
         return 0.0
     return -np.inf
 
@@ -65,10 +65,10 @@ def log_probability(params, z, observed_mag):
 def main():
     n_dim = 2
     n_walkers = 20
-    n_steps = 2100
+    n_steps = 1600
     initial_pos = np.zeros((n_walkers, n_dim))
-    initial_pos[:, 0] = np.random.uniform(-30, -27, n_walkers)
-    initial_pos[:, 1] = np.random.uniform(0.2, 0.6, n_walkers)
+    initial_pos[:, 0] = np.random.uniform(-29.5, -27.5, n_walkers)
+    initial_pos[:, 1] = np.random.uniform(0.1, 0.6, n_walkers)
 
     with Pool() as pool:
         sampler = emcee.EnsembleSampler(
@@ -105,7 +105,7 @@ def main():
         labels=[r"$M_0$", r"$p$"],
         truths=[M0_50, p_50],
         show_titles=True,
-        title_fmt=".5f",
+        title_fmt=".4f",
         title_kwargs={"fontsize": 12},
     )
     plt.show()
@@ -138,8 +138,8 @@ def main():
     rmsd = np.sqrt(np.mean(residuals ** 2))
 
     # Print the values in the console
-    M0_label = f"{M0_50:.5f} +{M0_84-M0_50:.5f}/-{M0_50-M0_16:.5f}"
-    p_label = f"{p_50:.5f} +{p_84-p_50:.5f}/-{p_50-p_16:.5f}"
+    M0_label = f"{M0_50:.4f} +{M0_84-M0_50:.4f}/-{M0_50-M0_16:.4f}"
+    p_label = f"{p_50:.4f} +{p_84-p_50:.4f}/-{p_50-p_16:.4f}"
 
     print_color("Dataset", legend)
     print_color("z range", f"{z_values[0]:.3f} - {z_values[-1]:.3f}")
