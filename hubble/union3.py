@@ -2,7 +2,7 @@ import emcee
 import corner
 import matplotlib.pyplot as plt
 import numpy as np
-import scipy.stats as stats
+from scipy.stats import skew, kurtosis
 from multiprocessing import Pool
 from .plotting import plot_predictions, print_color, plot_residuals
 from y2023union3.data import get_data
@@ -49,9 +49,13 @@ def log_likelihood(params, z, observed_mag):
     return -0.5 * chi_squared(params, z, observed_mag)
 
 
+h0_bounds = (0.5, 1)
+p_bounds = (0.1, 0.6)
+
+
 def log_prior(params):
     [h0, p0] = params
-    if 0.5 < h0 < 1 and 0.1 < p0 < 0.7:
+    if h0_bounds[0] < h0 < h0_bounds[1] and p_bounds[0] < p0 < p_bounds[1]:
         return 0.0
     return -np.inf
 
@@ -68,14 +72,14 @@ def main():
     n_walkers = 40
     n_steps = 4100
     initial_pos = np.zeros((n_walkers, n_dim))
-    initial_pos[:, 0] = np.random.uniform(0.5, 1, n_walkers)
-    initial_pos[:, 1] = np.random.uniform(0.1, 0.7, n_walkers)
+    initial_pos[:, 0] = np.random.uniform(*h0_bounds, n_walkers)
+    initial_pos[:, 1] = np.random.uniform(*p_bounds, n_walkers)
 
     with Pool() as pool:
         sampler = emcee.EnsembleSampler(
-            n_walkers,
-            n_dim,
-            log_probability,
+            nwalkers=n_walkers,
+            ndim=n_dim,
+            log_prob_fn=log_probability,
             args=(z_values, distance_moduli_values),
             pool=pool
         )
@@ -126,14 +130,14 @@ def main():
     plt.show()
 
     # Calculate residuals
-    predicted_apparent_mag = model_distance_modulus(z=z_values, p=p_50, h0=h0_50)
-    residuals = distance_moduli_values - predicted_apparent_mag
+    predicted_mag = model_distance_modulus(z=z_values, p=p_50, h0=h0_50)
+    residuals = distance_moduli_values - predicted_mag
 
     # Compute skewness
-    skewness = stats.skew(residuals)
+    skewness = skew(residuals)
 
     # Compute kurtosis
-    kurtosis = stats.kurtosis(residuals)
+    kurt = kurtosis(residuals)
 
     # Calculate R-squared
     average_distance_modulus = np.mean(distance_moduli_values)
@@ -156,7 +160,7 @@ def main():
     print_color("R-squared (%)", f"{100 * r_squared:.2f}")
     print_color("RMSD (mag)", f"{rmsd:.3f}")
     print_color("Skewness of residuals", f"{skewness:.3f}")
-    print_color("kurtosis of residuals", f"{kurtosis:.3f}")
+    print_color("kurtosis of residuals", f"{kurt:.3f}")
     print_color("Reduced chi squared", chi_squared([h0_50, p_50], z_values, distance_moduli_values)/ (len(z_values) - 2))
 
     # Plot the data and the fit
@@ -165,7 +169,7 @@ def main():
         x=z_values,
         y=distance_moduli_values,
         y_err=np.sqrt(np.diag(cov_matrix)),
-        y_model=model_distance_modulus(z=z_values, p=p_50, h0=h0_50),
+        y_model=predicted_mag,
         label=f"Distance modulus (mag): $p$={p_50:.4f} & $h_0$={h0_50:.4f}",
         x_scale="linear"
     )
