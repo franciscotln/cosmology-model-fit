@@ -4,12 +4,12 @@ import pandas as pd
 import numpy as np
 
 path_to_data = os.path.dirname(os.path.abspath(__file__)) + '/raw-data/'
-distances_file = pd.read_csv(path_to_data + 'distances.txt')
+data_frame = pd.read_csv(path_to_data + 'distances.txt')
 covariance_file = pd.read_csv(path_to_data + 'covariance_stat_sys.txt')
-selected_columns = distances_file[['zHD', 'MU', 'MUERR_FINAL']]
+selected_columns = data_frame[['zHD', 'MU', 'MUERR_FINAL', 'PROB_SNNV19', 'IDSURVEY']]
 
-n = int(np.sqrt(covariance_file.size))
-variances = np.array(covariance_file['cov_mu'].values, dtype=np.float64, copy=False).reshape((n, n))
+n = selected_columns['zHD'].size
+variances = covariance_file['cov_mu'].to_numpy().reshape((n, n))
 
 # Get the indices of supernovae that were kept
 kept_indices = selected_columns.index.to_numpy()
@@ -23,6 +23,9 @@ covariance_matrix = filtered_cov_matrix + np.diag(selected_columns['MUERR_FINAL'
 # Sort by redshift
 z_values = selected_columns['zHD'].to_numpy()
 sort_indices = np.argsort(z_values)
+
+# effective_sample_size = np.where(selected_columns['PROB_SNNV19'] < 0)[0].size + np.where(selected_columns['PROB_SNNV19'] > 0.1)[0].size
+# 1735
 
 def get_data():
     return (

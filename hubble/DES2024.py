@@ -5,7 +5,7 @@ import numpy as np
 import scipy.stats as stats
 from multiprocessing import Pool
 from .plotting import plot_predictions, print_color, plot_residuals
-from y2011union.data import get_data
+from y2024DES.data import get_data
 
 legend, z_values, distance_modulus_values, _, cov_matrix = get_data()
 
@@ -16,7 +16,25 @@ C = 299792.458
 inv_cov_matrix = np.linalg.inv(cov_matrix)
 
 
-# Theoretical distance modulus for matter-dominated, flat universe:
+# ΛCDM - flat
+def integral_of_e_z(zs, omega_m):
+    i = 0
+    res = np.empty((len(zs),), dtype=np.float64)
+    for z_item in zs:
+        z_axis = np.linspace(0, z_item, 100)
+        integ = np.trapz([(1 / np.sqrt(omega_m * (1 + z) ** 3 + (1 - omega_m))) for z in z_axis], x=z_axis)
+        res[i] = integ
+        i = i + 1
+    return res
+
+def model_lcdm_apparent_mag(z, h0, omega_m):
+    normalized_h0 = 100 * h0 # (km/s/Mpc)
+    a0_over_ae = 1 + z
+    comoving_distance = (C / normalized_h0) * integral_of_e_z(zs = z, omega_m=omega_m)
+    return 25 + 5 * np.log10(a0_over_ae * comoving_distance)
+
+
+# Distance modulus for modified matter-dominated, flat universe:
 def model_distance_modulus(z, h0, p):
     normalized_h0 = 100 * h0 # (km/s/Mpc)
     a0_over_ae = (1 + z)**(1/(1 - p))
@@ -36,7 +54,7 @@ def log_likelihood(params, z, observed_mu):
 
 def log_prior(params):
     [h0, p] = params
-    if 0.6 < h0 < 0.8 and 0.2 < p < 0.5:
+    if 0.5 < h0 < 0.9 and 0.1 < p < 0.6:
         return 0.0
     return -np.inf
 
@@ -49,9 +67,10 @@ def log_probability(params, z, observed_mu):
 
 
 def main():
+    steps_to_discard = 100
     n_dim = 2
-    n_walkers = 30
-    n_steps = 2100
+    n_walkers = 10
+    n_steps = steps_to_discard + 1000
 
     initial_pos = np.zeros((n_walkers, n_dim))
     initial_pos[:, 0] = np.random.uniform(0.6, 0.8, n_walkers)
@@ -70,7 +89,7 @@ def main():
 
     # Extract samples
     chains_samples = sampler.get_chain(discard=0, flat=False)
-    samples = sampler.get_chain(discard=100, flat=True)
+    samples = sampler.get_chain(discard=steps_to_discard, flat=True)
 
     try:
         tau = sampler.get_autocorr_time()
@@ -84,8 +103,9 @@ def main():
     h0_samples = samples[:, 0]
     p_samples = samples[:, 1]
 
-    [h0_16, h0_50, h0_84] = np.percentile(h0_samples, [16, 50, 84])
-    [p_16, p_50, p_84] = np.percentile(p_samples, [16, 50, 84])
+    one_sigma_quantile = np.array([16, 50, 84])
+    [h0_16, h0_50, h0_84] = np.percentile(h0_samples, one_sigma_quantile)
+    [p_16, p_50, p_84] = np.percentile(p_samples, one_sigma_quantile)
 
     corner.corner(
         samples,
@@ -94,6 +114,7 @@ def main():
         show_titles=True,
         title_fmt=".5f",
         title_kwargs={"fontsize": 12},
+        quantiles=one_sigma_quantile/100,
     )
     plt.show()
 
@@ -101,8 +122,12 @@ def main():
     fig, axes = plt.subplots(2, figsize=(10, 7))
     axes[0].plot(chains_samples[:, :, 0], color='black', alpha=0.3)
     axes[0].set_ylabel(r"$h_0$")
+    axes[0].set_xlabel("chain step")
+    axes[0].axvline(x=steps_to_discard, color='red', linestyle='--', alpha=0.5)
     axes[1].plot(chains_samples[:, :, 1], color='black', alpha=0.3)
     axes[1].set_ylabel(r"$p$")
+    axes[1].set_xlabel("chain step")
+    axes[1].axvline(x=steps_to_discard, color='red', linestyle='--', alpha=0.5)
     plt.show()
 
     # Calculate residuals
@@ -161,7 +186,7 @@ if __name__ == '__main__':
     main()
 
 """
-Rescaled considering H0 = 70 km/s/Mpc for the distance modulus data
+Rescaled considering that H0 = 70 km/s/Mpc for the distance modulus data
 5 * np.log10(h0 / 0.70)
 
 ==============================

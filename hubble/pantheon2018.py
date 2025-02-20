@@ -158,7 +158,7 @@ def main():
         x=z_values,
         y=apparent_mag_values,
         y_err=np.sqrt(np.diag(cov_matrix)),
-        y_model=model_apparent_mag(z=z_values, p=p_50, M=M0_50),
+        y_model=predicted_apparent_mag,
         label=f"Apparent mag: $p$={p_50:.4f} and $M_0$={M0_50:.4f}",
         x_scale="log"
     )
