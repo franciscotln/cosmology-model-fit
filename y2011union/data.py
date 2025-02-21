@@ -16,6 +16,5 @@ def get_data():
         'Union2.1',
         z_values[sort_indices],
         np.array(selected_columns['mu'], dtype = np.float64, copy = False)[sort_indices],
-        np.array(selected_columns['sigma_mu'], dtype = np.float64, copy = False)[sort_indices], # statistical only
         covariance_matrix[sort_indices,:][:, sort_indices]
     )
