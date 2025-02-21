@@ -98,8 +98,8 @@ def log_probability(params, z, observed_mu):
 def main():
     steps_to_discard = 100
     n_dim = 2
-    n_walkers = 16
-    n_steps = steps_to_discard + 1000
+    n_walkers = 100
+    n_steps = steps_to_discard + 2000
 
     initial_pos = np.zeros((n_walkers, n_dim))
     initial_pos[:, 0] = np.random.uniform(*h0_bounds, n_walkers)
@@ -215,21 +215,21 @@ Rescaled considering that H0 = 70 km/s/Mpc for the distance modulus data
 Dataset: Union2.1
 z range: 0.015 - 1.414
 Sample size:  580
-Chi squared:  547.465
-p: 0.3409 +0.0194/-0.0207
-H0: 69.40 +0.45/-0.46
+Chi squared:  547.463
+p: 0.3411 +0.0194/-0.0204
+H0: 69.39 +0.46/-0.46
 R-squared (%): 99.29
-RMSD (mag): 0.270
-Skewness of residuals: 1.424
+RMSD (mag): 0.269
+Skewness of residuals: 1.423
 kurtosis of residuals: 8.377
 
 ==============================
 Dataset: DES-SN5YR
 z range: 0.025 - 1.121
 Sample size: 1829
-Chi squared:  1645.596
-p: 0.3269 +0.0078/-0.0079
-h0: 69.23 +0.17-0.17
+Chi squared: 1645.596
+p: 0.3269 ± 0.0080
+h0: 69.23 ± 0.17
 R-squared (%): 98.39
 RMSD (mag): 0.265
 Skewness of residuals: 3.416
