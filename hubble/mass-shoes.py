@@ -55,14 +55,15 @@ def log_probability(params, z, observed_mu):
 
 
 def main():
+    steps_to_discard = 100
     n_dim = 2
     n_walkers = 40
-    n_steps = 2100
+    n_steps = steps_to_discard + 2000
     initial_pos = np.zeros((n_walkers, n_dim))
     initial_pos[:, 0] = np.random.uniform(0.4, 1, n_walkers)
     initial_pos[:, 1] = np.random.uniform(0, 0.6, n_walkers)
 
-    with Pool() as pool:
+    with Pool(10) as pool:
         sampler = emcee.EnsembleSampler(
             n_walkers,
             n_dim,
@@ -73,51 +74,20 @@ def main():
         sampler.run_mcmc(initial_pos, n_steps, progress=True)
 
 
-    # Extract samples
     chains_samples = sampler.get_chain(discard=0, flat=False)
-    samples = sampler.get_chain(discard=100, flat=True)
+    samples = sampler.get_chain(discard=steps_to_discard, flat=True)
 
-    try:
-        tau = sampler.get_autocorr_time()
-        effective_samples = n_steps * n_walkers / np.max(tau)
-        print(f"Estimated autocorrelation time: {tau}")
-        print(f"Effective samples: {effective_samples:.2f}")
-    except Exception as e:
-        print("Could not estimate the autocorrelation time")
-
-    # Compute the posterior means and uncertainties
     h0_samples = samples[:, 0]
     p_samples = samples[:, 1]
 
     [h0_16, h0_50, h0_84] = np.percentile(h0_samples, [16, 50, 84])
     [p_16, p_50, p_84] = np.percentile(p_samples, [16, 50, 84])
 
-    corner.corner(
-        samples,
-        labels=[r"$h_0$", r"$p$"],
-        truths=[h0_50, p_50],
-        show_titles=True,
-        title_fmt=".5f",
-        title_kwargs={"fontsize": 12},
-    )
-    plt.show()
-
-    # Plot results: chains for each parameter
-    fig, axes = plt.subplots(2, figsize=(10, 7))
-    axes[0].plot(chains_samples[:, :, 0], color='black', alpha=0.3)
-    axes[0].set_ylabel(r"$h_0$")
-    axes[1].plot(chains_samples[:, :, 1], color='black', alpha=0.3)
-    axes[1].set_ylabel(r"$p$")
-    plt.show()
-
     # Compute residuals
     predicted_distance_modulus_values = model_distance_modulus(z=z_values, h0=h0_50, p=p_50)
     residuals = distance_modulus_values - predicted_distance_modulus_values
 
-    # Compute skewness
     skewness = stats.skew(residuals)
-
-    # Compute kurtosis
     kurtosis = stats.kurtosis(residuals)
 
     # Compute R-squared
@@ -131,7 +101,6 @@ def main():
 
     # Compute correlations
     spearman_corr, _ = stats.spearmanr(h0_samples, p_samples)
-    pearson_corr, _ = stats.pearsonr(np.log(h0_samples), np.log(p_samples))
 
     # Print the values in the console
     h0_label = f"{h0_50:.5f} +{h0_84-h0_50:.5f}/-{h0_50-h0_16:.5f}"
@@ -146,10 +115,32 @@ def main():
     print_color("Skewness of residuals", f"{skewness:.3f}")
     print_color("kurtosis of residuals", f"{kurtosis:.3f}")
     print_color("Spearman correlation", f"{spearman_corr:.3f}")
-    print_color("Pearson correlation", f"{pearson_corr:.3f}")
     print_color("Chi squared", chi_squared([h0_50, p_50], z_values, distance_modulus_values))
 
     # Plot the data and the fit
+    corner.corner(
+        samples,
+        labels=[r"$h_0$", r"$p$"],
+        truths=[h0_50, p_50],
+        show_titles=True,
+        title_fmt=".4f",
+        title_kwargs={"fontsize": 12},
+        quantiles=[0.16, 0.5, 0.84],
+    )
+    plt.show()
+
+    # Plot results: chains for each parameter
+    fig, axes = plt.subplots(2, figsize=(10, 7))
+    axes[0].plot(chains_samples[:, :, 0], color='black', alpha=0.3)
+    axes[0].set_ylabel(r"$h_0$")
+    axes[0].set_xlabel("chain step")
+    axes[0].axvline(x=steps_to_discard, color='red', linestyle='--', alpha=0.5)
+    axes[1].plot(chains_samples[:, :, 1], color='black', alpha=0.3)
+    axes[1].set_ylabel(r"$p$")
+    axes[1].set_xlabel("chain step")
+    axes[1].axvline(x=steps_to_discard, color='red', linestyle='--', alpha=0.5)
+    plt.show()
+
     plot_predictions(
         legend=legend,
         x=z_values,
