@@ -27,10 +27,30 @@ def integral_of_e_z(zs, omega_m):
         i = i + 1
     return res
 
+
+# wCDM - flat
+def integral_of_e_z_w(zs, omega_m, w):
+    i = 0
+    res = np.empty((len(zs),))
+    for z_item in zs:
+        z_axis = np.linspace(0, z_item, 100)
+        integ = np.trapz([(1 / np.sqrt(omega_m * (1 + z) ** 3 + (1 - omega_m) * (1 + z) ** (3 * (1 + w)))) for z in z_axis], x=z_axis)
+        res[i] = integ
+        i = i + 1
+    return res
+
+
 def lcdm_distance_modulus(z, h0, omega_m):
     normalized_h0 = 100 * h0 # (km/s/Mpc)
     a0_over_ae = 1 + z
     comoving_distance = (C / normalized_h0) * integral_of_e_z(zs = z, omega_m=omega_m)
+    return 25 + 5 * np.log10(a0_over_ae * comoving_distance)
+
+
+def wcdm_distance_modulus(z, h0, omega_m, w):
+    normalized_h0 = 100 * h0 # (km/s/Mpc)
+    a0_over_ae = 1 + z
+    comoving_distance = (C / normalized_h0) * integral_of_e_z_w(zs = z, omega_m=omega_m, w=w)
     return 25 + 5 * np.log10(a0_over_ae * comoving_distance)
 
 
@@ -42,9 +62,14 @@ def model_distance_modulus(z, h0, p):
     return 25 + 5 * np.log10(luminosity_distance)
 
 
+def scaled_mu(h0):
+    h0_used_by_data = 0.70
+    return 5 * np.log10(h0 / h0_used_by_data)
+
+
 def chi_squared(params, z, observed_mu):
     [h0, p] = params
-    delta = observed_mu + 5 * np.log10(h0 / 0.70) - model_distance_modulus(z=z, h0=h0, p=p)
+    delta = observed_mu + scaled_mu(h0) - model_distance_modulus(z=z, h0=h0, p=p)
     return delta.T @ inv_cov_matrix @ delta
 
 
@@ -52,7 +77,7 @@ def log_likelihood(params, z, observed_mu):
     return -0.5 * chi_squared(params, z, observed_mu)
 
 
-h0_bounds = (0.001, 1.5)
+h0_bounds = (0.4, 0.9)
 p_bounds = (0.1, 0.6)
 
 
@@ -95,14 +120,6 @@ def main():
     chains_samples = sampler.get_chain(discard=0, flat=False)
     samples = sampler.get_chain(discard=steps_to_discard, flat=True)
 
-    try:
-        tau = sampler.get_autocorr_time()
-        effective_samples = n_steps * n_walkers / np.max(tau)
-        print(f"Estimated autocorrelation time: {tau}")
-        print(f"Effective samples: {effective_samples:.2f}")
-    except Exception as e:
-        print("Could not calculate the autocorrelation time")
-
     # Calculate the posterior means and uncertainties
     h0_samples = samples[:, 0]
     p_samples = samples[:, 1]
@@ -111,37 +128,11 @@ def main():
     [h0_16, h0_50, h0_84] = np.percentile(h0_samples, one_sigma_quantile)
     [p_16, p_50, p_84] = np.percentile(p_samples, one_sigma_quantile)
 
-    corner.corner(
-        samples,
-        labels=[r"$h_0$", r"$p$"],
-        truths=[h0_50, p_50],
-        show_titles=True,
-        title_fmt=".5f",
-        title_kwargs={"fontsize": 12},
-        quantiles=one_sigma_quantile/100,
-    )
-    plt.show()
-
-    # Plot results: chains for each parameter
-    fig, axes = plt.subplots(2, figsize=(10, 7))
-    axes[0].plot(chains_samples[:, :, 0], color='black', alpha=0.3)
-    axes[0].set_ylabel(r"$h_0$")
-    axes[0].set_xlabel("chain step")
-    axes[0].axvline(x=steps_to_discard, color='red', linestyle='--', alpha=0.5)
-    axes[1].plot(chains_samples[:, :, 1], color='black', alpha=0.3)
-    axes[1].set_ylabel(r"$p$")
-    axes[1].set_xlabel("chain step")
-    axes[1].axvline(x=steps_to_discard, color='red', linestyle='--', alpha=0.5)
-    plt.show()
-
     # Calculate residuals
     predicted_distance_modulus_values = model_distance_modulus(z=z_values, h0=h0_50, p=p_50)
-    residuals = distance_modulus_values + 5 * np.log10(h0_50 / 0.70) - predicted_distance_modulus_values
+    residuals = distance_modulus_values + scaled_mu(h0_50) - predicted_distance_modulus_values
 
-    # Compute skewness
     skewness = stats.skew(residuals)
-
-    # Compute kurtosis
     kurtosis = stats.kurtosis(residuals)
 
     # Calculate R-squared
@@ -154,8 +145,8 @@ def main():
     rmsd = np.sqrt(np.mean(residuals ** 2))
 
     # Print the values in the console
-    h0_label = f"{h0_50:.5f} +{h0_84-h0_50:.5f}/-{h0_50-h0_16:.5f}"
-    p_label = f"{p_50:.5f} +{p_84-p_50:.5f}/-{p_50-p_16:.5f}"
+    h0_label = f"{h0_50:.4f} +{h0_84-h0_50:.4f}/-{h0_50-h0_16:.4f}"
+    p_label = f"{p_50:.4f} +{p_84-p_50:.4f}/-{p_50-p_16:.4f}"
     print_color("Dataset", legend)
     print_color("z range", f"{z_values[0]:.3f} - {z_values[-1]:.3f}")
     print_color("Sample size", len(z_values))
@@ -168,13 +159,40 @@ def main():
     print_color("Chi squared", chi_squared([h0_50, p_50], z_values, distance_modulus_values))
 
     # Plot the data and the fit
+
+    # Posterior distribution
+    corner.corner(
+        samples,
+        labels=[r"$h_0$", r"$p$"],
+        truths=[h0_50, p_50],
+        show_titles=True,
+        title_fmt=".4f",
+        title_kwargs={"fontsize": 12},
+        quantiles=one_sigma_quantile/100,
+    )
+    plt.show()
+
+    # Plot results: chains for each parameter
+    fig, axes = plt.subplots(n_dim, figsize=(10, 7))
+    axes[0].plot(chains_samples[:, :, 0], color='black', alpha=0.3)
+    axes[0].set_ylabel(r"$h_0$")
+    axes[0].set_xlabel("chain step")
+    axes[0].axvline(x=steps_to_discard, color='red', linestyle='--', alpha=0.5)
+    axes[1].plot(chains_samples[:, :, 1], color='black', alpha=0.3)
+    axes[1].set_ylabel(r"$p$")
+    axes[1].set_xlabel("chain step")
+    axes[1].axvline(x=steps_to_discard, color='red', linestyle='--', alpha=0.5)
+    plt.show()
+
+    y_err = np.sqrt(cov_matrix.diagonal())
+
     plot_predictions(
         legend=legend,
         x=z_values,
         y=distance_modulus_values,
-        y_err=np.sqrt(cov_matrix.diagonal()),
+        y_err=y_err,
         y_model=predicted_distance_modulus_values,
-        label=f"Model: p = {p_label}",
+        label=f"p={p_label} h0={h0_label}",
         x_scale="log"
     )
 
@@ -182,7 +200,7 @@ def main():
     plot_residuals(
         z_values=z_values,
         residuals=residuals,
-        y_err=np.sqrt(cov_matrix.diagonal()),
+        y_err=y_err,
         bins=40
     )
 
