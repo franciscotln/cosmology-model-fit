@@ -75,7 +75,7 @@ def main():
     initial_pos[:, 0] = np.random.uniform(*h0_bounds, n_walkers)
     initial_pos[:, 1] = np.random.uniform(*p_bounds, n_walkers)
 
-    with Pool() as pool:
+    with Pool(10) as pool:
         sampler = emcee.EnsembleSampler(
             nwalkers=n_walkers,
             ndim=n_dim,
@@ -99,17 +99,46 @@ def main():
     except Exception as e:
         print("Could not calculate the autocorrelation time")
 
-    # Calculate the posterior means and uncertainties
     h0_samples = samples[:, 0]
     p_samples = samples[:, 1]
 
     [h0_16, h0_50, h0_84] = np.percentile(h0_samples, [16, 50, 84])
     [p_16, p_50, p_84] = np.percentile(p_samples, [16, 50, 84])
 
+    predicted_mag = model_distance_modulus(z=z_values, p=p_50, h0=h0_50)
+    residuals = distance_moduli_values - predicted_mag
+
+    skewness = skew(residuals)
+    kurt = kurtosis(residuals)
+
+    # Calculate R-squared
+    average_distance_modulus = np.mean(distance_moduli_values)
+    ss_res = np.sum(residuals ** 2)
+    ss_tot = np.sum((distance_moduli_values - average_distance_modulus) ** 2)
+    r_squared = 1 - (ss_res / ss_tot)
+
+    # Calculate root mean square deviation
+    rmsd = np.sqrt(np.mean(residuals ** 2))
+
+    # Print the values in the console
+    h0_label = f"{h0_50:.4f} +{h0_84-h0_50:.4f}/-{h0_50-h0_16:.4f}"
+    p_label = f"{p_50:.4f} +{p_84-p_50:.4f}/-{p_50-p_16:.4f}"
+
+    print_color("Dataset", legend)
+    print_color("z range", f"{z_values[0]:.3f} - {z_values[-1]:.3f}")
+    print_color("Sample size", len(z_values))
+    print_color("p", p_label)
+    print_color("h0", h0_label)
+    print_color("R-squared (%)", f"{100 * r_squared:.2f}")
+    print_color("RMSD (mag)", f"{rmsd:.3f}")
+    print_color("Skewness of residuals", f"{skewness:.3f}")
+    print_color("kurtosis of residuals", f"{kurt:.3f}")
+    print_color("Reduced chi squared", chi_squared([h0_50, p_50], z_values, distance_moduli_values)/ (len(z_values) - 2))
+
+    # Plot the data and the fit
     corner.corner(
         samples,
         labels=[r"$h_0$", r"$p$"],
-        truths=[h0_50, p_50],
         show_titles=True,
         title_fmt=".4f",
         title_kwargs={"fontsize": 12},
@@ -129,41 +158,6 @@ def main():
     axes[1].axvline(x=discarded_steps, color='red', linestyle='--', alpha=0.5)
     plt.show()
 
-    # Calculate residuals
-    predicted_mag = model_distance_modulus(z=z_values, p=p_50, h0=h0_50)
-    residuals = distance_moduli_values - predicted_mag
-
-    # Compute skewness
-    skewness = skew(residuals)
-
-    # Compute kurtosis
-    kurt = kurtosis(residuals)
-
-    # Calculate R-squared
-    average_distance_modulus = np.mean(distance_moduli_values)
-    ss_res = np.sum(residuals ** 2)
-    ss_tot = np.sum((distance_moduli_values - average_distance_modulus) ** 2)
-    r_squared = 1 - (ss_res / ss_tot)
-
-    # Calculate root mean square deviation
-    rmsd = np.sqrt(np.mean(residuals ** 2))
-
-    # Print the values in the console
-    h0_label = f"{h0_50:.5f} +{h0_84-h0_50:.5f}/-{h0_50-h0_16:.5f}"
-    p_label = f"{p_50:.5f} +{p_84-p_50:.5f}/-{p_50-p_16:.5f}"
-
-    print_color("Dataset", legend)
-    print_color("z range", f"{z_values[0]:.3f} - {z_values[-1]:.3f}")
-    print_color("Sample size", len(z_values))
-    print_color("p", p_label)
-    print_color("h0", h0_label)
-    print_color("R-squared (%)", f"{100 * r_squared:.2f}")
-    print_color("RMSD (mag)", f"{rmsd:.3f}")
-    print_color("Skewness of residuals", f"{skewness:.3f}")
-    print_color("kurtosis of residuals", f"{kurt:.3f}")
-    print_color("Reduced chi squared", chi_squared([h0_50, p_50], z_values, distance_moduli_values)/ (len(z_values) - 2))
-
-    # Plot the data and the fit
     plot_predictions(
         legend=legend,
         x=z_values,
@@ -171,7 +165,7 @@ def main():
         y_err=np.sqrt(np.diag(cov_matrix)),
         y_model=predicted_mag,
         label=f"Distance modulus (mag): $p$={p_50:.4f} & $h_0$={h0_50:.4f}",
-        x_scale="linear"
+        x_scale="log"
     )
 
     # Plot the residual analysis
@@ -192,14 +186,14 @@ z range: 0.050 - 2.262
 =============================
 
 Alternative
-Effective chain samples: 1547
+Effective chain samples: 22580
 
-p: 0.31024 +0.01270/-0.01335
-h0: 0.71601 +0.02869/-0.02842
-R-squared (%):  99.88
-RMSD (mag): 0.078
-Skewness of residuals: -3.297
-kurtosis of residuals: 11.503
+p: 0.3104 +0.0126/-0.0132
+h0: 0.7148 +0.0297/-0.0284
+R-squared (%):  99.87
+RMSD (mag): 0.080
+Skewness of residuals: -3.300
+kurtosis of residuals: 11.512
 Reduced chi squared: 1.300
 
 =============================
