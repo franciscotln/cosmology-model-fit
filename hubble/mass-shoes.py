@@ -22,8 +22,7 @@ C = 299792.458
 def model_distance_modulus(z, h0, p):
     normalized_h0 = 100 * h0 # (km/s/Mpc)
     a0_over_ae = (1 + z) ** (1 / (1 - p))
-    comoving_distance = (2 * C * (1 - p)/ normalized_h0) * (1 - 1 / np.sqrt(a0_over_ae))
-    luminosity_distance = a0_over_ae * comoving_distance
+    luminosity_distance = 2 * (1 - p) * (C / normalized_h0) * (a0_over_ae - np.sqrt(a0_over_ae))
     return 25 + 5 * np.log10(luminosity_distance)
 
 
@@ -38,10 +37,14 @@ def log_likelihood(params, z, observed_mu):
     return -0.5 * chi_squared(params, z, observed_mu)
 
 
+h0_bounds = [0.4, 0.9]
+p_bounds = [0.1, 0.6]
+
+
 # Log prior function (uniform prior within bounds)
 def log_prior(params):
     [h0, p] = params
-    if 0.4 < h0 < 1 and 0 < p < 0.6:
+    if h0_bounds[0] < h0 < h0_bounds[1] and p_bounds[0] < p < p_bounds[1]:
         return 0.0
     return -np.inf
 
@@ -57,11 +60,11 @@ def log_probability(params, z, observed_mu):
 def main():
     steps_to_discard = 100
     n_dim = 2
-    n_walkers = 40
+    n_walkers = 50
     n_steps = steps_to_discard + 2000
     initial_pos = np.zeros((n_walkers, n_dim))
-    initial_pos[:, 0] = np.random.uniform(0.4, 1, n_walkers)
-    initial_pos[:, 1] = np.random.uniform(0, 0.6, n_walkers)
+    initial_pos[:, 0] = np.random.uniform(*h0_bounds, n_walkers)
+    initial_pos[:, 1] = np.random.uniform(*p_bounds, n_walkers)
 
     with Pool(10) as pool:
         sampler = emcee.EnsembleSampler(
@@ -103,8 +106,8 @@ def main():
     spearman_corr, _ = stats.spearmanr(h0_samples, p_samples)
 
     # Print the values in the console
-    h0_label = f"{h0_50:.5f} +{h0_84-h0_50:.5f}/-{h0_50-h0_16:.5f}"
-    p_label = f"{p_50:.5f} +{p_84-p_50:.5f}/-{p_50-p_16:.5f}"
+    h0_label = f"{h0_50:.4f} +{h0_84-h0_50:.4f}/-{h0_50-h0_16:.4f}"
+    p_label = f"{p_50:.4f} +{p_84-p_50:.4f}/-{p_50-p_16:.4f}"
     print_color("Dataset", legend)
     print_color("z range", f"{z_values[0]:.3f} - {z_values[-1]:.3f}")
     print_color("Sample size", len(z_values))
@@ -164,19 +167,15 @@ if __name__ == '__main__':
 
 """
 -- RESULTS WITH SHOES --
-Estimated autocorrelation time: [17.30 21.28]
-Effective samples: 3947.03
-Spearman correlation: 0.836
-Pearson correlation: 0.846
-Chi squared: 1753.49
-
 Dataset: Pantheon+SHOES
-Redshift range: 0.001 - 2.261
+z range: 0.001 - 2.261
 Sample size: 1701
-Estimated H0: 72.16 ± 0.23 km/s/Mpc
-Estimated p: 0.325 ± 0.009
-R-squared: 99.74 %
-RMSD: 0.173 mag
+Estimated H0 (km/s/Mpc): 72.17 +0.23/-0.22
+Estimated p: 0.3247 +0.0085/-0.0087
+R-squared (%): 99.74
+RMSD (mag): 0.173
 Skewness of residuals: -0.005
 kurtosis of residuals: 4.206
+Spearman correlation: 0.832
+Chi squared: 1753.489
 """
