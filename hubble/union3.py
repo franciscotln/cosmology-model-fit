@@ -14,7 +14,7 @@ inverse_cov = np.linalg.inv(cov_matrix)
 # Speed of light (km/s)
 C = 299792.458
 
-# ΛCDM
+# Flat ΛCDM
 def integral_of_e_z(zs, omega_m):
     i = 0
     res = np.empty((len(zs),), dtype=np.float64)
@@ -25,79 +25,67 @@ def integral_of_e_z(zs, omega_m):
         i = i + 1
     return res
 
-def model_lcdm_distance(z, omega_m, h0):
+def lcdm_distance_modulus(z, params):
+    [h0, omega_m] = params
     normalized_h0 = h0 * 100
     a0_over_ae = 1 + z
     comoving_distance = (C / normalized_h0) * integral_of_e_z(zs = z, omega_m=omega_m)
     return 25 + 5 * np.log10(a0_over_ae * comoving_distance)
 
 # Distance modulus for alternative matter-dominated, flat universe:
-def model_distance_modulus(z, p, h0):
+def distance_modulus(z, params):
+    [h0, p] = params
     normalized_h0 = h0 * 100
     a0_over_ae = (1 + z)**(1 / (1 - p))
-    comoving_distance = 2 * (C / normalized_h0) * (1 - p) * (1 - 1 / np.sqrt(a0_over_ae))
-    return 25 + 5 * np.log10(a0_over_ae * comoving_distance)
+    luminosity_distance = 2 * (C / normalized_h0) * (1 - p) * (a0_over_ae - np.sqrt(a0_over_ae))
+    return 25 + 5 * np.log10(luminosity_distance)
 
 
-def chi_squared(params, z, observed_mag):
-    [h0, p0] = params
-    delta = observed_mag - model_distance_modulus(z=z, p=p0, h0=h0)
+def chi_squared(params):
+    delta = distance_moduli_values - distance_modulus(z_values, params)
     return delta.T @ inverse_cov @ delta
 
 
-def log_likelihood(params, z, observed_mag):
-    return -0.5 * chi_squared(params, z, observed_mag)
+def log_likelihood(params):
+    return -0.5 * chi_squared(params)
 
 
-h0_bounds = (0.5, 1)
-p_bounds = (0.1, 0.6)
+bounds = np.array([
+    (0.4, 0.9), # h0
+    (0.1, 0.6), # p
+])
 
 
 def log_prior(params):
-    [h0, p0] = params
-    if h0_bounds[0] < h0 < h0_bounds[1] and p_bounds[0] < p0 < p_bounds[1]:
+    if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
         return 0.0
     return -np.inf
 
 
-def log_probability(params, z, observed_mag):
+def log_probability(params):
     lp = log_prior(params)
     if np.isinf(lp):
         return -np.inf
-    return lp + log_likelihood(params, z, observed_mag)
+    return lp + log_likelihood(params)
 
 
 def main():
-    n_dim = 2
+    discarded_steps = 100
+    n_dim = len(bounds)
     n_walkers = 40
-    n_steps = 4100
+    n_steps = discarded_steps + 1000
     initial_pos = np.zeros((n_walkers, n_dim))
-    initial_pos[:, 0] = np.random.uniform(*h0_bounds, n_walkers)
-    initial_pos[:, 1] = np.random.uniform(*p_bounds, n_walkers)
+
+    for dim, (lower, upper) in enumerate(bounds):
+      initial_pos[:, dim] = np.random.uniform(lower, upper, n_walkers)
 
     with Pool(10) as pool:
-        sampler = emcee.EnsembleSampler(
-            nwalkers=n_walkers,
-            ndim=n_dim,
-            log_prob_fn=log_probability,
-            args=(z_values, distance_moduli_values),
-            pool=pool
-        )
+        sampler = emcee.EnsembleSampler(n_walkers, n_dim, log_probability, pool=pool)
         sampler.run_mcmc(initial_pos, n_steps, progress=True)
 
 
-    # Extract samples
-    discarded_steps = 100
     chains_samples = sampler.get_chain(discard=0, flat=False)
     samples = sampler.get_chain(discard=discarded_steps, flat=True)
-
-    try:
-        tau = sampler.get_autocorr_time()
-        effective_samples = n_steps * n_walkers / np.max(tau)
-        print(f"Estimated autocorrelation time: {tau}")
-        print(f"Effective samples: {effective_samples:.2f}")
-    except Exception as e:
-        print("Could not calculate the autocorrelation time")
 
     h0_samples = samples[:, 0]
     p_samples = samples[:, 1]
@@ -105,7 +93,9 @@ def main():
     [h0_16, h0_50, h0_84] = np.percentile(h0_samples, [16, 50, 84])
     [p_16, p_50, p_84] = np.percentile(p_samples, [16, 50, 84])
 
-    predicted_mag = model_distance_modulus(z=z_values, p=p_50, h0=h0_50)
+    best_fit_params = [h0_50, p_50]
+
+    predicted_mag = distance_modulus(z_values, best_fit_params)
     residuals = distance_moduli_values - predicted_mag
 
     skewness = skew(residuals)
@@ -133,7 +123,7 @@ def main():
     print_color("RMSD (mag)", f"{rmsd:.3f}")
     print_color("Skewness of residuals", f"{skewness:.3f}")
     print_color("kurtosis of residuals", f"{kurt:.3f}")
-    print_color("Reduced chi squared", chi_squared([h0_50, p_50], z_values, distance_moduli_values)/ (len(z_values) - 2))
+    print_color("Reduced chi squared", chi_squared(best_fit_params)/ (len(z_values) - 2))
 
     # Plot the data and the fit
     corner.corner(
@@ -143,6 +133,7 @@ def main():
         title_fmt=".4f",
         title_kwargs={"fontsize": 12},
         quantiles=[0.16, 0.5, 0.84],
+        smooth=1.5,
     )
     plt.show()
 
@@ -164,7 +155,7 @@ def main():
         y=distance_moduli_values,
         y_err=np.sqrt(np.diag(cov_matrix)),
         y_model=predicted_mag,
-        label=f"Distance modulus (mag): $p$={p_50:.4f} & $h_0$={h0_50:.4f}",
+        label=f"Best fit: $p$={p_50:.4f} & $h_0$={h0_50:.4f}",
         x_scale="log"
     )
 
