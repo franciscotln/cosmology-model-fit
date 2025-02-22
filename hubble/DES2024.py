@@ -40,22 +40,25 @@ def integral_of_e_z_w(zs, omega_m, w):
     return res
 
 
-def lcdm_distance_modulus(z, h0, omega_m):
+def lcdm_distance_modulus(z, params):
+    [h0, omega_m] = params
     normalized_h0 = 100 * h0 # (km/s/Mpc)
     a0_over_ae = 1 + z
-    comoving_distance = (C / normalized_h0) * integral_of_e_z(zs = z, omega_m=omega_m)
+    comoving_distance = (C / normalized_h0) * integral_of_e_z(z, omega_m)
     return 25 + 5 * np.log10(a0_over_ae * comoving_distance)
 
 
-def wcdm_distance_modulus(z, h0, omega_m, w):
+def wcdm_distance_modulus(z, params):
+    [h0, omega_m, w] = params
     normalized_h0 = 100 * h0 # (km/s/Mpc)
     a0_over_ae = 1 + z
-    comoving_distance = (C / normalized_h0) * integral_of_e_z_w(zs = z, omega_m=omega_m, w=w)
+    comoving_distance = (C / normalized_h0) * integral_of_e_z_w(z, omega_m, w)
     return 25 + 5 * np.log10(a0_over_ae * comoving_distance)
 
 
 # Distance modulus for modified matter-dominated, flat universe:
-def model_distance_modulus(z, h0, p):
+def model_distance_modulus(z, params):
+    [h0, p] = params
     normalized_h0 = 100 * h0 # (km/s/Mpc)
     a0_over_ae = (1 + z)**(1 / (1 - p))
     luminosity_distance = (2 * C * (1 - p) / normalized_h0) * (a0_over_ae - np.sqrt(a0_over_ae))
@@ -67,60 +70,59 @@ def scaled_mu(h0):
     return 5 * np.log10(h0 / h0_used_by_data)
 
 
-def chi_squared(params, z, observed_mu):
-    [h0, p] = params
-    delta = observed_mu + scaled_mu(h0) - model_distance_modulus(z=z, h0=h0, p=p)
+def chi_squared(params):
+    h0 = params[0]
+    delta = distance_modulus_values + scaled_mu(h0) - model_distance_modulus(z_values, params)
     return delta.T @ inv_cov_matrix @ delta
 
 
-def log_likelihood(params, z, observed_mu):
-    return -0.5 * chi_squared(params, z, observed_mu)
+def log_likelihood(params):
+    return -0.5 * chi_squared(params)
 
 
-h0_bounds = (0.4, 0.9)
-p_bounds = (0.1, 0.6)
+bounds = np.array([
+    (0.4, 0.9),  # h0
+    (0.1, 0.6),  # p
+])
 
 
 def log_prior(params):
-    [h0, p] = params
-    if h0_bounds[0] < h0 < h0_bounds[1] and p_bounds[0] < p < p_bounds[1]:
+    if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
         return 0.0
-    return -np.inf
+    else:
+        return -np.inf
 
 
-def log_probability(params, z, observed_mu):
+def log_probability(params):
     lp = log_prior(params)
     if np.isinf(lp):
         return -np.inf
-    return lp + log_likelihood(params, z, observed_mu)
+    return lp + log_likelihood(params)
 
 
 def main():
     steps_to_discard = 100
-    n_dim = 2
+    n_dim = len(bounds)
     n_walkers = 100
     n_steps = steps_to_discard + 2000
-
     initial_pos = np.zeros((n_walkers, n_dim))
-    initial_pos[:, 0] = np.random.uniform(*h0_bounds, n_walkers)
-    initial_pos[:, 1] = np.random.uniform(*p_bounds, n_walkers)
 
-    with Pool() as pool:
+    for dim, (lower, upper) in enumerate(bounds):
+      initial_pos[:, dim] = np.random.uniform(lower, upper, n_walkers)
+
+    with Pool(10) as pool:
         sampler = emcee.EnsembleSampler(
             n_walkers,
             n_dim,
             log_probability,
-            args=(z_values, distance_modulus_values),
             pool=pool
         )
         sampler.run_mcmc(initial_pos, n_steps, progress=True)
 
 
-    # Extract samples
     chains_samples = sampler.get_chain(discard=0, flat=False)
     samples = sampler.get_chain(discard=steps_to_discard, flat=True)
 
-    # Calculate the posterior means and uncertainties
     h0_samples = samples[:, 0]
     p_samples = samples[:, 1]
 
@@ -128,8 +130,9 @@ def main():
     [h0_16, h0_50, h0_84] = np.percentile(h0_samples, one_sigma_quantile)
     [p_16, p_50, p_84] = np.percentile(p_samples, one_sigma_quantile)
 
-    # Calculate residuals
-    predicted_distance_modulus_values = model_distance_modulus(z=z_values, h0=h0_50, p=p_50)
+    best_fit_params = [h0_50, p_50]
+
+    predicted_distance_modulus_values = model_distance_modulus(z_values, best_fit_params)
     residuals = distance_modulus_values + scaled_mu(h0_50) - predicted_distance_modulus_values
 
     skewness = stats.skew(residuals)
@@ -147,6 +150,7 @@ def main():
     # Print the values in the console
     h0_label = f"{h0_50:.4f} +{h0_84-h0_50:.4f}/-{h0_50-h0_16:.4f}"
     p_label = f"{p_50:.4f} +{p_84-p_50:.4f}/-{p_50-p_16:.4f}"
+
     print_color("Dataset", legend)
     print_color("z range", f"{z_values[0]:.3f} - {z_values[-1]:.3f}")
     print_color("Sample size", len(z_values))
@@ -156,23 +160,22 @@ def main():
     print_color("RMSD (mag)", f"{rmsd:.3f}")
     print_color("Skewness of residuals", f"{skewness:.3f}")
     print_color("kurtosis of residuals", f"{kurtosis:.3f}")
-    print_color("Chi squared", chi_squared([h0_50, p_50], z_values, distance_modulus_values))
-
-    # Plot the data and the fit
+    print_color("Chi squared", chi_squared(best_fit_params))
 
     # Posterior distribution
     corner.corner(
         samples,
         labels=[r"$h_0$", r"$p$"],
-        truths=[h0_50, p_50],
         show_titles=True,
         title_fmt=".4f",
         title_kwargs={"fontsize": 12},
         quantiles=one_sigma_quantile/100,
+        smooth=1.5,
+        smooth1d=1.5,
     )
     plt.show()
 
-    # Plot results: chains for each parameter
+    # Plot chains for each parameter
     fig, axes = plt.subplots(n_dim, figsize=(10, 7))
     axes[0].plot(chains_samples[:, :, 0], color='black', alpha=0.3)
     axes[0].set_ylabel(r"$h_0$")
@@ -186,6 +189,7 @@ def main():
 
     y_err = np.sqrt(cov_matrix.diagonal())
 
+    # Plot the predictions
     plot_predictions(
         legend=legend,
         x=z_values,
