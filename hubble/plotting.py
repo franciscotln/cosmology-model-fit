@@ -70,4 +70,4 @@ def plot_residuals(z_values, residuals, y_err, bins):
     plt.show()
 
 
-def print_color(key, value): print(f"\033[94m{key}: \033[00m \033[93m{value}\033[00m")
+def print_color(key, value): print(f"\033[94m{key}: \033[00m\033[93m{value}\033[00m")

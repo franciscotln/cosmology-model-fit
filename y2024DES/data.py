@@ -6,7 +6,7 @@ import numpy as np
 path_to_data = os.path.dirname(os.path.abspath(__file__)) + '/raw-data/'
 data_frame = pd.read_csv(path_to_data + 'distances.txt')
 covariance_file = pd.read_csv(path_to_data + 'covariance_stat_sys.txt')
-selected_columns = data_frame[['zHD', 'MU', 'MUERR_FINAL', 'PROB_SNNV19', 'IDSURVEY']]
+selected_columns = data_frame[['zHD', 'MU', 'MUERR_FINAL']]
 
 n = selected_columns['zHD'].size
 covariance_stat = covariance_file['cov_mu'].to_numpy().reshape((n, n))
