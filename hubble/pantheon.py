@@ -3,6 +3,7 @@ import corner
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats as stats
+from scipy.integrate import quad
 from multiprocessing import Pool
 from .plotting import plot_predictions, print_color, plot_residuals
 # from y2018pantheon.data import get_data
@@ -17,20 +18,16 @@ C = 299792.458
 inv_cov_matrix = np.linalg.inv(cov_matrix)
 
 # Flat ΛCDM
-def integral_of_e_z(zs, omega_m):
-    i = 0
-    res = np.empty((len(zs),), dtype=np.float64)
-    for z_item in zs:
-        z_axis = np.linspace(0, z_item, 100)
-        integ = np.trapz([(1 / np.sqrt(omega_m * (1 + z) ** 3 + (1 - omega_m))) for z in z_axis], x=z_axis)
-        res[i] = integ
-        i = i + 1
-    return res
+def integral_of_e_z(zs, omega_m, w):
+    def integrand(z):
+        return 1 / np.sqrt(omega_m * (1 + z) ** 3 + (1 - omega_m) * (1 + z) ** (3 * (1 + w)))
+
+    return np.array([quad(integrand, 0, z_item)[0] for z_item in zs])
 
 def lcdm_apparent_mag(z, params):
     [M, omega_m] = params
     a0_over_ae = 1 + z
-    luminosity_distance = a0_over_ae * C * integral_of_e_z(z, omega_m)
+    luminosity_distance = a0_over_ae * C * integral_of_e_z(z, omega_m, -1)
     return M + 25 + 5 * np.log10(luminosity_distance)
 
 # Apparent magnitude for alternative matter-dominated, flat universe:
@@ -188,13 +185,13 @@ Reduced chi squared:  0.991
 =============================
 
 ΛCDM
-M0: -28.5751 +0.0105/-0.0105 (H0=70 => M=-19.3496)
-Ωm: 0.2985 +0.0219/-0.0218
+M0: -28.5749 +0.0102/-0.0108 (H0=70 => M=-19.2882)
+Ωm: 0.2993 +0.0207/-0.0219
 R-squared: 99.71 %
 RMSD (mag): 0.143
 Skewness of residuals: 0.191
-kurtosis of residuals: 0.697
-Reduce chi squared: 0.9815
+kurtosis of residuals: 0.698
+Reduce chi squared: 0.9817
 
 *****************************
 Dataset: Pantheon+ (2022)
@@ -215,8 +212,8 @@ Reduced chi squared: 0.8912
 =============================
 
 ΛCDM
-M0: -28.5759 +0.0062/-0.0066 (H0=70 => M=-19.3504)
-Ωm: 0.3335 +0.0170/-0.0165
+M0: -28.5763 +0.0070/-0.0068 (H0=70 => M=-19.2896)
+Ωm: 0.3323 +0.0070/-0.0068
 R-squared: 99.74 %
 RMSD (mag): 0.154
 Skewness of residuals: 0.091

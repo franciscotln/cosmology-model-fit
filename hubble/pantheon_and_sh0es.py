@@ -2,6 +2,7 @@ import emcee
 import corner
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy.integrate import quad
 import scipy.stats as stats
 from multiprocessing import Pool
 from .plotting import plot_predictions, print_color, plot_residuals
@@ -19,14 +20,10 @@ C = 299792.458
 
 # Flat ΛCDM
 def integral_of_e_z(zs, omega_m, w):
-    i = 0
-    res = np.empty((len(zs),), dtype=np.float64)
-    for z_item in zs:
-        z_axis = np.linspace(0, z_item, 100)
-        integ = np.trapz([(1 / np.sqrt(omega_m * (1 + z) ** 3 + (1 - omega_m) * (1 + z) ** (3 * (1 + w)))) for z in z_axis], x=z_axis)
-        res[i] = integ
-        i = i + 1
-    return res
+    def integrand(z):
+        return 1 / np.sqrt(omega_m * (1 + z) ** 3 + (1 - omega_m) * (1 + z) ** (3 * (1 + w)))
+
+    return np.array([quad(integrand, 0, z_item)[0] for z_item in zs])
 
 
 # Flat wCDM
@@ -66,8 +63,8 @@ def log_likelihood(params):
 
 
 bounds = np.array([
-    (0.4, 0.9), # h0
-    (0.1, 0.6), # p
+    (0.3, 1.0), # h0
+    (0, 0.7), # p
 ])
 
 
@@ -88,7 +85,7 @@ def main():
     steps_to_discard = 100
     n_dim = len(bounds)
     n_walkers = 300
-    n_steps = steps_to_discard + 200
+    n_steps = steps_to_discard + 500
     initial_pos = np.zeros((n_walkers, n_dim))
 
     for dim, (lower, upper) in enumerate(bounds):
@@ -206,17 +203,17 @@ RMSD (mag): 0.155
 Skewness of residuals: 0.002
 kurtosis of residuals: 1.597
 Spearman correlation: 0.823
-Chi squared: 1465.77
+Chi squared: 1465.8
 
 =============================
 
 ΛCDM
-Estimated H0: 73.23 +0.24/-0.25 km/s/Mpc
-Estimated Ωm: 0.3297 +0.0175/-0.0160
+Estimated H0: 73.25 +0.22/-0.24 km/s/Mpc
+Estimated Ωm: 0.3295 +0.0183/-0.0170
 R-squared: 99.78 %
 RMSD (mag): 0.153
 Skewness of residuals: 0.086
 kurtosis of residuals: 1.558
-Spearman correlation: -0.808
-Chi squared: 1452.74
+Spearman correlation: -0.832
+Chi squared: 1452.8
 """

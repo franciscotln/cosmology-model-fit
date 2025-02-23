@@ -3,6 +3,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats as stats
+from scipy.integrate import quad
 from multiprocessing import Pool
 from .plotting import plot_predictions, print_color, plot_residuals
 from y2024DES.data import get_data
@@ -19,28 +20,24 @@ inv_cov_matrix = np.linalg.inv(cov_matrix)
 h0 = 70
 
 # wCDM - flat
-def integral_of_e_z_w(zs, omega_m, w):
-    i = 0
-    res = np.empty((len(zs),))
-    for z_item in zs:
-        z_axis = np.linspace(0, z_item, 100)
-        integ = np.trapz([(1 / np.sqrt(omega_m * (1 + z) ** 3 + (1 - omega_m) * (1 + z) ** (3 * (1 + w)))) for z in z_axis], x=z_axis)
-        res[i] = integ
-        i = i + 1
-    return res
+def integral_of_e_z(zs, omega_m, w):
+    def integrand(z):
+        return 1 / np.sqrt(omega_m * (1 + z) ** 3 + (1 - omega_m) * (1 + z) ** (3 * (1 + w)))
+
+    return np.array([quad(integrand, 0, z_item)[0] for z_item in zs])
 
 
 def lcdm_distance_modulus(z, params):
     [omega_m] = params
     a0_over_ae = 1 + z
-    comoving_distance = (C / h0) * integral_of_e_z_w(z, omega_m, -1)
+    comoving_distance = (C / h0) * integral_of_e_z(z, omega_m, -1)
     return 25 + 5 * np.log10(a0_over_ae * comoving_distance)
 
 
 def wcdm_distance_modulus(z, params):
     [omega_m, w] = params
     a0_over_ae = 1 + z
-    comoving_distance = (C / h0) * integral_of_e_z_w(z, omega_m, w)
+    comoving_distance = (C / h0) * integral_of_e_z(z, omega_m, w)
     return 25 + 5 * np.log10(a0_over_ae * comoving_distance)
 
 
@@ -191,9 +188,13 @@ if __name__ == '__main__':
     main()
 
 """
+********************************
 Dataset: Union2.1
 z range: 0.015 - 1.414
 Sample size: 580
+********************************
+
+Alternative:
 Chi squared: 553.2905
 p: 0.3410 +0.0193/-0.0210
 R-squared (%): 99.26
@@ -201,10 +202,13 @@ RMSD (mag): 0.276
 Skewness of residuals: 1.423
 kurtosis of residuals: 8.377
 
-==============================
+********************************
 Dataset: DES-SN5YR
 z range: 0.025 - 1.121
 Sample size: 1829
+********************************
+
+Alternative:
 Chi squared: 1654.7499
 p: 0.3267 +0.0077/-0.0078
 R-squared (%): 98.24
@@ -213,15 +217,12 @@ Skewness of residuals: 3.416
 kurtosis of residuals: 25.859
 
 ==============================
-Flat ΛCDM
 
-Dataset: DES-SN5YR
-z range: 0.025 - 1.121
-Sample size: 1829
-Chi squared: 1649.4596
-Ωm: 0.3507 +0.0170/-0.0167
+Flat ΛCDM
+Chi squared: 1649.4738
+Ωm: 0.3520 +0.0169/-0.0170
 R-squared (%): 98.35
 RMSD (mag): 0.268
-Skewness of residuals: 3.409
-kurtosis of residuals: 25.926
+Skewness of residuals: 3.408
+kurtosis of residuals: 25.913
 """

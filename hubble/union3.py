@@ -3,6 +3,7 @@ import corner
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import skew, kurtosis
+from scipy.integrate import quad
 from multiprocessing import Pool
 from .plotting import plot_predictions, print_color, plot_residuals
 from y2023union3.data import get_data
@@ -15,21 +16,18 @@ inverse_cov = np.linalg.inv(cov_matrix)
 C = 299792.458
 
 # Flat ΛCDM
-def integral_of_e_z(zs, omega_m):
-    i = 0
-    res = np.empty((len(zs),), dtype=np.float64)
-    for z_item in zs:
-        z_axis = np.linspace(0, z_item, 100)
-        integ = np.trapz([(1 / np.sqrt(omega_m * (1 + z) ** 3 + (1 - omega_m))) for z in z_axis], x=z_axis)
-        res[i] = integ
-        i = i + 1
-    return res
+def integral_of_e_z(zs, omega_m, w):
+    def integrand(z):
+        return 1 / np.sqrt(omega_m * (1 + z) ** 3 + (1 - omega_m) * (1 + z) ** (3 * (1 + w)))
+
+    return np.array([quad(integrand, 0, z_item)[0] for z_item in zs])
+
 
 def lcdm_distance_modulus(z, params):
     [h0, omega_m] = params
     normalized_h0 = h0 * 100
     a0_over_ae = 1 + z
-    comoving_distance = (C / normalized_h0) * integral_of_e_z(zs = z, omega_m=omega_m)
+    comoving_distance = (C / normalized_h0) * integral_of_e_z(zs=z, omega_m=omega_m, w=-1)
     return 25 + 5 * np.log10(a0_over_ae * comoving_distance)
 
 # Distance modulus for alternative matter-dominated, flat universe:
@@ -179,12 +177,12 @@ z range: 0.050 - 2.262
 Alternative
 Effective chain samples: 22580
 
-p: 0.3104 +0.0126/-0.0132
-h0: 0.7148 +0.0297/-0.0284
-R-squared (%):  99.87
-RMSD (mag): 0.080
-Skewness of residuals: -3.300
-kurtosis of residuals: 11.512
+p: 0.3109 +0.0132/-0.0132
+h0: 0.7140 +0.0304/-0.0289
+R-squared (%):  99.86
+RMSD (mag): 0.081
+Skewness of residuals: -3.306
+kurtosis of residuals: 11.533
 Reduced chi squared: 1.300
 
 =============================
@@ -192,11 +190,11 @@ Reduced chi squared: 1.300
 ΛCDM
 Effective chain samples: 1537
 
-Ωm: 0.35602 +0.02765/-0.02555
-h0: 0.72471 +0.03005/-0.02864
+Ωm: 0.3580 +0.0283/-0.0269
+h0: 0.7241 +0.0292/-0.0283
 R-squared (%): 99.95
 RMSD (mag): 0.048
-Skewness of residuals: 0.554
-kurtosis of residuals: 0.689
+Skewness of residuals: 0.611
+kurtosis of residuals: 0.695
 Reduced chi squared: 1.198
 """
