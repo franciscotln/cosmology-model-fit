@@ -5,7 +5,8 @@ import numpy as np
 import scipy.stats as stats
 from multiprocessing import Pool
 from .plotting import plot_predictions, print_color, plot_residuals
-from y2018pantheon.data import get_data
+# from y2018pantheon.data import get_data
+from y2022pantheonSHOES.data import get_data
 
 legend, z_values, apparent_mag_values, cov_matrix = get_data()
 
@@ -41,7 +42,7 @@ def model_apparent_mag(z, params):
 
 
 def chi_squared(params):
-    delta = apparent_mag_values - model_apparent_mag(z_values, params)
+    delta = apparent_mag_values - lcdm_apparent_mag(z_values, params)
     return delta.T @ inv_cov_matrix @ delta
 
 
@@ -71,7 +72,7 @@ def log_probability(params):
 def main():
     steps_to_discard = 100
     n_dim = len(bounds)
-    n_walkers = 100
+    n_walkers = 10
     n_steps = steps_to_discard + 500
     initial_pos = np.zeros((n_walkers, n_dim))
 
@@ -95,7 +96,7 @@ def main():
     best_fit_params = [M0_50, p_50]
 
     # Calculate residuals
-    predicted_apparent_mag = model_apparent_mag(z_values, best_fit_params)
+    predicted_apparent_mag = lcdm_apparent_mag(z_values, best_fit_params)
     residuals = apparent_mag_values - predicted_apparent_mag
 
     skewness = stats.skew(residuals)
@@ -115,7 +116,7 @@ def main():
     p_label = f"{p_50:.4f} +{p_84-p_50:.4f}/-{p_50-p_16:.4f}"
 
     print_color("Dataset", legend)
-    print_color("z range", f"{z_values[0]:.3f} - {z_values[-1]:.3f}")
+    print_color("z range", f"{z_values[0]:.4f} - {z_values[-1]:.4f}")
     print_color("Sample size", len(z_values))
     print_color("p", p_label)
     print_color("M0", M0_label)
@@ -123,7 +124,7 @@ def main():
     print_color("RMSD (mag)", f"{rmsd:.3f}")
     print_color("Skewness of residuals", f"{skewness:.3f}")
     print_color("kurtosis of residuals", f"{kurtosis:.3f}")
-    print_color("Reduced chi squared", chi_squared(best_fit_params)/ (len(z_values) - 2))
+    print_color("Reduced chi squared", chi_squared(best_fit_params)/ (len(z_values) - len(best_fit_params)))
 
     # Plot the data and the fit
     corner.corner(
@@ -168,17 +169,17 @@ if __name__ == '__main__':
     main()
 
 """
-Dataset: Pantheon2018
+*****************************
+Dataset: Pantheon (2018)
 z range: 0.010 - 2.260
 Sample size: 1048
 M0 contains Hubble constant and absolute magnitude
-
-=============================
+*****************************
 
 Alternative
-M0: -28.5486 +0.0109/-0.0112
+M0: -28.5486 +0.0109/-0.0112 (H0=70 => M=-19.3231)
 p: 0.3491 +0.0102/-0.0107
-R-squared (%): 99.69
+R-squared: 99.69 %
 RMSD (mag): 0.147
 Skewness of residuals: 0.082
 kurtosis of residuals: 0.797
@@ -187,11 +188,38 @@ Reduced chi squared:  0.991
 =============================
 
 ΛCDM
-M0: -28.5751 +0.0105/-0.0105
+M0: -28.5751 +0.0105/-0.0105 (H0=70 => M=-19.3496)
 Ωm: 0.2985 +0.0219/-0.0218
-R-squared (%): 99.71
+R-squared: 99.71 %
 RMSD (mag): 0.143
 Skewness of residuals: 0.191
 kurtosis of residuals: 0.697
 Reduce chi squared: 0.9815
+
+*****************************
+Dataset: Pantheon+ (2022)
+z range: 0.0102 - 2.2614
+Sample size: 1590
+M0 contains Hubble constant and absolute magnitude
+*****************************
+
+Alternative
+M0: -28.5558 +0.0068/-0.0070 (H0=70 => M=-19.3303)
+p: 0.3378 +0.0084/-0.0085
+R-squared: 99.74 %
+RMSD (mag): 0.155
+Skewness of residuals: 0.004
+kurtosis of residuals: 1.622
+Reduced chi squared: 0.8912
+
+=============================
+
+ΛCDM
+M0: -28.5759 +0.0062/-0.0066 (H0=70 => M=-19.3504)
+Ωm: 0.3335 +0.0170/-0.0165
+R-squared: 99.74 %
+RMSD (mag): 0.154
+Skewness of residuals: 0.091
+kurtosis of residuals: 1.585
+Reduce chi squared: 0.8840
 """
