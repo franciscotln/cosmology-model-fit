@@ -16,11 +16,12 @@ n = z_values.size
 covariance_matrix = convariances_file['cov_mu_shoes'].to_numpy().reshape((n, n))
 
 pantheon_range = np.where(z_values > 0.01)[0]
+sort_indices = np.argsort(z_values[pantheon_range])
 
 def get_data():
     return (
         legend,
-        z_values[pantheon_range],
-        apparent_magnitudes[pantheon_range],
-        covariance_matrix[np.ix_(pantheon_range, pantheon_range)],
+        z_values[sort_indices],
+        apparent_magnitudes[sort_indices],
+        covariance_matrix[np.ix_(sort_indices, sort_indices)],
     )
