@@ -42,7 +42,7 @@ def model_apparent_mag(z, params):
 
 
 def chi_squared(params):
-    delta = apparent_mag_values - lcdm_apparent_mag(z_values, params)
+    delta = apparent_mag_values - model_apparent_mag(z_values, params)
     return delta.T @ inv_cov_matrix @ delta
 
 
@@ -72,7 +72,7 @@ def log_probability(params):
 def main():
     steps_to_discard = 100
     n_dim = len(bounds)
-    n_walkers = 10
+    n_walkers = 100
     n_steps = steps_to_discard + 500
     initial_pos = np.zeros((n_walkers, n_dim))
 
@@ -96,7 +96,7 @@ def main():
     best_fit_params = [M0_50, p_50]
 
     # Calculate residuals
-    predicted_apparent_mag = lcdm_apparent_mag(z_values, best_fit_params)
+    predicted_apparent_mag = model_apparent_mag(z_values, best_fit_params)
     residuals = apparent_mag_values - predicted_apparent_mag
 
     skewness = stats.skew(residuals)
