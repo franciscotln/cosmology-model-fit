@@ -38,8 +38,9 @@ def lcdm_distance_modulus(z, params):
 
 def wcdm_distance_modulus(z, params):
     [h0, omega_m, w] = params
+    normalized_h0 = 100 * h0
     a0_over_ae = 1 + z
-    comoving_distance = (C / h0) * integral_of_e_z(z, omega_m, w)
+    comoving_distance = (C / normalized_h0) * integral_of_e_z(z, omega_m, w)
     return 25 + 5 * np.log10(a0_over_ae * comoving_distance)
 
 
@@ -145,7 +146,6 @@ def main():
     corner.corner(
         samples,
         labels=[r"$h_0$", r"$p$"],
-        truths=[h0_50, p_50],
         show_titles=True,
         title_fmt=".4f",
         title_kwargs={"fontsize": 12},
@@ -156,7 +156,7 @@ def main():
     plt.show()
 
     # Plot results: chains for each parameter
-    fig, axes = plt.subplots(2, figsize=(10, 7))
+    fig, axes = plt.subplots(n_dim, figsize=(10, 7))
     axes[0].plot(chains_samples[:, :, 0], color='black', alpha=0.3)
     axes[0].set_ylabel(r"$h_0$")
     axes[0].set_xlabel("chain step")
@@ -216,4 +216,16 @@ Skewness of residuals: 0.086
 kurtosis of residuals: 1.558
 Spearman correlation: -0.832
 Chi squared: 1452.8
+
+=============================
+
+wCDM
+Estimated H0: 0.7312 +0.0032/-0.0029 km/s/Mpc
+Estimated Ωm: 0.3050 +0.0600/-0.0746
+Estimated w: -0.9306 +0.1447/-0.1602
+R-squared: 99.78 %
+RMSD (mag): 0.153
+Skewness of residuals: 0.078
+kurtosis of residuals: 1.565
+Chi squared: 1452.5
 """
