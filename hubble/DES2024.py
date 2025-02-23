@@ -18,18 +18,6 @@ inv_cov_matrix = np.linalg.inv(cov_matrix)
 # Hubble constant km/s/Mpc as assumed in the dataset
 h0 = 70
 
-# ΛCDM - flat
-def integral_of_e_z(zs, omega_m):
-    i = 0
-    res = np.empty((len(zs),))
-    for z_item in zs:
-        z_axis = np.linspace(0, z_item, 100)
-        integ = np.trapz([(1 / np.sqrt(omega_m * (1 + z) ** 3 + (1 - omega_m))) for z in z_axis], x=z_axis)
-        res[i] = integ
-        i = i + 1
-    return res
-
-
 # wCDM - flat
 def integral_of_e_z_w(zs, omega_m, w):
     i = 0
@@ -45,7 +33,7 @@ def integral_of_e_z_w(zs, omega_m, w):
 def lcdm_distance_modulus(z, params):
     [omega_m] = params
     a0_over_ae = 1 + z
-    comoving_distance = (C / h0) * integral_of_e_z(z, omega_m)
+    comoving_distance = (C / h0) * integral_of_e_z_w(z, omega_m, -1)
     return 25 + 5 * np.log10(a0_over_ae * comoving_distance)
 
 
