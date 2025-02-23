@@ -5,9 +5,9 @@ import numpy as np
 import scipy.stats as stats
 from multiprocessing import Pool
 from .plotting import plot_predictions, print_color, plot_residuals
-from y2022pantheonSHOES.data import get_data
+from y2022pantheonSHOES.data_shoes import get_data
 
-legend, z_values, distance_modulus_values, cov_matrix = get_data()
+legend, z_values, distance_modulus_values, cepheid_distances, cov_matrix = get_data()
 sigma_distance_moduli = np.sqrt(cov_matrix.diagonal())
 
 # inverse covariance matrix
@@ -17,63 +17,85 @@ inv_cov_matrix = np.linalg.inv(cov_matrix)
 C = 299792.458
 
 
-# Theoretical distance modulus for matter-dominated, flat universe:
-# Fixed p=0.325 yields stable h0~0.72 at different z bins. p and h0 are highly correlated
-def model_distance_modulus(z, h0, p):
+# Flat ΛCDM
+def integral_of_e_z(zs, omega_m, w):
+    i = 0
+    res = np.empty((len(zs),), dtype=np.float64)
+    for z_item in zs:
+        z_axis = np.linspace(0, z_item, 100)
+        integ = np.trapz([(1 / np.sqrt(omega_m * (1 + z) ** 3 + (1 - omega_m) * (1 + z) ** (3 * (1 + w)))) for z in z_axis], x=z_axis)
+        res[i] = integ
+        i = i + 1
+    return res
+
+
+# Flat wCDM
+def lcdm_distance_modulus(z, params):
+    [h0, omega_m] = params
+    normalized_h0 = 100 * h0
+    a0_over_ae = 1 + z
+    comoving_distance = (C / normalized_h0) * integral_of_e_z(zs = z, omega_m=omega_m, w=-1)
+    luminosity_distance = comoving_distance * a0_over_ae
+    return 25 + 5 * np.log10(luminosity_distance)
+
+
+def wcdm_distance_modulus(z, params):
+    [h0, omega_m, w] = params
+    a0_over_ae = 1 + z
+    comoving_distance = (C / h0) * integral_of_e_z(z, omega_m, w)
+    return 25 + 5 * np.log10(a0_over_ae * comoving_distance)
+
+
+# Modified distance modulus for matter-dominated, flat universe:
+def model_distance_modulus(z, params):
+    [h0, p] = params
     normalized_h0 = 100 * h0 # (km/s/Mpc)
     a0_over_ae = (1 + z) ** (1 / (1 - p))
     luminosity_distance = 2 * (1 - p) * (C / normalized_h0) * (a0_over_ae - np.sqrt(a0_over_ae))
     return 25 + 5 * np.log10(luminosity_distance)
 
 
-def chi_squared(params, z, observed_mu):
-    [h0, p] = params
-    delta = observed_mu - model_distance_modulus(z=z, h0=h0, p=p)
+def chi_squared(params):
+    mu_theory = np.where(cepheid_distances != -9, cepheid_distances, model_distance_modulus(z_values, params))
+    delta = distance_modulus_values - mu_theory
     return delta.T @ inv_cov_matrix @ delta
 
 
-# Log likelihood for MCMC sampling (negative chi-squared)
-def log_likelihood(params, z, observed_mu):
-    return -0.5 * chi_squared(params, z, observed_mu)
+def log_likelihood(params):
+    return -0.5 * chi_squared(params)
 
 
-h0_bounds = [0.4, 0.9]
-p_bounds = [0.1, 0.6]
+bounds = np.array([
+    (0.4, 0.9), # h0
+    (0.1, 0.6), # p
+])
 
 
-# Log prior function (uniform prior within bounds)
 def log_prior(params):
-    [h0, p] = params
-    if h0_bounds[0] < h0 < h0_bounds[1] and p_bounds[0] < p < p_bounds[1]:
+    if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
         return 0.0
     return -np.inf
 
 
-# Log probability function (posterior = likelihood * prior)
-def log_probability(params, z, observed_mu):
+def log_probability(params):
     lp = log_prior(params)
     if np.isinf(lp):
         return -np.inf
-    return lp + log_likelihood(params, z, observed_mu)
+    return lp + log_likelihood(params)
 
 
 def main():
     steps_to_discard = 100
-    n_dim = 2
-    n_walkers = 50
-    n_steps = steps_to_discard + 2000
+    n_dim = len(bounds)
+    n_walkers = 300
+    n_steps = steps_to_discard + 200
     initial_pos = np.zeros((n_walkers, n_dim))
-    initial_pos[:, 0] = np.random.uniform(*h0_bounds, n_walkers)
-    initial_pos[:, 1] = np.random.uniform(*p_bounds, n_walkers)
+
+    for dim, (lower, upper) in enumerate(bounds):
+      initial_pos[:, dim] = np.random.uniform(lower, upper, n_walkers)
 
     with Pool(10) as pool:
-        sampler = emcee.EnsembleSampler(
-            n_walkers,
-            n_dim,
-            log_probability,
-            args=(z_values, distance_modulus_values),
-            pool=pool
-        )
+        sampler = emcee.EnsembleSampler(n_walkers, n_dim, log_probability, pool=pool)
         sampler.run_mcmc(initial_pos, n_steps, progress=True)
 
 
@@ -86,9 +108,11 @@ def main():
     [h0_16, h0_50, h0_84] = np.percentile(h0_samples, [16, 50, 84])
     [p_16, p_50, p_84] = np.percentile(p_samples, [16, 50, 84])
 
+    best_fit_params = [h0_50, p_50]
+
     # Compute residuals
-    predicted_distance_modulus_values = model_distance_modulus(z=z_values, h0=h0_50, p=p_50)
-    residuals = distance_modulus_values - predicted_distance_modulus_values
+    predicted_distance_modulus_values = model_distance_modulus(z_values, best_fit_params)
+    residuals = np.where(cepheid_distances != -9, distance_modulus_values - cepheid_distances , distance_modulus_values - predicted_distance_modulus_values)
 
     skewness = stats.skew(residuals)
     kurtosis = stats.kurtosis(residuals)
@@ -109,7 +133,7 @@ def main():
     h0_label = f"{h0_50:.4f} +{h0_84-h0_50:.4f}/-{h0_50-h0_16:.4f}"
     p_label = f"{p_50:.4f} +{p_84-p_50:.4f}/-{p_50-p_16:.4f}"
     print_color("Dataset", legend)
-    print_color("z range", f"{z_values[0]:.3f} - {z_values[-1]:.3f}")
+    print_color("z range", f"{z_values[0]:.4f} - {z_values[-1]:.4f}")
     print_color("Sample size", len(z_values))
     print_color("Estimated h = H0 / 100 (km/s/Mpc)", h0_label)
     print_color("Estimated p", p_label)
@@ -118,7 +142,7 @@ def main():
     print_color("Skewness of residuals", f"{skewness:.3f}")
     print_color("kurtosis of residuals", f"{kurtosis:.3f}")
     print_color("Spearman correlation", f"{spearman_corr:.3f}")
-    print_color("Chi squared", chi_squared([h0_50, p_50], z_values, distance_modulus_values))
+    print_color("Chi squared", chi_squared(best_fit_params))
 
     # Plot the data and the fit
     corner.corner(
@@ -129,6 +153,8 @@ def main():
         title_fmt=".4f",
         title_kwargs={"fontsize": 12},
         quantiles=[0.16, 0.5, 0.84],
+        smooth=1.5,
+        smooth1d=1.5,
     )
     plt.show()
 
@@ -166,16 +192,31 @@ if __name__ == '__main__':
     main()
 
 """
--- RESULTS WITH SHOES --
-Dataset: Pantheon+SHOES
-z range: 0.001 - 2.261
-Sample size: 1701
-Estimated H0 (km/s/Mpc): 72.17 +0.23/-0.22
-Estimated p: 0.3247 +0.0085/-0.0087
-R-squared (%): 99.74
-RMSD (mag): 0.173
-Skewness of residuals: -0.005
-kurtosis of residuals: 4.206
-Spearman correlation: 0.832
-Chi squared: 1753.489
+*****************************
+Dataset: Pantheon+ and SH0ES
+z range: 0.0012 - 2.2614
+Sample size: 1657
+*****************************
+
+Alternative
+Estimated H0: 72.53 ± 0.23 km/s/Mpc
+Estimated p: 0.3381 +0.0083/-0.0084
+R-squared: 99.78 %
+RMSD (mag): 0.155
+Skewness of residuals: 0.002
+kurtosis of residuals: 1.597
+Spearman correlation: 0.823
+Chi squared: 1465.77
+
+=============================
+
+ΛCDM
+Estimated H0: 73.23 +0.24/-0.25 km/s/Mpc
+Estimated Ωm: 0.3297 +0.0175/-0.0160
+R-squared: 99.78 %
+RMSD (mag): 0.153
+Skewness of residuals: 0.086
+kurtosis of residuals: 1.558
+Spearman correlation: -0.808
+Chi squared: 1452.74
 """
