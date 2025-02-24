@@ -132,6 +132,7 @@ def main():
         title_kwargs={"fontsize": 12},
         quantiles=[0.16, 0.5, 0.84],
         smooth=1.5,
+        smooth1d=1.5,
     )
     plt.show()
 
@@ -169,32 +170,31 @@ if __name__ == '__main__':
     main()
 
 """
+*****************************
 Dataset: Union 3 Bins
 z range: 0.050 - 2.262
-
-=============================
+Sample size: 22
+*****************************
 
 Alternative
-Effective chain samples: 22580
 
-p: 0.3109 +0.0132/-0.0132
-h0: 0.7140 +0.0304/-0.0289
-R-squared (%):  99.86
-RMSD (mag): 0.081
-Skewness of residuals: -3.306
-kurtosis of residuals: 11.533
+p: 0.3103 +0.0128/-0.0132
+h0: 0.7149 +0.0294/-0.0284
+R-squared (%): 99.87
+RMSD (mag): 0.079
+Skewness of residuals: -3.298
+kurtosis of residuals: 11.507
 Reduced chi squared: 1.300
 
 =============================
 
 ΛCDM
-Effective chain samples: 1537
 
-Ωm: 0.3580 +0.0283/-0.0269
-h0: 0.7241 +0.0292/-0.0283
+Ωm: 0.3565 +0.0278/-0.0270
+h0: 0.7245 +0.0298/-0.0289
 R-squared (%): 99.95
 RMSD (mag): 0.048
-Skewness of residuals: 0.611
-kurtosis of residuals: 0.695
+Skewness of residuals: 0.567
+kurtosis of residuals: 0.690
 Reduced chi squared: 1.198
 """
