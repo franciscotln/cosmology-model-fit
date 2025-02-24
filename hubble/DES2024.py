@@ -89,8 +89,8 @@ def log_probability(params):
 def main():
     steps_to_discard = 100
     n_dim = len(bounds)
-    n_walkers = 60
-    n_steps = steps_to_discard + 500
+    n_walkers = 40
+    n_steps = steps_to_discard + 2000
     initial_pos = np.zeros((n_walkers, n_dim))
 
     for dim, (lower, upper) in enumerate(bounds):
@@ -108,6 +108,13 @@ def main():
 
     chains_samples = sampler.get_chain(discard=0, flat=False)
     samples = sampler.get_chain(discard=steps_to_discard, flat=True)
+
+    try:
+        tau = sampler.get_autocorr_time()
+        print_color("Autocorrelation time:", tau)
+        print_color("Effective number of independent samples:", len(samples) / tau)
+    except Exception as e:
+        print("Autocorrelation time could not be computed")
 
     p_samples = samples[:, 0]
 
@@ -209,12 +216,12 @@ Sample size: 1829
 ********************************
 
 Alternative:
-Chi squared: 1654.7499
-p: 0.3267 +0.0077/-0.0078
+Chi squared: 1654.7471
+p: 0.3270 +0.0079/-0.0082
 R-squared (%): 98.24
 RMSD (mag): 0.277
 Skewness of residuals: 3.416
-kurtosis of residuals: 25.859
+kurtosis of residuals: 25.864
 
 ==============================
 
@@ -225,4 +232,15 @@ R-squared (%): 98.35
 RMSD (mag): 0.268
 Skewness of residuals: 3.408
 kurtosis of residuals: 25.913
+
+==============================
+
+Flat wCDM
+Chi squared: 1648.1531
+Ωm: 0.2769 +0.0722/-0.0915
+w: -0.8236 +0.1450/-0.1692
+R-squared (%): 98.32
+RMSD (mag): 0.270
+Skewness of residuals: 3.416
+kurtosis of residuals: 25.958
 """
