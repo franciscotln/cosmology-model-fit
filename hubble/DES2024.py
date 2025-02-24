@@ -202,12 +202,22 @@ Sample size: 580
 ********************************
 
 Alternative:
-Chi squared: 553.2905
-p: 0.3410 +0.0193/-0.0210
+Chi squared: 553.2910
+p: 0.3409 +0.0191/-0.0207
 R-squared (%): 99.26
 RMSD (mag): 0.276
 Skewness of residuals: 1.423
 kurtosis of residuals: 8.377
+
+==============================
+
+Flat ΛCDM
+Chi squared: 550.9463
+Ωm: 0.2993 +0.0427/-0.0401
+R-squared (%): 99.30
+RMSD (mag): 0.268
+Skewness of residuals: 1.406
+kurtosis of residuals: 8.236
 
 ********************************
 Dataset: DES-SN5YR
