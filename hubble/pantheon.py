@@ -156,7 +156,7 @@ def main():
         y=apparent_mag_values,
         y_err=np.sqrt(np.diag(cov_matrix)),
         y_model=predicted_apparent_mag,
-        label=f"Best fit: $p$={p_50:.4f} and $M_0$={M0_50:.4f} and $w$={w_50:.4f}",
+        label=f"Best fit: $p$={p_50:.4f} and $M_0$={M0_50:.4f}",
         x_scale="log"
     )
 
