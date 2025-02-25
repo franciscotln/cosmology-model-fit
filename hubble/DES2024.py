@@ -111,8 +111,8 @@ def main():
 
     try:
         tau = sampler.get_autocorr_time()
-        print_color("Autocorrelation time:", tau)
-        print_color("Effective number of independent samples:", len(samples) / tau)
+        print_color("Autocorrelation time", tau)
+        print_color("Effective number of independent samples", len(samples) / tau)
     except Exception as e:
         print("Autocorrelation time could not be computed")
 
