@@ -30,6 +30,12 @@ def lcdm_apparent_mag(z, params):
     luminosity_distance = a0_over_ae * C * integral_of_e_z(z, omega_m, -1)
     return M + 25 + 5 * np.log10(luminosity_distance)
 
+def wcdm_apparent_mag(z, params):
+    [M, omega_m, w] = params
+    a0_over_ae = 1 + z
+    luminosity_distance = a0_over_ae * C * integral_of_e_z(z, omega_m, w)
+    return M + 25 + 5 * np.log10(luminosity_distance)
+
 # Apparent magnitude for alternative matter-dominated, flat universe:
 def model_apparent_mag(z, params):
     [M, p] = params
@@ -137,7 +143,7 @@ def main():
     plt.show()
 
     # Plot chains for each parameter
-    fig, axes = plt.subplots(2, figsize=(10, 7))
+    fig, axes = plt.subplots(n_dim, figsize=(10, 7))
     axes[0].plot(chains_samples[:, :, 0], color='black', alpha=0.3)
     axes[0].set_ylabel(r"$M_0$")
     axes[1].plot(chains_samples[:, :, 1], color='black', alpha=0.3)
@@ -150,7 +156,7 @@ def main():
         y=apparent_mag_values,
         y_err=np.sqrt(np.diag(cov_matrix)),
         y_model=predicted_apparent_mag,
-        label=f"Best fit: $p$={p_50:.4f} and $M_0$={M0_50:.4f}",
+        label=f"Best fit: $p$={p_50:.4f} and $M_0$={M0_50:.4f} and $w$={w_50:.4f}",
         x_scale="log"
     )
 
@@ -219,4 +225,16 @@ RMSD (mag): 0.154
 Skewness of residuals: 0.091
 kurtosis of residuals: 1.585
 Reduce chi squared: 0.8840
+
+=============================
+
+wCDM
+M0: -28.5731 +0.0076/-0.0085
+Ωm: 0.2698 +0.0566/-0.0701
+w: -0.8580 +0.1104/-0.1336
+R-squared (%): 99.74
+RMSD (mag): 0.154
+Skewness of residuals: 0.075
+kurtosis of residuals: 1.593
+Reduced chi squared: 0.8845
 """
