@@ -23,6 +23,14 @@ def integral_of_e_z(zs, omega_m, w):
     return np.array([quad(integrand, 0, z_item)[0] for z_item in zs])
 
 
+def wcdm_distance_modulus(z, params):
+    [h0, omega_m, w] = params
+    normalized_h0 = h0 * 100
+    a0_over_ae = 1 + z
+    comoving_distance = (C / normalized_h0) * integral_of_e_z(zs=z, omega_m=omega_m, w=w)
+    return 25 + 5 * np.log10(a0_over_ae * comoving_distance)
+
+
 def lcdm_distance_modulus(z, params):
     [h0, omega_m] = params
     normalized_h0 = h0 * 100
@@ -70,8 +78,8 @@ def log_probability(params):
 def main():
     discarded_steps = 100
     n_dim = len(bounds)
-    n_walkers = 40
-    n_steps = discarded_steps + 1000
+    n_walkers = 400
+    n_steps = discarded_steps + 1250
     initial_pos = np.zeros((n_walkers, n_dim))
 
     for dim, (lower, upper) in enumerate(bounds):
@@ -115,8 +123,8 @@ def main():
     print_color("Dataset", legend)
     print_color("z range", f"{z_values[0]:.3f} - {z_values[-1]:.3f}")
     print_color("Sample size", len(z_values))
-    print_color("p", p_label)
     print_color("h0", h0_label)
+    print_color("p", p_label)
     print_color("R-squared (%)", f"{100 * r_squared:.2f}")
     print_color("RMSD (mag)", f"{rmsd:.3f}")
     print_color("Skewness of residuals", f"{skewness:.3f}")
@@ -137,7 +145,7 @@ def main():
     plt.show()
 
     # Plot results: chains for each parameter
-    fig, axes = plt.subplots(2, figsize=(10, 7))
+    fig, axes = plt.subplots(n_dim, figsize=(10, 7))
     axes[0].plot(chains_samples[:, :, 0], color='black', alpha=0.3)
     axes[0].set_ylabel(r"$h_0$")
     axes[0].set_xlabel("chain step")
@@ -178,23 +186,36 @@ Sample size: 22
 
 Alternative
 
-p: 0.3103 +0.0128/-0.0132
-h0: 0.7149 +0.0294/-0.0284
+p: 0.3103 +0.0127/-0.0133
+h0: 0.7150 +0.0299/-0.0285
 R-squared (%): 99.87
 RMSD (mag): 0.079
 Skewness of residuals: -3.298
-kurtosis of residuals: 11.507
+kurtosis of residuals: 11.505
 Reduced chi squared: 1.300
 
 =============================
 
 ΛCDM
 
-Ωm: 0.3565 +0.0278/-0.0270
-h0: 0.7245 +0.0298/-0.0289
+Ωm: 0.3568 +0.0276/-0.0262
+h0: 0.7239 +0.0301/-0.0287
 R-squared (%): 99.95
-RMSD (mag): 0.048
-Skewness of residuals: 0.567
-kurtosis of residuals: 0.690
+RMSD (mag): 0.049
+Skewness of residuals: 0.578
+kurtosis of residuals: 0.691
 Reduced chi squared: 1.198
+
+=============================
+
+wCDM
+
+Ωm: 0.2526 +0.0884/-0.1101
+h0: 0.7201 +0.0301/-0.0285
+w: -0.7477 +0.1553/-0.1865
+R-squared (%): 99.94
+RMSD (mag): 0.053
+Skewness of residuals: -1.257
+kurtosis of residuals: 3.921
+Reduced chi squared: 1.107
 """
