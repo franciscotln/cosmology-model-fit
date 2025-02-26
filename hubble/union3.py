@@ -186,12 +186,12 @@ Sample size: 22
 
 Alternative
 
-p: 0.3103 +0.0127/-0.0133
-h0: 0.7150 +0.0299/-0.0285
+p: 0.3106 +0.0127/-0.0132
+h0: 0.7148 +0.0297/-0.0285
 R-squared (%): 99.87
-RMSD (mag): 0.079
-Skewness of residuals: -3.298
-kurtosis of residuals: 11.505
+RMSD (mag): 0.080
+Skewness of residuals: -3.301
+kurtosis of residuals: 11.518
 Reduced chi squared: 1.300
 
 =============================
