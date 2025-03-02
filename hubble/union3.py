@@ -15,19 +15,21 @@ inverse_cov = np.linalg.inv(cov_matrix)
 # Speed of light (km/s)
 C = 299792.458
 
-# Flat ΛCDM
-def integral_of_e_z(zs, omega_m, w):
+# Flat model
+def integral_of_e_z(zs, w0, wa):
     def integrand(z):
-        return 1 / np.sqrt(omega_m * (1 + z) ** 3 + (1 - omega_m) * (1 + z) ** (3 * (1 + w)))
+        radiation_limit = 1/3
+        w_z = radiation_limit + (w0 - radiation_limit) * np.exp(-z * wa)
+        return 1 / np.sqrt((1 + z) ** (3 * (1 + w_z)))
 
     return np.array([quad(integrand, 0, z_item)[0] for z_item in zs])
 
 
 def wcdm_distance_modulus(z, params):
-    [h0, omega_m, w] = params
+    [h0, w0, wa] = params
     normalized_h0 = h0 * 100
     a0_over_ae = 1 + z
-    comoving_distance = (C / normalized_h0) * integral_of_e_z(zs=z, omega_m=omega_m, w=w)
+    comoving_distance = (C / normalized_h0) * integral_of_e_z(zs=z, w0=w0, wa=wa)
     return 25 + 5 * np.log10(a0_over_ae * comoving_distance)
 
 
@@ -38,17 +40,9 @@ def lcdm_distance_modulus(z, params):
     comoving_distance = (C / normalized_h0) * integral_of_e_z(zs=z, omega_m=omega_m, w=-1)
     return 25 + 5 * np.log10(a0_over_ae * comoving_distance)
 
-# Distance modulus for alternative matter-dominated, flat universe:
-def distance_modulus(z, params):
-    [h0, p] = params
-    normalized_h0 = h0 * 100
-    a0_over_ae = (1 + z)**(1 / (1 - p))
-    luminosity_distance = 2 * (C / normalized_h0) * (1 - p) * (a0_over_ae - np.sqrt(a0_over_ae))
-    return 25 + 5 * np.log10(luminosity_distance)
-
 
 def chi_squared(params):
-    delta = distance_moduli_values - distance_modulus(z_values, params)
+    delta = distance_moduli_values - wcdm_distance_modulus(z_values, params)
     return delta.T @ inverse_cov @ delta
 
 
@@ -58,7 +52,8 @@ def log_likelihood(params):
 
 bounds = np.array([
     (0.4, 0.9), # h0
-    (0.1, 0.6), # p
+    (-2, 0.5), # w0
+    (-0.5, 1), # wa
 ])
 
 
@@ -78,7 +73,7 @@ def log_probability(params):
 def main():
     discarded_steps = 100
     n_dim = len(bounds)
-    n_walkers = 400
+    n_walkers = 100
     n_steps = discarded_steps + 1250
     initial_pos = np.zeros((n_walkers, n_dim))
 
@@ -93,15 +88,15 @@ def main():
     chains_samples = sampler.get_chain(discard=0, flat=False)
     samples = sampler.get_chain(discard=discarded_steps, flat=True)
 
-    h0_samples = samples[:, 0]
-    p_samples = samples[:, 1]
+    [
+        [h0_16, h0_50, h0_84],
+        [w0_16, w0_50, w0_84], 
+        [wa_16, wa_50, wa_84]
+    ] = np.percentile(samples, [16, 50, 84], axis=0).T
 
-    [h0_16, h0_50, h0_84] = np.percentile(h0_samples, [16, 50, 84])
-    [p_16, p_50, p_84] = np.percentile(p_samples, [16, 50, 84])
+    best_fit_params = [h0_50, w0_50, wa_50]
 
-    best_fit_params = [h0_50, p_50]
-
-    predicted_mag = distance_modulus(z_values, best_fit_params)
+    predicted_mag = wcdm_distance_modulus(z_values, best_fit_params)
     residuals = distance_moduli_values - predicted_mag
 
     skewness = skew(residuals)
@@ -118,13 +113,15 @@ def main():
 
     # Print the values in the console
     h0_label = f"{h0_50:.4f} +{h0_84-h0_50:.4f}/-{h0_50-h0_16:.4f}"
-    p_label = f"{p_50:.4f} +{p_84-p_50:.4f}/-{p_50-p_16:.4f}"
+    w0_label = f"{w0_50:.4f} +{w0_84-w0_50:.4f}/-{w0_50-w0_16:.4f}"
+    wa_label = f"{wa_50:.4f} +{wa_84-wa_50:.4f}/-{wa_50-wa_16:.4f}"
 
     print_color("Dataset", legend)
     print_color("z range", f"{z_values[0]:.3f} - {z_values[-1]:.3f}")
     print_color("Sample size", len(z_values))
     print_color("h0", h0_label)
-    print_color("p", p_label)
+    print_color("w0", w0_label)
+    print_color("wa", wa_label)
     print_color("R-squared (%)", f"{100 * r_squared:.2f}")
     print_color("RMSD (mag)", f"{rmsd:.3f}")
     print_color("Skewness of residuals", f"{skewness:.3f}")
@@ -132,9 +129,10 @@ def main():
     print_color("Reduced chi squared", chi_squared(best_fit_params)/ (len(z_values) - 2))
 
     # Plot the data and the fit
+    labels = [r"$h_0$", r"$w_0$", r"$w_a$"]
     corner.corner(
         samples,
-        labels=[r"$h_0$", r"$p$"],
+        labels=labels,
         show_titles=True,
         title_fmt=".4f",
         title_kwargs={"fontsize": 12},
@@ -146,14 +144,14 @@ def main():
 
     # Plot results: chains for each parameter
     fig, axes = plt.subplots(n_dim, figsize=(10, 7))
-    axes[0].plot(chains_samples[:, :, 0], color='black', alpha=0.3)
-    axes[0].set_ylabel(r"$h_0$")
-    axes[0].set_xlabel("chain step")
-    axes[0].axvline(x=discarded_steps, color='red', linestyle='--', alpha=0.5)
-    axes[1].plot(chains_samples[:, :, 1], color='black', alpha=0.3)
-    axes[1].set_ylabel(r"$p$")
-    axes[1].set_xlabel("chain step")
-    axes[1].axvline(x=discarded_steps, color='red', linestyle='--', alpha=0.5)
+    if n_dim == 1:
+        axes = [axes]
+    for i in range(n_dim):
+        axes[i].plot(chains_samples[:, :, i], color='black', alpha=0.3)
+        axes[i].set_ylabel(labels[i])
+        axes[i].set_xlabel("chain step")
+        axes[i].axvline(x=discarded_steps, color='red', linestyle='--', alpha=0.5)
+        axes[i].axhline(y=best_fit_params[i], color='white', linestyle='--', alpha=0.5)
     plt.show()
 
     plot_predictions(
@@ -162,7 +160,7 @@ def main():
         y=distance_moduli_values,
         y_err=np.sqrt(np.diag(cov_matrix)),
         y_model=predicted_mag,
-        label=f"Best fit: $p$={p_50:.4f} & $h_0$={h0_50:.4f}",
+        label=f"Best fit: $w_0$={w0_50:.4f}, $h_0$={h0_50:.4f}",
         x_scale="log"
     )
 
@@ -184,22 +182,10 @@ z range: 0.050 - 2.262
 Sample size: 22
 *****************************
 
-Alternative
-
-p: 0.3106 +0.0127/-0.0132
-h0: 0.7148 +0.0297/-0.0285
-R-squared (%): 99.87
-RMSD (mag): 0.080
-Skewness of residuals: -3.301
-kurtosis of residuals: 11.518
-Reduced chi squared: 1.300
-
-=============================
-
 ΛCDM
 
 Ωm: 0.3568 +0.0276/-0.0262
-h0: 0.7239 +0.0301/-0.0287
+H0: 72.39 +3.01/-2.87 km/s/Mpc
 R-squared (%): 99.95
 RMSD (mag): 0.049
 Skewness of residuals: 0.578
@@ -211,11 +197,23 @@ Reduced chi squared: 1.198
 wCDM
 
 Ωm: 0.2526 +0.0884/-0.1101
-h0: 0.7201 +0.0301/-0.0285
 w: -0.7477 +0.1553/-0.1865
+H0: 72.01 +3.01/-2.85 km/s/Mpc
 R-squared (%): 99.94
 RMSD (mag): 0.053
 Skewness of residuals: -1.257
 kurtosis of residuals: 3.921
 Reduced chi squared: 1.107
+
+=============================
+
+Fluid model
+w0: -0.5609 +0.0577/-0.0600
+wa: 0.1685 +0.0954/-0.0918
+H0: 72.02 +2.98/-2.87
+R-squared (%): 99.95
+RMSD (mag): 0.049
+Skewness of residuals: -0.482
+kurtosis of residuals: 1.903
+Reduced chi squared: 1.092
 """

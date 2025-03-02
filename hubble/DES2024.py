@@ -1,5 +1,5 @@
 import emcee
-import seaborn as sns
+import corner
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats as stats
@@ -20,9 +20,11 @@ inv_cov_matrix = np.linalg.inv(cov_matrix)
 h0 = 70
 
 # wCDM - flat
-def integral_of_e_z(zs, omega_m, w):
+def integral_of_e_z(zs, w0, wa):
     def integrand(z):
-        return 1 / np.sqrt(omega_m * (1 + z) ** 3 + (1 - omega_m) * (1 + z) ** (3 * (1 + w)))
+        radiation_limit = 1 / 3
+        w_z = radiation_limit + (w0 - radiation_limit) * np.exp(-z * wa)
+        return 1 / np.sqrt((1 + z) ** (3 * (1 + w_z)))
 
     return np.array([quad(integrand, 0, z_item)[0] for z_item in zs])
 
@@ -35,9 +37,9 @@ def lcdm_distance_modulus(z, params):
 
 
 def wcdm_distance_modulus(z, params):
-    [omega_m, w] = params
+    [w0, wa] = params
     a0_over_ae = 1 + z
-    comoving_distance = (C / h0) * integral_of_e_z(z, omega_m, w)
+    comoving_distance = (C / h0) * integral_of_e_z(z, w0, wa)
     return 25 + 5 * np.log10(a0_over_ae * comoving_distance)
 
 
@@ -54,7 +56,7 @@ def chi_squared(params):
     Computes modified likelihood to marginalize over M 
     (Wood-Vasey et al. 2001, Appendix A9-A12)
     """
-    delta = distance_modulus_values - model_distance_modulus(z_values, params)
+    delta = distance_modulus_values - wcdm_distance_modulus(z_values, params)
     deltaT = np.transpose(delta)
     chit2 = np.sum(delta @ inv_cov_matrix @ deltaT)      # First term: (Δ^T C^-1 Δ)
     B = np.sum(delta @ inv_cov_matrix)                   # Second term: B
@@ -68,7 +70,8 @@ def log_likelihood(params):
 
 
 bounds = np.array([
-    (0.1, 0.6), # p
+    (-2, 1), # w0
+    (-0.5, 1) # wa
 ])
 
 
@@ -88,21 +91,16 @@ def log_probability(params):
 
 def main():
     steps_to_discard = 100
-    n_dim = len(bounds)
-    n_walkers = 40
+    ndim = len(bounds)
+    nwalkers = 50
     n_steps = steps_to_discard + 2000
-    initial_pos = np.zeros((n_walkers, n_dim))
+    initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):
-      initial_pos[:, dim] = np.random.uniform(lower, upper, n_walkers)
+      initial_pos[:, dim] = np.random.uniform(lower, upper, nwalkers)
 
     with Pool(10) as pool:
-        sampler = emcee.EnsembleSampler(
-            n_walkers,
-            n_dim,
-            log_probability,
-            pool=pool
-        )
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool=pool)
         sampler.run_mcmc(initial_pos, n_steps, progress=True)
 
 
@@ -116,14 +114,16 @@ def main():
     except Exception as e:
         print("Autocorrelation time could not be computed")
 
-    p_samples = samples[:, 0]
+    w0_samples = samples[:, 0]
+    wa_samples = samples[:, 1]
 
     one_sigma_quantile = np.array([16, 50, 84])
-    [p_16, p_50, p_84] = np.percentile(p_samples, one_sigma_quantile)
+    [w0_16, w0_50, w0_84] = np.percentile(w0_samples, one_sigma_quantile)
+    [wa_16, wa_50, wa_84] = np.percentile(wa_samples, one_sigma_quantile)
 
-    best_fit_params = [p_50]
+    best_fit_params = [w0_50, wa_50]
 
-    predicted_distance_modulus_values = model_distance_modulus(z_values, best_fit_params)
+    predicted_distance_modulus_values = wcdm_distance_modulus(z_values, best_fit_params)
     residuals = distance_modulus_values - predicted_distance_modulus_values
 
     skewness = stats.skew(residuals)
@@ -139,35 +139,43 @@ def main():
     rmsd = np.sqrt(np.mean(residuals ** 2))
 
     # Print the values in the console
-    p_label = f"{p_50:.4f} +{p_84-p_50:.4f}/-{p_50-p_16:.4f}"
+    w0_label = f"{w0_50:.4f} +{w0_84-w0_50:.4f}/-{w0_50-w0_16:.4f}"
+    wa_label = f"{wa_50:.4f} +{wa_84-wa_50:.4f}/-{wa_50-wa_16:.4f}"
 
     print_color("Dataset", legend)
     print_color("z range", f"{z_values[0]:.3f} - {z_values[-1]:.3f}")
     print_color("Sample size", len(z_values))
-    print_color("p", p_label)
+    print_color("w0", w0_label)
+    print_color("wa", wa_label)
     print_color("R-squared (%)", f"{100 * r_squared:.2f}")
     print_color("RMSD (mag)", f"{rmsd:.3f}")
     print_color("Skewness of residuals", f"{skewness:.3f}")
     print_color("kurtosis of residuals", f"{kurtosis:.3f}")
     print_color("Chi squared", chi_squared(best_fit_params))
 
-    # Posterior distribution
-    sns.histplot(p_samples, kde=True, color="skyblue", stat="density", bins=50)
-    plt.axvline(p_16, color='red', linestyle='--', label=r"-1$\sigma$")
-    plt.axvline(p_50, color='green', linestyle='-', label=r"$p50$")
-    plt.axvline(p_84, color='red', linestyle='--', label=r"+1$\sigma$")
-    plt.xlabel("p")
-    plt.ylabel("Density")
-    plt.title("Posterior Distribution")
-    plt.legend()
+    labels = [r"$w_0$", r"$w_a$"]
+    corner.corner(
+        samples,
+        labels=labels,
+        quantiles=[0.16, 0.5, 0.84],
+        show_titles=True,
+        title_fmt=".4f",
+        title_kwargs={"fontsize": 12},
+        smooth=1.5,
+        smooth1d=1.5,
+    )
     plt.show()
 
     # Plot chains for each parameter
-    fig, axes = plt.subplots(n_dim, figsize=(10, 7))
-    axes.plot(chains_samples[:, :, 0], color='black', alpha=0.3)
-    axes.set_ylabel(r"$p$")
-    axes.set_xlabel("chain step")
-    axes.axvline(x=steps_to_discard, color='red', linestyle='--', alpha=0.5)
+    fig, axes = plt.subplots(ndim, figsize=(10, 7))
+    if ndim == 1:
+        axes = [axes]
+    for i in range(ndim):
+        axes[i].plot(chains_samples[:, :, i], color='black', alpha=0.3)
+        axes[i].set_ylabel(labels[i])
+        axes[i].set_xlabel("chain step")
+        axes[i].axvline(x=steps_to_discard, color='red', linestyle='--', alpha=0.5)
+        axes[i].axhline(y=best_fit_params[i], color='white', linestyle='--', alpha=0.5)
     plt.show()
 
     y_err = np.sqrt(cov_matrix.diagonal())
@@ -179,7 +187,7 @@ def main():
         y=distance_modulus_values,
         y_err=y_err,
         y_model=predicted_distance_modulus_values,
-        label=f"p={p_label}",
+        label=f"w0={w0_label}",
         x_scale="log"
     )
 
@@ -201,16 +209,6 @@ z range: 0.015 - 1.414
 Sample size: 580
 ********************************
 
-Alternative:
-Chi squared: 553.2910
-p: 0.3409 +0.0191/-0.0207
-R-squared (%): 99.26
-RMSD (mag): 0.276
-Skewness of residuals: 1.423
-kurtosis of residuals: 8.377
-
-==============================
-
 Flat ΛCDM
 Chi squared: 550.9463
 Ωm: 0.2993 +0.0427/-0.0401
@@ -224,16 +222,6 @@ Dataset: DES-SN5YR
 z range: 0.025 - 1.121
 Sample size: 1829
 ********************************
-
-Alternative:
-Chi squared: 1654.7471
-p: 0.3270 +0.0079/-0.0082
-R-squared (%): 98.24
-RMSD (mag): 0.277
-Skewness of residuals: 3.416
-kurtosis of residuals: 25.864
-
-==============================
 
 Flat ΛCDM
 Chi squared: 1649.4738
@@ -253,4 +241,15 @@ R-squared (%): 98.32
 RMSD (mag): 0.270
 Skewness of residuals: 3.416
 kurtosis of residuals: 25.958
+
+==============================
+
+Fluid model
+Chi squared: 1647.6322
+w0: -0.6010 +0.0452/-0.0466
+wa: 0.2190 +0.0920/-0.0894
+R-squared (%): 98.33
+RMSD (mag): 0.270
+Skewness of residuals: 3.417
+kurtosis of residuals: 25.974
 """
