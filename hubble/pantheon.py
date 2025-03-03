@@ -6,8 +6,8 @@ import scipy.stats as stats
 from scipy.integrate import quad
 from multiprocessing import Pool
 from .plotting import plot_predictions, print_color, plot_residuals
-from y2018pantheon.data import get_data
-# from y2022pantheonSHOES.data import get_data
+# from y2018pantheon.data import get_data
+from y2022pantheonSHOES.data import get_data
 
 legend, z_values, apparent_mag_values, cov_matrix = get_data()
 
@@ -205,7 +205,7 @@ Reduce chi squared: 0.9817
 =============================
 
 Fluid model
-M0: -28.5766 +0.0142/-0.0142
+M0: -28.5766 +0.0142/-0.0142 (M(0.7)=-19.3509)
 w0: -0.7085 +0.0603/-0.0657
 wm: 0.2654 +0.0826/-0.0813
 R-squared: 99.71 %
