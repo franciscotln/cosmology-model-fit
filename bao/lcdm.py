@@ -13,6 +13,7 @@ c = 299792.458
 
 r_d = 147.18  # Fiducial value from Planck rs = 147.18 ± 0.29 Mpc, h0 = 0.6737 ± 0.0054
 
+# Source: https://github.com/CobayaSampler/bao_data/blob/master/desi_2024_gaussian_bao_ALL_GCcomb_mean.txt
 data = np.genfromtxt(
     path_to_data + "data.txt",
     dtype=[("z", float), ("value", float), ("quantity", "U10")],
@@ -144,6 +145,7 @@ def main():
     except emcee.autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
 
+    chains_samples = sampler.get_chain(discard=0, flat=False)
     samples = sampler.get_chain(discard=burn_in, flat=True)
 
     H0_percentiles = np.percentile(samples[:, 0], [16, 50, 84], axis=0)
@@ -158,9 +160,10 @@ def main():
     print(f"H0={H0_50:.4f} ± {H0_err:.4f}, w0={w0_50:.4f} ± {w0_err:.4f}, wm={wm_50:.4f} ± {wm_err:.4f}")
     print("chi squared: ", chi_squared(best_fit))
 
+    labels = [r"$H_0$", r"w_0", r"$w_m$"]
     corner.corner(
         samples,
-        labels=[r"$H_0$", r"w_0", r"$w_m$"],
+        labels=labels,
         percentiles=[0.16, 0.5, 0.84],
         show_titles=True,
         title_fmt=".4f",
@@ -168,6 +171,17 @@ def main():
         smooth1d=2,
         bins=50,
     )
+    plt.show()
+
+    fig, axes = plt.subplots(ndim, figsize=(10, 7))
+    if ndim == 1:
+        axes = [axes]
+    for i in range(ndim):
+        axes[i].plot(chains_samples[:, :, i], color='black', alpha=0.3)
+        axes[i].set_ylabel(labels[i])
+        axes[i].set_xlabel("chain step")
+        axes[i].axvline(x=burn_in, color='red', linestyle='--', alpha=0.5)
+        axes[i].axhline(y=best_fit[i], color='white', linestyle='--', alpha=0.5)
     plt.show()
 
     plot_predictions(best_fit)
@@ -186,9 +200,9 @@ degree of freedom: 10
 ==============================
 
 Fluid model
-H0 = 67.00 ± 1.49 km/s/Mpc
-w0 = -0.5545 ± 0.0528
-wm = 0.1482 ± 0.0133
+H0 = 67.01 ± 1.49 km/s/Mpc
+w0 = -0.5546 ± 0.0526
+wm = 0.1481 ± 0.0133
 chi squared: 10.98
 degree of freedom: 9
 """
