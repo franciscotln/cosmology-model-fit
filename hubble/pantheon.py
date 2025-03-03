@@ -6,8 +6,8 @@ import scipy.stats as stats
 from scipy.integrate import quad
 from multiprocessing import Pool
 from .plotting import plot_predictions, print_color, plot_residuals
-# from y2018pantheon.data import get_data
-from y2022pantheonSHOES.data import get_data
+from y2018pantheon.data import get_data
+# from y2022pantheonSHOES.data import get_data
 
 legend, z_values, apparent_mag_values, cov_matrix = get_data()
 
@@ -20,8 +20,7 @@ inv_cov_matrix = np.linalg.inv(cov_matrix)
 # Flat ΛCDM
 def integral_of_e_z(zs, w0, wm):
     def integrand(z):
-        w_inf = 1/3
-        w_z = w_inf - w_inf * (1 - (w0/w_inf))**(1 - wm * z)
+        w_z = 1/3 - 1/3 * (1 - 3*w0) ** (1 - wm*z)
         return 1 / np.sqrt((1 + z) ** (3 * (1 + w_z)))
 
     return np.array([quad(integrand, 0, z_item)[0] for z_item in zs])
@@ -53,7 +52,7 @@ def log_likelihood(params):
 bounds = np.array([
     (-30, -27), # M
     (-1, 1/3), # w0
-    (-0.5, 1) # wm
+    (-0.5, 0.5) # wm
 ])
 
 
@@ -73,8 +72,8 @@ def log_probability(params):
 def main():
     steps_to_discard = 100
     n_dim = len(bounds)
-    n_walkers = 50
-    n_steps = steps_to_discard + 2000
+    n_walkers = 30
+    n_steps = steps_to_discard + 1000
     initial_pos = np.zeros((n_walkers, n_dim))
 
     for dim, (lower, upper) in enumerate(bounds):
@@ -149,6 +148,7 @@ def main():
         title_kwargs={"fontsize": 12},
         smooth=1.5,
         smooth1d=1.5,
+        bins=40,
     )
     plt.show()
 
@@ -202,6 +202,18 @@ Skewness of residuals: 0.191
 kurtosis of residuals: 0.698
 Reduce chi squared: 0.9817
 
+=============================
+
+Fluid model
+M0: -28.5766 +0.0142/-0.0142
+w0: -0.7085 +0.0603/-0.0657
+wm: 0.2654 +0.0826/-0.0813
+R-squared: 99.71 %
+RMSD (mag): 0.143
+Skewness of residuals: 0.197
+kurtosis of residuals: 0.701
+Reduced chi squared: 0.9822
+
 *****************************
 Dataset: Pantheon+ (2022)
 z range: 0.0102 - 2.2614
@@ -233,12 +245,12 @@ Reduced chi squared: 0.8845
 =============================
 
 Fluid model
-M0: -28.5719 +0.0081/-0.0083 (M(0.7)=-19.3464)
-w0: -0.6293 +0.0375/-0.0422
-wm: 0.2115 +0.0686/-0.0647
+M0: -28.5717 +0.0085/-0.0085 (M(0.7)=-19.3462)
+w0: -0.6262 +0.0408/-0.0413
+wm: 0.2046 +0.0639/-0.0668
 R-squared: 99.74 %
 RMSD (mag): 0.154
-Skewness of residuals: 0.079
+Skewness of residuals: 0.078
 kurtosis of residuals: 1.592
 Reduced chi squared: 0.8844
 """
