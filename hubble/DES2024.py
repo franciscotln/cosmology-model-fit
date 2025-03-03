@@ -20,10 +20,10 @@ inv_cov_matrix = np.linalg.inv(cov_matrix)
 h0 = 70
 
 # wCDM - flat
-def integral_of_e_z(zs, w0, wa):
+def integral_of_e_z(zs, w0, wm):
     def integrand(z):
-        radiation_limit = 1 / 3
-        w_z = radiation_limit + (w0 - radiation_limit) * np.exp(-z * wa)
+        w_inf = 1/3
+        w_z = w_inf - w_inf * (1 - (w0/w_inf))**(1 - wm * z)
         return 1 / np.sqrt((1 + z) ** (3 * (1 + w_z)))
 
     return np.array([quad(integrand, 0, z_item)[0] for z_item in zs])
@@ -37,9 +37,9 @@ def lcdm_distance_modulus(z, params):
 
 
 def wcdm_distance_modulus(z, params):
-    [w0, wa] = params
+    [w0, wm] = params
     a0_over_ae = 1 + z
-    comoving_distance = (C / h0) * integral_of_e_z(z, w0, wa)
+    comoving_distance = (C / h0) * integral_of_e_z(z, w0, wm)
     return 25 + 5 * np.log10(a0_over_ae * comoving_distance)
 
 
@@ -70,8 +70,8 @@ def log_likelihood(params):
 
 
 bounds = np.array([
-    (-2, 1), # w0
-    (-0.5, 1) # wa
+    (-1, 1/3), # w0
+    (-0.5, 1) # wm
 ])
 
 
@@ -92,7 +92,7 @@ def log_probability(params):
 def main():
     steps_to_discard = 100
     ndim = len(bounds)
-    nwalkers = 50
+    nwalkers = 20
     n_steps = steps_to_discard + 2000
     initial_pos = np.zeros((nwalkers, ndim))
 
@@ -115,13 +115,13 @@ def main():
         print("Autocorrelation time could not be computed")
 
     w0_samples = samples[:, 0]
-    wa_samples = samples[:, 1]
+    wm_samples = samples[:, 1]
 
     one_sigma_quantile = np.array([16, 50, 84])
     [w0_16, w0_50, w0_84] = np.percentile(w0_samples, one_sigma_quantile)
-    [wa_16, wa_50, wa_84] = np.percentile(wa_samples, one_sigma_quantile)
+    [wm_16, wm_50, wm_84] = np.percentile(wm_samples, one_sigma_quantile)
 
-    best_fit_params = [w0_50, wa_50]
+    best_fit_params = [w0_50, wm_50]
 
     predicted_distance_modulus_values = wcdm_distance_modulus(z_values, best_fit_params)
     residuals = distance_modulus_values - predicted_distance_modulus_values
@@ -140,20 +140,20 @@ def main():
 
     # Print the values in the console
     w0_label = f"{w0_50:.4f} +{w0_84-w0_50:.4f}/-{w0_50-w0_16:.4f}"
-    wa_label = f"{wa_50:.4f} +{wa_84-wa_50:.4f}/-{wa_50-wa_16:.4f}"
+    wm_label = f"{wm_50:.4f} +{wm_84-wm_50:.4f}/-{wm_50-wm_16:.4f}"
 
     print_color("Dataset", legend)
     print_color("z range", f"{z_values[0]:.3f} - {z_values[-1]:.3f}")
     print_color("Sample size", len(z_values))
     print_color("w0", w0_label)
-    print_color("wa", wa_label)
+    print_color("wm", wm_label)
     print_color("R-squared (%)", f"{100 * r_squared:.2f}")
     print_color("RMSD (mag)", f"{rmsd:.3f}")
     print_color("Skewness of residuals", f"{skewness:.3f}")
     print_color("kurtosis of residuals", f"{kurtosis:.3f}")
     print_color("Chi squared", chi_squared(best_fit_params))
 
-    labels = [r"$w_0$", r"$w_a$"]
+    labels = [r"$w_0$", r"$w_m$"]
     corner.corner(
         samples,
         labels=labels,
@@ -245,11 +245,11 @@ kurtosis of residuals: 25.958
 ==============================
 
 Fluid model
-Chi squared: 1647.6322
-w0: -0.6010 +0.0452/-0.0466
-wa: 0.2190 +0.0920/-0.0894
+Chi squared: 1647.6296
+w0: -0.5989 +0.0448/-0.0465
+wm: 0.2099 +0.0778/-0.0812
 R-squared (%): 98.33
 RMSD (mag): 0.270
 Skewness of residuals: 3.417
-kurtosis of residuals: 25.974
+kurtosis of residuals: 25.969
 """

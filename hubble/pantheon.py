@@ -18,10 +18,10 @@ C = 299792.458
 inv_cov_matrix = np.linalg.inv(cov_matrix)
 
 # Flat ΛCDM
-def integral_of_e_z(zs, w0, wa):
+def integral_of_e_z(zs, w0, wm):
     def integrand(z):
-        radiation_limit = 1 / 3
-        w_z = radiation_limit + (w0 - radiation_limit) * np.exp(-wa * z)
+        w_inf = 1/3
+        w_z = w_inf - w_inf * (1 - (w0/w_inf))**(1 - wm * z)
         return 1 / np.sqrt((1 + z) ** (3 * (1 + w_z)))
 
     return np.array([quad(integrand, 0, z_item)[0] for z_item in zs])
@@ -35,9 +35,9 @@ def lcdm_apparent_mag(z, params):
 
 
 def wcdm_apparent_mag(z, params):
-    [M, w0, wa] = params
+    [M, w0, wm] = params
     a0_over_ae = 1 + z
-    luminosity_distance = a0_over_ae * C * integral_of_e_z(z, w0, wa)
+    luminosity_distance = a0_over_ae * C * integral_of_e_z(zs=z, w0=w0, wm=wm)
     return M + 25 + 5 * np.log10(luminosity_distance)
 
 
@@ -52,8 +52,8 @@ def log_likelihood(params):
 
 bounds = np.array([
     (-30, -27), # M
-    (-2, 0.5), # w0
-    (-0.5, 1) # wa
+    (-1, 1/3), # w0
+    (-0.5, 1) # wm
 ])
 
 
@@ -73,8 +73,8 @@ def log_probability(params):
 def main():
     steps_to_discard = 100
     n_dim = len(bounds)
-    n_walkers = 100
-    n_steps = steps_to_discard + 1000
+    n_walkers = 50
+    n_steps = steps_to_discard + 2000
     initial_pos = np.zeros((n_walkers, n_dim))
 
     for dim, (lower, upper) in enumerate(bounds):
@@ -97,13 +97,13 @@ def main():
 
     M0_samples = samples[:, 0]
     w0_samples = samples[:, 1]
-    wa_samples = samples[:, 2]
+    wm_samples = samples[:, 2]
 
     [M0_16, M0_50, M0_84] = np.percentile(M0_samples, [16, 50, 84])
     [w0_16, w0_50, w0_84] = np.percentile(w0_samples, [16, 50, 84])
-    [wa_16, wa_50, wa_84] = np.percentile(wa_samples, [16, 50, 84])
+    [wm_16, wm_50, wm_84] = np.percentile(wm_samples, [16, 50, 84])
 
-    best_fit_params = [M0_50, w0_50, wa_50]
+    best_fit_params = [M0_50, w0_50, wm_50]
 
     # Calculate residuals
     predicted_apparent_mag = wcdm_apparent_mag(z_values, best_fit_params)
@@ -124,13 +124,13 @@ def main():
     # Print the values in the console
     M0_label = f"{M0_50:.4f} +{M0_84-M0_50:.4f}/-{M0_50-M0_16:.4f}"
     w0_label = f"{w0_50:.4f} +{w0_84-w0_50:.4f}/-{w0_50-w0_16:.4f}"
-    wa_label = f"{wa_50:.4f} +{wa_84-wa_50:.4f}/-{wa_50-wa_16:.4f}"
+    wm_label = f"{wm_50:.4f} +{wm_84-wm_50:.4f}/-{wm_50-wm_16:.4f}"
 
     print_color("Dataset", legend)
     print_color("z range", f"{z_values[0]:.4f} - {z_values[-1]:.4f}")
     print_color("Sample size", len(z_values))
-    print_color("w_0", w0_label)
-    print_color("w_a", wa_label)
+    print_color("w0", w0_label)
+    print_color("wm", wm_label)
     print_color("M0", M0_label)
     print_color("R-squared (%)", f"{100 * r_squared:.2f}")
     print_color("RMSD (mag)", f"{rmsd:.3f}")
@@ -139,7 +139,7 @@ def main():
     print_color("Reduced chi squared", chi_squared(best_fit_params)/ (len(z_values) - len(best_fit_params)))
 
     # Plot the data and the fit
-    labels = [r"$M_0$", r"$w_0$", r"$w_a$"]
+    labels = [r"$M_0$", r"$w_0$", r"$w_m$"]
     corner.corner(
         samples,
         labels=labels,
@@ -170,7 +170,7 @@ def main():
         y=apparent_mag_values,
         y_err=np.sqrt(np.diag(cov_matrix)),
         y_model=predicted_apparent_mag,
-        label=f"Best fit: $w_0$={w0_50:.4f}, $M_0$={M0_50:.4f}",
+        label=f"Best fit: $w_0$={w0_50:.4f}, $w_m$={wm_50:.4f}, $M_0$={M0_50:.4f}",
         x_scale="log"
     )
 
@@ -233,12 +233,12 @@ Reduced chi squared: 0.8845
 =============================
 
 Fluid model
-M0: -28.5725 +0.0084/-0.0084 (M(0.7)=-19.3470)
-w0: -0.6293 +0.0393/-0.0420
-wa: 0.2207 +0.0784/-0.0751
+M0: -28.5719 +0.0081/-0.0083 (M(0.7)=-19.3464)
+w0: -0.6293 +0.0375/-0.0422
+wm: 0.2115 +0.0686/-0.0647
 R-squared: 99.74 %
 RMSD (mag): 0.154
 Skewness of residuals: 0.079
-kurtosis of residuals: 1.591
+kurtosis of residuals: 1.592
 Reduced chi squared: 0.8844
 """

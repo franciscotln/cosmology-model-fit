@@ -55,20 +55,21 @@ def plot_predictions(params):
                 O_model_smooth.append((c / H_z(z, params)) / r_d)
         plt.plot(z_smooth, O_model_smooth, color=colors[q])
 
-    H0, w0, wa = params
+    H0, w0, wm = params
     plt.xlabel("Redshift (z)")
     plt.ylabel(r"$O = \frac{D}{r_d}$")
     plt.legend()
     plt.grid(True)
-    plt.title(f"BAO Data vs Model (H₀={H0:.3f}, w0={w0:.3f}, wa={wa:.3f}) with Errors")
+    plt.title(f"BAO Data vs Model (H₀={H0:.4f}, w0={w0:.4f}, wm={wm:.4f}) with Errors")
     plt.show()
 
 
 def H_z(z, params):
-    H0, w0, wa = params
-    radiation_limit = 1 / 3
-    w_z = radiation_limit + (w0 - radiation_limit) * np.exp(-wa * z)
-    return H0 * np.sqrt((1 + z) ** (3 * (1 + w_z)))
+    H0, w0, wm = params
+    normalized_h0 = 100 * H0
+    w_inf = 1/3
+    w_z = w_inf - w_inf * (1 - (w0/w_inf))**(1 - wm * z)
+    return normalized_h0 * np.sqrt((1 + z) ** (3 * (1 + w_z)))
 
 
 def DM_z(z, params):
@@ -95,9 +96,9 @@ def model_predictions(params):
 
 
 bounds = np.array([
-    (50, 80), # H0
-    (-2, 0.5), # w0
-    (-0.5, 1.5) # wa
+    (0.55, 0.8), # h0
+    (-1, -0.2), # w0
+    (0, 0.8) # wm
 ])
 
 
@@ -125,9 +126,9 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 100
-    nsteps = 3100
+    nwalkers = 200
     burn_in = 100
+    nsteps = 2000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):
@@ -149,23 +150,23 @@ def main():
     H0_50, H0_err = H0_percentiles[1], 0.5 * (H0_percentiles[2] - H0_percentiles[0])
     w0_percentiles = np.percentile(samples[:, 1], [16, 50, 84], axis=0)
     w0_50, w0_err = w0_percentiles[1], 0.5 * (w0_percentiles[2] - w0_percentiles[0])
-    wa_percentiles = np.percentile(samples[:, 2], [16, 50, 84], axis=0)
-    wa_50, wa_err = wa_percentiles[1], 0.5 * (wa_percentiles[2] - wa_percentiles[0])
+    wm_percentiles = np.percentile(samples[:, 2], [16, 50, 84], axis=0)
+    wm_50, wm_err = wm_percentiles[1], 0.5 * (wm_percentiles[2] - wm_percentiles[0])
 
-    best_fit = [H0_50, w0_50, wa_50]
+    best_fit = [H0_50, w0_50, wm_50]
 
-    print(f"H0 = {H0_50:.2f} ± {H0_err:.2f}, w0 = {w0_50:.3f} ± {w0_err:.3f}, wa = {wa_50:.3f} ± {wa_err:.3f}")
+    print(f"H0={H0_50:.4f} ± {H0_err:.4f}, w0={w0_50:.4f} ± {w0_err:.4f}, wm={wm_50:.4f} ± {wm_err:.4f}")
     print("chi squared: ", chi_squared(best_fit))
 
     corner.corner(
         samples,
-        labels=[r"$H_0$", r"w_0", r"$w_a$"],
+        labels=[r"$H_0$", r"w_0", r"$w_m$"],
         percentiles=[0.16, 0.5, 0.84],
         show_titles=True,
-        title_fmt=".3f",
+        title_fmt=".4f",
         smooth=2,
         smooth1d=2,
-        bins=50,
+        bins=40,
     )
     plt.show()
 
@@ -185,9 +186,9 @@ degree of freedom: 10
 ==============================
 
 Fluid model
-H0 = 67.17 ± 1.49 km/s/Mpc
-w0 = -0.559 ± 0.053
-wa = 0.147 ± 0.021
+H0 = 67.11 ± 1.50 km/s/Mpc
+w0 = -0.5559 ± 0.0529
+wm = 0.1484 ± 0.0133
 chi squared: 10.98
 degree of freedom: 9
 """

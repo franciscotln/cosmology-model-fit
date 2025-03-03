@@ -16,20 +16,20 @@ inverse_cov = np.linalg.inv(cov_matrix)
 C = 299792.458
 
 # Flat model
-def integral_of_e_z(zs, w0, wa):
+def integral_of_e_z(zs, w0, wm):
     def integrand(z):
-        radiation_limit = 1/3
-        w_z = radiation_limit + (w0 - radiation_limit) * np.exp(-z * wa)
+        w_inf = 1/3
+        w_z = w_inf - w_inf * (1 - (w0/w_inf))**(1 - wm * z)
         return 1 / np.sqrt((1 + z) ** (3 * (1 + w_z)))
 
     return np.array([quad(integrand, 0, z_item)[0] for z_item in zs])
 
 
 def wcdm_distance_modulus(z, params):
-    [h0, w0, wa] = params
+    [h0, w0, wm] = params
     normalized_h0 = h0 * 100
     a0_over_ae = 1 + z
-    comoving_distance = (C / normalized_h0) * integral_of_e_z(zs=z, w0=w0, wa=wa)
+    comoving_distance = (C / normalized_h0) * integral_of_e_z(zs=z, w0=w0, wm=wm)
     return 25 + 5 * np.log10(a0_over_ae * comoving_distance)
 
 
@@ -52,7 +52,7 @@ def log_likelihood(params):
 
 bounds = np.array([
     (0.4, 0.9), # h0
-    (-2, 0.5), # w0
+    (-1, 1/3), # w0
     (-0.5, 1), # wa
 ])
 
@@ -74,7 +74,7 @@ def main():
     discarded_steps = 100
     n_dim = len(bounds)
     n_walkers = 100
-    n_steps = discarded_steps + 1250
+    n_steps = discarded_steps + 2000
     initial_pos = np.zeros((n_walkers, n_dim))
 
     for dim, (lower, upper) in enumerate(bounds):
@@ -208,12 +208,12 @@ Reduced chi squared: 1.107
 =============================
 
 Fluid model
-w0: -0.5609 +0.0577/-0.0600
-wa: 0.1685 +0.0954/-0.0918
-H0: 72.02 +2.98/-2.87
+w0: -0.5560 +0.0574/-0.0615
+wa: 0.1650 +0.0849/-0.0895
+H0: 72.01 +2.97/-2.89 km/s/Mpc
 R-squared (%): 99.95
 RMSD (mag): 0.049
-Skewness of residuals: -0.482
-kurtosis of residuals: 1.903
+Skewness of residuals: -0.589
+kurtosis of residuals: 2.159
 Reduced chi squared: 1.092
 """
