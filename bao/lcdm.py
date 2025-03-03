@@ -11,7 +11,7 @@ path_to_data = os.path.dirname(os.path.abspath(__file__)) + '/raw-data/'
 # Speed of light in km/s
 c = 299792.458
 
-r_d = 147.05  # Fiducial value from Planck
+r_d = 147.18  # Fiducial value from Planck rs = 147.18 ± 0.29 Mpc, h0 = 0.6737 ± 0.0054
 
 data = np.genfromtxt(
     path_to_data + "data.txt",
@@ -126,7 +126,7 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 200
+    nwalkers = 400
     burn_in = 100
     nsteps = 2000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
@@ -166,7 +166,7 @@ def main():
         title_fmt=".4f",
         smooth=2,
         smooth1d=2,
-        bins=40,
+        bins=50,
     )
     plt.show()
 
@@ -186,9 +186,9 @@ degree of freedom: 10
 ==============================
 
 Fluid model
-H0 = 67.11 ± 1.50 km/s/Mpc
-w0 = -0.5559 ± 0.0529
-wm = 0.1484 ± 0.0133
+H0 = 67.00 ± 1.49 km/s/Mpc
+w0 = -0.5545 ± 0.0528
+wm = 0.1482 ± 0.0133
 chi squared: 10.98
 degree of freedom: 9
 """
