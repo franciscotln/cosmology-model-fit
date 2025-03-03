@@ -19,8 +19,9 @@ inv_cov_matrix = np.linalg.inv(cov_matrix)
 # Hubble constant km/s/Mpc as assumed in the dataset
 h0 = 70
 
-# wCDM - flat
-def integral_of_e_z(zs, w0, wm):
+# Flat
+def integral_of_e_z(zs, params):
+    w0, wm = params
     def integrand(z):
         w_inf = 1/3
         w_z = w_inf - w_inf * (1 - (w0/w_inf))**(1 - wm * z)
@@ -29,26 +30,24 @@ def integral_of_e_z(zs, w0, wm):
     return np.array([quad(integrand, 0, z_item)[0] for z_item in zs])
 
 
-def lcdm_distance_modulus(z, params):
-    [omega_m] = params
-    a0_over_ae = 1 + z
-    comoving_distance = (C / h0) * integral_of_e_z(z, omega_m, -1)
-    return 25 + 5 * np.log10(a0_over_ae * comoving_distance)
-
-
 def wcdm_distance_modulus(z, params):
-    [w0, wm] = params
     a0_over_ae = 1 + z
-    comoving_distance = (C / h0) * integral_of_e_z(z, w0, wm)
+    comoving_distance = (C / h0) * integral_of_e_z(z, params)
     return 25 + 5 * np.log10(a0_over_ae * comoving_distance)
 
 
-# Distance modulus for modified matter-dominated, flat universe:
-def model_distance_modulus(z, params):
-    [p] = params
-    a0_over_ae = (1 + z)**(1 / (1 - p))
-    luminosity_distance = (2 * C * (1 - p) / h0) * (a0_over_ae - np.sqrt(a0_over_ae))
-    return 25 + 5 * np.log10(luminosity_distance)
+# Flat ΛCDM
+def lcdm_e_z(zs, params):
+    [omega_m] = params
+    def integrand(z):
+        return 1 / np.sqrt(omega_m * (1 + z)**3 + 1 - omega_m)
+    return np.array([quad(integrand, 0, z_item)[0] for z_item in zs])
+
+
+def lcdm_distance_modulus(z, params):
+    a0_over_ae = 1 + z
+    comoving_distance = (C / h0) * lcdm_e_z(z, params)
+    return 25 + 5 * np.log10(a0_over_ae * comoving_distance)
 
 
 def chi_squared(params):
