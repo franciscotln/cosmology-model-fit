@@ -29,6 +29,12 @@ def plot_predictions(params):
     quantity_types = data["quantity"]
     errors = np.sqrt(np.diag(cov_matrix))
 
+    # Compute R squared
+    SS_res = np.sum((O_data - model_predictions(params))**2)
+    SS_tot = np.sum((O_data - np.mean(O_data))**2)
+    R_squared = 1 - SS_res/SS_tot
+    print("R^2: ", R_squared)
+
     unique_quantities = set(quantity_types)
     colors = { "DV_over_rs": "red", "DM_over_rs": "blue", "DH_over_rs": "green" }
 
@@ -71,6 +77,12 @@ def H_z(z, params):
     w_inf = 1/3
     w_z = w_inf - w_inf * (1 - (w0/w_inf))**(1 - wm * z)
     return normalized_h0 * np.sqrt((1 + z) ** (3 * (1 + w_z)))
+
+
+def H_z_lcdm(z, params):
+    H0, Omega_m = params
+    normalized_h0 = 100 * H0
+    return normalized_h0 * np.sqrt(Omega_m * (1 + z) ** 3 + (1 - Omega_m))
 
 
 def DM_z(z, params):
@@ -192,17 +204,21 @@ if __name__ == "__main__":
 
 """
 ΛCDM model
-H0 = 69.29 ± 0.85 km/s/Mpc
-Omega_m = 0.294 ± 0.014
+H0 = 69.22 ± 0.86 km/s/Mpc
+Omega_m = 0.2945 ± 0.0146
 chi squared: 12.74
 degree of freedom: 10
+Reduced chi squared: 1.274
+R squared: 99.57 %
 
 ==============================
 
 Fluid model
-H0 = 67.01 ± 1.49 km/s/Mpc
-w0 = -0.5546 ± 0.0526
-wm = 0.1481 ± 0.0133
+H0 = 67.02 ± 1.50 km/s/Mpc
+w0 = -0.5549 ± 0.0530
+wm = 0.1482 ± 0.0133
 chi squared: 10.98
 degree of freedom: 9
+Reduced chi squared: 1.220
+R squared: 99.67 %
 """
