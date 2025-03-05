@@ -30,10 +30,16 @@ def plot_predictions(params):
     errors = np.sqrt(np.diag(cov_matrix))
 
     # Compute R squared
-    SS_res = np.sum((O_data - model_predictions(params))**2)
+    residuals = O_data - model_predictions(params)
+    SS_res = np.sum(residuals**2)
     SS_tot = np.sum((O_data - np.mean(O_data))**2)
     R_squared = 1 - SS_res/SS_tot
-    print("R^2: ", R_squared)
+
+    # Calculate root mean square deviation
+    rmsd = np.sqrt(np.mean(residuals ** 2))
+
+    print(f"\033[92mR^2: {R_squared:.4f}\033[0m")
+    print(f"\033[92mRMSD: {rmsd:.4f}\033[0m")
 
     unique_quantities = set(quantity_types)
     colors = { "DV_over_rs": "red", "DM_over_rs": "blue", "DH_over_rs": "green" }
@@ -52,22 +58,22 @@ def plot_predictions(params):
             capsize=2,
             linestyle="None",
         )
-        O_model_smooth = []
+        model_smooth = []
         for z in z_smooth:
             if q == "DV_over_rs":
-                O_model_smooth.append(DV_z(z, params) / r_d)
+                model_smooth.append(DV_z(z, params)/r_d)
             elif q == "DM_over_rs":
-                O_model_smooth.append(DM_z(z, params) / r_d)
+                model_smooth.append(DM_z(z, params)/r_d)
             elif q == "DH_over_rs":
-                O_model_smooth.append((c / H_z(z, params)) / r_d)
-        plt.plot(z_smooth, O_model_smooth, color=colors[q])
+                model_smooth.append((c / H_z(z, params))/r_d)
+        plt.plot(z_smooth, model_smooth, color=colors[q], alpha=0.5)
 
     H0, w0, wm = params
     plt.xlabel("Redshift (z)")
     plt.ylabel(r"$O = \frac{D}{r_d}$")
     plt.legend()
     plt.grid(True)
-    plt.title(f"BAO Data vs Model (H₀={H0:.4f}, w0={w0:.4f}, wm={wm:.4f}) with Errors")
+    plt.title(f"BAO Data vs Model (H₀={H0:.4f}, $w_0$={w0:.4f}, $w_m$={wm:.4f}) with errors")
     plt.show()
 
 
@@ -111,7 +117,7 @@ def model_predictions(params):
 bounds = np.array([
     (0.55, 0.8), # h0
     (-1, -0.2), # w0
-    (0, 0.8) # wm
+    (0, 0.4) # wm
 ])
 
 
@@ -139,7 +145,7 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 400
+    nwalkers = 100
     burn_in = 100
     nsteps = 2000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
@@ -169,14 +175,18 @@ def main():
 
     best_fit = [H0_50, w0_50, wm_50]
 
-    print(f"H0={H0_50:.4f} ± {H0_err:.4f}, w0={w0_50:.4f} ± {w0_err:.4f}, wm={wm_50:.4f} ± {wm_err:.4f}")
-    print("chi squared: ", chi_squared(best_fit))
+    print(f"\033[92mH0: {H0_50:.4f} ± {H0_err:.4f}\033[0m")
+    print(f"\033[92mw0: {w0_50:.4f} ± {w0_err:.4f}\033[0m")
+    print(f"\033[92mwm: {wm_50:.4f} ± {wm_err:.4f}\033[0m")
+    print(f"\033[92mChi squared: {chi_squared(best_fit):.4f}\033[0m")
+    print(f"\033[92mDegrees of freedom: {data['value'].size - len(best_fit)}\033[0m")
+    plot_predictions(best_fit)
 
-    labels = [r"$H_0$", r"w_0", r"$w_m$"]
+    labels = [r"$H_0$", r"$w_0$", r"$w_m$"]
     corner.corner(
         samples,
         labels=labels,
-        percentiles=[0.16, 0.5, 0.84],
+        quantiles=[0.16, 0.5, 0.84],
         show_titles=True,
         title_fmt=".4f",
         smooth=2,
@@ -196,7 +206,6 @@ def main():
         axes[i].axhline(y=best_fit[i], color='white', linestyle='--', alpha=0.5)
     plt.show()
 
-    plot_predictions(best_fit)
 
 if __name__ == "__main__":
     main()
@@ -209,7 +218,7 @@ Omega_m = 0.2945 ± 0.0146
 chi squared: 12.74
 degree of freedom: 10
 Reduced chi squared: 1.274
-R squared: 99.57 %
+R-squared: 99.57 %
 
 ==============================
 
@@ -220,5 +229,6 @@ wm = 0.1482 ± 0.0133
 chi squared: 10.98
 degree of freedom: 9
 Reduced chi squared: 1.220
-R squared: 99.67 %
+R-squared: 99.67 %
+RMSD: 0.4850
 """
