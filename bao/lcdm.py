@@ -24,15 +24,15 @@ cov_matrix = np.loadtxt(path_to_data + "covariance.txt", delimiter=" ", dtype=fl
 inv_cov_matrix = np.linalg.inv(cov_matrix)
 
 def plot_predictions(params):
-    O_data = data["value"]
+    observed_values = data["value"]
     z_values = data["z"]
     quantity_types = data["quantity"]
     errors = np.sqrt(np.diag(cov_matrix))
 
     # Compute R squared
-    residuals = O_data - model_predictions(params)
+    residuals = observed_values - model_predictions(params)
     SS_res = np.sum(residuals**2)
-    SS_tot = np.sum((O_data - np.mean(O_data))**2)
+    SS_tot = np.sum((observed_values - np.mean(observed_values))**2)
     R_squared = 1 - SS_res/SS_tot
 
     # Calculate root mean square deviation
@@ -50,7 +50,7 @@ def plot_predictions(params):
         mask = quantity_types == q
         plt.errorbar(
             x=z_values[mask],
-            y=O_data[mask],
+            y=observed_values[mask],
             yerr=errors[mask],
             fmt='.',
             color=colors[q],

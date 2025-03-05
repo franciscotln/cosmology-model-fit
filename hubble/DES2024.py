@@ -22,8 +22,8 @@ h0 = 70
 # Flat
 def integral_of_e_z(zs, params):
     w0, wm = params
+    w_inf = 1/3
     def integrand(z):
-        w_inf = 1/3
         w_z = w_inf - w_inf * (1 - (w0/w_inf))**(1 - wm * z)
         return 1 / np.sqrt((1 + z) ** (3 * (1 + w_z)))
 
