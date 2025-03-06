@@ -210,6 +210,16 @@ RMSD (mag): 0.268
 Skewness of residuals: 1.406
 kurtosis of residuals: 8.236
 
+==============================
+
+Fluid model
+Chi squared: 551.0039
+w0: -0.7586 +0.0577/-0.0568
+R-squared (%): 99.30
+RMSD (mag): 0.267
+Skewness of residuals: 1.396
+kurtosis of residuals: 8.201
+
 ********************************
 Dataset: DES-SN5YR
 z range: 0.025 - 1.121
