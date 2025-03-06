@@ -18,10 +18,10 @@ C = 299792.458
 inv_cov_matrix = np.linalg.inv(cov_matrix)
 
 # Flat ΛCDM
-def integral_of_e_z(zs, w0, wm):
+def integral_of_e_z(zs, w0):
     def integrand(z):
-        w_z = 1/3 - 1/3 * (1 - 3*w0) ** (1 - wm*z)
-        return 1 / np.sqrt((1 + z) ** (3 * (1 + w_z)))
+        correction = np.exp(((1 - 3 * w0) / 2) * (-1 + 1/(1 + z)))
+        return 1 / (correction * (1 + z) ** 2)
 
     return np.array([quad(integrand, 0, z_item)[0] for z_item in zs])
 
@@ -34,9 +34,9 @@ def lcdm_apparent_mag(z, params):
 
 
 def wcdm_apparent_mag(z, params):
-    [M, w0, wm] = params
+    [M, w0] = params
     a0_over_ae = 1 + z
-    luminosity_distance = a0_over_ae * C * integral_of_e_z(zs=z, w0=w0, wm=wm)
+    luminosity_distance = a0_over_ae * C * integral_of_e_z(zs=z, w0=w0)
     return M + 25 + 5 * np.log10(luminosity_distance)
 
 
@@ -52,7 +52,6 @@ def log_likelihood(params):
 bounds = np.array([
     (-30, -27), # M
     (-1, 1/3), # w0
-    (-0.5, 0.5) # wm
 ])
 
 
@@ -96,13 +95,11 @@ def main():
 
     M0_samples = samples[:, 0]
     w0_samples = samples[:, 1]
-    wm_samples = samples[:, 2]
 
     [M0_16, M0_50, M0_84] = np.percentile(M0_samples, [16, 50, 84])
     [w0_16, w0_50, w0_84] = np.percentile(w0_samples, [16, 50, 84])
-    [wm_16, wm_50, wm_84] = np.percentile(wm_samples, [16, 50, 84])
 
-    best_fit_params = [M0_50, w0_50, wm_50]
+    best_fit_params = [M0_50, w0_50]
 
     # Calculate residuals
     predicted_apparent_mag = wcdm_apparent_mag(z_values, best_fit_params)
@@ -123,13 +120,11 @@ def main():
     # Print the values in the console
     M0_label = f"{M0_50:.4f} +{M0_84-M0_50:.4f}/-{M0_50-M0_16:.4f}"
     w0_label = f"{w0_50:.4f} +{w0_84-w0_50:.4f}/-{w0_50-w0_16:.4f}"
-    wm_label = f"{wm_50:.4f} +{wm_84-wm_50:.4f}/-{wm_50-wm_16:.4f}"
 
     print_color("Dataset", legend)
     print_color("z range", f"{z_values[0]:.4f} - {z_values[-1]:.4f}")
     print_color("Sample size", len(z_values))
     print_color("w0", w0_label)
-    print_color("wm", wm_label)
     print_color("M0", M0_label)
     print_color("R-squared (%)", f"{100 * r_squared:.2f}")
     print_color("RMSD (mag)", f"{rmsd:.3f}")
@@ -138,7 +133,7 @@ def main():
     print_color("Reduced chi squared", chi_squared(best_fit_params)/ (len(z_values) - len(best_fit_params)))
 
     # Plot the data and the fit
-    labels = [r"$M_0$", r"$w_0$", r"$w_m$"]
+    labels = [r"$M_0$", r"$w_0$"]
     corner.corner(
         samples,
         labels=labels,
@@ -170,7 +165,7 @@ def main():
         y=apparent_mag_values,
         y_err=np.sqrt(np.diag(cov_matrix)),
         y_model=predicted_apparent_mag,
-        label=f"Best fit: $w_0$={w0_50:.4f}, $w_m$={wm_50:.4f}, $M_0$={M0_50:.4f}",
+        label=f"Best fit: $w_0$={w0_50:.4f}, $M_0$={M0_50:.4f}",
         x_scale="log"
     )
 
@@ -245,12 +240,11 @@ Reduced chi squared: 0.8845
 =============================
 
 Fluid model
-M0: -28.5717 +0.0085/-0.0085 (M(0.7)=-19.3462)
-w0: -0.6262 +0.0408/-0.0413
-wm: 0.2046 +0.0639/-0.0668
-R-squared: 99.74 %
+M0: -28.5800 +0.0074/-0.0073 (M(0.7)=-19.3545)
+w0: -0.7045 +0.0235/-0.0230
+R-squared (%): 99.74
 RMSD (mag): 0.154
-Skewness of residuals: 0.078
-kurtosis of residuals: 1.592
-Reduced chi squared: 0.8844
+Skewness of residuals: 0.099
+kurtosis of residuals: 1.578
+Reduced chi squared: 0.8843
 """

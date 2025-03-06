@@ -11,7 +11,9 @@ path_to_data = os.path.dirname(os.path.abspath(__file__)) + '/raw-data/'
 # Speed of light in km/s
 c = 299792.458
 
-r_d = 147.18  # Fiducial value from Planck rs = 147.18 ± 0.29 Mpc, h0 = 0.6737 ± 0.0054
+# Planck rs = 147.18 ± 0.29 Mpc, h0 = 0.6737 ± 0.0054
+#  Hubble constant in km/s/Mpc
+H0 = 67.37
 
 # Source: https://github.com/CobayaSampler/bao_data/blob/master/desi_2024_gaussian_bao_ALL_GCcomb_mean.txt
 data = np.genfromtxt(
@@ -44,6 +46,7 @@ def plot_predictions(params):
     unique_quantities = set(quantity_types)
     colors = { "DV_over_rs": "red", "DM_over_rs": "blue", "DH_over_rs": "green" }
 
+    r_d, w0 = params
     z_smooth = np.linspace(min(z_values), max(z_values), 100)
     plt.figure(figsize=(8, 6))
     for q in unique_quantities:
@@ -68,27 +71,22 @@ def plot_predictions(params):
                 model_smooth.append((c / H_z(z, params))/r_d)
         plt.plot(z_smooth, model_smooth, color=colors[q], alpha=0.5)
 
-    H0, w0, wm = params
     plt.xlabel("Redshift (z)")
     plt.ylabel(r"$O = \frac{D}{r_d}$")
     plt.legend()
     plt.grid(True)
-    plt.title(f"BAO Data vs Model (H₀={H0:.4f}, $w_0$={w0:.4f}, $w_m$={wm:.4f}) with errors")
+    plt.title(f"BAO Data vs Model ($r_d$={r_d:.2f}, $w_0$={w0:.4f} with errors")
     plt.show()
 
 
 def H_z(z, params):
-    H0, w0, wm = params
-    normalized_h0 = 100 * H0
-    w_inf = 1/3
-    w_z = w_inf - w_inf * (1 - (w0/w_inf))**(1 - wm * z)
-    return normalized_h0 * np.sqrt((1 + z) ** (3 * (1 + w_z)))
-
+    w0 = params[1]
+    correction = np.exp(((1 - 3 * w0) / 2) * (-1 + 1/(1 + z)))
+    return H0 * correction * (1 + z) ** 2
 
 def H_z_lcdm(z, params):
-    H0, Omega_m = params
-    normalized_h0 = 100 * H0
-    return normalized_h0 * np.sqrt(Omega_m * (1 + z) ** 3 + (1 - Omega_m))
+    Omega_m = params[1]
+    return H0 * np.sqrt(Omega_m * (1 + z) ** 3 + (1 - Omega_m))
 
 
 def DM_z(z, params):
@@ -103,6 +101,7 @@ def DV_z(z, params):
 
 
 def model_predictions(params):
+    r_d = params[0]
     predictions = []
     for z, _, quantity in data:
         if quantity == "DV_over_rs":
@@ -115,9 +114,8 @@ def model_predictions(params):
 
 
 bounds = np.array([
-    (0.55, 0.8), # h0
-    (-1, -0.2), # w0
-    (0, 0.4) # wm
+    (120, 170), # r_d
+    (-1, 0), # w0
 ])
 
 
@@ -166,23 +164,20 @@ def main():
     chains_samples = sampler.get_chain(discard=0, flat=False)
     samples = sampler.get_chain(discard=burn_in, flat=True)
 
-    H0_percentiles = np.percentile(samples[:, 0], [16, 50, 84], axis=0)
-    H0_50, H0_err = H0_percentiles[1], 0.5 * (H0_percentiles[2] - H0_percentiles[0])
+    rd_percentiles = np.percentile(samples[:, 0], [16, 50, 84], axis=0)
+    rd_50, rd_err = rd_percentiles[1], 0.5 * (rd_percentiles[2] - rd_percentiles[0])
     w0_percentiles = np.percentile(samples[:, 1], [16, 50, 84], axis=0)
     w0_50, w0_err = w0_percentiles[1], 0.5 * (w0_percentiles[2] - w0_percentiles[0])
-    wm_percentiles = np.percentile(samples[:, 2], [16, 50, 84], axis=0)
-    wm_50, wm_err = wm_percentiles[1], 0.5 * (wm_percentiles[2] - wm_percentiles[0])
 
-    best_fit = [H0_50, w0_50, wm_50]
+    best_fit = [rd_50, w0_50]
 
-    print(f"\033[92mH0: {H0_50:.4f} ± {H0_err:.4f}\033[0m")
+    print(f"\033[92mr_d: {rd_50:.4f} ± {rd_err:.4f}\033[0m")
     print(f"\033[92mw0: {w0_50:.4f} ± {w0_err:.4f}\033[0m")
-    print(f"\033[92mwm: {wm_50:.4f} ± {wm_err:.4f}\033[0m")
     print(f"\033[92mChi squared: {chi_squared(best_fit):.4f}\033[0m")
     print(f"\033[92mDegrees of freedom: {data['value'].size - len(best_fit)}\033[0m")
     plot_predictions(best_fit)
 
-    labels = [r"$H_0$", r"$w_0$", r"$w_m$"]
+    labels = [r"$r_d$", r"$w_0$"]
     corner.corner(
         samples,
         labels=labels,
@@ -213,22 +208,20 @@ if __name__ == "__main__":
 
 """
 ΛCDM model
-H0 = 69.22 ± 0.86 km/s/Mpc
-Omega_m = 0.2945 ± 0.0146
-chi squared: 12.74
-degree of freedom: 10
-Reduced chi squared: 1.274
-R-squared: 99.57 %
+r_d: 151.1884 ± 1.8810
+Ωm: 0.2948 ± 0.0146
+Chi squared: 12.7448
+Degrees of freedom: 10
+R^2: 99.57 %
+RMSD: 0.5527
 
 ==============================
 
 Fluid model
-H0 = 67.02 ± 1.50 km/s/Mpc
-w0 = -0.5549 ± 0.0530
-wm = 0.1482 ± 0.0133
-chi squared: 10.98
-degree of freedom: 9
-Reduced chi squared: 1.220
-R-squared: 99.67 %
-RMSD: 0.4850
+r_d: 154.2111 ± 2.0849
+w0: -0.8034 ± 0.0232
+Chi squared: 12.9382
+Degrees of freedom: 10
+R^2: 99.57 %
+RMSD: 0.5577
 """

@@ -19,11 +19,10 @@ C = 299792.458
 
 
 # Flat
-def integral_of_e_z(zs, w0, wm):
-    w_inf = 1/3
+def integral_of_e_z(zs, w0):
     def integrand(z):
-        w_z = w_inf - w_inf * (1 - (w0/w_inf))**(1 - wm * z)
-        return 1 / np.sqrt((1 + z) ** (3 * (1 + w_z)))
+        correction = np.exp(((1 - 3 * w0) / 2) * (-1 + 1/(1 + z)))
+        return 1 / (correction * (1 + z) ** 2)
 
     return np.array([quad(integrand, 0, z_item)[0] for z_item in zs])
 
@@ -39,10 +38,10 @@ def lcdm_distance_modulus(z, params):
 
 
 def wcdm_distance_modulus(z, params):
-    [h0, w0, wm] = params
+    [h0, w0] = params
     normalized_h0 = 100 * h0
     a0_over_ae = 1 + z
-    comoving_distance = (C / normalized_h0) * integral_of_e_z(zs=z, w0=w0, wm=wm)
+    comoving_distance = (C / normalized_h0) * integral_of_e_z(z, w0)
     return 25 + 5 * np.log10(a0_over_ae * comoving_distance)
 
 
@@ -58,8 +57,7 @@ def log_likelihood(params):
 
 bounds = np.array([
     (0.4, 1.0), # h0
-    (-1, 1/3), # w0
-    (-0.5, 1), # wm
+    (-1, 0), # w0
 ])
 
 
@@ -79,8 +77,8 @@ def log_probability(params):
 def main():
     steps_to_discard = 100
     n_dim = len(bounds)
-    n_walkers = 20
-    n_steps = steps_to_discard + 1000
+    n_walkers = 40
+    n_steps = steps_to_discard + 2000
     initial_pos = np.zeros((n_walkers, n_dim))
 
     for dim, (lower, upper) in enumerate(bounds):
@@ -96,13 +94,11 @@ def main():
 
     h0_samples = samples[:, 0]
     w0_samples = samples[:, 1]
-    wm_samples = samples[:, 2]
 
     [h0_16, h0_50, h0_84] = np.percentile(h0_samples, [16, 50, 84])
     [w_16, w_50, w_84] = np.percentile(w0_samples, [16, 50, 84])
-    [wm_16, wm_50, wm_84] = np.percentile(wm_samples, [16, 50, 84])
 
-    best_fit_params = [h0_50, w_50, wm_50]
+    best_fit_params = [h0_50, w_50]
 
     # Compute residuals
     predicted_distance_modulus_values = wcdm_distance_modulus(z_values, best_fit_params)
@@ -126,13 +122,11 @@ def main():
     # Print the values in the console
     h0_label = f"{h0_50:.4f} +{h0_84-h0_50:.4f}/-{h0_50-h0_16:.4f}"
     w0_label = f"{w_50:.4f} +{w_84-w_50:.4f}/-{w_50-w_16:.4f}"
-    wm_label = f"{wm_50:.4f} +{wm_84-wm_50:.4f}/-{wm_50-wm_16:.4f}"
     print_color("Dataset", legend)
     print_color("z range", f"{z_values[0]:.4f} - {z_values[-1]:.4f}")
     print_color("Sample size", len(z_values))
     print_color("h = H0 / 100 (km/s/Mpc)", h0_label)
     print_color("w0", w0_label)
-    print_color("wm", wm_label)
     print_color("R-squared (%)", f"{100 * r_squared:.2f}")
     print_color("RMSD (mag)", f"{rmsd:.3f}")
     print_color("Skewness of residuals", f"{skewness:.3f}")
@@ -141,7 +135,7 @@ def main():
     print_color("Chi squared", chi_squared(best_fit_params))
 
     # Plot the data and the fit
-    labels = [r"$h_0$", r"$w_0$", r"$w_m$"]
+    labels = [r"$h_0$", r"$w_0$"]
     corner.corner(
         samples,
         labels=labels,
@@ -172,7 +166,7 @@ def main():
         y=distance_modulus_values,
         y_err=sigma_distance_moduli,
         y_model=predicted_distance_modulus_values,
-        label=f"H0={(100 * h0_50):.4f} km/s/Mpc, w0={w_50:.4f}, wm={wm_50:.4f}",
+        label=f"H0={(100 * h0_50):.4f} km/s/Mpc, w0={w_50:.4f}",
         x_scale="log"
     )
 
@@ -219,12 +213,12 @@ Chi squared: 1452.5
 =============================
 
 Fluid model
-H0: 73.06 +0.28/-0.28 km/s/Mpc
-w0: -0.6293 +0.0392/-0.0395
-wm: 0.2138 +0.0627/-0.0640
-R-squared: 99.78 %
+H0: 73.34 +0.25/-0.24 km/s/Mpc
+w0: -0.7057 +0.0233/-0.0232
+R-squared (%): 99.78
 RMSD (mag): 0.153
-Skewness of residuals: 0.074
-kurtosis of residuals: 1.568
-Chi squared: 1452.6
+Skewness of residuals: 0.093
+kurtosis of residuals: 1.553
+Spearman correlation: -0.848
+Chi squared: 1453.3
 """

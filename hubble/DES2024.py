@@ -1,5 +1,4 @@
 import emcee
-import corner
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats as stats
@@ -21,11 +20,10 @@ h0 = 70
 
 # Flat
 def integral_of_e_z(zs, params):
-    w0, wm = params
-    w_inf = 1/3
+    [w0] = params
     def integrand(z):
-        w_z = w_inf - w_inf * (1 - (w0/w_inf))**(1 - wm * z)
-        return 1 / np.sqrt((1 + z) ** (3 * (1 + w_z)))
+        correction = np.exp(((1 - 3 * w0) / 2) * (-1 + 1/(1 + z)))
+        return 1 / (correction * (1 + z) ** 2)
 
     return np.array([quad(integrand, 0, z_item)[0] for z_item in zs])
 
@@ -69,8 +67,7 @@ def log_likelihood(params):
 
 
 bounds = np.array([
-    (-1, 1/3), # w0
-    (-0.5, 1) # wm
+    (-1.2, 0), # w0
 ])
 
 
@@ -114,13 +111,11 @@ def main():
         print("Autocorrelation time could not be computed")
 
     w0_samples = samples[:, 0]
-    wm_samples = samples[:, 1]
 
     one_sigma_quantile = np.array([16, 50, 84])
     [w0_16, w0_50, w0_84] = np.percentile(w0_samples, one_sigma_quantile)
-    [wm_16, wm_50, wm_84] = np.percentile(wm_samples, one_sigma_quantile)
 
-    best_fit_params = [w0_50, wm_50]
+    best_fit_params = [w0_50]
 
     predicted_distance_modulus_values = wcdm_distance_modulus(z_values, best_fit_params)
     residuals = distance_modulus_values - predicted_distance_modulus_values
@@ -139,33 +134,32 @@ def main():
 
     # Print the values in the console
     w0_label = f"{w0_50:.4f} +{w0_84-w0_50:.4f}/-{w0_50-w0_16:.4f}"
-    wm_label = f"{wm_50:.4f} +{wm_84-wm_50:.4f}/-{wm_50-wm_16:.4f}"
 
     print_color("Dataset", legend)
     print_color("z range", f"{z_values[0]:.3f} - {z_values[-1]:.3f}")
     print_color("Sample size", len(z_values))
     print_color("w0", w0_label)
-    print_color("wm", wm_label)
     print_color("R-squared (%)", f"{100 * r_squared:.2f}")
     print_color("RMSD (mag)", f"{rmsd:.3f}")
     print_color("Skewness of residuals", f"{skewness:.3f}")
     print_color("kurtosis of residuals", f"{kurtosis:.3f}")
     print_color("Chi squared", chi_squared(best_fit_params))
 
-    labels = [r"$w_0$", r"$w_m$"]
-    corner.corner(
-        samples,
-        labels=labels,
-        quantiles=[0.16, 0.5, 0.84],
-        show_titles=True,
-        title_fmt=".4f",
-        title_kwargs={"fontsize": 12},
-        smooth=1.5,
-        smooth1d=1.5,
-    )
+    # plot posterior distribution from samples
+    fig, ax = plt.subplots()
+    ax.hist(w0_samples, bins=50, density=True, alpha=0.6, color='g')
+    mu, std = np.mean(w0_samples), np.std(w0_samples)
+    xmin, xmax = plt.xlim()
+    x = np.linspace(xmin, xmax, 100)
+    p = stats.norm.pdf(x, mu, std)
+    ax.plot(x, p, 'k', linewidth=2)
+    ax.axvline(x=w0_50, color='red', linestyle='--', alpha=0.8, label="Median (50%)")
+    ax.fill_betweenx(y=[0, max(p)], x1=w0_16, x2=w0_84, color='red', alpha=0.2, label="68% CI")
+    ax.legend()
     plt.show()
 
     # Plot chains for each parameter
+    labels = [r"$w_0$"]
     fig, axes = plt.subplots(ndim, figsize=(10, 7))
     if ndim == 1:
         axes = [axes]
@@ -244,11 +238,10 @@ kurtosis of residuals: 25.958
 ==============================
 
 Fluid model
-Chi squared: 1647.6296
-w0: -0.5989 +0.0448/-0.0465
-wm: 0.2099 +0.0778/-0.0812
-R-squared (%): 98.33
-RMSD (mag): 0.270
-Skewness of residuals: 3.417
-kurtosis of residuals: 25.969
+Chi squared: 1650.7003
+w0: -0.6807 +0.0215/-0.0216
+R-squared (%): 98.36
+RMSD (mag): 0.267
+Skewness of residuals: 3.404
+kurtosis of residuals: 25.883
 """
