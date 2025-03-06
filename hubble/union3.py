@@ -24,7 +24,7 @@ def integral_of_e_z(zs, w0):
     return np.array([quad(integrand, 0, z_item)[0] for z_item in zs])
 
 
-def wcdm_distance_modulus(z, params):
+def fluid_distance_modulus(z, params):
     [h0, w0] = params
     normalized_h0 = h0 * 100
     a0_over_ae = 1 + z
@@ -32,16 +32,23 @@ def wcdm_distance_modulus(z, params):
     return 25 + 5 * np.log10(a0_over_ae * comoving_distance)
 
 
+# Flat ΛCDM
+def lcdm_e_z(zs, omega_m):
+    def integrand(z):
+        return 1 / np.sqrt(omega_m * (1 + z)**3 + 1 - omega_m)
+    return np.array([quad(integrand, 0, z_item)[0] for z_item in zs])
+
+
 def lcdm_distance_modulus(z, params):
     [h0, omega_m] = params
     normalized_h0 = h0 * 100
     a0_over_ae = 1 + z
-    comoving_distance = (C / normalized_h0) * integral_of_e_z(zs=z, omega_m=omega_m, w=-1)
+    comoving_distance = (C / normalized_h0) * lcdm_e_z(z, omega_m)
     return 25 + 5 * np.log10(a0_over_ae * comoving_distance)
 
 
 def chi_squared(params):
-    delta = distance_moduli_values - wcdm_distance_modulus(z_values, params)
+    delta = distance_moduli_values - fluid_distance_modulus(z_values, params)
     return delta.T @ inverse_cov @ delta
 
 
@@ -93,7 +100,7 @@ def main():
 
     best_fit_params = [h0_50, w0_50]
 
-    predicted_mag = wcdm_distance_modulus(z_values, best_fit_params)
+    predicted_mag = fluid_distance_modulus(z_values, best_fit_params)
     residuals = distance_moduli_values - predicted_mag
 
     skewness = skew(residuals)
@@ -204,11 +211,11 @@ Reduced chi squared: 1.11
 
 Fluid model
 
-w0: -0.6741 +0.0346/-0.0346
-H0: 72.53 +3.01/-2.87
+w0: -0.6739 +0.0347/-0.0346
+H0: 72.52 +3.00/-2.90
 R-squared (%): 99.95
 RMSD (mag): 0.047
-Skewness of residuals: 0.847
-kurtosis of residuals: 0.657
+Skewness of residuals: 0.851
+kurtosis of residuals: 0.660
 Reduced chi squared: 1.23
 """
