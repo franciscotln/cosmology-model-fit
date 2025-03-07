@@ -2,7 +2,7 @@ import emcee
 import corner
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.integrate import quad
+from scipy.integrate import cumulative_trapezoid
 import scipy.stats as stats
 from multiprocessing import Pool
 from .plotting import plot_predictions, print_color, plot_residuals
@@ -18,26 +18,15 @@ inv_cov_matrix = np.linalg.inv(cov_matrix)
 C = 299792.458
 
 
-# Flat
-def integral_of_e_z(zs, w0):
-    def integrand(z):
-        correction = np.exp(((1 - 3 * w0) / 2) * (-1 + 1/(1 + z)))
-        return 1 / (correction * (1 + z) ** 2)
-
-    return np.array([quad(integrand, 0, z_item)[0] for z_item in zs])
-
-
-# Flat wCDM
-def lcdm_distance_modulus(z, params):
-    [h0, omega_m] = params
-    normalized_h0 = 100 * h0
-    a0_over_ae = 1 + z
-    comoving_distance = (C / normalized_h0) * integral_of_e_z(zs = z, omega_m=omega_m, w=-1)
-    luminosity_distance = comoving_distance * a0_over_ae
-    return 25 + 5 * np.log10(luminosity_distance)
+#  Flat fluid model
+def integral_of_e_z(z, w0):
+    z_grid = np.linspace(0, np.max(z), num=1000)
+    e_inv = 1 / (np.exp(((1 - 3 * w0) / 2) * (-1 + 1/(1 + z_grid))) * (1 + z_grid) ** 2)
+    integral_values = cumulative_trapezoid(e_inv, z_grid, initial=0)
+    return np.interp(z, z_grid, integral_values)
 
 
-def wcdm_distance_modulus(z, params):
+def fluid_distance_modulus(z, params):
     [h0, w0] = params
     normalized_h0 = 100 * h0
     a0_over_ae = 1 + z
@@ -45,8 +34,25 @@ def wcdm_distance_modulus(z, params):
     return 25 + 5 * np.log10(a0_over_ae * comoving_distance)
 
 
+# Flat ΛCDM
+def lcdm_e_z(z, Omega_m):
+    z_grid = np.linspace(0, np.max(z), num=1000)
+    e_inv = 1 / np.sqrt(Omega_m * (1 + z_grid)**3 + 1 - Omega_m)
+    integral_values = cumulative_trapezoid(e_inv, z_grid, initial=0)
+    return np.interp(z, z_grid, integral_values)
+
+
+def lcdm_distance_modulus(z, params):
+    [h0, omega_m] = params
+    normalized_h0 = 100 * h0
+    a0_over_ae = 1 + z
+    comoving_distance = (C / normalized_h0) * lcdm_e_z(z, omega_m)
+    luminosity_distance = comoving_distance * a0_over_ae
+    return 25 + 5 * np.log10(luminosity_distance)
+
+
 def chi_squared(params):
-    mu_theory = np.where(cepheid_distances != -9, cepheid_distances, wcdm_distance_modulus(z_values, params))
+    mu_theory = np.where(cepheid_distances != -9, cepheid_distances, fluid_distance_modulus(z_values, params))
     delta = distance_modulus_values - mu_theory
     return delta.T @ inv_cov_matrix @ delta
 
@@ -78,7 +84,7 @@ def main():
     steps_to_discard = 100
     n_dim = len(bounds)
     n_walkers = 40
-    n_steps = steps_to_discard + 2000
+    n_steps = steps_to_discard + 4000
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(n_walkers, n_dim))
 
     with Pool(10) as pool:
@@ -98,7 +104,7 @@ def main():
     best_fit_params = [h0_50, w_50]
 
     # Compute residuals
-    predicted_distance_modulus_values = wcdm_distance_modulus(z_values, best_fit_params)
+    predicted_distance_modulus_values = fluid_distance_modulus(z_values, best_fit_params)
     residuals = np.where(cepheid_distances != -9, distance_modulus_values - cepheid_distances , distance_modulus_values - predicted_distance_modulus_values)
 
     skewness = stats.skew(residuals)
@@ -186,14 +192,14 @@ Sample size: 1657
 *****************************
 
 ΛCDM
-H0: 73.25 +0.22/-0.24 km/s/Mpc
-Ωm: 0.3295 +0.0183/-0.0170
-R-squared: 99.78 %
+H0: 73.23 +0.23/-0.23 km/s/Mpc
+Ωm: 0.3307 +0.0178/-0.0176
+R-squared (%): 99.78
 RMSD (mag): 0.153
 Skewness of residuals: 0.086
-kurtosis of residuals: 1.558
-Spearman correlation: -0.832
-Chi squared: 1452.8
+kurtosis of residuals: 1.559
+Spearman correlation: -0.823
+Chi squared: 1452.7
 
 =============================
 
@@ -210,12 +216,12 @@ Chi squared: 1452.5
 =============================
 
 Fluid model
-H0: 73.34 +0.25/-0.24 km/s/Mpc
-w0: -0.7057 +0.0233/-0.0232
+H0: 73.33 +0.25/-0.25 km/s/Mpc
+w0: -0.7049 +0.0228/-0.0234
 R-squared (%): 99.78
 RMSD (mag): 0.153
 Skewness of residuals: 0.093
-kurtosis of residuals: 1.553
-Spearman correlation: -0.848
+kurtosis of residuals: 1.554
+Spearman correlation: -0.845
 Chi squared: 1453.3
 """
