@@ -200,14 +200,13 @@ Reduce chi squared: 0.9817
 =============================
 
 Fluid model
-M0: -28.5766 +0.0142/-0.0142 (M(0.7)=-19.3509)
-w0: -0.7085 +0.0603/-0.0657
-wm: 0.2654 +0.0826/-0.0813
-R-squared: 99.71 %
+M0: -28.5805 +0.0114/-0.0121 (M(0.7)=-19.3550)
+w0: -0.7504 +0.0303/-0.0311
+R-squared (%): 99.71
 RMSD (mag): 0.143
 Skewness of residuals: 0.197
-kurtosis of residuals: 0.701
-Reduced chi squared: 0.9822
+kurtosis of residuals: 0.697
+Reduced chi squared: 0.9817
 
 *****************************
 Dataset: Pantheon+ (2022)
