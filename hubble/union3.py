@@ -3,7 +3,7 @@ import corner
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import skew, kurtosis
-from scipy.integrate import quad
+from scipy.integrate import cumulative_trapezoid
 from multiprocessing import Pool
 from .plotting import plot_predictions, print_color, plot_residuals
 from y2023union3.data import get_data
@@ -17,11 +17,10 @@ C = 299792.458
 
 # Flat model
 def integral_of_e_z(zs, w0):
-    def integrand(z):
-        correction = np.exp(((1 - 3 * w0) / 2) * (-1 + 1/(1 + z)))
-        return 1 / (correction * (1 + z) ** 2)
-
-    return np.array([quad(integrand, 0, z_item)[0] for z_item in zs])
+    z_grid = np.linspace(0, np.max(zs), num=1000)
+    e_inv = 1 / (np.exp(((1 - 3 * w0) / 2) * (-1 + 1/(1 + z_grid))) * (1 + z_grid) ** 2)
+    integral_values = cumulative_trapezoid(e_inv, z_grid, initial=0)
+    return np.interp(zs, z_grid, integral_values)
 
 
 def fluid_distance_modulus(z, params):
@@ -34,9 +33,10 @@ def fluid_distance_modulus(z, params):
 
 # Flat ΛCDM
 def lcdm_e_z(zs, omega_m):
-    def integrand(z):
-        return 1 / np.sqrt(omega_m * (1 + z)**3 + 1 - omega_m)
-    return np.array([quad(integrand, 0, z_item)[0] for z_item in zs])
+    z_grid = np.linspace(0, np.max(zs), num=1000)
+    e_inv = 1 / np.sqrt(omega_m * (1 + z_grid)**3 + 1 - omega_m)
+    integral_values = cumulative_trapezoid(e_inv, z_grid, initial=0)
+    return np.interp(zs, z_grid, integral_values)
 
 
 def lcdm_distance_modulus(z, params):
@@ -80,10 +80,7 @@ def main():
     n_dim = len(bounds)
     n_walkers = 100
     n_steps = discarded_steps + 2000
-    initial_pos = np.zeros((n_walkers, n_dim))
-
-    for dim, (lower, upper) in enumerate(bounds):
-      initial_pos[:, dim] = np.random.uniform(lower, upper, n_walkers)
+    initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(n_walkers, n_dim))
 
     with Pool(10) as pool:
         sampler = emcee.EnsembleSampler(n_walkers, n_dim, log_probability, pool=pool)
@@ -186,12 +183,12 @@ Sample size: 22
 
 ΛCDM
 
-Ωm: 0.3568 +0.0276/-0.0262
-H0: 72.39 +3.01/-2.87 km/s/Mpc
+Ωm: 0.3571 +0.0274/-0.0264
+H0: 72.42 +3.00/-2.88 km/s/Mpc
 R-squared (%): 99.95
-RMSD (mag): 0.049
-Skewness of residuals: 0.578
-kurtosis of residuals: 0.691
+RMSD (mag): 0.048
+Skewness of residuals: 0.587
+kurtosis of residuals: 0.692
 Reduced chi squared: 1.20
 
 =============================
@@ -211,11 +208,11 @@ Reduced chi squared: 1.11
 
 Fluid model
 
-w0: -0.6739 +0.0347/-0.0346
-H0: 72.52 +3.00/-2.90
-R-squared (%): 99.95
+w0: -0.6740 +0.0346/-0.0347
+H0: 72.54 +3.01/-2.90
+R-squared (%): 99.96
 RMSD (mag): 0.047
-Skewness of residuals: 0.851
-kurtosis of residuals: 0.660
+Skewness of residuals: 0.850
+kurtosis of residuals: 0.659
 Reduced chi squared: 1.23
 """

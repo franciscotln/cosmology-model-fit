@@ -2,7 +2,7 @@ import emcee
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats as stats
-from scipy.integrate import quad
+from scipy.integrate import cumulative_trapezoid
 from multiprocessing import Pool
 from .plotting import plot_predictions, print_color, plot_residuals
 from y2024DES.data import get_data
@@ -21,11 +21,10 @@ h0 = 70
 # Flat
 def integral_of_e_z(zs, params):
     [w0] = params
-    def integrand(z):
-        correction = np.exp(((1 - 3 * w0) / 2) * (-1 + 1/(1 + z)))
-        return 1 / (correction * (1 + z) ** 2)
-
-    return np.array([quad(integrand, 0, z_item)[0] for z_item in zs])
+    z_grid = np.linspace(0, np.max(zs), num=1000)
+    e_inv = 1 / (np.exp(((1 - 3 * w0) / 2) * (-1 + 1/(1 + z_grid))) * (1 + z_grid) ** 2)
+    integral_values = cumulative_trapezoid(e_inv, z_grid, initial=0)
+    return np.interp(zs, z_grid, integral_values)
 
 
 def wcdm_distance_modulus(z, params):
@@ -37,9 +36,10 @@ def wcdm_distance_modulus(z, params):
 # Flat ΛCDM
 def lcdm_e_z(zs, params):
     [omega_m] = params
-    def integrand(z):
-        return 1 / np.sqrt(omega_m * (1 + z)**3 + 1 - omega_m)
-    return np.array([quad(integrand, 0, z_item)[0] for z_item in zs])
+    z_grid = np.linspace(0, np.max(zs), num=1000)
+    e_inv = 1 / np.sqrt(omega_m * (1 + z_grid)**3 + 1 - omega_m)
+    integral_values = cumulative_trapezoid(e_inv, z_grid, initial=0)
+    return np.interp(zs, z_grid, integral_values)
 
 
 def lcdm_distance_modulus(z, params):
@@ -88,12 +88,9 @@ def log_probability(params):
 def main():
     steps_to_discard = 100
     ndim = len(bounds)
-    nwalkers = 20
+    nwalkers = 40
     n_steps = steps_to_discard + 2000
-    initial_pos = np.zeros((nwalkers, ndim))
-
-    for dim, (lower, upper) in enumerate(bounds):
-      initial_pos[:, dim] = np.random.uniform(lower, upper, nwalkers)
+    initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
 
     with Pool(10) as pool:
         sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool=pool)

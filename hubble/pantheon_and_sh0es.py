@@ -79,10 +79,7 @@ def main():
     n_dim = len(bounds)
     n_walkers = 40
     n_steps = steps_to_discard + 2000
-    initial_pos = np.zeros((n_walkers, n_dim))
-
-    for dim, (lower, upper) in enumerate(bounds):
-      initial_pos[:, dim] = np.random.uniform(lower, upper, n_walkers)
+    initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(n_walkers, n_dim))
 
     with Pool(10) as pool:
         sampler = emcee.EnsembleSampler(n_walkers, n_dim, log_probability, pool=pool)

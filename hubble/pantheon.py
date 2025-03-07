@@ -3,7 +3,7 @@ import corner
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats as stats
-from scipy.integrate import quad
+from scipy.integrate import cumulative_trapezoid
 from multiprocessing import Pool
 from .plotting import plot_predictions, print_color, plot_residuals
 # from y2018pantheon.data import get_data
@@ -18,25 +18,32 @@ C = 299792.458
 inv_cov_matrix = np.linalg.inv(cov_matrix)
 
 # Flat ΛCDM
-def integral_of_e_z(zs, w0):
-    def integrand(z):
-        correction = np.exp(((1 - 3 * w0) / 2) * (-1 + 1/(1 + z)))
-        return 1 / (correction * (1 + z) ** 2)
-
-    return np.array([quad(integrand, 0, z_item)[0] for z_item in zs])
+def lcdm_e_z(z, Omega_m):
+    z_grid = np.linspace(0, np.max(z), num=1000)
+    e_inv = 1 / np.sqrt(Omega_m * (1 + z_grid)**3 + 1 - Omega_m)
+    integral_values = cumulative_trapezoid(e_inv, z_grid, initial=0)
+    return np.interp(z, z_grid, integral_values)
 
 
 def lcdm_apparent_mag(z, params):
-    [M, omega_m] = params
+    [M, Omega_m] = params
     a0_over_ae = 1 + z
-    luminosity_distance = a0_over_ae * C * integral_of_e_z(z, omega_m, -1)
+    luminosity_distance = a0_over_ae * C * lcdm_e_z(z=z, Omega_m=Omega_m)
     return M + 25 + 5 * np.log10(luminosity_distance)
+
+
+#  Flat fluid model
+def integral_of_e_z(z, w0):
+    z_grid = np.linspace(0, np.max(z), num=1000)
+    e_inv = 1 / (np.exp(((1 - 3 * w0) / 2) * (-1 + 1/(1 + z_grid))) * (1 + z_grid) ** 2)
+    integral_values = cumulative_trapezoid(e_inv, z_grid, initial=0)
+    return np.interp(z, z_grid, integral_values)
 
 
 def wcdm_apparent_mag(z, params):
     [M, w0] = params
     a0_over_ae = 1 + z
-    luminosity_distance = a0_over_ae * C * integral_of_e_z(zs=z, w0=w0)
+    luminosity_distance = a0_over_ae * C * integral_of_e_z(z=z, w0=w0)
     return M + 25 + 5 * np.log10(luminosity_distance)
 
 
@@ -71,12 +78,9 @@ def log_probability(params):
 def main():
     steps_to_discard = 100
     n_dim = len(bounds)
-    n_walkers = 30
-    n_steps = steps_to_discard + 1000
-    initial_pos = np.zeros((n_walkers, n_dim))
-
-    for dim, (lower, upper) in enumerate(bounds):
-      initial_pos[:, dim] = np.random.uniform(lower, upper, n_walkers)
+    n_walkers = 50
+    n_steps = steps_to_discard + 3000
+    initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(n_walkers, n_dim))
 
     with Pool(10) as pool:
         sampler = emcee.EnsembleSampler(n_walkers, n_dim, log_probability, pool=pool)
@@ -216,13 +220,13 @@ M0 contains Hubble constant and absolute magnitude
 *****************************
 
 ΛCDM
-M0: -28.5763 +0.0070/-0.0068 (M(0.7)=-19.3508)
-Ωm: 0.3323 +0.0070/-0.0068
-R-squared: 99.74 %
+M0: -28.5767 +0.0070/-0.0068
+Ωm: 0.3310 +0.0181/-0.0178
+R-squared (%): 99.74
 RMSD (mag): 0.154
 Skewness of residuals: 0.091
-kurtosis of residuals: 1.585
-Reduce chi squared: 0.8840
+kurtosis of residuals: 1.583
+Reduced chi squared: 0.8840
 
 =============================
 
