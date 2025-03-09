@@ -16,39 +16,32 @@ inverse_cov = np.linalg.inv(cov_matrix)
 C = 299792.458
 
 # Flat model
-def integral_of_e_z(zs, w0):
+def integral_of_e_z(zs, Omega_m, w0):
     z_grid = np.linspace(0, np.max(zs), num=1000)
-    e_inv = 1 / (np.exp(((1 - 3 * w0) / 2) * (-1 + 1/(1 + z_grid))) * (1 + z_grid) ** 2)
+    e_inv = 1 / np.sqrt(Omega_m * (1 + z_grid)**3 + (1 - Omega_m)*(1 + z_grid)**(3 * (1 + w0)))
     integral_values = cumulative_trapezoid(e_inv, z_grid, initial=0)
     return np.interp(zs, z_grid, integral_values)
 
 
-def fluid_distance_modulus(z, params):
-    [h0, w0] = params
+def wcdm_distance_modulus(z, params):
+    [h0, Omega_m, w0] = params
     normalized_h0 = h0 * 100
     a0_over_ae = 1 + z
-    comoving_distance = (C / normalized_h0) * integral_of_e_z(zs=z, w0=w0)
+    comoving_distance = (C / normalized_h0) * integral_of_e_z(zs=z, Omega_m=Omega_m, w0=w0)
     return 25 + 5 * np.log10(a0_over_ae * comoving_distance)
 
 
 # Flat ΛCDM
-def lcdm_e_z(zs, omega_m):
-    z_grid = np.linspace(0, np.max(zs), num=1000)
-    e_inv = 1 / np.sqrt(omega_m * (1 + z_grid)**3 + 1 - omega_m)
-    integral_values = cumulative_trapezoid(e_inv, z_grid, initial=0)
-    return np.interp(zs, z_grid, integral_values)
-
-
 def lcdm_distance_modulus(z, params):
-    [h0, omega_m] = params
+    [h0, Omega_m] = params
     normalized_h0 = h0 * 100
     a0_over_ae = 1 + z
-    comoving_distance = (C / normalized_h0) * lcdm_e_z(z, omega_m)
+    comoving_distance = (C / normalized_h0) * integral_of_e_z(zs=z, Omega_m=Omega_m, w0=-1)
     return 25 + 5 * np.log10(a0_over_ae * comoving_distance)
 
 
 def chi_squared(params):
-    delta = distance_moduli_values - fluid_distance_modulus(z_values, params)
+    delta = distance_moduli_values - wcdm_distance_modulus(z_values, params)
     return delta.T @ inverse_cov @ delta
 
 
@@ -58,7 +51,8 @@ def log_likelihood(params):
 
 bounds = np.array([
     (0.4, 0.9), # h0
-    (-1, 0), # w0
+    (0, 0.6),
+    (-1.5, 0), # w0
 ])
 
 
@@ -92,12 +86,13 @@ def main():
 
     [
         [h0_16, h0_50, h0_84],
+        [omega_16, omega_50, omega_84],
         [w0_16, w0_50, w0_84], 
     ] = np.percentile(samples, [16, 50, 84], axis=0).T
 
-    best_fit_params = [h0_50, w0_50]
+    best_fit_params = [h0_50, omega_50, w0_50]
 
-    predicted_mag = fluid_distance_modulus(z_values, best_fit_params)
+    predicted_mag = wcdm_distance_modulus(z_values, best_fit_params)
     residuals = distance_moduli_values - predicted_mag
 
     skewness = skew(residuals)
@@ -114,12 +109,14 @@ def main():
 
     # Print the values in the console
     h0_label = f"{h0_50:.4f} +{h0_84-h0_50:.4f}/-{h0_50-h0_16:.4f}"
+    omega_label = f"{omega_50:.4f} +{omega_84-omega_50:.4f}/-{omega_50-omega_16:.4f}"
     w0_label = f"{w0_50:.4f} +{w0_84-w0_50:.4f}/-{w0_50-w0_16:.4f}"
 
     print_color("Dataset", legend)
     print_color("z range", f"{z_values[0]:.3f} - {z_values[-1]:.3f}")
     print_color("Sample size", len(z_values))
     print_color("h0", h0_label)
+    print_color("Ωm", omega_label)
     print_color("w0", w0_label)
     print_color("R-squared (%)", f"{100 * r_squared:.2f}")
     print_color("RMSD (mag)", f"{rmsd:.3f}")
@@ -128,7 +125,7 @@ def main():
     print_color("Reduced chi squared", chi_squared(best_fit_params)/ (len(z_values) - 2))
 
     # Plot the data and the fit
-    labels = [r"$h_0$", r"$w_0$"]
+    labels = [r"$h_0$", f"$\Omega_m$", r"$w_0$"]
     corner.corner(
         samples,
         labels=labels,
@@ -195,24 +192,12 @@ Reduced chi squared: 1.20
 
 wCDM
 
-Ωm: 0.2526 +0.0884/-0.1101
-w: -0.7477 +0.1553/-0.1865
-H0: 72.01 +3.01/-2.85 km/s/Mpc
+Ωm: 0.2539 +0.0873/-0.1107
+w0: -0.7494 +0.1560/-0.1857
+H0: 72.04 +3.00/-2.92 km/s/Mpc
 R-squared (%): 99.94
 RMSD (mag): 0.053
-Skewness of residuals: -1.257
-kurtosis of residuals: 3.921
+Skewness of residuals: -1.230
+kurtosis of residuals: 3.852
 Reduced chi squared: 1.11
-
-=============================
-
-Fluid model
-
-w0: -0.6740 +0.0346/-0.0347
-H0: 72.54 +3.01/-2.90
-R-squared (%): 99.96
-RMSD (mag): 0.047
-Skewness of residuals: 0.850
-kurtosis of residuals: 0.659
-Reduced chi squared: 1.23
 """

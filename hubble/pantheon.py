@@ -18,37 +18,29 @@ C = 299792.458
 inv_cov_matrix = np.linalg.inv(cov_matrix)
 
 # Flat ΛCDM
-def lcdm_e_z(z, Omega_m):
+def integral_of_e_z(z, Omega_m, w0):
     z_grid = np.linspace(0, np.max(z), num=1000)
-    e_inv = 1 / np.sqrt(Omega_m * (1 + z_grid)**3 + 1 - Omega_m)
-    integral_values = cumulative_trapezoid(e_inv, z_grid, initial=0)
+    e_z = np.sqrt(Omega_m * (1 + z_grid)**3 + (1 - Omega_m)*(1 + z_grid)**(3 * (1 + w0)))
+    integral_values = cumulative_trapezoid(1/e_z, z_grid, initial=0)
     return np.interp(z, z_grid, integral_values)
 
 
 def lcdm_apparent_mag(z, params):
     [M, Omega_m] = params
     a0_over_ae = 1 + z
-    luminosity_distance = a0_over_ae * C * lcdm_e_z(z=z, Omega_m=Omega_m)
+    luminosity_distance = a0_over_ae * C * integral_of_e_z(z=z, Omega_m=Omega_m, w0=-1)
     return M + 25 + 5 * np.log10(luminosity_distance)
 
 
-#  Flat fluid model
-def integral_of_e_z(z, w0):
-    z_grid = np.linspace(0, np.max(z), num=1000)
-    e_inv = 1 / (np.exp(((1 - 3 * w0) / 2) * (-1 + 1/(1 + z_grid))) * (1 + z_grid) ** 2)
-    integral_values = cumulative_trapezoid(e_inv, z_grid, initial=0)
-    return np.interp(z, z_grid, integral_values)
-
-
 def wcdm_apparent_mag(z, params):
-    [M, w0] = params
+    [M, Omega_m, w0] = params
     a0_over_ae = 1 + z
-    luminosity_distance = a0_over_ae * C * integral_of_e_z(z=z, w0=w0)
+    luminosity_distance = a0_over_ae * C * integral_of_e_z(z=z, Omega_m=Omega_m, w0=w0)
     return M + 25 + 5 * np.log10(luminosity_distance)
 
 
 def chi_squared(params):
-    delta = apparent_mag_values - wcdm_apparent_mag(z_values, params)
+    delta = apparent_mag_values - lcdm_apparent_mag(z_values, params)
     return delta.T @ inv_cov_matrix @ delta
 
 
@@ -58,7 +50,8 @@ def log_likelihood(params):
 
 bounds = np.array([
     (-30, -27), # M
-    (-1, 1/3), # w0
+    (0, 1), # Ωm
+    (-2, 0), # w0
 ])
 
 
@@ -98,15 +91,17 @@ def main():
         print_color("Autocorrelation time", "Not available")
 
     M0_samples = samples[:, 0]
-    w0_samples = samples[:, 1]
+    omega_samples = samples[:, 1]
+    w0_samples = samples[:, 2]
 
     [M0_16, M0_50, M0_84] = np.percentile(M0_samples, [16, 50, 84])
+    [omega_16, omega_50, omega_84] = np.percentile(omega_samples, [16, 50, 84])
     [w0_16, w0_50, w0_84] = np.percentile(w0_samples, [16, 50, 84])
 
-    best_fit_params = [M0_50, w0_50]
+    best_fit_params = [M0_50, omega_50, w0_50]
 
     # Calculate residuals
-    predicted_apparent_mag = wcdm_apparent_mag(z_values, best_fit_params)
+    predicted_apparent_mag = lcdm_apparent_mag(z_values, best_fit_params)
     residuals = apparent_mag_values - predicted_apparent_mag
 
     skewness = stats.skew(residuals)
@@ -123,11 +118,13 @@ def main():
 
     # Print the values in the console
     M0_label = f"{M0_50:.4f} +{M0_84-M0_50:.4f}/-{M0_50-M0_16:.4f}"
+    omega_label = f"{omega_50:.4f} +{omega_84-omega_50:.4f}/-{omega_50-omega_16:.4f}"
     w0_label = f"{w0_50:.4f} +{w0_84-w0_50:.4f}/-{w0_50-w0_16:.4f}"
 
     print_color("Dataset", legend)
     print_color("z range", f"{z_values[0]:.4f} - {z_values[-1]:.4f}")
     print_color("Sample size", len(z_values))
+    print_color("omega", omega_label)
     print_color("w0", w0_label)
     print_color("M0", M0_label)
     print_color("R-squared (%)", f"{100 * r_squared:.2f}")
@@ -137,7 +134,7 @@ def main():
     print_color("Reduced chi squared", chi_squared(best_fit_params)/ (len(z_values) - len(best_fit_params)))
 
     # Plot the data and the fit
-    labels = [r"$M_0$", r"$w_0$"]
+    labels = [r"$M_0$", f"$\Omega_m$", r"$w_0$"]
     corner.corner(
         samples,
         labels=labels,
@@ -166,10 +163,10 @@ def main():
     plot_predictions(
         legend=legend,
         x=z_values,
-        y=apparent_mag_values,
+        y=apparent_mag_values - M0_50,
         y_err=np.sqrt(np.diag(cov_matrix)),
-        y_model=predicted_apparent_mag,
-        label=f"Best fit: $w_0$={w0_50:.4f}, $M_0$={M0_50:.4f}",
+        y_model=predicted_apparent_mag - M0_50,
+        label=f"Best fit: $\Omega_m$={omega_50:.4f}, $M_0$={M0_50:.4f}",
         x_scale="log"
     )
 
@@ -193,24 +190,25 @@ M0 contains Hubble constant and absolute magnitude
 *****************************
 
 ΛCDM
-M0: -28.5749 +0.0102/-0.0108 (M(0.7)=-19.3494)
-Ωm: 0.2993 +0.0207/-0.0219
+M0: -28.5748 +0.0108/-0.0106 (M(0.7)=-19.3495)
+Ωm: 0.2993 +0.0225/-0.0214
 R-squared: 99.71 %
 RMSD (mag): 0.143
 Skewness of residuals: 0.191
 kurtosis of residuals: 0.698
-Reduce chi squared: 0.9817
+Reduced chi squared: 0.9817
 
 =============================
 
-Fluid model
-M0: -28.5805 +0.0114/-0.0121 (M(0.7)=-19.3550)
-w0: -0.7504 +0.0303/-0.0311
-R-squared (%): 99.71
+wCDM
+M0: -28.5778 +0.0144/-0.0146 (M(0.7)=-19.3509)
+Ωm: 0.3227 +0.0650/-0.0802
+w0: -1.0687 +0.1983/-0.2320
+R-squared: 99.71 %
 RMSD (mag): 0.143
-Skewness of residuals: 0.197
-kurtosis of residuals: 0.697
-Reduced chi squared: 0.9817
+Skewness of residuals: 0.196
+kurtosis of residuals: 0.698
+Reduced chi squared: 0.9826
 
 *****************************
 Dataset: Pantheon+ (2022)
@@ -220,7 +218,7 @@ M0 contains Hubble constant and absolute magnitude
 *****************************
 
 ΛCDM
-M0: -28.5767 +0.0070/-0.0068
+M0: -28.5767 +0.0070/-0.0068 (M(0.7)=-19.3502)
 Ωm: 0.3310 +0.0181/-0.0178
 R-squared (%): 99.74
 RMSD (mag): 0.154
@@ -231,23 +229,12 @@ Reduced chi squared: 0.8840
 =============================
 
 wCDM
-M0: -28.5731 +0.0076/-0.0085 (M(0.7)=-19.3476)
-Ωm: 0.2698 +0.0566/-0.0701
-w: -0.8580 +0.1104/-0.1336
+M0: -28.5734 +0.0088/-0.0089 (M(0.7)=-19.3489)
+Ωm: 0.2986 +0.0618/-0.0745
+w: -0.9180 +0.1430/-0.1575
 R-squared: 99.74 %
 RMSD (mag): 0.154
-Skewness of residuals: 0.075
-kurtosis of residuals: 1.593
-Reduced chi squared: 0.8845
-
-=============================
-
-Fluid model
-M0: -28.5800 +0.0074/-0.0073 (M(0.7)=-19.3545)
-w0: -0.7045 +0.0235/-0.0230
-R-squared (%): 99.74
-RMSD (mag): 0.154
-Skewness of residuals: 0.099
-kurtosis of residuals: 1.578
+Skewness of residuals: 0.082
+kurtosis of residuals: 1.590
 Reduced chi squared: 0.8843
 """
