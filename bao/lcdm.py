@@ -46,7 +46,7 @@ def plot_predictions(params):
     unique_quantities = set(quantity_types)
     colors = { "DV_over_rs": "red", "DM_over_rs": "blue", "DH_over_rs": "green" }
 
-    r_d, w0 = params
+    r_d, omega_m, w0 = params
     z_smooth = np.linspace(min(z_values), max(z_values), 100)
     plt.figure(figsize=(8, 6))
     for q in unique_quantities:
@@ -75,13 +75,14 @@ def plot_predictions(params):
     plt.ylabel(r"$O = \frac{D}{r_d}$")
     plt.legend()
     plt.grid(True)
-    plt.title(f"BAO Data vs Model ($r_d$={r_d:.2f}, $w_0$={w0:.4f} with errors")
+    plt.title(f"BAO Data vs Model ($r_d$={r_d:.2f}, $\Omega_M$={omega_m:.4f}, $w_0$={w0:.4f} with errors")
     plt.show()
 
 
 def H_z(z, params):
     Omega_m = params[1]
-    return H0 * np.sqrt(Omega_m * (1 + z) ** 3 + (1 - Omega_m))
+    w0 = params[2]
+    return H0 * np.sqrt(Omega_m * (1 + z) ** 3 + (1 - Omega_m)*(1 + z)**(3*(1+w0)))
 
 
 def DM_z(z, params):
@@ -110,7 +111,8 @@ def model_predictions(params):
 
 bounds = np.array([
     (120, 170), # r_d
-    (0, 1), # w0
+    (0, 1), # Omega_m
+    (-2, 0) # w0
 ])
 
 
@@ -161,18 +163,21 @@ def main():
 
     rd_percentiles = np.percentile(samples[:, 0], [16, 50, 84], axis=0)
     rd_50, rd_err = rd_percentiles[1], 0.5 * (rd_percentiles[2] - rd_percentiles[0])
-    w0_percentiles = np.percentile(samples[:, 1], [16, 50, 84], axis=0)
+    omega_percentiles = np.percentile(samples[:, 1], [16, 50, 84], axis=0)
+    omega_50, omega_err = omega_percentiles[1], 0.5 * (omega_percentiles[2] - omega_percentiles[0])
+    w0_percentiles = np.percentile(samples[:, 2], [16, 50, 84], axis=0)
     w0_50, w0_err = w0_percentiles[1], 0.5 * (w0_percentiles[2] - w0_percentiles[0])
 
-    best_fit = [rd_50, w0_50]
+    best_fit = [rd_50, omega_50, w0_50]
 
     print(f"\033[92mr_d: {rd_50:.4f} ± {rd_err:.4f}\033[0m")
-    print(f"\033[92mΩm: {w0_50:.4f} ± {w0_err:.4f}\033[0m")
+    print(f"\033[92mΩm: {omega_50:.4f} ± {omega_err:.4f}\033[0m")
+    print(f"\033[92mw0: {w0_50:.4f} ± {w0_err:.4f}\033[0m")
     print(f"\033[92mChi squared: {chi_squared(best_fit):.4f}\033[0m")
     print(f"\033[92mDegrees of freedom: {data['value'].size - len(best_fit)}\033[0m")
     plot_predictions(best_fit)
 
-    labels = [r"$r_d$", f"$\Omega_m$"]
+    labels = [r"$r_d$", f"$\Omega_m$", r"$w_0$"]
     corner.corner(
         samples,
         labels=labels,
@@ -209,4 +214,14 @@ Chi squared: 12.7431
 Degrees of freedom: 10
 R^2: 0.9957
 RMSD: 0.5527
+
+==============================
+wCDM model
+r_d: 150.7238 ± 4.7280
+Ωm: 0.2925 ± 0.0150
+w0: -0.9832 ± 0.1360
+Chi squared: 12.8496
+Degrees of freedom: 9
+R^2: 0.9959
+RMSD: 0.5436
 """
