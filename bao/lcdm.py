@@ -80,11 +80,6 @@ def plot_predictions(params):
 
 
 def H_z(z, params):
-    w0 = params[1]
-    correction = np.exp(((1 - 3 * w0) / 2) * (-1 + 1/(1 + z)))
-    return H0 * correction * (1 + z) ** 2
-
-def H_z_lcdm(z, params):
     Omega_m = params[1]
     return H0 * np.sqrt(Omega_m * (1 + z) ** 3 + (1 - Omega_m))
 
@@ -115,7 +110,7 @@ def model_predictions(params):
 
 bounds = np.array([
     (120, 170), # r_d
-    (-1, 0), # w0
+    (0, 1), # w0
 ])
 
 
@@ -172,12 +167,12 @@ def main():
     best_fit = [rd_50, w0_50]
 
     print(f"\033[92mr_d: {rd_50:.4f} ± {rd_err:.4f}\033[0m")
-    print(f"\033[92mw0: {w0_50:.4f} ± {w0_err:.4f}\033[0m")
+    print(f"\033[92mΩm: {w0_50:.4f} ± {w0_err:.4f}\033[0m")
     print(f"\033[92mChi squared: {chi_squared(best_fit):.4f}\033[0m")
     print(f"\033[92mDegrees of freedom: {data['value'].size - len(best_fit)}\033[0m")
     plot_predictions(best_fit)
 
-    labels = [r"$r_d$", r"$w_0$"]
+    labels = [r"$r_d$", f"$\Omega_m$"]
     corner.corner(
         samples,
         labels=labels,
@@ -214,14 +209,4 @@ Chi squared: 12.7431
 Degrees of freedom: 10
 R^2: 0.9957
 RMSD: 0.5527
-
-==============================
-
-Fluid model
-r_d: 154.2409 ± 2.0778
-w0: -0.8037 ± 0.0231
-Chi squared: 12.9383
-Degrees of freedom: 10
-R^2: 0.9957
-RMSD: 0.5576
 """

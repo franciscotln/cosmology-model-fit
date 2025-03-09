@@ -40,7 +40,7 @@ def wcdm_apparent_mag(z, params):
 
 
 def chi_squared(params):
-    delta = apparent_mag_values - lcdm_apparent_mag(z_values, params)
+    delta = apparent_mag_values - wcdm_apparent_mag(z_values, params)
     return delta.T @ inv_cov_matrix @ delta
 
 
@@ -101,7 +101,7 @@ def main():
     best_fit_params = [M0_50, omega_50, w0_50]
 
     # Calculate residuals
-    predicted_apparent_mag = lcdm_apparent_mag(z_values, best_fit_params)
+    predicted_apparent_mag = wcdm_apparent_mag(z_values, best_fit_params)
     residuals = apparent_mag_values - predicted_apparent_mag
 
     skewness = stats.skew(residuals)
@@ -124,7 +124,7 @@ def main():
     print_color("Dataset", legend)
     print_color("z range", f"{z_values[0]:.4f} - {z_values[-1]:.4f}")
     print_color("Sample size", len(z_values))
-    print_color("omega", omega_label)
+    print_color("Ωm", omega_label)
     print_color("w0", w0_label)
     print_color("M0", M0_label)
     print_color("R-squared (%)", f"{100 * r_squared:.2f}")
