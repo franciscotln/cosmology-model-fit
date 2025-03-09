@@ -1,4 +1,5 @@
 import emcee
+import corner
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats as stats
@@ -18,33 +19,23 @@ inv_cov_matrix = np.linalg.inv(cov_matrix)
 # Hubble constant km/s/Mpc as assumed in the dataset
 h0 = 70
 
-# Flat
-def integral_of_e_z(zs, params):
-    [w0] = params
-    z_grid = np.linspace(0, np.max(zs), num=1000)
-    e_inv = 1 / (np.exp(((1 - 3 * w0) / 2) * (-1 + 1/(1 + z_grid))) * (1 + z_grid) ** 2)
+# Flat ΛCDM
+def e_z(z, omega_m, w0):
+    z_grid = np.linspace(0, np.max(z), num=1000)
+    e_inv = 1 / np.sqrt(omega_m*(1 + z_grid)**3 + (1 - omega_m)*(1 + z_grid)**(3*(1 + w0)))
     integral_values = cumulative_trapezoid(e_inv, z_grid, initial=0)
-    return np.interp(zs, z_grid, integral_values)
-
+    return np.interp(z, z_grid, integral_values)
 
 def wcdm_distance_modulus(z, params):
     a0_over_ae = 1 + z
-    comoving_distance = (C / h0) * integral_of_e_z(z, params)
+    comoving_distance = (C / h0) * e_z(z, *params)
     return 25 + 5 * np.log10(a0_over_ae * comoving_distance)
 
 
-# Flat ΛCDM
-def lcdm_e_z(zs, params):
-    [omega_m] = params
-    z_grid = np.linspace(0, np.max(zs), num=1000)
-    e_inv = 1 / np.sqrt(omega_m * (1 + z_grid)**3 + 1 - omega_m)
-    integral_values = cumulative_trapezoid(e_inv, z_grid, initial=0)
-    return np.interp(zs, z_grid, integral_values)
-
-
 def lcdm_distance_modulus(z, params):
+    [omega_m] = params
     a0_over_ae = 1 + z
-    comoving_distance = (C / h0) * lcdm_e_z(z, params)
+    comoving_distance = (C / h0) * e_z(z, omega_m, -1)
     return 25 + 5 * np.log10(a0_over_ae * comoving_distance)
 
 
@@ -67,7 +58,8 @@ def log_likelihood(params):
 
 
 bounds = np.array([
-    (-1.2, 0), # w0
+    (0, 1), # omega_m
+    (-2.5, 0), # omega_l
 ])
 
 
@@ -107,12 +99,12 @@ def main():
     except Exception as e:
         print("Autocorrelation time could not be computed")
 
-    w0_samples = samples[:, 0]
+    [
+        [omega_16, omega_50, omega_84],
+        [w0_16, w0_50, w0_84],
+    ] = np.percentile(samples, [16, 50, 84], axis=0).T
 
-    one_sigma_quantile = np.array([16, 50, 84])
-    [w0_16, w0_50, w0_84] = np.percentile(w0_samples, one_sigma_quantile)
-
-    best_fit_params = [w0_50]
+    best_fit_params = [omega_50, w0_50]
 
     predicted_distance_modulus_values = wcdm_distance_modulus(z_values, best_fit_params)
     residuals = distance_modulus_values - predicted_distance_modulus_values
@@ -130,11 +122,13 @@ def main():
     rmsd = np.sqrt(np.mean(residuals ** 2))
 
     # Print the values in the console
+    omega_label = f"{omega_50:.4f} +{omega_84-omega_50:.4f}/-{omega_50-omega_16:.4f}"
     w0_label = f"{w0_50:.4f} +{w0_84-w0_50:.4f}/-{w0_50-w0_16:.4f}"
 
     print_color("Dataset", legend)
     print_color("z range", f"{z_values[0]:.3f} - {z_values[-1]:.3f}")
     print_color("Sample size", len(z_values))
+    print_color("Ωm", omega_label)
     print_color("w0", w0_label)
     print_color("R-squared (%)", f"{100 * r_squared:.2f}")
     print_color("RMSD (mag)", f"{rmsd:.3f}")
@@ -143,20 +137,21 @@ def main():
     print_color("Chi squared", chi_squared(best_fit_params))
 
     # plot posterior distribution from samples
-    fig, ax = plt.subplots()
-    ax.hist(w0_samples, bins=50, density=True, alpha=0.6, color='g')
-    mu, std = np.mean(w0_samples), np.std(w0_samples)
-    xmin, xmax = plt.xlim()
-    x = np.linspace(xmin, xmax, 100)
-    p = stats.norm.pdf(x, mu, std)
-    ax.plot(x, p, 'k', linewidth=2)
-    ax.axvline(x=w0_50, color='red', linestyle='--', alpha=0.8, label="Median (50%)")
-    ax.fill_betweenx(y=[0, max(p)], x1=w0_16, x2=w0_84, color='red', alpha=0.2, label="68% CI")
-    ax.legend()
+    labels = [f"$\Omega_M$", f"$w_0$"]
+    corner.corner(
+        samples,
+        labels=labels,
+        quantiles=[0.16, 0.5, 0.84],
+        show_titles=True,
+        title_fmt=".4f",
+        title_kwargs={"fontsize": 12},
+        smooth=1.5,
+        smooth1d=1.5,
+        bins=40,
+    )
     plt.show()
 
     # Plot chains for each parameter
-    labels = [r"$w_0$"]
     fig, axes = plt.subplots(ndim, figsize=(10, 7))
     if ndim == 1:
         axes = [axes]
@@ -209,13 +204,14 @@ kurtosis of residuals: 8.236
 
 ==============================
 
-Fluid model
-Chi squared: 551.0039
-w0: -0.7586 +0.0577/-0.0568
+Flat wCDM
+Chi squared: 550.9743
+Ωm: 0.3170 +0.0926/-0.1373
+w0: -1.0515 +0.3141/-0.4072
 R-squared (%): 99.30
-RMSD (mag): 0.267
-Skewness of residuals: 1.396
-kurtosis of residuals: 8.201
+RMSD (mag): 0.268
+Skewness of residuals: 1.407
+kurtosis of residuals: 8.213
 
 ********************************
 Dataset: DES-SN5YR
@@ -234,21 +230,11 @@ kurtosis of residuals: 25.913
 ==============================
 
 Flat wCDM
-Chi squared: 1648.1531
-Ωm: 0.2769 +0.0722/-0.0915
-w: -0.8236 +0.1450/-0.1692
+Chi squared: 1648.1532
+Ωm: 0.2706 +0.0730/-0.0950
+w0: -0.8115 +0.1455/-0.1619
 R-squared (%): 98.32
-RMSD (mag): 0.270
-Skewness of residuals: 3.416
-kurtosis of residuals: 25.958
-
-==============================
-
-Fluid model
-Chi squared: 1650.7003
-w0: -0.6807 +0.0215/-0.0216
-R-squared (%): 98.36
-RMSD (mag): 0.267
-Skewness of residuals: 3.404
-kurtosis of residuals: 25.883
+RMSD (mag): 0.271
+Skewness of residuals: 3.417
+kurtosis of residuals: 25.959
 """
