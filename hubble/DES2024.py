@@ -23,7 +23,7 @@ h0 = 70
 def e_z(z, omega_m, w0):
     z_grid = np.linspace(0, np.max(z), num=1000)
     alpha = 4/(1 - 3*w0) # W(z=-1) == 1/3
-    H_over_H0 = np.sqrt(omega_m*(1 + z_grid)**3 + (1 - omega_m) * (alpha*(1 + z_grid)/(alpha + z_grid))**(3*alpha*(1 + w0)/(alpha - 1)))
+    H_over_H0 = np.sqrt(omega_m*(1 + z_grid)**3 + (1 - omega_m) * (alpha*(1 + z_grid)/(alpha + z_grid))**4)
     integral_values = cumulative_trapezoid(1/H_over_H0, z_grid, initial=0)
     return np.interp(z, z_grid, integral_values)
 
@@ -60,7 +60,7 @@ def log_likelihood(params):
 
 bounds = np.array([
     (0, 1), # Ωm
-    (-2, 0.5), # w0
+    (-3, 0.5), # w0
 ])
 
 
@@ -214,6 +214,17 @@ RMSD (mag): 0.268
 Skewness of residuals: 1.407
 kurtosis of residuals: 8.213
 
+==============================
+
+Modified waw0CDM
+Chi squared: 550.9642
+Ωm: 0.3118 +0.0824/-0.1107
+w0: -1.0574 +0.3176/-0.4102
+R-squared (%): 99.30
+RMSD (mag): 0.267
+Skewness of residuals: 1.399
+kurtosis of residuals: 8.208
+
 ********************************
 Dataset: DES-SN5YR
 z range: 0.025 - 1.121
@@ -243,11 +254,11 @@ kurtosis of residuals: 25.959
 ==============================
 
 Modified Flat waw0CDM
-Chi squared: 1647.8993
-Ωm: 0.2919 +0.0533/-0.0612
-w0: -0.8297 +0.1282/-0.1421
+Chi squared: 1647.8969
+Ωm: 0.2909 +0.0518/-0.0620
+w0: -0.8246 +0.1248/-0.1410
 R-squared (%): 98.32
 RMSD (mag): 0.271
 Skewness of residuals: 3.418
-kurtosis of residuals: 25.976
+kurtosis of residuals: 25.966
 """

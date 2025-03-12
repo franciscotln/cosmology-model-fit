@@ -21,7 +21,7 @@ inv_cov_matrix = np.linalg.inv(cov_matrix)
 def integral_of_e_z(z, Omega_m, w0):
     z_grid = np.linspace(0, np.max(z), num=1000)
     alpha = 4/(1 - 3*w0) # W(z=-1) == 1/3
-    H_over_H0 = np.sqrt(Omega_m*(1 + z_grid)**3 + (1 - Omega_m) * (alpha*(1 + z_grid)/(alpha + z_grid))**(3*alpha*(1 + w0)/(alpha - 1)))
+    H_over_H0 = np.sqrt(Omega_m*(1 + z_grid)**3 + (1 - Omega_m) * (alpha*(1 + z_grid)/(alpha + z_grid))**4)
     integral_values = cumulative_trapezoid(1/H_over_H0, z_grid, initial=0)
     return np.interp(z, z_grid, integral_values)
 
@@ -241,12 +241,12 @@ Reduced chi squared: 0.8843
 =============================
 
 Modified Flat waw0CDM
-M0: -28.5734 +0.0092/-0.0095 (M(0.7)=-19.3490)
-Ωm: 0.3078 +0.0503/-0.0551
-w0: -0.9292 +0.1320/-0.1512
+M0: -28.5734 +0.0090/-0.0093 (M(0.7)=-19.3490)
+Ωm: 0.3081 +0.0497/-0.0560
+w0: -0.9283 +0.1318/-0.1511
 R-squared (%): 99.74
 RMSD (mag): 0.154
-Skewness of residuals: 0.083
-kurtosis of residuals: 1.589
+Skewness of residuals: 0.082
+kurtosis of residuals: 1.590
 Reduced chi squared: 0.8843
 """

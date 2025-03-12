@@ -22,7 +22,7 @@ C = 299792.458
 def integral_of_e_z(z, Omega_m, w0):
     z_grid = np.linspace(0, np.max(z), num=1000)
     alpha = 4/(1 - 3*w0) # W(z=-1) == 1/3
-    H_over_H0 = np.sqrt(Omega_m*(1 + z_grid)**3 + (1 - Omega_m) * (alpha*(1 + z_grid)/(alpha + z_grid))**(3*alpha*(1 + w0)/(alpha - 1)))
+    H_over_H0 = np.sqrt(Omega_m*(1 + z_grid)**3 + (1 - Omega_m) * (alpha*(1 + z_grid)/(alpha + z_grid))**4)
     integral_values = cumulative_trapezoid(1/H_over_H0, z_grid, initial=0)
     return np.interp(z, z_grid, integral_values)
 
@@ -211,12 +211,12 @@ Chi squared: 1452.5
 =============================
 
 Modified Flat waw0CDM
-H0: 73.15 +0.31/-0.31 km/s/Mpc
-Ωm: 0.3130 +0.0488/-0.0531
-w0: -0.9448 +0.1296/-0.1493
+H0: 73.14 +0.31/-0.31 km/s/Mpc
+Ωm: 0.3140 +0.0489/-0.0545
+w0: -0.9445 +0.1309/-0.1552
 R-squared: 99.78 %
 RMSD (mag): 0.153
 Skewness of residuals: 0.079
-kurtosis of residuals: 1.563
+kurtosis of residuals: 1.564
 Chi squared: 1452.5
 """

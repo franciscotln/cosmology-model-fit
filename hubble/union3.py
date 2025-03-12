@@ -19,7 +19,7 @@ C = 299792.458
 def integral_of_e_z(zs, Omega_m, w0):
     z_grid = np.linspace(0, np.max(zs), num=1000)
     alpha = 4/(1 - 3*w0) # W(z=-1) == 1/3
-    H_over_H0 = np.sqrt(Omega_m*(1 + z_grid)**3 + (1 - Omega_m) * (alpha*(1 + z_grid)/(alpha + z_grid))**(3*alpha*(1 + w0)/(alpha - 1)))
+    H_over_H0 = np.sqrt(Omega_m*(1 + z_grid)**3 + (1 - Omega_m) * (alpha*(1 + z_grid)/(alpha + z_grid))**4)
     integral_values = cumulative_trapezoid(1/H_over_H0, z_grid, initial=0)
     return np.interp(zs, z_grid, integral_values)
 
@@ -208,9 +208,9 @@ Reduced chi squared: 1.11
 
 Modified waw0CDM
 
-Ωm: 0.2818 +0.0661/-0.0779
-w0: -0.7615 +0.1486/-0.1773
-H0: 71.94 +3.00/-2.87
+Ωm: 0.2810 +0.0664/-0.0759
+w0: -0.7596 +0.1471/-0.1776
+H0: 71.95 +2.96/-2.90 km/s/Mpc
 R-squared (%): 99.94
 RMSD (mag): 0.052
 Skewness of residuals: -1.100
