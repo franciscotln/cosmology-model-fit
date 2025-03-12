@@ -19,11 +19,12 @@ inv_cov_matrix = np.linalg.inv(cov_matrix)
 # Hubble constant km/s/Mpc as assumed in the dataset
 h0 = 70
 
-# Flat ΛCDM
+# Flat
 def e_z(z, omega_m, w0):
     z_grid = np.linspace(0, np.max(z), num=1000)
-    e_inv = 1 / np.sqrt(omega_m*(1 + z_grid)**3 + (1 - omega_m)*(1 + z_grid)**(3*(1 + w0)))
-    integral_values = cumulative_trapezoid(e_inv, z_grid, initial=0)
+    alpha = 4/(1 - 3*w0) # W(z=-1) == 1/3
+    H_over_H0 = np.sqrt(omega_m*(1 + z_grid)**3 + (1 - omega_m) * (alpha*(1 + z_grid)/(alpha + z_grid))**(3*alpha*(1 + w0)/(alpha - 1)))
+    integral_values = cumulative_trapezoid(1/H_over_H0, z_grid, initial=0)
     return np.interp(z, z_grid, integral_values)
 
 def wcdm_distance_modulus(z, params):
@@ -58,8 +59,8 @@ def log_likelihood(params):
 
 
 bounds = np.array([
-    (0, 1), # omega_m
-    (-2.5, 0), # omega_l
+    (0, 1), # Ωm
+    (-2, 0.5), # w0
 ])
 
 
@@ -80,7 +81,7 @@ def log_probability(params):
 def main():
     steps_to_discard = 100
     ndim = len(bounds)
-    nwalkers = 40
+    nwalkers = 50
     n_steps = steps_to_discard + 2000
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
 
@@ -147,7 +148,7 @@ def main():
         title_kwargs={"fontsize": 12},
         smooth=1.5,
         smooth1d=1.5,
-        bins=40,
+        bins=50,
     )
     plt.show()
 
@@ -222,6 +223,7 @@ Sample size: 1829
 Flat ΛCDM
 Chi squared: 1649.4738
 Ωm: 0.3520 +0.0169/-0.0170
+w0: -1
 R-squared (%): 98.35
 RMSD (mag): 0.268
 Skewness of residuals: 3.408
@@ -237,4 +239,15 @@ R-squared (%): 98.32
 RMSD (mag): 0.271
 Skewness of residuals: 3.417
 kurtosis of residuals: 25.959
+
+==============================
+
+Modified Flat waw0CDM
+Chi squared: 1647.8993
+Ωm: 0.2919 +0.0533/-0.0612
+w0: -0.8297 +0.1282/-0.1421
+R-squared (%): 98.32
+RMSD (mag): 0.271
+Skewness of residuals: 3.418
+kurtosis of residuals: 25.976
 """

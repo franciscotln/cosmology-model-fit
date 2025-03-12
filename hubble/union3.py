@@ -18,8 +18,9 @@ C = 299792.458
 # Flat model
 def integral_of_e_z(zs, Omega_m, w0):
     z_grid = np.linspace(0, np.max(zs), num=1000)
-    e_inv = 1 / np.sqrt(Omega_m * (1 + z_grid)**3 + (1 - Omega_m)*(1 + z_grid)**(3 * (1 + w0)))
-    integral_values = cumulative_trapezoid(e_inv, z_grid, initial=0)
+    alpha = 4/(1 - 3*w0) # W(z=-1) == 1/3
+    H_over_H0 = np.sqrt(Omega_m*(1 + z_grid)**3 + (1 - Omega_m) * (alpha*(1 + z_grid)/(alpha + z_grid))**(3*alpha*(1 + w0)/(alpha - 1)))
+    integral_values = cumulative_trapezoid(1/H_over_H0, z_grid, initial=0)
     return np.interp(zs, z_grid, integral_values)
 
 
@@ -51,7 +52,7 @@ def log_likelihood(params):
 
 bounds = np.array([
     (0.4, 0.9), # h0
-    (0, 0.6),
+    (0, 0.7),
     (-1.5, 0), # w0
 ])
 
@@ -72,7 +73,7 @@ def log_probability(params):
 def main():
     discarded_steps = 100
     n_dim = len(bounds)
-    n_walkers = 100
+    n_walkers = 200
     n_steps = discarded_steps + 2000
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(n_walkers, n_dim))
 
@@ -135,6 +136,7 @@ def main():
         quantiles=[0.16, 0.5, 0.84],
         smooth=1.5,
         smooth1d=1.5,
+        bins=50
     )
     plt.show()
 
@@ -181,6 +183,7 @@ Sample size: 22
 ΛCDM
 
 Ωm: 0.3571 +0.0274/-0.0264
+w0: -1
 H0: 72.42 +3.00/-2.88 km/s/Mpc
 R-squared (%): 99.95
 RMSD (mag): 0.048
@@ -200,4 +203,17 @@ RMSD (mag): 0.053
 Skewness of residuals: -1.230
 kurtosis of residuals: 3.852
 Reduced chi squared: 1.11
+
+=============================
+
+Modified waw0CDM
+
+Ωm: 0.2818 +0.0661/-0.0779
+w0: -0.7615 +0.1486/-0.1773
+H0: 71.94 +3.00/-2.87
+R-squared (%): 99.94
+RMSD (mag): 0.052
+Skewness of residuals: -1.100
+kurtosis of residuals: 3.458
+Reduced chi squared: 1.10
 """

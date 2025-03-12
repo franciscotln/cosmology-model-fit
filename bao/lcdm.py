@@ -80,9 +80,9 @@ def plot_predictions(params):
 
 
 def H_z(z, params):
-    Omega_m = params[1]
-    w0 = params[2]
-    return H0 * np.sqrt(Omega_m * (1 + z) ** 3 + (1 - Omega_m)*(1 + z)**(3*(1+w0)))
+    _, Omega_m, w0 = params
+    alpha = 4/(1 - 3*w0) # W(z=-1) == 1/3
+    return H0 * np.sqrt(Omega_m*(1 + z)**3 + (1 - Omega_m) * (alpha*(1 + z)/(alpha + z))**(3*alpha*(1 + w0)/(alpha - 1)))
 
 
 def DM_z(z, params):
@@ -110,9 +110,9 @@ def model_predictions(params):
 
 
 bounds = np.array([
-    (120, 170), # r_d
-    (0, 1), # Omega_m
-    (-2, 0) # w0
+    (115, 180), # r_d
+    (0, 1), # Ωm
+    (-3, -0.05) # w0
 ])
 
 
@@ -207,16 +207,18 @@ if __name__ == "__main__":
 
 
 """
-ΛCDM model
+Flat ΛCDM model
 r_d: 151.2307 ± 1.8727
 Ωm: 0.2946 ± 0.0145
+w0: -1
 Chi squared: 12.7431
 Degrees of freedom: 10
 R^2: 0.9957
 RMSD: 0.5527
 
 ==============================
-wCDM model
+
+Flat wCDM model
 r_d: 150.7238 ± 4.7280
 Ωm: 0.2925 ± 0.0150
 w0: -0.9832 ± 0.1360
@@ -224,4 +226,15 @@ Chi squared: 12.8496
 Degrees of freedom: 9
 R^2: 0.9959
 RMSD: 0.5436
+
+==============================
+
+Modified Flat waw0CDM
+r_d: 150.2277 ± 5.3037
+Ωm: 0.2951 ± 0.0168
+w0: -0.9672 ± 0.1696
+Chi squared: 12.7126
+Degrees of freedom: 9
+R^2: 0.9959
+RMSD: 0.5426
 """

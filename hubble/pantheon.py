@@ -17,11 +17,12 @@ C = 299792.458
 # inverse covariance matrix
 inv_cov_matrix = np.linalg.inv(cov_matrix)
 
-# Flat ΛCDM
+# Flat
 def integral_of_e_z(z, Omega_m, w0):
     z_grid = np.linspace(0, np.max(z), num=1000)
-    e_z = np.sqrt(Omega_m * (1 + z_grid)**3 + (1 - Omega_m)*(1 + z_grid)**(3 * (1 + w0)))
-    integral_values = cumulative_trapezoid(1/e_z, z_grid, initial=0)
+    alpha = 4/(1 - 3*w0) # W(z=-1) == 1/3
+    H_over_H0 = np.sqrt(Omega_m*(1 + z_grid)**3 + (1 - Omega_m) * (alpha*(1 + z_grid)/(alpha + z_grid))**(3*alpha*(1 + w0)/(alpha - 1)))
+    integral_values = cumulative_trapezoid(1/H_over_H0, z_grid, initial=0)
     return np.interp(z, z_grid, integral_values)
 
 
@@ -51,7 +52,7 @@ def log_likelihood(params):
 bounds = np.array([
     (-30, -27), # M
     (0, 1), # Ωm
-    (-2, 0), # w0
+    (-2, 0.5), # w0
 ])
 
 
@@ -90,13 +91,11 @@ def main():
     except:
         print_color("Autocorrelation time", "Not available")
 
-    M0_samples = samples[:, 0]
-    omega_samples = samples[:, 1]
-    w0_samples = samples[:, 2]
-
-    [M0_16, M0_50, M0_84] = np.percentile(M0_samples, [16, 50, 84])
-    [omega_16, omega_50, omega_84] = np.percentile(omega_samples, [16, 50, 84])
-    [w0_16, w0_50, w0_84] = np.percentile(w0_samples, [16, 50, 84])
+    [
+        [M0_16, M0_50, M0_84],
+        [omega_16, omega_50, omega_84],
+        [w0_16, w0_50, w0_84], 
+    ] = np.percentile(samples, [16, 50, 84], axis=0).T
 
     best_fit_params = [M0_50, omega_50, w0_50]
 
@@ -144,7 +143,7 @@ def main():
         title_kwargs={"fontsize": 12},
         smooth=1.5,
         smooth1d=1.5,
-        bins=40,
+        bins=50,
     )
     plt.show()
 
@@ -220,6 +219,7 @@ M0 contains Hubble constant and absolute magnitude
 ΛCDM
 M0: -28.5767 +0.0070/-0.0068 (M(0.7)=-19.3502)
 Ωm: 0.3310 +0.0181/-0.0178
+w0: -1
 R-squared (%): 99.74
 RMSD (mag): 0.154
 Skewness of residuals: 0.091
@@ -231,10 +231,22 @@ Reduced chi squared: 0.8840
 wCDM
 M0: -28.5734 +0.0088/-0.0089 (M(0.7)=-19.3489)
 Ωm: 0.2986 +0.0618/-0.0745
-w: -0.9180 +0.1430/-0.1575
+w0: -0.9180 +0.1430/-0.1575
 R-squared: 99.74 %
 RMSD (mag): 0.154
 Skewness of residuals: 0.082
 kurtosis of residuals: 1.590
+Reduced chi squared: 0.8843
+
+=============================
+
+Modified Flat waw0CDM
+M0: -28.5734 +0.0092/-0.0095 (M(0.7)=-19.3490)
+Ωm: 0.3078 +0.0503/-0.0551
+w0: -0.9292 +0.1320/-0.1512
+R-squared (%): 99.74
+RMSD (mag): 0.154
+Skewness of residuals: 0.083
+kurtosis of residuals: 1.589
 Reduced chi squared: 0.8843
 """
