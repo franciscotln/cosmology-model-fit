@@ -21,7 +21,7 @@ h0 = 70
 
 # Flat
 def e_z(z, omega_m, w0):
-    z_grid = np.linspace(0, np.max(z), num=1000)
+    z_grid = np.linspace(0, np.max(z), num=1500)
     alpha = 4/(1 - 3*w0) # W(z=-1) == 1/3
     H_over_H0 = np.sqrt(omega_m*(1 + z_grid)**3 + (1 - omega_m) * (alpha*(1 + z_grid)/(alpha + z_grid))**4)
     integral_values = cumulative_trapezoid(1/H_over_H0, z_grid, initial=0)
@@ -198,6 +198,7 @@ Sample size: 580
 Flat ΛCDM
 Chi squared: 550.9463
 Ωm: 0.2993 +0.0427/-0.0401
+w0: -1
 R-squared (%): 99.30
 RMSD (mag): 0.268
 Skewness of residuals: 1.406
@@ -217,12 +218,12 @@ kurtosis of residuals: 8.213
 ==============================
 
 Modified waw0CDM
-Chi squared: 550.9642
-Ωm: 0.3118 +0.0824/-0.1107
-w0: -1.0574 +0.3176/-0.4102
+Chi squared: 550.9693
+Ωm: 0.3134 +0.0834/-0.1075
+w0: -1.0595 +0.3134/-0.4038
 R-squared (%): 99.30
 RMSD (mag): 0.267
-Skewness of residuals: 1.399
+Skewness of residuals: 1.401
 kurtosis of residuals: 8.208
 
 ********************************
@@ -254,11 +255,11 @@ kurtosis of residuals: 25.959
 ==============================
 
 Modified Flat waw0CDM
-Chi squared: 1647.8969
-Ωm: 0.2909 +0.0518/-0.0620
-w0: -0.8246 +0.1248/-0.1410
+Chi squared: 1647.8959
+Ωm: 0.2906 +0.0527/-0.0610
+w0: -0.8243 +0.1240/-0.1420
 R-squared (%): 98.32
 RMSD (mag): 0.271
 Skewness of residuals: 3.418
-kurtosis of residuals: 25.966
+kurtosis of residuals: 25.968
 """

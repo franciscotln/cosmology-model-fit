@@ -20,7 +20,7 @@ C = 299792.458
 
 #  Flat
 def integral_of_e_z(z, Omega_m, w0):
-    z_grid = np.linspace(0, np.max(z), num=1000)
+    z_grid = np.linspace(0, np.max(z), num=1500)
     alpha = 4/(1 - 3*w0) # W(z=-1) == 1/3
     H_over_H0 = np.sqrt(Omega_m*(1 + z_grid)**3 + (1 - Omega_m) * (alpha*(1 + z_grid)/(alpha + z_grid))**4)
     integral_values = cumulative_trapezoid(1/H_over_H0, z_grid, initial=0)
