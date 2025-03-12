@@ -233,13 +233,13 @@ Sample size: 1829
 ********************************
 
 Flat ΛCDM
-Chi squared: 1649.4738
-Ωm: 0.3520 +0.0169/-0.0170
+Chi squared: 1649.4584
+Ωm: 0.3505 +0.0169/-0.0164
 w0: -1
 R-squared (%): 98.35
 RMSD (mag): 0.268
-Skewness of residuals: 3.408
-kurtosis of residuals: 25.913
+Skewness of residuals: 3.409
+kurtosis of residuals: 25.929
 
 ==============================
 
