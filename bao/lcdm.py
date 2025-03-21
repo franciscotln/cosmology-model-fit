@@ -13,9 +13,6 @@ c = 299792.458
 
 # Planck rs = 147.18 ± 0.29 Mpc, h0 = 67.37 ± 0.54
 
-#  Hubble constant in km/s/Mpc
-H0 = 67.37
-
 # Source: https://github.com/CobayaSampler/bao_data/blob/master/desi_bao_dr2/desi_gaussian_bao_ALL_GCcomb_mean.txt
 data = np.genfromtxt(
     path_to_data + "data.txt",
@@ -65,18 +62,18 @@ def plot_predictions(params):
         model_smooth = []
         for z in z_smooth:
             if q == "DV_over_rs":
-                model_smooth.append(DV_z(z, params)/r_d)
+                model_smooth.append(DV_z(z, params)/(100*r_d))
             elif q == "DM_over_rs":
-                model_smooth.append(DM_z(z, params)/r_d)
+                model_smooth.append(DM_z(z, params)/(100*r_d))
             elif q == "DH_over_rs":
-                model_smooth.append((c / H_z(z, params))/r_d)
+                model_smooth.append((c / H_z(z, params))/(100*r_d))
         plt.plot(z_smooth, model_smooth, color=colors[q], alpha=0.5)
 
     plt.xlabel("Redshift (z)")
     plt.ylabel(r"$O = \frac{D}{r_d}$")
     plt.legend()
     plt.grid(True)
-    plt.title(f"BAO Data vs Model ($r_d$={r_d:.2f}, $\Omega_M$={omega_m:.4f}, $w_0$={w0:.4f} with errors")
+    plt.title(f"BAO Data vs Model ($r_d * h$={r_d:.2f}, $\Omega_M$={omega_m:.4f}, $w_0$={w0:.4f} with errors")
     plt.show()
 
 
@@ -85,7 +82,7 @@ w_inf = -1/3
 def H_z(z, params):
     _, Omega_m, w0 = params
     alpha = (w_inf + 1)/(w_inf - w0)
-    return H0 * np.sqrt(Omega_m*(1 + z)**3 + (1 - Omega_m)*((1 + z)/(1 + z/alpha))**(3*(1 + w_inf)))
+    return np.sqrt(Omega_m*(1 + z)**3 + (1 - Omega_m)*((1 + z)/(1 + z/alpha))**(3*(1 + w_inf)))
 
 
 def DM_z(z, params):
@@ -100,20 +97,20 @@ def DV_z(z, params):
 
 
 def model_predictions(params):
-    r_d = params[0]
+    r_d_x_h0 = params[0] * 100
     predictions = []
     for z, _, quantity in data:
         if quantity == "DV_over_rs":
-            predictions.append(DV_z(z, params) / r_d)
+            predictions.append(DV_z(z, params) / r_d_x_h0)
         elif quantity == "DM_over_rs":
-            predictions.append(DM_z(z, params) / r_d)
+            predictions.append(DM_z(z, params) / r_d_x_h0)
         elif quantity == "DH_over_rs":
-            predictions.append((c / H_z(z, params)) / r_d)
+            predictions.append((c / H_z(z, params)) / r_d_x_h0)
     return np.array(predictions)
 
 
 bounds = np.array([
-    (115, 180), # r_d
+    (85, 115), # r_d x h
     (0, 1), # Ωm
     (-2, -0.5), # w0
 ])
@@ -143,9 +140,9 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 100
+    nwalkers = 300
     burn_in = 100
-    nsteps = 2000 + burn_in
+    nsteps = 2500 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):
@@ -173,7 +170,7 @@ def main():
 
     best_fit = [rd_50, omega_50, w0_50]
 
-    print(f"\033[92mr_d: {rd_50:.4f} ± {rd_err:.4f}\033[0m")
+    print(f"\033[92mr_d*h: {rd_50:.4f} ± {rd_err:.4f}\033[0m")
     print(f"\033[92mΩm: {omega_50:.4f} ± {omega_err:.4f}\033[0m")
     print(f"\033[92mw0: {w0_50:.4f} ± {w0_err:.4f}\033[0m")
     print(f"\033[92mChi squared: {chi_squared(best_fit):.4f}\033[0m")
@@ -211,9 +208,9 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM model
-r_d: 150.7005 ± 1.0949
-Ωm: 0.2976 ± 0.0086
-Chi squared: 10.2714
+r_d*h: 101.5185 ± 0.7336
+Ωm: 0.2978 ± 0.0086
+Chi squared: 10.2724
 Degrees of freedom: 11
 R^2: 0.9987
 RMSD: 0.3048
@@ -221,22 +218,22 @@ RMSD: 0.3048
 ==============================
 
 Flat wCDM model
-r_d: 148.1057 ± 2.5513
-Ωm: 0.2971 ± 0.0089
-w0: -0.9154 ± 0.0783
-Chi squared: 9.1518
+r_d*h: 99.8055 ± 1.7060
+Ωm: 0.2970 ± 0.0088
+w0: -0.9155 ± 0.0775
+Chi squared: 9.1190
 Degrees of freedom: 10
 R^2: 0.9989
-RMSD: 0.2786
+RMSD: 0.2787
 
 ==============================
 
 Modified Flat waw0CDM
-r_d: 147.7386 ± 2.7892
-Ωm: 0.3012 ± 0.0092
-w0: -0.8957 ± 0.0905
-Chi squared: 8.8527
+r_d*h: 99.4816 ± 1.8971
+Ωm: 0.3012 ± 0.0093
+w0: -0.8936 ± 0.0915
+Chi squared: 8.8604
 Degrees of freedom: 10
 R^2: 0.9990
-RMSD: 0.2755
+RMSD: 0.2749
 """
