@@ -11,7 +11,8 @@ path_to_data = os.path.dirname(os.path.abspath(__file__)) + '/raw-data/'
 # Speed of light in km/s
 c = 299792.458
 
-# Planck rs = 147.18 ± 0.29 Mpc, h0 = 0.6737 ± 0.0054
+# Planck rs = 147.18 ± 0.29 Mpc, h0 = 67.37 ± 0.54
+
 #  Hubble constant in km/s/Mpc
 H0 = 67.37
 
@@ -210,13 +211,12 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM model
-r_d: 151.2307 ± 1.8727
-Ωm: 0.2946 ± 0.0145
-w0: -1
-Chi squared: 12.7431
-Degrees of freedom: 10
-R^2: 0.9957
-RMSD: 0.5527
+r_d: 150.7005 ± 1.0949
+Ωm: 0.2976 ± 0.0086
+Chi squared: 10.2714
+Degrees of freedom: 11
+R^2: 0.9987
+RMSD: 0.3048
 
 ==============================
 
