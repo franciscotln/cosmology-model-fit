@@ -15,7 +15,7 @@ c = 299792.458
 #  Hubble constant in km/s/Mpc
 H0 = 67.37
 
-# Source: https://github.com/CobayaSampler/bao_data/blob/master/desi_2024_gaussian_bao_ALL_GCcomb_mean.txt
+# Source: https://github.com/CobayaSampler/bao_data/blob/master/desi_bao_dr2/desi_gaussian_bao_ALL_GCcomb_mean.txt
 data = np.genfromtxt(
     path_to_data + "data.txt",
     dtype=[("z", float), ("value", float), ("quantity", "U10")],
@@ -79,10 +79,12 @@ def plot_predictions(params):
     plt.show()
 
 
+w_inf = -1/3
+
 def H_z(z, params):
     _, Omega_m, w0 = params
-    alpha = 4/(1 - 3*w0) # W(z=-1) == 1/3
-    return H0 * np.sqrt(Omega_m*(1 + z)**3 + (1 - Omega_m) * (alpha*(1 + z)/(alpha + z))**4)
+    alpha = (w_inf + 1)/(w_inf - w0)
+    return H0 * np.sqrt(Omega_m*(1 + z)**3 + (1 - Omega_m)*((1 + z)/(1 + z/alpha))**(3*(1 + w_inf)))
 
 
 def DM_z(z, params):
@@ -112,7 +114,7 @@ def model_predictions(params):
 bounds = np.array([
     (115, 180), # r_d
     (0, 1), # Ωm
-    (-3, -0.2) # w0
+    (-2, -0.5), # w0
 ])
 
 
@@ -219,22 +221,22 @@ RMSD: 0.5527
 ==============================
 
 Flat wCDM model
-r_d: 150.7238 ± 4.7280
-Ωm: 0.2925 ± 0.0150
-w0: -0.9832 ± 0.1360
-Chi squared: 12.8496
-Degrees of freedom: 9
-R^2: 0.9959
-RMSD: 0.5436
+r_d: 148.1057 ± 2.5513
+Ωm: 0.2971 ± 0.0089
+w0: -0.9154 ± 0.0783
+Chi squared: 9.1518
+Degrees of freedom: 10
+R^2: 0.9989
+RMSD: 0.2786
 
 ==============================
 
 Modified Flat waw0CDM
-r_d: 150.3265 ± 5.4093
-Ωm: 0.2950 ± 0.0172
-w0: -0.9720 ± 0.1704
-Chi squared: 12.7416
-Degrees of freedom: 9
-R^2: 0.9959
-RMSD: 0.5434
+r_d: 147.7386 ± 2.7892
+Ωm: 0.3012 ± 0.0092
+w0: -0.8957 ± 0.0905
+Chi squared: 8.8527
+Degrees of freedom: 10
+R^2: 0.9990
+RMSD: 0.2755
 """

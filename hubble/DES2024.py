@@ -173,7 +173,7 @@ def main():
         y=distance_modulus_values,
         y_err=y_err,
         y_model=predicted_distance_modulus_values,
-        label=f"w0={w0_label}",
+        label=f"$\Omega_m$={omega_label}",
         x_scale="log"
     )
 
