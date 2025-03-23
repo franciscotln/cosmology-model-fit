@@ -13,7 +13,7 @@ c = 299792.458
 
 # Planck rs = 147.18 ± 0.29 Mpc, h0 = 67.37 ± 0.54
 
-# Source: https://github.com/CobayaSampler/bao_data/blob/master/desi_bao_dr2/desi_gaussian_bao_ALL_GCcomb_mean.txt
+# Source: https://arxiv.org/pdf/2503.14738
 data = np.genfromtxt(
     path_to_data + "data.txt",
     dtype=[("z", float), ("value", float), ("quantity", "U10")],
@@ -207,32 +207,32 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM model
-r_d*h: 101.5185 ± 0.7336
-Ωm: 0.2978 ± 0.0086
-Chi squared: 10.2724
+r_d*h: 101.54 ± 0.72
+Ωm: 0.2974 +0.0086 -0.0084
+Chi squared: 10.5169
 Degrees of freedom: 11
 R^2: 0.9987
-RMSD: 0.3048
+RMSD: 0.3054
 
 ==============================
 
 Flat wCDM model
-r_d*h: 99.8055 ± 1.7060
-Ωm: 0.2970 ± 0.0088
-w0: -0.9155 ± 0.0775
-Chi squared: 9.1190
+r_d*h: 99.86 +1.74 -1.64
+Ωm: 0.2968 +0.0089 -0.0087
+w0: -0.9179 +0.0743 -0.0778
+Chi squared: 9.3920
 Degrees of freedom: 10
 R^2: 0.9989
-RMSD: 0.2787
+RMSD: 0.2800
 
 ==============================
 
 Modified Flat waw0CDM
-r_d*h: 99.3766 +2.0225 -1.8551
-Ωm: 0.3018 +0.0096 -0.0094
-w0: -0.8870 +0.0902 -0.0997
-Chi squared: 8.8133
+r_d*h: 99.49 +1.99 -1.84
+Ωm: 0.3013 +0.0094 -0.0091
+w0: -0.8922 +0.0888 -0.0981
+Chi squared: 9.0886
 Degrees of freedom: 10
 R^2: 0.9990
-RMSD: 0.2739
+RMSD: 0.2757
 """
