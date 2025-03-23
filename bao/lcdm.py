@@ -73,11 +73,11 @@ def plot_predictions(params):
     plt.ylabel(r"$O = \frac{D}{r_d}$")
     plt.legend()
     plt.grid(True)
-    plt.title(f"BAO Data vs Model ($r_d * h$={r_d:.2f}, $\Omega_M$={omega_m:.4f}, $w_0$={w0:.4f} with errors")
+    plt.title(f"BAO Data vs Model ($r_d * h$={r_d:.2f}, $\Omega_M$={omega_m:.4f}, $w_0$={w0:.4f}) with errors")
     plt.show()
 
 
-w_inf = -1/3
+w_inf = 1/3
 
 def H_z(z, params):
     _, Omega_m, w0 = params
@@ -111,14 +111,14 @@ def model_predictions(params):
 
 bounds = np.array([
     (85, 115), # r_d x h
-    (0, 1), # Ωm
-    (-2, -0.5), # w0
+    (0, 0.6), # Ωm
+    (-1.5, -0.5), # w0
 ])
 
 
 def chi_squared(params):
     delta = data['value'] - model_predictions(params)
-    return delta.T @ inv_cov_matrix @ delta
+    return np.dot(delta, np.dot(inv_cov_matrix, delta))
 
 
 def log_prior(params):
@@ -140,7 +140,7 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 300
+    nwalkers = 200
     burn_in = 100
     nsteps = 2500 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
@@ -161,27 +161,26 @@ def main():
     chains_samples = sampler.get_chain(discard=0, flat=False)
     samples = sampler.get_chain(discard=burn_in, flat=True)
 
-    rd_percentiles = np.percentile(samples[:, 0], [16, 50, 84], axis=0)
-    rd_50, rd_err = rd_percentiles[1], 0.5 * (rd_percentiles[2] - rd_percentiles[0])
-    omega_percentiles = np.percentile(samples[:, 1], [16, 50, 84], axis=0)
-    omega_50, omega_err = omega_percentiles[1], 0.5 * (omega_percentiles[2] - omega_percentiles[0])
-    w0_percentiles = np.percentile(samples[:, 2], [16, 50, 84], axis=0)
-    w0_50, w0_err = w0_percentiles[1], 0.5 * (w0_percentiles[2] - w0_percentiles[0])
+    [
+        [rd_16, rd_50, rd_84],
+        [omega_16, omega_50, omega_84],
+        [w0_16, w0_50, w0_84],
+    ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
     best_fit = [rd_50, omega_50, w0_50]
 
-    print(f"\033[92mr_d*h: {rd_50:.4f} ± {rd_err:.4f}\033[0m")
-    print(f"\033[92mΩm: {omega_50:.4f} ± {omega_err:.4f}\033[0m")
-    print(f"\033[92mw0: {w0_50:.4f} ± {w0_err:.4f}\033[0m")
+    print(f"\033[92mr_d*h: {rd_50:.4f} +{(rd_84 - rd_50):.4f} -{(rd_50 - rd_16):.4f}\033[0m")
+    print(f"\033[92mΩm: {omega_50:.4f} +{(omega_84 - omega_50):.4f} -{(omega_50 - omega_16):.4f}\033[0m")
+    print(f"\033[92mw0: {w0_50:.4f} +{(w0_84 - w0_50):.4f} -{(w0_50 - w0_16):.4f}\033[0m")
     print(f"\033[92mChi squared: {chi_squared(best_fit):.4f}\033[0m")
     print(f"\033[92mDegrees of freedom: {data['value'].size - len(best_fit)}\033[0m")
     plot_predictions(best_fit)
 
-    labels = [r"$r_d$", f"$\Omega_m$", r"$w_0$"]
+    labels = [r"${r_d}\times{h}$", f"$\Omega_m$", r"$w_0$"]
     corner.corner(
         samples,
         labels=labels,
-        quantiles=[0.16, 0.5, 0.84],
+        quantiles=[0.159, 0.5, 0.841],
         show_titles=True,
         title_fmt=".4f",
         smooth=2,
@@ -229,11 +228,11 @@ RMSD: 0.2787
 ==============================
 
 Modified Flat waw0CDM
-r_d*h: 99.4816 ± 1.8971
-Ωm: 0.3012 ± 0.0093
-w0: -0.8936 ± 0.0915
-Chi squared: 8.8604
+r_d*h: 99.3766 +2.0225 -1.8551
+Ωm: 0.3018 +0.0096 -0.0094
+w0: -0.8870 +0.0902 -0.0997
+Chi squared: 8.8133
 Degrees of freedom: 10
 R^2: 0.9990
-RMSD: 0.2749
+RMSD: 0.2739
 """
