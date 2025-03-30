@@ -45,7 +45,7 @@ def plot_predictions(params):
     colors = { "DV_over_rs": "red", "DM_over_rs": "blue", "DH_over_rs": "green" }
 
     r_d, omega_m, w0 = params
-    z_smooth = np.linspace(min(z_values), max(z_values), 100)
+    z_smooth = np.linspace(0, max(z_values), 100)
     plt.figure(figsize=(8, 6))
     for q in unique_quantities:
         mask = quantity_types == q
