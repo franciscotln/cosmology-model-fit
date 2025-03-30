@@ -15,29 +15,30 @@ inverse_cov = np.linalg.inv(cov_matrix)
 # Speed of light (km/s)
 C = 299792.458
 
+# Hubble constant (km/s/Mpc)
+H0 = 73.29
+
 # Flat model
-def integral_of_e_z(zs, Omega_m, w0):
-    z_grid = np.linspace(0, np.max(zs), num=1500)
-    alpha = 4/(1 - 3*w0) # W(z=-1) == 1/3
-    H_over_H0 = np.sqrt(Omega_m*(1 + z_grid)**3 + (1 - Omega_m) * (alpha*(1 + z_grid)/(alpha + z_grid))**4)
-    integral_values = cumulative_trapezoid(1/H_over_H0, z_grid, initial=0)
-    return np.interp(zs, z_grid, integral_values)
+def integral_of_e_z(zs, omega_m, w0):
+    z = np.linspace(0, np.max(zs), num=1500)
+    sum = 1 + z
+    h_over_h0 = np.sqrt(omega_m * sum**3 + (1 - omega_m) * sum**3 * np.exp(3 * w0 * z))
+    integral_values = cumulative_trapezoid(1/h_over_h0, z, initial=0)
+    return np.interp(zs, z, integral_values)
 
 
 def wcdm_distance_modulus(z, params):
-    [h0, Omega_m, w0] = params
-    normalized_h0 = h0 * 100
+    [omega_m, w0] = params
     a0_over_ae = 1 + z
-    comoving_distance = (C / normalized_h0) * integral_of_e_z(zs=z, Omega_m=Omega_m, w0=w0)
+    comoving_distance = (C / H0) * integral_of_e_z(zs=z, omega_m=omega_m, w0=w0)
     return 25 + 5 * np.log10(a0_over_ae * comoving_distance)
 
 
 # Flat ΛCDM
 def lcdm_distance_modulus(z, params):
-    [h0, Omega_m] = params
-    normalized_h0 = h0 * 100
+    [omega_m] = params
     a0_over_ae = 1 + z
-    comoving_distance = (C / normalized_h0) * integral_of_e_z(zs=z, Omega_m=Omega_m, w0=-1)
+    comoving_distance = (C / H0) * integral_of_e_z(zs=z, omega_m=omega_m, w0=-1)
     return 25 + 5 * np.log10(a0_over_ae * comoving_distance)
 
 
@@ -51,8 +52,7 @@ def log_likelihood(params):
 
 
 bounds = np.array([
-    (0.4, 0.9), # h0
-    (0, 0.7),
+    (0.1, 0.7), # Ωm
     (-1.5, 0), # w0
 ])
 
@@ -86,12 +86,11 @@ def main():
     samples = sampler.get_chain(discard=discarded_steps, flat=True)
 
     [
-        [h0_16, h0_50, h0_84],
         [omega_16, omega_50, omega_84],
-        [w0_16, w0_50, w0_84], 
+        [w0_16, w0_50, w0_84],
     ] = np.percentile(samples, [16, 50, 84], axis=0).T
 
-    best_fit_params = [h0_50, omega_50, w0_50]
+    best_fit_params = [omega_50, w0_50]
 
     predicted_mag = wcdm_distance_modulus(z_values, best_fit_params)
     residuals = distance_moduli_values - predicted_mag
@@ -109,14 +108,12 @@ def main():
     rmsd = np.sqrt(np.mean(residuals ** 2))
 
     # Print the values in the console
-    h0_label = f"{h0_50:.4f} +{h0_84-h0_50:.4f}/-{h0_50-h0_16:.4f}"
     omega_label = f"{omega_50:.4f} +{omega_84-omega_50:.4f}/-{omega_50-omega_16:.4f}"
     w0_label = f"{w0_50:.4f} +{w0_84-w0_50:.4f}/-{w0_50-w0_16:.4f}"
 
     print_color("Dataset", legend)
     print_color("z range", f"{z_values[0]:.3f} - {z_values[-1]:.3f}")
     print_color("Sample size", len(z_values))
-    print_color("h0", h0_label)
     print_color("Ωm", omega_label)
     print_color("w0", w0_label)
     print_color("R-squared (%)", f"{100 * r_squared:.2f}")
@@ -126,7 +123,7 @@ def main():
     print_color("Reduced chi squared", chi_squared(best_fit_params)/ (len(z_values) - 2))
 
     # Plot the data and the fit
-    labels = [r"$h_0$", f"$\Omega_m$", r"$w_0$"]
+    labels = [f"$\Omega_m$", r"$w_0$"]
     corner.corner(
         samples,
         labels=labels,
@@ -158,7 +155,7 @@ def main():
         y=distance_moduli_values,
         y_err=np.sqrt(np.diag(cov_matrix)),
         y_model=predicted_mag,
-        label=f"Best fit: $w_0$={w0_50:.4f}, $h_0$={h0_50:.4f}",
+        label=f"Best fit: $w_0$={w0_50:.4f}, $\Omega_m$={omega_50:.4f}",
         x_scale="log"
     )
 
@@ -182,38 +179,35 @@ Sample size: 22
 
 ΛCDM
 
-Ωm: 0.3571 +0.0274/-0.0264
+Ωm: 0.3566 +0.0273/-0.0262
 w0: -1
-H0: 72.42 +3.00/-2.88 km/s/Mpc
-R-squared (%): 99.95
-RMSD (mag): 0.048
-Skewness of residuals: 0.587
-kurtosis of residuals: 0.692
+R-squared (%): 99.97
+RMSD (mag): 0.040
+Skewness of residuals: 0.571
+kurtosis of residuals: 0.690
 Reduced chi squared: 1.20
 
 =============================
 
 wCDM
 
-Ωm: 0.2539 +0.0873/-0.1107
-w0: -0.7494 +0.1560/-0.1857
-H0: 72.04 +3.00/-2.92 km/s/Mpc
-R-squared (%): 99.94
-RMSD (mag): 0.053
-Skewness of residuals: -1.230
-kurtosis of residuals: 3.852
-Reduced chi squared: 1.11
+Ωm: 0.2562 +0.0867/-0.1094
+w0: -0.7550 +0.1575/-0.1891`
+R-squared (%): 99.96
+RMSD (mag): 0.045
+Skewness of residuals: -1.209
+kurtosis of residuals: 3.780
+Reduced chi squared: 1.12
 
 =============================
 
-Modified waw0CDM
+Modified wCDM
 
-Ωm: 0.2801 +0.0666/-0.0769
-w0: -0.7588 +0.1474/-0.1770
-H0: 71.98 +2.97/-2.86
-R-squared (%): 99.94
-RMSD (mag): 0.052
-Skewness of residuals: -1.148
-kurtosis of residuals: 3.571
-Reduced chi squared: 1.10
+Ωm: 0.3631 +0.0540/-0.0633
+w0: -0.8109 +0.1405/-0.1620
+R-squared (%): 99.96
+RMSD (mag): 0.043
+Skewness of residuals: -0.455
+kurtosis of residuals: 1.715
+Reduced chi squared: 1.08
 """

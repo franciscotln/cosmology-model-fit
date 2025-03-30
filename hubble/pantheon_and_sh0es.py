@@ -21,8 +21,8 @@ C = 299792.458
 #  Flat
 def integral_of_e_z(z, Omega_m, w0):
     z_grid = np.linspace(0, np.max(z), num=1500)
-    alpha = 4/(1 - 3*w0) # W(z=-1) == 1/3
-    H_over_H0 = np.sqrt(Omega_m*(1 + z_grid)**3 + (1 - Omega_m) * (alpha*(1 + z_grid)/(alpha + z_grid))**4)
+    sum = 1 + z_grid
+    H_over_H0 = np.sqrt(Omega_m * sum**3 + (1 - Omega_m) * sum**3 * np.exp(3 * w0 * z_grid))
     integral_values = cumulative_trapezoid(1/H_over_H0, z_grid, initial=0)
     return np.interp(z, z_grid, integral_values)
 
@@ -58,7 +58,7 @@ def log_likelihood(params):
 bounds = np.array([
     (0.4, 1.0), # h0
     (0, 1), # Ωm
-    (-2, 0.3), # w0
+    (-2, 0), # w0
 ])
 
 
@@ -210,13 +210,13 @@ Chi squared: 1452.5
 
 =============================
 
-Modified Flat waw0CDM
-H0: 73.14 +0.31/-0.31 km/s/Mpc
-Ωm: 0.3140 +0.0489/-0.0545
-w0: -0.9445 +0.1309/-0.1552
+Modified Flat wCDM
+H0: 73.04 +0.30/-0.29 km/s/Mpc
+Ωm: 0.3881 +0.0406/-0.0454
+w0: -0.9953 +0.1287/-0.1433
 R-squared: 99.78 %
 RMSD (mag): 0.153
-Skewness of residuals: 0.079
-kurtosis of residuals: 1.564
-Chi squared: 1452.5
+Skewness of residuals: 0.077
+kurtosis of residuals: 1.566
+Chi squared: 1452.9
 """

@@ -20,8 +20,8 @@ inv_cov_matrix = np.linalg.inv(cov_matrix)
 # Flat
 def integral_of_e_z(z, Omega_m, w0):
     z_grid = np.linspace(0, np.max(z), num=1500)
-    alpha = 4/(1 - 3*w0) # W(z=-1) == 1/3
-    H_over_H0 = np.sqrt(Omega_m*(1 + z_grid)**3 + (1 - Omega_m) * (alpha*(1 + z_grid)/(alpha + z_grid))**4)
+    sum = 1 + z_grid
+    H_over_H0 = np.sqrt(Omega_m * sum**3 + (1 - Omega_m) * sum**3 * np.exp(3 * w0 * z_grid))
     integral_values = cumulative_trapezoid(1/H_over_H0, z_grid, initial=0)
     return np.interp(z, z_grid, integral_values)
 
@@ -72,8 +72,8 @@ def log_probability(params):
 def main():
     steps_to_discard = 100
     n_dim = len(bounds)
-    n_walkers = 50
-    n_steps = steps_to_discard + 3000
+    n_walkers = 100
+    n_steps = steps_to_discard + 2000
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(n_walkers, n_dim))
 
     with Pool(10) as pool:
@@ -252,13 +252,13 @@ Reduced chi squared: 0.8843
 
 =============================
 
-Modified Flat waw0CDM
-M0: -28.5734 +0.0091/-0.0090 (M(0.7)=-19.3490)
-Ωm: 0.3076 +0.0507/-0.0557
-w0: -0.9275 +0.1313/-0.1520
+Modified Flat wCDM
+M0: -28.5705 +0.0088/-0.0090 (M(0.7)=-19.3469)
+Ωm: 0.3835 +0.0416/-0.0460
+w0: -0.9782 +0.1264/-0.1449
 R-squared (%): 99.74
 RMSD (mag): 0.154
-Skewness of residuals: 0.082
-kurtosis of residuals: 1.590
-Reduced chi squared: 0.8843
+Skewness of residuals: 0.080
+kurtosis of residuals: 1.592
+Reduced chi squared: 0.8847
 """

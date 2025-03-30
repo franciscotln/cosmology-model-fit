@@ -76,13 +76,10 @@ def plot_predictions(params):
     plt.title(f"BAO Data vs Model ($r_d * h$={r_d:.2f}, $\Omega_M$={omega_m:.4f}, $w_0$={w0:.4f}) with errors")
     plt.show()
 
-
-w_inf = 1/3
-
 def H_z(z, params):
-    _, Omega_m, w0 = params
-    alpha = (w_inf + 1)/(w_inf - w0)
-    return np.sqrt(Omega_m*(1 + z)**3 + (1 - Omega_m)*((1 + z)/(1 + z/alpha))**(3*(1 + w_inf)))
+    _, omega_m, w0 = params
+    sum = 1 + z
+    return np.sqrt(omega_m * sum**3 + (1 - omega_m) * sum**3 * np.exp(3 * w0 * z))
 
 
 def DM_z(z, params):
@@ -110,9 +107,9 @@ def model_predictions(params):
 
 
 bounds = np.array([
-    (85, 115), # r_d x h
-    (0, 0.6), # Ωm
-    (-1.5, -0.5), # w0
+    (80, 110), # r_d x h
+    (0.1, 0.7), # omega_m
+    (-1.2, -0.3), # w0
 ])
 
 
@@ -140,8 +137,8 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 200
-    burn_in = 100
+    nwalkers = 100
+    burn_in = 500
     nsteps = 2500 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
@@ -227,12 +224,24 @@ RMSD: 0.2800
 
 ==============================
 
-Modified Flat waw0CDM
-r_d*h: 99.49 +1.99 -1.84
-Ωm: 0.3013 +0.0094 -0.0091
-w0: -0.8922 +0.0888 -0.0981
-Chi squared: 9.0886
+Flat w0waCDM
+r_d*h: 91.3913 +5.0396 -4.3708
+Ωm: 0.3859 +0.0465 -0.0487
+w0: -0.1861 +0.4432 -0.4417
+wa: -2.7215 +1.5416 -1.5251
+Chi squared: 5.7844
+Degrees of freedom: 9
+R^2: 0.9994
+RMSD: 0.2029
+
+===============================
+
+Flat modified wCDM
+r_d*h: 96.4053 +1.3539 -1.2771
+Ωm: 0.3442 +0.0091 -0.0088
+w0: -0.6884 +0.0463 -0.0494
+Chi squared: 6.4777
 Degrees of freedom: 10
-R^2: 0.9990
-RMSD: 0.2757
+R^2: 0.9993
+RMSD: 0.2314
 """

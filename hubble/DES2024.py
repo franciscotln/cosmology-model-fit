@@ -22,8 +22,8 @@ h0 = 70
 # Flat
 def e_z(z, omega_m, w0):
     z_grid = np.linspace(0, np.max(z), num=1500)
-    alpha = 4/(1 - 3*w0) # W(z=-1) == 1/3
-    H_over_H0 = np.sqrt(omega_m*(1 + z_grid)**3 + (1 - omega_m) * (alpha*(1 + z_grid)/(alpha + z_grid))**4)
+    sum = 1 + z_grid
+    H_over_H0 = np.sqrt(omega_m * sum**3 + (1 - omega_m) * sum**3 * np.exp(3 * w0 * z_grid))
     integral_values = cumulative_trapezoid(1/H_over_H0, z_grid, initial=0)
     return np.interp(z, z_grid, integral_values)
 
@@ -59,8 +59,8 @@ def log_likelihood(params):
 
 
 bounds = np.array([
-    (0, 1), # Ωm
-    (-3, 0.5), # w0
+    (0.1, 0.9), # Ωm
+    (-2, 0), # w0
 ])
 
 
@@ -254,12 +254,12 @@ kurtosis of residuals: 25.959
 
 ==============================
 
-Modified Flat waw0CDM
-Chi squared: 1647.8959
-Ωm: 0.2906 +0.0527/-0.0610
-w0: -0.8243 +0.1240/-0.1420
-R-squared (%): 98.32
+Modified Flat wCDM
+Chi squared: 1646.4628
+Ωm: 0.3832 +0.0393/-0.0464
+w0: -0.9105 +0.1201/-0.1272
+R-squared (%): 98.31
 RMSD (mag): 0.271
-Skewness of residuals: 3.418
-kurtosis of residuals: 25.968
+Skewness of residuals: 3.422
+kurtosis of residuals: 26.015
 """
