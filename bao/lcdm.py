@@ -14,6 +14,7 @@ c = 299792.458
 # Planck rs = 147.18 ± 0.29 Mpc, h0 = 67.37 ± 0.54
 
 # Source: https://arxiv.org/pdf/2503.14738
+# https://github.com/CobayaSampler/bao_data/tree/master/desi_bao_dr2
 data = np.genfromtxt(
     path_to_data + "data.txt",
     dtype=[("z", float), ("value", float), ("quantity", "U10")],
