@@ -22,7 +22,7 @@ H0 = 73.29
 def integral_of_e_z(zs, omega_m, w0):
     z = np.linspace(0, np.max(zs), num=1500)
     sum = 1 + z
-    h_over_h0 = np.sqrt(omega_m * sum**3 + (1 - omega_m) * sum**3 * np.exp(3 * w0 * z))
+    h_over_h0 = np.sqrt(omega_m * sum**3 + (1 - omega_m) * sum**3 * np.exp(2 * w0 * (sum**1.5 - 1)))
     integral_values = cumulative_trapezoid(1/h_over_h0, z, initial=0)
     return np.interp(zs, z, integral_values)
 
@@ -203,11 +203,11 @@ Reduced chi squared: 1.12
 
 Modified wCDM
 
-Ωm: 0.3631 +0.0540/-0.0633
-w0: -0.8109 +0.1405/-0.1620
+Ωm: 0.3939 +0.0466/-0.0521
+w0: -0.8061 +0.1309/-0.1513
 R-squared (%): 99.96
 RMSD (mag): 0.043
-Skewness of residuals: -0.455
-kurtosis of residuals: 1.715
-Reduced chi squared: 1.08
+Skewness of residuals: -0.047
+kurtosis of residuals: 0.887
+Reduced chi squared: 1.06
 """

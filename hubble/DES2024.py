@@ -23,7 +23,7 @@ h0 = 70
 def e_z(z, omega_m, w0):
     z_grid = np.linspace(0, np.max(z), num=1500)
     sum = 1 + z_grid
-    H_over_H0 = np.sqrt(omega_m * sum**3 + (1 - omega_m) * sum**3 * np.exp(3 * w0 * z_grid))
+    H_over_H0 = np.sqrt(omega_m * sum**3 + (1 - omega_m) * sum**3 * np.exp(2 * w0 * (sum**1.5 - 1)))
     integral_values = cumulative_trapezoid(1/H_over_H0, z_grid, initial=0)
     return np.interp(z, z_grid, integral_values)
 
@@ -255,11 +255,11 @@ kurtosis of residuals: 25.959
 ==============================
 
 Modified Flat wCDM
-Chi squared: 1646.4628
-Ωm: 0.3832 +0.0393/-0.0464
-w0: -0.9105 +0.1201/-0.1272
+Chi squared: 1645.4298
+Ωm: 0.4134 +0.0325/-0.0371
+w0: -0.9175 +0.1109/-0.1208
 R-squared (%): 98.31
-RMSD (mag): 0.271
-Skewness of residuals: 3.422
-kurtosis of residuals: 26.015
+RMSD (mag): 0.272
+Skewness of residuals: 3.426
+kurtosis of residuals: 26.046
 """

@@ -80,7 +80,7 @@ def plot_predictions(params):
 def H_z(z, params):
     _, omega_m, w0 = params
     sum = 1 + z
-    return np.sqrt(omega_m * sum**3 + (1 - omega_m) * sum**3 * np.exp(3 * w0 * z))
+    return np.sqrt(omega_m * sum**3 + (1 - omega_m) * sum**3 * np.exp(2 * w0 * (sum**1.5 - 1)))
 
 
 def DM_z(z, params):
@@ -238,11 +238,11 @@ RMSD: 0.2029
 ===============================
 
 Flat modified wCDM
-r_d*h: 96.4053 +1.3539 -1.2771
-Ωm: 0.3442 +0.0091 -0.0088
-w0: -0.6884 +0.0463 -0.0494
-Chi squared: 6.4777
+r_d*h: 94.6212 +1.2679 -1.2083
+Ωm: 0.3630 +0.0095 -0.0093
+w0: -0.5718 +0.0390 -0.0419
+Chi squared: 5.6527
 Degrees of freedom: 10
-R^2: 0.9993
-RMSD: 0.2314
+R^2: 0.9994
+RMSD: 0.2097
 """
