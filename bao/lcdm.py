@@ -138,9 +138,9 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 100
+    nwalkers = 200
     burn_in = 500
-    nsteps = 2500 + burn_in
+    nsteps = 5000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):
@@ -238,11 +238,11 @@ RMSD: 0.2029
 ===============================
 
 Flat modified wCDM
-r_d*h: 94.6212 +1.2679 -1.2083
-Ωm: 0.3630 +0.0095 -0.0093
-w0: -0.5718 +0.0390 -0.0419
-Chi squared: 5.6527
+r_d*h: 94.5884 +1.2517 -1.1881
+Ωm: 0.3632 +0.0094 -0.0094
+w0: -0.5711 +0.0387 -0.0412
+Chi squared: 5.6510
 Degrees of freedom: 10
 R^2: 0.9994
-RMSD: 0.2097
+RMSD: 0.2093
 """
