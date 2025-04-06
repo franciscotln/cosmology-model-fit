@@ -21,7 +21,7 @@ inv_cov_matrix = np.linalg.inv(cov_matrix)
 def integral_of_e_z(z, Omega_m, w0):
     z_grid = np.linspace(0, np.max(z), num=1500)
     sum = 1 + z_grid
-    H_over_H0 = np.sqrt(Omega_m * sum**3 + (1 - Omega_m) * sum**3 * np.exp(2 * w0 * (-1 + sum**(3/2))))
+    H_over_H0 = np.sqrt(Omega_m * sum**3 + (1 - Omega_m) * sum**(3*(2 + w0)) * np.exp(-3*z_grid))
     integral_values = cumulative_trapezoid(1/H_over_H0, z_grid, initial=0)
     return np.interp(z, z_grid, integral_values)
 
@@ -212,14 +212,14 @@ Reduced chi squared: 0.9826
 =============================
 
 Modified Flat wCDM
-M0: -28.5696 +0.0142/-0.0147 (M(0.7)=-19.3483)
-Ωm: 0.4035 +0.0410/-0.0453
-w0: -1.0695 +0.1618/-0.1920
-R-squared: 99.71 %
+M0: -28.5737 +0.0149/-0.0155 (M(0.7)=-19.3494)
+Ωm: 0.3828 +0.0418/-0.0467
+w0: -1.0963 +0.1794/-0.2140
+R-squared (%): 99.71
 RMSD (mag): 0.143
-Skewness of residuals: 0.195
-kurtosis of residuals: 0.704
-Reduced chi squared: 0.9826
+Skewness of residuals: 0.197
+kurtosis of residuals: 0.702
+Reduced chi squared: 0.9825
 
 *****************************
 Dataset: Pantheon+ (2022)
@@ -253,12 +253,12 @@ Reduced chi squared: 0.8843
 =============================
 
 Modified Flat wCDM
-M0: -28.5689 +0.0089/-0.0089 (M(0.7)=-19.3484)
-Ωm: 0.4124 +0.0366/-0.0416
-w0: -0.9907 +0.1272/-0.1425
+M0: -28.5710 +0.0090/-0.0091 (M(0.7)=-19.3475)
+Ωm: 0.3872 +0.0372/-0.0384
+w0: -0.9899 +0.1263/-0.1489
 R-squared (%): 99.74
 RMSD (mag): 0.154
-Skewness of residuals: 0.081
+Skewness of residuals: 0.082
 kurtosis of residuals: 1.591
-Reduced chi squared: 0.8852
+Reduced chi squared: 0.8847
 """

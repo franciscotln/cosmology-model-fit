@@ -78,9 +78,10 @@ def plot_predictions(params):
     plt.show()
 
 def H_z(z, params):
+    #  model: w(z) = w0 - z
     _, omega_m, w0 = params
     sum = 1 + z
-    return np.sqrt(omega_m * sum**3 + (1 - omega_m) * sum**3 * np.exp(2 * w0 * (sum**1.5 - 1)))
+    return np.sqrt(omega_m * sum**3 + (1 - omega_m) * sum**(3*(2 + w0)) * np.exp(-3*z))
 
 
 def DM_z(z, params):
@@ -110,7 +111,7 @@ def model_predictions(params):
 bounds = np.array([
     (80, 110), # r_d x h
     (0.1, 0.7), # omega_m
-    (-1.2, -0.3), # w0
+    (-1, 0), # w0
 ])
 
 
@@ -171,7 +172,7 @@ def main():
     print(f"\033[92mΩm: {omega_50:.4f} +{(omega_84 - omega_50):.4f} -{(omega_50 - omega_16):.4f}\033[0m")
     print(f"\033[92mw0: {w0_50:.4f} +{(w0_84 - w0_50):.4f} -{(w0_50 - w0_16):.4f}\033[0m")
     print(f"\033[92mChi squared: {chi_squared(best_fit):.4f}\033[0m")
-    print(f"\033[92mDegrees of freedom: {data['value'].size - len(best_fit)}\033[0m")
+    print(f"\033[92mDegrees of freedom: {data['value'].size  - len(best_fit)}\033[0m")
     plot_predictions(best_fit)
 
     labels = [r"${r_d}\times{h}$", f"$\Omega_m$", r"$w_0$"]
@@ -238,11 +239,11 @@ RMSD: 0.2029
 ===============================
 
 Flat modified wCDM
-r_d*h: 94.5884 +1.2517 -1.1881
-Ωm: 0.3632 +0.0094 -0.0094
-w0: -0.5711 +0.0387 -0.0412
-Chi squared: 5.6510
+r_d*h: 94.4684 +1.6341 -1.5362
+Ωm: 0.3624 +0.0112 -0.0110
+w0: -0.5475 +0.0679 -0.0725
+Chi squared: 5.6895
 Degrees of freedom: 10
 R^2: 0.9994
-RMSD: 0.2093
+RMSD: 0.2109
 """

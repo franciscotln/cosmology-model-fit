@@ -23,7 +23,7 @@ h0 = 70
 def e_z(z, omega_m, w0):
     z_grid = np.linspace(0, np.max(z), num=1500)
     sum = 1 + z_grid
-    H_over_H0 = np.sqrt(omega_m * sum**3 + (1 - omega_m) * sum**3 * np.exp(2 * w0 * (sum**1.5 - 1)))
+    H_over_H0 = np.sqrt(omega_m * sum**3 + (1 - omega_m) * sum**(3*(2 + w0)) * np.exp(-3*z_grid))
     integral_values = cumulative_trapezoid(1/H_over_H0, z_grid, initial=0)
     return np.interp(z, z_grid, integral_values)
 
@@ -111,7 +111,6 @@ def main():
     residuals = distance_modulus_values - predicted_distance_modulus_values
 
     skewness = stats.skew(residuals)
-    kurtosis = stats.kurtosis(residuals)
 
     # Calculate R-squared
     average_distance_modulus = np.mean(distance_modulus_values)
@@ -134,7 +133,6 @@ def main():
     print_color("R-squared (%)", f"{100 * r_squared:.2f}")
     print_color("RMSD (mag)", f"{rmsd:.3f}")
     print_color("Skewness of residuals", f"{skewness:.3f}")
-    print_color("kurtosis of residuals", f"{kurtosis:.3f}")
     print_color("Chi squared", chi_squared(best_fit_params))
 
     # plot posterior distribution from samples
@@ -202,7 +200,6 @@ w0: -1
 R-squared (%): 99.30
 RMSD (mag): 0.268
 Skewness of residuals: 1.406
-kurtosis of residuals: 8.236
 
 ==============================
 
@@ -213,7 +210,6 @@ w0: -1.0515 +0.3141/-0.4072
 R-squared (%): 99.30
 RMSD (mag): 0.268
 Skewness of residuals: 1.407
-kurtosis of residuals: 8.213
 
 ==============================
 
@@ -224,7 +220,6 @@ w0: -1.0595 +0.3134/-0.4038
 R-squared (%): 99.30
 RMSD (mag): 0.267
 Skewness of residuals: 1.401
-kurtosis of residuals: 8.208
 
 ********************************
 Dataset: DES-SN5YR
@@ -239,7 +234,6 @@ w0: -1
 R-squared (%): 98.35
 RMSD (mag): 0.268
 Skewness of residuals: 3.409
-kurtosis of residuals: 25.929
 
 ==============================
 
@@ -250,16 +244,14 @@ w0: -0.8115 +0.1455/-0.1619
 R-squared (%): 98.32
 RMSD (mag): 0.271
 Skewness of residuals: 3.417
-kurtosis of residuals: 25.959
 
 ==============================
 
 Modified Flat wCDM
-Chi squared: 1645.4298
-Ωm: 0.4134 +0.0325/-0.0371
-w0: -0.9175 +0.1109/-0.1208
+Chi squared: 1646.2555
+Ωm: 0.3842 +0.0339/-0.0359
+w0: -0.8943 +0.1167/-0.1314
 R-squared (%): 98.31
 RMSD (mag): 0.272
-Skewness of residuals: 3.426
-kurtosis of residuals: 26.046
+Skewness of residuals: 3.423
 """
