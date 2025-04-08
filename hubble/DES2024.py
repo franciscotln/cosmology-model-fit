@@ -20,12 +20,12 @@ inv_cov_matrix = np.linalg.inv(cov_matrix)
 h0 = 70
 
 # Flat
-def e_z(z, omega_m, w0):
-    z_grid = np.linspace(0, np.max(z), num=1500)
-    sum = 1 + z_grid
-    H_over_H0 = np.sqrt(omega_m * sum**3 + (1 - omega_m) * sum**(3*(2 + w0)) * np.exp(-3*z_grid))
-    integral_values = cumulative_trapezoid(1/H_over_H0, z_grid, initial=0)
-    return np.interp(z, z_grid, integral_values)
+def e_z(zs, omega_m, w0, wa):
+    z = np.linspace(0, np.max(zs), num=1500)
+    sum = 1 + z
+    H_over_H0 = np.sqrt(omega_m * sum**3 + (1 - omega_m) * sum**(3*(1 + w0 - wa)) * np.exp(3 * wa * z))
+    integral_values = cumulative_trapezoid(1/H_over_H0, z, initial=0)
+    return np.interp(zs, z, integral_values)
 
 def wcdm_distance_modulus(z, params):
     a0_over_ae = 1 + z
@@ -36,7 +36,7 @@ def wcdm_distance_modulus(z, params):
 def lcdm_distance_modulus(z, params):
     [omega_m] = params
     a0_over_ae = 1 + z
-    comoving_distance = (C / h0) * e_z(z, omega_m, -1)
+    comoving_distance = (C / h0) * e_z(z, omega_m, -1, 0)
     return 25 + 5 * np.log10(a0_over_ae * comoving_distance)
 
 
@@ -59,8 +59,9 @@ def log_likelihood(params):
 
 
 bounds = np.array([
-    (0.1, 0.9), # Ωm
-    (-2, 0), # w0
+    (0, 0.9), # Ωm
+    (-3, 1), # w0
+    (-18, 5) # wa
 ])
 
 
@@ -103,9 +104,10 @@ def main():
     [
         [omega_16, omega_50, omega_84],
         [w0_16, w0_50, w0_84],
+        [wa_16, wa_50, wa_84]
     ] = np.percentile(samples, [16, 50, 84], axis=0).T
 
-    best_fit_params = [omega_50, w0_50]
+    best_fit_params = [omega_50, w0_50, wa_50]
 
     predicted_distance_modulus_values = wcdm_distance_modulus(z_values, best_fit_params)
     residuals = distance_modulus_values - predicted_distance_modulus_values
@@ -124,19 +126,21 @@ def main():
     # Print the values in the console
     omega_label = f"{omega_50:.4f} +{omega_84-omega_50:.4f}/-{omega_50-omega_16:.4f}"
     w0_label = f"{w0_50:.4f} +{w0_84-w0_50:.4f}/-{w0_50-w0_16:.4f}"
+    wa_label = f"{wa_50:.4f} +{wa_84-wa_50:.4f}/-{wa_50-wa_16:.4f}"
 
     print_color("Dataset", legend)
     print_color("z range", f"{z_values[0]:.3f} - {z_values[-1]:.3f}")
     print_color("Sample size", len(z_values))
     print_color("Ωm", omega_label)
     print_color("w0", w0_label)
+    print_color("wa", wa_label)
     print_color("R-squared (%)", f"{100 * r_squared:.2f}")
     print_color("RMSD (mag)", f"{rmsd:.3f}")
     print_color("Skewness of residuals", f"{skewness:.3f}")
     print_color("Chi squared", chi_squared(best_fit_params))
 
     # plot posterior distribution from samples
-    labels = [f"$\Omega_M$", f"$w_0$"]
+    labels = [f"$\Omega_M$", f"$w_0$", f"$w_a$"]
     corner.corner(
         samples,
         labels=labels,
@@ -213,13 +217,14 @@ Skewness of residuals: 1.407
 
 ==============================
 
-Modified waw0CDM
-Chi squared: 550.9693
-Ωm: 0.3134 +0.0834/-0.1075
-w0: -1.0595 +0.3134/-0.4038
-R-squared (%): 99.30
-RMSD (mag): 0.267
-Skewness of residuals: 1.401
+Flat Linear w0waCDM
+Chi squared: 551.6259
+Ωm: 0.4505 +0.0632/-0.1093
+w0: -0.9316 +0.4600/-0.4087
+wa: -4.1686 +3.9992/-7.2391
+R-squared (%): 99.28
+RMSD (mag): 0.270
+Skewness of residuals: 1.398
 
 ********************************
 Dataset: DES-SN5YR
@@ -247,11 +252,23 @@ Skewness of residuals: 3.417
 
 ==============================
 
-Modified Flat wCDM
-Chi squared: 1646.2555
-Ωm: 0.3842 +0.0339/-0.0359
-w0: -0.8943 +0.1167/-0.1314
-R-squared (%): 98.31
-RMSD (mag): 0.272
-Skewness of residuals: 3.423
+Flat w0waCDM
+Chi squared: 1641.9146
+Ωm: 0.4954 +0.0321/-0.0431
+w0: -0.3752 +0.3663/-0.3033
+wa: -8.9260 +3.9253/-4.5788
+R-squared (%): 98.20
+RMSD (mag): 0.280
+Skewness of residuals: 3.454
+
+==============================
+
+Flat Linear w0waCDM
+Chi squared: 1641.8069
+Ωm: 0.5004 +0.0306/-0.0385
+w0: -0.4931 +0.3375/-0.2607
+wa: -6.8355 +2.8457/-3.7107
+R-squared (%): 98.21
+RMSD (mag): 0.280
+Skewness of residuals: 3.453
 """

@@ -19,18 +19,17 @@ C = 299792.458
 H0 = 73.29
 
 # Flat model
-def integral_of_e_z(zs, omega_m, w0):
+def integral_of_e_z(zs, omega_m, w0, wa):
     z = np.linspace(0, np.max(zs), num=1500)
     sum = 1 + z
-    h_over_h0 = np.sqrt(omega_m * sum**3 + (1 - omega_m) * sum**(3*(2 + w0)) * np.exp(-3*z))
+    h_over_h0 = np.sqrt(omega_m * sum**3 + (1 - omega_m) * sum**(3*(1 + w0 - wa)) * np.exp(3 * wa * z))
     integral_values = cumulative_trapezoid(1/h_over_h0, z, initial=0)
     return np.interp(zs, z, integral_values)
 
 
 def wcdm_distance_modulus(z, params):
-    [omega_m, w0] = params
     a0_over_ae = 1 + z
-    comoving_distance = (C / H0) * integral_of_e_z(zs=z, omega_m=omega_m, w0=w0)
+    comoving_distance = (C / H0) * integral_of_e_z(z, *params)
     return 25 + 5 * np.log10(a0_over_ae * comoving_distance)
 
 
@@ -38,7 +37,7 @@ def wcdm_distance_modulus(z, params):
 def lcdm_distance_modulus(z, params):
     [omega_m] = params
     a0_over_ae = 1 + z
-    comoving_distance = (C / H0) * integral_of_e_z(zs=z, omega_m=omega_m, w0=-1)
+    comoving_distance = (C / H0) * integral_of_e_z(zs=z, omega_m=omega_m, w0=-1, wa=0)
     return 25 + 5 * np.log10(a0_over_ae * comoving_distance)
 
 
@@ -54,6 +53,7 @@ def log_likelihood(params):
 bounds = np.array([
     (0.1, 0.7), # Ωm
     (-1.5, 0), # w0
+    (-10, 2) # wa
 ])
 
 
@@ -88,9 +88,10 @@ def main():
     [
         [omega_16, omega_50, omega_84],
         [w0_16, w0_50, w0_84],
+        [wa_16, wa_50, wa_84]
     ] = np.percentile(samples, [16, 50, 84], axis=0).T
 
-    best_fit_params = [omega_50, w0_50]
+    best_fit_params = [omega_50, w0_50, wa_50]
 
     predicted_mag = wcdm_distance_modulus(z_values, best_fit_params)
     residuals = distance_moduli_values - predicted_mag
@@ -110,12 +111,14 @@ def main():
     # Print the values in the console
     omega_label = f"{omega_50:.4f} +{omega_84-omega_50:.4f}/-{omega_50-omega_16:.4f}"
     w0_label = f"{w0_50:.4f} +{w0_84-w0_50:.4f}/-{w0_50-w0_16:.4f}"
+    wa_label = f"{wa_50:.4f} +{wa_84-wa_50:.4f}/-{wa_50-wa_16:.4f}"
 
     print_color("Dataset", legend)
     print_color("z range", f"{z_values[0]:.3f} - {z_values[-1]:.3f}")
     print_color("Sample size", len(z_values))
     print_color("Ωm", omega_label)
     print_color("w0", w0_label)
+    print_color("wa", wa_label)
     print_color("R-squared (%)", f"{100 * r_squared:.2f}")
     print_color("RMSD (mag)", f"{rmsd:.3f}")
     print_color("Skewness of residuals", f"{skewness:.3f}")
@@ -123,7 +126,7 @@ def main():
     print_color("Reduced chi squared", chi_squared(best_fit_params)/ (len(z_values) - 2))
 
     # Plot the data and the fit
-    labels = [f"$\Omega_m$", r"$w_0$"]
+    labels = [f"$\Omega_m$", r"$w_0$", r"$w_a$"]
     corner.corner(
         samples,
         labels=labels,
@@ -201,13 +204,14 @@ Reduced chi squared: 1.12
 
 =============================
 
-Modified wCDM
+Flat linear w0waCDM
 
-Ωm: 0.3743 +0.0449/-0.0468
-w0: -0.8024 +0.1417/-0.1650
-R-squared (%): 99.96
-RMSD (mag): 0.043
-Skewness of residuals: -0.318
-kurtosis of residuals: 1.404
-Reduced chi squared: 1.07
+Ωm: 0.4517 +0.0582/-0.0916
+w0: -0.6470 +0.2715/-0.2096
+wa: -3.1119 +2.2424/-3.0061
+R-squared (%): 99.93
+RMSD (mag): 0.058
+Skewness of residuals: 0.785
+kurtosis of residuals: 0.475
+Reduced chi squared: 1.06
 """
