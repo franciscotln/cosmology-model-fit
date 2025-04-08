@@ -1,20 +1,22 @@
+import os
 import numpy as np
 import emcee
 import corner
-from scipy.integrate import quad
+from scipy.integrate import quad, cumulative_trapezoid
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
-import os
+from y2024DES.data import get_data
+from hubble.plotting import plot_predictions as plot_sn_predictions
+
+legend, z_vals, distance_moduli_values, cov_matrix_sn = get_data()
+inverse_cov_sn = np.linalg.inv(cov_matrix_sn)
 
 path_to_data = os.path.dirname(os.path.abspath(__file__)) + '/raw-data/'
 
-# Speed of light in km/s
-c = 299792.458
+c = 299792.458 # Speed of light in km/s
+H0 = 70 # Hubble constant in km/s/Mpc as per DES5Y
 
-# Planck rs = 147.18 ± 0.29 Mpc, h0 = 67.37 ± 0.54
-
-# Source: https://arxiv.org/pdf/2503.14738
-# https://github.com/CobayaSampler/bao_data/tree/master/desi_bao_dr2
+# Load BAO data
 data = np.genfromtxt(
     path_to_data + "data.txt",
     dtype=[("z", float), ("value", float), ("quantity", "U10")],
@@ -24,28 +26,35 @@ data = np.genfromtxt(
 cov_matrix = np.loadtxt(path_to_data + "covariance.txt", delimiter=" ", dtype=float)
 inv_cov_matrix = np.linalg.inv(cov_matrix)
 
-def plot_predictions(params):
+
+def h_over_h0_model(z, params):
+    r_d, O_m, w0, wa = params
+    sum = 1 + z
+    return np.sqrt(O_m * sum**3 + (1 - O_m) * sum**(3*(1 + w0 - wa)) * np.exp(3 * wa * z))
+
+
+def wcdm_integral_of_e_z(zs, params):
+    z = np.linspace(0, np.max(zs), num=1500)
+    integral_values = cumulative_trapezoid(1/h_over_h0_model(z, params), z, initial=0)
+    return np.interp(zs, z, integral_values)
+
+
+def wcdm_distance_modulus(z, params):
+    a0_over_ae = 1 + z
+    comoving_distance = (c/H0) * wcdm_integral_of_e_z(z, params)
+    return 25 + 5 * np.log10(a0_over_ae * comoving_distance)
+
+
+def plot_bao_predictions(params):
     observed_values = data["value"]
     z_values = data["z"]
     quantity_types = data["quantity"]
     errors = np.sqrt(np.diag(cov_matrix))
 
-    # Compute R squared
-    residuals = observed_values - model_predictions(params)
-    SS_res = np.sum(residuals**2)
-    SS_tot = np.sum((observed_values - np.mean(observed_values))**2)
-    R_squared = 1 - SS_res/SS_tot
-
-    # Calculate root mean square deviation
-    rmsd = np.sqrt(np.mean(residuals ** 2))
-
-    print(f"\033[92mR^2: {R_squared:.4f}\033[0m")
-    print(f"\033[92mRMSD: {rmsd:.4f}\033[0m")
-
     unique_quantities = set(quantity_types)
     colors = { "DV_over_rs": "red", "DM_over_rs": "blue", "DH_over_rs": "green" }
 
-    r_d, omega_m, w0 = params
+    r_d, omega_m, w0, wa = params
     z_smooth = np.linspace(0, max(z_values), 100)
     plt.figure(figsize=(8, 6))
     for q in unique_quantities:
@@ -63,25 +72,24 @@ def plot_predictions(params):
         model_smooth = []
         for z in z_smooth:
             if q == "DV_over_rs":
-                model_smooth.append(DV_z(z, params)/(100*r_d))
+                model_smooth.append(DV_z(z, params)/(H0*r_d))
             elif q == "DM_over_rs":
-                model_smooth.append(DM_z(z, params)/(100*r_d))
+                model_smooth.append(DM_z(z, params)/(H0*r_d))
             elif q == "DH_over_rs":
-                model_smooth.append((c / H_z(z, params))/(100*r_d))
+                model_smooth.append((c / H_z(z, params))/(H0*r_d))
         plt.plot(z_smooth, model_smooth, color=colors[q], alpha=0.5)
 
     plt.xlabel("Redshift (z)")
     plt.ylabel(r"$O = \frac{D}{r_d}$")
     plt.legend()
     plt.grid(True)
-    plt.title(f"BAO Data vs Model ($r_d * h$={r_d:.2f}, $\Omega_M$={omega_m:.4f}, $w_0$={w0:.4f}) with errors")
+    plt.title(f"BAO model: $r_d * h$={r_d:.2f}, $\Omega_M$={omega_m:.4f}, $w_0$={w0:.4f}, $w_a$={wa:.4f}")
     plt.show()
 
+
 def H_z(z, params):
-    #  model: w(z) = w0 - z
-    _, omega_m, w0 = params
-    sum = 1 + z
-    return np.sqrt(omega_m * sum**3 + (1 - omega_m) * sum**(3*(2 + w0)) * np.exp(-3*z))
+    return h_over_h0_model(z, params)
+    # return np.sqrt(omega_m * sum**3 + (1 - omega_m)) # LCDM
 
 
 def DM_z(z, params):
@@ -96,28 +104,40 @@ def DV_z(z, params):
 
 
 def model_predictions(params):
-    r_d_x_h0 = params[0] * 100
+    r_d = params[0]
     predictions = []
     for z, _, quantity in data:
         if quantity == "DV_over_rs":
-            predictions.append(DV_z(z, params) / r_d_x_h0)
+            predictions.append(DV_z(z, params) / (r_d*H0))
         elif quantity == "DM_over_rs":
-            predictions.append(DM_z(z, params) / r_d_x_h0)
+            predictions.append(DM_z(z, params) / (r_d*H0))
         elif quantity == "DH_over_rs":
-            predictions.append((c / H_z(z, params)) / r_d_x_h0)
+            predictions.append((c / H_z(z, params)) / (r_d*H0))
     return np.array(predictions)
 
 
 bounds = np.array([
-    (80, 110), # r_d x h
+    (115, 160), # r_d
     (0.1, 0.7), # omega_m
-    (-1, 0), # w0
+    (-3, 0), # w0
+    (-3, 0), # wa
 ])
 
 
 def chi_squared(params):
+    """ 
+    Computes modified likelihood to marginalize over M 
+    (Wood-Vasey et al. 2001, Appendix A9-A12)
+    """
+    delta = distance_moduli_values - wcdm_distance_modulus(z_vals, params)
+    deltaT = np.transpose(delta)
+    chit2 = np.sum(delta @ inverse_cov_sn @ deltaT)      # First term: (Δ^T C^-1 Δ)
+    B = np.sum(delta @ inverse_cov_sn)                   # Second term: B
+    C = np.sum(inverse_cov_sn)                           # Third term: C
+    chi2 = chit2 - (B**2 / C) + np.log(C / (2 * np.pi))  # Full modified chi2
     delta = data['value'] - model_predictions(params)
-    return np.dot(delta, np.dot(inv_cov_matrix, delta))
+    chi_bao = np.dot(delta, np.dot(inv_cov_matrix, delta))
+    return chi2 + chi_bao
 
 
 def log_prior(params):
@@ -139,9 +159,9 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 200
+    nwalkers = 80
     burn_in = 500
-    nsteps = 5000 + burn_in
+    nsteps = 2000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):
@@ -164,18 +184,30 @@ def main():
         [rd_16, rd_50, rd_84],
         [omega_16, omega_50, omega_84],
         [w0_16, w0_50, w0_84],
+        [wa_16, wa_50, wa_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = [rd_50, omega_50, w0_50]
+    best_fit = [rd_50, omega_50, w0_50, wa_50]
 
-    print(f"\033[92mr_d*h: {rd_50:.4f} +{(rd_84 - rd_50):.4f} -{(rd_50 - rd_16):.4f}\033[0m")
-    print(f"\033[92mΩm: {omega_50:.4f} +{(omega_84 - omega_50):.4f} -{(omega_50 - omega_16):.4f}\033[0m")
-    print(f"\033[92mw0: {w0_50:.4f} +{(w0_84 - w0_50):.4f} -{(w0_50 - w0_16):.4f}\033[0m")
-    print(f"\033[92mChi squared: {chi_squared(best_fit):.4f}\033[0m")
-    print(f"\033[92mDegrees of freedom: {data['value'].size  - len(best_fit)}\033[0m")
-    plot_predictions(best_fit)
+    print(f"r_d: {rd_50:.4f} +{(rd_84 - rd_50):.4f} -{(rd_50 - rd_16):.4f}")
+    print(f"Ωm: {omega_50:.4f} +{(omega_84 - omega_50):.4f} -{(omega_50 - omega_16):.4f}")
+    print(f"w0: {w0_50:.4f} +{(w0_84 - w0_50):.4f} -{(w0_50 - w0_16):.4f}")
+    print(f"wa: {wa_50:.4f} +{(wa_84 - wa_50):.4f} -{(wa_50 - wa_16):.4f}")
+    print(f"Chi squared: {chi_squared(best_fit):.4f}")
+    print(f"Degrees of freedom: {data['value'].size + z_vals.size - len(best_fit)}")
 
-    labels = [r"${r_d}\times{h}$", f"$\Omega_m$", r"$w_0$"]
+    plot_bao_predictions(best_fit)
+    plot_sn_predictions(
+        legend=legend,
+        x=z_vals,
+        y=distance_moduli_values,
+        y_err=np.sqrt(np.diag(cov_matrix_sn)),
+        y_model=wcdm_distance_modulus(z_vals, best_fit),
+        label=f"Best fit: $w_0$={w0_50:.4f}, $\Omega_m$={omega_50:.4f}",
+        x_scale="log"
+    )
+
+    labels = [r"$r_d$", f"$\Omega_m$", r"$w_0$", r"$w_a$"]
     corner.corner(
         samples,
         labels=labels,
@@ -203,47 +235,11 @@ def main():
 if __name__ == "__main__":
     main()
 
-
 """
-Flat ΛCDM model
-r_d*h: 101.54 ± 0.72
-Ωm: 0.2974 +0.0086 -0.0084
-Chi squared: 10.5169
-Degrees of freedom: 11
-R^2: 0.9987
-RMSD: 0.3054
-
-==============================
-
-Flat wCDM model
-r_d*h: 99.86 +1.74 -1.64
-Ωm: 0.2968 +0.0089 -0.0087
-w0: -0.9179 +0.0743 -0.0778
-Chi squared: 9.3920
-Degrees of freedom: 10
-R^2: 0.9989
-RMSD: 0.2800
-
-==============================
-
-Flat w0waCDM
-r_d*h: 91.3913 +5.0396 -4.3708
-Ωm: 0.3859 +0.0465 -0.0487
-w0: -0.1861 +0.4432 -0.4417
-wa: -2.7215 +1.5416 -1.5251
-Chi squared: 5.7844
-Degrees of freedom: 9
-R^2: 0.9994
-RMSD: 0.2029
-
-===============================
-
-Flat modified wCDM
-r_d*h: 94.4684 +1.6341 -1.5362
-Ωm: 0.3624 +0.0112 -0.0110
-w0: -0.5475 +0.0679 -0.0725
-Chi squared: 5.6895
-Degrees of freedom: 10
-R^2: 0.9994
-RMSD: 0.2109
+r_d: 140.9156 +1.2076 -1.2039
+Ωm: 0.3267 +0.0118 -0.0132
+w0: -0.8214 +0.0539 -0.0506
+w1: 0.4483 +0.2487 -0.2374
+Chi squared: 1655.2542
+Degrees of freedom: 1838
 """
