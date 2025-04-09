@@ -183,7 +183,7 @@ def main():
     print(f"r_d: {rd_50:.4f} +{(rd_84 - rd_50):.4f} -{(rd_50 - rd_16):.4f}")
     print(f"Ωm: {omega_50:.4f} +{(omega_84 - omega_50):.4f} -{(omega_50 - omega_16):.4f}")
     print(f"w0: {w0_50:.4f} +{(w0_84 - w0_50):.4f} -{(w0_50 - w0_16):.4f}")
-    print(f"w1: {wa_50:.4f} +{(wa_84 - wa_50):.4f} -{(wa_50 - wa_16):.4f}")
+    print(f"wa: {wa_50:.4f} +{(wa_84 - wa_50):.4f} -{(wa_50 - wa_16):.4f}")
     print(f"Chi squared: {chi_squared(best_fit):.4f}")
     print(f"Degrees of freedom: {data['value'].size + z_vals.size - len(best_fit)}")
 
@@ -227,10 +227,21 @@ if __name__ == "__main__":
     main()
 
 """
+Flat w0waCDM
+r_d: 132.8981 +1.7514 -1.7544
+Ωm: 0.3304 +0.0155 -0.0163
+w0: -0.7002 +0.1128 -0.1004
+wa: -0.9954 +0.5110 -0.5520
+Chi squared: 29.1519
+Degrees of freedom: 31
+
+==============================
+
+Flat Linear w0waCDM
 r_d: 133.1290 +1.7204 -1.7310
 Ωm: 0.3358 +0.0144 -0.0159
 w0: -0.7527 +0.0885 -0.0809
-w1: 0.5966 +0.2969 -0.2899
+wa: -0.5966 +0.2969 -0.2899
 Chi squared: 28.8746
 Degrees of freedom: 31
 """
