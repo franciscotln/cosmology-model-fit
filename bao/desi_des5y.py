@@ -129,15 +129,15 @@ def chi_squared(params):
     Computes modified likelihood to marginalize over M 
     (Wood-Vasey et al. 2001, Appendix A9-A12)
     """
-    delta = distance_moduli_values - wcdm_distance_modulus(z_vals, params)
-    deltaT = np.transpose(delta)
-    chit2 = np.sum(delta @ inverse_cov_sn @ deltaT)      # First term: (Δ^T C^-1 Δ)
-    B = np.sum(delta @ inverse_cov_sn)                   # Second term: B
-    C = np.sum(inverse_cov_sn)                           # Third term: C
-    chi2 = chit2 - (B**2 / C) + np.log(C / (2 * np.pi))  # Full modified chi2
-    delta = data['value'] - model_predictions(params)
-    chi_bao = np.dot(delta, np.dot(inv_cov_matrix, delta))
-    return chi2 + chi_bao
+    delta_sn = distance_moduli_values - wcdm_distance_modulus(z_vals, params)
+    deltaT = np.transpose(delta_sn)
+    chit2 = np.sum(delta_sn @ inverse_cov_sn @ deltaT)     # First term: (Δ^T C^-1 Δ)
+    B = np.sum(delta_sn @ inverse_cov_sn)                  # Second term: B
+    C = np.sum(inverse_cov_sn)                             # Third term: C
+    chi_sn = chit2 - (B**2 / C) + np.log(C / (2 * np.pi))  # Full modified chi2
+    delta_bao = data['value'] - model_predictions(params)
+    chi_bao = np.dot(delta_bao, np.dot(inv_cov_matrix, delta_bao))
+    return chi_sn + chi_bao
 
 
 def log_prior(params):

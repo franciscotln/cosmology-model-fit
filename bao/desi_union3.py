@@ -22,8 +22,8 @@ data = np.genfromtxt(
     delimiter=" ",
     names=True,
 )
-cov_matrix = np.loadtxt(path_to_data + "covariance.txt", delimiter=" ", dtype=float)
-inv_cov_matrix = np.linalg.inv(cov_matrix)
+bao_cov_matrix = np.loadtxt(path_to_data + "covariance.txt", delimiter=" ", dtype=float)
+inv_bao_cov_matrix = np.linalg.inv(bao_cov_matrix)
 
 
 def h_over_h0_model(z, params):
@@ -48,7 +48,7 @@ def plot_bao_predictions(params):
     observed_values = data["value"]
     z_values = data["z"]
     quantity_types = data["quantity"]
-    errors = np.sqrt(np.diag(cov_matrix))
+    errors = np.sqrt(np.diag(bao_cov_matrix))
 
     unique_quantities = set(quantity_types)
     colors = { "DV_over_rs": "red", "DM_over_rs": "blue", "DH_over_rs": "green" }
@@ -126,8 +126,8 @@ bounds = np.array([
 def chi_squared(params):
     delta_sn = distance_moduli_values - wcdm_distance_modulus(z_vals, params)
     chi_sn = np.dot(delta_sn, np.dot(inverse_cov_sn, delta_sn))
-    delta = data['value'] - model_predictions(params)
-    chi_bao = np.dot(delta, np.dot(inv_cov_matrix, delta))
+    delta_bao = data['value'] - model_predictions(params)
+    chi_bao = np.dot(delta_bao, np.dot(inv_bao_cov_matrix, delta_bao))
     return chi_sn + chi_bao
 
 
