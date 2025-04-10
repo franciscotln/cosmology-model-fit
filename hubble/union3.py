@@ -204,6 +204,19 @@ Reduced chi squared: 1.12
 
 =============================
 
+Flat w0waCDM
+
+Ωm: 0.4344 +0.0576/-0.0946
+w0: -0.6077 +0.2622/-0.2248
+wa: -3.6583 +2.6542/-3.1517
+R-squared (%): 99.93
+RMSD (mag): 0.057
+Skewness of residuals: 0.656
+kurtosis of residuals: 0.449
+Reduced chi squared: 1.06
+
+==============================
+
 Flat linear w0waCDM
 
 Ωm: 0.4517 +0.0582/-0.0916
