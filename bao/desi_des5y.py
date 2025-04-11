@@ -2,7 +2,7 @@ import os
 import numpy as np
 import emcee
 import corner
-from scipy.integrate import quad, cumulative_trapezoid
+from scipy.integrate import cumulative_trapezoid
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from y2024DES.data import get_data
@@ -27,10 +27,21 @@ cov_matrix = np.loadtxt(path_to_data + "covariance.txt", delimiter=" ", dtype=fl
 inv_cov_matrix = np.linalg.inv(cov_matrix)
 
 
-def h_over_h0_model(z, params):
+def w_de(z, params):
     r_d, O_m, w0, wa = params
+    return w0 + (wa - w0) * np.tanh(z)
+
+
+def rho_de(zs, params):
+    z = np.linspace(0, np.max(zs), num=1500)
+    integral_values = cumulative_trapezoid(3*(1 + w_de(z, params))/(1 + z), z, initial=0)
+    return np.exp(np.interp(zs, z, integral_values))
+
+
+def h_over_h0_model(z, params):
+    O_m = params[1]
     sum = 1 + z
-    return np.sqrt(O_m * sum**3 + (1 - O_m) * sum**(3*(1 + w0 - wa)) * np.exp(3 * wa * z))
+    return np.sqrt(O_m * sum**3 + (1 - O_m) * rho_de(z, params))
 
 
 def wcdm_integral_of_e_z(zs, params):
@@ -92,9 +103,10 @@ def H_z(z, params):
     # return np.sqrt(omega_m * sum**3 + (1 - omega_m)) # LCDM
 
 
-def DM_z(z, params):
-    integral, _ = quad(lambda zp: c / H_z(zp, params), 0, z)
-    return integral
+def DM_z(zs, params):
+    z = np.linspace(0, np.max(zs), num=1500)
+    integral_values = cumulative_trapezoid(c / H_z(z, params), z, initial=0)
+    return np.interp(zs, z, integral_values)
 
 
 def DV_z(z, params):
@@ -161,7 +173,7 @@ def main():
     ndim = len(bounds)
     nwalkers = 80
     burn_in = 500
-    nsteps = 2000 + burn_in
+    nsteps = 3000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):
@@ -251,7 +263,17 @@ Flat Linear w0waCDM
 r_d: 140.9156 +1.2076 -1.2039
 Ωm: 0.3267 +0.0118 -0.0132
 w0: -0.8214 +0.0539 -0.0506
-w1: -0.4483 +0.2487 -0.2374
+wa: -0.4483 +0.2487 -0.2374
 Chi squared: 1655.2542
+Degrees of freedom: 1838
+
+============================
+
+Flat tanh w0waCDM
+r_d: 140.9579 +1.1830 -1.2020
+Ωm: 0.3202 +0.0129 -0.0161
+w0: -0.8145 +0.0609 -0.0561
+wa: -1.2570 +0.2638 -0.2540
+Chi squared: 1655.3231
 Degrees of freedom: 1838
 """

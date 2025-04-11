@@ -2,7 +2,7 @@ import os
 import numpy as np
 import emcee
 import corner
-from scipy.integrate import quad, cumulative_trapezoid
+from scipy.integrate import cumulative_trapezoid
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from y2023union3.data import get_data
@@ -26,10 +26,20 @@ bao_cov_matrix = np.loadtxt(path_to_data + "covariance.txt", delimiter=" ", dtyp
 inv_bao_cov_matrix = np.linalg.inv(bao_cov_matrix)
 
 
-def h_over_h0_model(z, params):
+def w_de(z, params):
     r_d, O_m, w0, wa = params
-    sum = 1 + z
-    return np.sqrt(O_m * sum**3 + (1 - O_m) * sum**(3*(1 + w0 - wa)) * np.exp(3 * wa * z))
+    return w0 + (wa - w0) * np.tanh(z)
+
+
+def rho_de(zs, params):
+    z = np.linspace(0, np.max(zs), num=1500)
+    integral_values = cumulative_trapezoid(3*(1 + w_de(z, params))/(1 + z), z, initial=0)
+    return np.exp(np.interp(zs, z, integral_values))
+
+
+def h_over_h0_model(z, params):
+    O_m = params[1]
+    return np.sqrt(O_m * (1 + z)**3 + (1 - O_m) * rho_de(z, params))
 
 
 def wcdm_integral_of_e_z(zs, params):
@@ -91,9 +101,10 @@ def H_z(z, params):
     # return np.sqrt(omega_m * sum**3 + (1 - omega_m)) # LCDM
 
 
-def DM_z(z, params):
-    integral, _ = quad(lambda zp: c / H_z(zp, params), 0, z)
-    return integral
+def DM_z(zs, params):
+    z = np.linspace(0, np.max(zs), num=1500)
+    integral_values = cumulative_trapezoid(c / H_z(z, params), z, initial=0)
+    return np.interp(zs, z, integral_values)
 
 
 def DV_z(z, params):
@@ -117,9 +128,9 @@ def model_predictions(params):
 
 bounds = np.array([
     (115, 160), # r_d
-    (0, 0.7), # omega_m
+    (0.2, 0.7), # omega_m
     (-2, 0), # w0
-    (-2, 0), # wa
+    (-4, 0), # wa
 ])
 
 
@@ -243,5 +254,15 @@ r_d: 133.1290 +1.7204 -1.7310
 w0: -0.7527 +0.0885 -0.0809
 wa: -0.5966 +0.2969 -0.2899
 Chi squared: 28.8746
+Degrees of freedom: 31
+
+=============================
+
+Flat tanh w0waCDM
+r_d: 133.0984 +1.7562 -1.7592
+Ωm: 0.3296 +0.0156 -0.0178
+w0: -0.7364 +0.0969 -0.0922
+wa: -1.3685 +0.2871 -0.2824
+Chi squared: 29.0403
 Degrees of freedom: 31
 """

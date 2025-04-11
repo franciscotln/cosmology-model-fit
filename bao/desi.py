@@ -1,7 +1,7 @@
 import numpy as np
 import emcee
 import corner
-from scipy.integrate import quad
+from scipy.integrate import quad, cumulative_trapezoid
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 import os
@@ -78,11 +78,21 @@ def plot_predictions(params):
     plt.show()
 
 
-#  model: w(z) = w0 + wa * z
+def w_de(z, params):
+    _, _, w0, wa = params
+    return w0 + (wa - w0) * np.tanh(z)
+
+
+def rho_de(z_input, params):
+    z = np.linspace(0, z_input, 1500)
+    integral = cumulative_trapezoid(3 * (1 + w_de(z, params)) / (1 + z), z, initial=0)
+    return np.exp(np.interp(z_input, z, integral))
+
+
 def H_z(z, params):
     _, omega_m, w0, wa = params
     sum = 1 + z
-    return np.sqrt(omega_m * sum**3 + (1 - omega_m) * sum**(3*(1 + w0 - wa)) * np.exp(3 * wa * z))
+    return np.sqrt(omega_m * sum**3 + (1 - omega_m) * rho_de(z, params))
 
 
 def DM_z(z, params):
@@ -112,8 +122,8 @@ def model_predictions(params):
 bounds = np.array([
     (80, 110), # r_d x h
     (0.2, 0.7), # Ωm
-    (-3, 0.5), # w0
-    (-3, 0), # wa
+    (-3, 1), # w0
+    (-4, 0), # wa
 ])
 
 
@@ -143,7 +153,7 @@ def main():
     ndim = len(bounds)
     nwalkers = 100
     burn_in = 500
-    nsteps = 4000 + burn_in
+    nsteps = 2000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):
@@ -253,4 +263,16 @@ Chi squared: 5.5936
 Degs of freedom: 9
 R^2: 0.9994
 RMSD: 0.2035
+
+===============================
+
+Flat tanh w0waCDM
+r_d*h: 92.3627 +4.5120 -4.0429
+Ωm: 0.3771 +0.0424 -0.0435
+w0: -0.3455 +0.3628 -0.3470
+wa: -1.9204 +0.5538 -0.5671
+Chi squared: 5.6101
+Degs of freedom: 9
+R^2: 0.9994
+RMSD: 0.2013
 """

@@ -19,11 +19,22 @@ inv_cov_matrix = np.linalg.inv(cov_matrix)
 # Hubble constant km/s/Mpc as assumed in the dataset
 h0 = 70
 
+def w_de(z, w0, wa):
+    return w0 + (wa - w0) * np.tanh(z)
+
+
+def rho_de(zs, w0, wa):
+    z = np.linspace(0, np.max(zs), num=1500)
+    w =  w_de(z, w0, wa)
+    integral_values = cumulative_trapezoid(3*(1 + w)/(1 + z), z, initial=0)
+    return np.exp(np.interp(zs, z, integral_values))
+
+
 # Flat
 def e_z(zs, omega_m, w0, wa):
     z = np.linspace(0, np.max(zs), num=1500)
     sum = 1 + z
-    H_over_H0 = np.sqrt(omega_m * sum**3 + (1 - omega_m) * sum**(3*(1 + w0 - wa)) * np.exp(3 * wa * z))
+    H_over_H0 = np.sqrt(omega_m * sum**3 + (1 - omega_m) * rho_de(z, w0, wa))
     integral_values = cumulative_trapezoid(1/H_over_H0, z, initial=0)
     return np.interp(zs, z, integral_values)
 
@@ -271,4 +282,15 @@ wa: -6.8355 +2.8457/-3.7107
 R-squared (%): 98.21
 RMSD (mag): 0.280
 Skewness of residuals: 3.453
+
+===============================
+
+Flat tanh w0waCDM
+Chi squared: 1641.8549
+Ωm: 0.4990 +0.0309/-0.0390
+w0: -0.4691 +0.3275/-0.2688
+wa: -7.5275 +2.7065/-3.3575
+R-squared (%): 98.20
+RMSD (mag): 0.280
+Skewness of residuals: 3.454
 """

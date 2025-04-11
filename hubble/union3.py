@@ -18,11 +18,22 @@ C = 299792.458
 # Hubble constant (km/s/Mpc)
 H0 = 73.29
 
+def w_de(z, w0, wa):
+    return w0 + (wa - w0) * np.tanh(z)
+
+
+def rho_de(zs, w0, wa):
+    z = np.linspace(0, np.max(zs), num=1500)
+    w =  w_de(z, w0, wa)
+    integral_values = cumulative_trapezoid(3*(1 + w)/(1 + z), z, initial=0)
+    return np.exp(np.interp(zs, z, integral_values))
+
+
 # Flat model
 def integral_of_e_z(zs, omega_m, w0, wa):
     z = np.linspace(0, np.max(zs), num=1500)
     sum = 1 + z
-    h_over_h0 = np.sqrt(omega_m * sum**3 + (1 - omega_m) * sum**(3*(1 + w0 - wa)) * np.exp(3 * wa * z))
+    h_over_h0 = np.sqrt(omega_m * sum**3 + (1 - omega_m) * rho_de(z, w0, wa))
     integral_values = cumulative_trapezoid(1/h_over_h0, z, initial=0)
     return np.interp(zs, z, integral_values)
 
@@ -51,8 +62,8 @@ def log_likelihood(params):
 
 
 bounds = np.array([
-    (0.1, 0.7), # Ωm
-    (-1.5, 0), # w0
+    (0.1, 1), # Ωm
+    (-1.5, 0.5), # w0
     (-10, 2) # wa
 ])
 
@@ -71,16 +82,21 @@ def log_probability(params):
 
 
 def main():
-    discarded_steps = 100
     n_dim = len(bounds)
-    n_walkers = 200
-    n_steps = discarded_steps + 2000
+    n_walkers = 100
+    discarded_steps = 200
+    n_steps = discarded_steps + 5000
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(n_walkers, n_dim))
 
     with Pool(10) as pool:
         sampler = emcee.EnsembleSampler(n_walkers, n_dim, log_probability, pool=pool)
         sampler.run_mcmc(initial_pos, n_steps, progress=True)
 
+    try:
+        tau = sampler.get_autocorr_time()
+        print("auto-correlation time", tau)
+    except emcee.autocorr.AutocorrError as e:
+        print("Autocorrelation time could not be computed", e)
 
     chains_samples = sampler.get_chain(discard=0, flat=False)
     samples = sampler.get_chain(discard=discarded_steps, flat=True)
@@ -226,5 +242,17 @@ R-squared (%): 99.93
 RMSD (mag): 0.058
 Skewness of residuals: 0.785
 kurtosis of residuals: 0.475
+Reduced chi squared: 1.06
+
+===============================
+
+Flat tanh w0waCDM
+Ωm: 0.4487 +0.0582/-0.0906
+w0: -0.6333 +0.2784/-0.2182
+wa: -3.8487 +2.1135/-2.7517
+R-squared (%): 99.93
+RMSD (mag): 0.058
+Skewness of residuals: 0.769
+kurtosis of residuals: 0.468
 Reduced chi squared: 1.06
 """
