@@ -17,11 +17,22 @@ C = 299792.458
 # inverse covariance matrix
 inv_cov_matrix = np.linalg.inv(cov_matrix)
 
+def w_de(z, w0, wa):
+    return w0 + (wa - w0) * np.tanh(z)
+
+
+def rho_de(zs, w0, wa):
+    z = np.linspace(0, np.max(zs), num=1500)
+    w =  w_de(z, w0, wa)
+    integral_values = cumulative_trapezoid(3*(1 + w)/(1 + z), z, initial=0)
+    return np.exp(np.interp(zs, z, integral_values))
+
+
 # Flat
-def integral_of_e_z(z, Omega_m, w0):
+def integral_of_e_z(z, Omega_m, w0, wa):
     z_grid = np.linspace(0, np.max(z), num=1500)
     sum = 1 + z_grid
-    H_over_H0 = np.sqrt(Omega_m * sum**3 + (1 - Omega_m) * sum**(3*(2 + w0)) * np.exp(-3*z_grid))
+    H_over_H0 = np.sqrt(Omega_m * sum**3 + (1 - Omega_m) * rho_de(z_grid, w0, wa))
     integral_values = cumulative_trapezoid(1/H_over_H0, z_grid, initial=0)
     return np.interp(z, z_grid, integral_values)
 
@@ -29,14 +40,14 @@ def integral_of_e_z(z, Omega_m, w0):
 def lcdm_apparent_mag(z, params):
     [M, Omega_m] = params
     a0_over_ae = 1 + z
-    luminosity_distance = a0_over_ae * C * integral_of_e_z(z=z, Omega_m=Omega_m, w0=-1)
+    luminosity_distance = a0_over_ae * C * integral_of_e_z(z=z, Omega_m=Omega_m, w0=-1, wa=0)
     return M + 25 + 5 * np.log10(luminosity_distance)
 
 
 def wcdm_apparent_mag(z, params):
-    [M, Omega_m, w0] = params
+    [M, Omega_m, w0, wa] = params
     a0_over_ae = 1 + z
-    luminosity_distance = a0_over_ae * C * integral_of_e_z(z=z, Omega_m=Omega_m, w0=w0)
+    luminosity_distance = a0_over_ae * C * integral_of_e_z(z=z, Omega_m=Omega_m, w0=w0, wa=wa)
     return M + 25 + 5 * np.log10(luminosity_distance)
 
 
@@ -53,6 +64,7 @@ bounds = np.array([
     (-30, -27), # M
     (0, 1), # Ωm
     (-2, 0), # w0
+    (-4, 1), # wa
 ])
 
 
@@ -94,10 +106,11 @@ def main():
     [
         [M0_16, M0_50, M0_84],
         [omega_16, omega_50, omega_84],
-        [w0_16, w0_50, w0_84], 
+        [w0_16, w0_50, w0_84],
+        [wa_16, wa_50, wa_84]
     ] = np.percentile(samples, [16, 50, 84], axis=0).T
 
-    best_fit_params = [M0_50, omega_50, w0_50]
+    best_fit_params = [M0_50, omega_50, w0_50, wa_50]
 
     # Calculate residuals
     predicted_apparent_mag = wcdm_apparent_mag(z_values, best_fit_params)
@@ -119,13 +132,15 @@ def main():
     M0_label = f"{M0_50:.4f} +{M0_84-M0_50:.4f}/-{M0_50-M0_16:.4f}"
     omega_label = f"{omega_50:.4f} +{omega_84-omega_50:.4f}/-{omega_50-omega_16:.4f}"
     w0_label = f"{w0_50:.4f} +{w0_84-w0_50:.4f}/-{w0_50-w0_16:.4f}"
+    wa_label = f"{wa_50:.4f} +{wa_84-wa_50:.4f}/-{wa_50-wa_16:.4f}"
 
     print_color("Dataset", legend)
     print_color("z range", f"{z_values[0]:.4f} - {z_values[-1]:.4f}")
     print_color("Sample size", len(z_values))
+    print_color("M0", M0_label)
     print_color("Ωm", omega_label)
     print_color("w0", w0_label)
-    print_color("M0", M0_label)
+    print_color("wa", wa_label)
     print_color("R-squared (%)", f"{100 * r_squared:.2f}")
     print_color("RMSD (mag)", f"{rmsd:.3f}")
     print_color("Skewness of residuals", f"{skewness:.3f}")
@@ -133,7 +148,7 @@ def main():
     print_color("Reduced chi squared", chi_squared(best_fit_params)/ (len(z_values) - len(best_fit_params)))
 
     # Plot the data and the fit
-    labels = [r"$M_0$", f"$\Omega_m$", r"$w_0$"]
+    labels = [r"$M_0$", f"$\Omega_m$", r"$w_0$", r"$w_a$"]
     corner.corner(
         samples,
         labels=labels,
@@ -252,13 +267,14 @@ Reduced chi squared: 0.8843
 
 =============================
 
-Modified Flat wCDM
-M0: -28.5710 +0.0090/-0.0091 (M(0.7)=-19.3475)
-Ωm: 0.3872 +0.0372/-0.0384
-w0: -0.9899 +0.1263/-0.1489
+Flat tanh w0waCDM
+M0: -28.5728 +0.0095/-0.0097 (M(0.7)=-19.3484)
+Ωm: 0.3414 +0.0799/-0.1457
+w0: -0.9326 +0.1580/-0.1713
+wa: -1.2474 +0.8452/-1.4036
 R-squared (%): 99.74
 RMSD (mag): 0.154
-Skewness of residuals: 0.082
-kurtosis of residuals: 1.591
-Reduced chi squared: 0.8847
+Skewness of residuals: 0.077
+kurtosis of residuals: 1.600
+Reduced chi squared: 0.8863
 """

@@ -71,13 +71,13 @@ def main(dataset):
         z_range,
         equation_of_state(z_range, dataset["non_linear"]["central"], True),
         label="Non-linear",
-        color='orange',
+        color='red',
     )
     ax[0].fill_between(
         z_range,
         equation_of_state(z_range, dataset["non_linear"]["lower"], True),
         equation_of_state(z_range, dataset["non_linear"]["upper"], True),
-        color='orange',
+        color='red',
         alpha=0.1,
     )
     ax[0].plot(
@@ -102,13 +102,13 @@ def main(dataset):
         z_range,
         normalized_energy_density(z_range, dataset["non_linear"]["central"], True),
         label="Non-linear",
-        color='orange',
+        color='red',
     )
     ax[1].fill_between(
         z_range,
         normalized_energy_density(z_range, dataset["non_linear"]["lower"], True),
         normalized_energy_density(z_range, dataset["non_linear"]["upper"], True),
-        color='orange',
+        color='red',
         alpha=0.1,
     )
     ax[1].plot(
@@ -133,13 +133,13 @@ def main(dataset):
         z_range,
         normalized_energy_density(z_range, dataset["non_linear"]["central"], True) * equation_of_state(z_range, dataset["non_linear"]["central"], True),
         label="Non-linear",
-        color='orange',
+        color='red',
     )
     ax[2].fill_between(
         z_range,
         normalized_energy_density(z_range, dataset["non_linear"]["lower"], True) * equation_of_state(z_range, dataset["non_linear"]["lower"], True),
         normalized_energy_density(z_range, dataset["non_linear"]["upper"], True) * equation_of_state(z_range, dataset["non_linear"]["upper"], True),
-        color='orange',
+        color='red',
         alpha=0.1,
     )
     ax[2].plot(
@@ -164,7 +164,7 @@ def main(dataset):
         z_range,
         hubble(z_range, dataset["non_linear"]["central"], True),
         label="Non-linear",
-        color='orange',
+        color='red',
     )
     ax[3].plot(
         z_range,
