@@ -32,7 +32,7 @@ def w_de(z, params):
 
 
 def rho_de(zs, params):
-    z = np.linspace(0, np.max(zs), num=1500)
+    z = np.linspace(0, np.max(zs), num=2000)
     integral_values = cumulative_trapezoid(3*(1 + w_de(z, params))/(1 + z), z, initial=0)
     return np.exp(np.interp(zs, z, integral_values))
 
@@ -43,7 +43,7 @@ def h_over_h0_model(z, params):
 
 
 def wcdm_integral_of_e_z(zs, params):
-    z = np.linspace(0, np.max(zs), num=1500)
+    z = np.linspace(0, np.max(zs), num=2000)
     integral_values = cumulative_trapezoid(1/h_over_h0_model(z, params), z, initial=0)
     return np.interp(zs, z, integral_values)
 
@@ -102,9 +102,8 @@ def H_z(z, params):
 
 
 def DM_z(zs, params):
-    z = np.linspace(0, np.max(zs), num=1500)
-    integral_values = cumulative_trapezoid(c / H_z(z, params), z, initial=0)
-    return np.interp(zs, z, integral_values)
+    z = np.linspace(0, np.max(zs), num=2000)
+    return cumulative_trapezoid(c / H_z(z, params), z, initial=0)[-1]
 
 
 def DV_z(z, params):
@@ -259,10 +258,10 @@ Degrees of freedom: 31
 =============================
 
 Flat tanh w0waCDM
-r_d: 133.0984 +1.7562 -1.7592
-Ωm: 0.3296 +0.0156 -0.0178
-w0: -0.7364 +0.0969 -0.0922
-wa: -1.3685 +0.2871 -0.2824
-Chi squared: 29.0403
+r_d: 133.0686 +1.7892 -1.7307
+Ωm: 0.3295 +0.0156 -0.0182
+w0: -0.7383 +0.0979 -0.0905
+wa: -1.3606 +0.2858 -0.2829
+Chi squared: 29.0500
 Degrees of freedom: 31
 """
