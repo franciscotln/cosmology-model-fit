@@ -84,9 +84,10 @@ def w_de(z, params):
 
 
 def rho_de(z_input, params):
-    z = np.linspace(0, z_input, 1500)
-    integral = cumulative_trapezoid(3 * (1 + w_de(z, params)) / (1 + z), z, initial=0)
-    return np.exp(np.interp(z_input, z, integral))
+    def integrand(z):
+        return 3 * (1 + w_de(z, params)) / (1 + z)
+
+    return np.exp(quad(integrand, 0, z_input)[0])
 
 
 def H_z(z, params):
@@ -254,7 +255,7 @@ RMSD: 0.2016
 
 ===============================
 
-Flat modified w0waCDM
+Flat linear w0waCDM
 r_d*h: 93.4082 +4.1359 -3.7184
 Ωm: 0.3729 +0.0367 -0.0395
 w0: -0.4606 +0.3014 -0.2980
@@ -267,12 +268,12 @@ RMSD: 0.2035
 ===============================
 
 Flat tanh w0waCDM
-r_d*h: 92.3627 +4.5120 -4.0429
-Ωm: 0.3771 +0.0424 -0.0435
-w0: -0.3455 +0.3628 -0.3470
-wa: -1.9204 +0.5538 -0.5671
-Chi squared: 5.6101
+r_d*h: 92.5329 +4.3538 -4.0655
+Ωm: 0.3754 +0.0422 -0.0426
+w0: -0.3588 +0.3598 -0.3380
+wa: -1.9044 +0.5503 -0.5590
+Chi squared: 5.6258
 Degs of freedom: 9
 R^2: 0.9994
-RMSD: 0.2013
+RMSD: 0.2021
 """
