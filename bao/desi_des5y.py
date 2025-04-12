@@ -2,7 +2,7 @@ import os
 import numpy as np
 import emcee
 import corner
-from scipy.integrate import cumulative_trapezoid
+from scipy.integrate import cumulative_trapezoid, quad
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from y2024DES.data import get_data
@@ -33,7 +33,7 @@ def w_de(z, params):
 
 
 def rho_de(zs, params):
-    z = np.linspace(0, np.max(zs), num=1500)
+    z = np.linspace(0, np.max(zs), num=2000)
     integral_values = cumulative_trapezoid(3*(1 + w_de(z, params))/(1 + z), z, initial=0)
     return np.exp(np.interp(zs, z, integral_values))
 
@@ -45,7 +45,7 @@ def h_over_h0_model(z, params):
 
 
 def wcdm_integral_of_e_z(zs, params):
-    z = np.linspace(0, np.max(zs), num=1500)
+    z = np.linspace(0, np.max(zs), num=2000)
     integral_values = cumulative_trapezoid(1/h_over_h0_model(z, params), z, initial=0)
     return np.interp(zs, z, integral_values)
 
@@ -104,9 +104,7 @@ def H_z(z, params):
 
 
 def DM_z(zs, params):
-    z = np.linspace(0, np.max(zs), num=1500)
-    integral_values = cumulative_trapezoid(c / H_z(z, params), z, initial=0)
-    return np.interp(zs, z, integral_values)
+    return quad(lambda z: c / H_z(z, params), 0, zs)[0]
 
 
 def DV_z(z, params):
