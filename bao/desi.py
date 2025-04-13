@@ -1,7 +1,7 @@
 import numpy as np
 import emcee
 import corner
-from scipy.integrate import quad, cumulative_trapezoid
+from scipy.integrate import quad
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 import os
@@ -80,7 +80,7 @@ def plot_predictions(params):
 
 def w_de(z, params):
     _, _, w0, wa = params
-    return w0 + (wa - w0) * np.tanh(z)
+    return w0 + (wa - w0) * np.tanh(1 + z - 1/(1 + z))
 
 
 def rho_de(z_input, params):
@@ -121,7 +121,7 @@ def model_predictions(params):
 
 
 bounds = np.array([
-    (80, 110), # r_d x h
+    (70, 110), # r_d x h
     (0.2, 0.7), # Ωm
     (-3, 1), # w0
     (-4, 0), # wa
@@ -154,7 +154,7 @@ def main():
     ndim = len(bounds)
     nwalkers = 100
     burn_in = 500
-    nsteps = 2000 + burn_in
+    nsteps = 4000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):
@@ -267,7 +267,7 @@ RMSD: 0.2035
 
 ===============================
 
-Flat tanh w0waCDM
+Flat w0 + (wa - w0)*tanh(z)
 r_d*h: 92.2818 +4.3543 -4.0308
 Ωm: 0.3779 +0.0418 -0.0420
 w0: -0.3376 +0.3600 -0.3387
@@ -276,4 +276,16 @@ Chi squared: 5.6082
 Degs of freedom: 9
 R^2: 0.9994
 RMSD: 0.2010
+
+===============================
+
+Flat w0 + (wa - w0) tanh(1 + z - 1/(1 + z))
+r_d*h: 90.2666 +5.2890 -4.5281
+Ωm: 0.3915 +0.0503 -0.0515
+w0: -0.0531 +0.4962 -0.4952
+wa: -1.5913 +0.3729 -0.3701
+Chi squared: 5.7050
+Degs of freedom: 9
+R^2: 0.9994
+RMSD: 0.2024
 """
