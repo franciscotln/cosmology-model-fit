@@ -18,21 +18,32 @@ inv_cov_matrix = np.linalg.inv(cov_matrix)
 C = 299792.458
 
 
-#  Flat
-def integral_of_e_z(z, Omega_m, w0):
-    z_grid = np.linspace(0, np.max(z), num=1500)
+def w_de(z, w0, wa):
+    return w0 + (wa - w0) * np.tanh(1 + z - 1/(1 + z))
+
+
+def rho_de(zs, w0, wa):
+    z = np.linspace(0, np.max(zs), num=2000)
+    w =  w_de(z, w0, wa)
+    integral_values = cumulative_trapezoid(3*(1 + w)/(1 + z), z, initial=0)
+    return np.exp(np.interp(zs, z, integral_values))
+
+
+# Flat
+def integral_of_e_z(z, params):
+    _, Omega_m, w0, wa = params
+    z_grid = np.linspace(0, np.max(z), num=2000)
     sum = 1 + z_grid
-    H_over_H0 = np.sqrt(Omega_m * sum**3 + (1 - Omega_m) * sum**(3*(2 + w0)) * np.exp(-3*z_grid))
+    H_over_H0 = np.sqrt(Omega_m * sum**3 + (1 - Omega_m) * rho_de(z_grid, w0, wa))
     integral_values = cumulative_trapezoid(1/H_over_H0, z_grid, initial=0)
     return np.interp(z, z_grid, integral_values)
 
 
 def wcdm_distance_modulus(z, params):
-    [h0, Omega_m, w0] = params
+    h0 = params[0]
     normalized_h0 = 100 * h0
-    a0_over_ae = 1 + z
-    comoving_distance = (C / normalized_h0) * integral_of_e_z(z, Omega_m, w0)
-    luminosity_distance = comoving_distance * a0_over_ae
+    comoving_distance = (C / normalized_h0) * integral_of_e_z(z, params)
+    luminosity_distance = comoving_distance * (1 + z)
     return 25 + 5 * np.log10(luminosity_distance)
 
 
@@ -40,7 +51,7 @@ def lcdm_distance_modulus(z, params):
     [h0, Omega_m] = params
     normalized_h0 = 100 * h0
     a0_over_ae = 1 + z
-    comoving_distance = (C / normalized_h0) * integral_of_e_z(z, Omega_m, -1)
+    comoving_distance = (C / normalized_h0) * integral_of_e_z(z, [h0, Omega_m, -1, 0])
     luminosity_distance = comoving_distance * a0_over_ae
     return 25 + 5 * np.log10(luminosity_distance)
 
@@ -59,6 +70,7 @@ bounds = np.array([
     (0.4, 1.0), # h0
     (0, 1), # Ωm
     (-2, 0), # w0
+    (-3, 0), # wa
 ])
 
 
@@ -78,8 +90,8 @@ def log_probability(params):
 def main():
     steps_to_discard = 100
     n_dim = len(bounds)
-    n_walkers = 50
-    n_steps = steps_to_discard + 3000
+    n_walkers = 100
+    n_steps = steps_to_discard + 4000
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(n_walkers, n_dim))
 
     with Pool(10) as pool:
@@ -90,13 +102,21 @@ def main():
     chains_samples = sampler.get_chain(discard=0, flat=False)
     samples = sampler.get_chain(discard=steps_to_discard, flat=True)
 
+    try:
+        tau = sampler.get_autocorr_time()
+        print_color("Autocorrelation time", tau)
+        print_color("Average autocorrelation time", np.mean(tau))
+    except:
+        print_color("Autocorrelation time", "Not available")
+
     [
         [h0_16, h0_50, h0_84],
         [omega_16, omega_50, omega_84],
-        [w0_16, w0_50, w0_84], 
-    ] = np.percentile(samples, [16, 50, 84], axis=0).T
+        [w0_16, w0_50, w0_84],
+        [wa_16, wa_50, wa_84],
+    ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit_params = [h0_50, omega_50, w0_50]
+    best_fit_params = [h0_50, omega_50, w0_50, wa_50]
 
     # Compute residuals
     predicted_distance_modulus_values = wcdm_distance_modulus(z_values, best_fit_params)
@@ -118,12 +138,14 @@ def main():
     h0_label = f"{h0_50:.4f} +{h0_84-h0_50:.4f}/-{h0_50-h0_16:.4f}"
     omega_label = f"{omega_50:.4f} +{omega_84-omega_50:.4f}/-{omega_50-omega_16:.4f}"
     w0_label = f"{w0_50:.4f} +{w0_84-w0_50:.4f}/-{w0_50-w0_16:.4f}"
+    wa_label = f"{wa_50:.4f} +{wa_84-wa_50:.4f}/-{wa_50-wa_16:.4f}"
     print_color("Dataset", legend)
     print_color("z range", f"{z_values[0]:.4f} - {z_values[-1]:.4f}")
     print_color("Sample size", len(z_values))
     print_color("h = H0 / 100 (km/s/Mpc)", h0_label)
     print_color("Ωm", omega_label)
     print_color("w0", w0_label)
+    print_color("wa", wa_label)
     print_color("R-squared (%)", f"{100 * r_squared:.2f}")
     print_color("RMSD (mag)", f"{rmsd:.3f}")
     print_color("Skewness of residuals", f"{skewness:.3f}")
@@ -131,7 +153,7 @@ def main():
     print_color("Chi squared", chi_squared(best_fit_params))
 
     # Plot the data and the fit
-    labels = [r"$h_0$", f"$\Omega_M$", r"$w_0$"]
+    labels = [r"$h_0$", f"$\Omega_M$", r"$w_0$", r"$w_a$"]
     corner.corner(
         samples,
         labels=labels,
@@ -219,4 +241,14 @@ RMSD (mag): 0.153
 Skewness of residuals: 0.079
 kurtosis of residuals: 1.565
 Chi squared: 1452.9
+
+H0: 73.13 +0.33/-0.34 km/s/Mpc
+Ωm: 0.3257 +0.0701/-0.1371
+w0: -0.9262 +0.1443/-0.1570
+wa: -1.0372 +0.5494/-0.6127
+R-squared: 99.78 %
+RMSD (mag): 0.153
+Skewness of residuals: 0.074
+kurtosis of residuals: 1.571
+Chi squared: 1453.8
 """
