@@ -6,8 +6,8 @@ import scipy.stats as stats
 from scipy.integrate import cumulative_trapezoid
 from multiprocessing import Pool
 from .plotting import plot_predictions, print_color, plot_residuals
-# from y2018pantheon.data import get_data
-from y2022pantheonSHOES.data import get_data
+from y2018pantheon.data import get_data
+# from y2022pantheonSHOES.data import get_data
 
 legend, z_values, apparent_mag_values, cov_matrix = get_data()
 
@@ -18,7 +18,7 @@ C = 299792.458
 inv_cov_matrix = np.linalg.inv(cov_matrix)
 
 def w_de(z, w0, wa):
-    return w0 + (wa - w0) * np.tanh(1 + z - 1/(1 + z))
+    return w0 + (wa - w0) * np.tanh(0.5*(1 + z - 1/(1 + z)))
 
 
 def rho_de(zs, w0, wa):
@@ -226,16 +226,16 @@ Reduced chi squared: 0.9826
 
 =============================
 
-Flat w0 + (wa - w0) * tanh(1 + z - 1 / (1 + z))
-M0: -28.5743 +0.0178/-0.0184 (M(0.7)=-19.3490)
-Ωm: 0.3697 +0.0655/-0.1147
-w0: -1.0300 +0.1945/-0.2370
-wa: -1.5485 +0.8917/-1.1721
-R-squared: 99.70 %
+Flat w0 + (wa - w0) * tanh(0.5*(1 + z - 1 / (1 + z)))
+M0: -28.5764 +0.0163/-0.0170
+Ωm: 0.3587 +0.0587/-0.1094
+w0: -1.0583 +0.1843/-0.2275
+wa: -1.6679 +1.3440/-1.4695
+R-squared (%): 99.71
 RMSD (mag): 0.144
 Skewness of residuals: 0.198
-kurtosis of residuals: 0.709
-Reduced chi squared: 0.9865
+kurtosis of residuals: 0.706
+Reduced chi squared: 0.9854
 
 *****************************
 Dataset: Pantheon+ (2022)
@@ -281,14 +281,14 @@ Reduced chi squared: 0.8863
 
 =============================
 
-Flat w0 + (wa - w0) * tanh(1 + z - 1 / (1 + z))
-M0: -28.5722 +0.0105/-0.0102
-Ωm: 0.3433 +0.0936/-0.1534
-w0: -0.9096 +0.1426/-0.1552
-wa: -1.1889 +0.6732/-1.1585
+Flat w0 + (wa - w0) * tanh(0.5*(1 + z - 1 / (1 + z)))
+M0: -28.5734 +0.0097/-0.0096 (M(0.7)=-19.3489)
+Ωm: 0.3331 +0.0817/-0.1431
+w0: -0.9274 +0.1540/-0.1644
+wa: -1.1959 +0.9122/-1.5201
 R-squared (%): 99.74
 RMSD (mag): 0.154
-Skewness of residuals: 0.075
-kurtosis of residuals: 1.601
-Reduced chi squared: 0.8866
+Skewness of residuals: 0.078
+kurtosis of residuals: 1.598
+Reduced chi squared: 0.8861
 """
