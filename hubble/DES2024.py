@@ -20,7 +20,7 @@ inv_cov_matrix = np.linalg.inv(cov_matrix)
 h0 = 70
 
 def w_de(z, w0, wa):
-    return w0 + (wa - w0) * np.tanh(z)
+    return w0 + (wa - w0) * np.tanh(1 + z - 1/(1 + z))
 
 
 def rho_de(zs, w0, wa):
@@ -274,7 +274,7 @@ Skewness of residuals: 3.454
 
 ==============================
 
-Flat Linear w0waCDM
+Flat w0 + wa * z
 Chi squared: 1641.8069
 Ωm: 0.5004 +0.0306/-0.0385
 w0: -0.4931 +0.3375/-0.2607
@@ -285,11 +285,21 @@ Skewness of residuals: 3.453
 
 ===============================
 
-Flat tanh w0waCDM
+Flat w0 + (wa - w0) * tanh(z)
 Chi squared: 1641.8549
 Ωm: 0.4990 +0.0309/-0.0390
 w0: -0.4691 +0.3275/-0.2688
 wa: -7.5275 +2.7065/-3.3575
+R-squared (%): 98.20
+RMSD (mag): 0.280
+Skewness of residuals: 3.454
+
+================================
+Flat w0 + (wa - w0) * tanh(1 + z - 1/(1 + z))
+Chi squared: 1641.9276
+Ωm: 0.4923 +0.0338/-0.0431
+w0: -0.4048 +0.3600/-0.2868
+wa: -4.4763 +1.5183/-1.8488
 R-squared (%): 98.20
 RMSD (mag): 0.280
 Skewness of residuals: 3.454

@@ -18,7 +18,7 @@ C = 299792.458
 inv_cov_matrix = np.linalg.inv(cov_matrix)
 
 def w_de(z, w0, wa):
-    return w0 + (wa - w0) * np.tanh(z)
+    return w0 + (wa - w0) * np.tanh(1 + z - 1/(1 + z))
 
 
 def rho_de(zs, w0, wa):
@@ -226,15 +226,16 @@ Reduced chi squared: 0.9826
 
 =============================
 
-Modified Flat wCDM
-M0: -28.5737 +0.0149/-0.0155 (M(0.7)=-19.3494)
-Ωm: 0.3828 +0.0418/-0.0467
-w0: -1.0963 +0.1794/-0.2140
-R-squared (%): 99.71
-RMSD (mag): 0.143
-Skewness of residuals: 0.197
-kurtosis of residuals: 0.702
-Reduced chi squared: 0.9825
+Flat w0 + (wa - w0) * tanh(1 + z - 1 / (1 + z))
+M0: -28.5743 +0.0178/-0.0184 (M(0.7)=-19.3490)
+Ωm: 0.3697 +0.0655/-0.1147
+w0: -1.0300 +0.1945/-0.2370
+wa: -1.5485 +0.8917/-1.1721
+R-squared: 99.70 %
+RMSD (mag): 0.144
+Skewness of residuals: 0.198
+kurtosis of residuals: 0.709
+Reduced chi squared: 0.9865
 
 *****************************
 Dataset: Pantheon+ (2022)
@@ -267,7 +268,7 @@ Reduced chi squared: 0.8843
 
 =============================
 
-Flat tanh w0waCDM
+Flat w0 + (wa - w0) * tanh(z)
 M0: -28.5728 +0.0095/-0.0097 (M(0.7)=-19.3484)
 Ωm: 0.3414 +0.0799/-0.1457
 w0: -0.9326 +0.1580/-0.1713
@@ -277,4 +278,17 @@ RMSD (mag): 0.154
 Skewness of residuals: 0.077
 kurtosis of residuals: 1.600
 Reduced chi squared: 0.8863
+
+=============================
+
+Flat w0 + (wa - w0) * tanh(1 + z - 1 / (1 + z))
+M0: -28.5722 +0.0105/-0.0102
+Ωm: 0.3433 +0.0936/-0.1534
+w0: -0.9096 +0.1426/-0.1552
+wa: -1.1889 +0.6732/-1.1585
+R-squared (%): 99.74
+RMSD (mag): 0.154
+Skewness of residuals: 0.075
+kurtosis of residuals: 1.601
+Reduced chi squared: 0.8866
 """
