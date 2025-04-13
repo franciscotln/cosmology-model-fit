@@ -29,7 +29,7 @@ inv_cov_matrix = np.linalg.inv(cov_matrix)
 
 def w_de(z, params):
     r_d, O_m, w0, wa = params
-    return w0 + (wa - w0) * np.tanh(1 + z - 1/(1 + z))
+    return w0 + (wa - w0) * np.tanh(0.5*(1 + z - 1/(1 + z)))
 
 
 def rho_de(zs, params):
@@ -287,11 +287,11 @@ Degrees of freedom: 1838
 
 ============================
 
-Flat w0 + (wa - w0)*tanh(1 + z - 1/(1 + z))
-r_d: 140.9153 +1.2252 -1.2092
-Ωm: 0.3169 +0.0129 -0.0144
-w0: -0.7868 +0.0756 -0.0711
-wa: -1.1155 +0.1623 -0.1653
-Chi squared: 1655.3468
+Flat w0 + (wa - w0)*tanh(0.5*(1 + z - 1/(1 + z)))
+r_d: 140.9638 +1.2089 -1.2175
+Ωm: 0.3202 +0.0132 -0.0163
+w0: -0.8085 +0.0657 -0.0614
+wa: -1.3442 +0.3287 -0.3143
+Chi squared: 1655.2953
 Degrees of freedom: 1838
 """
