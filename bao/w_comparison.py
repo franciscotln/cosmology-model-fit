@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 def non_linear_equation_of_state(z, params):
     _, w0, wa = params
-    return w0 + (wa - w0) * np.tanh(0.5*(1 + z - 1/(1 + z)))
+    return w0 + (wa - w0) * np.tanh(z)
 
 
 def non_linear_normalized_energy_density(zs, params):
@@ -62,7 +62,7 @@ def hubble(z, params, non_linear):
 
 
 def main(dataset):
-    z_min = 0.0
+    z_min = -0.9
     z_max = 3.0
     z_range = np.linspace(z_min, z_max, 1000)
     fig, ax = plt.subplots(4, 1, figsize=(8, 6), sharex=True)
@@ -184,9 +184,9 @@ def main(dataset):
 desi_union3 = {
     "name": "DESI+Union3",
     "non_linear": {
-        "central": [0.3304, -0.7261, -1.5009],
-        "lower": [0.3304 - 0.0188, -0.7261 + 0.1059, -1.5009 + 0.3701],
-        "upper": [0.3304 + 0.0158, -0.7261 - 0.0995, -1.5009 - 0.3614],
+        "central": [0.3295, -0.7383, -1.3606],
+        "lower": [0.3295 - 0.0182, -0.7383 + 0.0979, -1.3606 + 0.2858],
+        "upper": [0.3295 + 0.0156, -0.7383 - 0.0905, -1.3606 - 0.2829],
     },
     "CPL": {
         "central": [0.3304, -0.7002, -0.9954],
@@ -198,9 +198,9 @@ desi_union3 = {
 desi_des5y = {
     "name": "DESI+DES5Y",
     "non_linear": {
-        "central": [0.3202, -0.8085, -1.3442],
-        "lower": [0.3202 - 0.0163, -0.8085 + 0.0614, -1.3442 + 0.3287],
-        "upper": [0.3202 + 0.0132, -0.8085 - 0.0657, -1.3442 - 0.3143],
+        "central": [0.3202, -0.8145, -1.2570],
+        "lower": [0.3202 - 0.0163, -0.8145 + 0.0609, -1.2570 + 0.2638],
+        "upper": [0.3202 + 0.0132, -0.8145 - 0.0561, -1.2570 - 0.2540],
     },
     "CPL": {
         "central": [0.3210, -0.7878, -0.7034],
@@ -212,9 +212,9 @@ desi_des5y = {
 desi_pantheon = {
     "name": "DESI+Pantheon+",
     "non_linear": {
-        "central": [0.3034, -0.8954, -1.0312],
-        "lower": [0.3034 - 0.0260, -0.8954 + 0.0550, -1.0312 + 0.3718],
-        "upper": [0.3034 + 0.0155, -0.8954 - 0.0515, -1.0312 - 0.3226],
+        "central": [0.3045, -0.8963, -1.0303],
+        "lower": [0.3045 - 0.0229, -0.8963 + 0.0521, -1.0303 + 0.2875],
+        "upper": [0.3045 + 0.0149, -0.8963 - 0.0492, -1.0303 - 0.2563],
     },
     "CPL": {
         "central": [0.3021, -0.8964,  -0.1376],
