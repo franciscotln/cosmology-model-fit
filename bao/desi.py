@@ -80,7 +80,7 @@ def plot_predictions(params):
 
 def w_de(z, params):
     _, _, w0, wa = params
-    return w0 + (wa - w0) * np.tanh(0.5*(1 + z - 1/(1 + z)))
+    return w0 + (wa - w0) * np.tanh(0.5*((1 + z)**2 - 1))
 
 
 def rho_de(z_input, params):
@@ -91,7 +91,7 @@ def rho_de(z_input, params):
 
 
 def H_z(z, params):
-    _, omega_m, w0, wa = params
+    _, omega_m, _, _ = params
     sum = 1 + z
     return np.sqrt(omega_m * sum**3 + (1 - omega_m) * rho_de(z, params))
 
@@ -276,6 +276,16 @@ Chi squared: 5.6082
 Degs of freedom: 9
 R^2: 0.9994
 RMSD: 0.2010
+
+Flat w0 + (wa - w0) * tanh(0.5 * ((1 + z)**2 - 1))
+r_d*h: 92.4340 +4.2863 -3.9366
+Ωm: 0.3745 +0.0412 -0.0414
+w0: -0.3731 +0.3361 -0.3206
+wa: -1.6273 +0.3874 -0.4019
+Chi squared: 5.6110
+Degs of freedom: 9
+R^2: 0.9994
+RMSD: 0.2006
 
 ===============================
 

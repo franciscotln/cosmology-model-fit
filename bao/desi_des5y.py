@@ -28,8 +28,8 @@ inv_cov_matrix = np.linalg.inv(cov_matrix)
 
 
 def w_de(z, params):
-    r_d, O_m, w0, wa = params
-    return w0 + (wa - w0) * np.tanh(0.5*(1 + z - 1/(1 + z)))
+    _, _, w0, wa = params
+    return w0 + (wa - w0) * np.tanh(0.5*((1 + z)**2 - 1))
 
 
 def rho_de(zs, params):
@@ -130,7 +130,7 @@ bounds = np.array([
     (115, 160), # r_d
     (0.1, 0.7), # omega_m
     (-3, 0), # w0
-    (-3, 0), # wa
+    (-3, -0.4), # wa
 ])
 
 
@@ -169,9 +169,9 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 80
+    nwalkers = 50
     burn_in = 500
-    nsteps = 3000 + burn_in
+    nsteps = 2000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):
@@ -283,6 +283,14 @@ r_d: 140.9579 +1.1830 -1.2020
 w0: -0.8145 +0.0609 -0.0561
 wa: -1.2570 +0.2638 -0.2540
 Chi squared: 1655.3231
+Degrees of freedom: 1838
+
+Flat w0 + (wa - w0) * tanh(0.5 * ((1 + z)**2 - 1))
+r_d: 140.9926 +1.2029 -1.1954
+Ωm: 0.3179 +0.0136 -0.0159
+w0: -0.8230 +0.0571 -0.0528
+wa: -1.1564 +0.2069 -0.2082
+Chi squared: 1655.4049
 Degrees of freedom: 1838
 
 ============================

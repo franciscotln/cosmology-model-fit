@@ -6,8 +6,8 @@ import scipy.stats as stats
 from scipy.integrate import cumulative_trapezoid
 from multiprocessing import Pool
 from .plotting import plot_predictions, print_color, plot_residuals
-from y2018pantheon.data import get_data
-# from y2022pantheonSHOES.data import get_data
+# from y2018pantheon.data import get_data
+from y2022pantheonSHOES.data import get_data
 
 legend, z_values, apparent_mag_values, cov_matrix = get_data()
 
@@ -18,7 +18,7 @@ C = 299792.458
 inv_cov_matrix = np.linalg.inv(cov_matrix)
 
 def w_de(z, w0, wa):
-    return w0 + (wa - w0) * np.tanh(0.5*(1 + z - 1/(1 + z)))
+    return w0 + (wa - w0) * np.tanh(0.5*((1 + z)**2 - 1))
 
 
 def rho_de(zs, w0, wa):
@@ -227,7 +227,7 @@ Reduced chi squared: 0.9826
 =============================
 
 Flat w0 + (wa - w0) * tanh(0.5*(1 + z - 1 / (1 + z)))
-M0: -28.5764 +0.0163/-0.0170
+M0: -28.5764 +0.0163/-0.0170 (M(0.7)=-19.3501)
 Ωm: 0.3587 +0.0587/-0.1094
 w0: -1.0583 +0.1843/-0.2275
 wa: -1.6679 +1.3440/-1.4695
@@ -236,6 +236,19 @@ RMSD (mag): 0.144
 Skewness of residuals: 0.198
 kurtosis of residuals: 0.706
 Reduced chi squared: 0.9854
+
+==============================
+
+Flat w0 + (wa - w0) * tanh(0.5*((1 + z)**2 - 1))
+M0: -28.5756 +0.0172/-0.0168 (M(0.7)=-19.3503)
+Ωm: 0.3722 +0.0562/-0.1115
+w0: -1.0619 +0.1874/-0.2247
+wa: -1.7662 +1.1670/-1.3553
+R-squared (%): 99.70
+RMSD (mag): 0.144
+Skewness of residuals: 0.197
+kurtosis of residuals: 0.708
+Reduced chi squared: 0.9860
 
 *****************************
 Dataset: Pantheon+ (2022)
@@ -278,6 +291,17 @@ RMSD (mag): 0.154
 Skewness of residuals: 0.077
 kurtosis of residuals: 1.600
 Reduced chi squared: 0.8863
+
+Flat w0 + (wa - w0) * tanh(0.5*((1 + z)**2 - 1))
+M0: -28.5729 +0.0095/-0.0094 (M(0.7)=-19.3485)
+Ωm: 0.3448 +0.0791/-0.1372
+w0: -0.9443 +0.1573/-0.1582
+wa: -1.2489 +0.7560/-1.2065
+R-squared (%): 99.74
+RMSD (mag): 0.154
+Skewness of residuals: 0.078
+kurtosis of residuals: 1.598
+Reduced chi squared: 0.8858
 
 =============================
 

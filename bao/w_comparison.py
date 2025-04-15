@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 def non_linear_equation_of_state(z, params):
     _, w0, wa = params
-    return w0 + (wa - w0) * np.tanh(z)
+    return w0 + (wa - w0) * np.tanh(0.5*((1 + z)**2 - 1))
 
 
 def non_linear_normalized_energy_density(zs, params):
@@ -62,7 +62,7 @@ def hubble(z, params, non_linear):
 
 
 def main(dataset):
-    z_min = -0.9
+    z_min = 0
     z_max = 3.0
     z_range = np.linspace(z_min, z_max, 1000)
     fig, ax = plt.subplots(4, 1, figsize=(8, 6), sharex=True)
@@ -184,9 +184,9 @@ def main(dataset):
 desi_union3 = {
     "name": "DESI+Union3",
     "non_linear": {
-        "central": [0.3295, -0.7383, -1.3606],
-        "lower": [0.3295 - 0.0182, -0.7383 + 0.0979, -1.3606 + 0.2858],
-        "upper": [0.3295 + 0.0156, -0.7383 - 0.0905, -1.3606 - 0.2829],
+        "central": [0.3283, -0.7459, -1.2466],
+        "lower": [0.3283 - 0.0169, -0.7459 + 0.0907, -1.2466 + 0.2124],
+        "upper": [0.3283 + 0.0152, -0.7459 - 0.0848, -1.2466 - 0.2139],
     },
     "CPL": {
         "central": [0.3304, -0.7002, -0.9954],
@@ -198,9 +198,9 @@ desi_union3 = {
 desi_des5y = {
     "name": "DESI+DES5Y",
     "non_linear": {
-        "central": [0.3202, -0.8145, -1.2570],
-        "lower": [0.3202 - 0.0163, -0.8145 + 0.0609, -1.2570 + 0.2638],
-        "upper": [0.3202 + 0.0132, -0.8145 - 0.0561, -1.2570 - 0.2540],
+        "central": [0.3179, -0.8230, -1.1564],
+        "lower": [0.3179 - 0.0159, -0.8230 + 0.0571, -1.1564 + 0.2069],
+        "upper": [0.3179 + 0.0136, -0.8230 - 0.0528, -1.1564 - 0.2082],
     },
     "CPL": {
         "central": [0.3210, -0.7878, -0.7034],
@@ -212,9 +212,9 @@ desi_des5y = {
 desi_pantheon = {
     "name": "DESI+Pantheon+",
     "non_linear": {
-        "central": [0.3045, -0.8963, -1.0303],
-        "lower": [0.3045 - 0.0229, -0.8963 + 0.0521, -1.0303 + 0.2875],
-        "upper": [0.3045 + 0.0149, -0.8963 - 0.0492, -1.0303 - 0.2563],
+        "central": [0.3047, -0.8960, -1.0303],
+        "lower": [0.3047 - 0.0182, -0.8960 + 0.0498, -1.0177 + 0.2076],
+        "upper": [0.3047 + 0.0142, -0.8960 - 0.0483, -1.0177 - 0.1969],
     },
     "CPL": {
         "central": [0.3021, -0.8964,  -0.1376],
@@ -224,4 +224,4 @@ desi_pantheon = {
 }
 
 if __name__ == "__main__":
-    main(desi_union3)
+    main(desi_des5y)
