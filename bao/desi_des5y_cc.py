@@ -5,52 +5,46 @@ from scipy.integrate import cumulative_trapezoid, quad
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from y2024DES.data import get_data
+from y2005cc.data import get_data as get_cc_data
 from hubble.plotting import plot_predictions as plot_sn_predictions
 
+_, z_cc_vals, H_cc_vals, dH_cc_vals = get_cc_data()
 legend, z_vals, distance_moduli_values, cov_matrix_sn = get_data()
 inverse_cov_sn = np.linalg.inv(cov_matrix_sn)
 
 c = 299792.458 # Speed of light in km/s
-H0 = 70 # Hubble constant in km/s/Mpc as per DES5Y
 
 # Load BAO data
-data = np.genfromtxt(
-    "bao/raw-data/data.txt",
-    dtype=[("z", float), ("value", float), ("quantity", "U10")],
-    delimiter=" ",
-    names=True,
-)
+data = np.genfromtxt(fname="bao/raw-data/data.txt", delimiter=" ", names=True,
+    dtype=[("z", float), ("value", float), ("quantity", "U10")])
 cov_matrix = np.loadtxt("bao/raw-data/covariance.txt", delimiter=" ", dtype=float)
 inv_cov_matrix = np.linalg.inv(cov_matrix)
 
 
-def w_de(z, params):
-    _, _, w0, wa = params
+def w_de(z, w0, wa):
     return wa + (w0 - wa) * np.exp(0.5 - 0.5*(1 + z)**2)
 
-
-def rho_de(zs, params):
+def rho_de(zs, w0, wa):
     z = np.linspace(0, np.max(zs), num=2000)
-    integral_values = cumulative_trapezoid(3*(1 + w_de(z, params))/(1 + z), z, initial=0)
+    integral_values = cumulative_trapezoid(3*(1 + w_de(z, w0, wa))/(1 + z), z, initial=0)
     return np.exp(np.interp(zs, z, integral_values))
 
 
 def h_over_h0_model(z, params):
-    O_m = params[1]
-    sum = 1 + z
-    return np.sqrt(O_m * sum**3 + (1 - O_m) * rho_de(z, params))
+    _, _, O_m, w0, wa = params
+    return np.sqrt(O_m * (1 + z)**3 + (1 - O_m) * rho_de(z, w0, wa))
 
 
-def wcdm_integral_of_e_z(zs, params):
+def integral_e_z(zs, params):
     z = np.linspace(0, np.max(zs), num=2000)
     integral_values = cumulative_trapezoid(1/h_over_h0_model(z, params), z, initial=0)
     return np.interp(zs, z, integral_values)
 
 
-def wcdm_distance_modulus(z, params):
-    a0_over_ae = 1 + z
-    comoving_distance = (c/H0) * wcdm_integral_of_e_z(z, params)
-    return 25 + 5 * np.log10(a0_over_ae * comoving_distance)
+def model_distance_modulus(z, params):
+    h0 = params[0]
+    comoving_distance = (c/h0) * integral_e_z(z, params)
+    return 25 + 5 * np.log10((1 + z) * comoving_distance)
 
 
 def plot_bao_predictions(params):
@@ -62,7 +56,7 @@ def plot_bao_predictions(params):
     unique_quantities = set(quantity_types)
     colors = { "DV_over_rs": "red", "DM_over_rs": "blue", "DH_over_rs": "green" }
 
-    r_d, omega_m, w0, wa = params
+    h0, r_d, omega_m, w0, wa = params
     z_smooth = np.linspace(0, max(z_values), 100)
     plt.figure(figsize=(8, 6))
     for q in unique_quantities:
@@ -80,28 +74,48 @@ def plot_bao_predictions(params):
         model_smooth = []
         for z in z_smooth:
             if q == "DV_over_rs":
-                model_smooth.append(DV_z(z, params)/(H0*r_d))
+                model_smooth.append(DV_z(z, params)/r_d)
             elif q == "DM_over_rs":
-                model_smooth.append(DM_z(z, params)/(H0*r_d))
+                model_smooth.append(DM_z(z, params)/r_d)
             elif q == "DH_over_rs":
-                model_smooth.append((c / H_z(z, params))/(H0*r_d))
+                model_smooth.append((c / H_z(z, params))/r_d)
         plt.plot(z_smooth, model_smooth, color=colors[q], alpha=0.5)
 
     plt.xlabel("Redshift (z)")
     plt.ylabel(r"$O = \frac{D}{r_d}$")
     plt.legend()
     plt.grid(True)
-    plt.title(f"BAO model: $r_d * h$={r_d:.2f}, $\Omega_M$={omega_m:.4f}, $w_0$={w0:.4f}, $w_a$={wa:.4f}")
+    plt.title(f"BAO model: $r_d$={r_d:.2f}, $\Omega_M$={omega_m:.4f}, $w_0$={w0:.4f}, $w_a$={wa:.4f}")
+    plt.show()
+
+    plt.errorbar(
+        x=z_cc_vals,
+        y=H_cc_vals,
+        yerr=dH_cc_vals,
+        fmt='.',
+        color='blue',
+        alpha=0.4,
+        label="CC data",
+        capsize=2,
+        linestyle="None",
+    )
+    plt.plot(z_smooth, H_z(z_smooth, params), color='green', alpha=0.5)
+    plt.xlabel("Redshift (z)")
+    plt.ylabel(r"$H(z)$")
+    plt.xlim(0, np.max(z_cc_vals) + 0.2)
+    plt.legend()
+    plt.title(f"Cosmic chronometers: $H_0$={h0:.2f} km/s/Mpc")
     plt.show()
 
 
 def H_z(z, params):
-    return h_over_h0_model(z, params)
-    # return np.sqrt(omega_m * sum**3 + (1 - omega_m)) # LCDM
+    h0 = params[0]
+    return h0 * h_over_h0_model(z, params)
 
 
 def DM_z(zs, params):
-    return quad(lambda z: c / H_z(z, params), 0, zs)[0]
+    z = np.linspace(0, np.max(zs), num=2000)
+    return cumulative_trapezoid(c / H_z(z, params), z, initial=0)[-1]
 
 
 def DV_z(z, params):
@@ -111,40 +125,37 @@ def DV_z(z, params):
 
 
 def model_predictions(params):
-    r_d = params[0]
+    r_d = params[1]
     predictions = []
     for z, _, quantity in data:
         if quantity == "DV_over_rs":
-            predictions.append(DV_z(z, params) / (r_d*H0))
+            predictions.append(DV_z(z, params) / r_d)
         elif quantity == "DM_over_rs":
-            predictions.append(DM_z(z, params) / (r_d*H0))
+            predictions.append(DM_z(z, params) / r_d)
         elif quantity == "DH_over_rs":
-            predictions.append((c / H_z(z, params)) / (r_d*H0))
+            predictions.append((c / H_z(z, params)) / r_d)
     return np.array(predictions)
 
 
 bounds = np.array([
+    (60, 80), # H0
     (115, 160), # r_d
-    (0.1, 0.7), # omega_m
+    (0.2, 0.7), # omega_m
     (-3, 0), # w0
-    (-3, -0.4), # wa
+    (-3, 0), # wa
 ])
 
 
 def chi_squared(params):
-    """ 
-    Computes modified likelihood to marginalize over M 
-    (Wood-Vasey et al. 2001, Appendix A9-A12)
-    """
-    delta_sn = distance_moduli_values - wcdm_distance_modulus(z_vals, params)
-    deltaT = np.transpose(delta_sn)
-    chit2 = np.sum(delta_sn @ inverse_cov_sn @ deltaT)     # First term: (Δ^T C^-1 Δ)
-    B = np.sum(delta_sn @ inverse_cov_sn)                  # Second term: B
-    C = np.sum(inverse_cov_sn)                             # Third term: C
-    chi_sn = chit2 - (B**2 / C) + np.log(C / (2 * np.pi))  # Full modified chi2
+    delta_sn = distance_moduli_values - model_distance_modulus(z_vals, params)
+    chi_sn = np.dot(delta_sn, np.dot(inverse_cov_sn, delta_sn))
+
     delta_bao = data['value'] - model_predictions(params)
     chi_bao = np.dot(delta_bao, np.dot(inv_cov_matrix, delta_bao))
-    return chi_sn + chi_bao
+
+    cc_delta = H_cc_vals - H_z(z_cc_vals, params)
+    chi_cc = np.sum(cc_delta**2 / dH_cc_vals**2)
+    return chi_sn + chi_bao + chi_cc
 
 
 def log_prior(params):
@@ -166,13 +177,10 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 50
+    nwalkers = 100
     burn_in = 500
-    nsteps = 2000 + burn_in
-    initial_pos = np.zeros((nwalkers, ndim))
-
-    for dim, (lower, upper) in enumerate(bounds):
-      initial_pos[:, dim] = np.random.uniform(lower, upper, nwalkers)
+    nsteps = 5000 + burn_in
+    initial_pos = np.random.default_rng().uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
 
     with Pool(10) as pool:
         sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool=pool)
@@ -188,20 +196,24 @@ def main():
     samples = sampler.get_chain(discard=burn_in, flat=True)
 
     [
+        [h0_16, h0_50, h0_84],
         [rd_16, rd_50, rd_84],
         [omega_16, omega_50, omega_84],
         [w0_16, w0_50, w0_84],
         [wa_16, wa_50, wa_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = [rd_50, omega_50, w0_50, wa_50]
+    best_fit = [h0_50, rd_50, omega_50, w0_50, wa_50]
+    DES5Y_EFF_SAMPLE = 1735
+    deg_of_freedom = DES5Y_EFF_SAMPLE + data['value'].size + z_cc_vals.size - len(best_fit)
 
+    print(f"h0: {h0_50:.4f} +{(h0_84 - h0_50):.4f} -{(h0_50 - h0_16):.4f}")
     print(f"r_d: {rd_50:.4f} +{(rd_84 - rd_50):.4f} -{(rd_50 - rd_16):.4f}")
     print(f"Ωm: {omega_50:.4f} +{(omega_84 - omega_50):.4f} -{(omega_50 - omega_16):.4f}")
     print(f"w0: {w0_50:.4f} +{(w0_84 - w0_50):.4f} -{(w0_50 - w0_16):.4f}")
     print(f"wa: {wa_50:.4f} +{(wa_84 - wa_50):.4f} -{(wa_50 - wa_16):.4f}")
     print(f"Chi squared: {chi_squared(best_fit):.4f}")
-    print(f"Degrees of freedom: {data['value'].size + z_vals.size - len(best_fit)}")
+    print(f"Degrees of freedom: {deg_of_freedom}")
 
     plot_bao_predictions(best_fit)
     plot_sn_predictions(
@@ -209,12 +221,12 @@ def main():
         x=z_vals,
         y=distance_moduli_values,
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=wcdm_distance_modulus(z_vals, best_fit),
+        y_model=model_distance_modulus(z_vals, best_fit),
         label=f"Best fit: $w_0$={w0_50:.4f}, $\Omega_m$={omega_50:.4f}",
         x_scale="log"
     )
 
-    labels = [r"$r_d$", f"$\Omega_m$", r"$w_0$", r"$w_a$"]
+    labels = [r"$H_0$", r"$r_d$", f"$\Omega_m$", r"$w_0$", r"$w_a$"]
     corner.corner(
         samples,
         labels=labels,
@@ -227,7 +239,7 @@ def main():
     )
     plt.show()
 
-    fig, axes = plt.subplots(ndim, figsize=(10, 7))
+    _, axes = plt.subplots(ndim, figsize=(10, 7))
     if ndim == 1:
         axes = [axes]
     for i in range(ndim):
@@ -244,67 +256,45 @@ if __name__ == "__main__":
 
 
 """
-Flat ΛCDM
-r_d: 143.6861 +0.9398 -0.9550
-Ωm: 0.3099 +0.0081 -0.0077
-w0 = -1
-wa = 0
-Chi squared: 1667.7203
-Degrees of freedom: 1840
+Flat ΛCDM w(z) = -1
+h0: 70.1105 +0.2118 -0.2018
+r_d: 143.5180 +0.7036 -0.7023
+Ωm: 0.3094 +0.0075 -0.0079
+w0: -1
+wa: 0
+Chi squared: 1674.0150
+Degrees of freedom: 1776
 
 ==============================
 
-Flat w0waCDM
-r_d: 140.8285 +1.2178 -1.1816
-Ωm: 0.3210 +0.0122 -0.0132
-w0: -0.7878 +0.0697 -0.0607
-wa: -0.7034 +0.3901 -0.4490
-Chi squared: 1655.2812
-Degrees of freedom: 1838
+Flat wCDM w(z) = w0
+h0: 69.2248 +0.3486 -0.3498
+r_d: 143.1237 +0.7199 -0.7138
+Ωm: 0.2980 +0.0086 -0.0089
+w0: -0.8813 +0.0394 -0.0387
+wa: 0
+Chi squared: 1664.5022
+Degrees of freedom: 1775
 
 ==============================
 
-Flat w0 + wa * z
-r_d: 140.9156 +1.2076 -1.2039
-Ωm: 0.3267 +0.0118 -0.0132
-w0: -0.8214 +0.0539 -0.0506
-wa: -0.4483 +0.2487 -0.2374
-Chi squared: 1655.2542
-Degrees of freedom: 1838
+Flat w0waCDM w(z) = w0 + wa * z/(1 + z)
+h0: 68.8360 +0.4414 -0.4402
+r_d: 143.4270 +0.7432 -0.7410
+Ωm: 0.3194 +0.0131 -0.0155
+w0: -0.7984 +0.0725 -0.0678
+wa: -0.6686 +0.4515 -0.4573
+Chi squared: 1662.2341
+Degrees of freedom: 1774
 
 ============================
 
-Flat w0 + (wa - w0)*tanh(z)
-r_d: 140.9579 +1.1830 -1.2020
-Ωm: 0.3202 +0.0129 -0.0161
-w0: -0.8145 +0.0609 -0.0561
-wa: -1.2570 +0.2638 -0.2540
-Chi squared: 1655.3231
-Degrees of freedom: 1838
-
-Flat w0 + (wa - w0) * tanh(0.5 * ((1 + z)**2 - 1))
-r_d: 140.9926 +1.2029 -1.1954
-Ωm: 0.3179 +0.0136 -0.0159
-w0: -0.8230 +0.0571 -0.0528
-wa: -1.1564 +0.2069 -0.2082
-Chi squared: 1655.4049
-Degrees of freedom: 1838
-
-Flat wa + (w0 - wa) * np.exp(0.5 - 0.5*(1 + z)**2)
-r_d: 141.0335 +1.1754 -1.2230
-Ωm: 0.3197 +0.0133 -0.0163
-w0: -0.8178 +0.0610 -0.0572
-wa: -1.2454 +0.2612 -0.2541
-Chi squared: 1655.3164
-Degrees of freedom: 1838
-
-============================
-
-Flat w0 + (wa - w0)*tanh(0.5*(1 + z - 1/(1 + z)))
-r_d: 140.9638 +1.2089 -1.2175
-Ωm: 0.3202 +0.0132 -0.0163
-w0: -0.8085 +0.0657 -0.0614
-wa: -1.3442 +0.3287 -0.3143
-Chi squared: 1655.2953
-Degrees of freedom: 1838
+Flat w(z) = wa + (w0 - wa) * np.exp(0.5 - 0.5*(1 + z)**2)
+h0: 68.8900 +0.4214 -0.4251
+r_d: 143.4135 +0.7552 -0.7523
+Ωm: 0.3195 +0.0130 -0.0162
+w0: -0.8215 +0.0599 -0.0555
+wa: -1.2529 +0.2605 -0.2515
+Chi squared: 1662.3276
+Degrees of freedom: 1774
 """

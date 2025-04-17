@@ -20,7 +20,7 @@ inv_cov_matrix = np.linalg.inv(cov_matrix)
 h0 = 70
 
 def w_de(z, w0, wa):
-    return w0 + (wa - w0) * np.tanh(0.5*((1 + z)**2 - 1))
+    return wa + (w0 - wa) * np.exp(0.5 - 0.5*(1 + z)**2)
 
 
 def rho_de(zs, w0, wa):
@@ -248,6 +248,17 @@ R-squared (%): 99.29
 RMSD (mag): 0.270
 Skewness of residuals: 1.389
 
+==============================
+
+Flat wa + (w0 - wa) * np.exp(0.5 - 0.5*(1 + z)**2)
+Chi squared: 551.6059
+Ωm: 0.4478 +0.0629/-0.1318
+w0: -0.9238 +0.4356/-0.4204
+wa: -4.9723 +4.0296/-6.6725
+R-squared (%): 99.28
+RMSD (mag): 0.271
+Skewness of residuals: 1.404
+
 ********************************
 Dataset: DES-SN5YR
 z range: 0.025 - 1.121
@@ -310,6 +321,15 @@ Chi squared: 1641.8294
 Ωm: 0.5000 +0.0313/-0.0400
 w0: -0.5286 +0.3334/-0.2495
 wa: -6.6706 +2.4616/-3.1699
+R-squared (%): 98.21
+RMSD (mag): 0.279
+Skewness of residuals: 3.453
+
+Flat wa + (w0 - wa) * np.exp(0.5 - 0.5*(1 + z)**2)
+Chi squared: 1641.8238
+Ωm: 0.4974 +0.0319/-0.0402
+w0: -0.4882 +0.3368/-0.2606
+wa: -7.3586 +2.7757/-3.3721
 R-squared (%): 98.21
 RMSD (mag): 0.279
 Skewness of residuals: 3.453

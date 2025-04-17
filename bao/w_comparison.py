@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 def non_linear_equation_of_state(z, params):
     _, w0, wa = params
-    return w0 + (wa - w0) * np.tanh(0.5*((1 + z)**2 - 1))
+    return wa + (w0 - wa) * np.exp(-0.5*(1 + z)**2 + 0.5)
 
 
 def non_linear_normalized_energy_density(zs, params):

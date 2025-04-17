@@ -18,7 +18,7 @@ C = 299792.458
 inv_cov_matrix = np.linalg.inv(cov_matrix)
 
 def w_de(z, w0, wa):
-    return w0 + (wa - w0) * np.tanh(0.5*((1 + z)**2 - 1))
+    return wa + (w0 - wa) * np.exp(0.5 - 0.5*(1 + z)**2)
 
 
 def rho_de(zs, w0, wa):
@@ -302,6 +302,17 @@ RMSD (mag): 0.154
 Skewness of residuals: 0.078
 kurtosis of residuals: 1.598
 Reduced chi squared: 0.8858
+
+Flat wa + (w0 - wa) * np.exp(0.5*(1 + z)**2)
+M0: -28.5730 +0.0096/-0.0095 (M(0.7)=-19.3485)
+Ωm: 0.3396 +0.0806/-0.1398
+w0: -0.9360 +0.1540/-0.1615
+wa: -1.2436 +0.8482/-1.3343
+R-squared (%): 99.74
+RMSD (mag): 0.154
+Skewness of residuals: 0.078
+kurtosis of residuals: 1.598
+Reduced chi squared: 0.8859
 
 =============================
 

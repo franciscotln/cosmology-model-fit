@@ -1,4 +1,3 @@
-import os
 import numpy as np
 import emcee
 import corner
@@ -11,24 +10,22 @@ from hubble.plotting import plot_predictions as plot_sn_predictions
 legend, z_vals, apparent_mag_values, cov_matrix_sn = get_data()
 inverse_cov_sn = np.linalg.inv(cov_matrix_sn)
 
-path_to_data = os.path.dirname(os.path.abspath(__file__)) + '/raw-data/'
-
 c = 299792.458 # Speed of light in km/s
 H0 = 70.0 # Hubble constant in km/s/Mpc
 
 data = np.genfromtxt(
-    path_to_data + "data.txt",
+    "bao/raw-data/data.txt",
     dtype=[("z", float), ("value", float), ("quantity", "U10")],
     delimiter=" ",
     names=True,
 )
-bao_cov_matrix = np.loadtxt(path_to_data + "covariance.txt", delimiter=" ", dtype=float)
+bao_cov_matrix = np.loadtxt("bao/raw-data/covariance.txt", delimiter=" ", dtype=float)
 inv_bao_cov_matrix = np.linalg.inv(bao_cov_matrix)
 
 
 def w_de(z, params):
     _, _, _, w0, wa = params
-    return w0 + (wa - w0) * np.tanh(0.5*((1 + z)**2 - 1))
+    return wa + (w0 - wa) * np.exp(0.5 - 0.5*(1 + z)**2)
 
 
 def rho_de(zs, params):
@@ -301,6 +298,15 @@ M0: -19.3454 +0.0088 -0.0087
 w0: -0.8960 +0.0498 -0.0483
 wa: -1.0177 +0.2076 -0.1969
 Chi squared: 1412.11
+Degrees of freedom: 1598
+
+Flat wa + (w0 - wa) * np.exp(0.5 - 0.5*(1 + z)**2)
+r_d: 142.4921 +1.2632 -1.2313
+M0: -19.3456 +0.0090 -0.0089
+Ωm: 0.3045 +0.0151 -0.0227
+w0: -0.8948 +0.0524 -0.0494
+wa: -1.0317 +0.2842 -0.2563
+Chi squared: 1412.1729
 Degrees of freedom: 1598
 
 ==============================

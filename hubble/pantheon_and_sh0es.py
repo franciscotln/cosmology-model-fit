@@ -19,7 +19,7 @@ C = 299792.458
 
 
 def w_de(z, w0, wa):
-    return w0 + (wa - w0) * np.tanh(0.5*((1 + z)**2 - 1))
+    return wa + (w0 - wa) * np.exp(0.5 - 0.5*(1 + z)**2)
 
 
 def rho_de(zs, w0, wa):
@@ -255,4 +255,17 @@ RMSD (mag): 0.153
 Skewness of residuals: 0.074
 kurtosis of residuals: 1.571
 Chi squared: 1453.8
+
+==============================
+
+Flat wa + (w0 - wa) * np.exp(0.5 - 0.5*(1 + z)**2)
+H0: 73.13 +0.31/-0.32 km/s/Mpc
+Ωm: 0.3451 +0.0665/-0.1336
+w0: -0.9517 +0.1564/-0.1587
+wa: -1.2773 +0.8558/-1.0617
+R-squared: 99.78 %
+RMSD (mag): 0.153
+Skewness of residuals: 0.075
+kurtosis of residuals: 1.570
+Chi squared: 1453.9
 """

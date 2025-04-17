@@ -4,9 +4,6 @@ import corner
 from scipy.integrate import quad
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
-import os
-
-path_to_data = os.path.dirname(os.path.abspath(__file__)) + '/raw-data/'
 
 # Speed of light in km/s
 c = 299792.458
@@ -16,12 +13,12 @@ c = 299792.458
 # Source: https://arxiv.org/pdf/2503.14738
 # https://github.com/CobayaSampler/bao_data/tree/master/desi_bao_dr2
 data = np.genfromtxt(
-    path_to_data + "data.txt",
+    "bao/raw-data/data.txt",
     dtype=[("z", float), ("value", float), ("quantity", "U10")],
     delimiter=" ",
     names=True,
 )
-cov_matrix = np.loadtxt(path_to_data + "covariance.txt", delimiter=" ", dtype=float)
+cov_matrix = np.loadtxt("bao/raw-data/covariance.txt", delimiter=" ", dtype=float)
 inv_cov_matrix = np.linalg.inv(cov_matrix)
 
 def plot_predictions(params):
@@ -80,7 +77,7 @@ def plot_predictions(params):
 
 def w_de(z, params):
     _, _, w0, wa = params
-    return w0 + (wa - w0) * np.tanh(0.5*((1 + z)**2 - 1))
+    return wa + (w0 - wa) * np.exp(0.5 - 0.5*(1 + z)**2)
 
 
 def rho_de(z_input, params):
@@ -286,6 +283,16 @@ Chi squared: 5.6110
 Degs of freedom: 9
 R^2: 0.9994
 RMSD: 0.2006
+
+Flat wa + (w0 - wa) * np.exp(0.5 - 0.5*(1 + z)**2)
+r_d*h: 92.3112 +4.3482 -4.0871
+Ωm: 0.3783 +0.0427 -0.0430
+w0: -0.3402 +0.3681 -0.3410
+wa: -1.9232 +0.5463 -0.5658
+Chi squared: 5.5990
+Degs of freedom: 9
+R^2: 0.9994
+RMSD: 0.2013
 
 ===============================
 
