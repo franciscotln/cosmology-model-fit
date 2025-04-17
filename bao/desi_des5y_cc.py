@@ -25,7 +25,7 @@ def w_de(z, w0, wa):
     return wa + (w0 - wa) * np.exp(0.5 - 0.5*(1 + z)**2)
 
 def rho_de(zs, w0, wa):
-    z = np.linspace(0, np.max(zs), num=2000)
+    z = np.linspace(0, np.max(zs), num=3000)
     integral_values = cumulative_trapezoid(3*(1 + w_de(z, w0, wa))/(1 + z), z, initial=0)
     return np.exp(np.interp(zs, z, integral_values))
 
@@ -36,7 +36,7 @@ def h_over_h0_model(z, params):
 
 
 def integral_e_z(zs, params):
-    z = np.linspace(0, np.max(zs), num=2000)
+    z = np.linspace(0, np.max(zs), num=3000)
     integral_values = cumulative_trapezoid(1/h_over_h0_model(z, params), z, initial=0)
     return np.interp(zs, z, integral_values)
 
@@ -114,7 +114,7 @@ def H_z(z, params):
 
 
 def DM_z(zs, params):
-    z = np.linspace(0, np.max(zs), num=2000)
+    z = np.linspace(0, np.max(zs), num=3000)
     return cumulative_trapezoid(c / H_z(z, params), z, initial=0)[-1]
 
 
@@ -256,7 +256,7 @@ if __name__ == "__main__":
 
 
 """
-Flat ΛCDM w(z) = -1
+Flat ΛCDM: w(z) = -1
 h0: 70.1105 +0.2118 -0.2018
 r_d: 143.5180 +0.7036 -0.7023
 Ωm: 0.3094 +0.0075 -0.0079
@@ -267,7 +267,7 @@ Degrees of freedom: 1776
 
 ==============================
 
-Flat wCDM w(z) = w0
+Flat wCDM: w(z) = w0
 h0: 69.2248 +0.3486 -0.3498
 r_d: 143.1237 +0.7199 -0.7138
 Ωm: 0.2980 +0.0086 -0.0089
@@ -278,7 +278,7 @@ Degrees of freedom: 1775
 
 ==============================
 
-Flat w0waCDM w(z) = w0 + wa * z/(1 + z)
+Flat w0waCDM: w(z) = w0 + wa * z/(1 + z)
 h0: 68.8360 +0.4414 -0.4402
 r_d: 143.4270 +0.7432 -0.7410
 Ωm: 0.3194 +0.0131 -0.0155
@@ -289,12 +289,12 @@ Degrees of freedom: 1774
 
 ============================
 
-Flat w(z) = wa + (w0 - wa) * np.exp(0.5 - 0.5*(1 + z)**2)
-h0: 68.8900 +0.4214 -0.4251
-r_d: 143.4135 +0.7552 -0.7523
-Ωm: 0.3195 +0.0130 -0.0162
-w0: -0.8215 +0.0599 -0.0555
-wa: -1.2529 +0.2605 -0.2515
-Chi squared: 1662.3276
+Flat non-linear: w(z) = wa + (w0 - wa) * np.exp(0.5 - 0.5*(1 + z)**2)
+h0: 68.8779 +0.4244 -0.4236
+r_d: 143.3897 +0.7561 -0.7377
+Ωm: 0.3194 +0.0131 -0.0162
+w0: -0.8213 +0.0608 -0.0562
+wa: -1.2442 +0.2586 -0.2551
+Chi squared: 1662.3220
 Degrees of freedom: 1774
 """
