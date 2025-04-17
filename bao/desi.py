@@ -1,7 +1,7 @@
 import numpy as np
 import emcee
 import corner
-from scipy.integrate import quad
+from scipy.integrate import cumulative_trapezoid
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 
@@ -77,14 +77,13 @@ def plot_predictions(params):
 
 def w_de(z, params):
     _, _, w0, wa = params
-    return wa + (w0 - wa) * np.exp(0.5 - 0.5*(1 + z)**2)
+    return w0 + wa * (1 - np.exp(0.5 - 0.5 * (1 + z)**2))
 
 
 def rho_de(z_input, params):
-    def integrand(z):
-        return 3 * (1 + w_de(z, params)) / (1 + z)
-
-    return np.exp(quad(integrand, 0, z_input)[0])
+    z = np.linspace(0, np.max(z_input), num=2000)
+    integral_values = cumulative_trapezoid(3*(1 + w_de(z, params))/(1 + z), z, initial=0)
+    return np.exp(np.interp(z_input, z, integral_values))
 
 
 def H_z(z, params):
@@ -93,9 +92,9 @@ def H_z(z, params):
     return np.sqrt(omega_m * sum**3 + (1 - omega_m) * rho_de(z, params))
 
 
-def DM_z(z, params):
-    integral, _ = quad(lambda zp: c / H_z(zp, params), 0, z)
-    return integral
+def DM_z(zs, params):
+    z = np.linspace(0, np.max(zs), num=2000)
+    return cumulative_trapezoid(c / H_z(z, params), z, initial=0)[-1]
 
 
 def DV_z(z, params):
@@ -121,7 +120,7 @@ bounds = np.array([
     (70, 110), # r_d x h
     (0.2, 0.7), # Ωm
     (-3, 1), # w0
-    (-4.5, 0.5), # wa
+    (-4.5, 1.5), # wa
 ])
 
 
@@ -202,7 +201,7 @@ def main():
     )
     plt.show()
 
-    fig, axes = plt.subplots(ndim, figsize=(10, 7))
+    _, axes = plt.subplots(ndim, figsize=(10, 7))
     if ndim == 1:
         axes = [axes]
     for i in range(ndim):
@@ -222,6 +221,8 @@ if __name__ == "__main__":
 Flat ΛCDM model
 r_d*h: 101.54 ± 0.72
 Ωm: 0.2974 +0.0086 -0.0084
+w0: -1
+wa: 0
 Chi squared: 10.5169
 Degrees of freedom: 11
 R^2: 0.9987
@@ -232,7 +233,8 @@ RMSD: 0.3054
 Flat wCDM model
 r_d*h: 99.86 +1.74 -1.64
 Ωm: 0.2968 +0.0089 -0.0087
-w0: -0.9179 +0.0743 -0.0778
+w0: -0.9179 +0.0743 -0.0778 (1.08 sigma)
+wa: 0
 Chi squared: 9.3920
 Degrees of freedom: 10
 R^2: 0.9989
@@ -243,8 +245,8 @@ RMSD: 0.2800
 Flat w0waCDM
 r_d*h: 91.4074 +5.0672 -4.4132
 Ωm: 0.3856 +0.0470 -0.0494
-w0: -0.1896 +0.4515 -0.4462
-wa: -2.7090 +1.5726 -1.5582
+w0: -0.1896 +0.4515 -0.4462 (1.80 sigma)
+wa: -2.7090 +1.5726 -1.5582 (1.73 sigma)
 Chi squared: 5.6478
 Degs of freedom: 9
 R^2: 0.9994
@@ -255,8 +257,8 @@ RMSD: 0.2016
 Flat w0 + wa * z
 r_d*h: 93.4082 +4.1359 -3.7184
 Ωm: 0.3729 +0.0367 -0.0395
-w0: -0.4606 +0.3014 -0.2980
-wa: -1.2049 +0.6832 -0.6762
+w0: -0.4606 +0.3014 -0.2980 (1.80 sigma)
+wa: -1.2049 +0.6832 -0.6762 (1.77 sigma)
 Chi squared: 5.5936
 Degs of freedom: 9
 R^2: 0.9994
@@ -264,45 +266,45 @@ RMSD: 0.2035
 
 ===============================
 
-Flat w0 + (wa - w0)*tanh(z)
-r_d*h: 92.2818 +4.3543 -4.0308
-Ωm: 0.3779 +0.0418 -0.0420
-w0: -0.3376 +0.3600 -0.3387
-wa: -1.9333 +0.5392 -0.5588
-Chi squared: 5.6082
+Flat w0 + wa * np.tanh(z)
+r_d*h: 92.3188 +4.2977 -4.0220
+Ωm: 0.3770 +0.0428 -0.0413
+w0: -0.3391 +0.3648 -0.3384 (1.88 sigma)
+wa: -1.5943 +0.8722 -0.9275 (1.77 sigma)
+Chi squared: 5.6480
 Degs of freedom: 9
 R^2: 0.9994
 RMSD: 0.2010
 
-Flat w0 + (wa - w0) * tanh(0.5 * ((1 + z)**2 - 1))
-r_d*h: 92.4340 +4.2863 -3.9366
-Ωm: 0.3745 +0.0412 -0.0414
-w0: -0.3731 +0.3361 -0.3206
-wa: -1.6273 +0.3874 -0.4019
-Chi squared: 5.6110
+Flat w0 + wa * np.tanh(0.5 * ((1 + z)**2 - 1))
+r_d*h: 92.3266 +4.3865 -3.9885
+Ωm: 0.3758 +0.0425 -0.0423
+w0: -0.3647 +0.3431 -0.3267 (1.90 sigma)
+wa: -1.2694 +0.7022 -0.7381 (1.76 sigma)
+Chi squared: 5.6009
 Degs of freedom: 9
 R^2: 0.9994
-RMSD: 0.2006
+RMSD: 0.2005
 
-Flat wa + (w0 - wa) * np.exp(0.5 - 0.5*(1 + z)**2)
-r_d*h: 92.3112 +4.3482 -4.0871
-Ωm: 0.3783 +0.0427 -0.0430
-w0: -0.3402 +0.3681 -0.3410
-wa: -1.9232 +0.5463 -0.5658
-Chi squared: 5.5990
+Flat w0 + wa * (1 - np.exp(0.5 - 0.5 * (1 + z)**2))
+r_d*h: 92.3829 +4.2911 -3.9730
+Ωm: 0.3771 +0.0416 -0.0420
+w0: -0.3470 +0.3535 -0.3350 (1.90 sigma)
+wa: -1.5626 +0.8617 -0.8841 (1.79 sigma)
+Chi squared: 5.6023
 Degs of freedom: 9
 R^2: 0.9994
 RMSD: 0.2013
 
 ===============================
 
-Flat w0 + (wa - w0)*tanh(0.5*(1 + z - 1/(1 + z)))
-r_d*h: 92.0471 +4.5802 -4.1640
-Ωm: 0.3810 +0.0434 -0.0446
-w0: -0.2877 +0.3902 -0.3782
-wa: -2.3068 +0.7661 -0.7642
-Chi squared: 5.6131
+Flat w0 + wa * np.tanh(0.5*(1 + z - 1/(1 + z)))
+r_d*h: 92.0418 +4.7081 -4.0311
+Ωm: 0.3807 +0.0422 -0.0460
+w0: -0.2911 +0.3814 -0.3871 (1.84 sigma)
+wa: -1.9994 +1.1534 -1.1248 (1.76 sigma)
+Chi squared: 5.6068
 Degs of freedom: 9
 R^2: 0.9994
-RMSD: 0.2020
+RMSD: 0.2017
 """
