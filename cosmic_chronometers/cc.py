@@ -16,7 +16,7 @@ legend, z_values, H_values, dH_values = get_data()
 
 def w_de(z, params):
     _, _, w0, wa = params
-    return wa + (w0 - wa) * np.exp(0.5 - 0.5*(1 + z)**2)
+    return w0 + wa * (1 - np.exp(0.5 - 0.5*(1 + z)**2))
 
 
 def rho_de(z_input, params):
@@ -35,7 +35,7 @@ bounds = np.array([
     (50, 100), # H0
     (0, 1), # Ωm
     (-4, 2), # w0
-    (-4.5, 1), # wa
+    (-3, 5), # wa
 ])
 
 
@@ -114,7 +114,7 @@ def main():
     )
     plt.show()
 
-    fig, axes = plt.subplots(ndim, figsize=(10, 7))
+    _, axes = plt.subplots(ndim, figsize=(10, 7))
     if ndim == 1:
         axes = [axes]
     for i in range(ndim):
@@ -128,3 +128,44 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+"""
+Flat ΛCDM
+H0: 67.8132 +3.0532 -3.0992
+Ωm: 0.3259 +0.0656 -0.0553
+w0: -1
+wa: 0
+Chi squared: 14.5125
+Degs of freedom: 29
+
+===============================
+
+Flat wCDM
+H0: 71.5943 +10.7436 -7.2949
+Ωm: 0.2969 +0.0701 -0.0682
+w0: -1.3918 +0.6784 -0.8596 (0.51 sigma)
+wa: 0
+Chi squared: 16.2025
+Degs of freedom: 28
+
+===============================
+
+Flat w(z) = w0 + wa * (1 - np.exp(0.5 - 0.5*(1 + z)**2))
+H0: 73.7263 +11.5453 -8.4807
+Ωm: 0.2993 +0.0947 -0.0820
+w0: -1.5086 +0.7635 -0.9814
+wa: -0.1650 +1.6758 -1.8906
+Chi squared: 15.2133
+Degs of freedom: 27
+
+================================
+
+Flat w(z) = w0 + wa * np.tanh(z)
+H0: 73.8512 +11.5379 -8.7214
+Ωm: 0.2994 +0.0952 -0.0816
+w0: -1.5286 +0.7932 -0.9916
+wa: -0.1583 +1.7003 -1.9123
+Chi squared: 15.2418
+Degs of freedom: 27
+"""
