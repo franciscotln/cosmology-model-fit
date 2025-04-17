@@ -142,7 +142,7 @@ bounds = np.array([
     (115, 160), # r_d
     (0.2, 0.7), # omega_m
     (-3, 0), # w0
-    (-2.5, 1.5), # wa
+    (-3.5, 0), # wa
 ])
 
 
@@ -179,7 +179,7 @@ def main():
     ndim = len(bounds)
     nwalkers = 100
     burn_in = 500
-    nsteps = 5000 + burn_in
+    nsteps = 3000 + burn_in
     initial_pos = np.random.default_rng().uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
 
     with Pool(10) as pool:
@@ -289,6 +289,17 @@ Degrees of freedom: 1774
 
 ============================
 
+Flat linear: w(z) = w0 + wa * z
+h0: 68.8757 +0.4015 -0.4072
+r_d: 143.4345 +0.7330 -0.7264
+Ωm: 0.3254 +0.0121 -0.0134
+w0: -0.8302 +0.0542 -0.0495 (3.27 sigma)
+wa: -0.4315 +0.2358 -0.2510 (1.77 sigma)
+Chi squared: 1662.2735
+Degrees of freedom: 1774
+
+============================
+
 Flat non-linear: w(z) = w0 + wa * (1 - np.exp(0.5 - 0.5 * (1 + z)**2))
 h0: 68.8768 +0.4291 -0.4194
 r_d: 143.4185 +0.7426 -0.7487
@@ -296,5 +307,27 @@ r_d: 143.4185 +0.7426 -0.7487
 w0: -0.8210 +0.0602 -0.0561 (3.08 sigma)
 wa: -0.4185 +0.3009 -0.3050 (1.38 sigma)
 Chi squared: 1662.3222
+Degrees of freedom: 1774
+
+=============================
+
+Flat non-linear: w(z) = w0 + wa * np.tanh(z)
+h0: 68.8907 +0.4211 -0.4222
+r_d: 143.4194 +0.7504 -0.7504
+Ωm: 0.3190 +0.0132 -0.0158
+w0: -0.8217 +0.0605 -0.0558 (3.07 sigma)
+wa: -0.4272 +0.3030 -0.3014 (1.42 sigma)
+Chi squared: 1662.3258
+Degrees of freedom: 1774
+
+=============================
+
+Flat non-linear: w(z) = w0 + wa * np.tanh(0.5*((1 + z) **2 - 1))
+h0: 68.8851 +0.4213 -0.4146
+r_d: 143.4143 +0.7551 -0.7521
+Ωm: 0.3180 +0.0129 -0.0156
+w0: -0.8263 +0.0563 -0.0529 (3.18 sigma)
+wa: -0.3387 +0.2390 -0.2431 (1.41 sigma)
+Chi squared: 1662.4094
 Degrees of freedom: 1774
 """

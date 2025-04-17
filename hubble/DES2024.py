@@ -20,7 +20,7 @@ inv_cov_matrix = np.linalg.inv(cov_matrix)
 h0 = 70
 
 def w_de(z, w0, wa):
-    return wa + (w0 - wa) * np.exp(0.5 - 0.5*(1 + z)**2)
+    return w0 + wa * (1 - np.exp(-0.5*((1 + z)**2 - 1)))
 
 
 def rho_de(zs, w0, wa):
@@ -212,6 +212,7 @@ Flat ΛCDM
 Chi squared: 550.9463
 Ωm: 0.2993 +0.0427/-0.0401
 w0: -1
+wa: 0
 R-squared (%): 99.30
 RMSD (mag): 0.268
 Skewness of residuals: 1.406
@@ -221,7 +222,8 @@ Skewness of residuals: 1.406
 Flat wCDM
 Chi squared: 550.9743
 Ωm: 0.3170 +0.0926/-0.1373
-w0: -1.0515 +0.3141/-0.4072
+w0: -1.0515 +0.3141/-0.4072 (0.14 sigma)
+wa: 0
 R-squared (%): 99.30
 RMSD (mag): 0.268
 Skewness of residuals: 1.407
@@ -231,33 +233,11 @@ Skewness of residuals: 1.407
 Flat w0 + wa * z
 Chi squared: 551.6259
 Ωm: 0.4505 +0.0632/-0.1093
-w0: -0.9316 +0.4600/-0.4087
-wa: -4.1686 +3.9992/-7.2391
+w0: -0.9316 +0.4600/-0.4087 (0.16 sigma)
+wa: -4.1686 +3.9992/-7.2391 (0.74 sigma)
 R-squared (%): 99.28
 RMSD (mag): 0.270
 Skewness of residuals: 1.398
-
-============================
-
-Flat w0 + (wa - w0) * tanh(0.5*((1 + z)**2 - 1))
-Chi squared: 551.7739
-Ωm: 0.4582 +0.0611/-0.1065
-w0: -0.9257 +0.4602/-0.4344
-wa: -5.3422 +3.9078/-6.3388
-R-squared (%): 99.29
-RMSD (mag): 0.270
-Skewness of residuals: 1.389
-
-==============================
-
-Flat wa + (w0 - wa) * np.exp(0.5 - 0.5*(1 + z)**2)
-Chi squared: 551.6059
-Ωm: 0.4478 +0.0629/-0.1318
-w0: -0.9238 +0.4356/-0.4204
-wa: -4.9723 +4.0296/-6.6725
-R-squared (%): 99.28
-RMSD (mag): 0.271
-Skewness of residuals: 1.404
 
 ********************************
 Dataset: DES-SN5YR
@@ -269,6 +249,7 @@ Flat ΛCDM
 Chi squared: 1649.4584
 Ωm: 0.3505 +0.0169/-0.0164
 w0: -1
+wa: 0
 R-squared (%): 98.35
 RMSD (mag): 0.268
 Skewness of residuals: 3.409
@@ -278,7 +259,8 @@ Skewness of residuals: 3.409
 Flat wCDM
 Chi squared: 1648.1532
 Ωm: 0.2706 +0.0730/-0.0950
-w0: -0.8115 +0.1455/-0.1619
+w0: -0.8115 +0.1455/-0.1619 (1.23 sigma)
+wa: 0
 R-squared (%): 98.32
 RMSD (mag): 0.271
 Skewness of residuals: 3.417
@@ -288,8 +270,8 @@ Skewness of residuals: 3.417
 Flat w0waCDM
 Chi squared: 1641.9146
 Ωm: 0.4954 +0.0321/-0.0431
-w0: -0.3752 +0.3663/-0.3033
-wa: -8.9260 +3.9253/-4.5788
+w0: -0.3752 +0.3663/-0.3033 (1.87 sigma)
+wa: -8.9260 +3.9253/-4.5788 (2.01 sigma)
 R-squared (%): 98.20
 RMSD (mag): 0.280
 Skewness of residuals: 3.454
@@ -299,49 +281,49 @@ Skewness of residuals: 3.454
 Flat w0 + wa * z
 Chi squared: 1641.8069
 Ωm: 0.5004 +0.0306/-0.0385
-w0: -0.4931 +0.3375/-0.2607
-wa: -6.8355 +2.8457/-3.7107
+w0: -0.4931 +0.3375/-0.2607 (1.69 sigma)
+wa: -6.8355 +2.8457/-3.7107 (2.09 sigma)
 R-squared (%): 98.21
 RMSD (mag): 0.280
 Skewness of residuals: 3.453
 
 ===============================
 
-Flat w0 + (wa - w0) * tanh(z)
-Chi squared: 1641.8549
-Ωm: 0.4990 +0.0309/-0.0390
-w0: -0.4691 +0.3275/-0.2688
-wa: -7.5275 +2.7065/-3.3575
-R-squared (%): 98.20
+Flat w0 + wa * tanh(z)
+Chi squared: 1641.8571
+Ωm: 0.4987 +0.0314/-0.0397
+w0: -0.4654 +0.3428/-0.2708 (1.74 sigma)
+wa: -7.1041 +3.0804/-3.8306 (2.06 sigma)
+R-squared (%): 98.21
 RMSD (mag): 0.280
 Skewness of residuals: 3.454
 
-Flat w0 + (wa - w0) * tanh(0.5*((1 + z)**2 - 1))
-Chi squared: 1641.8294
-Ωm: 0.5000 +0.0313/-0.0400
-w0: -0.5286 +0.3334/-0.2495
-wa: -6.6706 +2.4616/-3.1699
+Flat w0 + wa * np.tanh(0.5*((1 + z)**2 - 1))
+Chi squared: 1641.8041
+Ωm: 0.4988 +0.0312/-0.0396
+w0: -0.5365 +0.3178/-0.2420 (1.66 sigma)
+wa: -5.9820 +2.6136/-3.3646
 R-squared (%): 98.21
 RMSD (mag): 0.279
-Skewness of residuals: 3.453
+Skewness of residuals: 3.452
 
-Flat wa + (w0 - wa) * np.exp(0.5 - 0.5*(1 + z)**2)
-Chi squared: 1641.8238
-Ωm: 0.4974 +0.0319/-0.0402
-w0: -0.4882 +0.3368/-0.2606
-wa: -7.3586 +2.7757/-3.3721
+Flat w0 + wa * (1 - np.exp(-0.5*((1 + z)**2 - 1)))
+Ωm: 0.4985 +0.0317/-0.0409
+w0: -0.4706 +0.3459/-0.2773 (1.70 sigma)
+wa: -7.0338 +3.1012/-3.8685 (2.02 sigma)
 R-squared (%): 98.21
-RMSD (mag): 0.279
-Skewness of residuals: 3.453
+RMSD (mag): 0.280
+Skewness of residuals: 3.454
+Chi squared: 1641.8428414645
 
 ================================
 
-Flat w0 + (wa - w0) * tanh(0.5*(1 + z - 1/(1 + z)))
-Chi squared: 1641.8585
-Ωm: 0.4964 +0.0317/-0.0406
-w0: -0.4389 +0.3467/-0.2754
-wa: -8.2119 +3.0455/-3.7123
+Flat w0 + wa * np.tanh(0.5*(1 + z - 1/(1 + z)))
+Chi squared: 1641.8428
+Ωm: 0.4952 +0.0323/-0.0467
+w0: -0.4375 +0.3623/-0.2743 (1.77 sigma)
+wa: -7.7213 +3.6703/-4.1760 (1.97 sigma)
 R-squared (%): 98.20
 RMSD (mag): 0.280
-Skewness of residuals: 3.453
+Skewness of residuals: 3.454
 """
