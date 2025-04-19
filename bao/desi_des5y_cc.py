@@ -21,18 +21,10 @@ cov_matrix = np.loadtxt("bao/raw-data/covariance.txt", delimiter=" ", dtype=floa
 inv_cov_matrix = np.linalg.inv(cov_matrix)
 
 
-def w_de(z, w0, wa):
-    return w0 + wa * (1 - np.exp(0.5 - 0.5 * (1 + z)**2))
-
-def rho_de(zs, w0, wa):
-    z = np.linspace(0, np.max(zs), num=3000)
-    integral_values = cumulative_trapezoid(3*(1 + w_de(z, w0, wa))/(1 + z), z, initial=0)
-    return np.exp(np.interp(zs, z, integral_values))
-
-
 def h_over_h0_model(z, params):
-    _, _, O_m, w0, wa = params
-    return np.sqrt(O_m * (1 + z)**3 + (1 - O_m) * rho_de(z, w0, wa))
+    _, _, O_m, w0, _ = params
+    sum = 1 + z
+    return np.sqrt(O_m * sum**3 + (1 - O_m) * ((2 * sum**2) / (1 + sum**2))**(3 * (1 + w0)))
 
 
 def integral_e_z(zs, params):
@@ -142,7 +134,7 @@ bounds = np.array([
     (115, 160), # r_d
     (0.2, 0.7), # omega_m
     (-3, 0), # w0
-    (-3.5, 2), # wa
+    (-3.5, 3.5), # wa
 ])
 
 
@@ -274,6 +266,17 @@ r_d: 143.1237 +0.7199 -0.7138
 w0: -0.8813 +0.0394 -0.0387 (3.04 sigma)
 wa: 0
 Chi squared: 1664.5022
+Degrees of freedom: 1775
+
+==============================
+
+Flat w(z) = w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
+h0: 69.1029 +0.3717 -0.3687
+r_d: 143.1781 +0.7141 -0.7093
+Ωm: 0.3042 +0.0080 -0.0077
+w0: -0.8614 +0.0420 -0.0423 (3.29 sigma)
+wa: 0
+Chi squared: 1663.5389
 Degrees of freedom: 1775
 
 ==============================

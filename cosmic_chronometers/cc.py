@@ -1,7 +1,6 @@
 import numpy as np
 import emcee
 import corner
-from scipy.integrate import cumulative_trapezoid
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from y2005cc.data import get_data
@@ -14,28 +13,16 @@ c = 299792.458
 legend, z_values, H_values, dH_values = get_data()
 
 
-def w_de(z, params):
-    _, _, w0, wa = params
-    return w0 + wa * (1 - np.exp(0.5 - 0.5*(1 + z)**2))
-
-
-def rho_de(z_input, params):
-    z = np.linspace(0, np.max(z_input), num=2000)
-    integral_values = cumulative_trapezoid(3*(1 + w_de(z, params))/(1 + z), z, initial=0)
-    return np.exp(np.interp(z_input, z, integral_values))
-
-
 def H_z(z, params):
-    H0 = params[0]
-    o_m = params[1]
-    return H0 * np.sqrt(o_m * (1 + z)**3 + (1 - o_m) * rho_de(z, params))
+    h0, o_m, w0, _ = params
+    return h0 * np.sqrt(o_m * (1 + z)**3 + (1 - o_m) * ((2*(1 + z)**2)/(1 + (1 + z)**2))**(3*(1 + w0)))
 
 
 bounds = np.array([
     (50, 100), # H0
     (0, 1), # Ωm
-    (-4, 2), # w0
-    (-3, 5), # wa
+    (-4, 1), # w0
+    (-5, 5), # wa
 ])
 
 
@@ -63,9 +50,9 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 100
+    nwalkers = 200
     burn_in = 500
-    nsteps = 4000 + burn_in
+    nsteps = 5000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):
@@ -151,10 +138,20 @@ Degs of freedom: 28
 
 ===============================
 
+Flat w(z) = w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
+H0: 72.6131 +11.0187 -8.2044
+Ωm: 0.2979 +0.0699 -0.0588
+w0: -1.4915 +0.7359 -0.9404 (0.59 sigma)
+wa: 0
+Chi squared: 14.8610
+Degs of freedom: 28
+
+===============================
+
 Flat w(z) = w0 + wa * (1 - np.exp(0.5 - 0.5*(1 + z)**2))
 H0: 73.7263 +11.5453 -8.4807
 Ωm: 0.2993 +0.0947 -0.0820
-w0: -1.5086 +0.7635 -0.9814
+w0: -1.5086 +0.7635 -0.9814 (0.58 sigma)
 wa: -0.1650 +1.6758 -1.8906
 Chi squared: 15.2133
 Degs of freedom: 27
@@ -164,7 +161,7 @@ Degs of freedom: 27
 Flat w(z) = w0 + wa * np.tanh(z)
 H0: 73.8512 +11.5379 -8.7214
 Ωm: 0.2994 +0.0952 -0.0816
-w0: -1.5286 +0.7932 -0.9916
+w0: -1.5286 +0.7932 -0.9916 (0.59 sigma)
 wa: -0.1583 +1.7003 -1.9123
 Chi squared: 15.2418
 Degs of freedom: 27

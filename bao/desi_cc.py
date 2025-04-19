@@ -16,20 +16,11 @@ bao_cov_matrix = np.loadtxt("bao/raw-data/covariance.txt", delimiter=" ", dtype=
 inv_bao_cov_matrix = np.linalg.inv(bao_cov_matrix)
 
 
-def w_de(z, params):
-    _, _, _, w0, wa = params
-    return w0 + wa * (1 - np.exp(0.5 - 0.5 * (1 + z)**2))
-
-
-def rho_de(zs, params):
-    z = np.linspace(0, np.max(zs), num=2000)
-    integral_values = cumulative_trapezoid(3*(1 + w_de(z, params))/(1 + z), z, initial=0)
-    return np.exp(np.interp(zs, z, integral_values))
-
-
 def h_over_h0_model(z, params):
     O_m = params[2]
-    return np.sqrt(O_m * (1 + z)**3 + (1 - O_m) * rho_de(z, params))
+    w0 = params[3]
+    sum = 1 + z
+    return np.sqrt(O_m * sum**3 + (1 - O_m) * ((2 * sum**2) / (1 + sum**2))**(3 * (1 + w0)))
 
 
 def H_z(z, params):
@@ -249,6 +240,17 @@ r_d: 146.9806 +3.4397 -3.3019
 w0: -0.9162 +0.0761 -0.0792 (1.08 sigma)
 wa: 0
 Chi squared: 23.8128
+Degrees of freedom: 40
+
+==============================
+
+Flat w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
+H0: 67.49 +2.16 -2.05
+r_d: 147.0028 +3.5033 -3.3573
+Ωm: 0.3041 +0.0100 -0.0099
+w0: -0.8792 +0.0993 -0.1049 (1.18 sigma)
+wa: 0
+Chi squared: 23.4473
 Degrees of freedom: 40
 
 ==============================

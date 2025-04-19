@@ -75,21 +75,10 @@ def plot_predictions(params):
     plt.show()
 
 
-def w_de(z, params):
-    _, _, w0, wa = params
-    return w0 + wa * (1 - np.exp(0.5 - 0.5 * (1 + z)**2))
-
-
-def rho_de(z_input, params):
-    z = np.linspace(0, np.max(z_input), num=2000)
-    integral_values = cumulative_trapezoid(3*(1 + w_de(z, params))/(1 + z), z, initial=0)
-    return np.exp(np.interp(z_input, z, integral_values))
-
-
 def H_z(z, params):
-    _, omega_m, _, _ = params
+    _, omega_m, w0, _ = params
     sum = 1 + z
-    return np.sqrt(omega_m * sum**3 + (1 - omega_m) * rho_de(z, params))
+    return np.sqrt(omega_m * sum**3 + (1 - omega_m) * ((2 * sum**2) / (1 + sum**2))**(3 * (1 + w0)))
 
 
 def DM_z(zs, params):
@@ -239,6 +228,18 @@ Chi squared: 9.3920
 Degrees of freedom: 10
 R^2: 0.9989
 RMSD: 0.2800
+
+===============================
+
+Flat w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
+r_d*h: 99.1492 +2.0814 -1.9665
+Ωm: 0.3037 +0.0104 -0.0100
+w0: -0.8735 +0.0984 -0.1036 (1.25 sigma)
+wa: 0
+Chi squared: 8.6797
+Degs of freedom: 10
+R^2: 0.9990
+RMSD: 0.2711
 
 ==============================
 
