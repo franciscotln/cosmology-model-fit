@@ -1,19 +1,15 @@
 import numpy as np
-from scipy.integrate import quad
 import matplotlib.pyplot as plt
 
 
 def non_linear_equation_of_state(z, params):
-    _, w0, wa = params
-    return wa + (w0 - wa) * np.exp(-0.5*(1 + z)**2 + 0.5)
+    _, w0, _ = params
+    return w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
 
 
 def non_linear_normalized_energy_density(zs, params):
-    def integrand(z):
-        w = non_linear_equation_of_state(z, params)
-        return 3 * (1 + w) / (1 + z)
-
-    return np.exp([quad(integrand, 0, z)[0] for z in zs])
+    sum = 1 + zs
+    return ((2*sum**2)/(1 + sum**2))**(3*(1 + params[1]))
 
 
 def non_linear_hubble(z, params):
@@ -65,7 +61,7 @@ def main(dataset):
     z_min = 0
     z_max = 3.0
     z_range = np.linspace(z_min, z_max, 1000)
-    fig, ax = plt.subplots(4, 1, figsize=(8, 6), sharex=True)
+    _, ax = plt.subplots(4, 1, figsize=(8, 6), sharex=True)
     ax[0].set_title(f"{dataset['name']}: non-linear vs CPL w0waCDM")
     ax[0].plot(
         z_range,
@@ -184,9 +180,9 @@ def main(dataset):
 desi_union3 = {
     "name": "DESI+Union3",
     "non_linear": {
-        "central": [0.3283, -0.7459, -1.2466],
-        "lower": [0.3283 - 0.0169, -0.7459 + 0.0907, -1.2466 + 0.2124],
-        "upper": [0.3283 + 0.0152, -0.7459 - 0.0848, -1.2466 - 0.2139],
+        "central": [0.3062, -0.8326, 0],
+        "lower": [0.3062 - 0.0082, -0.8326 + 0.0589, 0],
+        "upper": [0.3062 + 0.0087, -0.8326 - 0.0601, 0],
     },
     "CPL": {
         "central": [0.3304, -0.7002, -0.9954],
@@ -198,9 +194,9 @@ desi_union3 = {
 desi_des5y = {
     "name": "DESI+DES5Y",
     "non_linear": {
-        "central": [0.3179, -0.8230, -1.1564],
-        "lower": [0.3179 - 0.0159, -0.8230 + 0.0571, -1.1564 + 0.2069],
-        "upper": [0.3179 + 0.0136, -0.8230 - 0.0528, -1.1564 - 0.2082],
+        "central": [0.3052, -0.8552, 0],
+        "lower": [0.3052 - 0.0078, -0.8552 + 0.0408, 0],
+        "upper": [0.3052 + 0.0079, -0.8552 - 0.0429, 0],
     },
     "CPL": {
         "central": [0.3210, -0.7878, -0.7034],
@@ -212,9 +208,9 @@ desi_des5y = {
 desi_pantheon = {
     "name": "DESI+Pantheon+",
     "non_linear": {
-        "central": [0.3047, -0.8960, -1.0303],
-        "lower": [0.3047 - 0.0182, -0.8960 + 0.0498, -1.0177 + 0.2076],
-        "upper": [0.3047 + 0.0142, -0.8960 - 0.0483, -1.0177 - 0.1969],
+        "central": [0.3020, -0.9059, 0],
+        "lower": [0.3020 - 0.0078, -0.9059 + 0.0438, 0],
+        "upper": [0.3020 + 0.0082, -0.9059 - 0.0442, 0],
     },
     "CPL": {
         "central": [0.3021, -0.8964,  -0.1376],
