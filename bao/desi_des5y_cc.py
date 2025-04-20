@@ -138,9 +138,19 @@ bounds = np.array([
 ])
 
 
+C = np.sum(inverse_cov_sn) # Third term: C
+log_term = np.log(C / (2 * np.pi))
+
 def chi_squared(params):
+    """ 
+    Computes modified likelihood to marginalize over M 
+    (Wood-Vasey et al. 2001, Appendix A9-A12)
+    """
     delta_sn = distance_moduli_values - model_distance_modulus(z_vals, params)
-    chi_sn = np.dot(delta_sn, np.dot(inverse_cov_sn, delta_sn))
+    deltaT = np.transpose(delta_sn)
+    chit2 = np.sum(delta_sn @ inverse_cov_sn @ deltaT)     # First term: (Δ^T C^-1 Δ)
+    B = np.sum(delta_sn @ inverse_cov_sn)                  # Second term: B
+    chi_sn = chit2 - (B**2 / C) + log_term                 # Full modified chi2
 
     delta_bao = data['value'] - model_predictions(params)
     chi_bao = np.dot(delta_bao, np.dot(inv_cov_matrix, delta_bao))
@@ -249,99 +259,55 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM: w(z) = -1
-h0: 70.1105 +0.2118 -0.2018
-r_d: 143.5180 +0.7036 -0.7023
-Ωm: 0.3094 +0.0075 -0.0079
+h0: 68.6038 +1.5933 -1.6312
+r_d: 146.6324 +3.4678 -3.3189
+Ωm: 0.3102 +0.0079 -0.0078
 w0: -1
 wa: 0
-Chi squared: 1674.0150
+Chi squared: 1682.2712
 Degrees of freedom: 1776
 
 ==============================
 
 Flat wCDM: w(z) = w0
-h0: 69.2248 +0.3486 -0.3498
-r_d: 143.1237 +0.7199 -0.7138
-Ωm: 0.2980 +0.0086 -0.0089
-w0: -0.8813 +0.0394 -0.0387 (3.04 sigma)
+h0: 67.3200 +1.6616 -1.6298
+r_d: 146.9780 +3.5382 -3.3584
+Ωm: 0.2983 +0.0091 -0.0087
+w0: -0.8778 +0.0383 -0.0385 (3.18 sigma)
 wa: 0
-Chi squared: 1664.5022
+Chi squared: 1672.3421
 Degrees of freedom: 1775
 
 ==============================
 
-Flat w(z) = w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-h0: 69.1029 +0.3717 -0.3687
-r_d: 143.1781 +0.7141 -0.7093
-Ωm: 0.3042 +0.0080 -0.0077
-w0: -0.8614 +0.0420 -0.0423 (3.29 sigma)
+Flat alternative: w(z) = w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
+h0: 67.2467 +1.6174 -1.6254
+r_d: 146.9661 +3.4886 -3.3260
+Ωm: 0.3052 +0.0080 -0.0078
+w0: -0.8579 +0.0413 -0.0427 (3.38 sigma)
 wa: 0
-Chi squared: 1663.5389
+Chi squared: 1671.3776
 Degrees of freedom: 1775
 
 ==============================
 
 Flat w0waCDM: w(z) = w0 + wa * z/(1 + z)
-h0: 68.8360 +0.4414 -0.4402
-r_d: 143.4270 +0.7432 -0.7410
-Ωm: 0.3194 +0.0131 -0.0155
-w0: -0.7984 +0.0725 -0.0678 (2.87 sigma)
-wa: -0.6686 +0.4515 -0.4573 (1.47 sigma)
-Chi squared: 1662.2341
+h0: 67.0483 +1.6021 -1.6216
+r_d: 147.1580 +3.4869 -3.3037
+Ωm: 0.3194 +0.0132 -0.0156
+w0: -0.8001 +0.0730 -0.0672 (2.85 sigma)
+wa: -0.6404 +0.4499 -0.4601 (1.41 sigma)
+Chi squared: 1670.1887
 Degrees of freedom: 1774
 
 ============================
 
 Flat linear: w(z) = w0 + wa * z
-h0: 68.8757 +0.4015 -0.4072
-r_d: 143.4345 +0.7330 -0.7264
-Ωm: 0.3254 +0.0121 -0.0134
-w0: -0.8302 +0.0542 -0.0495 (3.27 sigma)
-wa: -0.4315 +0.2358 -0.2510 (1.77 sigma)
-Chi squared: 1662.2735
-Degrees of freedom: 1774
-
-============================
-
-Flat non-linear: w(z) = w0 + wa * (1 - 1/np.exp(z))
-h0: 68.8720 +0.4379 -0.4316
-r_d: 143.4004 +0.7469 -0.7266
-Ωm: 0.3194 +0.0134 -0.0174
-w0: -0.8136 +0.0648 -0.0593 (3.00 sigma)
-wa: -0.5215 +0.3876 -0.3691 (1.38 sigma)
-Chi squared: 1662.2767
-Degrees of freedom: 1774
-
-============================
-
-Flat non-linear: w(z) = w0 + wa * (1 - np.exp(0.5 - 0.5 * (1 + z)**2))
-h0: 68.8768 +0.4291 -0.4194
-r_d: 143.4185 +0.7426 -0.7487
-Ωm: 0.3190 +0.0131 -0.0164
-w0: -0.8210 +0.0602 -0.0561 (3.08 sigma)
-wa: -0.4185 +0.3009 -0.3050 (1.38 sigma)
-Chi squared: 1662.3222
-Degrees of freedom: 1774
-
-=============================
-
-Flat non-linear: w(z) = w0 + wa * np.tanh(z)
-h0: 68.8907 +0.4211 -0.4222
-r_d: 143.4194 +0.7504 -0.7504
-Ωm: 0.3190 +0.0132 -0.0158
-w0: -0.8217 +0.0605 -0.0558 (3.07 sigma)
-wa: -0.4272 +0.3030 -0.3014 (1.42 sigma)
-Chi squared: 1662.3258
-Degrees of freedom: 1774
-
-=============================
-
-Flat non-linear: w(z) = w0 + wa * np.tanh(0.5*((1 + z) **2 - 1))
-h0: 68.8950 +0.4183 -0.4268
-r_d: 143.4160 +0.7610 -0.7436
-Ωm: 0.3177 +0.0130 -0.0154
-w0: -0.8269 +0.0560 -0.0539 (3.15 sigma)
-wa: -0.3352 +0.2380 -0.2407 (1.40 sigma)
-Chi squared: 1662.4143
+h0: 67.1224 +1.6316 -1.6569
+r_d: 146.9962 +3.4718 -3.3038
+Ωm: 0.3263 +0.0119 -0.0135
+w0: -0.8278 +0.0540 -0.0494 (3.33 sigma)
+wa: -0.4225 +0.2303 -0.2463 (1.77 sigma)
+Chi squared: 1670.2464
 Degrees of freedom: 1774
 """
