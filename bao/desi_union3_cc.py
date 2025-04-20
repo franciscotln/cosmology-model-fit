@@ -22,10 +22,9 @@ inv_cov_matrix = np.linalg.inv(cov_matrix)
 
 
 def h_over_h0_model(z, params):
-    _, _, O_m, w0, wa = params
+    _, _, O_m, w0, _ = params
     sum = 1 + z
-    # return np.sqrt(O_m * sum**3 + (1 - O_m) * ((2 * sum**2) / (1 + sum**2))**(3 * (1 + w0)))
-    return np.sqrt(O_m * sum**3 + np.exp(3*wa*z) * (1 - O_m)**(3 * (1 + w0 - wa)))
+    return np.sqrt(O_m * sum**3 + (1 - O_m) * ((2 * sum**2) / (1 + sum**2))**(3 * (1 + w0)))
 
 
 def integral_e_z(zs, params):
@@ -131,10 +130,10 @@ def model_predictions(params):
 
 
 bounds = np.array([
-    (60, 80), # H0
-    (115, 160), # r_d
-    (0, 0.7), # omega_m
-    (-3, 0), # w0
+    (55, 80),    # H0
+    (125, 170),  # r_d
+    (0, 0.7),    # Ωm
+    (-2, 0),     # w0
     (-3.5, 3.5), # wa
 ])
 
@@ -290,12 +289,12 @@ Degrees of freedom: 62
 ==============================
 
 Flat alternative: w(z) = w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-h0: 66.9013 +1.7452 -1.7397
-r_d: 146.9905 +3.5326 -3.3158
-Ωm: 0.3067 +0.0085 -0.0083
-w0: -0.8337 +0.0586 -0.0604 (2.79 sigma)
-wa: 0
-Chi squared: 48.7888
+h0: 66.9100 +1.7239 -1.7185
+r_d: 146.9666 +3.4934 -3.3217
+Ωm: 0.3067 +0.0086 -0.0083
+w0: -0.8331 +0.0586 -0.0597
+wa: 0.0136 +2.3821 -2.3854
+Chi squared: 48.7856
 Degrees of freedom: 62
 
 ==============================
