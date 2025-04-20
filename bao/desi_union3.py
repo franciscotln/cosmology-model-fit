@@ -23,20 +23,10 @@ bao_cov_matrix = np.loadtxt("bao/raw-data/covariance.txt", delimiter=" ", dtype=
 inv_bao_cov_matrix = np.linalg.inv(bao_cov_matrix)
 
 
-def w_de(z, params):
-    _, _, w0, wa = params
-    return w0 + wa * (1 - np.exp(0.5 - 0.5 * (1 + z)**2))
-
-
-def rho_de(zs, params):
-    z = np.linspace(0, np.max(zs), num=2000)
-    integral_values = cumulative_trapezoid(3*(1 + w_de(z, params))/(1 + z), z, initial=0)
-    return np.exp(np.interp(zs, z, integral_values))
-
-
 def h_over_h0_model(z, params):
-    O_m = params[1]
-    return np.sqrt(O_m * (1 + z)**3 + (1 - O_m) * rho_de(z, params))
+    _, O_m, w0, _ = params
+    sum = 1 + z
+    return np.sqrt(O_m * sum**3 + (1 - O_m) * ((2 * sum**2) / (1 + sum**2))**(3 * (1 + w0)))
 
 
 def wcdm_integral_of_e_z(zs, params):
@@ -95,7 +85,6 @@ def plot_bao_predictions(params):
 
 def H_z(z, params):
     return h_over_h0_model(z, params)
-    # return np.sqrt(omega_m * sum**3 + (1 - omega_m)) # LCDM
 
 
 def DM_z(zs, params):

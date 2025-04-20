@@ -24,21 +24,11 @@ cov_matrix = np.loadtxt("bao/raw-data/covariance.txt", delimiter=" ", dtype=floa
 inv_cov_matrix = np.linalg.inv(cov_matrix)
 
 
-def w_de(z, params):
-    _, _, w0, wa = params
-    return w0 + wa * (1 - np.exp(0.5 - 0.5 * (1 + z)**2))
-
-
-def rho_de(zs, params):
-    z = np.linspace(0, np.max(zs), num=2000)
-    integral_values = cumulative_trapezoid(3*(1 + w_de(z, params))/(1 + z), z, initial=0)
-    return np.exp(np.interp(zs, z, integral_values))
-
-
 def h_over_h0_model(z, params):
     O_m = params[1]
+    w0 = params[2]
     sum = 1 + z
-    return np.sqrt(O_m * sum**3 + (1 - O_m) * rho_de(z, params))
+    return np.sqrt(O_m * sum**3 + (1 - O_m) * ((2 * sum**2) / (1 + sum**2))**(3 * (1 + w0)))
 
 
 def wcdm_integral_of_e_z(zs, params):
