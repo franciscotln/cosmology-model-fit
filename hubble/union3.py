@@ -18,22 +18,12 @@ C = 299792.458
 # Hubble constant (km/s/Mpc)
 H0 = 73.29
 
-def w_de(z, w0, wa):
-    return w0 + wa * (1 - np.exp(0.5 - 0.5*(1 + z)**2))
-
-
-def rho_de(zs, w0, wa):
-    z = np.linspace(0, np.max(zs), num=1500)
-    w =  w_de(z, w0, wa)
-    integral_values = cumulative_trapezoid(3*(1 + w)/(1 + z), z, initial=0)
-    return np.exp(np.interp(zs, z, integral_values))
-
 
 # Flat model
 def integral_of_e_z(zs, omega_m, w0, wa):
     z = np.linspace(0, np.max(zs), num=1500)
     sum = 1 + z
-    h_over_h0 = np.sqrt(omega_m * sum**3 + (1 - omega_m) * rho_de(z, w0, wa))
+    h_over_h0 = np.sqrt(omega_m * sum**3 + (1 - omega_m) * ((2 * sum**2) / (1 + sum**2))**(3 * (1 + w0)))
     integral_values = cumulative_trapezoid(1/h_over_h0, z, initial=0)
     return np.interp(zs, z, integral_values)
 
@@ -62,9 +52,9 @@ def log_likelihood(params):
 
 
 bounds = np.array([
-    (0.1, 1), # Ωm
-    (-1.5, 0.5), # w0
-    (-10, 5) # wa
+    (0, 1), # Ωm
+    (-2, 0.5), # w0
+    (-10, 0) # wa
 ])
 
 
@@ -139,7 +129,8 @@ def main():
     print_color("RMSD (mag)", f"{rmsd:.3f}")
     print_color("Skewness of residuals", f"{skewness:.3f}")
     print_color("kurtosis of residuals", f"{kurt:.3f}")
-    print_color("Reduced chi squared", chi_squared(best_fit_params)/ (len(z_values) - 2))
+    print_color("Chi squared", f"{chi_squared(best_fit_params):.4f}")
+    print_color("Reduced chi squared", chi_squared(best_fit_params)/ (len(z_values) - len(best_fit_params)))
 
     # Plot the data and the fit
     labels = [f"$\Omega_m$", r"$w_0$", r"$w_a$"]
@@ -196,101 +187,70 @@ z range: 0.050 - 2.262
 Sample size: 22
 *****************************
 
-ΛCDM
+Flat ΛCDM
 
-Ωm: 0.3566 +0.0273/-0.0262
+Ωm: 0.3563 +0.0277/-0.0263
 w0: -1
 wa: 0
 R-squared (%): 99.97
 RMSD (mag): 0.040
-Skewness of residuals: 0.571
+Skewness of residuals: 0.563
 kurtosis of residuals: 0.690
-Reduced chi squared: 1.20
+Chi squared: 24.0721
+degrees of freedom: 21
 
 =============================
 
-wCDM
+Flat wCDM
 
-Ωm: 0.2562 +0.0867/-0.1094
-w0: -0.7550 +0.1575/-0.1891 (1.41 sigma)
+Ωm: 0.2581 +0.0863/-0.1089
+w0: -0.7583 +0.1578/-0.1880
 wa: 0
 R-squared (%): 99.96
 RMSD (mag): 0.045
-Skewness of residuals: -1.209
-kurtosis of residuals: 3.780
-Reduced chi squared: 1.12
+Skewness of residuals: -1.179
+kurtosis of residuals: 3.697
+Chi squared: 22.3588
+degrees of freedom: 20
+
+==============================
+
+Flat alternative: w(z) = w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
+Ωm: 0.2897 +0.0601/-0.0638
+w0: -0.7671 +0.1445/-0.1757 (1.45 sigma)
+wa: 0
+R-squared (%): 99.96
+RMSD (mag): 0.045
+Skewness of residuals: -1.046
+kurtosis of residuals: 3.301
+Chi squared: 22.1311
+degrees of freedom: 20
 
 =============================
 
 Flat w0waCDM
 
-Ωm: 0.4344 +0.0576/-0.0946
-w0: -0.6077 +0.2622/-0.2248 (1.61 sigma)
-wa: -3.6583 +2.6542/-3.1517 (1.26 sigma)
+Ωm: 0.4329 +0.0600/-0.1026
+w0: -0.5991 +0.2679/-0.2228 (1.63 sigma)
+wa: -3.6605 +2.8020/-3.3333 (1.19 sigma)
 R-squared (%): 99.93
 RMSD (mag): 0.057
-Skewness of residuals: 0.656
-kurtosis of residuals: 0.449
-Reduced chi squared: 1.06
+Skewness of residuals: 0.614
+kurtosis of residuals: 0.430
+Chi squared: 21.1191
+degrees of freedom: 19
 
 ==============================
 
 Flat w0 + wa * z
 
-Ωm: 0.4517 +0.0582/-0.0916
-w0: -0.6470 +0.2715/-0.2096 (1.47 sigma)
-wa: -3.1119 +2.2424/-3.0061 (1.19 sigma)
+Ωm: 0.4567 +0.0550/-0.0751
+w0: -0.6330 +0.2771/-0.2205 (1.48 sigma)
+wa: -3.2996 +2.0863/-2.9328 (1.31 sigma)
 R-squared (%): 99.93
-RMSD (mag): 0.058
-Skewness of residuals: 0.785
-kurtosis of residuals: 0.475
-Reduced chi squared: 1.06
-
-===============================
-
-Flat w0 + wa * tanh(z)
-
-Ωm: 0.4474 +0.0595/-0.0945
-w0: -0.6321 +0.2742/-0.2150 (1.50 sigma)
-wa: -3.1384 +2.2740/-3.0427 (1.18 sigma)
-R-squared (%): 99.93
-RMSD (mag): 0.059
-Skewness of residuals: 0.767
-kurtosis of residuals: 0.471
-Reduced chi squared: 1.06
-
-Flat w0 + wa * np.tanh(0.5*((1 + z)**2 - 1))
-
-Ωm: 0.4542 +0.0595/-0.0936
-w0: -0.6524 +0.2759/-0.2075 (1.44 sigma)
-wa: -2.8816 +2.0662/-2.8417 (1.17 sigma)
-R-squared (%): 99.93
-RMSD (mag): 0.059
-Skewness of residuals: 0.826
-kurtosis of residuals: 0.511
-Reduced chi squared: 1.06
-
-Flat wa - (w0 - wa) * np.exp(0.5 - 0.5*(1 + z)**2)
-
-Ωm: 0.4477 +0.0590/-0.0909
-w0: -0.6335 +0.2783/-0.2170 (1.48 sigma)
-wa: -3.1637 +2.2671/-3.0296 (1.19 sigma)
-R-squared (%): 99.93
-RMSD (mag): 0.058
-Skewness of residuals: 0.756
-kurtosis of residuals: 0.458
-Reduced chi squared: 1.06
-
-================================
-
-Flat w0 + wa * np.tanh(0.5*(1 + z - 1/(1 + z)))
-
-Ωm: 0.4411 +0.0596/-0.0963
-w0: -0.6162 +0.2779/-0.2185 (1.55 sigma)
-wa: -3.4337 +2.5333/-3.2021 (1.20 sigma)
-R-squared (%): 99.93
-RMSD (mag): 0.057
-Skewness of residuals: 0.689
-kurtosis of residuals: 0.429
-Reduced chi squared: 1.06
+RMSD (mag): 0.060
+Skewness of residuals: 0.840
+kurtosis of residuals: 0.525
+Chi squared: 21.2320
+degrees of freedom: 19
 """
