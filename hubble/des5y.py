@@ -19,35 +19,25 @@ inv_cov_matrix = np.linalg.inv(cov_matrix)
 # Hubble constant km/s/Mpc as assumed in the dataset
 h0 = 70
 
-def w_de(z, w0, wa):
-    return w0 + wa * (1 - np.exp(-0.5*((1 + z)**2 - 1)))
-
-
-def rho_de(zs, w0, wa):
-    z = np.linspace(0, np.max(zs), num=1500)
-    w =  w_de(z, w0, wa)
-    integral_values = cumulative_trapezoid(3*(1 + w)/(1 + z), z, initial=0)
-    return np.exp(np.interp(zs, z, integral_values))
-
 
 # Flat
-def e_z(zs, omega_m, w0, wa):
-    z = np.linspace(0, np.max(zs), num=1500)
+def integral_e_z(zs, omega_m, w0, wa):
+    z = np.linspace(0, np.max(zs), num=2000)
     sum = 1 + z
-    H_over_H0 = np.sqrt(omega_m * sum**3 + (1 - omega_m) * rho_de(z, w0, wa))
-    integral_values = cumulative_trapezoid(1/H_over_H0, z, initial=0)
+    Ez = np.sqrt(omega_m * sum**3 + (1 - omega_m) * ((2 * sum**2) / (1 + sum**2))**(3 * (1 + w0)))
+    integral_values = cumulative_trapezoid(1/Ez, z, initial=0)
     return np.interp(zs, z, integral_values)
 
 def wcdm_distance_modulus(z, params):
     a0_over_ae = 1 + z
-    comoving_distance = (C / h0) * e_z(z, *params)
+    comoving_distance = (C / h0) * integral_e_z(z, *params)
     return 25 + 5 * np.log10(a0_over_ae * comoving_distance)
 
 
 def lcdm_distance_modulus(z, params):
     [omega_m] = params
     a0_over_ae = 1 + z
-    comoving_distance = (C / h0) * e_z(z, omega_m, -1, 0)
+    comoving_distance = (C / h0) * integral_e_z(z, omega_m, -1, 0)
     return 25 + 5 * np.log10(a0_over_ae * comoving_distance)
 
 
@@ -228,17 +218,6 @@ R-squared (%): 99.30
 RMSD (mag): 0.268
 Skewness of residuals: 1.407
 
-==============================
-
-Flat w0 + wa * z
-Chi squared: 551.6259
-Ωm: 0.4505 +0.0632/-0.1093
-w0: -0.9316 +0.4600/-0.4087 (0.16 sigma)
-wa: -4.1686 +3.9992/-7.2391 (0.74 sigma)
-R-squared (%): 99.28
-RMSD (mag): 0.270
-Skewness of residuals: 1.398
-
 ********************************
 Dataset: DES-SN5YR
 z range: 0.025 - 1.121
@@ -267,63 +246,23 @@ Skewness of residuals: 3.417
 
 ==============================
 
-Flat w0waCDM
-Chi squared: 1641.9146
-Ωm: 0.4954 +0.0321/-0.0431
-w0: -0.3752 +0.3663/-0.3033 (1.87 sigma)
-wa: -8.9260 +3.9253/-4.5788 (2.01 sigma)
-R-squared (%): 98.20
-RMSD (mag): 0.280
-Skewness of residuals: 3.454
+Flat w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
+Chi squared: 1647.8506
+Ωm: 0.2961 +0.0487/-0.0509
+w0: -0.8315 +0.1208/-0.1352 (1.32 sigma)
+wa: 0
+R-squared (%): 98.32
+RMSD (mag): 0.271
+Skewness of residuals: 3.418
 
 ==============================
 
-Flat w0 + wa * z
-Chi squared: 1641.8069
-Ωm: 0.5004 +0.0306/-0.0385
-w0: -0.4931 +0.3375/-0.2607 (1.69 sigma)
-wa: -6.8355 +2.8457/-3.7107 (2.09 sigma)
+Flat w0waCDM
+Chi squared: 1641.8763
+Ωm: 0.4910 +0.0333/-0.0463
+w0: -0.4196 +0.3408/-0.2840 (1.86 sigma)
+wa: -8.3720 +3.8721/-4.3639 (2.00 sigma)
 R-squared (%): 98.21
 RMSD (mag): 0.280
 Skewness of residuals: 3.453
-
-===============================
-
-Flat w0 + wa * tanh(z)
-Chi squared: 1641.8571
-Ωm: 0.4987 +0.0314/-0.0397
-w0: -0.4654 +0.3428/-0.2708 (1.74 sigma)
-wa: -7.1041 +3.0804/-3.8306 (2.06 sigma)
-R-squared (%): 98.21
-RMSD (mag): 0.280
-Skewness of residuals: 3.454
-
-Flat w0 + wa * np.tanh(0.5*((1 + z)**2 - 1))
-Chi squared: 1641.8041
-Ωm: 0.4988 +0.0312/-0.0396
-w0: -0.5365 +0.3178/-0.2420 (1.66 sigma)
-wa: -5.9820 +2.6136/-3.3646
-R-squared (%): 98.21
-RMSD (mag): 0.279
-Skewness of residuals: 3.452
-
-Flat w0 + wa * (1 - np.exp(-0.5*((1 + z)**2 - 1)))
-Ωm: 0.4985 +0.0317/-0.0409
-w0: -0.4706 +0.3459/-0.2773 (1.70 sigma)
-wa: -7.0338 +3.1012/-3.8685 (2.02 sigma)
-R-squared (%): 98.21
-RMSD (mag): 0.280
-Skewness of residuals: 3.454
-Chi squared: 1641.8428414645
-
-================================
-
-Flat w0 + wa * np.tanh(0.5*(1 + z - 1/(1 + z)))
-Chi squared: 1641.8428
-Ωm: 0.4952 +0.0323/-0.0467
-w0: -0.4375 +0.3623/-0.2743 (1.77 sigma)
-wa: -7.7213 +3.6703/-4.1760 (1.97 sigma)
-R-squared (%): 98.20
-RMSD (mag): 0.280
-Skewness of residuals: 3.454
 """
