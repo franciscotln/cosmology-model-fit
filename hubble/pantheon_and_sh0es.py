@@ -18,23 +18,12 @@ inv_cov_matrix = np.linalg.inv(cov_matrix)
 C = 299792.458
 
 
-def w_de(z, w0, wa):
-    return wa + (w0 - wa) * np.exp(0.5 - 0.5*(1 + z)**2)
-
-
-def rho_de(zs, w0, wa):
-    z = np.linspace(0, np.max(zs), num=2000)
-    w =  w_de(z, w0, wa)
-    integral_values = cumulative_trapezoid(3*(1 + w)/(1 + z), z, initial=0)
-    return np.exp(np.interp(zs, z, integral_values))
-
-
 # Flat
 def integral_of_e_z(z, params):
-    _, Omega_m, w0, wa = params
+    _, Omega_m, w0, _ = params
     z_grid = np.linspace(0, np.max(z), num=2000)
     sum = 1 + z_grid
-    H_over_H0 = np.sqrt(Omega_m * sum**3 + (1 - Omega_m) * rho_de(z_grid, w0, wa))
+    H_over_H0 = np.sqrt(Omega_m * sum**3 + (1 - Omega_m) * ((2*sum**2) / (1 + sum**2))**(3*(1 + w0)))
     integral_values = cumulative_trapezoid(1/H_over_H0, z_grid, initial=0)
     return np.interp(z, z_grid, integral_values)
 
@@ -70,7 +59,7 @@ bounds = np.array([
     (0.4, 1.0), # h0
     (0, 1), # Ωm
     (-2, 0), # w0
-    (-3, 0), # wa
+    (-3, 3), # wa
 ])
 
 
@@ -120,7 +109,11 @@ def main():
 
     # Compute residuals
     predicted_distance_modulus_values = wcdm_distance_modulus(z_values, best_fit_params)
-    residuals = np.where(cepheid_distances != -9, distance_modulus_values - cepheid_distances , distance_modulus_values - predicted_distance_modulus_values)
+    residuals = np.where(
+        cepheid_distances != -9,
+        distance_modulus_values - cepheid_distances,
+        distance_modulus_values - predicted_distance_modulus_values,
+    )
 
     skewness = stats.skew(residuals)
     kurtosis = stats.kurtosis(residuals)
@@ -168,7 +161,7 @@ def main():
     plt.show()
 
     # Plot results: chains for each parameter
-    fig, axes = plt.subplots(n_dim, figsize=(10, 7))
+    _, axes = plt.subplots(n_dim, figsize=(10, 7))
     if n_dim == 1:
         axes = [axes]
     for i in range(n_dim):
@@ -215,7 +208,6 @@ R-squared: 99.78 %
 RMSD (mag): 0.153
 Skewness of residuals: 0.086
 kurtosis of residuals: 1.559
-Spearman correlation: -0.823
 Chi squared: 1452.7
 
 =============================
@@ -232,40 +224,13 @@ Chi squared: 1452.5
 
 =============================
 
-Flat w0 + (wa - w0)*tanh(0.5*(1 + z - 1/(1 + z)))
-H0: 73.12 +0.32/-0.32 km/s/Mpc
-Ωm: 0.3400 +0.0640/-0.1161
-w0: -0.9432 +0.1446/-0.1575
-wa: -1.2814 +0.8868/-1.0786
+Flat w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
+H0: 73.14 +0.31/-0.30 km/s/Mpc
+Ωm: 0.3144 +0.0478/-0.0500
+w0: -0.9467 +0.1288/-0.1489
 R-squared: 99.78 %
 RMSD (mag): 0.153
-Skewness of residuals: 0.075
-kurtosis of residuals: 1.570
-Chi squared: 1453.7
-
-=============================
-
-Flat w0 + (wa - w0)*tanh(0.5*((1 + z)**2 - 1))
-H0: 73.12 +0.32/-0.31 km/s/Mpc
-Ωm: 0.3495 +0.0680/-0.1374
-w0: -0.9552 +0.1588/-0.1562
-wa: -1.2909 +0.8148/-1.0312
-R-squared: 99.78 %
-RMSD (mag): 0.153
-Skewness of residuals: 0.074
-kurtosis of residuals: 1.571
-Chi squared: 1453.8
-
-==============================
-
-Flat wa + (w0 - wa) * np.exp(0.5 - 0.5*(1 + z)**2)
-H0: 73.13 +0.31/-0.32 km/s/Mpc
-Ωm: 0.3451 +0.0665/-0.1336
-w0: -0.9517 +0.1564/-0.1587
-wa: -1.2773 +0.8558/-1.0617
-R-squared: 99.78 %
-RMSD (mag): 0.153
-Skewness of residuals: 0.075
-kurtosis of residuals: 1.570
-Chi squared: 1453.9
+Skewness of residuals: 0.079
+kurtosis of residuals: 1.564
+Chi squared: 1452.5
 """
