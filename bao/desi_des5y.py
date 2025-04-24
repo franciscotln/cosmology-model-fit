@@ -25,22 +25,22 @@ inv_cov_matrix = np.linalg.inv(cov_matrix)
 
 
 def h_over_h0_model(z, params):
-    O_m = params[1]
-    w0 = params[2]
+    _, _, O_m, w0, _ = params
     sum = 1 + z
     return np.sqrt(O_m * sum**3 + (1 - O_m) * ((2 * sum**2) / (1 + sum**2))**(3 * (1 + w0)))
 
 
-def wcdm_integral_of_e_z(zs, params):
+def integral_of_e_z(zs, params):
     z = np.linspace(0, np.max(zs), num=2000)
     integral_values = cumulative_trapezoid(1/h_over_h0_model(z, params), z, initial=0)
     return np.interp(zs, z, integral_values)
 
 
-def wcdm_distance_modulus(z, params):
+def model_distance_modulus(z, params):
+    delta_M = params[0]
     a0_over_ae = 1 + z
-    comoving_distance = (c/H0) * wcdm_integral_of_e_z(z, params)
-    return 25 + 5 * np.log10(a0_over_ae * comoving_distance)
+    comoving_distance = (c / H0) * integral_of_e_z(z, params)
+    return delta_M + 25 + 5 * np.log10(a0_over_ae * comoving_distance)
 
 
 def plot_bao_predictions(params):
@@ -52,7 +52,7 @@ def plot_bao_predictions(params):
     unique_quantities = set(quantity_types)
     colors = { "DV_over_rs": "red", "DM_over_rs": "blue", "DH_over_rs": "green" }
 
-    r_d, omega_m, w0, wa = params
+    _, r_d, omega_m, w0, wa = params
     z_smooth = np.linspace(0, max(z_values), 100)
     plt.figure(figsize=(8, 6))
     for q in unique_quantities:
@@ -81,13 +81,12 @@ def plot_bao_predictions(params):
     plt.ylabel(r"$O = \frac{D}{r_d}$")
     plt.legend()
     plt.grid(True)
-    plt.title(f"BAO model: $r_d * h$={r_d:.2f}, $\Omega_M$={omega_m:.4f}, $w_0$={w0:.4f}, $w_a$={wa:.4f}")
+    plt.title(f"BAO model: $\Omega_M$={omega_m:.4f}, $w_0$={w0:.4f}, $w_a$={wa:.4f}")
     plt.show()
 
 
 def H_z(z, params):
     return h_over_h0_model(z, params)
-    # return np.sqrt(omega_m * sum**3 + (1 - omega_m)) # LCDM
 
 
 def DM_z(zs, params):
@@ -101,7 +100,7 @@ def DV_z(z, params):
 
 
 def model_predictions(params):
-    r_d = params[0]
+    r_d = params[1]
     predictions = []
     for z, _, quantity in data:
         if quantity == "DV_over_rs":
@@ -114,6 +113,7 @@ def model_predictions(params):
 
 
 bounds = np.array([
+    (-0.5, 0.5), # delta M
     (115, 160), # r_d
     (0.1, 0.7), # omega_m
     (-3, 0), # w0
@@ -122,16 +122,9 @@ bounds = np.array([
 
 
 def chi_squared(params):
-    """ 
-    Computes modified likelihood to marginalize over M 
-    (Wood-Vasey et al. 2001, Appendix A9-A12)
-    """
-    delta_sn = distance_moduli_values - wcdm_distance_modulus(z_vals, params)
-    deltaT = np.transpose(delta_sn)
-    chit2 = np.sum(delta_sn @ inverse_cov_sn @ deltaT)     # First term: (Δ^T C^-1 Δ)
-    B = np.sum(delta_sn @ inverse_cov_sn)                  # Second term: B
-    C = np.sum(inverse_cov_sn)                             # Third term: C
-    chi_sn = chit2 - (B**2 / C) + np.log(C / (2 * np.pi))  # Full modified chi2
+    delta_sn = distance_moduli_values - model_distance_modulus(z_vals, params)
+    chi_sn = np.dot(delta_sn, np.dot(inverse_cov_sn, delta_sn))
+
     delta_bao = data['value'] - model_predictions(params)
     chi_bao = np.dot(delta_bao, np.dot(inv_cov_matrix, delta_bao))
     return chi_sn + chi_bao
@@ -158,7 +151,7 @@ def main():
     ndim = len(bounds)
     nwalkers = 50
     burn_in = 500
-    nsteps = 2000 + burn_in
+    nsteps = 4000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):
@@ -178,14 +171,16 @@ def main():
     samples = sampler.get_chain(discard=burn_in, flat=True)
 
     [
+        [delta_M_16, delta_M_50, delta_M_84],
         [rd_16, rd_50, rd_84],
         [omega_16, omega_50, omega_84],
         [w0_16, w0_50, w0_84],
         [wa_16, wa_50, wa_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = [rd_50, omega_50, w0_50, wa_50]
+    best_fit = [delta_M_50, rd_50, omega_50, w0_50, wa_50]
 
+    print(f"ΔM: {delta_M_50:.4f} +{(delta_M_84 - delta_M_50):.4f} -{(delta_M_50 - delta_M_16):.4f}")
     print(f"r_d: {rd_50:.4f} +{(rd_84 - rd_50):.4f} -{(rd_50 - rd_16):.4f}")
     print(f"Ωm: {omega_50:.4f} +{(omega_84 - omega_50):.4f} -{(omega_50 - omega_16):.4f}")
     print(f"w0: {w0_50:.4f} +{(w0_84 - w0_50):.4f} -{(w0_50 - w0_16):.4f}")
@@ -199,12 +194,12 @@ def main():
         x=z_vals,
         y=distance_moduli_values,
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=wcdm_distance_modulus(z_vals, best_fit),
-        label=f"Best fit: $w_0$={w0_50:.4f}, $\Omega_m$={omega_50:.4f}",
+        y_model=model_distance_modulus(z_vals, best_fit),
+        label=f"Best fit: $\Omega_m$={omega_50:.4f}, $w_0$={w0_50:.4f}, $w_a$={wa_50:.4f}",
         x_scale="log"
     )
 
-    labels = [r"$r_d$", f"$\Omega_m$", r"$w_0$", r"$w_a$"]
+    labels = [r"$\Delta_M$", r"$r_d$", f"$\Omega_m$", r"$w_0$", r"$w_a$"]
     corner.corner(
         samples,
         labels=labels,
@@ -217,11 +212,11 @@ def main():
     )
     plt.show()
 
-    fig, axes = plt.subplots(ndim, figsize=(10, 7))
+    _, axes = plt.subplots(ndim, figsize=(10, 7))
     if ndim == 1:
         axes = [axes]
     for i in range(ndim):
-        axes[i].plot(chains_samples[:, :, i], color='black', alpha=0.3)
+        axes[i].plot(chains_samples[:, :, i], color='black', alpha=0.3, lw=0.4)
         axes[i].set_ylabel(labels[i])
         axes[i].set_xlabel("chain step")
         axes[i].axvline(x=burn_in, color='red', linestyle='--', alpha=0.5)
@@ -235,86 +230,44 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM
-r_d: 143.6861 +0.9398 -0.9550
-Ωm: 0.3099 +0.0081 -0.0077
-w0 = -1
-wa = 0
-Chi squared: 1667.7203
-Degrees of freedom: 1840
+ΔM: -0.0034 +0.0063 -0.0065
+r_d: 143.7087 +0.9435 -0.9465 Mpc
+Ωm: 0.3096 +0.0081 -0.0077
+w0: -1
+wa: 0
+Chi squared: 1658.5700
+Degrees of freedom: 1839
 
 ==============================
 
 Flat wCDM
-r_d: 141.3300 +1.1671 -1.1685
-Ωm: 0.2979 +0.0087 -0.0087
-w0: -0.8748 +0.0379 -0.0397 (3.23 sigma)
+ΔM: 0.0253 +0.0107 -0.0110
+r_d: 141.3528 +1.1775 -1.1514 Mpc
+Ωm: 0.2980 +0.0088 -0.0090
+w0: -0.8762 +0.0384 -0.0381 (3.24 sigma)
 wa: 0
-Chi squared: 1657.5935
-Degrees of freedom: 1839
+Chi squared: 1648.4503
+Degrees of freedom: 1838
 
 ===============================
 
 Flat w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-r_d: 141.1310 +1.2121 -1.1808
-Ωm: 0.3052 +0.0079 -0.0078
-w0: -0.8552 +0.0408 -0.0429 (3.46 sigma)
+ΔM: 0.0295 +0.0113 -0.0115
+r_d: 141.1629 +1.1765 -1.1690 Mpc
+Ωm: 0.3050 +0.0080 -0.0078
+w0: -0.8563 +0.0419 -0.0421 (3.42 sigma)
 wa: 0
-Chi squared: 1656.5929
-Degrees of freedom: 1839
+Chi squared: 1647.4448
+Degrees of freedom: 1838
 
 ==============================
 
 Flat w0waCDM
-r_d: 140.8285 +1.2178 -1.1816
-Ωm: 0.3210 +0.0122 -0.0132
-w0: -0.7878 +0.0697 -0.0607 (3.25 sigma)
-wa: -0.7034 +0.3901 -0.4490 (1.68 sigma)
-Chi squared: 1655.2812
-Degrees of freedom: 1838
-
-==============================
-
-Flat w0 + wa * z
-r_d: 140.9156 +1.2076 -1.2039
-Ωm: 0.3267 +0.0118 -0.0132
-w0: -0.8214 +0.0539 -0.0506 (3.42 sigma)
-wa: -0.4483 +0.2487 -0.2374 (1.84 sigma)
-Chi squared: 1655.2542
-Degrees of freedom: 1838
-
-============================
-
-Flat w0 + wa * np.tanh(z)
-r_d: 140.9847 +1.1919 -1.1959
-Ωm: 0.3193 +0.0133 -0.0168
-w0: -0.8140 +0.0605 -0.0572 (3.16 sigma)
-wa: -0.4294 +0.3130 -0.3112 (1.38 sigma)
-Chi squared: 1655.3328
-Degrees of freedom: 1838
-
-Flat w0 + wa * np.tanh(0.5 * ((1 + z)**2 - 1))
-r_d: 141.0321 +1.1952 -1.2112
-Ωm: 0.3188 +0.0128 -0.0150
-w0: -0.8230 +0.0573 -0.0527 (3.22 sigma)
-wa: -0.3447 +0.2324 -0.2470 (1.44 sigma)
-Chi squared: 1655.3989
-Degrees of freedom: 1838
-
-Flat w0 + wa * (1 - np.exp(0.5 - 0.5 * (1 + z)**2))
-r_d: 140.9714 +1.1877 -1.1869
-Ωm: 0.3199 +0.0129 -0.0168
-w0: -0.8130 +0.0593 -0.0574 (3.20 sigma)
-wa: -0.4398 +0.3094 -0.3021 (1.44 sigma)
-Chi squared: 1655.3195
-Degrees of freedom: 1838
-
-============================
-
-Flat w0 + wa * np.tanh(0.5 * (1 + z - 1/(1 + z)))
-r_d: 140.9350 +1.2293 -1.1756
-Ωm: 0.3207 +0.0129 -0.0166
-w0: -0.8056 +0.0667 -0.0624 (3.01 sigma)
-wa: -0.5517 +0.3900 -0.3664 (1.46 sigma)
-Chi squared: 1655.2916
-Degrees of freedom: 1838
+ΔM: 0.0374 +0.0138 -0.0140
+r_d: 140.8937 +1.2340 -1.1907 Mpc
+Ωm: 0.3199 +0.0132 -0.0167
+w0: -0.7942 +0.0733 -0.0685 (2.9 sigma)
+wa: -0.6713 +0.4795 -0.4728 (1.41 sigma)
+Chi squared: 1646.1246
+Degrees of freedom: 1837
 """
