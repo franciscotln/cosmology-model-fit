@@ -21,59 +21,6 @@ data = np.genfromtxt(
 cov_matrix = np.loadtxt("bao/raw-data/covariance.txt", delimiter=" ", dtype=float)
 inv_cov_matrix = np.linalg.inv(cov_matrix)
 
-def plot_predictions(params):
-    observed_values = data["value"]
-    z_values = data["z"]
-    quantity_types = data["quantity"]
-    errors = np.sqrt(np.diag(cov_matrix))
-
-    # Compute R squared
-    residuals = observed_values - model_predictions(params)
-    SS_res = np.sum(residuals**2)
-    SS_tot = np.sum((observed_values - np.mean(observed_values))**2)
-    R_squared = 1 - SS_res/SS_tot
-
-    # Calculate root mean square deviation
-    rmsd = np.sqrt(np.mean(residuals ** 2))
-
-    print(f"R^2: {R_squared:.4f}")
-    print(f"RMSD: {rmsd:.4f}")
-
-    unique_quantities = set(quantity_types)
-    colors = { "DV_over_rs": "red", "DM_over_rs": "blue", "DH_over_rs": "green" }
-
-    r_d, omega_m, w0, wa = params
-    z_smooth = np.linspace(0, max(z_values), 100)
-    plt.figure(figsize=(8, 6))
-    for q in unique_quantities:
-        mask = quantity_types == q
-        plt.errorbar(
-            x=z_values[mask],
-            y=observed_values[mask],
-            yerr=errors[mask],
-            fmt='.',
-            color=colors[q],
-            label=f"Data: {q}",
-            capsize=2,
-            linestyle="None",
-        )
-        model_smooth = []
-        for z in z_smooth:
-            if q == "DV_over_rs":
-                model_smooth.append(DV_z(z, params)/(100*r_d))
-            elif q == "DM_over_rs":
-                model_smooth.append(DM_z(z, params)/(100*r_d))
-            elif q == "DH_over_rs":
-                model_smooth.append((c / H_z(z, params))/(100*r_d))
-        plt.plot(z_smooth, model_smooth, color=colors[q], alpha=0.5)
-
-    plt.xlabel("Redshift (z)")
-    plt.ylabel(r"$O = \frac{D}{r_d}$")
-    plt.legend()
-    plt.grid(True)
-    plt.title(f"BAO model: $r_d x h$={r_d:.2f}, $\Omega_M$={omega_m:.4f}, $w_0$={w0:.4f}, $w_a$={wa:.4f}")
-    plt.show()
-
 
 def H_z(z, params):
     _, omega_m, w0, _ = params
@@ -82,7 +29,7 @@ def H_z(z, params):
 
 
 def DM_z(zs, params):
-    z = np.linspace(0, np.max(zs), num=2000)
+    z = np.linspace(0, np.max(zs), num=3000)
     return cumulative_trapezoid(c / H_z(z, params), z, initial=0)[-1]
 
 
@@ -92,17 +39,16 @@ def DV_z(z, params):
     return (z * DH * DM**2)**(1/3)
 
 
+quantity_funcs = {
+    "DV_over_rs": lambda z, params: DV_z(z, params),
+    "DM_over_rs": lambda z, params: DM_z(z, params),
+    "DH_over_rs": lambda z, params: (c / H_z(z, params)),
+}
+
+
 def model_predictions(params):
     r_d_x_h0 = params[0] * 100
-    predictions = []
-    for z, _, quantity in data:
-        if quantity == "DV_over_rs":
-            predictions.append(DV_z(z, params) / r_d_x_h0)
-        elif quantity == "DM_over_rs":
-            predictions.append(DM_z(z, params) / r_d_x_h0)
-        elif quantity == "DH_over_rs":
-            predictions.append((c / H_z(z, params)) / r_d_x_h0)
-    return np.array(predictions)
+    return np.array([(quantity_funcs[qty](z, params) / r_d_x_h0) for z, _, qty in data])
 
 
 bounds = np.array([
@@ -136,6 +82,52 @@ def log_probability(params):
 
 
 def main():
+    def plot_predictions(params):
+        observed_values = data["value"]
+        z_values = data["z"]
+        quantity_types = data["quantity"]
+        errors = np.sqrt(np.diag(cov_matrix))
+
+        residuals = observed_values - model_predictions(params)
+        SS_res = np.sum(residuals**2)
+        SS_tot = np.sum((observed_values - np.mean(observed_values))**2)
+        R_squared = 1 - SS_res/SS_tot
+
+        # Calculate root mean square deviation
+        rmsd = np.sqrt(np.mean(residuals ** 2))
+
+        print(f"R^2: {R_squared:.4f}")
+        print(f"RMSD: {rmsd:.4f}")
+
+        unique_quantities = set(quantity_types)
+        colors = { "DV_over_rs": "red", "DM_over_rs": "blue", "DH_over_rs": "green" }
+
+        r_d, omega_m, w0, wa = params
+        z_smooth = np.linspace(0, max(z_values), 100)
+        plt.figure(figsize=(8, 6))
+        for q in unique_quantities:
+            mask = quantity_types == q
+            plt.errorbar(
+                x=z_values[mask],
+                y=observed_values[mask],
+                yerr=errors[mask],
+                fmt='.',
+                color=colors[q],
+                label=f"Data: {q}",
+                capsize=2,
+                linestyle="None",
+            )
+            model_smooth = np.array([quantity_funcs[q](z, params)/(100*r_d) for z in z_smooth])
+            plt.plot(z_smooth, model_smooth, color=colors[q], alpha=0.5)
+
+        plt.xlabel("Redshift (z)")
+        plt.ylabel(r"$O = \frac{D}{r_d}$")
+        plt.legend()
+        plt.grid(True)
+        plt.title(f"BAO model: $r_d x h$={r_d:.2f}, $\Omega_M$={omega_m:.4f}, $w_0$={w0:.4f}, $w_a$={wa:.4f}")
+        plt.show()
+
+
     ndim = len(bounds)
     nwalkers = 100
     burn_in = 500
@@ -190,15 +182,15 @@ def main():
     )
     plt.show()
 
-    _, axes = plt.subplots(ndim, figsize=(10, 7))
+    _, axes = plt.subplots(ndim, figsize=(10, 7), sharex=True)
     if ndim == 1:
         axes = [axes]
     for i in range(ndim):
-        axes[i].plot(chains_samples[:, :, i], color='black', alpha=0.3)
+        axes[i].plot(chains_samples[:, :, i], color='black', alpha=0.3, lw=0.5)
         axes[i].set_ylabel(labels[i])
-        axes[i].set_xlabel("chain step")
         axes[i].axvline(x=burn_in, color='red', linestyle='--', alpha=0.5)
         axes[i].axhline(y=best_fit[i], color='white', linestyle='--', alpha=0.5)
+    axes[ndim - 1].set_xlabel("chain step")
     plt.show()
 
 
@@ -232,14 +224,14 @@ RMSD: 0.2800
 ===============================
 
 Flat w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-r_d*h: 99.1492 +2.0814 -1.9665
-Ωm: 0.3037 +0.0104 -0.0100
-w0: -0.8735 +0.0984 -0.1036 (1.25 sigma)
+r_d*h: 99.0858 +2.1057 -1.9605
+Ωm: 0.3041 +0.0103 -0.0100
+w0: -0.8714 +0.0988 -0.1049 (1.26 sigma)
 wa: 0
-Chi squared: 8.6797
+Chi squared: 8.6799
 Degs of freedom: 10
 R^2: 0.9990
-RMSD: 0.2711
+RMSD: 0.2707
 
 ==============================
 
@@ -252,60 +244,4 @@ Chi squared: 5.6478
 Degs of freedom: 9
 R^2: 0.9994
 RMSD: 0.2016
-
-===============================
-
-Flat w0 + wa * z
-r_d*h: 93.4082 +4.1359 -3.7184
-Ωm: 0.3729 +0.0367 -0.0395
-w0: -0.4606 +0.3014 -0.2980 (1.80 sigma)
-wa: -1.2049 +0.6832 -0.6762 (1.77 sigma)
-Chi squared: 5.5936
-Degs of freedom: 9
-R^2: 0.9994
-RMSD: 0.2035
-
-===============================
-
-Flat w0 + wa * np.tanh(z)
-r_d*h: 92.3188 +4.2977 -4.0220
-Ωm: 0.3770 +0.0428 -0.0413
-w0: -0.3391 +0.3648 -0.3384 (1.88 sigma)
-wa: -1.5943 +0.8722 -0.9275 (1.77 sigma)
-Chi squared: 5.6480
-Degs of freedom: 9
-R^2: 0.9994
-RMSD: 0.2010
-
-Flat w0 + wa * np.tanh(0.5 * ((1 + z)**2 - 1))
-r_d*h: 92.3266 +4.3865 -3.9885
-Ωm: 0.3758 +0.0425 -0.0423
-w0: -0.3647 +0.3431 -0.3267 (1.90 sigma)
-wa: -1.2694 +0.7022 -0.7381 (1.76 sigma)
-Chi squared: 5.6009
-Degs of freedom: 9
-R^2: 0.9994
-RMSD: 0.2005
-
-Flat w0 + wa * (1 - np.exp(0.5 - 0.5 * (1 + z)**2))
-r_d*h: 92.3829 +4.2911 -3.9730
-Ωm: 0.3771 +0.0416 -0.0420
-w0: -0.3470 +0.3535 -0.3350 (1.90 sigma)
-wa: -1.5626 +0.8617 -0.8841 (1.79 sigma)
-Chi squared: 5.6023
-Degs of freedom: 9
-R^2: 0.9994
-RMSD: 0.2013
-
-===============================
-
-Flat w0 + wa * np.tanh(0.5*(1 + z - 1/(1 + z)))
-r_d*h: 92.0418 +4.7081 -4.0311
-Ωm: 0.3807 +0.0422 -0.0460
-w0: -0.2911 +0.3814 -0.3871 (1.84 sigma)
-wa: -1.9994 +1.1534 -1.1248 (1.76 sigma)
-Chi squared: 5.6068
-Degs of freedom: 9
-R^2: 0.9994
-RMSD: 0.2017
 """
