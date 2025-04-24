@@ -22,7 +22,7 @@ inv_cov_matrix = np.linalg.inv(cov_matrix)
 
 
 def h_over_h0_model(z, params):
-    _, _, O_m, w0, _ = params
+    _, _, _, O_m, w0, _ = params
     sum = 1 + z
     return np.sqrt(O_m * sum**3 + (1 - O_m) * ((2 * sum**2) / (1 + sum**2))**(3 * (1 + w0)))
 
@@ -34,9 +34,9 @@ def integral_e_z(zs, params):
 
 
 def model_distance_modulus(z, params):
-    h0 = params[0]
+    delta_M, h0 = params[0], params[1]
     comoving_distance = (c/h0) * integral_e_z(z, params)
-    return 25 + 5 * np.log10((1 + z) * comoving_distance)
+    return delta_M + 25 + 5 * np.log10((1 + z) * comoving_distance)
 
 
 def plot_bao_predictions(params):
@@ -48,7 +48,7 @@ def plot_bao_predictions(params):
     unique_quantities = set(quantity_types)
     colors = { "DV_over_rs": "red", "DM_over_rs": "blue", "DH_over_rs": "green" }
 
-    h0, r_d, omega_m, w0, wa = params
+    _, h0, r_d, omega_m, w0, wa = params
     z_smooth = np.linspace(0, max(z_values), 100)
     plt.figure(figsize=(8, 6))
     for q in unique_quantities:
@@ -77,7 +77,7 @@ def plot_bao_predictions(params):
     plt.ylabel(r"$O = \frac{D}{r_d}$")
     plt.legend()
     plt.grid(True)
-    plt.title(f"BAO model: $r_d$={r_d:.2f}, $\Omega_M$={omega_m:.4f}, $w_0$={w0:.4f}, $w_a$={wa:.4f}")
+    plt.title(f"BAO model: $\Omega_M$={omega_m:.4f}, $w_0$={w0:.4f}, $w_a$={wa:.4f}")
     plt.show()
 
     plt.errorbar(
@@ -101,7 +101,7 @@ def plot_bao_predictions(params):
 
 
 def H_z(z, params):
-    h0 = params[0]
+    h0 = params[1]
     return h0 * h_over_h0_model(z, params)
 
 
@@ -117,7 +117,7 @@ def DV_z(z, params):
 
 
 def model_predictions(params):
-    r_d = params[1]
+    r_d = params[2]
     predictions = []
     for z, _, quantity in data:
         if quantity == "DV_over_rs":
@@ -130,26 +130,18 @@ def model_predictions(params):
 
 
 bounds = np.array([
+    (-0.5, 0.5), # ΔM
     (55, 80),    # H0
     (125, 170),  # r_d
-    (0, 0.7),    # Ωm
-    (-2, 0),     # w0
+    (0.2, 0.7),  # Ωm
+    (-1.6, -0.4),# w0
     (-3.5, 3.5), # wa
 ])
 
 
 def chi_squared(params):
-    """
-    Analytically marginalize over additive offset ΔM (nuisance parameter)
-    """
-    delta = distance_moduli_values - model_distance_modulus(z_vals, params)
-    ones = np.ones_like(distance_moduli_values)
-    delta_T_Cinv_delta = delta @ inverse_cov_sn @ delta
-    one_T_Cinv_delta = ones @ inverse_cov_sn @ delta
-    one_T_Cinv_one = ones @ inverse_cov_sn @ ones
-    chi2_marg = delta_T_Cinv_delta - (one_T_Cinv_delta**2) / one_T_Cinv_one
-    logdet_term = np.log(one_T_Cinv_one / (2 * np.pi))
-    chi_sn = chi2_marg + logdet_term
+    delta_sn = distance_moduli_values - model_distance_modulus(z_vals, params)
+    chi_sn = np.dot(delta_sn, np.dot(inverse_cov_sn, delta_sn))
 
     delta_bao = data['value'] - model_predictions(params)
     chi_bao = np.dot(delta_bao, np.dot(inv_cov_matrix, delta_bao))
@@ -176,14 +168,6 @@ def log_probability(params):
     return lp + log_likelihood(params)
 
 
-def compute_best_delta_M(mu_model):
-    delta = distance_moduli_values - mu_model
-    ones = np.ones_like(distance_moduli_values)
-    numerator = ones @ inverse_cov_sn @ delta
-    denominator = ones @ inverse_cov_sn @ ones
-    return numerator / denominator
-
-
 def main():
     ndim = len(bounds)
     nwalkers = 100
@@ -205,6 +189,7 @@ def main():
     samples = sampler.get_chain(discard=burn_in, flat=True)
 
     [
+        [delta_M_16, delta_M_50, delta_M_84],
         [h0_16, h0_50, h0_84],
         [rd_16, rd_50, rd_84],
         [omega_16, omega_50, omega_84],
@@ -212,11 +197,12 @@ def main():
         [wa_16, wa_50, wa_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = [h0_50, rd_50, omega_50, w0_50, wa_50]
+    best_fit = [delta_M_50, h0_50, rd_50, omega_50, w0_50, wa_50]
 
     deg_of_freedom = z_vals.size + data['value'].size + z_cc_vals.size - len(best_fit)
 
-    print(f"h0: {h0_50:.4f} +{(h0_84 - h0_50):.4f} -{(h0_50 - h0_16):.4f}")
+    print(f"ΔM: {delta_M_50:.4f} +{(delta_M_84 - delta_M_50):.4f} -{(delta_M_50 - delta_M_16):.4f}")
+    print(f"H0: {h0_50:.4f} +{(h0_84 - h0_50):.4f} -{(h0_50 - h0_16):.4f}")
     print(f"r_d: {rd_50:.4f} +{(rd_84 - rd_50):.4f} -{(rd_50 - rd_16):.4f}")
     print(f"Ωm: {omega_50:.4f} +{(omega_84 - omega_50):.4f} -{(omega_50 - omega_16):.4f}")
     print(f"w0: {w0_50:.4f} +{(w0_84 - w0_50):.4f} -{(w0_50 - w0_16):.4f}")
@@ -225,18 +211,17 @@ def main():
     print(f"Degrees of freedom: {deg_of_freedom}")
 
     plot_bao_predictions(best_fit)
-    predicted_distance_moduli = model_distance_modulus(z_vals, best_fit)
     plot_sn_predictions(
         legend=legend,
         x=z_vals,
         y=distance_moduli_values,
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=predicted_distance_moduli + compute_best_delta_M(predicted_distance_moduli),
+        y_model=model_distance_modulus(z_vals, best_fit),
         label=f"Best fit: $w_0$={w0_50:.4f}, $\Omega_m$={omega_50:.4f}",
         x_scale="log"
     )
 
-    labels = [r"$H_0$", r"$r_d$", f"$\Omega_m$", r"$w_0$", r"$w_a$"]
+    labels = [r"$\Delta_M$", r"$H_0$", r"$r_d$", f"$\Omega_m$", r"$w_0$", r"$w_a$"]
     corner.corner(
         samples,
         labels=labels,
@@ -253,7 +238,7 @@ def main():
     if ndim == 1:
         axes = [axes]
     for i in range(ndim):
-        axes[i].plot(chains_samples[:, :, i], color='black', alpha=0.3)
+        axes[i].plot(chains_samples[:, :, i], color='black', alpha=0.3, lw=0.4)
         axes[i].set_ylabel(labels[i])
         axes[i].axvline(x=burn_in, color='red', linestyle='--', alpha=0.5)
         axes[i].axhline(y=best_fit[i], color='white', linestyle='--', alpha=0.5)
@@ -267,44 +252,48 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM: w(z) = -1
-H0: 68.8494 +1.6209 -1.6141 km/s/Mpc
-r_d: 146.6963 +3.4274 -3.2858 Mpc
-Ωm: 0.3043 +0.0085 -0.0083
+ΔM: -0.1148 +0.1022 -0.1024
+H0: 68.8119 +1.6110 -1.6191
+r_d: 146.8018 +3.4412 -3.2706
+Ωm: 0.3041 +0.0084 -0.0081
 w0: -1
 wa: 0
-Chi squared: 56.3933
-Degrees of freedom: 63
+Chi squared: 53.3830
+Degrees of freedom: 62
 
 ==============================
 
 Flat wCDM: w(z) = w0
-H0: 67.2163 +1.6922 -1.6932 km/s/Mpc
-r_d: 146.9098 +3.4920 -3.2931 Mpc
-Ωm: 0.2979 +0.0091 -0.0091
-w0: -0.8672 +0.0510 -0.0515 (2.59 sigma)
+ΔM: -0.1544 +0.1022 -0.1022
+H0: 67.1955 +1.7164 -1.6642 km/s/Mpc
+r_d: 146.9313 +3.4751 -3.3379 Mpc
+Ωm: 0.2979 +0.0092 -0.0090
+w0: -0.8678 +0.0516 -0.0518 (2.56 sigma)
 wa: 0
-Chi squared: 49.9041
-Degrees of freedom: 62
+Chi squared: 46.9384
+Degrees of freedom: 61
 
 ==============================
 
 Flat alternative: w(z) = w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-H0: 66.9163 +1.7121 -1.7286 km/s/Mpc
-r_d: 146.9612 +3.4853 -3.3139 Mpc
-Ωm: 0.3068 +0.0084 -0.0082
-w0: -0.8332 +0.0585 -0.0597 (2.82 sigma)
+ΔM: -0.1563 +0.1022 -0.1027
+H0: 66.9362 +1.7392 -1.7052 km/s/Mpc
+r_d: 146.8934 +3.4537 -3.3000 Mpc
+Ωm: 0.3066 +0.0086 -0.0083
+w0: -0.8323 +0.0582 -0.0597 (2.84 sigma)
 wa: 0
-Chi squared: 48.7793
-Degrees of freedom: 62
+Chi squared: 45.7700
+Degrees of freedom: 61
 
 ==============================
 
 Flat w0waCDM: w(z) = w0 + wa * z/(1 + z)
-H0: 66.4366 +1.7456 -1.6994 km/s/Mpc
-r_d: 147.0518 +3.4259 -3.2880 Mpc
-Ωm: 0.3246 +0.0132 -0.0172
-w0: -1.5190 +0.4144 -0.3151 (1.42 sigma)
-wa: -0.7788 +0.4965 -0.3839 (1.77 sigma)
-Chi squared: 46.9847
-Degrees of freedom: 61
+ΔM: -0.1661 +0.1044 -0.1049
+H0: 66.2453 +1.7769 -1.7731 km/s/Mpc
+r_d: 147.1352 +3.5032 -3.3285 Mpc
+Ωm: 0.3293 +0.0160 -0.0192
+w0: -0.7105 +0.1135 -0.1109 (2.58 sigma)
+wa: -0.9376 +0.5779 -0.5623 (1.64 sigma)
+Chi squared: 43.8431
+Degrees of freedom: 60
 """
