@@ -10,7 +10,11 @@ from y2023union3.data import get_data
 
 legend, z_values, distance_moduli_values, cov_matrix = get_data()
 
-inverse_cov = np.linalg.inv(cov_matrix)
+xdiag = 1.0 / np.diag(cov_matrix)
+sigma_M = 3.0   # “3”-mag prior width
+cov = cov_matrix.copy()
+cov += sigma_M**2
+inverse_cov = np.linalg.inv(cov)
 
 # Speed of light (km/s)
 C = 299792.458
@@ -21,30 +25,24 @@ H0 = 73.29
 
 # Flat model
 def integral_of_e_z(zs, omega_m, w0, wa):
-    z = np.linspace(0, np.max(zs), num=1500)
+    z = np.linspace(0, np.max(zs), num=3000)
     sum = 1 + z
     h_over_h0 = np.sqrt(omega_m * sum**3 + (1 - omega_m) * ((2 * sum**2) / (1 + sum**2))**(3 * (1 + w0)))
     integral_values = cumulative_trapezoid(1/h_over_h0, z, initial=0)
     return np.interp(zs, z, integral_values)
 
 
-def wcdm_distance_modulus(z, params):
+def model_distance_modulus(z, params):
     a0_over_ae = 1 + z
     comoving_distance = (C / H0) * integral_of_e_z(z, *params)
     return 25 + 5 * np.log10(a0_over_ae * comoving_distance)
 
 
-# Flat ΛCDM
-def lcdm_distance_modulus(z, params):
-    [omega_m] = params
-    a0_over_ae = 1 + z
-    comoving_distance = (C / H0) * integral_of_e_z(zs=z, omega_m=omega_m, w0=-1, wa=0)
-    return 25 + 5 * np.log10(a0_over_ae * comoving_distance)
-
-
 def chi_squared(params):
-    delta = distance_moduli_values - wcdm_distance_modulus(z_values, params)
-    return delta.T @ inverse_cov @ delta
+    delta = distance_moduli_values - model_distance_modulus(z_values, params)
+    shift = np.dot(delta, xdiag) / xdiag.sum()
+    tvec  = delta - shift
+    return tvec.T @ inverse_cov @ tvec
 
 
 def log_likelihood(params):
@@ -99,8 +97,8 @@ def main():
 
     best_fit_params = [omega_50, w0_50, wa_50]
 
-    predicted_mag = wcdm_distance_modulus(z_values, best_fit_params)
-    residuals = distance_moduli_values - predicted_mag
+    predicted_distances = model_distance_modulus(z_values, best_fit_params)
+    residuals = distance_moduli_values - predicted_distances
 
     skewness = skew(residuals)
     kurt = kurtosis(residuals)
@@ -132,7 +130,6 @@ def main():
     print_color("Chi squared", f"{chi_squared(best_fit_params):.4f}")
     print_color("Reduced chi squared", chi_squared(best_fit_params)/ (len(z_values) - len(best_fit_params)))
 
-    # Plot the data and the fit
     labels = [f"$\Omega_m$", r"$w_0$", r"$w_a$"]
     corner.corner(
         samples,
@@ -148,32 +145,36 @@ def main():
     plt.show()
 
     # Plot results: chains for each parameter
-    fig, axes = plt.subplots(n_dim, figsize=(10, 7))
+    _, axes = plt.subplots(n_dim, figsize=(10, 7))
     if n_dim == 1:
         axes = [axes]
     for i in range(n_dim):
-        axes[i].plot(chains_samples[:, :, i], color='black', alpha=0.3)
+        axes[i].plot(chains_samples[:, :, i], color='black', alpha=0.3, lw=0.5)
         axes[i].set_ylabel(labels[i])
         axes[i].set_xlabel("chain step")
         axes[i].axvline(x=discarded_steps, color='red', linestyle='--', alpha=0.5)
         axes[i].axhline(y=best_fit_params[i], color='white', linestyle='--', alpha=0.5)
     plt.show()
 
+    A = np.sum(inverse_cov)
+    B = np.sum(inverse_cov @ residuals)
+    offset = B / A
+    sigma_mu = np.sqrt(np.diag(cov_matrix))
+
     plot_predictions(
         legend=legend,
         x=z_values,
         y=distance_moduli_values,
-        y_err=np.sqrt(np.diag(cov_matrix)),
-        y_model=predicted_mag,
+        y_err=sigma_mu,
+        y_model=predicted_distances + offset,
         label=f"Best fit: $w_0$={w0_50:.4f}, $\Omega_m$={omega_50:.4f}",
         x_scale="log"
     )
 
-    # Plot the residual analysis
     plot_residuals(
         z_values=z_values,
-        residuals=residuals,
-        y_err=np.sqrt(np.diag(cov_matrix)),
+        residuals=residuals - offset,
+        y_err=sigma_mu,
         bins=40
     )
 
@@ -189,68 +190,53 @@ Sample size: 22
 
 Flat ΛCDM
 
-Ωm: 0.3563 +0.0277/-0.0263
+Ωm: 0.3568 +0.0278/-0.0262
 w0: -1
 wa: 0
 R-squared (%): 99.97
 RMSD (mag): 0.040
-Skewness of residuals: 0.563
-kurtosis of residuals: 0.690
-Chi squared: 24.0721
+Skewness of residuals: 0.577
+kurtosis of residuals: 0.691
+Chi squared: 23.9591
 degrees of freedom: 21
 
 =============================
 
 Flat wCDM
 
-Ωm: 0.2581 +0.0863/-0.1089
-w0: -0.7583 +0.1578/-0.1880
+Ωm: 0.2538 +0.0884/-0.1104
+w0: -0.7489 +0.1559/-0.1905 (1.45 sigma)
 wa: 0
 R-squared (%): 99.96
-RMSD (mag): 0.045
-Skewness of residuals: -1.179
-kurtosis of residuals: 3.697
-Chi squared: 22.3588
+RMSD (mag): 0.046
+Skewness of residuals: -1.228
+kurtosis of residuals: 3.849
+Chi squared: 22.1335
 degrees of freedom: 20
 
 ==============================
 
 Flat alternative: w(z) = w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-Ωm: 0.2897 +0.0601/-0.0638
-w0: -0.7671 +0.1445/-0.1757 (1.45 sigma)
+Ωm: 0.2865 +0.0607/-0.0638
+w0: -0.7576 +0.1422/-0.1751 (1.53 sigma)
 wa: 0
 R-squared (%): 99.96
 RMSD (mag): 0.045
-Skewness of residuals: -1.046
-kurtosis of residuals: 3.301
-Chi squared: 22.1311
+Skewness of residuals: -1.119
+kurtosis of residuals: 3.496
+Chi squared: 21.8741
 degrees of freedom: 20
 
 =============================
 
 Flat w0waCDM
-
-Ωm: 0.4329 +0.0600/-0.1026
-w0: -0.5991 +0.2679/-0.2228 (1.63 sigma)
-wa: -3.6605 +2.8020/-3.3333 (1.19 sigma)
-R-squared (%): 99.93
-RMSD (mag): 0.057
-Skewness of residuals: 0.614
-kurtosis of residuals: 0.430
-Chi squared: 21.1191
-degrees of freedom: 19
-
-==============================
-
-Flat w0 + wa * z
-
-Ωm: 0.4567 +0.0550/-0.0751
-w0: -0.6330 +0.2771/-0.2205 (1.48 sigma)
-wa: -3.2996 +2.0863/-2.9328 (1.31 sigma)
-R-squared (%): 99.93
-RMSD (mag): 0.060
-Skewness of residuals: 0.840
-kurtosis of residuals: 0.525
-Chi squared: 21.2320
+Ωm: 0.4446 +0.0527/-0.0806
+w0: -0.5441 +0.2764/-0.2314 (1.80 sigma)
+wa: -4.3160 +2.7289/-3.2082 (1.45 sigma)
+R-squared (%): 99.92
+RMSD (mag): 0.061
+Skewness of residuals: 0.717
+kurtosis of residuals: 0.435
+Chi squared: 20.5858
 degrees of freedom: 19
 """
