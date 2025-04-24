@@ -5,7 +5,7 @@ from scipy.integrate import cumulative_trapezoid
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from y2024DES.data import get_data
-from y2005cc.data import get_data as get_cc_data
+from y2005cc.compilation_data import get_data as get_cc_data
 from hubble.plotting import plot_predictions as plot_sn_predictions
 
 _, z_cc_vals, H_cc_vals, dH_cc_vals = get_cc_data()
@@ -253,48 +253,48 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM: w(z) = -1
-ΔM: -0.0492 +0.0503 -0.0516
-H0: 68.5349 +1.6377 -1.6360 km/s/Mpc
-r_d: 146.7310 +3.4909 -3.3338 Mpc
-Ωm: 0.3102 +0.0079 -0.0079
+ΔM: -0.1041 +0.0329 -0.0327
+H0: 66.8985 +1.0734 -1.0550
+r_d: 150.7472 +2.2298 -2.1497
+Ωm: 0.3062 +0.0076 -0.0074
 w0: -1
 wa: 0
-Chi squared: 1673.0929
-Degrees of freedom: 1775
+Chi squared: 1684.8460
+Degrees of freedom: 1781
 
 ==============================
 
 Flat wCDM: w(z) = w0
-ΔM: -0.0597 +0.0502 -0.0508
-H0: 67.3136 +1.6322 -1.6219 km/s/Mpc
-r_d: 146.9967 +3.4530 -3.3342 Mpc
-Ωm: 0.2984 +0.0089 -0.0088
-w0: -0.8770 +0.0383 -0.0386 (3.20 sigma)
+ΔM: -0.1031 +0.0322 -0.0327
+H0: 65.9441 +1.0576 -1.0805 km/s/Mpc
+r_d: 150.0919 +2.1890 -2.1181 Mpc
+Ωm: 0.2940 +0.0085 -0.0084
+w0: -0.8641 +0.0373 -0.0372 (3.65 sigma)
 wa: 0
-Chi squared: 1663.1678
-Degrees of freedom: 1774
+Chi squared: 1671.7439
+Degrees of freedom: 1780
 
 ==============================
 
 Flat alternative: w(z) = w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-ΔM: -0.0584 +0.0500 -0.0503
-H0: 67.2316 +1.6251 -1.6054 km/s/Mpc
-r_d: 146.9738 +3.4205 -3.3327 Mpc
-Ωm: 0.3054 +0.0080 -0.0077
-w0: -0.8576 +0.0417 -0.0429 (3.37 sigma)
+ΔM: -0.1045 +0.0331 -0.0330
+H0: 65.7586 +1.1198 -1.0819 km/s/Mpc
+r_d: 150.2575 +2.2068 -2.1780 Mpc
+Ωm: 0.3018 +0.0078 -0.0074
+w0: -0.8428 +0.0397 -0.0401 (3.94 sigma)
 wa: 0
-Chi squared: 1662.2220
-Degrees of freedom: 1774
+Chi squared: 1670.9070
+Degrees of freedom: 1780
 
 ==============================
 
 Flat w0waCDM: w(z) = w0 + wa * z/(1 + z)
-ΔM: -0.0552 +0.0499 -0.0516
-H0: 67.1046 +1.6403 -1.6549 km/s/Mpc
-r_d: 147.0160 +3.4922 -3.3143 Mpc
-Ωm: 0.3194 +0.0132 -0.0163
-w0: -0.8004 +0.0718 -0.0666 (2.88 sigma)
-wa: -0.6371 +0.4632 -0.4641 (1.37 sigma)
-Chi squared: 1661.0327
-Degrees of freedom: 1773
+ΔM: -0.1047 +0.0330 -0.0326
+H0: 65.6066 +1.1111 -1.1022 km/s/Mpc
+r_d: 150.4387 +2.2188 -2.1687 Mpc
+Ωm: 0.3121 +0.0137 -0.0179
+w0: -0.8022 +0.0691 -0.0636 (2.98 sigma)
+wa: -0.5109 +0.4630 -0.4433 (1.13 sigma)
+Chi squared: 1670.2609
+Degrees of freedom: 1779
 """

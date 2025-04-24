@@ -5,7 +5,7 @@ from scipy.integrate import cumulative_trapezoid, quad
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from y2022pantheonSHOES.data import get_data
-from y2005cc.data import get_data as get_cc_data
+from y2005cc.compilation_data import get_data as get_cc_data
 from hubble.plotting import plot_predictions as plot_sn_predictions
 
 _, z_cc_vals, H_cc_vals, dH_cc_vals = get_cc_data()
@@ -202,7 +202,7 @@ def main():
 
     deg_of_freedom = z_vals.size + data['value'].size + z_cc_vals.size - len(best_fit)
 
-    print(f"h0: {h0_50:.4f} +{(h0_84 - h0_50):.4f} -{(h0_50 - h0_16):.4f}")
+    print(f"H0: {h0_50:.4f} +{(h0_84 - h0_50):.4f} -{(h0_50 - h0_16):.4f}")
     print(f"M: {M_50:.4f} +{(M_84 - M_50):.4f} -{(M_50 - M_16):.4f}")
     print(f"r_d: {rd_50:.4f} +{(rd_84 - rd_50):.4f} -{(rd_50 - rd_16):.4f}")
     print(f"Ωm: {omega_50:.4f} +{(omega_84 - omega_50):.4f} -{(omega_50 - omega_16):.4f}")
@@ -218,7 +218,7 @@ def main():
         y=apparent_mag_values,
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=model_apparent_mag(z_vals, best_fit),
-        label=f"Best fit: $w_0$={w0_50:.4f}, $\Omega_m$={omega_50:.4f}",
+        label=f"Best fit: $\Omega_m$={omega_50:.4f}, $w_0$={w0_50:.4f}, $w_a$={wa_50:.4f}",
         x_scale="log"
     )
 
@@ -239,7 +239,7 @@ def main():
     if ndim == 1:
         axes = [axes]
     for i in range(ndim):
-        axes[i].plot(chains_samples[:, :, i], color='black', alpha=0.3)
+        axes[i].plot(chains_samples[:, :, i], color='black', alpha=0.3, lw=0.4)
         axes[i].set_ylabel(labels[i])
         axes[i].axvline(x=burn_in, color='red', linestyle='--', alpha=0.5)
         axes[i].axhline(y=best_fit[i], color='white', linestyle='--', alpha=0.5)
@@ -253,48 +253,48 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM: w(z) = -1
-H0: 68.7606 +1.6764 -1.6084 km/s/Mpc
-M: -19.3988 +0.0522 -0.0511
-r_d: 146.9388 +3.4341 -3.4943 Mpc
-Ωm: 0.3043 +0.0078 -0.0076
+h0: 67.2600 +1.0534 -1.0707
+M: -19.4477 +0.0328 -0.0340
+r_d: 150.5823 +2.1687 -2.0875
+Ωm: 0.3008 +0.0076 -0.0074
 w0: -1
 wa: 0
-Chi squared: 1431.3430
-Degrees of freedom: 1630
+Chi squared: 1442.3460
+Degrees of freedom: 1636
 
 ==============================
 
 Flat wCDM: w(z) = w0
-H0: 67.9090 +1.6453 -1.6417 km/s/Mpc
-M: -19.4139 +0.0501 -0.0514
-r_d: 146.9730 +3.4492 -3.2629 Mpc
-Ωm: 0.2980 +0.0085 -0.0085
-w0: -0.9170 +0.0403 -0.0403 (2.06 sigma)
+H0: 66.4920 +1.0777 -1.0959
+M: -19.4586 +0.0332 -0.0340
+r_d: 150.1105 +2.2099 -2.1298
+Ωm: 0.2937 +0.0082 -0.0081
+w0: -0.9017 +0.0384 -0.0384 (2.56 sigma)
 wa: 0
-Chi squared: 1427.1007
-Degrees of freedom: 1629
+Chi squared: 1436.0292
+Degrees of freedom: 1635
 
 ==============================
 
 Flat alternative: w(z) = w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-H0: 67.8979 +1.6496 -1.6501 km/s/Mpc
-M: -19.4128 +0.0505 -0.0518
-r_d: 146.9194 +3.4855 -3.2971 Mpc
-Ωm: 0.3025 +0.0080 -0.0077
-w0: -0.9074 +0.0442 -0.0438 (2.10 sigma)
+H0: 66.4188 +1.1212 -1.1135
+M: -19.4591 +0.0339 -0.0344
+r_d: 150.2107 +2.1980 -2.1258
+Ωm: 0.2991 +0.0076 -0.0074
+w0: -0.8912 +0.0419 -0.0432 (2.56 sigma)
 wa: 0
-Chi squared: 1426.9601
-Degrees of freedom: 1629
+Chi squared: 1436.0294
+Degrees of freedom: 1635
 
 ==============================
 
 Flat w0waCDM: w(z) = w0 + wa * z/(1 + z)
-H0: 67.9031 +1.6611 -1.6722 km/s/Mpc
-M: -19.4126 +0.0506 -0.0527
-r_d: 146.9551 +3.5114 -3.3322 Mpc
-Ωm: 0.3012 +0.0160 -0.0248
-w0: -0.9014 +0.0592 -0.0547 (1.73 sigma)
-wa: -0.0954 +0.4744 -0.4487 (0.20 sigma)
-Chi squared: 1427.1033
-Degrees of freedom: 1628
+H0: 66.4728 +1.1386 -1.1354 km/s/Mpc
+M: -19.4588 +0.0339 -0.0346
+r_d: 150.1233 +2.2526 -2.1015 Mpc
+Ωm: 0.2932 +0.0169 -0.0293
+w0: -0.9013 +0.4463 -0.3917 (0.24 sigma)
+wa: 0.0008 +0.4736 -0.4398 (0.00 sigma)
+Chi squared: 1436.1274
+Degrees of freedom: 1634
 """

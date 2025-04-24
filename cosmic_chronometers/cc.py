@@ -3,9 +3,7 @@ import emcee
 import corner
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
-from y2005cc.data import get_data
-
-# source: https://arxiv.org/abs/1802.01505
+from y2005cc.compilation_data import get_data
 
 # Speed of light in km/s
 c = 299792.458
@@ -52,7 +50,7 @@ def main():
     ndim = len(bounds)
     nwalkers = 200
     burn_in = 500
-    nsteps = 5000 + burn_in
+    nsteps = 8000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):
@@ -105,7 +103,7 @@ def main():
     if ndim == 1:
         axes = [axes]
     for i in range(ndim):
-        axes[i].plot(chains_samples[:, :, i], color='black', alpha=0.3)
+        axes[i].plot(chains_samples[:, :, i], color='black', alpha=0.3, lw=0.5)
         axes[i].set_ylabel(labels[i])
         axes[i].set_xlabel("chain step")
         axes[i].axvline(x=burn_in, color='red', linestyle='--', alpha=0.5)
@@ -118,6 +116,53 @@ if __name__ == "__main__":
 
 
 """
+*****************************
+Compilation data (37 data points)
+*****************************
+
+Flat ΛCDM
+H0: 70.5575 +2.1501 -2.1998
+Ωm: 0.2560 +0.0264 -0.0233
+w0: -1
+wa: 0
+Chi squared: 22.4221
+Degs of freedom: 35
+
+===============================
+
+Flat wCDM
+H0: 65.7016 +4.6575 -4.1304
+Ωm: 0.2467 +0.0320 -0.0438
+w0: -0.7299 +0.2411 -0.2393 (1.12 sigma)
+wa: 0
+Chi squared: 22.1189
+Degs of freedom: 34
+
+===============================
+
+Flat w(z) = w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
+H0: 65.9320 +5.3727 -4.8331
+Ωm: 0.2777 +0.0382 -0.0341
+w0: -0.7251 +0.2796 -0.2997 (0.95 sigma)
+wa: 0
+Chi squared: 21.5051
+Degs of freedom: 34
+
+==================================
+
+Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
+H0: 65.6112 +5.9901 -5.6083
+Ωm: 0.2691 +0.0868 -0.0920
+w0: -0.6582 +0.4708 -0.3727 (0.81 sigma)
+wa: -0.3067 +1.0713 -2.0416
+Chi squared: 21.5502
+Degs of freedom: 33
+
+******************************
+Results for data from
+https://arxiv.org/abs/1802.01505
+*****************************
+
 Flat ΛCDM
 H0: 67.7511 +3.0747 -3.1238
 Ωm: 0.3271 +0.0658 -0.0556

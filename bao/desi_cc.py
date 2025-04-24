@@ -4,7 +4,7 @@ import corner
 from scipy.integrate import cumulative_trapezoid
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
-from y2005cc.data import get_data as get_cc_data
+from y2005cc.compilation_data import get_data as get_cc_data
 
 _, z_cc_vals, H_cc_vals, dH_cc_vals = get_cc_data()
 
@@ -222,44 +222,44 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM model
-H0: 69.08 +1.63 -1.64 km/s/Mpc
-r_d: 146.9303 +3.4605 -3.3519 Mpc
-Ωm: 0.2981 +0.0086 -0.0084
+H0: 67.73 +1.11 -1.11 km/s/Mpc
+r_d: 150.3354 +2.1879 -2.1225 Mpc
+Ωm: 0.2940 +0.0083 -0.0081
 w0: -1
 wa: 0
-Chi squared: 24.9152
-Degrees of freedom: 41
+Chi squared: 35.0976
+Degrees of freedom: 47
 
 =============================
 
 Flat wCDM model
-H0: 67.95 +1.94 -1.92 km/s/Mpc
-r_d: 146.9679 +3.4758 -3.3423 Mpc
-Ωm: 0.2975 +0.0089 -0.0087
-w0: -0.9185 +0.0760 -0.0786 (1.05 sigma)
+H0: 66.22 +1.42 -1.39 km/s/Mpc
+r_d: 150.1774 +2.1716 -2.1278 Mpc
+Ωm: 0.2934 +0.0086 -0.0085
+w0: -0.8858 +0.0702 -0.0722
 wa: 0
-Chi squared: 23.7637
-Degrees of freedom: 40
+Chi squared: 32.6142
+Degrees of freedom: 46
 
 ==============================
 
 Flat w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-H0: 67.51 +2.11 -2.03 km/s/Mpc
-r_d: 146.9535 +3.5253 -3.3374 Mpc
-Ωm: 0.3040 +0.0102 -0.0099
-w0: -0.8780 +0.0978 -0.1041 (1.21 sigma)
-wa: 0
-Chi squared: 23.4368
-Degrees of freedom: 40
+H0: 65.72 +1.60 -1.53 km/s/Mpc
+r_d: 150.1810 +2.1906 -2.1060 Mpc
+Ωm: 0.3024 +0.0098 -0.0095
+w0: -0.8378 +0.0913 -0.0967
+wa: 0.0358 +2.7298 -2.7623
+Chi squared: 32.1528
+Degrees of freedom: 46
 
 ==============================
 
 Flat w0waCDM w0 + wa * z/(1 + z)
-H0: 63.85 +3.52 -2.98 km/s/Mpc
-r_d: 147.3480 +3.4991 -3.3221 Mpc
-Ωm: 0.3600 +0.0373 -0.0451
-w0: -0.4373 +0.3460 -0.3712 (1.57 sigma)
-wa: -1.8601 +1.3678 -1.2123 (1.44 sigma)
-Chi squared: 21.5466
-Degrees of freedom: 39
+H0: 61.92 +3.27 -2.75 km/s/Mpc
+r_d: 151.0346 +2.3041 -2.2136 Mpc
+Ωm: 0.3605 +0.0367 -0.0443
+w0: -0.3920 +0.3357 -0.3610
+wa: -1.9207 +1.3291 -1.1827
+Chi squared: 30.1758
+Degrees of freedom: 45
 """
