@@ -12,7 +12,7 @@ legend, z_values, H_values, dH_values = get_data()
 
 
 def H_z(z, params):
-    h0, o_m, w0, _ = params
+    h0, o_m, w0, _, _ = params
     return h0 * np.sqrt(o_m * (1 + z)**3 + (1 - o_m) * ((2*(1 + z)**2)/(1 + (1 + z)**2))**(3*(1 + w0)))
 
 
@@ -21,12 +21,15 @@ bounds = np.array([
     (0, 1), # Ωm
     (-4, 1), # w0
     (-5, 5), # wa
+    (0.01, 1.5), # f - overestimation of the uncertainties
 ])
 
 
 def chi_squared(params):
+    f = params[-1]
     delta = H_values - H_z(z_values, params)
-    return np.sum(delta**2 / dH_values**2)
+    scaled_error = dH_values * f
+    return np.sum(delta**2 / scaled_error**2)
 
 
 def log_prior(params):
@@ -36,7 +39,8 @@ def log_prior(params):
 
 
 def log_likelihood(params):
-    return -0.5 * chi_squared(params)
+    f = params[-1]
+    return -0.5 * chi_squared(params) - len(H_values) * np.log(f)
 
 
 def log_probability(params):
@@ -50,7 +54,7 @@ def main():
     ndim = len(bounds)
     nwalkers = 200
     burn_in = 500
-    nsteps = 8000 + burn_in
+    nsteps = 6000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):
@@ -74,18 +78,20 @@ def main():
         [omega_16, omega_50, omega_84],
         [w0_16, w0_50, w0_84],
         [wa_16, wa_50, wa_84],
+        [f_16, f_50, f_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = [H0_50, omega_50, w0_50, wa_50]
+    best_fit = [H0_50, omega_50, w0_50, wa_50, f_50]
 
     print(f"H0: {H0_50:.4f} +{(H0_84 - H0_50):.4f} -{(H0_50 - H0_16):.4f}")
     print(f"Ωm: {omega_50:.4f} +{(omega_84 - omega_50):.4f} -{(omega_50 - omega_16):.4f}")
     print(f"w0: {w0_50:.4f} +{(w0_84 - w0_50):.4f} -{(w0_50 - w0_16):.4f}")
     print(f"wa: {wa_50:.4f} +{(wa_84 - wa_50):.4f} -{(wa_50 - wa_16):.4f}")
+    print(f"f: {f_50:.4f} +{(f_84 - f_50):.4f} -{(f_50 - f_16):.4f}")
     print(f"Chi squared: {chi_squared(best_fit):.4f}")
     print(f"Degs of freedom: {z_values.size  - len(best_fit)}")
 
-    labels = [f"$H_0$", f"$\Omega_m$", r"$w_0$", r"$w_a$"]
+    labels = [f"$H_0$", f"$\Omega_m$", r"$w_0$", f"$w_a$", f"$f$"]
 
     corner.corner(
         samples,
@@ -116,47 +122,56 @@ if __name__ == "__main__":
 
 
 """
+Here we are considering the uncertainties to be overestimated
+We use the parameter f to account for this
+The results show consistent values for f and the corner plot shows
+that the parameters are weakly correlated
+
 *****************************
 Compilation data (37 data points)
 *****************************
 
 Flat ΛCDM
-H0: 70.5575 +2.1501 -2.1998
-Ωm: 0.2560 +0.0264 -0.0233
+H0: 70.6237 +1.7631 -1.8060 km/s/Mpc
+Ωm: 0.2554 +0.0211 -0.0192
 w0: -1
 wa: 0
-Chi squared: 22.4221
-Degs of freedom: 35
+f: 0.8206 +0.1117 -0.0912
+Chi squared: 33.2933
+Degs of freedom: 34
 
 ===============================
 
 Flat wCDM
-H0: 65.7016 +4.6575 -4.1304
-Ωm: 0.2467 +0.0320 -0.0438
-w0: -0.7299 +0.2411 -0.2393 (1.12 sigma)
+H0: 65.6996 +3.7489 -3.4417 km/s/Mpc
+Ωm: 0.2496 +0.0257 -0.0339
+w0: -0.7257 +0.1968 -0.1938 (1.40 sigma)
 wa: 0
-Chi squared: 22.1189
-Degs of freedom: 34
+f: 0.8093 +0.1108 -0.0904
+Chi squared: 33.0334
+Degs of freedom: 33
 
 ===============================
 
 Flat w(z) = w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-H0: 65.9320 +5.3727 -4.8331
-Ωm: 0.2777 +0.0382 -0.0341
-w0: -0.7251 +0.2796 -0.2997 (0.95 sigma)
+H0: 65.9044 +4.3232 -3.9700 km/s/Mpc
+Ωm: 0.2780 +0.0309 -0.0282
+w0: -0.7197 +0.2296 -0.2419 (1.19 sigma)
 wa: 0
-Chi squared: 21.5051
-Degs of freedom: 34
+f: 0.8149 +0.1123 -0.0912
+Chi squared: 32.3601
+Degs of freedom: 33
 
 ==================================
 
 Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
-H0: 65.6112 +5.9901 -5.6083
-Ωm: 0.2691 +0.0868 -0.0920
-w0: -0.6582 +0.4708 -0.3727 (0.81 sigma)
-wa: -0.3067 +1.0713 -2.0416
-Chi squared: 21.5502
-Degs of freedom: 33
+H0: 66.1623 +4.8368 -4.7809 km/s/Mpc
+Ωm: 0.2494 +0.0802 -0.0961
+w0: -0.7062 +0.3496 -0.2904 (0.92 sigma)
+wa: 0.0417 +0.7609 -1.6116 (0.04 sigma)
+f: 0.8158 +0.1130 -0.0924
+Chi squared: 32.4815
+Degs of freedom: 32
 
 ******************************
 Results for data from
@@ -164,30 +179,33 @@ https://arxiv.org/abs/1802.01505
 *****************************
 
 Flat ΛCDM
-H0: 67.7511 +3.0747 -3.1238
-Ωm: 0.3271 +0.0658 -0.0556
+H0: 67.9130 +2.2279 -2.2794 km/s/Mpc
+Ωm: 0.3241 +0.0469 -0.0412
 w0: -1
 wa: 0
-Chi squared: 14.5113
-Degs of freedom: 29
+f: 0.7277 +0.1108 -0.0879
+Chi squared: 27.3841
+Degs of freedom: 28
 
 ===============================
 
 Flat wCDM
-H0: 71.9539 +11.1382 -7.3525
-Ωm: 0.2969 +0.0693 -0.0674
-w0: -1.4156 +0.6610 -0.8845
+H0: 71.2090 +7.7199 -5.7079 km/s/Mpc
+Ωm: 0.3059 +0.0494 -0.0518
+w0: -1.3228 +0.5083 -0.6281 (0.57 sigma)
 wa: 0
-Chi squared: 16.0122
-Degs of freedom: 28
+f: 0.7391 +0.1144 -0.0902
+Chi squared: 27.5378
+Degs of freedom: 27
 
 ===============================
 
 Flat w(z) = w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-H0: 72.7292 +11.6313 -8.2271
-Ωm: 0.2961 +0.0703 -0.0606
-w0: -1.5073 +0.7512 -0.9802
+H0: 72.3738 +8.4821 -6.3151 km/s/Mpc
+Ωm: 0.3016 +0.0500 -0.0465
+w0: -1.4404 +0.5708 -0.7245 (0.68 sigma)
 wa: 0
-Chi squared: 14.9783
-Degs of freedom: 28
+f: 0.7373 +0.1139 -0.0908
+Chi squared: 26.7646
+Degs of freedom: 27
 """

@@ -16,7 +16,7 @@ c = 299792.458 # Speed of light in km/s
 
 
 def h_over_h0_model(z, params):
-    _, _, O_m, w0, _ = params
+    _, _, O_m, w0, _, _ = params
     sum = 1 + z
     return np.sqrt(O_m * sum**3 + (1 - O_m) * ((2 * sum**2) / (1 + sum**2))**(3 * (1 + w0)))
 
@@ -62,11 +62,12 @@ def H_z(z, params):
 
 
 bounds = np.array([
-    (60, 80), # H0
-    (-20, -19), # M
+    (60, 80),    # H0
+    (-20, -19),  # M
     (0.15, 0.7), # Ωm
-    (-3, 0), # w0
+    (-3, 0),     # w0
     (-3.5, 3.5), # wa
+    (0.01, 1.5), # f - overestimation of the uncertainties in the CC data
 ])
 
 
@@ -74,8 +75,11 @@ def chi_squared(params):
     delta_sn = apparent_mag_values - model_apparent_mag(z_vals, params)
     chi_sn = np.dot(delta_sn, np.dot(inverse_cov_sn, delta_sn))
 
+    f = params[-1]
     cc_delta = H_cc_vals - H_z(z_cc_vals, params)
-    chi_cc = np.sum(cc_delta**2 / dH_cc_vals**2)
+    escaled_error = dH_cc_vals * f
+    chi_cc = np.sum(cc_delta**2 / escaled_error**2)
+
     return chi_sn + chi_cc
 
 
@@ -86,7 +90,8 @@ def log_prior(params):
 
 
 def log_likelihood(params):
-    return -0.5 * chi_squared(params)
+    f = params[-1]
+    return -0.5 * chi_squared(params) - z_cc_vals.size * np.log(f)
 
 
 def log_probability(params):
@@ -122,9 +127,10 @@ def main():
         [omega_16, omega_50, omega_84],
         [w0_16, w0_50, w0_84],
         [wa_16, wa_50, wa_84],
+        [f_16, f_50, f_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = [h0_50, M_50, omega_50, w0_50, wa_50]
+    best_fit = [h0_50, M_50, omega_50, w0_50, wa_50, f_50]
 
     deg_of_freedom = z_vals.size + z_cc_vals.size - len(best_fit)
 
@@ -133,6 +139,7 @@ def main():
     print(f"Ωm: {omega_50:.4f} +{(omega_84 - omega_50):.4f} -{(omega_50 - omega_16):.4f}")
     print(f"w0: {w0_50:.4f} +{(w0_84 - w0_50):.4f} -{(w0_50 - w0_16):.4f}")
     print(f"wa: {wa_50:.4f} +{(wa_84 - wa_50):.4f} -{(wa_50 - wa_16):.4f}")
+    print(f"f: {f_50:.4f} +{(f_84 - f_50):.4f} -{(f_50 - f_16):.4f}")
     print(f"Chi squared: {chi_squared(best_fit):.4f}")
     print(f"Degrees of freedom: {deg_of_freedom}")
 
@@ -147,7 +154,7 @@ def main():
         x_scale="log"
     )
 
-    labels = [r"$H_0$", r"$M$", f"$\Omega_m$", r"$w_0$", r"$w_a$"]
+    labels = [r"$H_0$", r"$M$", f"$\Omega_m$", r"$w_0$", r"$w_a$", f"$f$"]
     corner.corner(
         samples,
         labels=labels,
@@ -178,44 +185,48 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM: w(z) = -1
-H0: 66.6355 +1.4123 -1.3656
-M: -19.4650 +0.0422 -0.0413
-Ωm: 0.3100 +0.0158 -0.0152
+H0: 67.0217 +1.3153 -1.3358 km/s/Mpc
+M: -19.4541 +0.0386 -0.0401
+Ωm: 0.3049 +0.0157 -0.0150
 w0: -1
 wa: 0
-Chi squared: 1431.5870
-Degrees of freedom: 1624
+f: 0.8699 +0.1231 -0.0978
+Chi squared: 1440.0193
+Degrees of freedom: 1623
 
 ==============================
 
 Flat wCDM: w(z) = w0
-H0: 67.6556 +1.4180 -1.4375 km/s/Mpc
-M: -19.4197 +0.0435 -0.0447
-Ωm: 0.2627 +0.0244 -0.0244
-w0: -0.8449 +0.0550 -0.0584 (2.74 sigma)
+H0: 67.6940 +1.2432 -1.2117 km/s/Mpc
+M: -19.4180 +0.0372 -0.0368
+Ωm: 0.2600 +0.0202 -0.0196
+w0: -0.8387 +0.0492 -0.0514 (3.14 - 3.28 sigma)
 wa: 0
-Chi squared: 1424.9563
-Degrees of freedom: 1623
+f: 0.7991 +0.1083 -0.0874
+Chi squared: 1437.0636
+Degrees of freedom: 1622
 
 ==============================
 
 Flat alternative: w(z) = w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-H0: 67.5648 +1.4409 -1.4105 km/s/Mpc
-M: -19.4216 +0.0442 -0.0446
-Ωm: 0.2741 +0.0211 -0.0202
-w0: -0.8427 +0.0566 -0.0623 (2.65 sigma)
+H0: 67.6776 +1.2339 -1.2167 km/s/Mpc
+M: -19.4175 +0.0368 -0.0376
+Ωm: 0.2718 +0.0178 -0.0168
+w0: -0.8369 +0.0514 -0.0541 (3.01 - 3.17 sigma)
 wa: 0
-Chi squared: 1425.4876
-Degrees of freedom: 1623
+f: 0.8065 +0.1090 -0.0892
+Chi squared: 1437.1352
+Degrees of freedom: 1622
 
 ==============================
 
 Flat w0waCDM: w(z) = w0 + wa * z/(1 + z)
-H0: 67.5160 +1.4111 -1.4069 km/s/Mpc
-M: -19.4261 +0.0437 -0.0446
-Ωm: 0.2428 +0.0407 -0.0533
-w0: -0.8404 +0.0599 -0.0651 (2.55 sigma)
-wa: 0.2968 +0.3470 -0.5623
-Chi squared: 1425.0559
-Degrees of freedom: 1622
+H0: 67.5987 +1.2259 -1.2113 km/s/Mpc
+M: -19.4236 +0.0371 -0.0370
+Ωm: 0.2365 +0.0387 -0.0500
+w0: -0.8370 +0.0543 -0.0575 (2.83 - 3.00 sigma)
+wa: 0.3370 +0.3082 -0.5078
+f: 0.7961 +0.1099 -0.0878
+Chi squared: 1437.1486
+Degrees of freedom: 1621
 """

@@ -16,7 +16,7 @@ c = 299792.458 # Speed of light in km/s
 
 
 def h_over_h0_model(z, params):
-    _, _, O_m, w0, _ = params
+    _, _, O_m, w0, _, _ = params
     sum = 1 + z
     return np.sqrt(O_m * sum**3 + (1 - O_m) * ((2 * sum**2) / (1 + sum**2))**(3 * (1 + w0)))
 
@@ -67,6 +67,7 @@ bounds = np.array([
     (0.15, 0.7), # Ωm
     (-3, 0),     # w0
     (-3.5, 3.5), # wa
+    (0.01, 1.5), # f - overestimation of the uncertainties in the CC data
 ])
 
 
@@ -74,8 +75,11 @@ def chi_squared(params):
     delta_sn = distance_moduli_values - model_distance_modulus(z_vals, params)
     chi_sn = delta_sn @ inverse_cov_sn @ delta_sn
 
+    f = params[-1]
     cc_delta = H_cc_vals - H_z(z_cc_vals, params)
-    chi_cc = np.sum(cc_delta**2 / dH_cc_vals**2)
+    escaled_error = dH_cc_vals * f
+    chi_cc = np.sum(cc_delta**2 / escaled_error**2)
+
     return chi_sn + chi_cc
 
 
@@ -86,7 +90,8 @@ def log_prior(params):
 
 
 def log_likelihood(params):
-    return -0.5 * chi_squared(params)
+    f = params[-1]
+    return -0.5 * chi_squared(params) - z_cc_vals.size * np.log(f)
 
 
 def log_probability(params):
@@ -122,9 +127,10 @@ def main():
         [omega_16, omega_50, omega_84],
         [w0_16, w0_50, w0_84],
         [wa_16, wa_50, wa_84],
+        [f_16, f_50, f_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = [delta_M_50, h0_50, omega_50, w0_50, wa_50]
+    best_fit = [delta_M_50, h0_50, omega_50, w0_50, wa_50, f_50]
     DES5Y_EFF_SAMPLE = 1735
     deg_of_freedom = DES5Y_EFF_SAMPLE + z_cc_vals.size - len(best_fit)
 
@@ -133,6 +139,7 @@ def main():
     print(f"Ωm: {omega_50:.4f} +{(omega_84 - omega_50):.4f} -{(omega_50 - omega_16):.4f}")
     print(f"w0: {w0_50:.4f} +{(w0_84 - w0_50):.4f} -{(w0_50 - w0_16):.4f}")
     print(f"wa: {wa_50:.4f} +{(wa_84 - wa_50):.4f} -{(wa_50 - wa_16):.4f}")
+    print(f"f: {f_50:.4f} +{(f_84 - f_50):.4f} -{(f_50 - f_16):.4f}")
     print(f"Chi squared: {chi_squared(best_fit):.4f}")
     print(f"Degrees of freedom: {deg_of_freedom}")
 
@@ -147,7 +154,7 @@ def main():
         x_scale="log"
     )
 
-    labels = [r"$\Delta_M$", r"$H_0$", f"$\Omega_m$", r"$w_0$", r"$w_a$"]
+    labels = [r"$\Delta_M$", r"$H_0$", f"$\Omega_m$", r"$w_0$", r"$w_a$", f"$f$"]
     corner.corner(
         samples,
         labels=labels,
@@ -177,45 +184,56 @@ if __name__ == "__main__":
 
 
 """
+*******************************
+Here we are considering the uncertainties to be overestimated
+in the CC data. We then use the parameter f to account for this.
+The results show consistent values for f and the corner plot shows
+that the parameters are weakly correlated
+*******************************
+
 Flat ΛCDM: w(z) = -1
-ΔM: -0.1384 +0.0377 -0.0382
-H0: 65.4278 +1.3203 -1.3204 km/s/Mpc
-Ωm: 0.3285 +0.0151 -0.0147
+ΔM: -0.1327 +0.0357 -0.0371
+H0: 65.6650 +1.2893 -1.3081 km/s/Mpc
+Ωm: 0.3249 +0.0159 -0.0149
 w0: -1
 wa: 0
-Chi squared: 1671.2285
-Degrees of freedom: 1769
+f: 0.9132 +0.1297 -0.1032
+Chi squared: 1676.9990
+Degrees of freedom: 1768
 
 ==============================
 
 Flat wCDM: w(z) = w0
-ΔM: -0.0674 +0.0418 -0.0427
-H0: 66.8997 +1.3691 -1.3736 km/s/Mpc
-Ωm: 0.2609 +0.0258 -0.0256
-w0: -0.7956 +0.0543 -0.0575 (3.66 sigma)
+ΔM: -0.0666 +0.0340 -0.0348
+H0: 66.9062 +1.1608 -1.1506 km/s/Mpc
+Ωm: 0.2597 +0.0210 -0.0211
+w0: -0.7923 +0.0479 -0.0504 (4.12 - 4.34 sigma)
 wa: 0
-Chi squared: 1660.3036
-Degrees of freedom: 1768
+f: 0.7975 +0.1081 -0.0864
+Chi squared: 1672.4717
+Degrees of freedom: 1767
 
 ==============================
 
 Flat alternative: w(z) = w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-ΔM: -0.0692 +0.0424 -0.0427
-H0: 66.7679 +1.3913 -1.3533 km/s/Mpc
-Ωm: 0.2771 +0.0212 -0.0205
-w0: -0.7848 +0.0558 -0.0611 (3.68 sigma)
+ΔM: -0.0657 +0.0343 -0.0351
+H0: 66.8688 +1.1838 -1.1663 km/s/Mpc
+Ωm: 0.2754 +0.0173 -0.0170
+w0: -0.7813 +0.0506 -0.0530 (4.13 - 4.32 sigma)
 wa: 0
-Chi squared: 1660.3423
-Degrees of freedom: 1768
+f: 0.8032 +0.1098 -0.0894
+Chi squared: 1672.1857
+Degrees of freedom: 1767
 
 ==============================
 
 Flat w0waCDM: w(z) = w0 + wa * z/(1 + z)
-ΔM: -0.0702 +0.0416 -0.0433
-H0: 66.7285 +1.3821 -1.3884 km/s/Mpc
-Ωm: 0.2720 +0.0364 -0.0531
-w0: -0.7685 +0.0735 -0.0676 (3.28 sigma)
-wa: -0.2008 +0.5962 -0.7663 (0.29 sigma)
-Chi squared: 1661.1100
-Degrees of freedom: 1767
+ΔM: -0.0693 +0.0355 -0.0363
+H0: 66.7733 +1.1986 -1.1446 km/s/Mpc
+Ωm: 0.2644 +0.0343 -0.0518
+w0: -0.7719 +0.0639 -0.0611 (3.57 - 3.73 sigma)
+wa: -0.0850 +0.5138 -0.6870 (0.12 - 0.17 sigma)
+f: 0.8043 +0.1158 -0.0913
+Chi squared: 1672.9097
+Degrees of freedom: 1766
 """
