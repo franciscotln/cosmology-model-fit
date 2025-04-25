@@ -34,12 +34,12 @@ def model_distance_modulus(z, params):
 
 
 def plot_cc_predictions(params):
-    h0 = params[1]
+    h0, f = params[1], params[-1]
     z_smooth = np.linspace(0, max(z_cc_vals), 100)
     plt.errorbar(
         x=z_cc_vals,
         y=H_cc_vals,
-        yerr=dH_cc_vals,
+        yerr=dH_cc_vals * f,
         fmt='.',
         color='blue',
         alpha=0.4,
@@ -64,7 +64,7 @@ def H_z(z, params):
 bounds = np.array([
     (-0.5, 0.5), # ΔM
     (60, 80),    # H0
-    (0.15, 0.7), # Ωm
+    (0.1, 0.5), # Ωm
     (-3, 0),     # w0
     (-3.5, 3.5), # wa
     (0.01, 1.5), # f - overestimation of the uncertainties in the CC data
@@ -164,6 +164,7 @@ def main():
         smooth=2,
         smooth1d=2,
         bins=50,
+        plot_datapoints=False,
     )
     plt.show()
 
@@ -192,48 +193,48 @@ that the parameters are weakly correlated
 *******************************
 
 Flat ΛCDM: w(z) = -1
-ΔM: -0.1327 +0.0357 -0.0371
-H0: 65.6650 +1.2893 -1.3081 km/s/Mpc
-Ωm: 0.3249 +0.0159 -0.0149
+ΔM: -0.1337 +0.0314 -0.0325
+H0: 65.8129 +1.1592 -1.1826 km/s/Mpc
+Ωm: 0.3156 +0.0147 -0.0138
 w0: -1
 wa: 0
-f: 0.9132 +0.1297 -0.1032
-Chi squared: 1676.9990
-Degrees of freedom: 1768
+f: 0.7878 +0.1049 -0.0886 (2.02 - 2.40 sigma)
+Chi squared: 1682.5273
+Degrees of freedom: 1772
 
 ==============================
 
 Flat wCDM: w(z) = w0
-ΔM: -0.0666 +0.0340 -0.0348
-H0: 66.9062 +1.1608 -1.1506 km/s/Mpc
-Ωm: 0.2597 +0.0210 -0.0211
-w0: -0.7923 +0.0479 -0.0504 (4.12 - 4.34 sigma)
+ΔM: -0.0866 +0.0299 -0.0320
+H0: 66.3751 +1.0362 -1.0887 km/s/Mpc
+Ωm: 0.2710 +0.0177 -0.0167
+w0: -0.8192 +0.0451 -0.0484 (3.74 - 4.01 sigma)
 wa: 0
-f: 0.7975 +0.1081 -0.0864
-Chi squared: 1672.4717
-Degrees of freedom: 1767
+f: 0.7125 +0.0964 -0.0759 (2.98 - 3.79 sigma)
+Chi squared: 1676.0966
+Degrees of freedom: 1771
 
 ==============================
 
 Flat alternative: w(z) = w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-ΔM: -0.0657 +0.0343 -0.0351
-H0: 66.8688 +1.1838 -1.1663 km/s/Mpc
-Ωm: 0.2754 +0.0173 -0.0170
-w0: -0.7813 +0.0506 -0.0530 (4.13 - 4.32 sigma)
+ΔM: -0.0854 +0.0292 -0.0297
+H0: 66.3504 +1.0084 -1.0175 km/s/Mpc
+Ωm: 0.2825 +0.0142 -0.0136
+w0: -0.8047 +0.0461 -0.0477 (4.09 - 4.24 sigma)
 wa: 0
-f: 0.8032 +0.1098 -0.0894
-Chi squared: 1672.1857
-Degrees of freedom: 1767
+f: 0.7090 +0.0914 -0.0736 (3.18 - 3.95 sigma)
+Chi squared: 1676.2809
+Degrees of freedom: 1771
 
 ==============================
 
 Flat w0waCDM: w(z) = w0 + wa * z/(1 + z)
-ΔM: -0.0693 +0.0355 -0.0363
-H0: 66.7733 +1.1986 -1.1446 km/s/Mpc
-Ωm: 0.2644 +0.0343 -0.0518
-w0: -0.7719 +0.0639 -0.0611 (3.57 - 3.73 sigma)
-wa: -0.0850 +0.5138 -0.6870 (0.12 - 0.17 sigma)
-f: 0.8043 +0.1158 -0.0913
-Chi squared: 1672.9097
-Degrees of freedom: 1766
+ΔM: -0.0863 +0.0302 -0.0299
+H0: 66.2713 +1.0532 -1.0320 km/s/Mpc
+Ωm: 0.2846 +0.0257 -0.0452
+w0: -0.7780 +0.0822 -0.0656 (2.70 - 3.38 sigma)
+wa: -0.3390 +0.6980 -0.7713 (0.44 - 0.49 sigma)
+f: 0.7121 +0.0917 -0.0749 (3.14 - 3.84 sigma)
+Chi squared: 1676.3774
+Degrees of freedom: 1770
 """
