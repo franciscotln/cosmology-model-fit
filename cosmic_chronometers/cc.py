@@ -18,7 +18,7 @@ def H_z(z, params):
 
 bounds = np.array([
     (40, 110), # H0
-    (0, 1), # Ωm
+    (0, 0.6), # Ωm
     (-4, 1), # w0
     (-5, 5), # wa
     (0.01, 1.5), # f - overestimation of the uncertainties
@@ -131,50 +131,51 @@ The results show consistent values for f and the corner plot shows
 that the parameters are weakly correlated
 
 *****************************
-Compilation data (37 data points)
+Compilation data (41 data points)
+https://arxiv.org/pdf/1709.00646
 *****************************
 
 Flat ΛCDM
-H0: 70.5906 +1.7934 -1.8231
-Ωm: 0.2556 +0.0215 -0.0194
+H0: 69.7883 +1.3872 -1.3937 km/s/Mpc
+Ωm: 0.2612 +0.0161 -0.0150
 w0: -1
 wa: 0
-f: 0.8202 +0.1100 -0.0902
-Chi squared: 33.3273
-Degs of freedom: 34
+f: 0.7042 +0.0902 -0.0749
+Chi squared: 37.3390
+Degs of freedom: 38
 
 ===============================
 
 Flat wCDM
-H0: 65.7065 +3.8397 -3.5231 km/s/Mpc
-Ωm: 0.2497 +0.0258 -0.0342
-w0: -0.7266 +0.2023 -0.1971
+H0: 68.8820 +3.7148 -3.4348 km/s/Mpc
+Ωm: 0.2596 +0.0190 -0.0191
+w0: -0.9516 +0.1823 -0.1828 (0.26 - 0.27 - sigma)
 wa: 0
-f: 0.8097 +0.1124 -0.0904
-Chi squared: 33.0174
-Degs of freedom: 33
+f: 0.7143 +0.0937 -0.0771
+Chi squared: 36.6480
+Degs of freedom: 37
 
 ===============================
 
 Flat w(z) = w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-H0: 65.9175 +4.3803 -3.9649 km/s/Mpc
-Ωm: 0.2779 +0.0308 -0.0286
-w0: -0.7221 +0.2306 -0.2428
+H0: 69.5990 +4.2308 -3.8838 km/s/Mpc
+Ωm: 0.2619 +0.0267 -0.0253
+w0: -0.9898 +0.2233 -0.2324 (0.05 sigma)
 wa: 0
-f: 0.8151 +0.1128 -0.0907
-Chi squared: 32.3481
-Degs of freedom: 33
+f: 0.7137 +0.0934 -0.0763
+Chi squared: 36.3607
+Degs of freedom: 37
 
 ==================================
 
 Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
-H0: 66.1623 +4.8368 -4.7809 km/s/Mpc
-Ωm: 0.2494 +0.0802 -0.0961
-w0: -0.7062 +0.3496 -0.2904 (0.92 sigma)
-wa: 0.0417 +0.7609 -1.6116 (0.04 sigma)
-f: 0.8158 +0.1130 -0.0924
-Chi squared: 32.4815
-Degs of freedom: 32
+H0: 69.9303 +4.7256 -4.6145 km/s/Mpc
+Ωm: 0.2362 +0.0630 -0.0679
+w0: -0.9819 +0.3267 -0.2896 (0.06 sigma)
+wa: 0.4612 +0.7379 -1.6136
+f: 0.7143 +0.0945 -0.0766
+Chi squared: 36.4226
+Degs of freedom: 36
 
 ******************************
 Results for data from

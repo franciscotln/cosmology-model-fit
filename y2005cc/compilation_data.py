@@ -1,20 +1,19 @@
 import os
-import numpy as np
+import pandas as pd
 
-# Source: https://github.com/ja-vazquez/SimpleMC/blob/master/simplemc/data/HDiagramCompilacion-data.txt
+# Source: https://arxiv.org/pdf/1709.00646
 
 path_to_data = os.path.dirname(os.path.abspath(__file__)) + '/raw-data/'
-data = np.genfromtxt(path_to_data + 'data.txt')
-covariance_matrix = np.genfromtxt(path_to_data + 'covariance.txt')
-
-z_values = data[:, 0]
-H_values = data[:, 1]
-dH_values = np.sqrt(np.diag(covariance_matrix))
+data = pd.read_csv(
+    path_to_data + 'data.txt',
+    delimiter=",",
+    dtype={ "z": float, "H": float, "sigma_H": float, "Reference": str },
+)
 
 def get_data():
     return (
         "Cosmic Chronometers compilation",
-        z_values,
-        H_values,
-        dH_values
+        data["z"],
+        data["H"],
+        data["sigma_H"],
     )
