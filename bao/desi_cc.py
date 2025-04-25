@@ -17,7 +17,7 @@ inv_bao_cov_matrix = np.linalg.inv(bao_cov_matrix)
 
 
 def h_over_h0_model(z, params):
-    _, _, O_m, w0, _ = params
+    _, _, O_m, w0, _, _ = params
     sum = 1 + z
     return np.sqrt(O_m * sum**3 + (1 - O_m) * ((2 * sum**2) / (1 + sum**2))**(3 * (1 + w0)))
 
@@ -52,17 +52,20 @@ def model_predictions(params):
 
 
 bounds = np.array([
-    (50, 100), # H0
-    (133, 160), # r_d
-    (0.2, 0.7), # Ωm
-    (-2, 0.5), # w0
-    (-4, 4), # wa
+    (50, 100),   # H0
+    (133, 160),  # r_d
+    (0.2, 0.7),  # Ωm
+    (-2, 0.5),   # w0
+    (-4, 4),     # wa
+    (0.01, 1.5), # f - overestimation of the uncertainties in the CC data
 ])
 
 
 def chi_squared(params):
+    f = params[-1]
     cc_delta = H_cc_vals - H_z(z_cc_vals, params)
-    chi_cc = np.sum(cc_delta**2 / dH_cc_vals**2)
+    escaled_error = dH_cc_vals * f
+    chi_cc = np.sum(cc_delta**2 / escaled_error**2)
 
     delta_bao = data['value'] - model_predictions(params)
     chi_bao = np.dot(delta_bao, np.dot(inv_bao_cov_matrix, delta_bao))
@@ -76,7 +79,8 @@ def log_prior(params):
 
 
 def log_likelihood(params):
-    return -0.5 * chi_squared(params)
+    f_cc = params[-1]
+    return -0.5 * chi_squared(params) - f_cc * z_cc_vals.size
 
 
 def log_probability(params):
@@ -95,7 +99,7 @@ def plot_all_predictions(params):
     unique_quantities = set(quantity_types)
     colors = { "DV_over_rs": "red", "DM_over_rs": "blue", "DH_over_rs": "green" }
 
-    h0, r_d, omega_m, w0, wa = params
+    h0, r_d, omega_m, w0, wa, _ = params
     z_smooth = np.linspace(0, max(z_values), 100)
     plt.figure(figsize=(8, 6))
     for q in unique_quantities:
@@ -178,21 +182,23 @@ def main():
         [omega_16, omega_50, omega_84],
         [w0_16, w0_50, w0_84],
         [wa_16, wa_50, wa_84],
+        [f_16, f_50, f_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = [h0_50, rd_50, omega_50, w0_50, wa_50]
+    best_fit = [h0_50, rd_50, omega_50, w0_50, wa_50, f_50]
 
     print(f"H0: {h0_50:.2f} +{(h0_84 - h0_50):.2f} -{(h0_50 - h0_16):.2f}")
     print(f"r_d: {rd_50:.4f} +{(rd_84 - rd_50):.4f} -{(rd_50 - rd_16):.4f}")
     print(f"Ωm: {omega_50:.4f} +{(omega_84 - omega_50):.4f} -{(omega_50 - omega_16):.4f}")
     print(f"w0: {w0_50:.4f} +{(w0_84 - w0_50):.4f} -{(w0_50 - w0_16):.4f}")
     print(f"wa: {wa_50:.4f} +{(wa_84 - wa_50):.4f} -{(wa_50 - wa_16):.4f}")
+    print(f"f: {f_50:.4f} +{(f_84 - f_50):.4f} -{(f_50 - f_16):.4f}")
     print(f"Chi squared: {chi_squared(best_fit):.4f}")
     print(f"Degrees of freedom: {data['value'].size + z_cc_vals.size - len(best_fit)}")
 
     plot_all_predictions(best_fit)
 
-    labels = [r"$H_0$", r"$r_d$", f"$\Omega_m$", r"$w_0$", r"$w_a$"]
+    labels = [r"$H_0$", r"$r_d$", f"$\Omega_m$", r"$w_0$", r"$w_a$", r"$f$"]
     corner.corner(
         samples,
         labels=labels,
@@ -222,44 +228,48 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM model
-H0: 67.73 +1.11 -1.11 km/s/Mpc
-r_d: 150.3354 +2.1879 -2.1225 Mpc
-Ωm: 0.2940 +0.0083 -0.0081
+H0: 67.80 +1.02 -1.03 km/s/Mpc
+r_d: 150.2746 +1.9955 -1.9214 Mpc
+Ωm: 0.2933 +0.0082 -0.0080
 w0: -1
 wa: 0
-Chi squared: 35.0976
-Degrees of freedom: 47
+f: 0.8956 +0.0987 -0.0873
+Chi squared: 41.1640
+Degrees of freedom: 46
 
 =============================
 
 Flat wCDM model
-H0: 66.22 +1.42 -1.39 km/s/Mpc
-r_d: 150.1774 +2.1716 -2.1278 Mpc
-Ωm: 0.2934 +0.0086 -0.0085
-w0: -0.8858 +0.0702 -0.0722
+H0: 66.16 +1.37 -1.30 km/s/Mpc
+r_d: 150.0948 +1.9349 -1.8866 Mpc
+Ωm: 0.2923 +0.0085 -0.0084
+w0: -0.8763 +0.0690 -0.0717 (1.73 - 1.79 sigma)
 wa: 0
-Chi squared: 32.6142
-Degrees of freedom: 46
+f: 0.8801 +0.0980 -0.0864
+Chi squared: 39.3967
+Degrees of freedom: 45
 
 ==============================
 
 Flat w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-H0: 65.72 +1.60 -1.53 km/s/Mpc
-r_d: 150.1810 +2.1906 -2.1060 Mpc
-Ωm: 0.3024 +0.0098 -0.0095
-w0: -0.8378 +0.0913 -0.0967
-wa: 0.0358 +2.7298 -2.7623
-Chi squared: 32.1528
-Degrees of freedom: 46
+H0: 65.65 +1.57 -1.49 km/s/Mpc
+r_d: 150.1497 +1.9605 -1.8852 Mpc
+Ωm: 0.3019 +0.0096 -0.0095
+w0: -0.8289 +0.0898 -0.0956 (1.79 - 1.91 sigma)
+wa: 0
+f: 0.8791 +0.0969 -0.0847
+Chi squared: 38.9692
+Degrees of freedom: 45
 
 ==============================
 
 Flat w0waCDM w0 + wa * z/(1 + z)
-H0: 61.92 +3.27 -2.75 km/s/Mpc
-r_d: 151.0346 +2.3041 -2.2136 Mpc
-Ωm: 0.3605 +0.0367 -0.0443
-w0: -0.3920 +0.3357 -0.3610
-wa: -1.9207 +1.3291 -1.1827
-Chi squared: 30.1758
-Degrees of freedom: 45
+H0: 62.04 +3.29 -2.77 km/s/Mpc
+r_d: 150.9950 +2.0775 -2.0423 Mpc
+Ωm: 0.3576 +0.0378 -0.0463
+w0: -0.4082 +0.3426 -0.3621 (1.63 - 1.73 sigma)
+wa: -1.8416 +1.3582 -1.2152
+f: 0.8903 +0.0995 -0.0871
+Chi squared: 36.4730
+Degrees of freedom: 44
 """
