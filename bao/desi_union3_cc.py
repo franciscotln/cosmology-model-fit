@@ -5,7 +5,7 @@ from scipy.integrate import cumulative_trapezoid, quad
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from y2023union3.data import get_data
-from y2005cc.compilation_data import get_data as get_cc_data
+from y2005cc.data import get_data as get_cc_data
 from hubble.plotting import plot_predictions as plot_sn_predictions
 
 _, z_cc_vals, H_cc_vals, dH_cc_vals = get_cc_data()
@@ -259,52 +259,52 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM: w(z) = -1
-ΔM: -0.1695 +0.0927 -0.0932
-H0: 67.1519 +0.8410 -0.8444 km/s/Mpc
-r_d: 151.3349 +1.5522 -1.5232 Mpc
-Ωm: 0.2964 +0.0078 -0.0075
+ΔM: -0.1144 +0.0958 -0.0967
+H0: 68.8230 +1.1767 -1.1861 km/s/Mpc
+r_d: 146.7426 +2.4732 -2.3694 Mpc
+Ωm: 0.3046 +0.0083 -0.0081
 w0: -1
 wa: 0
-f: 0.7381 +0.0943 -0.0778 (2.78 - 3.37 sigma)
-Chi squared: 77.7892
-Degrees of freedom: 71
+f: 0.7061 +0.1027 -0.0825 (2.86 - 3.56 sigma)
+Chi squared: 68.0933
+Degrees of freedom: 62
 
 ==============================
 
 Flat wCDM: w(z) = w0
-ΔM: -0.2059 +0.0929 -0.0929
-H0: 65.5885 +0.9451 -0.9354 km/s/Mpc
-r_d: 150.7806 +1.5275 -1.4946 Mpc
-Ωm: 0.2916 +0.0082 -0.0080
-w0: -0.8539 +0.0465 -0.0475 (3.08 - 3.14 sigma)
+ΔM: -0.1537 +0.0980 -0.0961
+H0: 67.2316 +1.3264 -1.3209 km/s/Mpc
+r_d: 146.8968 +2.5239 -2.4122 Mpc
+Ωm: 0.2984 +0.0088 -0.0090
+w0: -0.8688 +0.0501 -0.0511 (2.57 - 2.62 sigma)
 wa: 0
-f: 0.7190 +0.0918 -0.0756
-Chi squared: 70.6379
-Degrees of freedom: 70
+f: 0.7087 +0.1035 -0.0830 (2.81 - 3.51 sigma)
+Chi squared: 61.5367
+Degrees of freedom: 61
 
 ==============================
 
 Flat alternative: w(z) = w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-ΔM: -0.2142 +0.0935 -0.0928
-H0: 65.2647 +0.9822 -0.9727 km/s/Mpc
-r_d: 150.8929 +1.5228 -1.4751 Mpc
-Ωm: 0.3012 +0.0079 -0.0077
-w0: -0.8185 +0.0538 -0.0549 (3.31 - 3.37 sigma)
+ΔM: -0.1584 +0.0966 -0.0972
+H0: 66.9423 +1.3400 -1.3219 km/s/Mpc
+r_d: 146.9303 +2.4810 -2.3889 Mpc
+Ωm: 0.3068 +0.0083 -0.0082
+w0: -0.8358 +0.0585 -0.0599 (2.74 - 2.81 sigma)
 wa: 0
-f: 0.7216 +0.0922 -0.0764 (3.02 - 3.64 sigma)
-Chi squared: 69.3066
-Degrees of freedom: 70
+f: 0.7106 +0.1040 -0.0837 (2.78 - 3.46 sigma)
+Chi squared: 60.3484
+Degrees of freedom: 61
 
 ==============================
 
 Flat w0waCDM: w(z) = w0 + wa * z/(1 + z)
-ΔM: -0.2242 +0.0938 -0.0939
-H0: 64.6062 +1.1595 -1.1241 km/s/Mpc
-r_d: 151.3003 +1.5697 -1.5332 Mpc
-Ωm: 0.3204 +0.0160 -0.0194
-w0: -0.7206 +0.1084 -0.1025 (2.58 - 2.73 sigma)
-wa: -0.8051 +0.5452 -0.5374 (1.48 - 1.50 sigma)
-f: 0.7262 +0.0931 -0.0766 (2.94 - 3.57 sigma)
-Chi squared: 67.4852
-Degrees of freedom: 69
+ΔM: -0.1659 +0.0973 -0.0977
+H0: 66.3492 +1.4262 -1.3986 km/s/Mpc
+r_d: 147.0749 +2.4525 -2.4238 Mpc
+Ωm: 0.3284 +0.0161 -0.0186
+w0: -0.7245 +0.1129 -0.1067 (2.44 - 2.58 sigma)
+wa: -0.8853 +0.5567 -0.5564 (1.59 sigma)
+f: 0.7152 +0.1041 -0.0833 (2.74 - 3.42 sigma)
+Chi squared: 58.2449
+Degrees of freedom: 60
 """
