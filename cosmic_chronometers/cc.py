@@ -3,7 +3,7 @@ import emcee
 import corner
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
-from y2005cc.compilation_data import get_data
+from y2005cc.data import get_data
 
 # Speed of light in km/s
 c = 299792.458
@@ -187,7 +187,7 @@ H0: 67.9926 +2.1899 -2.2426 km/s/Mpc
 Ωm: 0.3229 +0.0454 -0.0406
 w0: -1
 wa: 0
-f: 0.7167 +0.1063 -0.0858
+f: 0.7167 +0.1063 -0.0858 (2.67 - 3.30 sigma)
 Chi squared: 28.2945
 Degs of freedom: 29
 
@@ -196,19 +196,20 @@ Degs of freedom: 29
 Flat wCDM
 H0: 71.2178 +7.4944 -5.5947 km/s/Mpc
 Ωm: 0.3053 +0.0480 -0.0498
-w0: -1.3176 +0.5007 -0.6055
+w0: -1.3176 +0.5007 -0.6055 (0.52 - 0.63 sigma)
 wa: 0
-f: 0.7258 +0.1094 -0.0874
+f: 0.7258 +0.1094 -0.0874 (2.51 - 3.14 sigma)
 Chi squared: 28.5953
 Degs of freedom: 28
 
 ===============================
 
 Flat w(z) = w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-H0: 72.4238 +8.2836 -6.2933
+H0: 72.4238 +8.2836 -6.2933 km/s/Mpc
 Ωm: 0.3012 +0.0491 -0.0455
-w0: -1.4340 +0.5595 -0.7065
-f: 0.7251 +0.1096 -0.0875
+w0: -1.4340 +0.5595 -0.7065 (0.61 - 0.78 sigma)
+wa: 0
+f: 0.7251 +0.1096 -0.0875 (2.51 - 3.14 sigma)
 Chi squared: 27.6688
 Degs of freedom: 28
 
@@ -217,9 +218,9 @@ Degs of freedom: 28
 Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
 H0: 72.2010 +8.8488 -6.7042 km/s/Mpc
 Ωm: 0.3091 +0.0821 -0.0808
-w0: -1.3259 +0.6470 -0.8179
-wa: -0.2805 +2.2945 -3.0230
-f: 0.7292 +0.1108 -0.0881
+w0: -1.3259 +0.6470 -0.8179 (0.40 - 0.50 sigma)
+wa: -0.2805 +2.2945 -3.0230 (0.09 - 0.12 sigma)
+f: 0.7292 +0.1108 -0.0881 (2.44 - 3.07 sigma)
 Chi squared: 27.5744
 Degs of freedom: 27
 """
