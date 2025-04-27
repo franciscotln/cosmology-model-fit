@@ -1,6 +1,6 @@
 import numpy as np
 import emcee
-import corner
+from getdist import MCSamples, plots
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from y2005cc.data import get_data
@@ -54,9 +54,9 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 200
+    nwalkers = 6 * ndim
     burn_in = 500
-    nsteps = 6000 + burn_in
+    nsteps = 20000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):
@@ -72,7 +72,6 @@ def main():
     except emcee.autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
 
-    chains_samples = sampler.get_chain(discard=0, flat=False)
     samples = sampler.get_chain(discard=burn_in, flat=True)
 
     [
@@ -93,30 +92,21 @@ def main():
     print(f"Chi squared: {chi_squared(best_fit):.4f}")
     print(f"Degs of freedom: {z_values.size  - len(best_fit)}")
 
-    labels = [f"$H_0$", f"$\Omega_m$", r"$w_0$", f"$w_a$", f"$f$"]
-
-    corner.corner(
-        samples,
+    labels = ["H_0", "Ωm", "w_0", "w_a", "f"]
+    gdsamples = MCSamples(
+        samples=samples,
+        names=labels,
         labels=labels,
-        quantiles=[0.159, 0.5, 0.841],
-        show_titles=True,
-        title_fmt=".4f",
-        smooth=2,
-        smooth1d=2,
-        bins=50,
-        plot_datapoints=False,
+        settings={"fine_bins_2D": 128, "smooth_scale_2D": 0.9}
     )
-    plt.show()
-
-    _, axes = plt.subplots(ndim, figsize=(10, 7))
-    if ndim == 1:
-        axes = [axes]
-    for i in range(ndim):
-        axes[i].plot(chains_samples[:, :, i], color='black', alpha=0.3, lw=0.5)
-        axes[i].set_ylabel(labels[i])
-        axes[i].set_xlabel("chain step")
-        axes[i].axvline(x=burn_in, color='red', linestyle='--', alpha=0.5)
-        axes[i].axhline(y=best_fit[i], color='white', linestyle='--', alpha=0.5)
+    g = plots.get_subplot_plotter()
+    g.triangle_plot(
+        gdsamples,
+        Filled=False,
+        contour_levels=[0.68, 0.95],
+        title_limit=True,
+        diag1d_kwargs={"density": True},
+    )
     plt.show()
 
 
@@ -131,51 +121,51 @@ The results show consistent values for f and the corner plot shows
 that the parameters are weakly correlated
 
 *****************************
-Compilation data (41 data points)
-https://arxiv.org/pdf/1709.00646
+Compilation data (37 data points)
+https://github.com/ja-vazquez/SimpleMC/blob/master/simplemc/data/HDiagramCompilacion-data.txt
 *****************************
 
 Flat ΛCDM
-H0: 69.7883 +1.3872 -1.3937 km/s/Mpc
-Ωm: 0.2612 +0.0161 -0.0150
+H0: 70.6130 +1.7770 -1.7968 km/s/Mpc
+Ωm: 0.2551 +0.0213 -0.0190
 w0: -1
 wa: 0
-f: 0.7042 +0.0902 -0.0749
-Chi squared: 37.3390
-Degs of freedom: 38
+f: 0.8212 +0.1111 -0.0912 (1.61 - 1.96 sigma)
+Chi squared: 33.2463
+Degs of freedom: 34
 
 ===============================
 
 Flat wCDM
-H0: 68.8820 +3.7148 -3.4348 km/s/Mpc
-Ωm: 0.2596 +0.0190 -0.0191
-w0: -0.9516 +0.1823 -0.1828 (0.26 - 0.27 - sigma)
+H0: 65.8011 +3.7739 -3.5234 km/s/Mpc
+Ωm: 0.2498 +0.0255 -0.0339
+w0: -0.7327 +0.2017 -0.1966 (1.33 - 1.36 sigma)
 wa: 0
-f: 0.7143 +0.0937 -0.0771
-Chi squared: 36.6480
-Degs of freedom: 37
+f: 0.8095 +0.1102 -0.0897 (1.73 - 2.12 sigma)
+Chi squared: 33.0736
+Degs of freedom: 33
 
 ===============================
 
 Flat w(z) = w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-H0: 69.5990 +4.2308 -3.8838 km/s/Mpc
-Ωm: 0.2619 +0.0267 -0.0253
-w0: -0.9898 +0.2233 -0.2324 (0.05 sigma)
+H0: 65.9227 +4.3195 -3.9370 km/s/Mpc
+Ωm: 0.2784 +0.0306 -0.0283
+w0: -0.7216 +0.2269 -0.2406 (1.16 - 1.23 sigma)
 wa: 0
-f: 0.7137 +0.0934 -0.0763
-Chi squared: 36.3607
-Degs of freedom: 37
+f: 0.8141 +0.1110 -0.0899 (1.67 - 2.07 sigma)
+Chi squared: 32.4180
+Degs of freedom: 33
 
 ==================================
 
 Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
-H0: 69.9303 +4.7256 -4.6145 km/s/Mpc
-Ωm: 0.2362 +0.0630 -0.0679
-w0: -0.9819 +0.3267 -0.2896 (0.06 sigma)
-wa: 0.4612 +0.7379 -1.6136
-f: 0.7143 +0.0945 -0.0766
-Chi squared: 36.4226
-Degs of freedom: 36
+H0: 66.1453 +4.7985 -4.7897 km/s/Mpc
+Ωm: 0.2516 +0.0789 -0.0968
+w0: -0.7023 +0.3500 -0.2851
+wa: 0.0055 +0.7851 -1.5913
+f: 0.8190 +0.1144 -0.0940
+Chi squared: 32.2067
+Degs of freedom: 32
 
 ******************************
 Results for data from
@@ -183,44 +173,44 @@ https://arxiv.org/pdf/2307.09501
 *****************************
 
 Flat ΛCDM
-H0: 67.9926 +2.1899 -2.2426 km/s/Mpc
-Ωm: 0.3229 +0.0454 -0.0406
+H0: 67.9657 +2.2066 -2.2381 km/s/Mpc
+Ωm: 0.3229 +0.0455 -0.0408
 w0: -1
 wa: 0
-f: 0.7167 +0.1063 -0.0858 (2.67 - 3.30 sigma)
-Chi squared: 28.2945
+f: 0.7178 +0.1076 -0.0854 (2.62 - 3.30 sigma)
+Chi squared: 28.2103
 Degs of freedom: 29
 
 ===============================
 
 Flat wCDM
-H0: 71.2178 +7.4944 -5.5947 km/s/Mpc
-Ωm: 0.3053 +0.0480 -0.0498
-w0: -1.3176 +0.5007 -0.6055 (0.52 - 0.63 sigma)
+H0: 71.3986 +7.7268 -5.6946 km/s/Mpc
+Ωm: 0.3050 +0.0479 -0.0494
+w0: -1.3285 +0.4978 -0.6250 (0.53 - 0.66 sigma)
 wa: 0
-f: 0.7258 +0.1094 -0.0874 (2.51 - 3.14 sigma)
-Chi squared: 28.5953
+f: 0.7267 +0.1102 -0.0879 (2.48 - 3.11 sigma)
+Chi squared: 28.4272
 Degs of freedom: 28
 
 ===============================
 
 Flat w(z) = w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-H0: 72.4238 +8.2836 -6.2933 km/s/Mpc
-Ωm: 0.3012 +0.0491 -0.0455
-w0: -1.4340 +0.5595 -0.7065 (0.61 - 0.78 sigma)
+H0: 72.4395 +8.3109 -6.2978 km/s/Mpc
+Ωm: 0.3006 +0.0493 -0.0459
+w0: -1.4318 +0.5579 -0.7165 (0.60- 0.77 sigma)
 wa: 0
-f: 0.7251 +0.1096 -0.0875 (2.51 - 3.14 sigma)
-Chi squared: 27.6688
+f: 0.7247 +0.1091 -0.0881 (2.52 - 3.12 sigma)
+Chi squared: 27.7034
 Degs of freedom: 28
 
 =============================
 
 Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
-H0: 72.2010 +8.8488 -6.7042 km/s/Mpc
-Ωm: 0.3091 +0.0821 -0.0808
-w0: -1.3259 +0.6470 -0.8179 (0.40 - 0.50 sigma)
-wa: -0.2805 +2.2945 -3.0230 (0.09 - 0.12 sigma)
-f: 0.7292 +0.1108 -0.0881 (2.44 - 3.07 sigma)
-Chi squared: 27.5744
+H0: 72.1181 +8.9491 -6.6845 km/s/Mpc
+Ωm: 0.3085 +0.0837 -0.0808
+w0: -1.3233 +0.6594 -0.8206 (0.39 - 0.49 sigma)
+wa: -0.2320 +2.2742 -3.0988
+f: 0.7276 +0.1092 -0.0872 (2.49 - 3.12 sigma)
+Chi squared: 27.6948
 Degs of freedom: 27
 """
