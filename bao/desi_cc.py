@@ -1,10 +1,10 @@
 import numpy as np
 import emcee
-import corner
+from getdist import MCSamples, plots
 from scipy.integrate import cumulative_trapezoid
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
-from y2005cc.compilation_data import get_data as get_cc_data
+from y2005cc.data import get_data as get_cc_data
 
 _, z_cc_vals, H_cc_vals, dH_cc_vals = get_cc_data()
 
@@ -99,7 +99,7 @@ def plot_all_predictions(params):
     unique_quantities = set(quantity_types)
     colors = { "DV_over_rs": "red", "DM_over_rs": "blue", "DH_over_rs": "green" }
 
-    h0, r_d, omega_m, w0, wa, _ = params
+    h0, r_d, omega_m, f_cc = params[0], params[1], params[2], params[-1]
     z_smooth = np.linspace(0, max(z_values), 100)
     plt.figure(figsize=(8, 6))
     for q in unique_quantities:
@@ -128,14 +128,13 @@ def plot_all_predictions(params):
     plt.ylabel(r"$O = \frac{D}{r_d}$")
     plt.legend()
     plt.grid(True)
-    plt.title(f"BAO model: $H_0$={h0:.2f}, $r_d$={r_d:.2f}, $\Omega_M$={omega_m:.4f}, $w_0$={w0:.4f}, $w_a$={wa:.4f}")
+    plt.title(f"BAO model: $H_0$={h0:.2f}, $r_d$={r_d:.2f}, $\Omega_M$={omega_m:.4f}")
     plt.show()
 
-    # Plot Hubble parameter H(z)
     plt.errorbar(
         x=z_cc_vals,
         y=H_cc_vals,
-        yerr=dH_cc_vals,
+        yerr=dH_cc_vals * f_cc,
         fmt='.',
         color='blue',
         alpha=0.4,
@@ -155,9 +154,9 @@ def plot_all_predictions(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 100
+    nwalkers = 6 * ndim
     burn_in = 500
-    nsteps = 8000 + burn_in
+    nsteps = 20000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):
@@ -173,7 +172,6 @@ def main():
     except emcee.autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
 
-    chains_samples = sampler.get_chain(discard=0, flat=False)
     samples = sampler.get_chain(discard=burn_in, flat=True)
 
     [
@@ -198,29 +196,21 @@ def main():
 
     plot_all_predictions(best_fit)
 
-    labels = [r"$H_0$", r"$r_d$", f"$\Omega_m$", r"$w_0$", r"$w_a$", r"$f$"]
-    corner.corner(
-        samples,
+    labels = ["H_0", "r_d", "Omega_m", "w_0", "w_a", "f"]
+    gdsamples = MCSamples(
+        samples=samples,
+        names=labels,
         labels=labels,
-        quantiles=[0.159, 0.5, 0.841],
-        show_titles=True,
-        title_fmt=".4f",
-        smooth=2,
-        smooth1d=2,
-        bins=50,
-        plot_datapoints=False,
+        settings={"fine_bins_2D": 128, "smooth_scale_2D": 0.9}
     )
-    plt.show()
-
-    _, axes = plt.subplots(ndim, figsize=(10, 7))
-    if ndim == 1:
-        axes = [axes]
-    for i in range(ndim):
-        axes[i].plot(chains_samples[:, :, i], color='black', alpha=0.3)
-        axes[i].set_ylabel(labels[i])
-        axes[i].set_xlabel("chain step")
-        axes[i].axvline(x=burn_in, color='red', linestyle='--', alpha=0.5)
-        axes[i].axhline(y=best_fit[i], color='white', linestyle='--', alpha=0.5)
+    g = plots.get_subplot_plotter()
+    g.triangle_plot(
+        gdsamples,
+        Filled=False,
+        contour_levels=[0.68, 0.95],
+        title_limit=True,
+        diag1d_kwargs={"density": True},
+    )
     plt.show()
 
 
@@ -229,48 +219,46 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM model
-H0: 67.49 +0.90 -0.91 km/s/Mpc
-r_d: 151.1200 +1.6649 -1.6242 Mpc
-Ωm: 0.2918 +0.0080 -0.0077
-w0: -1
-wa: 0
-f: 0.8125 +0.0891 -0.0794 (2.10 - 2.36 sigma)
-Chi squared: 41.4501
-Degrees of freedom: 50
+H0: 69.07 +1.33 -1.32 km/s/Mpc
+r_d: 146.9059 +2.7570 -2.6723 Mpc
+Ωm: 0.2984 +0.0086 -0.0083
+f: 0.7950 +0.1001 -0.0856 (2.05 - 2.39 sigma)
+Chi squared: 33.4751
+Degrees of freedom: 41
 
 =============================
 
 Flat wCDM model
-H0: 66.13 +1.28 -1.24 km/s/Mpc
-r_d: 150.9017 +1.6711 -1.6414 Mpc
-Ωm: 0.2920 +0.0082 -0.0080
-w0: -0.8966 +0.0692 -0.0726 (1.42 - 1.49 sigma)
+H0: 67.97 +1.72 -1.66 km/s/Mpc
+r_d: 146.9063 +2.8136 -2.7026 Mpc
+Ωm: 0.2976 +0.0087 -0.0086
+w0: -0.9195 +0.0748 -0.0783 (1.03 - 1.08 sigma)
 wa: 0
-f: 0.8056 +0.0891 -0.0771 (2.18 - 2.52 sigma)
-Chi squared: 39.9010
-Degrees of freedom: 49
+f: 0.7976 +0.1008 -0.0868 (2.01 - 2.33 sigma)
+Chi squared: 32.2325
+Degrees of freedom: 40
 
 ==============================
 
 Flat w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-H0: 65.69 +1.46 -1.40 km/s/Mpc
-r_d: 150.9630 +1.6671 -1.6422 Mpc
-Ωm: 0.2998 +0.0096 -0.0095
-w0: -0.8563 +0.0889 -0.0943 (1.52 - 1.62 sigma)
+H0: 67.60 +1.89 -1.82 km/s/Mpc
+r_d: 146.9091 +2.7760 -2.6747 Mpc
+Ωm: 0.3038 +0.0101 -0.0098
+w0: -0.8841 +0.0982 -0.1052 (1.10 - 1.18 sigma)
 wa: 0
-f: 0.8068 +0.0885 -0.0779 (2.18 - 2.48 sigma)
-Chi squared: 39.4676
-Degrees of freedom: 49
+f: 0.8005 +0.1007 -0.0875 (1.98 - 2.28 sigma)
+Chi squared: 31.7523
+Degrees of freedom: 40
 
 ==============================
 
 Flat w0waCDM w0 + wa * z/(1 + z)
-H0: 62.62 +3.23 -2.93 km/s/Mpc
-r_d: 151.7635 +1.8577 -1.8058 Mpc
-Ωm: 0.3467 +0.0396 -0.0467
-w0: -0.5077 +0.3557 -0.3426 (1.38 - 1.44 sigma)
-wa: -1.5623 +1.3438 -1.2719 (1.16 - 1.23 sigma)
-f: 0.8191 +0.0908 -0.0805 (1.99 - 2.25 sigma)
-Chi squared: 37.3247
-Degrees of freedom: 48
+H0: 64.34 +3.48 -3.02 km/s/Mpc
+r_d: 147.2896 +2.8466 -2.7648 Mpc
+Ωm: 0.3537 +0.0392 -0.0469
+w0: -0.4973 +0.3602 -0.3679
+wa: -1.6501 +1.3950 -1.2771
+f: 0.8080 +0.1021 -0.0870 (1.88 - 2.21 sigma)
+Chi squared: 29.8468
+Degrees of freedom: 39
 """
