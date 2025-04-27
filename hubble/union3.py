@@ -1,5 +1,5 @@
 import emcee
-import corner
+from getdist import MCSamples, plots
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import skew
@@ -21,7 +21,7 @@ H0 = 70
 
 # Flat model
 def integral_of_e_z(zs, params):
-    _, omega_m, w0, _ = params
+    omega_m, w0 = params[1], params[2]
     z = np.linspace(0, np.max(zs), num=4000)
     sum = 1 + z
     h_over_h0 = np.sqrt(omega_m * sum**3 + (1 - omega_m) * ((2 * sum**2) / (1 + sum**2))**(3 * (1 + w0)))
@@ -68,9 +68,9 @@ def log_probability(params):
 
 def main():
     n_dim = len(bounds)
-    n_walkers = 200
-    discarded_steps = 200
-    n_steps = discarded_steps + 5000
+    n_walkers = 16 * n_dim
+    discarded_steps = 500
+    n_steps = discarded_steps + 20000
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(n_walkers, n_dim))
 
     with Pool(10) as pool:
@@ -83,7 +83,6 @@ def main():
     except emcee.autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
 
-    chains_samples = sampler.get_chain(discard=0, flat=False)
     samples = sampler.get_chain(discard=discarded_steps, flat=True)
 
     [
@@ -127,29 +126,21 @@ def main():
     print_color("Chi squared", f"{chi_squared(best_fit_params):.4f}")
     print_color("Reduced chi squared", chi_squared(best_fit_params)/ (len(z_values) - len(best_fit_params)))
 
-    labels = [f"$\Delta_M$", f"$\Omega_m$", r"$w_0$", r"$w_a$"]
-    corner.corner(
-        samples,
+    labels = ["ΔM", "Ωm", "w_0", "w_a"]
+    gdsamples = MCSamples(
+        samples=samples,
+        names=labels,
         labels=labels,
-        show_titles=True,
-        title_fmt=".4f",
-        title_kwargs={"fontsize": 12},
-        quantiles=[0.16, 0.5, 0.84],
-        smooth=1.5,
-        smooth1d=1.5,
-        bins=50
+        settings={"fine_bins_2D": 128, "smooth_scale_2D": 0.9}
     )
-    plt.show()
-
-    _, axes = plt.subplots(n_dim, figsize=(10, 7))
-    if n_dim == 1:
-        axes = [axes]
-    for i in range(n_dim):
-        axes[i].plot(chains_samples[:, :, i], color='black', alpha=0.3, lw=0.5)
-        axes[i].set_ylabel(labels[i])
-        axes[i].set_xlabel("chain step")
-        axes[i].axvline(x=discarded_steps, color='red', linestyle='--', alpha=0.5)
-        axes[i].axhline(y=best_fit_params[i], color='white', linestyle='--', alpha=0.5)
+    g = plots.get_subplot_plotter()
+    g.triangle_plot(
+        gdsamples,
+        Filled=False,
+        contour_levels=[0.68, 0.95],
+        title_limit=True,
+        diag1d_kwargs={"normed": True},
+    )
     plt.show()
 
     sigma_mu = np.sqrt(np.diag(cov_matrix))
@@ -160,7 +151,7 @@ def main():
         y=distance_moduli_values,
         y_err=sigma_mu,
         y_model=predicted_distances,
-        label=f"Best fit: $\Omega_m$={omega_50:.4f}, $w_0$={w0_50:.4f}, $w_a$={wa_50:.4f}",
+        label=f"Best fit: $\Omega_m$={omega_50:.4f}",
         x_scale="log"
     )
 
