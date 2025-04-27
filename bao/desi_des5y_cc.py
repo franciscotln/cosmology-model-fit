@@ -1,6 +1,6 @@
 import numpy as np
 import emcee
-import corner
+from getdist import MCSamples, plots
 from scipy.integrate import cumulative_trapezoid
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
@@ -22,7 +22,7 @@ inv_cov_matrix = np.linalg.inv(cov_matrix)
 
 
 def h_over_h0_model(z, params):
-    _, _, _, O_m, w0, _, _ = params
+    O_m, w0 = params[3], params[4]
     sum = 1 + z
     return np.sqrt(O_m * sum**3 + (1 - O_m) * ((2 * sum**2) / (1 + sum**2))**(3 * (1 + w0)))
 
@@ -48,7 +48,7 @@ def plot_bao_predictions(params):
     unique_quantities = set(quantity_types)
     colors = { "DV_over_rs": "red", "DM_over_rs": "blue", "DH_over_rs": "green" }
 
-    _, h0, r_d, omega_m, w0, wa, _ = params
+    h0, r_d, omega_m, f = params[1], params[2], params[3], params[-1]
     z_smooth = np.linspace(0, max(z_values), 100)
     plt.figure(figsize=(8, 6))
     for q in unique_quantities:
@@ -77,13 +77,13 @@ def plot_bao_predictions(params):
     plt.ylabel(r"$O = \frac{D}{r_d}$")
     plt.legend()
     plt.grid(True)
-    plt.title(f"BAO model: $r_d$={r_d:.2f}, $\Omega_M$={omega_m:.4f}, $w_0$={w0:.4f}, $w_a$={wa:.4f}")
+    plt.title(f"BAO model: $H_0$={h0:.2f} $r_d$={r_d:.2f}, $\Omega_M$={omega_m:.4f}")
     plt.show()
 
     plt.errorbar(
         x=z_cc_vals,
         y=H_cc_vals,
-        yerr=dH_cc_vals,
+        yerr=dH_cc_vals * f,
         fmt='.',
         color='blue',
         alpha=0.4,
@@ -136,7 +136,7 @@ bounds = np.array([
     (0.2, 0.7),  # omega_m
     (-3, 0),     # w0
     (-3.5, 3.5), # wa
-    (0.01, 1.5), # f - overestimation of the uncertainties in the CC data
+    (0.1, 1.5), # f - overestimation of the uncertainties in the CC data
 ])
 
 
@@ -174,9 +174,9 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 100
+    nwalkers = 6 * ndim
     burn_in = 500
-    nsteps = 5000 + burn_in
+    nsteps = 15000 + burn_in
     initial_pos = np.random.default_rng().uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
 
     with Pool(10) as pool:
@@ -189,7 +189,6 @@ def main():
     except emcee.autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
 
-    chains_samples = sampler.get_chain(discard=0, flat=False)
     samples = sampler.get_chain(discard=burn_in, flat=True)
 
     [
@@ -223,33 +222,25 @@ def main():
         y=distance_moduli_values,
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=model_distance_modulus(z_vals, best_fit),
-        label=f"Best fit: $w_0$={w0_50:.4f}, $\Omega_m$={omega_50:.4f}",
+        label=f"Best fit: $H_0$={h0_50:.2f}, $\Omega_m$={omega_50:.4f}",
         x_scale="log"
     )
 
-    labels = [r"$\Delta_M$", r"$H_0$", r"$r_d$", f"$\Omega_m$", r"$w_0$", r"$w_a$", r"$f$"]
-    corner.corner(
-        samples,
+    labels = ["ΔM", "H_0", "r_d", "Ωm", "w_0", "w_a", "f"]
+    gdsamples = MCSamples(
+        samples=samples,
+        names=labels,
         labels=labels,
-        quantiles=[0.159, 0.5, 0.841],
-        show_titles=True,
-        title_fmt=".4f",
-        smooth=2,
-        smooth1d=2,
-        bins=50,
-        plot_datapoints=False,
+        settings={"fine_bins_2D": 128, "smooth_scale_2D": 0.9}
     )
-    plt.show()
-
-    _, axes = plt.subplots(ndim, figsize=(10, 7), sharex=True)
-    if ndim == 1:
-        axes = [axes]
-    for i in range(ndim):
-        axes[i].plot(chains_samples[:, :, i], color='black', alpha=0.3, lw=0.4)
-        axes[i].set_ylabel(labels[i])
-        axes[i].axvline(x=burn_in, color='red', linestyle='--', alpha=0.5)
-        axes[i].axhline(y=best_fit[i], color='white', linestyle='--', alpha=0.5)
-    axes[ndim - 1].set_xlabel("chain step")
+    g = plots.get_subplot_plotter()
+    g.triangle_plot(
+        gdsamples,
+        Filled=False,
+        contour_levels=[0.68, 0.95],
+        title_limit=True,
+        diag1d_kwargs={"density": True},
+    )
     plt.show()
 
 
@@ -266,52 +257,52 @@ that the parameters are weakly correlated
 *******************************
 
 Flat ΛCDM: w(z) = -1
-ΔM: -0.0480 +0.0357 -0.0360
-H0: 68.5659 +1.1699 -1.1575 km/s/Mpc
-r_d: 146.6312 +2.4462 -2.3566 Mpc
-Ωm: 0.3103 +0.0078 -0.0077
+ΔM: -0.0483 +0.0359 -0.0368
+H0: 68.5625 +1.1655 -1.1882 km/s/Mpc
+r_d: 146.6667 +2.4939 -2.3741 Mpc
+Ωm: 0.3102 +0.0079 -0.0077
 w0: -1
 wa: 0
-f_cc: 0.7065 +0.1016 -0.0832 (2.89 - 3.53 sigma)
-Chi squared: 1687.7283
+f_cc: 0.7060 +0.1032 -0.0835 (2.85 - 3.52 sigma)
+Chi squared: 1687.7647
 Degrees of freedom: 1775
 
 ==============================
 
 Flat wCDM: w(z) = w0
-ΔM: -0.0591 +0.0364 -0.0362
-H0: 67.3479 +1.2105 -1.1925 km/s/Mpc
-r_d: 146.9376 +2.4711 -2.4285 Mpc
-Ωm: 0.2986 +0.0088 -0.0089
-w0: -0.8782 +0.0385 -0.0391 (3.12 - 3.16 sigma)
+ΔM: -0.0584 +0.0362 -0.0367
+H0: 67.3639 +1.2196 -1.1969 km/s/Mpc
+r_d: 146.9036 +2.4844 -2.3816 Mpc
+Ωm: 0.2986 +0.0089 -0.0088
+w0: -0.8787 +0.0382 -0.0386
 wa: 0
-f_cc: 0.7086 +0.1034 -0.0820 (2.82 - 3.55 sigma)
-Chi squared: 1677.8143
+f_cc: 0.7072 +0.1022 -0.0823
+Chi squared: 1677.9407
 Degrees of freedom: 1774
 
 ==============================
 
 Flat alternative: w(z) = w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-ΔM: -0.0585 +0.0363 -0.0367
-H0: 67.2391 +1.2287 -1.2073 km/s/Mpc
-r_d: 146.9442 +2.5193 -2.3837 Mpc
-Ωm: 0.3056 +0.0080 -0.0078
-w0: -0.8600 +0.0419 -0.0423 (3.31 - 3.34 sigma)
+ΔM: -0.0575 +0.0359 -0.0368
+H0: 67.2673 +1.2221 -1.2176 km/s/Mpc
+r_d: 146.8991 +2.4766 -2.3788 Mpc
+Ωm: 0.3055 +0.0079 -0.0077
+w0: -0.8591 +0.0424 -0.0428 (3.29 - 3.32 sigma)
 wa: 0
-f_cc: 0.7116 +0.1032 -0.0834 (2.79 - 3.46 sigma)
-Chi squared: 1676.6967
+f_cc: 0.7118 +0.1036 -0.0834 (2.78 - 3.46 sigma)
+Chi squared: 1676.6633
 Degrees of freedom: 1774
 
 ==============================
 
 Flat w0waCDM: w(z) = w0 + wa * z/(1 + z)
-ΔM: -0.0569 +0.0362 -0.0367
-H0: 67.0657 +1.2252 -1.2250 km/s/Mpc
-r_d: 147.1271 +2.4600 -2.4064 Mpc
-Ωm: 0.3194 +0.0132 -0.0158
-w0: -0.8035 +0.0712 -0.0669 (2.76 - 2.94 sigma)
-wa: -0.6235 +0.4500 -0.4533 (1.38 - 1.39 sigma)
-f_cc: 0.7116 +0.1049 -0.0836 (2.75 - 3.45 sigma)
-Chi squared: 1675.5995
+ΔM: -0.0562 +0.0366 -0.0364
+H0: 67.1050 +1.2260 -1.2174 km/s/Mpc
+r_d: 147.0348 +2.4786 -2.4251 Mpc
+Ωm: 0.3191 +0.0135 -0.0171
+w0: -0.8063 +0.0725 -0.0663 (2.67 - 2.92 sigma)
+wa: -0.6116 +0.4735 -0.4615
+f_cc: 0.7133 +0.1040 -0.0843 (2.76 - 3.40 sigma)
+Chi squared: 1675.4677
 Degrees of freedom: 1773
 """

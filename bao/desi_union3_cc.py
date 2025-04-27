@@ -1,6 +1,6 @@
 import numpy as np
 import emcee
-import corner
+from getdist import MCSamples, plots
 from scipy.integrate import cumulative_trapezoid, quad
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
@@ -22,7 +22,7 @@ inv_cov_matrix = np.linalg.inv(cov_matrix)
 
 
 def h_over_h0_model(z, params):
-    _, _, _, O_m, w0, _, _ = params
+    O_m, w0 = params[3], params[4]
     sum = 1 + z
     return np.sqrt(O_m * sum**3 + (1 - O_m) * ((2 * sum**2) / (1 + sum**2))**(3 * (1 + w0)))
 
@@ -48,7 +48,7 @@ def plot_bao_predictions(params):
     unique_quantities = set(quantity_types)
     colors = { "DV_over_rs": "red", "DM_over_rs": "blue", "DH_over_rs": "green" }
 
-    _, h0, r_d, omega_m, w0, wa, _ = params
+    h0, r_d, f = params[1], params[2], params[-1]
     z_smooth = np.linspace(0, max(z_values), 100)
     plt.figure(figsize=(8, 6))
     for q in unique_quantities:
@@ -77,13 +77,13 @@ def plot_bao_predictions(params):
     plt.ylabel(r"$O = \frac{D}{r_d}$")
     plt.legend()
     plt.grid(True)
-    plt.title(f"BAO model: $\Omega_M$={omega_m:.4f}, $w_0$={w0:.4f}, $w_a$={wa:.4f}")
+    plt.title(f"BAO model")
     plt.show()
 
     plt.errorbar(
         x=z_cc_vals,
         y=H_cc_vals,
-        yerr=dH_cc_vals,
+        yerr=dH_cc_vals * f,
         fmt='.',
         color='blue',
         alpha=0.4,
@@ -174,9 +174,9 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 100
+    nwalkers = 6 * ndim
     burn_in = 500
-    nsteps = 5000 + burn_in
+    nsteps = 20000 + burn_in
     initial_pos = np.random.default_rng().uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
 
     with Pool(10) as pool:
@@ -189,7 +189,6 @@ def main():
     except emcee.autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
 
-    chains_samples = sampler.get_chain(discard=0, flat=False)
     samples = sampler.get_chain(discard=burn_in, flat=True)
 
     [
@@ -223,33 +222,25 @@ def main():
         y=distance_moduli_values,
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=model_distance_modulus(z_vals, best_fit),
-        label=f"Best fit: $w_0$={w0_50:.4f}, $\Omega_m$={omega_50:.4f}",
+        label=f"Best fit: $H_0$={h0_50:.2f}, $r_d$={rd_50}, $\Omega_m$={omega_50:.4f}",
         x_scale="log"
     )
 
-    labels = [r"$\Delta_M$", r"$H_0$", r"$r_d$", f"$\Omega_m$", r"$w_0$", r"$w_a$", r"$f$"]
-    corner.corner(
-        samples,
+    labels = ["ΔM", "H_0", "r_d", "Ωm", "w_0", "w_a", "f"]
+    gdsamples = MCSamples(
+        samples=samples,
+        names=labels,
         labels=labels,
-        quantiles=[0.159, 0.5, 0.841],
-        show_titles=True,
-        title_fmt=".4f",
-        smooth=2,
-        smooth1d=2,
-        bins=50,
-        plot_datapoints=False,
+        settings={"fine_bins_2D": 128, "smooth_scale_2D": 0.9}
     )
-    plt.show()
-
-    _, axes = plt.subplots(ndim, figsize=(10, 7), sharex=True)
-    if ndim == 1:
-        axes = [axes]
-    for i in range(ndim):
-        axes[i].plot(chains_samples[:, :, i], color='black', alpha=0.3, lw=0.4)
-        axes[i].set_ylabel(labels[i])
-        axes[i].axvline(x=burn_in, color='red', linestyle='--', alpha=0.5)
-        axes[i].axhline(y=best_fit[i], color='white', linestyle='--', alpha=0.5)
-    axes[ndim - 1].set_xlabel("chain step")
+    g = plots.get_subplot_plotter()
+    g.triangle_plot(
+        gdsamples,
+        Filled=False,
+        contour_levels=[0.68, 0.95],
+        title_limit=True,
+        diag1d_kwargs={"density": True},
+    )
     plt.show()
 
 
@@ -259,52 +250,52 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM: w(z) = -1
-ΔM: -0.1144 +0.0958 -0.0967
-H0: 68.8230 +1.1767 -1.1861 km/s/Mpc
-r_d: 146.7426 +2.4732 -2.3694 Mpc
-Ωm: 0.3046 +0.0083 -0.0081
+ΔM: -0.1134 +0.0968 -0.0973
+H0: 68.8053 +1.1894 -1.1866 km/s/Mpc
+r_d: 146.7590 +2.4752 -2.3989 Mpc
+Ωm: 0.3045 +0.0084 -0.0080
 w0: -1
 wa: 0
-f: 0.7061 +0.1027 -0.0825 (2.86 - 3.56 sigma)
-Chi squared: 68.0933
+f: 0.7060 +0.1022 -0.0820 (2.88 - 3.59 sigma)
+Chi squared: 68.0983
 Degrees of freedom: 62
 
 ==============================
 
 Flat wCDM: w(z) = w0
-ΔM: -0.1537 +0.0980 -0.0961
-H0: 67.2316 +1.3264 -1.3209 km/s/Mpc
-r_d: 146.8968 +2.5239 -2.4122 Mpc
-Ωm: 0.2984 +0.0088 -0.0090
-w0: -0.8688 +0.0501 -0.0511 (2.57 - 2.62 sigma)
+ΔM: -0.1534 +0.0990 -0.0978
+H0: 67.2530 +1.3195 -1.3062 km/s/Mpc
+r_d: 146.8853 +2.4817 -2.3922 Mpc
+Ωm: 0.2986 +0.0089 -0.0089
+w0: -0.8711 +0.0508 -0.0512 (2.52 - 2.54 sigma)
 wa: 0
-f: 0.7087 +0.1035 -0.0830 (2.81 - 3.51 sigma)
-Chi squared: 61.5367
+f: 0.7079 +0.1035 -0.0830 (2.82 - 3.52 sigma)
+Chi squared: 61.6178
 Degrees of freedom: 61
 
 ==============================
 
 Flat alternative: w(z) = w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-ΔM: -0.1584 +0.0966 -0.0972
-H0: 66.9423 +1.3400 -1.3219 km/s/Mpc
-r_d: 146.9303 +2.4810 -2.3889 Mpc
-Ωm: 0.3068 +0.0083 -0.0082
-w0: -0.8358 +0.0585 -0.0599 (2.74 - 2.81 sigma)
+ΔM: -0.1588 +0.0967 -0.0964
+H0: 66.9372 +1.3393 -1.3284 km/s/Mpc
+r_d: 146.9556 +2.4705 -2.3800 Mpc
+Ωm: 0.3069 +0.0084 -0.0083
+w0: -0.8362 +0.0584 -0.0598 (2.74 - 2.80 sigma)
 wa: 0
-f: 0.7106 +0.1040 -0.0837 (2.78 - 3.46 sigma)
-Chi squared: 60.3484
+f: 0.7123 +0.1039 -0.0843 (2.77 - 3.41 sigma)
+Chi squared: 60.1999
 Degrees of freedom: 61
 
 ==============================
 
 Flat w0waCDM: w(z) = w0 + wa * z/(1 + z)
-ΔM: -0.1659 +0.0973 -0.0977
-H0: 66.3492 +1.4262 -1.3986 km/s/Mpc
-r_d: 147.0749 +2.4525 -2.4238 Mpc
-Ωm: 0.3284 +0.0161 -0.0186
-w0: -0.7245 +0.1129 -0.1067 (2.44 - 2.58 sigma)
-wa: -0.8853 +0.5567 -0.5564 (1.59 sigma)
-f: 0.7152 +0.1041 -0.0833 (2.74 - 3.42 sigma)
-Chi squared: 58.2449
+ΔM: -0.1664 +0.0974 -0.0962
+H0: 66.3271 +1.4308 -1.4071 km/s/Mpc
+r_d: 147.0749 +2.4873 -2.4128 Mpc
+Ωm: 0.3289 +0.0162 -0.0197
+w0: -0.7207 +0.1129 -0.1105
+wa: -0.9036 +0.5828 -0.5569
+f: 0.7170 +0.1038 -0.0843 (2.73 - 3.36 sigma)
+Chi squared: 58.0920
 Degrees of freedom: 60
 """
