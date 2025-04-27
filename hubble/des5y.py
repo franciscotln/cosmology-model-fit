@@ -1,5 +1,5 @@
 import emcee
-import corner
+from getdist import MCSamples, plots
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats as stats
@@ -20,24 +20,26 @@ inv_cov_matrix = np.linalg.inv(cov_matrix)
 H0 = 70
 
 
+# Grid
+z = np.linspace(0, np.max(z_values), num=3000)
+sum = 1 + z
+
 # Flat
-def integral_e_z(zs, deltaM, omega_m, w0, wa):
-    z = np.linspace(0, np.max(zs), num=2000)
-    sum = 1 + z
+def integral_e_z(params):
+    omega_m, w0, wa = params[1], params[2], params[3]
     Ez = np.sqrt(omega_m * sum**3 + (1 - omega_m) * ((2 * sum**2) / (1 + sum**2))**(3 * (1 + w0)))
     integral_values = cumulative_trapezoid(1/Ez, z, initial=0)
-    return np.interp(zs, z, integral_values)
+    return np.interp(z_values, z, integral_values)
 
 
-def model_distance_modulus(z, params):
+def model_distance_modulus(params):
     deltaM = params[0]
-    a0_over_ae = 1 + z
-    comoving_distance = (C / H0) * integral_e_z(z, *params)
-    return deltaM + 25 + 5 * np.log10(a0_over_ae * comoving_distance)
+    comoving_distance = (C / H0) * integral_e_z(params)
+    return deltaM + 25 + 5 * np.log10((1 + z_values) * comoving_distance)
 
 
 def chi_squared(params):
-    delta = distance_modulus_values - model_distance_modulus(z_values, params)
+    delta = distance_modulus_values - model_distance_modulus(params)
     return np.dot(delta, np.dot(inv_cov_matrix, delta))
 
 
@@ -68,10 +70,10 @@ def log_probability(params):
 
 
 def main():
-    steps_to_discard = 100
+    steps_to_discard = 500
     ndim = len(bounds)
-    nwalkers = 50
-    n_steps = steps_to_discard + 4000
+    nwalkers = 6 * ndim
+    n_steps = steps_to_discard + 15000
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
 
     with Pool(10) as pool:
@@ -79,7 +81,6 @@ def main():
         sampler.run_mcmc(initial_pos, n_steps, progress=True)
 
 
-    chains_samples = sampler.get_chain(discard=0, flat=False)
     samples = sampler.get_chain(discard=steps_to_discard, flat=True)
 
     try:
@@ -98,7 +99,7 @@ def main():
 
     best_fit_params = [deltaM_50, omega_50, w0_50, wa_50]
 
-    predicted_distance_modulus_values = model_distance_modulus(z_values, best_fit_params)
+    predicted_distance_modulus_values = model_distance_modulus(best_fit_params)
     residuals = distance_modulus_values - predicted_distance_modulus_values
 
     skewness = stats.skew(residuals)
@@ -131,30 +132,21 @@ def main():
     print_color("Chi squared", chi_squared(best_fit_params))
 
     # plot posterior distribution from samples
-    labels = [f"$\Delta_M$", f"$\Omega_M$", f"$w_0$", f"$w_a$"]
-    corner.corner(
-        samples,
+    labels = ["ΔM", "Ωm", "w_0", "w_a"]
+    gdsamples = MCSamples(
+        samples=samples,
+        names=labels,
         labels=labels,
-        quantiles=[0.16, 0.5, 0.84],
-        show_titles=True,
-        title_fmt=".4f",
-        title_kwargs={"fontsize": 12},
-        smooth=1.5,
-        smooth1d=1.5,
-        bins=50,
+        settings={"fine_bins_2D": 128, "smooth_scale_2D": 0.9}
     )
-    plt.show()
-
-    # Plot chains for each parameter
-    _, axes = plt.subplots(ndim, figsize=(10, 7))
-    if ndim == 1:
-        axes = [axes]
-    for i in range(ndim):
-        axes[i].plot(chains_samples[:, :, i], color='black', alpha=0.3, lw=0.4)
-        axes[i].set_ylabel(labels[i])
-        axes[i].set_xlabel("chain step")
-        axes[i].axvline(x=steps_to_discard, color='red', linestyle='--', alpha=0.5)
-        axes[i].axhline(y=best_fit_params[i], color='white', linestyle='--', alpha=0.5)
+    g = plots.get_subplot_plotter()
+    g.triangle_plot(
+        gdsamples,
+        Filled=False,
+        contour_levels=[0.68, 0.95],
+        title_limit=True,
+        diag1d_kwargs={"density": True},
+    )
     plt.show()
 
     y_err = np.sqrt(cov_matrix.diagonal())
@@ -189,21 +181,21 @@ Sample size: 1829
 ********************************
 
 Flat ΛCDM
-ΔM: 0.0213 +0.0109 -0.0107
-Ωm: 0.3502 +0.0170 -0.0163
+ΔM: 0.0216 +0.0110 -0.0111
+Ωm: 0.3507 +0.0171 -0.0169
 w0: -1
 wa: 0
 R-squared (%): 98.41
 RMSD (mag): 0.264
 Skewness of residuals: 3.409
-Chi squared: 1640.31
+Chi squared: 1640.3080970418623
 
 ==============================
 
 Flat wCDM
-ΔM: 0.0302 +0.0127 -0.0132
-Ωm: 0.2760 +0.0717 -0.0890
-w0: -0.8218 +0.1417 -0.1655 (1.16 sigma)
+ΔM: 0.0304 +0.0126 -0.0128
+Ωm: 0.2729 +0.0688 -0.0935
+w0: -0.8154 +0.1435 -0.1536
 wa: 0
 R-squared (%): 98.40
 RMSD (mag): 0.264
@@ -213,14 +205,14 @@ Chi squared: 1639.00
 ==============================
 
 Flat w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-ΔM: 0.0313 +0.0130 -0.0134
-Ωm: 0.2958 +0.0487 -0.0533
-w0: -0.8308 +0.1232 -0.1379 (1.30 sigma)
+ΔM: 0.0309 +0.0134 -0.0134
+Ωm: 0.2969 +0.0486 -0.0541
+w0: -0.8334 +0.1239 -0.1382
 wa: 0
 R-squared (%): 98.40
 RMSD (mag): 0.264
 Skewness of residuals: 3.418
-Chi squared: 1638.71
+Chi squared: 1638.70
 
 ==============================
 
