@@ -52,6 +52,61 @@ def log_probability(params):
     return lp + log_likelihood(params)
 
 
+def plot_predictions(params):
+    h0, f = params[1], params[-1]
+    z_smooth = np.linspace(0, max(z_values), 100)
+    plt.figure(figsize=(8, 6))
+    plt.errorbar(
+        x=z_values,
+        y=H_values,
+        yerr=dH_values,
+        fmt='.',
+        color='red',
+        alpha=0.4,
+        label="CC data",
+        capsize=2,
+        linestyle="None",
+    )
+    plt.errorbar(
+        x=z_values,
+        y=H_values,
+        yerr=dH_values * f,
+        fmt='.',
+        color='green',
+        alpha=0.4,
+        label="CC data - corrected uncertainties f={f:.2f}",
+        capsize=2,
+        linestyle="None",
+    )
+    plt.plot(z_smooth, H_z(z_smooth, params), color='blue', alpha=0.5)
+    plt.xlabel("Redshift (z)")
+    plt.ylabel(r"$H(z)$")
+    plt.xlim(0, np.max(z_values) + 0.2)
+    plt.legend()
+    plt.title(f"Cosmic chronometers: $H_0$={h0:.2f} km/s/Mpc")
+    plt.show()
+
+    plt.figure(figsize=(8, 6))
+    plt.errorbar(
+        x=z_values,
+        y=H_values - H_z(z_values, params),
+        yerr=dH_values * f,
+        fmt='.',
+        color='blue',
+        alpha=0.4,
+        label="Residuals",
+        capsize=2,
+        linestyle="None",
+    )
+    plt.axhline(0, color='red', linestyle='--')
+    plt.xlabel("Redshift (z)")
+    plt.ylabel(r"$H(z) - H_{model}(z)$")
+    plt.xlim(0, np.max(z_values) + 0.2)
+    plt.title(f"Residuals")
+    plt.legend()
+    plt.show()
+
+
 def main():
     ndim = len(bounds)
     nwalkers = 6 * ndim
@@ -91,6 +146,8 @@ def main():
     print(f"f: {f_50:.4f} +{(f_84 - f_50):.4f} -{(f_50 - f_16):.4f}")
     print(f"Chi squared: {chi_squared(best_fit):.4f}")
     print(f"Degs of freedom: {z_values.size  - len(best_fit)}")
+
+    plot_predictions(best_fit)
 
     labels = ["H_0", "Ωm", "w_0", "w_a", "f"]
     gdsamples = MCSamples(
