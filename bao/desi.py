@@ -1,6 +1,6 @@
 import numpy as np
 import emcee
-import corner
+from getdist import MCSamples, plots
 from scipy.integrate import cumulative_trapezoid
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
@@ -23,7 +23,7 @@ inv_cov_matrix = np.linalg.inv(cov_matrix)
 
 
 def H_z(z, params):
-    _, omega_m, w0, _ = params
+    omega_m, w0 = params[1], params[2]
     sum = 1 + z
     return np.sqrt(omega_m * sum**3 + (1 - omega_m) * ((2 * sum**2) / (1 + sum**2))**(3 * (1 + w0)))
 
@@ -93,16 +93,15 @@ def main():
         SS_tot = np.sum((observed_values - np.mean(observed_values))**2)
         R_squared = 1 - SS_res/SS_tot
 
-        # Calculate root mean square deviation
         rmsd = np.sqrt(np.mean(residuals ** 2))
 
         print(f"R^2: {R_squared:.4f}")
-        print(f"RMSD: {rmsd:.4f}")
+        print(f"RMSD: {rmsd:.3f}")
 
         unique_quantities = set(quantity_types)
         colors = { "DV_over_rs": "red", "DM_over_rs": "blue", "DH_over_rs": "green" }
 
-        r_d, omega_m, w0, wa = params
+        r_d, omega_m = params[0], params[1]
         z_smooth = np.linspace(0, max(z_values), 100)
         plt.figure(figsize=(8, 6))
         for q in unique_quantities:
@@ -124,14 +123,14 @@ def main():
         plt.ylabel(r"$O = \frac{D}{r_d}$")
         plt.legend()
         plt.grid(True)
-        plt.title(f"BAO model: $r_d x h$={r_d:.2f}, $\Omega_M$={omega_m:.4f}, $w_0$={w0:.4f}, $w_a$={wa:.4f}")
+        plt.title(f"BAO model: $r_d x h$={r_d:.2f}, $\Omega_M$={omega_m:.3f}")
         plt.show()
 
 
     ndim = len(bounds)
-    nwalkers = 100
+    nwalkers = 10 * ndim
     burn_in = 500
-    nsteps = 4000 + burn_in
+    nsteps = 20000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):
@@ -147,7 +146,6 @@ def main():
     except emcee.autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
 
-    chains_samples = sampler.get_chain(discard=0, flat=False)
     samples = sampler.get_chain(discard=burn_in, flat=True)
 
     [
@@ -159,40 +157,31 @@ def main():
 
     best_fit = [rd_50, omega_50, w0_50, wa_50]
 
-    print(f"r_d*h: {rd_50:.4f} +{(rd_84 - rd_50):.4f} -{(rd_50 - rd_16):.4f}")
-    print(f"Ωm: {omega_50:.4f} +{(omega_84 - omega_50):.4f} -{(omega_50 - omega_16):.4f}")
-    print(f"w0: {w0_50:.4f} +{(w0_84 - w0_50):.4f} -{(w0_50 - w0_16):.4f}")
+    print(f"r_d*h: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f}")
+    print(f"Ωm: {omega_50:.3f} +{(omega_84 - omega_50):.3f} -{(omega_50 - omega_16):.3f}")
+    print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"wa: {wa_50:.4f} +{(wa_84 - wa_50):.4f} -{(wa_50 - wa_16):.4f}")
-    print(f"Chi squared: {chi_squared(best_fit):.4f}")
+    print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Degs of freedom: {data['value'].size  - len(best_fit)}")
 
     plot_predictions(best_fit)
 
-    labels = [r"${r_d}\times{h}$", f"$\Omega_m$", r"$w_0$", r"$w_a$"]
-
-    corner.corner(
-        samples,
+    labels = ["r_d x H_0", "Ω_m", "w_0", "w_a"]
+    gdsamples = MCSamples(
+        samples=samples,
+        names=labels,
         labels=labels,
-        quantiles=[0.159, 0.5, 0.841],
-        show_titles=True,
-        title_fmt=".4f",
-        smooth=2,
-        smooth1d=2,
-        bins=50,
+        settings={"fine_bins_2D": 128, "smooth_scale_2D": 0.9}
+    )
+    g = plots.get_subplot_plotter()
+    g.triangle_plot(
+        gdsamples,
+        Filled=False,
+        contour_levels=[0.68, 0.95],
+        title_limit=True,
+        diag1d_kwargs={"density": True},
     )
     plt.show()
-
-    _, axes = plt.subplots(ndim, figsize=(10, 7), sharex=True)
-    if ndim == 1:
-        axes = [axes]
-    for i in range(ndim):
-        axes[i].plot(chains_samples[:, :, i], color='black', alpha=0.3, lw=0.5)
-        axes[i].set_ylabel(labels[i])
-        axes[i].axvline(x=burn_in, color='red', linestyle='--', alpha=0.5)
-        axes[i].axhline(y=best_fit[i], color='white', linestyle='--', alpha=0.5)
-    axes[ndim - 1].set_xlabel("chain step")
-    plt.show()
-
 
 if __name__ == "__main__":
     main()
@@ -200,48 +189,48 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM model
-r_d*h: 101.54 ± 0.72
-Ωm: 0.2974 +0.0086 -0.0084
+r_d*h: 101.52 +0.74 -0.73 km/s
+Ωm: 0.298 +0.009 -0.009
 w0: -1
 wa: 0
-Chi squared: 10.5169
-Degrees of freedom: 11
+Chi squared: 10.27
+Degs of freedom: 11
 R^2: 0.9987
-RMSD: 0.3054
+RMSD: 0.305
 
 ==============================
 
 Flat wCDM model
-r_d*h: 99.86 +1.74 -1.64
-Ωm: 0.2968 +0.0089 -0.0087
-w0: -0.9179 +0.0743 -0.0778 (1.08 sigma)
+r_d*h: 99.79 +1.76 -1.65 km/s
+Ωm: 0.297 +0.009 -0.009
+w0: -0.915 +0.076 -0.079
 wa: 0
-Chi squared: 9.3920
-Degrees of freedom: 10
+Chi squared: 9.12
+Degs of freedom: 10
 R^2: 0.9989
-RMSD: 0.2800
+RMSD: 0.279
 
 ===============================
 
 Flat w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-r_d*h: 99.0858 +2.1057 -1.9605
-Ωm: 0.3041 +0.0103 -0.0100
-w0: -0.8714 +0.0988 -0.1049 (1.26 sigma)
+r_d*h: 99.05 +2.15 -1.95 km/s
+Ωm: 0.304 +0.010 -0.010
+w0: -0.869 +0.099 -0.108
 wa: 0
-Chi squared: 8.6799
+Chi squared: 8.69
 Degs of freedom: 10
 R^2: 0.9990
-RMSD: 0.2707
+RMSD: 0.270
 
 ==============================
 
 Flat w0waCDM
-r_d*h: 91.4074 +5.0672 -4.4132
-Ωm: 0.3856 +0.0470 -0.0494
-w0: -0.1896 +0.4515 -0.4462 (1.80 sigma)
-wa: -2.7090 +1.5726 -1.5582 (1.73 sigma)
-Chi squared: 5.6478
+r_d*h: 92.02 +4.60 -3.53
+Ωm: 0.380 +0.036 -0.045
+w0: -0.246 +0.344 -0.400
+wa: -2.5086 +1.4138 -1.1921
+Chi squared: 5.65
 Degs of freedom: 9
 R^2: 0.9994
-RMSD: 0.2016
+RMSD: 0.205
 """
