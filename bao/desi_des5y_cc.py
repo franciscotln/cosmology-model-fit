@@ -27,16 +27,16 @@ def h_over_h0_model(z, params):
     return np.sqrt(O_m * sum**3 + (1 - O_m) * ((2 * sum**2) / (1 + sum**2))**(3 * (1 + w0)))
 
 
-def integral_e_z(zs, params):
-    z = np.linspace(0, np.max(zs), num=3000)
-    integral_values = cumulative_trapezoid(1/h_over_h0_model(z, params), z, initial=0)
-    return np.interp(zs, z, integral_values)
+z_grid = np.linspace(0, np.max(z_vals), num=3000)
+
+def integral_e_z(params):
+    integral_values = cumulative_trapezoid(1/h_over_h0_model(z_grid, params), z_grid, initial=0)
+    return np.interp(z_vals, z_grid, integral_values)
 
 
-def model_distance_modulus(z, params):
+def model_distance_modulus(params):
     delta_M, h0 = params[0], params[1]
-    comoving_distance = (c/h0) * integral_e_z(z, params)
-    return delta_M + 25 + 5 * np.log10((1 + z) * comoving_distance)
+    return delta_M + 25 + 5 * np.log10((1 + z_vals) * (c / h0) * integral_e_z(params))
 
 
 def plot_bao_predictions(params):
@@ -133,15 +133,15 @@ bounds = np.array([
     (-0.5, 0.5), # ΔM
     (60, 80),    # H0
     (115, 160),  # r_d
-    (0.2, 0.7),  # omega_m
+    (0.2, 0.7),  # Ωm
     (-3, 0),     # w0
     (-3.5, 3.5), # wa
-    (0.1, 1.5), # f - overestimation of the uncertainties in the CC data
+    (0.1, 1.5),  # f - overestimation of the uncertainties in the CC data
 ])
 
 
 def chi_squared(params):
-    delta_sn = distance_moduli_values - model_distance_modulus(z_vals, params)
+    delta_sn = distance_moduli_values - model_distance_modulus(params)
     chi_sn = delta_sn @ inverse_cov_sn @ delta_sn
 
     delta_bao = data['value'] - model_predictions(params)
@@ -174,7 +174,7 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 6 * ndim
+    nwalkers = 8 * ndim
     burn_in = 500
     nsteps = 15000 + burn_in
     initial_pos = np.random.default_rng().uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
@@ -221,7 +221,7 @@ def main():
         x=z_vals,
         y=distance_moduli_values,
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=model_distance_modulus(z_vals, best_fit),
+        y_model=model_distance_modulus(best_fit),
         label=f"Best fit: $H_0$={h0_50:.2f}, $\Omega_m$={omega_50:.4f}",
         x_scale="log"
     )
@@ -283,14 +283,14 @@ Degrees of freedom: 1774
 ==============================
 
 Flat alternative: w(z) = w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-ΔM: -0.0575 +0.0359 -0.0368
-H0: 67.2673 +1.2221 -1.2176 km/s/Mpc
-r_d: 146.8991 +2.4766 -2.3788 Mpc
-Ωm: 0.3055 +0.0079 -0.0077
-w0: -0.8591 +0.0424 -0.0428 (3.29 - 3.32 sigma)
+ΔM: -0.0581 +0.0364 -0.0363
+H0: 67.2510 +1.2303 -1.1969 km/s/Mpc
+r_d: 146.9313 +2.4734 -2.3982 Mpc
+Ωm: 0.3056 +0.0079 -0.0077
+w0: -0.8598 +0.0421 -0.0426 (3.29 - 3.33 sigma)
 wa: 0
-f_cc: 0.7118 +0.1036 -0.0834 (2.78 - 3.46 sigma)
-Chi squared: 1676.6633
+f_cc: 0.7089 +0.1035 -0.0830 (2.81 - 3.51 sigma)
+Chi squared: 1676.9063
 Degrees of freedom: 1774
 
 ==============================
