@@ -1,7 +1,7 @@
 import numpy as np
 import emcee
-import corner
-from scipy.integrate import cumulative_trapezoid, quad
+from getdist import plots, MCSamples
+from scipy.integrate import cumulative_trapezoid
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from y2022pantheonSHOES.data import get_data
@@ -22,21 +22,22 @@ inv_cov_matrix = np.linalg.inv(cov_matrix)
 
 
 def h_over_h0_model(z, params):
-    _, _, _, O_m, w0, _, _ = params
+    O_m, w0 = params[3], params[4]
     sum = 1 + z
     return np.sqrt(O_m * sum**3 + (1 - O_m) * ((2 * sum**2) / (1 + sum**2))**(3 * (1 + w0)))
 
 
-def integral_e_z(zs, params):
-    z = np.linspace(0, np.max(zs), num=3000)
-    integral_values = cumulative_trapezoid(1/h_over_h0_model(z, params), z, initial=0)
-    return np.interp(zs, z, integral_values)
+z_grid = np.linspace(0, np.max(z_vals), num=4000)
+
+def integral_e_z(params):
+    integral_values = cumulative_trapezoid(1/h_over_h0_model(z_grid, params), z_grid, initial=0)
+    return np.interp(z_vals, z_grid, integral_values)
 
 
-def model_apparent_mag(z, params):
+def model_apparent_mag(params):
     h0, M = params[0], params[1]
-    comoving_distance = (c/h0) * integral_e_z(z, params)
-    return M + 25 + 5 * np.log10((1 + z) * comoving_distance)
+    comoving_distance = (c/h0) * integral_e_z(params)
+    return M + 25 + 5 * np.log10((1 + z_vals) * comoving_distance)
 
 
 def plot_bao_predictions(params):
@@ -48,7 +49,7 @@ def plot_bao_predictions(params):
     unique_quantities = set(quantity_types)
     colors = { "DV_over_rs": "red", "DM_over_rs": "blue", "DH_over_rs": "green" }
 
-    h0, M, r_d, omega_m, w0, wa, f_cc = params
+    h0, r_d, omega_m, w0, f_cc = params[0], params[2], params[3], params[4], params[-1]
     z_smooth = np.linspace(0, max(z_values), 100)
     plt.figure(figsize=(8, 6))
     for q in unique_quantities:
@@ -77,7 +78,7 @@ def plot_bao_predictions(params):
     plt.ylabel(r"$O = \frac{D}{r_d}$")
     plt.legend()
     plt.grid(True)
-    plt.title(f"BAO model: $r_d$={r_d:.2f}, $\Omega_M$={omega_m:.4f}, $w_0$={w0:.4f}, $w_a$={wa:.4f}")
+    plt.title(f"BAO model: $r_d$={r_d:.2f}, $\Omega_M$={omega_m:.4f}, $H_0$={h0:.2f} km/s/Mpc")
     plt.show()
 
     plt.errorbar(
@@ -141,7 +142,7 @@ bounds = np.array([
 
 
 def chi_squared(params):
-    delta_sn = apparent_mag_values - model_apparent_mag(z_vals, params)
+    delta_sn = apparent_mag_values - model_apparent_mag(params)
     chi_sn = np.dot(delta_sn, np.dot(inverse_cov_sn, delta_sn))
 
     delta_bao = data['value'] - model_predictions(params)
@@ -175,9 +176,9 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 100
+    nwalkers = 8 * ndim
     burn_in = 500
-    nsteps = 5000 + burn_in
+    nsteps = 15000 + burn_in
     initial_pos = np.random.default_rng().uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
 
     with Pool(10) as pool:
@@ -190,7 +191,6 @@ def main():
     except emcee.autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
 
-    chains_samples = sampler.get_chain(discard=0, flat=False)
     samples = sampler.get_chain(discard=burn_in, flat=True)
 
     [
@@ -223,34 +223,26 @@ def main():
         x=z_vals,
         y=apparent_mag_values,
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=model_apparent_mag(z_vals, best_fit),
-        label=f"Best fit: $\Omega_m$={omega_50:.4f}, $w_0$={w0_50:.4f}, $w_a$={wa_50:.4f}",
+        y_model=model_apparent_mag(best_fit),
+        label=f"Best fit: $\Omega_m$={omega_50:.4f}, $H_0$={h0_50:.4f}",
         x_scale="log"
     )
 
-    labels = [r"$H_0$", r"$M$", r"$r_d$", f"$\Omega_m$", r"$w_0$", r"$w_a$", r"$f$"]
-    corner.corner(
-        samples,
+    labels = ["H_0", "M", "r_d", "Ωm", "w_0", "w_a", "f"]
+    gdsamples = MCSamples(
+        samples=samples,
+        names=labels,
         labels=labels,
-        quantiles=[0.159, 0.5, 0.841],
-        show_titles=True,
-        title_fmt=".4f",
-        smooth=2,
-        smooth1d=2,
-        bins=50,
-        plot_datapoints=False,
+        settings={"fine_bins_2D": 128, "smooth_scale_2D": 0.9}
     )
-    plt.show()
-
-    _, axes = plt.subplots(ndim, figsize=(10, 7), sharex=True)
-    if ndim == 1:
-        axes = [axes]
-    for i in range(ndim):
-        axes[i].plot(chains_samples[:, :, i], color='black', alpha=0.3, lw=0.4)
-        axes[i].set_ylabel(labels[i])
-        axes[i].axvline(x=burn_in, color='red', linestyle='--', alpha=0.5)
-        axes[i].axhline(y=best_fit[i], color='white', linestyle='--', alpha=0.5)
-    axes[ndim - 1].set_xlabel("chain step")
+    g = plots.get_subplot_plotter()
+    g.triangle_plot(
+        gdsamples,
+        Filled=False,
+        contour_levels=[0.68, 0.95],
+        title_limit=True,
+        diag1d_kwargs={"density": True},
+    )
     plt.show()
 
 
@@ -267,52 +259,52 @@ that the parameters are weakly correlated
 *******************************
 
 Flat ΛCDM: w(z) = -1
-H0: 67.3580 +0.9628 -0.9730 km/s/Mpc
-M: -19.4452 +0.0299 -0.0304
-r_d: 150.5670 +1.8950 -1.8687 Mpc
-Ωm: 0.2992 +0.0077 -0.0075
+H0: 67.36 +0.97 -0.96 km/s/Mpc
+M: -19.445 +0.030 -0.030
+r_d: 150.51 +1.89 -1.84 Mpc
+Ωm: 0.299 +0.008 -0.008
 w0: -1
 wa: 0
-f: 0.8569 +0.1162 -0.0934
-Chi squared: 1451.5042
+f: 0.858 +0.114 -0.093 (1.25 - 1.53 sigma)
+Chi squared: 1451.4287
 Degrees of freedom: 1635
 
 ==============================
 
 Flat wCDM: w(z) = w0
-H0: 66.4925 +0.9762 -0.9571 km/s/Mpc
-M: -19.4580 +0.0294 -0.0292
-r_d: 150.0870 +1.8147 -1.7907 Mpc
-Ωm: 0.2921 +0.0083 -0.0079
-w0: -0.8965 +0.0376 -0.0381
+H0: 66.51 +0.97 -0.97 km/s/Mpc
+M: -19.458 +0.029 -0.030
+r_d: 150.07 +1.84 -1.78 Mpc
+Ωm: 0.292 +0.008 -0.008
+w0: -0.897 +0.039 -0.039 (2.64 sigma)
 wa: 0
-f: 0.8228 +0.1112 -0.0909
-Chi squared: 1447.1521
+f: 0.824 +0.111 -0.090 (1.60 - 1.96 sigma)
+Chi squared: 1447.0931
 Degrees of freedom: 1634
 
 ==============================
 
 Flat alternative: w(z) = w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-H0: 66.4570 +0.9778 -0.9714 km/s/Mpc
-M: -19.4574 +0.0289 -0.0294
-r_d: 150.1316 +1.8290 -1.7699 Mpc
-Ωm: 0.2979 +0.0076 -0.0076
-w0: -0.8860 +0.0416 -0.0421 (2.71 - 2.74 sigma)
+H0: 66.45 +0.99 -0.98 km/s/Mpc
+M: -19.458 +0.030 -0.030
+r_d: 150.16 +1.85 -1.80 Mpc
+Ωm: 0.298 +0.008 -0.007
+w0: -0.886 +0.042 -0.042 (2.71 sigma)
 wa: 0
-f: 0.8285 +0.1111 -0.0915
-Chi squared: 1446.7566
+f: 0.828 +0.112 -0.091 (1.54 - 1.88 sigma)
+Chi squared: 1446.7629
 Degrees of freedom: 1634
 
 ==============================
 
 Flat w0waCDM: w(z) = w0 + wa * z/(1 + z)
-H0: 66.5486 +1.0013 -0.9979 km/s/Mpc
-M: -19.4572 +0.0292 -0.0297
-r_d: 150.0292 +1.8536 -1.8109 Mpc
-Ωm: 0.2879 +0.0185 -0.0351
-w0: -0.8924 +0.0541 -0.0506 (1.99 - 2.13 sigma)
-wa: 0.0842 +0.4791 -0.4402 (0.18 - 0.19 sigma)
-f: 0.8252 +0.1133 -0.0917
-Chi squared: 1447.9458
+H0: 66.54 +0.99 -0.99 km/s/Mpc
+M: -19.457 +0.029 -0.030
+r_d: 150.05 +1.84 -1.80 Mpc
+Ωm: 0.288 +0.019 -0.038
+w0: -0.891 +0.055 -0.051 (1.98 - 2.14 sigma)
+wa: 0.086 +0.494 -0.450
+f: 0.823 +0.113 -0.092 (1.57 - 1.92 sigma)
+Chi squared: 1448.3484
 Degrees of freedom: 1633
 """
