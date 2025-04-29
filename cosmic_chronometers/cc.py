@@ -12,7 +12,7 @@ legend, z_values, H_values, dH_values = get_data()
 
 
 def H_z(z, params):
-    h0, o_m, w0, _, _ = params
+    h0, o_m, w0 = params[0], params[1], params[2]
     return h0 * np.sqrt(o_m * (1 + z)**3 + (1 - o_m) * ((2*(1 + z)**2)/(1 + (1 + z)**2))**(3*(1 + w0)))
 
 
@@ -53,7 +53,7 @@ def log_probability(params):
 
 
 def plot_predictions(params):
-    h0, f = params[1], params[-1]
+    h0, f = params[0], params[-1]
     z_smooth = np.linspace(0, max(z_values), 100)
     plt.figure(figsize=(8, 6))
     plt.errorbar(
@@ -74,7 +74,7 @@ def plot_predictions(params):
         fmt='.',
         color='green',
         alpha=0.4,
-        label="CC data - corrected uncertainties f={f:.2f}",
+        label=f"CC data - corrected uncertainties f={f:.3f}",
         capsize=2,
         linestyle="None",
     )
@@ -149,7 +149,7 @@ def main():
 
     plot_predictions(best_fit)
 
-    labels = ["H_0", "Ωm", "w_0", "w_a", "f"]
+    labels = ["H_0", "\Omega_m", "w_0", "w_a" "f"]
     gdsamples = MCSamples(
         samples=samples,
         names=labels,
@@ -161,7 +161,6 @@ def main():
         gdsamples,
         Filled=False,
         contour_levels=[0.68, 0.95],
-        title_limit=True,
         diag1d_kwargs={"density": True},
     )
     plt.show()

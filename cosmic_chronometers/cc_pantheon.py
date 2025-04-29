@@ -1,7 +1,7 @@
 import numpy as np
 import emcee
 from getdist import MCSamples, plots
-from scipy.integrate import cumulative_trapezoid, quad
+from scipy.integrate import cumulative_trapezoid
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from y2022pantheonSHOES.data import get_data
