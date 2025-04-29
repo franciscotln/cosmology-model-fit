@@ -10,8 +10,8 @@ covariance = pd.read_csv(path_to_data + 'covariance.txt', sep='\s+', header=None
 
 def get_data():
     return (
-        "Cosmic Chronometers compilation (37 data points)",
-        data["z"],
-        data["H"],
+        f"Cosmic Chronometers compilation ({data.shape[0]} data points)",
+        data["z"].to_numpy(),
+        data["H"].to_numpy(),
         np.sqrt(np.diag(covariance)),
     )

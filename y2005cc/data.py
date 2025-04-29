@@ -8,7 +8,7 @@ data = pd.read_csv(path_to_data + 'data2023.txt')
 def get_data():
     return (
         f"Cosmic Chronometers ({data.shape[0]} data points)",
-        data["z"],
-        data["H"],
-        data["sigma_H"]
+        data["z"].to_numpy(),
+        data["H"].to_numpy(),
+        data["sigma_H"].to_numpy(),
     )

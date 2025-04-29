@@ -5,24 +5,33 @@ from y2005cc.data import get_data
 
 
 legend, z_values, H_values, dH_values = get_data()
-z_values = z_values.to_numpy()
-H_values = H_values.to_numpy()
-dH_values = dH_values.to_numpy()
+
+best_fit = {
+    "LCDM": [67.97, 0.3229],
+    "wCDM": [71.40, 0.3050, -1.329],
+    "wxCDM": [72.44, 0.3006, -1.432]
+}
+
+best_fit_compilation = {
+    "LCDM": [70.61, 0.2551],
+    "wCDM": [65.80, 0.2498, -0.733],
+    "wxCDM": [65.92, 0.2784, -0.722]
+}
 
 
-def H_lcdm_z(z, params = [67.9657, 0.3229]):
+def H_lcdm_z(z, params=best_fit["LCDM"]):
     h0, o_m = params
     return h0 * np.sqrt(o_m * (1 + z)**3 + (1 - o_m))
 
 
-def H_wcdm_z(z, params = [71.3986, 0.3050, -1.3285]):
+def H_wcdm_z(z, params=best_fit["wCDM"]):
     h0, o_m, w0 = params
     exponent = 3 * (1 + w0)
     sum = 1 + z
     return h0 * np.sqrt(o_m * sum**3 + (1 - o_m) * sum**exponent)
 
 
-def H_wxcdm_z(z, params = [72.4395, 0.3006, -1.4318]):
+def H_wxcdm_z(z, params=best_fit["wxCDM"]):
     h0, o_m, w0 = params
     exponent = 3 * (1 + w0)
     sum = 1 + z
@@ -56,11 +65,11 @@ def main():
 
     plt.figure(figsize=(10, 6))
     plt.errorbar(z_values, H_values, yerr=dH_values, fmt='.', label=legend, capsize=2)
-    plt.plot(z_grid, H0_50, label=fr"Spline: $H_0 = {H0_50[0]:.2f}^{{+{upper:.2f}}}_{{-{lower:.2f}}}$ km/s/Mpc", color='black')
-    plt.fill_between(z_grid, H0_16, H0_84, color='gray', alpha=0.3, label=r'spline $1\sigma$')
-    plt.plot(z_grid, H_lcdm_z(z_grid), label=f'ΛCDM $H_0: 67.97^{{+{2.21}}}_{{-{2.24}}}$ km/s/Mpc', color='green', lw=1, alpha=0.6)
-    plt.plot(z_grid, H_wcdm_z(z_grid), label='wCDM $H_0: 71.40^{{+{7.73}}}_{{-{5.70}}}$ km/s/Mpc', color='red', lw=1, alpha=0.6)
-    plt.plot(z_grid, H_wxcdm_z(z_grid), label='wxCDM $H_0: 72.44^{{+{8.3109}}}_{{-{6.2978}}}$ km/s/Mpc', color='blue', lw=1, alpha=0.6)
+    plt.plot(z_grid, H0_50, label=fr"Spline: $H_0 = {H0_50[0]:.2f}^{{+{upper:.2f}}}_{{-{lower:.2f}}}$ km/s/Mpc", color='black', linestyle='--', lw=1)
+    plt.fill_between(z_grid, H0_16, H0_84, color='gray', alpha=0.4, label=r'spline $1\sigma$')
+    plt.plot(z_grid, H_lcdm_z(z_grid), label=f'ΛCDM $H_0: {best_fit["LCDM"][0]}$ km/s/Mpc', color='green', lw=1, alpha=0.6)
+    plt.plot(z_grid, H_wcdm_z(z_grid), label=f'wCDM $H_0: {best_fit["wCDM"][0]}$ km/s/Mpc', color='red', lw=1, alpha=0.6)
+    plt.plot(z_grid, H_wxcdm_z(z_grid), label=f'wxCDM $H_0: {best_fit["wxCDM"][0]}$ km/s/Mpc', color='orange', lw=1, alpha=0.6)
     plt.title('Smoothing Spline 2deg with resampling uncertainties')
     plt.xlabel('z')
     plt.xlim(0, 2)
