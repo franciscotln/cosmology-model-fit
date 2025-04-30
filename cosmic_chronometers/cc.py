@@ -19,7 +19,7 @@ def H_z(z, params):
 bounds = np.array([
     (40, 110),  # H0
     (0, 0.6),   # Ωm
-    (-1, 0),    # w0
+    (-1.0, 0.5),# w0
     (-5, 5),    # wa
     (0.1, 1.5), # f - overestimation of the uncertainties
 ])
@@ -41,8 +41,7 @@ def log_prior(params):
 def log_likelihood(params):
     f = params[-1]
     n = len(H_values)
-    norm_term = n * np.log(2 * np.pi) + 2 * n * np.log(f) + 2 * np.sum(np.log(dH_values))
-    return -0.5 * (chi_squared(params) + norm_term)
+    return -0.5 * chi_squared(params) - n * np.log(f)
 
 
 def log_probability(params):
@@ -204,12 +203,12 @@ Degs of freedom: 33
 ===============================
 
 Flat w(z) = w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-H0: 65.9227 +4.3195 -3.9370 km/s/Mpc
-Ωm: 0.2784 +0.0306 -0.0283
-w0: -0.7216 +0.2269 -0.2406 (1.16 - 1.23 sigma)
+H0: 65.8573 +4.4043 -3.9929 km/s/Mpc
+Ωm: 0.2784 +0.0311 -0.0285
+w0: -0.7174 +0.2305 -0.2436 (1.16 - 1.23 sigma)
 wa: 0
-f: 0.8141 +0.1110 -0.0899 (1.67 - 2.07 sigma)
-Chi squared: 32.4180
+f: 0.8152 +0.1132 -0.0918 (1.63 - 2.01 sigma)
+Chi squared: 32.3295
 Degs of freedom: 33
 
 ==================================
@@ -251,12 +250,12 @@ Degs of freedom: 28
 ===============================
 
 Flat w(z) = w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-H0: 65.2524 +2.8221 -3.2490 km/s/Mpc
-Ωm: 0.3205 +0.0502 -0.0459
-w0: -0.7711 +0.2619 -0.1642 (0.87 - 1.39 sigma)
+H0: 65.2403 +2.8317 -3.2932 km/s/Mpc
+Ωm: 0.3215 +0.0508 -0.0464
+w0: -0.7721 +0.2647 -0.1640 (0.86 - 1.39 sigma)
 wa: 0
-f: 0.7318 +0.1119 -0.0885 (2.40 - 3.03 sigma)
-Chi squared: 28.0403
+f: 0.7327 +0.1106 -0.0895 (2.41 - 2.99 sigma)
+Chi squared: 27.9593
 Degs of freedom: 28
 
 =============================
