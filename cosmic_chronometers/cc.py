@@ -17,11 +17,11 @@ def H_z(z, params):
 
 
 bounds = np.array([
-    (40, 110), # H0
-    (0, 0.6), # Ωm
-    (-4, 1), # w0
-    (-5, 5), # wa
-    (0.01, 1.5), # f - overestimation of the uncertainties
+    (40, 110),  # H0
+    (0, 0.6),   # Ωm
+    (-4, 1),    # w0
+    (-5, 5),    # wa
+    (0.1, 1.5), # f - overestimation of the uncertainties
 ])
 
 
@@ -149,7 +149,7 @@ def main():
 
     plot_predictions(best_fit)
 
-    labels = ["H_0", "\Omega_m", "w_0", "w_a" "f"]
+    labels = ["H_0", "\Omega_m", "w_0", "w_a", "f"]
     gdsamples = MCSamples(
         samples=samples,
         names=labels,
