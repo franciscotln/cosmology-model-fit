@@ -55,7 +55,7 @@ def main():
         H_boot = H_boot[sort_idx]
         dH_boot = dH_boot[sort_idx]
 
-        spline_i = UnivariateSpline(z_boot, H_boot, w=1/dH_boot**2, k=2)
+        spline_i = UnivariateSpline(z_boot, H_boot, w=1/dH_boot, k=2, s=len(z_boot))
         H_fits[i] = spline_i(z_grid)
 
     H0_16, H0_50, H0_84 = np.percentile(H_fits, [15.9, 50, 84.1], axis=0)
@@ -77,7 +77,7 @@ def main():
     plt.grid(True)
     plt.legend()
     plt.tight_layout()
-    plt.savefig("cc_spline.png", dpi=800)
+    plt.savefig("cc_spline.png", dpi=600)
     plt.close()
 
 if __name__ == "__main__":
