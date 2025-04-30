@@ -9,7 +9,7 @@ legend, z_values, H_values, dH_values = get_data()
 best_fit = {
     "LCDM": [67.97, 0.3229],
     "wCDM": [71.40, 0.3050, -1.329],
-    "wxCDM": [72.44, 0.3006, -1.432]
+    "wxCDM": [65.25, 0.3205, -0.771]
 }
 
 best_fit_compilation = {
