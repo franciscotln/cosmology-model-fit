@@ -52,7 +52,7 @@ def plot_bao_predictions(params):
             yerr=np.sqrt(np.diag(cov_matrix_bao))[mask],
             fmt='.',
             color=colors[q],
-            label=f"Data: {q}",
+            label=f"BAO {q}",
             capsize=2,
             alpha=0.6,
         )
@@ -72,6 +72,11 @@ def plot_bao_predictions(params):
     plt.grid(True)
     plt.title(f"{bao_legend}: $H_0$={h0:.2f} km/s/Mpc, $r_d$={r_d:.2f} Mpc, $\Omega_M$={omega_m:.3f}")
     plt.show()
+
+
+def plot_cc_predictions(params):
+    h0 = params[1]
+    z_smooth = np.linspace(0, np.max(z_cc_vals), 100)
 
     plt.errorbar(
         x=z_cc_vals,
@@ -199,6 +204,7 @@ def main():
     print(f"Degrees of freedom: {deg_of_freedom}")
 
     plot_bao_predictions(best_fit)
+    plot_cc_predictions(best_fit)
     plot_sn_predictions(
         legend=sn_legend,
         x=z_sn_vals,
