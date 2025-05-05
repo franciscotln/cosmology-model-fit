@@ -196,7 +196,7 @@ Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
 H0: 71.5058 +11.2009 -9.1650 km/s/Mpc
 Ωm: 0.3163 +0.1017 -0.0858
 w0: -1.5619 +0.8692 -0.9932
-wa: -0.6121 +2.8483 -2.9732 # wild, unconstrained
+wa: -0.6121 +2.8483 -2.9732
 Chi squared: 14.9993
 Degs of freedom: 28
 """
