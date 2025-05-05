@@ -19,7 +19,7 @@ def H_z(z, params):
 bounds = np.array([
     (40, 110),  # H0
     (0, 0.6),   # Ωm
-    (-1.0, 0.5),# w0
+    (-2.5, 0.5),# w0
     (-5, 5),    # wa
     (0.1, 1.5), # f - overestimation of the uncertainties
 ])
@@ -108,7 +108,7 @@ def plot_predictions(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 6 * ndim
+    nwalkers = 16 * ndim
     burn_in = 500
     nsteps = 20000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
@@ -175,53 +175,6 @@ We use the parameter f to account for this
 The results show consistent values for f and the corner plot shows
 that the parameters are weakly correlated
 
-*****************************
-Compilation data (37 data points)
-https://github.com/ja-vazquez/SimpleMC/blob/master/simplemc/data/HDiagramCompilacion-data.txt
-*****************************
-
-Flat ΛCDM
-H0: 70.6130 +1.7770 -1.7968 km/s/Mpc
-Ωm: 0.2551 +0.0213 -0.0190
-w0: -1
-wa: 0
-f: 0.8212 +0.1111 -0.0912 (1.61 - 1.96 sigma)
-Chi squared: 33.2463
-Degs of freedom: 34
-
-===============================
-
-Flat wCDM
-H0: 65.8011 +3.7739 -3.5234 km/s/Mpc
-Ωm: 0.2498 +0.0255 -0.0339
-w0: -0.7327 +0.2017 -0.1966 (1.33 - 1.36 sigma)
-wa: 0
-f: 0.8095 +0.1102 -0.0897 (1.73 - 2.12 sigma)
-Chi squared: 33.0736
-Degs of freedom: 33
-
-===============================
-
-Flat w(z) = w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-H0: 65.8573 +4.4043 -3.9929 km/s/Mpc
-Ωm: 0.2784 +0.0311 -0.0285
-w0: -0.7174 +0.2305 -0.2436 (1.16 - 1.23 sigma)
-wa: 0
-f: 0.8152 +0.1132 -0.0918 (1.63 - 2.01 sigma)
-Chi squared: 32.3295
-Degs of freedom: 33
-
-==================================
-
-Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
-H0: 66.1453 +4.7985 -4.7897 km/s/Mpc
-Ωm: 0.2516 +0.0789 -0.0968
-w0: -0.7023 +0.3500 -0.2851
-wa: 0.0055 +0.7851 -1.5913
-f: 0.8190 +0.1144 -0.0940
-Chi squared: 32.2067
-Degs of freedom: 32
-
 ******************************
 Results for data from
 https://arxiv.org/pdf/2307.09501
@@ -250,12 +203,12 @@ Degs of freedom: 28
 ===============================
 
 Flat w(z) = w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-H0: 65.2403 +2.8317 -3.2932 km/s/Mpc
-Ωm: 0.3215 +0.0508 -0.0464
-w0: -0.7721 +0.2647 -0.1640 (0.86 - 1.39 sigma)
+H0: 71.6805 +6.7569 -5.8474 km/s/Mpc
+Ωm: 0.3056 +0.0474 -0.0415
+w0: -1.3705 +0.5206 -0.5807 (0.64 - 0.71 sigma)
 wa: 0
-f: 0.7327 +0.1106 -0.0895 (2.41 - 2.99 sigma)
-Chi squared: 27.9593
+f: 0.7225 +0.1091 -0.0872 (2.54 - 3.18 sigma)
+Chi squared: 27.7742
 Degs of freedom: 28
 
 =============================

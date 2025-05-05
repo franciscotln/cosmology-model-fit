@@ -5,7 +5,7 @@ from scipy.integrate import cumulative_trapezoid
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from y2022pantheonSHOES.data import get_data
-from y2005cc.compilation_data import get_data as get_cc_data
+from y2005cc.data import get_data as get_cc_data
 from hubble.plotting import plot_predictions as plot_sn_predictions
 
 _, z_cc_vals, H_cc_vals, dH_cc_vals = get_cc_data()

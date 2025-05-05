@@ -3,7 +3,7 @@ import os
 import pandas as pd
 
 path_to_data = os.path.dirname(os.path.abspath(__file__)) + '/raw-data/'
-data = pd.read_csv(path_to_data + 'data2023.txt')
+data = pd.read_csv(path_to_data + 'data.txt')
 
 def get_data():
     return (
