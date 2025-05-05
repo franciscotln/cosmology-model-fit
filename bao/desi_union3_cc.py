@@ -1,6 +1,6 @@
 import numpy as np
 import emcee
-from getdist import MCSamples, plots
+import corner
 from scipy.integrate import cumulative_trapezoid, quad
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
@@ -9,9 +9,10 @@ from y2005cc.data import get_data as get_cc_data
 from y2025BAO.data import get_data as get_bao_data
 from hubble.plotting import plot_predictions as plot_sn_predictions
 
-_, z_cc_vals, H_cc_vals, dH_cc_vals = get_cc_data()
+cc_legend, z_cc_vals, H_cc_vals, cov_matrix_cc = get_cc_data()
 legend, z_vals, distance_moduli_values, cov_matrix_sn = get_data()
 inverse_cov_sn = np.linalg.inv(cov_matrix_sn)
+inv_cov_matrix_cc = np.linalg.inv(cov_matrix_cc)
 _, data, cov_matrix = get_bao_data()
 inv_cov_matrix = np.linalg.inv(cov_matrix)
 
@@ -45,7 +46,7 @@ def plot_bao_predictions(params):
     unique_quantities = set(quantity_types)
     colors = { "DV_over_rs": "red", "DM_over_rs": "blue", "DH_over_rs": "green" }
 
-    h0, r_d, f = params[1], params[2], params[-1]
+    h0, r_d = params[1], params[2]
     z_smooth = np.linspace(0, max(z_values), 100)
     plt.figure(figsize=(8, 6))
     for q in unique_quantities:
@@ -80,20 +81,20 @@ def plot_bao_predictions(params):
     plt.errorbar(
         x=z_cc_vals,
         y=H_cc_vals,
-        yerr=dH_cc_vals * f,
+        yerr=np.sqrt(np.diag(cov_matrix_cc)),
         fmt='.',
         color='blue',
         alpha=0.4,
-        label="CC data",
+        label="CCH data",
         capsize=2,
         linestyle="None",
     )
-    plt.plot(z_smooth, H_z(z_smooth, params), color='green', alpha=0.5)
+    plt.plot(z_smooth, H_z(z_smooth, params), color='green', alpha=0.5, label="Model")
     plt.xlabel("Redshift (z)")
     plt.ylabel(r"$H(z)$")
     plt.xlim(0, np.max(z_cc_vals) + 0.2)
     plt.legend()
-    plt.title(f"Cosmic chronometers: $H_0$={h0:.2f} km/s/Mpc")
+    plt.title(f"{cc_legend}: $H_0$={h0:.2f} km/s/Mpc")
     plt.show()
 
 
@@ -127,13 +128,12 @@ def model_predictions(params):
 
 
 bounds = np.array([
-    (-0.5, 0.5), # ΔM
+    (-0.6, 0.6), # ΔM
     (55, 80),    # H0
     (125, 170),  # r_d
     (0.2, 0.7),  # Ωm
     (-1.6, -0.4),# w0
     (-3.5, 3.5), # wa
-    (0.01, 1.5), # f - overestimation of the uncertainties in the CC data
 ])
 
 
@@ -144,10 +144,8 @@ def chi_squared(params):
     delta_bao = data['value'] - model_predictions(params)
     chi_bao = np.dot(delta_bao, np.dot(inv_cov_matrix, delta_bao))
 
-    f = params[-1]
-    cc_delta = H_cc_vals - H_z(z_cc_vals, params)
-    escaled_error = dH_cc_vals * f
-    chi_cc = np.sum(cc_delta**2 / escaled_error**2)
+    delta_cc = H_cc_vals - H_z(z_cc_vals, params)
+    chi_cc = np.dot(delta_cc, np.dot(inv_cov_matrix_cc, delta_cc))
     return chi_sn + chi_bao + chi_cc
 
 
@@ -158,8 +156,7 @@ def log_prior(params):
 
 
 def log_likelihood(params):
-    f_cc = params[-1]
-    return -0.5 * chi_squared(params) - z_cc_vals.size * np.log(f_cc)
+    return -0.5 * chi_squared(params)
 
 
 def log_probability(params):
@@ -195,21 +192,19 @@ def main():
         [omega_16, omega_50, omega_84],
         [w0_16, w0_50, w0_84],
         [wa_16, wa_50, wa_84],
-        [f_16, f_50, f_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = [delta_M_50, h0_50, rd_50, omega_50, w0_50, wa_50, f_50]
+    best_fit = [delta_M_50, h0_50, rd_50, omega_50, w0_50, wa_50]
 
     deg_of_freedom = z_vals.size + data['value'].size + z_cc_vals.size - len(best_fit)
 
-    print(f"ΔM: {delta_M_50:.4f} +{(delta_M_84 - delta_M_50):.4f} -{(delta_M_50 - delta_M_16):.4f}")
-    print(f"H0: {h0_50:.4f} +{(h0_84 - h0_50):.4f} -{(h0_50 - h0_16):.4f}")
-    print(f"r_d: {rd_50:.4f} +{(rd_84 - rd_50):.4f} -{(rd_50 - rd_16):.4f}")
-    print(f"Ωm: {omega_50:.4f} +{(omega_84 - omega_50):.4f} -{(omega_50 - omega_16):.4f}")
-    print(f"w0: {w0_50:.4f} +{(w0_84 - w0_50):.4f} -{(w0_50 - w0_16):.4f}")
-    print(f"wa: {wa_50:.4f} +{(wa_84 - wa_50):.4f} -{(wa_50 - wa_16):.4f}")
-    print(f"f: {f_50:.4f} +{(f_84 - f_50):.4f} -{(f_50 - f_16):.4f}")
-    print(f"Chi squared: {chi_squared(best_fit):.4f}")
+    print(f"ΔM: {delta_M_50:.3f} +{(delta_M_84 - delta_M_50):.3f} -{(delta_M_50 - delta_M_16):.3f}")
+    print(f"H0: {h0_50:.2f} +{(h0_84 - h0_50):.2f} -{(h0_50 - h0_16):.2f}")
+    print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f}")
+    print(f"Ωm: {omega_50:.3f} +{(omega_84 - omega_50):.3f} -{(omega_50 - omega_16):.3f}")
+    print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
+    print(f"wa: {wa_50:.3f} +{(wa_84 - wa_50):.3f} -{(wa_50 - wa_16):.3f}")
+    print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Degrees of freedom: {deg_of_freedom}")
 
     plot_bao_predictions(best_fit)
@@ -223,20 +218,19 @@ def main():
         x_scale="log"
     )
 
-    labels = ["ΔM", "H_0", "r_d", "Ωm", "w_0", "w_a", "f"]
-    gdsamples = MCSamples(
-        samples=samples,
-        names=labels,
+    labels = ["ΔM", r"$H_0$", r"$r_d$", "Ωm", r"$w_0$", r"$w_a$"]
+    corner.corner(
+        samples,
         labels=labels,
-        settings={"fine_bins_2D": 128, "smooth_scale_2D": 0.9}
-    )
-    g = plots.get_subplot_plotter()
-    g.triangle_plot(
-        gdsamples,
-        Filled=False,
-        contour_levels=[0.68, 0.95],
-        title_limit=True,
-        diag1d_kwargs={"density": True},
+        quantiles=[0.159, 0.5, 0.841],
+        show_titles=True,
+        title_fmt=".4f",
+        bins=100,
+        fill_contours=False,
+        plot_datapoints=False,
+        smooth=1.5,
+        smooth1d=1.5,
+        levels=(0.393, 0.864), # 1 and 2 sigmas in 2D
     )
     plt.show()
 
@@ -247,52 +241,48 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM: w(z) = -1
-ΔM: -0.113 +0.097 -0.097 mag
-H0: 68.81 +1.19 -1.19 km/s/Mpc
-r_d: 146.76 +2.48 -2.40 Mpc
+ΔM: -0.119 +0.134 -0.139 mag
+H0: 68.64 +3.30 -3.26 km/s/Mpc
+r_d: 147.17 +7.25 -6.69 Mpc
 Ωm: 0.304 +0.008 -0.008
 w0: -1
 wa: 0
-f: 0.706 +0.102 -0.082 (2.88 - 3.59 sigma)
-Chi squared: 68.0983
-Degrees of freedom: 62
+Chi squared: 53.42
+Degrees of freedom: 63
 
 ==============================
 
 Flat wCDM: w(z) = w0
-ΔM: -0.153 +0.099 -0.098 mag
-H0: 67.25 +1.32 -1.31 km/s/Mpc
-r_d: 146.89 +2.48 -2.39 Mpc
-Ωm: 0.299 +0.009 -0.009
-w0: -0.871 +0.051 -0.051 (2.53 sigma)
+ΔM: -0.160 +0.137 -0.139 mag
+H0: 67.04 +3.30 -3.24 km/s/Mpc
+r_d: 147.29 +7.30 -6.69 Mpc
+Ωm: 0.298 +0.009 -0.009
+w0: -0.868 +0.051 -0.051 (2.6 sigma)
 wa: 0
-f: 0.708 +0.104 -0.083 (2.81 - 3.52 sigma)
-Chi squared: 61.6178
-Degrees of freedom: 61
+Chi squared: 46.94
+Degrees of freedom: 62
 
 ==============================
 
 Flat alternative: w(z) = w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-ΔM: -0.159 +0.097 -0.096 mag
-H0: 66.94 +1.34 -1.33 km/s/Mpc
-r_d: 146.96 +2.47 -2.38 Mpc
-Ωm: 0.307 +0.008 -0.008
-w0: -0.836 +0.058 -0.060 (2.73 - 2.83 sigma)
+ΔM: -0.163 +0.136 -0.138 mag
+H0: 66.85 +3.29 -3.27 km/s/Mpc
+r_d: 147.06 +7.34 -6.66 Mpc
+Ωm: 0.307 +0.009 -0.008
+w0: -0.832 +0.058 -0.060 (2.8 - 2.9 sigma)
 wa: 0
-f: 0.712 +0.104 -0.084 (2.77 - 3.43 sigma)
-Chi squared: 60.1999
-Degrees of freedom: 61
+Chi squared: 45.80
+Degrees of freedom: 62
 
 ==============================
 
 Flat w0waCDM: w(z) = w0 + wa * z/(1 + z)
-ΔM: -0.166 +0.097 -0.096 mag
-H0: 66.33 +1.43 -1.41 km/s/Mpc
-r_d: 147.07 +2.49 -2.41 Mpc
-Ωm: 0.329 +0.016 -0.020
-w0: -0.721 +0.113 -0.111 (2.47 - 2.51 sigma)
-wa: -0.904 +0.583 -0.557 (1.55 - 1.62 sigma)
-f: 0.7170 +0.1038 -0.0843 (2.73 - 3.36 sigma)
-Chi squared: 58.0920
-Degrees of freedom: 60
+ΔM: -0.167 +0.139 -0.140 mag
+H0: 66.31 +3.32 -3.26 km/s/Mpc
+r_d: 147.02 +7.34 -6.72 Mpc
+Ωm: 0.330 +0.016 -0.018
+w0: -0.712 +0.114 -0.110 (2.5 - 2.6 sigma)
+wa: -0.942 +0.564 -0.560 (1.7 - 1.7 sigma)
+Chi squared: 43.87
+Degrees of freedom: 61
 """
