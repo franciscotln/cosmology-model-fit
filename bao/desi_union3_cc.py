@@ -6,19 +6,16 @@ import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from y2023union3.data import get_data
 from y2005cc.data import get_data as get_cc_data
+from y2025BAO.data import get_data as get_bao_data
 from hubble.plotting import plot_predictions as plot_sn_predictions
 
 _, z_cc_vals, H_cc_vals, dH_cc_vals = get_cc_data()
 legend, z_vals, distance_moduli_values, cov_matrix_sn = get_data()
 inverse_cov_sn = np.linalg.inv(cov_matrix_sn)
+_, data, cov_matrix = get_bao_data()
+inv_cov_matrix = np.linalg.inv(cov_matrix)
 
 c = 299792.458 # Speed of light in km/s
-
-# Load BAO data
-data = np.genfromtxt(fname="bao/raw-data/data.txt", delimiter=" ", names=True,
-    dtype=[("z", float), ("value", float), ("quantity", "U10")])
-cov_matrix = np.loadtxt(fname="bao/raw-data/covariance.txt", delimiter=" ", dtype=float)
-inv_cov_matrix = np.linalg.inv(cov_matrix)
 
 
 def h_over_h0_model(z, params):

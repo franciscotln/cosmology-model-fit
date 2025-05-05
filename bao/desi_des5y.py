@@ -5,27 +5,20 @@ from scipy.integrate import cumulative_trapezoid, quad
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from y2024DES.data import get_data
+from y2025BAO.data import get_data as get_bao_data
 from hubble.plotting import plot_predictions as plot_sn_predictions
 
 legend, z_vals, distance_moduli_values, cov_matrix_sn = get_data()
 inverse_cov_sn = np.linalg.inv(cov_matrix_sn)
+_, data, cov_matrix = get_bao_data()
+inv_cov_matrix = np.linalg.inv(cov_matrix)
 
 c = 299792.458 # Speed of light in km/s
 H0 = 70 # Hubble constant in km/s/Mpc as per DES5Y
 
-# Load BAO data
-data = np.genfromtxt(
-    "bao/raw-data/data.txt",
-    dtype=[("z", float), ("value", float), ("quantity", "U10")],
-    delimiter=" ",
-    names=True,
-)
-cov_matrix = np.loadtxt("bao/raw-data/covariance.txt", delimiter=" ", dtype=float)
-inv_cov_matrix = np.linalg.inv(cov_matrix)
-
 
 def h_over_h0_model(z, params):
-    _, _, O_m, w0, _ = params
+    O_m, w0 = params[2], params[3]
     sum = 1 + z
     return np.sqrt(O_m * sum**3 + (1 - O_m) * ((2 * sum**2) / (1 + sum**2))**(3 * (1 + w0)))
 
@@ -52,7 +45,7 @@ def plot_bao_predictions(params):
     unique_quantities = set(quantity_types)
     colors = { "DV_over_rs": "red", "DM_over_rs": "blue", "DH_over_rs": "green" }
 
-    _, r_d, omega_m, w0, wa = params
+    r_d, omega_m = params[1], params[2]
     z_smooth = np.linspace(0, max(z_values), 100)
     plt.figure(figsize=(8, 6))
     for q in unique_quantities:
@@ -81,7 +74,7 @@ def plot_bao_predictions(params):
     plt.ylabel(r"$O = \frac{D}{r_d}$")
     plt.legend()
     plt.grid(True)
-    plt.title(f"BAO model: $\Omega_M$={omega_m:.4f}, $w_0$={w0:.4f}, $w_a$={wa:.4f}")
+    plt.title(f"BAO model: $\Omega_M$={omega_m:.4f}")
     plt.show()
 
 
@@ -206,9 +199,12 @@ def main():
         quantiles=[0.159, 0.5, 0.841],
         show_titles=True,
         title_fmt=".4f",
-        smooth=2,
-        smooth1d=2,
-        bins=50,
+        smooth=1.5,
+        smooth1d=1.5,
+        bins=100,
+        levels=(0.393, 0.864), # 1 and 2 sigmas in 2D
+        fill_contours=False,
+        plot_datapoints=False,
     )
     plt.show()
 

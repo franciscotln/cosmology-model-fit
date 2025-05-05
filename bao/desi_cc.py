@@ -5,19 +5,16 @@ from scipy.integrate import cumulative_trapezoid
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from y2005cc.data import get_data as get_cc_data
+from y2025BAO.data import get_data as get_bao_data
 
 _, z_cc_vals, H_cc_vals, dH_cc_vals = get_cc_data()
+_, data, bao_cov_matrix = get_bao_data()
+inv_bao_cov_matrix = np.linalg.inv(bao_cov_matrix)
 
 c = 299792.458 # Speed of light in km/s
 
-data = np.genfromtxt(fname="bao/raw-data/data.txt", delimiter=" ", names=True,
-    dtype=[("z", float), ("value", float), ("quantity", "U10")])
-bao_cov_matrix = np.loadtxt("bao/raw-data/covariance.txt", delimiter=" ", dtype=float)
-inv_bao_cov_matrix = np.linalg.inv(bao_cov_matrix)
-
-
 def h_over_h0_model(z, params):
-    _, _, O_m, w0, _, _ = params
+    O_m, w0 = params[2], params[3]
     sum = 1 + z
     return np.sqrt(O_m * sum**3 + (1 - O_m) * ((2 * sum**2) / (1 + sum**2))**(3 * (1 + w0)))
 
@@ -148,7 +145,7 @@ def plot_all_predictions(params):
     plt.ylabel(r"$H(z)$ - km/s/Mpc")
     plt.xlim(0, np.max(z_cc_vals) + 0.2)
     plt.legend()
-    plt.title(f"Cosmic chronometers: $H_0$={h0:.2f}")
+    plt.title(f"Cosmic chronometers: $H_0$={h0:.2f} km/s/Mpc")
     plt.show()
 
 

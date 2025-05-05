@@ -4,21 +4,13 @@ from getdist import MCSamples, plots
 from scipy.integrate import cumulative_trapezoid
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
+from y2025BAO.data import get_data
 
 # Speed of light in km/s
 c = 299792.458
 
 # Planck rs = 147.18 ± 0.29 Mpc, h0 = 67.37 ± 0.54
-
-# Source: https://arxiv.org/pdf/2503.14738
-# https://github.com/CobayaSampler/bao_data/tree/master/desi_bao_dr2
-data = np.genfromtxt(
-    "bao/raw-data/data.txt",
-    dtype=[("z", float), ("value", float), ("quantity", "U10")],
-    delimiter=" ",
-    names=True,
-)
-cov_matrix = np.loadtxt("bao/raw-data/covariance.txt", delimiter=" ", dtype=float)
+legend, data, cov_matrix = get_data()
 inv_cov_matrix = np.linalg.inv(cov_matrix)
 
 
