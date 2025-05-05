@@ -1,6 +1,6 @@
 import numpy as np
 import emcee
-from getdist import MCSamples, plots
+import corner
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from y2005cc.data import get_data
@@ -8,8 +8,8 @@ from y2005cc.data import get_data
 # Speed of light in km/s
 c = 299792.458
 
-legend, z_values, H_values, dH_values = get_data()
-
+legend, z_values, H_values, cov_matrix = get_data()
+inv_cov_matrix = np.linalg.inv(cov_matrix)
 
 def H_z(z, params):
     h0, o_m, w0 = params[0], params[1], params[2]
@@ -17,19 +17,16 @@ def H_z(z, params):
 
 
 bounds = np.array([
-    (40, 110),  # H0
-    (0, 0.6),   # Ωm
-    (-2.5, 0.5),# w0
-    (-5, 5),    # wa
-    (0.1, 1.5), # f - overestimation of the uncertainties
+    (40, 110),   # H0
+    (0.1, 0.6),  # Ωm
+    (-3.5, 0.5), # w0
+    (-5, 5),     # wa
 ])
 
 
 def chi_squared(params):
-    f = params[-1]
     delta = H_values - H_z(z_values, params)
-    scaled_error = dH_values * f
-    return np.sum(delta**2 / scaled_error**2)
+    return np.dot(delta, np.dot(inv_cov_matrix, delta))
 
 
 def log_prior(params):
@@ -39,9 +36,7 @@ def log_prior(params):
 
 
 def log_likelihood(params):
-    f = params[-1]
-    n = len(H_values)
-    return -0.5 * chi_squared(params) - n * np.log(f)
+    return -0.5 * chi_squared(params)
 
 
 def log_probability(params):
@@ -52,32 +47,21 @@ def log_probability(params):
 
 
 def plot_predictions(params):
-    h0, f = params[0], params[-1]
+    h0 = params[0]
     z_smooth = np.linspace(0, max(z_values), 100)
     plt.figure(figsize=(8, 6))
     plt.errorbar(
         x=z_values,
         y=H_values,
-        yerr=dH_values,
+        yerr=np.sqrt(np.diag(cov_matrix)),
         fmt='.',
-        color='red',
+        color='blue',
         alpha=0.4,
         label="CC data",
         capsize=2,
         linestyle="None",
     )
-    plt.errorbar(
-        x=z_values,
-        y=H_values,
-        yerr=dH_values * f,
-        fmt='.',
-        color='green',
-        alpha=0.4,
-        label=f"CC data - corrected uncertainties f={f:.3f}",
-        capsize=2,
-        linestyle="None",
-    )
-    plt.plot(z_smooth, H_z(z_smooth, params), color='blue', alpha=0.5)
+    plt.plot(z_smooth, H_z(z_smooth, params), color='red', alpha=0.5)
     plt.xlabel("Redshift (z)")
     plt.ylabel(r"$H(z)$")
     plt.xlim(0, np.max(z_values) + 0.2)
@@ -89,7 +73,7 @@ def plot_predictions(params):
     plt.errorbar(
         x=z_values,
         y=H_values - H_z(z_values, params),
-        yerr=dH_values * f,
+        yerr=np.sqrt(np.diag(cov_matrix)),
         fmt='.',
         color='blue',
         alpha=0.4,
@@ -133,34 +117,32 @@ def main():
         [omega_16, omega_50, omega_84],
         [w0_16, w0_50, w0_84],
         [wa_16, wa_50, wa_84],
-        [f_16, f_50, f_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = [H0_50, omega_50, w0_50, wa_50, f_50]
+    best_fit = [H0_50, omega_50, w0_50, wa_50]
 
     print(f"H0: {H0_50:.4f} +{(H0_84 - H0_50):.4f} -{(H0_50 - H0_16):.4f}")
     print(f"Ωm: {omega_50:.4f} +{(omega_84 - omega_50):.4f} -{(omega_50 - omega_16):.4f}")
     print(f"w0: {w0_50:.4f} +{(w0_84 - w0_50):.4f} -{(w0_50 - w0_16):.4f}")
     print(f"wa: {wa_50:.4f} +{(wa_84 - wa_50):.4f} -{(wa_50 - wa_16):.4f}")
-    print(f"f: {f_50:.4f} +{(f_84 - f_50):.4f} -{(f_50 - f_16):.4f}")
     print(f"Chi squared: {chi_squared(best_fit):.4f}")
     print(f"Degs of freedom: {z_values.size  - len(best_fit)}")
 
     plot_predictions(best_fit)
 
-    labels = ["H_0", "\Omega_m", "w_0", "w_a", "f"]
-    gdsamples = MCSamples(
-        samples=samples,
-        names=labels,
+    labels = [f"$H_0$", f"$\Omega_m$", f"$w_0$", f"$w_a$"]
+    corner.corner(
+        samples,
         labels=labels,
-        settings={"fine_bins_2D": 128, "smooth_scale_2D": 0.9}
-    )
-    g = plots.get_subplot_plotter()
-    g.triangle_plot(
-        gdsamples,
-        Filled=False,
-        contour_levels=[0.68, 0.95],
-        diag1d_kwargs={"density": True},
+        quantiles=[0.159, 0.5, 0.841],
+        show_titles=True,
+        title_fmt=".4f",
+        smooth=1.5,
+        smooth1d=1.5,
+        bins=100,
+        levels=(0.393, 0.864), # 1 and 2 sigmas in 2D
+        fill_contours=False,
+        plot_datapoints=False,
     )
     plt.show()
 
@@ -181,44 +163,40 @@ https://arxiv.org/pdf/2307.09501
 *****************************
 
 Flat ΛCDM
-H0: 67.9657 +2.2066 -2.2381 km/s/Mpc
-Ωm: 0.3229 +0.0455 -0.0408
+H0: 66.7067 +5.4326 -5.4541 km/s/Mpc
+Ωm: 0.3340 +0.0790 -0.0626
 w0: -1
 wa: 0
-f: 0.7178 +0.1076 -0.0854 (2.62 - 3.30 sigma)
-Chi squared: 28.2103
-Degs of freedom: 29
+Chi squared: 14.5403
+Degs of freedom: 30
 
 ===============================
 
 Flat wCDM
-H0: 71.3986 +7.7268 -5.6946 km/s/Mpc
-Ωm: 0.3050 +0.0479 -0.0494
-w0: -1.3285 +0.4978 -0.6250 (0.53 - 0.66 sigma)
+H0: 70.7997 +10.4111 -8.1662 km/s/Mpc
+Ωm: 0.3070 +0.0787 -0.0674
+w0: -1.4889 +0.6806 -0.9017
 wa: 0
-f: 0.7267 +0.1102 -0.0879 (2.48 - 3.11 sigma)
-Chi squared: 28.4272
-Degs of freedom: 28
+Chi squared: 15.0385
+Degs of freedom: 29
 
 ===============================
 
 Flat w(z) = w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-H0: 71.6805 +6.7569 -5.8474 km/s/Mpc
-Ωm: 0.3056 +0.0474 -0.0415
-w0: -1.3705 +0.5206 -0.5807 (0.64 - 0.71 sigma)
+H0: 71.1489 +10.9308 -8.8713 km/s/Mpc
+Ωm: 0.3060 +0.0802 -0.0639
+w0: -1.5587 +0.7770 -0.9710
 wa: 0
-f: 0.7225 +0.1091 -0.0872 (2.54 - 3.18 sigma)
-Chi squared: 27.7742
-Degs of freedom: 28
+Chi squared: 14.6439
+Degs of freedom: 29
 
 =============================
 
 Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
-H0: 72.1181 +8.9491 -6.6845 km/s/Mpc
-Ωm: 0.3085 +0.0837 -0.0808
-w0: -1.3233 +0.6594 -0.8206 (0.39 - 0.49 sigma)
-wa: -0.2320 +2.2742 -3.0988
-f: 0.7276 +0.1092 -0.0872 (2.49 - 3.12 sigma)
-Chi squared: 27.6948
-Degs of freedom: 27
+H0: 71.5058 +11.2009 -9.1650 km/s/Mpc
+Ωm: 0.3163 +0.1017 -0.0858
+w0: -1.5619 +0.8692 -0.9932
+wa: -0.6121 +2.8483 -2.9732 # wild, unconstrained
+Chi squared: 14.9993
+Degs of freedom: 28
 """
