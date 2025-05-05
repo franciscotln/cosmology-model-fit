@@ -1,6 +1,6 @@
 import numpy as np
 import emcee
-from getdist import MCSamples, plots
+import corner
 from scipy.integrate import cumulative_trapezoid
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
@@ -8,15 +8,16 @@ from y2022pantheonSHOES.data import get_data
 from y2005cc.data import get_data as get_cc_data
 from hubble.plotting import plot_predictions as plot_sn_predictions
 
-_, z_cc_vals, H_cc_vals, dH_cc_vals = get_cc_data()
+cc_legend, z_cc_vals, H_cc_vals, cov_matrix_cc = get_cc_data()
 legend, z_vals, apparent_mag_values, cov_matrix_sn = get_data()
 inverse_cov_sn = np.linalg.inv(cov_matrix_sn)
+inverse_cov_cc = np.linalg.inv(cov_matrix_cc)
 
 c = 299792.458 # Speed of light in km/s
 
 
 def h_over_h0_model(z, params):
-    _, _, O_m, w0, _, _ = params
+    O_m, w0 = params[2], params[3]
     sum = 1 + z
     return np.sqrt(O_m * sum**3 + (1 - O_m) * ((2 * sum**2) / (1 + sum**2))**(3 * (1 + w0)))
 
@@ -34,25 +35,25 @@ def model_apparent_mag(z, params):
 
 
 def plot_cc_predictions(params):
-    h0, f = params[0], params[-1]
+    h0 = params[0]
     z_smooth = np.linspace(0, max(z_cc_vals), 100)
     plt.errorbar(
         x=z_cc_vals,
         y=H_cc_vals,
-        yerr=dH_cc_vals * f,
+        yerr=np.sqrt(np.diag(cov_matrix_cc)),
         fmt='.',
         color='blue',
         alpha=0.4,
-        label="CC data",
+        label="CCH data",
         capsize=2,
         linestyle="None",
     )
-    plt.plot(z_smooth, H_z(z_smooth, params), color='green', alpha=0.5)
+    plt.plot(z_smooth, H_z(z_smooth, params), color='red', alpha=0.5, label='Model')
     plt.xlabel("Redshift (z)")
     plt.ylabel(r"$H(z)$")
     plt.xlim(0, np.max(z_cc_vals) + 0.2)
     plt.legend()
-    plt.title(f"Cosmic chronometers: $H_0$={h0:.2f} km/s/Mpc")
+    plt.title(f"{cc_legend}: $H_0$={h0:.2f} km/s/Mpc")
     plt.show()
 
 
@@ -62,12 +63,11 @@ def H_z(z, params):
 
 
 bounds = np.array([
-    (60, 80),    # H0
-    (-20, -19),  # M
-    (0.15, 0.7), # Ωm
-    (-3, 0),     # w0
+    (55, 80),     # H0
+    (-20, -19), # M
+    (0.15, 0.70), # Ωm
+    (-1.5, 0.),   # w0
     (-3.5, 3.5), # wa
-    (0.1, 1.5), # f - overestimation of the uncertainties in the CC data
 ])
 
 
@@ -75,10 +75,8 @@ def chi_squared(params):
     delta_sn = apparent_mag_values - model_apparent_mag(z_vals, params)
     chi_sn = np.dot(delta_sn, np.dot(inverse_cov_sn, delta_sn))
 
-    f = params[-1]
-    cc_delta = H_cc_vals - H_z(z_cc_vals, params)
-    escaled_error = dH_cc_vals * f
-    chi_cc = np.sum(cc_delta**2 / escaled_error**2)
+    delta_cc = H_cc_vals - H_z(z_cc_vals, params)
+    chi_cc = np.dot(delta_cc, np.dot(inverse_cov_cc, delta_cc))
 
     return chi_sn + chi_cc
 
@@ -90,8 +88,7 @@ def log_prior(params):
 
 
 def log_likelihood(params):
-    f = params[-1]
-    return -0.5 * chi_squared(params) - z_cc_vals.size * np.log(f)
+    return -0.5 * chi_squared(params)
 
 
 def log_probability(params):
@@ -126,20 +123,18 @@ def main():
         [omega_16, omega_50, omega_84],
         [w0_16, w0_50, w0_84],
         [wa_16, wa_50, wa_84],
-        [f_16, f_50, f_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = [h0_50, M_50, omega_50, w0_50, wa_50, f_50]
+    best_fit = [h0_50, M_50, omega_50, w0_50, wa_50]
 
     deg_of_freedom = z_vals.size + z_cc_vals.size - len(best_fit)
 
-    print(f"H0: {h0_50:.4f} +{(h0_84 - h0_50):.4f} -{(h0_50 - h0_16):.4f}")
-    print(f"M: {M_50:.4f} +{(M_84 - M_50):.4f} -{(M_50 - M_16):.4f}")
-    print(f"Ωm: {omega_50:.4f} +{(omega_84 - omega_50):.4f} -{(omega_50 - omega_16):.4f}")
-    print(f"w0: {w0_50:.4f} +{(w0_84 - w0_50):.4f} -{(w0_50 - w0_16):.4f}")
-    print(f"wa: {wa_50:.4f} +{(wa_84 - wa_50):.4f} -{(wa_50 - wa_16):.4f}")
-    print(f"f: {f_50:.4f} +{(f_84 - f_50):.4f} -{(f_50 - f_16):.4f}")
-    print(f"Chi squared: {chi_squared(best_fit):.4f}")
+    print(f"H0: {h0_50:.2f} +{(h0_84 - h0_50):.2f} -{(h0_50 - h0_16):.2f}")
+    print(f"M: {M_50:.3f} +{(M_84 - M_50):.3f} -{(M_50 - M_16):.3f}")
+    print(f"Ωm: {omega_50:.3f} +{(omega_84 - omega_50):.3f} -{(omega_50 - omega_16):.3f}")
+    print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
+    print(f"wa: {wa_50:.3f} +{(wa_84 - wa_50):.3f} -{(wa_50 - wa_16):.3f}")
+    print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Degrees of freedom: {deg_of_freedom}")
 
     plot_cc_predictions(best_fit)
@@ -149,24 +144,23 @@ def main():
         y=apparent_mag_values,
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=model_apparent_mag(z_vals, best_fit),
-        label=f"Best fit: $H_0$={h0_50} $\Omega_m$={omega_50:.4f}",
+        label=f"Best fit: $H_0$={h0_50:.2f} km/s/Mpc, $\Omega_m$={omega_50:.3f}",
         x_scale="log"
     )
 
-    labels = ["H_0", "M", "Omega_m", "w_0", "w_a", "f"]
-    gdsamples = MCSamples(
-        samples=samples,
-        names=labels,
+    labels = [r"$H_0$", "M", f"$\Omega_m$", r"$w_0$", r"$w_a$"]
+    corner.corner(
+        samples,
         labels=labels,
-        settings={"fine_bins_2D": 128, "smooth_scale_2D": 0.9}
-    )
-    g = plots.get_subplot_plotter()
-    g.triangle_plot(
-        gdsamples,
-        Filled=False,
-        contour_levels=[0.68, 0.95],
-        title_limit=True,
-        diag1d_kwargs={"density": True},
+        quantiles=[0.159, 0.5, 0.841],
+        show_titles=True,
+        title_fmt=".4f",
+        smooth=1.5,
+        smooth1d=1.5,
+        bins=100,
+        levels=(0.393, 0.864), # 1 and 2 sigmas in 2D
+        fill_contours=False,
+        plot_datapoints=False,
     )
     plt.show()
 
@@ -177,38 +171,35 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM: w(z) = -1
-H0: 67.7235 +1.3281 -1.3134
-M: -19.4234 +0.0394 -0.0401
-Ωm: 0.3293 +0.0169 -0.0165
+H0: 67.05 +3.33 -3.34 km/s/Mpc
+M: -19.445 +0.104 -0.110 mag
 w0: -1
 wa: 0
-f: 0.7072 +0.1019 -0.0831 (2.87 - 3.52 sigma)
-Chi squared: 1432.8168
-Degrees of freedom: 1618
+Ωm: 0.331 +0.018 -0.017
+Chi squared: 1418.23
+Degrees of freedom: 1619
 
 ==============================
 
 Flat wCDM: w(z) = w0
-H0: 67.7652 +1.3628 -1.3692 km/s/Mpc
-M: -19.4203 +0.0418 -0.0426
-Ωm: 0.3158 +0.0375 -0.0407
-w0: -0.9602 +0.0982 -0.1063 (0.37 - 0.41 sigma)
+H0: 67.44 +3.64 -3.54 km/s/Mpc
+M: -19.430 +0.114 -0.118 mag
+Ωm: 0.313 +0.047 -0.053
+w0: -0.950 +0.115 -0.133
 wa: 0
-f: 0.7119 +0.1056 -0.0839 (2.73 - 3.43 sigma)
-Chi squared: 1432.2390
-Degrees of freedom: 1617
+Chi squared: 1418.03
+Degrees of freedom: 1618
 
 ==============================
 
 Flat alternative: w(z) = w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-H0: 67.7419 +1.3238 -1.3605 km/s/Mpc
-M: -19.4211 +0.0405 -0.0424
-Ωm: 0.3201 +0.0312 -0.0313
-w0: -0.9655 +0.0946 -0.1038 (0.33 - 0.36 sigma)
+H0: 67.45 +3.65 -3.56 km/s/Mpc
+M: -19.430 +0.116 -0.118 mag
+Ωm: 0.317 +0.039 -0.039
+w0: -0.956 +0.108 -0.126 (0.35 - 0.41 sigma)
 wa: 0
-f: 0.7135 +0.1047 -0.0852 (2.74 - 3.36 sigma)
-Chi squared: 1432.1188
-Degrees of freedom: 1617
+Chi squared: 1418.03
+Degrees of freedom: 1618
 
 ==============================
 

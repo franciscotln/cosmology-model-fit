@@ -152,11 +152,6 @@ if __name__ == "__main__":
 
 
 """
-Here we are considering the uncertainties to be overestimated
-We use the parameter f to account for this
-The results show consistent values for f and the corner plot shows
-that the parameters are weakly correlated
-
 ******************************
 Results for data from
 https://arxiv.org/pdf/2307.09501
