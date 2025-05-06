@@ -39,7 +39,7 @@ def H_wxcdm_z(z, params):
 bounds = np.array([
     (50, 70),     # H0
     (0.1, 0.6),   # Ωm
-    (-1.5, -0.5), # w0
+    (-1.5, -0.6), # w0
 ])
 
 
@@ -67,7 +67,7 @@ def log_probability(params, H_z, zvals, Hvals, dHvals):
 
 def main():
     z_grid = np.linspace(0, np.max(z_values), 1000)
-    n_bootstrap = 10_000
+    n_bootstrap = 20_000
     H_fits = np.zeros((n_bootstrap, len(z_grid)))
 
     # Bootstrap loop: resampling with replacement
@@ -89,7 +89,7 @@ def main():
     upper = H_84[0] - H_50[0]
     lower = H_50[0] - H_16[0]
     print(f"Spline H0: {H_50[0]:.1f} +{upper:.1f} - {lower:.1f} km/s/Mpc")
-    # Spline H0: 67.10 +3.67 - 3.77 km/s/Mpc
+    # Spline H0: 67.1 +3.7 - 3.8 km/s/Mpc
 
     model_name = 'wxCDM'
     H_z = H_wxcdm_z
@@ -125,7 +125,8 @@ def main():
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
     best_fit_params = [H0_50, omega_50, w0_50]
-    print(f"chi-squared: {chi_squared(best_fit_params, H_z, z_grid, H_50, std):.2f}")
+    chi_squared_value = chi_squared(best_fit_params, H_z, z_grid, H_50, std)
+    print(f"chi-squared: {chi_squared_value:.2f}")
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f}")
     print(f"Ωm: {omega_50:.4f} +{(omega_84 - omega_50):.4f} -{(omega_50 - omega_16):.4f}")
     print(f"w0: {w0_50:.4f} +{(w0_84 - w0_50):.4f} -{(w0_50 - w0_16):.4f}")
@@ -151,8 +152,8 @@ def main():
     plt.figure(figsize=(10, 6))
     plt.errorbar(z_values, H_values, yerr=dH_values, fmt='.', label=legend, capsize=2)
     plt.plot(z_grid, H_50, label=fr"Spline: $H_0 = {H_50[0]:.2f}^{{+{upper:.2f}}}_{{-{lower:.2f}}}$ km/s/Mpc", color='black')
-    plt.fill_between(z_grid, H_16, H_84, color='gray', alpha=0.4, label=r'spline $1\sigma$')
-    plt.plot(z_grid, H_z(z_grid, best_fit_params), label=model_name, color='orange', linestyle='--', alpha=0.8)
+    plt.fill_between(z_grid, H_16, H_84, color='gray', alpha=0.5, label=r'spline $1\sigma$')
+    plt.plot(z_grid, H_z(z_grid, best_fit_params), label=fr"{model_name} $\chi^2 = {chi_squared_value:.2f}$", color='orange', linestyle='--', alpha=0.9)
     plt.title('Smoothing Spline 2deg with resampling uncertainties')
     plt.xlabel('z')
     plt.xlim(0, 2)
