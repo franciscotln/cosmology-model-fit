@@ -4,7 +4,8 @@ from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import RBF
 from y2005cc.data import get_data
 
-legend, z_values, H_values, dH_values = get_data()
+legend, z_values, H_values, cov_matrix = get_data()
+dH_values = np.sqrt(np.diag(cov_matrix))  # simple diagonal covariance matrix
 z_values = z_values.reshape(-1, 1)
 
 z_pred = np.linspace(0, z_values.max(), 500).reshape(-1, 1)

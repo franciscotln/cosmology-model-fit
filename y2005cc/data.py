@@ -29,13 +29,15 @@ slib_intp = np.interp(z, zmod, slib)/100
 sps_intp = np.interp(z, zmod, sps)/100
 spsooo_intp = np.interp(z, zmod, spsooo)/100
 
-cov_mat_imf = np.zeros((len(z), len(z)), dtype='float64')
-cov_mat_slib = np.zeros((len(z), len(z)), dtype='float64')
-cov_mat_sps = np.zeros((len(z), len(z)), dtype='float64')
-cov_mat_spsooo = np.zeros((len(z), len(z)), dtype='float64')
+N = len(z)
 
-for i in range(len(z)):
-	for j in range(len(z)):
+cov_mat_imf = np.zeros((N, N), dtype='float64')
+cov_mat_slib = np.zeros((N, N), dtype='float64')
+cov_mat_sps = np.zeros((N, N), dtype='float64')
+cov_mat_spsooo = np.zeros((N, N), dtype='float64')
+
+for i in range(N):
+	for j in range(N):
 		cov_mat_imf[i,j] = Hz[i] * imf_intp[i] * Hz[j] * imf_intp[j]
 		cov_mat_slib[i,j] = Hz[i] * slib_intp[i] * Hz[j] * slib_intp[j]
 		cov_mat_sps[i,j] = Hz[i] * sps_intp[i] * Hz[j] * sps_intp[j]
@@ -45,7 +47,7 @@ cov_matrix = cov_mat_spsooo + cov_mat_imf + cov_mat_diag
 
 def get_data():
     return (
-        f"Cosmic Chronometers ({data.shape[0]} data points)",
+        f"Cosmic Chronometers ({N} data points)",
         z,
 		Hz,
         cov_matrix,

@@ -7,13 +7,14 @@ from multiprocessing import Pool
 from y2005cc.data import get_data
 
 
-legend, z_values, H_values, dH_values = get_data()
+legend, z_values, H_values, cov_matrix = get_data()
+dH_values = np.sqrt(np.diag(cov_matrix)) # simple diagonal covariance matrix
 
 # Fitting models directly to the CC data (presents high correlation between H0 and w0)
 best_fit = {
-    "LCDM": [67.97, 0.3229],
-    "wCDM": [71.40, 0.3050, -1.329],
-    "wxCDM": [71.68, 0.3056, -1.371]
+    "LCDM": [66.71, 0.334],
+    "wCDM": [70.80, 0.307, -1.489],
+    "wxCDM": [71.15, 0.306, -1.559]
 }
 
 def H_lcdm_z(z, params):
@@ -87,8 +88,8 @@ def main():
     H_16, H_50, H_84 = np.percentile(H_fits, [15.9, 50, 84.1], axis=0)
     upper = H_84[0] - H_50[0]
     lower = H_50[0] - H_16[0]
-    print(f"Spline H0: {H_50[0]:.2f} +{upper:.2f} - {lower:.2f} km/s/Mpc")
-    # Spline H0: 67.89 +3.51 - 3.60 km/s/Mpc
+    print(f"Spline H0: {H_50[0]:.1f} +{upper:.1f} - {lower:.1f} km/s/Mpc")
+    # Spline H0: 67.10 +3.67 - 3.77 km/s/Mpc
 
     model_name = 'wxCDM'
     H_z = H_wxcdm_z
@@ -124,7 +125,7 @@ def main():
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
     best_fit_params = [H0_50, omega_50, w0_50]
-    print("chi-squared:", chi_squared(best_fit_params, H_z, z_grid, H_50, std))
+    print(f"chi-squared: {chi_squared(best_fit_params, H_z, z_grid, H_50, std):.2f}")
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f}")
     print(f"Ωm: {omega_50:.4f} +{(omega_84 - omega_50):.4f} -{(omega_50 - omega_16):.4f}")
     print(f"w0: {w0_50:.4f} +{(w0_84 - w0_50):.4f} -{(w0_50 - w0_16):.4f}")
