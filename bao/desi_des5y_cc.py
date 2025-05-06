@@ -22,10 +22,9 @@ c = 299792.458 # Speed of light in km/s
 z_grid_sn = np.linspace(0, np.max(z_sn_vals), num=3000)
 
 
-def h_over_h0_model(z, params):
-    O_m, w0 = params[3], params[4]
+def h_over_h0_model(z, p):
     sum = 1 + z
-    return np.sqrt(O_m * sum**3 + (1 - O_m) * ((2 * sum**2) / (1 + sum**2))**(3 * (1 + w0)))
+    return np.sqrt(p['Omega_m'] * sum**3 + (1 - p['Omega_m']) * ((2 * sum**2) / (1 + sum**2))**(3 * (1 + p['w_0'])))
 
 
 def integral_e_z(params):
@@ -33,14 +32,12 @@ def integral_e_z(params):
     return np.interp(z_sn_vals, z_grid_sn, integral_values)
 
 
-def model_distance_modulus(params):
-    delta_M, h0 = params[0], params[1]
-    return delta_M + 25 + 5 * np.log10((1 + z_sn_vals) * (c / h0) * integral_e_z(params))
+def model_distance_modulus(p):
+    return p['Delta_M'] + 25 + 5 * np.log10((1 + z_sn_vals) * (c / p['H_0']) * integral_e_z(p))
 
 
-def plot_bao_predictions(params):
+def plot_bao_predictions(p):
     colors = { "DV_over_rs": "red", "DM_over_rs": "blue", "DH_over_rs": "green" }
-    h0, r_d, omega_m = params[1], params[2], params[3]
     z_smooth = np.linspace(0, max(bao_data["z"]), 100)
 
     plt.figure(figsize=(8, 6))
@@ -59,23 +56,22 @@ def plot_bao_predictions(params):
         model_smooth = []
         for z in z_smooth:
             if q == "DV_over_rs":
-                model_smooth.append(DV_z(z, params)/r_d)
+                model_smooth.append(DV_z(z, p)/p['r_d'])
             elif q == "DM_over_rs":
-                model_smooth.append(DM_z(z, params)/r_d)
+                model_smooth.append(DM_z(z, p)/p['r_d'])
             elif q == "DH_over_rs":
-                model_smooth.append((c / H_z(z, params))/r_d)
+                model_smooth.append((c / H_z(z, p))/p['r_d'])
         plt.plot(z_smooth, model_smooth, color=colors[q], alpha=0.6)
 
     plt.xlabel("Redshift (z)")
     plt.ylabel(r"$O = \frac{D}{r_d}$")
     plt.legend()
     plt.grid(True)
-    plt.title(f"{bao_legend}: $H_0$={h0:.2f} km/s/Mpc, $r_d$={r_d:.2f} Mpc, $\Omega_M$={omega_m:.3f}")
+    plt.title(f"{bao_legend}: $H_0$={p['H_0']:.2f} km/s/Mpc, $r_d$={p['r_d']:.2f} Mpc, $\Omega_M$={p['Omega_m']:.3f}")
     plt.show()
 
 
-def plot_cc_predictions(params):
-    h0 = params[1]
+def plot_cc_predictions(p):
     z_smooth = np.linspace(0, np.max(z_cc_vals), 100)
 
     plt.errorbar(
@@ -88,18 +84,17 @@ def plot_cc_predictions(params):
         label="CCH data",
         capsize=2,
     )
-    plt.plot(z_smooth, H_z(z_smooth, params), color='red', alpha=0.5, label="Model")
+    plt.plot(z_smooth, H_z(z_smooth, p), color='red', alpha=0.5, label="Model")
     plt.xlabel("Redshift (z)")
     plt.ylabel(r"$H(z)$")
     plt.xlim(0, np.max(z_cc_vals) + 0.2)
     plt.legend()
-    plt.title(f"{cc_legend}: $H_0$={h0:.2f} km/s/Mpc")
+    plt.title(f"{cc_legend}: $H_0$={p['H_0']:.2f} km/s/Mpc")
     plt.show()
 
 
-def H_z(z, params):
-    h0 = params[1]
-    return h0 * h_over_h0_model(z, params)
+def H_z(z, p):
+    return p['H_0'] * h_over_h0_model(z, p)
 
 
 def DM_z(zs, params):
@@ -113,26 +108,30 @@ def DV_z(z, params):
     return (z * DH * DM**2)**(1/3)
 
 
-def bao_predictions(params):
-    r_d = params[2]
+def bao_predictions(p):
     predictions = []
     for z, _, quantity in bao_data:
-        if quantity == "DV_over_rs":
-            predictions.append(DV_z(z, params) / r_d)
-        elif quantity == "DM_over_rs":
-            predictions.append(DM_z(z, params) / r_d)
-        elif quantity == "DH_over_rs":
-            predictions.append((c / H_z(z, params)) / r_d)
+        if quantity == 'DV_over_rs':
+            predictions.append(DV_z(z, p) / p['r_d'])
+        elif quantity == 'DM_over_rs':
+            predictions.append(DM_z(z, p) / p['r_d'])
+        elif quantity == 'DH_over_rs':
+            predictions.append((c / H_z(z, p)) / p['r_d'])
     return np.array(predictions)
 
+param_bounds = {
+    "Delta_M": (-0.55, 0.55),
+    "H_0": (50, 80),
+    "r_d": (110, 175),
+    "Omega_m": (0.2, 0.7),
+    "w_0": (-1.1, -0.4),
+}
 
-bounds = np.array([
-    (-0.55, 0.55), # ΔM
-    (50, 80),      # H0
-    (110, 175),    # r_d
-    (0.2, 0.7),    # Ωm
-    (-1.1, -0.4),  # w0
-])
+param_names = list(param_bounds.keys())
+
+
+def array_to_dict(param_array):
+    return dict(zip(param_names, param_array))
 
 
 def chi_squared(params):
@@ -147,29 +146,34 @@ def chi_squared(params):
     return chi_sn + chi_bao + chi_cc
 
 
-def log_prior(params):
-    if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
-        return 0.0
-    return -np.inf
+def log_prior(param_array):
+    for i, name in enumerate(param_names):
+        low, high = param_bounds[name]
+        if not (low < param_array[i] < high):
+            return -np.inf
+    return 0.0
 
 
 def log_likelihood(params):
     return -0.5 * chi_squared(params)
 
 
-def log_probability(params):
-    lp = log_prior(params)
-    if np.isinf(lp):
+def log_probability(param_array):
+    lp = log_prior(param_array)
+    if not np.isfinite(lp):
         return -np.inf
-    return lp + log_likelihood(params)
-
+    return lp - 0.5 * chi_squared(array_to_dict(param_array))
 
 def main():
-    ndim = len(bounds)
-    nwalkers = 10 * ndim
+    ndim = len(param_names)
+    nwalkers = 16 * ndim
     burn_in = 500
     nsteps = 15000 + burn_in
-    initial_pos = np.random.default_rng().uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
+    initial_pos = np.random.default_rng().uniform(
+        [param_bounds[name][0] for name in param_names],
+        [param_bounds[name][1] for name in param_names],
+        size=(nwalkers, ndim)
+    )
 
     with Pool(10) as pool:
         sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool=pool)
@@ -181,44 +185,36 @@ def main():
     except emcee.autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
 
-    samples = sampler.get_chain(discard=burn_in, flat=True)
+    samples = sampler.get_chain(discard=burn_in, flat=True, thin=1)
 
-    [
-        [delta_M_16, delta_M_50, delta_M_84],
-        [h0_16, h0_50, h0_84],
-        [rd_16, rd_50, rd_84],
-        [omega_16, omega_50, omega_84],
-        [w0_16, w0_50, w0_84],
-    ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
+    percentiles = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
+    summary = {}
+    for name, (p16, p50, p84) in zip(param_names, percentiles):
+        summary[name] = (p50, p84 - p50, p50 - p16)
+        print(f"{name}: {p50:.3f} +{p84 - p50:.3f} -{p50 - p16:.3f}")
 
-    best_fit = [delta_M_50, h0_50, rd_50, omega_50, w0_50]
+    best_fit_dict = array_to_dict([entry[0] for entry in summary.values()])
     DES5Y_EFF_SAMPLE = 1735
-    deg_of_freedom = DES5Y_EFF_SAMPLE + bao_data['value'].size + z_cc_vals.size - len(best_fit)
+    deg_of_freedom = DES5Y_EFF_SAMPLE + bao_data['value'].size + z_cc_vals.size - ndim
 
-    print(f"ΔM: {delta_M_50:.3f} +{(delta_M_84 - delta_M_50):.3f} -{(delta_M_50 - delta_M_16):.3f}")
-    print(f"H0: {h0_50:.2f} +{(h0_84 - h0_50):.2f} -{(h0_50 - h0_16):.2f}")
-    print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f}")
-    print(f"Ωm: {omega_50:.3f} +{(omega_84 - omega_50):.3f} -{(omega_50 - omega_16):.3f}")
-    print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
-    print(f"Chi squared: {chi_squared(best_fit):.2f}")
+    print(f"Chi squared: {chi_squared(best_fit_dict):.2f}")
     print(f"Degrees of freedom: {deg_of_freedom}")
 
-    plot_bao_predictions(best_fit)
-    plot_cc_predictions(best_fit)
+    plot_bao_predictions(best_fit_dict)
+    plot_cc_predictions(best_fit_dict)
     plot_sn_predictions(
         legend=sn_legend,
         x=z_sn_vals,
         y=distance_moduli_values,
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=model_distance_modulus(best_fit),
-        label=f"Best fit: $H_0$={h0_50:.2f}, $\Omega_m$={omega_50:.3f}",
+        y_model=model_distance_modulus(best_fit_dict),
+        label=fr"Best fit: $H_0$={summary['H_0'][0]:.2f} km/s/Mpc, $\Omega_m$={summary['Omega_m'][0]:.3f}",
         x_scale="log"
     )
 
-    labels = ["ΔM", r"$H_0$", r"$r_d$", "Ωm", r"$w_0$"]
     corner.corner(
         samples,
-        labels=labels,
+        labels=[f'${name}$' for name in param_names],
         quantiles=[0.159, 0.5, 0.841],
         show_titles=True,
         title_fmt=".3f",
@@ -262,11 +258,11 @@ Degrees of freedom: 1775
 ==============================
 
 Flat alternative: w(z) = w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-ΔM: -0.060 +0.101 -0.108 mag
-H0: 67.19 +3.23 -3.29 km/s/Mpc
-r_d: 147.07 +7.46 -6.65 Mpc
+ΔM: -0.061 +0.101 -0.106 mag
+H0: 67.14 +3.23 -3.22 km/s/Mpc
+r_d: 147.19 +7.30 -6.69 Mpc
 Ωm: 0.305 +0.008 -0.008
-w0: -0.858 +0.042 -0.042 (3.4 sigma)
+w0: -0.857 +0.042 -0.043 (3.3 - 3.4 sigma)
 wa: 0
 Chi squared: 1662.25
 Degrees of freedom: 1775
