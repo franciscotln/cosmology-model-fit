@@ -4,10 +4,10 @@ import emcee
 from scipy.integrate import cumulative_trapezoid
 import corner
 import matplotlib.pyplot as plt
-from y2018quasars.data import get_data, mu_quasar
+from y2018quasars.data import get_binned_data, factor
 from y2023union3.data import get_data as get_union3_data
 
-legend, z, mu, sigma_mu = get_data()
+legend, z, mu, sigma_mu = get_binned_data(30)
 sn_legend, sn_z, sn_mu, sn_cov  = get_union3_data()
 inv_cov_sn = np.linalg.inv(sn_cov)
 
@@ -40,7 +40,7 @@ def chi_squared_sn(theta):
 
 def chi_squared_quasar(mu_theory, theta):
     beta_prime, s = theta[0], theta[1]
-    mu_model = mu_quasar(beta_prime)
+    mu_model = mu + factor * beta_prime
     delta_quasars = np.interp(z, z_unique, mu_theory) - mu_model
     chi_2_quasars = np.sum(delta_quasars**2 / (sigma_mu**2 + s**2))
     return (chi_2_quasars, mu_model)
@@ -116,7 +116,7 @@ def main():
 
     plt.errorbar(
         z,
-        mu_quasar(beta_50),
+        mu + factor * beta_50,
         yerr=np.sqrt(sigma_mu**2 + s_50**2),
         fmt='.',
         color='blue',
@@ -144,37 +144,39 @@ def main():
 if __name__ == "__main__":
     main()
 
+
 """
 Flat ΛCDM
-beta': -7.301 +0.007 -0.007
-s: 1.645 +0.031 -0.030
-ΔM: -0.070 +0.088 -0.088 mag
-Omega_m: 0.354 +0.027 -0.025
+beta': -7.075 +0.012 -0.012
+s: 0.614 +0.066 -0.057
+ΔM: -0.072 +0.089 -0.087
+Omega_m: 0.351 +0.027 -0.026
 w0: -1
-chi squared SN: 23.963
-chi squared quasars: 1600.638
-chi squared total: 1624.601
+chi squared SN: 23.99
+chi squared quasars: 52.32
+chi squared total: 76.31
 
 ===============================
 
 Flat wCDM
-beta': -7.300 +0.008 -0.007
-s: 1.645 +0.031 -0.030
-ΔM: -0.061 +0.088 -0.090
-Omega_m: 0.295 +0.066 -0.078
-w0: -0.831 +0.149 -0.171
-chi squared SN: 22.399
-chi squared quasars: 1601.199
-chi squared total: 1623.599
+beta': -7.072 +0.012 -0.012
+s: 0.610 +0.067 -0.056
+ΔM: -0.055 +0.088 -0.089
+Omega_m: 0.217 +0.093 -0.110
+w0: -0.697 +0.137 -0.173
+chi squared SN: 22.19
+chi squared quasars: 51.92
+chi squared total: 74.11
 
 ==============================
+
 Flat wzCDM
-beta': -7.301 +0.008 -0.007
-s: 1.646 +0.031 -0.030
-ΔM: -0.062 +0.088 -0.088 mag
-Omega_m: 0.312 +0.051 -0.052
-w0: -0.830 +0.140 -0.166
-chi squared SN: 22.173
-chi squared quasars: 1600.464
-chi squared total: 1622.636
+beta': -7.073 +0.012 -0.012
+s: 0.610 +0.067 -0.056
+ΔM: -0.055 +0.088 -0.089
+Omega_m: 0.267 +0.060 -0.062
+w0: -0.723 +0.134 -0.161
+chi squared SN: 21.89
+chi squared quasars: 52.12
+chi squared total: 74.00
 """

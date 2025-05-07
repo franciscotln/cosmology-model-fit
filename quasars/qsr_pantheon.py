@@ -4,10 +4,10 @@ import emcee
 from scipy.integrate import cumulative_trapezoid
 import corner
 import matplotlib.pyplot as plt
-from y2018quasars.data import get_data, mu_quasar
+from y2018quasars.data import get_binned_data, factor
 from y2022pantheonSHOES.data import get_data as get_pantheon_data
 
-legend, z, _, sigma_mu = get_data()
+legend, z, mu, sigma_mu = get_binned_data(30)
 sn_legend, sn_z, sn_mag, sn_cov  = get_pantheon_data()
 inv_cov_sn = np.linalg.inv(sn_cov)
 
@@ -37,7 +37,7 @@ def chi_squared_sn(theta):
 
 def chi_squared_quasar(mu_theory, theta):
     beta_prime, s = theta[0], theta[1]
-    mu_model_qsr = mu_quasar(beta_prime)
+    mu_model_qsr = mu + factor * beta_prime
     delta_quasars = np.interp(z, z_unique, mu_theory) - mu_model_qsr
     chi_2_quasars = np.sum(delta_quasars**2 / (sigma_mu**2 + s**2))
     return (chi_2_quasars, mu_model_qsr)
@@ -115,7 +115,7 @@ def main():
 
     plt.errorbar(
         z,
-        mu_quasar(beta_50),
+        mu + factor * beta_50,
         yerr=np.sqrt(sigma_mu**2 + s_50**2),
         fmt='.',
         color='blue',
@@ -143,3 +143,40 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+"""
+Flat ΛCDM
+beta': -7.070 +0.012 -0.012
+s: 0.611 +0.070 -0.057
+M: -19.352 +0.007 -0.007
+Omega_m: 0.328 +0.018 -0.017
+w0: -1
+chi squared SN: 1403.73
+chi squared quasars: 52.42
+chi squared total: 1456.15
+
+===============================
+
+Flat wCDM
+beta': -7.068 +0.012 -0.012
+s: 0.609 +0.066 -0.056
+M: -19.347 +0.009 -0.009
+Omega_m: 0.273 +0.063 -0.075
+w0: -0.866 +0.128 -0.145
+chi squared SN: 1403.44
+chi squared quasars: 52.26
+chi squared total: 1455.70
+
+==============================
+
+Flat wzCDM
+beta': -7.069 +0.012 -0.012
+s: 0.611 +0.065 -0.056
+M: -19.348 +0.009 -0.009
+Omega_m: 0.294 +0.049 -0.052
+w0: -0.897 +0.123 -0.143
+chi squared SN: 1403.43
+chi squared quasars: 52.06
+chi squared total: 1455.50
+"""

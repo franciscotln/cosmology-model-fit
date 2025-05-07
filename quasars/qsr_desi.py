@@ -4,22 +4,20 @@ import emcee
 from scipy.integrate import cumulative_trapezoid
 import corner
 import matplotlib.pyplot as plt
-from y2018quasars.data import get_data, mu_quasar
+from y2018quasars.data import get_binned_data, factor
 from y2025BAO.data import get_data as get_bao_data
 
-legend, z, mu, sigma_mu = get_data()
+legend, z, mu, sigma_mu = get_binned_data(30)
 bao_legend, bao_data, bao_cov  = get_bao_data()
 inv_cov_bao = np.linalg.inv(bao_cov)
 
 c = 299792.458 # Speed of light (km/s)
 H0 = 70.0 # Hubble constant (km/s/Mpc)
 
-z_unique = np.unique(np.concatenate((z, bao_data['z'])))
-
 def Ez(z, params):
     one_plus_z = 1 + z
     Omega_m, w0 = params[3], params[4]
-    return np.sqrt(Omega_m * one_plus_z**3 + (1 - Omega_m)*((2 * one_plus_z**2) / (1 + one_plus_z**2))**(3 * (1 + w0)))
+    return np.sqrt(Omega_m * one_plus_z**3 + (1 - Omega_m) * ((2 * one_plus_z**2) / (1 + one_plus_z**2))**(3 * (1 + w0)))
 
 def integral_Ez(zs, params):
     z = np.linspace(0, np.max(zs), num=3000)
@@ -59,7 +57,7 @@ def chi_squared_bao(theta):
 
 def chi_squared_quasar(theta):
     beta_prime, s = theta[0], theta[1]
-    delta_quasars = mu_quasar(beta_prime) - mu_model_sn(z, theta)
+    delta_quasars = mu + factor * beta_prime - mu_model_sn(z, theta)
     return np.sum(delta_quasars**2 / (sigma_mu**2 + s**2))
 
 def log_likelihood(theta):
@@ -174,7 +172,7 @@ def main():
 
     plt.errorbar(
         z,
-        mu_quasar(beta_50),
+        mu + factor * beta_50,
         yerr=np.sqrt(sigma_mu**2 + s_50**2),
         fmt='.',
         color='blue',
@@ -198,36 +196,36 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM
-beta': -7.290 +0.006 -0.006
-s: 1.646 +0.031 -0.030
-r_d: 145.021 +1.041 -1.054 Mpc
-Omega_m: 0.298 +0.009 -0.008
+beta': -7.065 +0.011 -0.011
+s: 0.608 +0.066 -0.056
+r_d: 145.083 +1.052 -1.050
+Omega_m: 0.297 +0.009 -0.008
 w0: -1
 chi squared BAO: 10.27
-chi squared quasars: 1598.85
-chi squared total: 1609.12
+chi squared quasars: 52.40
+chi squared total: 62.67
 
 ===============================
 
 Flat wCDM
-beta': -7.295 +0.008 -0.008
-s: 1.646 +0.031 -0.030
-r_d: 142.758 +2.503 -2.374 Mpc
-Omega_m: 0.298 +0.009 -0.009
-w0: -0.923 +0.076 -0.079
+beta': -7.069 +0.012 -0.012
+s: 0.609 +0.066 -0.056
+r_d: 142.860 +2.488 -2.367
+Omega_m: 0.297 +0.009 -0.009
+w0: -0.923 +0.075 -0.080
 chi squared BAO: 9.13
-chi squared quasars: 1599.29
-chi squared total: 1608.41
+chi squared quasars: 52.45
+chi squared total: 61.57
 
 ==============================
 
 Flat wzCDM
-beta': -7.297 +0.009 -0.008
-s: 1.645 +0.031 -0.030
-r_d: 141.938 +3.051 -2.836
+beta': -7.071 +0.013 -0.013
+s: 0.611 +0.066 -0.056
+r_d: 142.047 +3.049 -2.814
 Omega_m: 0.303 +0.010 -0.010
-w0: -0.885 +0.099 -0.108
+w0: -0.887 +0.099 -0.107
 chi squared BAO: 8.72
-chi squared quasars: 1600.98
-chi squared total: 1609.69
+chi squared quasars: 52.16
+chi squared total: 60.89
 """

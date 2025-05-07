@@ -4,10 +4,10 @@ import emcee
 from scipy.integrate import cumulative_trapezoid
 import corner
 import matplotlib.pyplot as plt
-from y2018quasars.data import get_data, mu_quasar
+from y2018quasars.data import get_binned_data, factor
 from y2024DES.data import get_data as get_des5y_data
 
-legend, z, mu, sigma_mu = get_data()
+legend, z, mu, sigma_mu = get_binned_data(30)
 sn_legend, sn_z, sn_mu, sn_cov  = get_des5y_data()
 inv_cov_sn = np.linalg.inv(sn_cov)
 
@@ -39,7 +39,7 @@ def chi_squared_sn(theta):
 
 def chi_squared_quasar(mu_theory, theta):
     beta_prime, s = theta[0], theta[1]
-    mu_model = mu_quasar(beta_prime)
+    mu_model = mu + factor * beta_prime
     delta_quasars = np.interp(z, z_unique, mu_theory) - mu_model
     chi_2_quasars = np.sum(delta_quasars**2 / (sigma_mu**2 + s**2))
     return (chi_2_quasars, mu_model)
@@ -117,7 +117,7 @@ def main():
 
     plt.errorbar(
         z,
-        mu_quasar(beta_50),
+        mu + factor * beta_50,
         yerr=np.sqrt(sigma_mu**2 + s_50**2),
         fmt='.',
         color='blue',
@@ -125,7 +125,7 @@ def main():
         alpha=0.4,
         lw=0.5,
     )
-    plt.plot(sn_z, sn_mu - deltaM_50, '.', color='red', alpha=0.6, label=sn_legend)
+    plt.plot(sn_z, sn_mu - deltaM_50, '.', color='red', alpha=0.5, label=sn_legend)
     plt.ylim(32.5, 54)
     plt.plot(z_plot, theory, color='green', label="$\mu_T$", alpha=0.8)
     plt.xlabel('Redshift ($z$)')
@@ -138,38 +138,39 @@ def main():
 if __name__ == "__main__":
     main()
 
+
 """
 Flat ΛCDM
-beta': -7.300 +0.007 -0.007
-s: 1.644 +0.030 -0.030
-ΔM: 0.021 +0.011 -0.011 mag
-Omega_m: 0.349 +0.016 -0.016
+beta': -7.074 +0.012 -0.012
+s: 0.613 +0.067 -0.056
+ΔM: 0.020 +0.011 -0.011 mag
+Omega_m: 0.347 +0.017 -0.017
 w0: -1
-chi squared SN: 1640.311
-chi squared quasars: 1603.336
-chi squared total: 3243.647
+chi squared SN: 1640.33
+chi squared quasars: 52.43
+chi squared total: 1692.76
 
 ==================================
 
 Flat wCDM
-beta': -7.299 +0.007 -0.007
-s: 1.646 +0.032 -0.031
-ΔM: 0.028 +0.013 -0.013
-Omega_m: 0.302 +0.055 -0.065
-w0: -0.878 +0.125 -0.137
-chi squared SN: 1639.171
-chi squared quasars: 1599.731
-chi squared total: 3238.902
+beta': -7.071 +0.012 -0.012
+s: 0.608 +0.065 -0.054
+ΔM: 0.032 +0.013 -0.013 mag
+Omega_m: 0.244 +0.077 -0.098
+w0: -0.767 +0.136 -0.154
+chi squared SN: 1639.12
+chi squared quasars: 52.26
+chi squared total: 1691.38
 
 ==================================
 
 Flat wzCDM
-beta': -7.299 +0.007 -0.007
-s: 1.646 +0.031 -0.030
-ΔM: 0.029 +0.013 -0.013 mag
-Omega_m: 0.312 +0.043 -0.044
-w0: -0.874 +0.114 -0.130
-chi squared SN: 1638.868
-chi squared quasars: 1599.548
-chi squared total: 3238.417
+beta': -7.071 +0.012 -0.012
+s: 0.610 +0.065 -0.057
+ΔM: 0.032 +0.013 -0.013 mag
+Omega_m: 0.281 +0.049 -0.053
+w0: -0.799 +0.117 -0.131
+chi squared SN: 1638.74
+chi squared quasars: 52.09
+chi squared total: 1690.82
 """
