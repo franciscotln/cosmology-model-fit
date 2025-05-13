@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.gaussian_process.kernels import RBF
+from sklearn.gaussian_process.kernels import RBF, ConstantKernel
 from y2005cc.data import get_data
 
 legend, z_values, H_values, cov_matrix = get_data()
@@ -11,7 +11,7 @@ z_values = z_values.reshape(-1, 1)
 z_pred = np.linspace(0, z_values.max(), 500).reshape(-1, 1)
 
 # Define RBF kernel (Squared Exponential)
-kernel = 1.0 * RBF(length_scale=1.0, length_scale_bounds=(1e-2, 10.0))
+kernel = ConstantKernel(constant_value=147**2) * RBF(length_scale=2.5)
 
 # Gaussian Process Regressor
 gp = GaussianProcessRegressor(
@@ -23,15 +23,17 @@ gp = GaussianProcessRegressor(
 gp.fit(z_values, H_values)
 
 H_pred, sigma = gp.predict(z_pred, return_std=True)
-print("H0", f"{H_pred[0]:.2f} ± {sigma[0]:.2f}")
+print("H0", f"{H_pred[0]:.2f} ± {sigma[0]:.2f}") # H0 64.73 ± 5.20 km/s/Mpc
+print("GP score:", gp.score(z_values, H_values)) # 0.897
 
 plt.errorbar(z_values, H_values, yerr=dH_values, fmt='.', label='CC Data', capsize=2)
-plt.plot(z_pred, H_pred, label='GP Mean (RBF)', color='green')
-plt.fill_between(z_pred.ravel(), H_pred - sigma, H_pred + sigma, color='green', alpha=0.2, label=r'$1\sigma$')
+plt.plot(z_pred, H_pred, label='GP Mean (RBF)', color='gray')
+plt.fill_between(z_pred.ravel(), H_pred - sigma, H_pred + sigma, color='gray', alpha=0.4, label=r'$1\sigma$')
+plt.fill_between(z_pred.ravel(), H_pred - 2*sigma, H_pred + 2*sigma, color='gray', alpha=0.2, label=r'$2\sigma$')
 plt.xlabel('z')
 plt.xlim(0, np.max(z_values) + 0.1)
 plt.ylabel('H(z) [km/s/Mpc]')
-plt.title('Gaussian Process Regression with RBF Kernel')
+plt.title(f'Gaussian Process Regression $H_0$: {H_pred[0]:.2f} ± {sigma[0]:.2f} km/s/Mpc')
 plt.legend()
 plt.grid(True)
 plt.show()
