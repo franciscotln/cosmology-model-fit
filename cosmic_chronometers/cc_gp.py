@@ -33,8 +33,9 @@ sigma = np.sqrt(np.diag(cov_pred))
 
 print("H0", f"{H_pred[0]:.2f} ± {sigma[0]:.2f}") # H0 73.06 ± 6.88 km/s/Mpc
 print("GP score:", gp.score(z_values, normalized_H)) # 0.881
-print("GP marginal likelihood value", gp.log_marginal_likelihood_value_) # -138.24
+print("GP marginal likelihood value", gp.log_marginal_likelihood_value_ - H_values.size * np.log(H_std)) # -137.12
 print("GP kernel", gp.kernel_)
+print("cov mat condition number", np.linalg.cond(cov_matrix)) # 232.6
 
 plt.style.use('dark_background')
 plt.errorbar(z_values, H_values, yerr=dH_values, fmt='.', label='CC Data', capsize=2)
