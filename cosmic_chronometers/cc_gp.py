@@ -34,7 +34,7 @@ print("H0", f"{H_pred[0]:.2f} ± {sigma[0]:.2f}") # H0 67.66 ± 5.79 km/s/Mpc
 print("GP score:", gp.score(z_values, normalized_H)) # 0.897
 print("GP marginal likelihood value", gp.log_marginal_likelihood_value_ - H_values.size * np.log(H_std)) # -137.5
 print("GP kernel", gp.kernel_)
-print("cov mat condition number", np.linalg.cond(cov_matrix)) # 232.6
+print("cov mat condition number", np.linalg.cond(cov_pred)) # 232.6
 
 plt.style.use('dark_background')
 plt.errorbar(z_values, H_values, yerr=dH_values, fmt='.', label='CC Data', capsize=2)
