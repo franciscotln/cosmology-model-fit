@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.gaussian_process.kernels import ConstantKernel as C, RBF, WhiteKernel
+from sklearn.gaussian_process.kernels import ConstantKernel as C, WhiteKernel, DotProduct
 from y2005cc.data import get_data
 
 legend, z_values, H_values, cov_matrix = get_data()
@@ -14,10 +14,8 @@ H_mean = np.mean(H_values)
 normalized_H = (H_values - H_mean) / H_std
 normalised_sigma = dH_values / H_std
 
-z_pred = np.linspace(0, z_values.max(), 500).reshape(-1, 1)
 
-# Define DotProduct kernel
-kernel = C() * RBF() + WhiteKernel(0.005, 'fixed')
+kernel = C() * DotProduct()**3 + WhiteKernel(0.005, 'fixed')
 gp = GaussianProcessRegressor(
     kernel=kernel,
     alpha=normalised_sigma**2,
@@ -26,14 +24,15 @@ gp = GaussianProcessRegressor(
 )
 gp.fit(z_values.reshape(-1,1), normalized_H.reshape(-1,1))
 
+z_pred = np.linspace(0, z_values.max(), 500).reshape(-1, 1)
 H_pred, cov_pred = gp.predict(z_pred, return_cov=True)
 cov_pred = cov_pred * H_std**2
 H_pred = H_pred * H_std + H_mean
 sigma = np.sqrt(np.diag(cov_pred))
 
-print("H0", f"{H_pred[0]:.2f} ± {sigma[0]:.2f}") # H0 73.06 ± 6.88 km/s/Mpc
-print("GP score:", gp.score(z_values, normalized_H)) # 0.881
-print("GP marginal likelihood value", gp.log_marginal_likelihood_value_ - H_values.size * np.log(H_std)) # -137.12
+print("H0", f"{H_pred[0]:.2f} ± {sigma[0]:.2f}") # H0 67.66 ± 5.79 km/s/Mpc
+print("GP score:", gp.score(z_values, normalized_H)) # 0.897
+print("GP marginal likelihood value", gp.log_marginal_likelihood_value_ - H_values.size * np.log(H_std)) # -137.5
 print("GP kernel", gp.kernel_)
 print("cov mat condition number", np.linalg.cond(cov_matrix)) # 232.6
 
@@ -58,20 +57,20 @@ plt.savefig('cosmic_chronometers/cc_gp_cov_matrix.png', dpi=500)
 plt.close()
 
 # Likelihood function
-c0 = np.logspace(-3, 5, num=100)
-length_scale = np.logspace(-5, 4, num=100)
-c0_grid, length_scale_grid = np.meshgrid(c0, length_scale)
+s0 = np.logspace(-5, 5, num=100)
+offset = np.logspace(-5, 5, num=100)
+s0_grid, offset_grid = np.meshgrid(s0, offset)
 
 log_marginal_likelihood = [
     gp.log_marginal_likelihood(theta=np.log([c0_v, scale_v]))
-    for c0_v, scale_v in zip(c0_grid.ravel(), length_scale_grid.ravel())
+    for c0_v, scale_v in zip(s0_grid.ravel(), offset_grid.ravel())
 ]
-log_marginal_likelihood = np.reshape(log_marginal_likelihood, length_scale_grid.shape)
+log_marginal_likelihood = np.reshape(log_marginal_likelihood, offset_grid.shape)
 vmin, vmax = (-log_marginal_likelihood).min(), 150
 level = np.around(np.logspace(np.log10(vmin), np.log10(vmax), num=20), decimals=1)
 plt.contour(
-    c0_grid,
-    length_scale_grid,
+    s0_grid,
+    offset_grid,
     -log_marginal_likelihood,
     levels=level,
     norm=LogNorm(vmin=vmin, vmax=vmax),
@@ -79,8 +78,8 @@ plt.contour(
 plt.colorbar()
 plt.xscale("log")
 plt.yscale("log")
-plt.xlabel("$c_0$")
-plt.ylabel("length scale")
+plt.xlabel("$\sigma_0$")
+plt.ylabel("offset")
 plt.title("Negative log-marginal-likelihood")
 plt.savefig('cosmic_chronometers/cc_gp_likelihood.png', dpi=500)
 plt.close()
