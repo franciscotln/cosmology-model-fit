@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.linalg import cho_factor, cho_solve
 import emcee
 import corner
 import matplotlib.pyplot as plt
@@ -9,24 +10,24 @@ from y2005cc.data import get_data
 c = 299792.458
 
 legend, z_values, H_values, cov_matrix = get_data()
-inv_cov_matrix = np.linalg.inv(cov_matrix)
+cho = cho_factor(cov_matrix)
 
 def H_z(z, params):
     h0, o_m, w0 = params[0], params[1], params[2]
-    return h0 * np.sqrt(o_m * (1 + z)**3 + (1 - o_m) * ((2*(1 + z)**2)/(1 + (1 + z)**2))**(3*(1 + w0)))
+    one_plus_z = 1 + z
+    return h0 * np.sqrt(o_m * one_plus_z**3 + (1 - o_m) * ((2 * one_plus_z**2)/(1 + one_plus_z**2))**(3 * (1 + w0)))
 
 
 bounds = np.array([
     (40, 110),   # H0
     (0.1, 0.6),  # Ωm
     (-3.5, 0.5), # w0
-    (-5, 5),     # wa
 ])
 
 
 def chi_squared(params):
     delta = H_values - H_z(z_values, params)
-    return np.dot(delta, np.dot(inv_cov_matrix, delta))
+    return np.dot(delta, cho_solve(cho, delta))
 
 
 def log_prior(params):
@@ -35,8 +36,12 @@ def log_prior(params):
     return -np.inf
 
 
+L, _ = cho
+log_det = 2 * np.sum(np.log(np.diag(L)))
+pi_const = len(H_values) * np.log(2 * np.pi)
+
 def log_likelihood(params):
-    return -0.5 * chi_squared(params)
+    return -0.5 * (chi_squared(params) + log_det + pi_const)
 
 
 def log_probability(params):
@@ -116,21 +121,20 @@ def main():
         [H0_16, H0_50, H0_84],
         [omega_16, omega_50, omega_84],
         [w0_16, w0_50, w0_84],
-        [wa_16, wa_50, wa_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = [H0_50, omega_50, w0_50, wa_50]
+    best_fit = [H0_50, omega_50, w0_50]
 
     print(f"H0: {H0_50:.4f} +{(H0_84 - H0_50):.4f} -{(H0_50 - H0_16):.4f}")
     print(f"Ωm: {omega_50:.4f} +{(omega_84 - omega_50):.4f} -{(omega_50 - omega_16):.4f}")
     print(f"w0: {w0_50:.4f} +{(w0_84 - w0_50):.4f} -{(w0_50 - w0_16):.4f}")
-    print(f"wa: {wa_50:.4f} +{(wa_84 - wa_50):.4f} -{(wa_50 - wa_16):.4f}")
     print(f"Chi squared: {chi_squared(best_fit):.4f}")
+    print(f"Log likelihood: {log_likelihood(best_fit):.2f}")
     print(f"Degs of freedom: {z_values.size  - len(best_fit)}")
 
     plot_predictions(best_fit)
 
-    labels = [f"$H_0$", f"$\Omega_m$", f"$w_0$", f"$w_a$"]
+    labels = [f"$H_0$", f"$\Omega_m$", f"$w_0$"]
     corner.corner(
         samples,
         labels=labels,
