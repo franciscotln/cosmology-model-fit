@@ -1,8 +1,9 @@
 import emcee
-from getdist import MCSamples, plots
 import matplotlib.pyplot as plt
 import numpy as np
+import corner
 from scipy.stats import skew
+from scipy.linalg import cho_factor, cho_solve
 from scipy.integrate import cumulative_trapezoid
 from multiprocessing import Pool
 from .plotting import plot_predictions, print_color, plot_residuals
@@ -10,7 +11,7 @@ from y2023union3.data import get_data
 
 legend, z_values, distance_moduli_values, cov_matrix = get_data()
 
-inverse_cov = np.linalg.inv(cov_matrix)
+cho = cho_factor(cov_matrix)
 
 # Speed of light (km/s)
 C = 299792.458
@@ -19,38 +20,38 @@ C = 299792.458
 H0 = 70
 
 
-# Flat model
-def integral_of_e_z(zs, params):
+z = np.linspace(0, np.max(z_values), num=4000)
+one_plus_z = 1 + z
+
+
+def integral_of_e_z(params):
     omega_m, w0 = params[1], params[2]
-    z = np.linspace(0, np.max(zs), num=4000)
-    sum = 1 + z
-    h_over_h0 = np.sqrt(omega_m * sum**3 + (1 - omega_m) * ((2 * sum**2) / (1 + sum**2))**(3 * (1 + w0)))
-    integral_values = cumulative_trapezoid(1/h_over_h0, z, initial=0)
-    return np.interp(zs, z, integral_values)
+    h_over_h0 = np.sqrt(
+        omega_m * one_plus_z**3
+        + (1 - omega_m) * ((2 * one_plus_z**2) / (1 + one_plus_z**2)) ** (3 * (1 + w0))
+    )
+    integral_values = cumulative_trapezoid(1 / h_over_h0, z, initial=0)
+    return np.interp(z_values, z, integral_values)
 
 
-def model_distance_modulus(z, params):
+# Flat model
+def model_distance_modulus(params):
     deltaM = params[0]
-    a0_over_ae = 1 + z
-    comoving_distance = (C / H0) * integral_of_e_z(z, params)
+    a0_over_ae = 1 + z_values
+    comoving_distance = (C / H0) * integral_of_e_z(params)
     return deltaM + 25 + 5 * np.log10(a0_over_ae * comoving_distance)
 
 
 def chi_squared(params):
-    delta = distance_moduli_values - model_distance_modulus(z_values, params)
-    return delta.T @ inverse_cov @ delta
+    delta = distance_moduli_values - model_distance_modulus(params)
+    return np.dot(delta, cho_solve(cho, delta))
 
 
 def log_likelihood(params):
     return -0.5 * chi_squared(params)
 
 
-bounds = np.array([
-    (-0.5, 0.5), # ΔM
-    (0, 1), # Ωm
-    (-2, 0.5), # w0
-    (-10, 0) # wa
-])
+bounds = np.array([(-0.5, 0.5), (0, 1), (-1.6, 0.5)])  # ΔM  # Ωm  # w0
 
 
 def log_prior(params):
@@ -89,29 +90,29 @@ def main():
         [deltaM_16, deltaM_50, deltaM_84],
         [omega_16, omega_50, omega_84],
         [w0_16, w0_50, w0_84],
-        [wa_16, wa_50, wa_84]
     ] = np.percentile(samples, [16, 50, 84], axis=0).T
 
-    best_fit_params = [deltaM_50, omega_50, w0_50, wa_50]
+    best_fit_params = [deltaM_50, omega_50, w0_50]
 
-    predicted_distances = model_distance_modulus(z_values, best_fit_params)
+    predicted_distances = model_distance_modulus(best_fit_params)
     residuals = distance_moduli_values - predicted_distances
 
     skewness = skew(residuals)
 
     # Calculate R-squared
     average_distance_modulus = np.mean(distance_moduli_values)
-    ss_res = np.sum(residuals ** 2)
+    ss_res = np.sum(residuals**2)
     ss_tot = np.sum((distance_moduli_values - average_distance_modulus) ** 2)
     r_squared = 1 - (ss_res / ss_tot)
 
     # Calculate root mean square deviation
-    rmsd = np.sqrt(np.mean(residuals ** 2))
+    rmsd = np.sqrt(np.mean(residuals**2))
 
-    delta_M_label = f"{deltaM_50:.4f} +{deltaM_84-deltaM_50:.4f}/-{deltaM_50-deltaM_16:.4f}"
+    delta_M_label = (
+        f"{deltaM_50:.4f} +{deltaM_84-deltaM_50:.4f}/-{deltaM_50-deltaM_16:.4f}"
+    )
     omega_label = f"{omega_50:.4f} +{omega_84-omega_50:.4f}/-{omega_50-omega_16:.4f}"
     w0_label = f"{w0_50:.4f} +{w0_84-w0_50:.4f}/-{w0_50-w0_16:.4f}"
-    wa_label = f"{wa_50:.4f} +{wa_84-wa_50:.4f}/-{wa_50-wa_16:.4f}"
 
     print_color("Dataset", legend)
     print_color("z range", f"{z_values[0]:.3f} - {z_values[-1]:.3f}")
@@ -119,27 +120,28 @@ def main():
     print_color("ΔM", delta_M_label)
     print_color("Ωm", omega_label)
     print_color("w0", w0_label)
-    print_color("wa", wa_label)
     print_color("R-squared (%)", f"{100 * r_squared:.2f}")
     print_color("RMSD (mag)", f"{rmsd:.3f}")
     print_color("Skewness of residuals", f"{skewness:.3f}")
     print_color("Chi squared", f"{chi_squared(best_fit_params):.4f}")
-    print_color("Reduced chi squared", chi_squared(best_fit_params)/ (len(z_values) - len(best_fit_params)))
-
-    labels = ["ΔM", "Ωm", "w_0", "w_a"]
-    gdsamples = MCSamples(
-        samples=samples,
-        names=labels,
-        labels=labels,
-        settings={"fine_bins_2D": 128, "smooth_scale_2D": 0.9}
+    print_color(
+        "Reduced chi squared",
+        chi_squared(best_fit_params) / (len(z_values) - len(best_fit_params)),
     )
-    g = plots.get_subplot_plotter()
-    g.triangle_plot(
-        gdsamples,
-        Filled=False,
-        contour_levels=[0.68, 0.95],
-        title_limit=True,
-        diag1d_kwargs={"normed": True},
+
+    labels = ["ΔM", "Ωm", "$w_0$"]
+    corner.corner(
+        samples,
+        labels=labels,
+        quantiles=[0.159, 0.5, 0.841],
+        show_titles=True,
+        title_fmt=".4f",
+        smooth=1.5,
+        smooth1d=1.5,
+        bins=100,
+        levels=(0.393, 0.864),  # 1 and 2 sigmas in 2D
+        fill_contours=False,
+        plot_datapoints=False,
     )
     plt.show()
 
@@ -152,17 +154,13 @@ def main():
         y_err=sigma_mu,
         y_model=predicted_distances,
         label=f"Best fit: $\Omega_m$={omega_50:.4f}",
-        x_scale="log"
+        x_scale="log",
     )
 
-    plot_residuals(
-        z_values=z_values,
-        residuals=residuals,
-        y_err=sigma_mu,
-        bins=40
-    )
+    plot_residuals(z_values=z_values, residuals=residuals, y_err=sigma_mu, bins=40)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()
 
 """
@@ -201,14 +199,14 @@ degrees of freedom: 19
 ==============================
 
 Flat alternative: w(z) = w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-ΔM: -0.0557 +0.0895/-0.0889
-Ωm: 0.2873 +0.0602/-0.0643
-w0: -0.7606 +0.1449/-0.1733 (1.50 sigma)
+ΔM: -0.0569 +0.0887/-0.0884
+Ωm: 0.2877 +0.0604/-0.0641
+w0: -0.7605 +0.1444/-0.1752
 wa: 0
 R-squared (%): 99.94
-RMSD (mag): 0.054
-Skewness of residuals: -1.103
-Chi squared: 21.8772
+RMSD (mag): 0.053
+Skewness of residuals: -1.091
+Chi squared: 21.8792
 degrees of freedom: 19
 
 =============================

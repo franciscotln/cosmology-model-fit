@@ -23,8 +23,11 @@ def integral_of_e_z(z, params):
     _, Omega_m, w0, _ = params
     z_grid = np.linspace(0, np.max(z), num=2000)
     sum = 1 + z_grid
-    H_over_H0 = np.sqrt(Omega_m * sum**3 + (1 - Omega_m) * ((2*sum**2) / (1 + sum**2))**(3*(1 + w0)))
-    integral_values = cumulative_trapezoid(1/H_over_H0, z_grid, initial=0)
+    H_over_H0 = np.sqrt(
+        Omega_m * sum**3
+        + (1 - Omega_m) * ((2 * sum**2) / (1 + sum**2)) ** (3 * (1 + w0))
+    )
+    integral_values = cumulative_trapezoid(1 / H_over_H0, z_grid, initial=0)
     return np.interp(z, z_grid, integral_values)
 
 
@@ -46,7 +49,11 @@ def lcdm_distance_modulus(z, params):
 
 
 def chi_squared(params):
-    mu_theory = np.where(cepheid_distances != -9, cepheid_distances, wcdm_distance_modulus(z_values, params))
+    mu_theory = np.where(
+        cepheid_distances != -9,
+        cepheid_distances,
+        wcdm_distance_modulus(z_values, params),
+    )
     delta = distance_modulus_values - mu_theory
     return delta.T @ inv_cov_matrix @ delta
 
@@ -55,12 +62,14 @@ def log_likelihood(params):
     return -0.5 * chi_squared(params)
 
 
-bounds = np.array([
-    (0.4, 1.0), # h0
-    (0, 1), # Ωm
-    (-2, 0), # w0
-    (-3, 3), # wa
-])
+bounds = np.array(
+    [
+        (0.4, 1.0),  # h0
+        (0, 1),  # Ωm
+        (-2, 0),  # w0
+        (-3, 3),  # wa
+    ]
+)
 
 
 def log_prior(params):
@@ -86,7 +95,6 @@ def main():
     with Pool(10) as pool:
         sampler = emcee.EnsembleSampler(n_walkers, n_dim, log_probability, pool=pool)
         sampler.run_mcmc(initial_pos, n_steps, progress=True)
-
 
     chains_samples = sampler.get_chain(discard=0, flat=False)
     samples = sampler.get_chain(discard=steps_to_discard, flat=True)
@@ -120,12 +128,12 @@ def main():
 
     # Compute R-squared
     average_distance_modulus = np.mean(distance_modulus_values)
-    ss_res = np.sum(residuals ** 2)
+    ss_res = np.sum(residuals**2)
     ss_tot = np.sum((distance_modulus_values - average_distance_modulus) ** 2)
     r_squared = 1 - (ss_res / ss_tot)
 
     # Compute root mean square deviation
-    rmsd = np.sqrt(np.mean(residuals ** 2))
+    rmsd = np.sqrt(np.mean(residuals**2))
 
     # Print the values in the console
     h0_label = f"{h0_50:.4f} +{h0_84-h0_50:.4f}/-{h0_50-h0_16:.4f}"
@@ -165,11 +173,11 @@ def main():
     if n_dim == 1:
         axes = [axes]
     for i in range(n_dim):
-        axes[i].plot(chains_samples[:, :, i], color='black', alpha=0.3)
+        axes[i].plot(chains_samples[:, :, i], color="black", alpha=0.3)
         axes[i].set_ylabel(labels[i])
         axes[i].set_xlabel("chain step")
-        axes[i].axvline(x=steps_to_discard, color='red', linestyle='--', alpha=0.5)
-        axes[i].axhline(y=best_fit_params[i], color='white', linestyle='--', alpha=0.5)
+        axes[i].axvline(x=steps_to_discard, color="red", linestyle="--", alpha=0.5)
+        axes[i].axhline(y=best_fit_params[i], color="white", linestyle="--", alpha=0.5)
     plt.show()
 
     plot_predictions(
@@ -179,18 +187,16 @@ def main():
         y_err=sigma_distance_moduli,
         y_model=predicted_distance_modulus_values,
         label=f"H0={(100 * h0_50):.4f} km/s/Mpc, w0={w0_50:.4f}",
-        x_scale="log"
+        x_scale="log",
     )
 
     # Plot the residual analysis
     plot_residuals(
-        z_values=z_values,
-        residuals=residuals,
-        y_err=sigma_distance_moduli,
-        bins=40
+        z_values=z_values, residuals=residuals, y_err=sigma_distance_moduli, bins=40
     )
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()
 
 """

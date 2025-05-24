@@ -3,6 +3,7 @@ from getdist import MCSamples, plots
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats as stats
+from scipy.linalg import cho_factor, cho_solve
 from scipy.integrate import cumulative_trapezoid
 from multiprocessing import Pool
 from .plotting import plot_predictions, print_color, plot_residuals
@@ -14,21 +15,24 @@ legend, z_values, distance_modulus_values, cov_matrix = get_data()
 C = 299792.458
 
 # inverse covariance matrix
-inv_cov_matrix = np.linalg.inv(cov_matrix)
+cho = cho_factor(cov_matrix)
 
 # Hubble constant km/s/Mpc
 H0 = 70
 
-
 # Grid
-z = np.linspace(0, np.max(z_values), num=3000)
-sum = 1 + z
+z = np.linspace(0, np.max(z_values), num=2500)
+one_plus_z = 1 + z
+
 
 # Flat
 def integral_e_z(params):
-    omega_m, w0, wa = params[1], params[2], params[3]
-    Ez = np.sqrt(omega_m * sum**3 + (1 - omega_m) * ((2 * sum**2) / (1 + sum**2))**(3 * (1 + w0)))
-    integral_values = cumulative_trapezoid(1/Ez, z, initial=0)
+    omega_m, w0 = params[1], params[2]
+    Ez = np.sqrt(
+        omega_m * one_plus_z**3
+        + (1 - omega_m) * ((2 * one_plus_z**2) / (1 + one_plus_z**2)) ** (3 * (1 + w0))
+    )
+    integral_values = cumulative_trapezoid(1 / Ez, z, initial=0)
     return np.interp(z_values, z, integral_values)
 
 
@@ -40,19 +44,20 @@ def model_distance_modulus(params):
 
 def chi_squared(params):
     delta = distance_modulus_values - model_distance_modulus(params)
-    return np.dot(delta, np.dot(inv_cov_matrix, delta))
+    return np.dot(delta, cho_solve(cho, delta))
 
 
 def log_likelihood(params):
     return -0.5 * chi_squared(params)
 
 
-bounds = np.array([
-    (-0.5, 0.5), # ΔM
-    (0, 0.9), # Ωm
-    (-3, 1), # w0
-    (-18, 5) # wa
-])
+bounds = np.array(
+    [
+        (-0.5, 0.5),  # ΔM
+        (0, 0.9),  # Ωm
+        (-3, 1),  # w0
+    ]
+)
 
 
 def log_prior(params):
@@ -80,7 +85,6 @@ def main():
         sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool=pool)
         sampler.run_mcmc(initial_pos, n_steps, progress=True)
 
-
     samples = sampler.get_chain(discard=steps_to_discard, flat=True)
 
     try:
@@ -94,10 +98,9 @@ def main():
         [deltaM_16, deltaM_50, deltaM_84],
         [omega_16, omega_50, omega_84],
         [w0_16, w0_50, w0_84],
-        [wa_16, wa_50, wa_84]
     ] = np.percentile(samples, [16, 50, 84], axis=0).T
 
-    best_fit_params = [deltaM_50, omega_50, w0_50, wa_50]
+    best_fit_params = [deltaM_50, omega_50, w0_50]
 
     predicted_distance_modulus_values = model_distance_modulus(best_fit_params)
     residuals = distance_modulus_values - predicted_distance_modulus_values
@@ -106,18 +109,19 @@ def main():
 
     # Calculate R-squared
     average_distance_modulus = np.mean(distance_modulus_values)
-    ss_res = np.sum(residuals ** 2)
+    ss_res = np.sum(residuals**2)
     ss_tot = np.sum((distance_modulus_values - average_distance_modulus) ** 2)
     r_squared = 1 - (ss_res / ss_tot)
 
     # Calculate root mean square deviation
-    rmsd = np.sqrt(np.mean(residuals ** 2))
+    rmsd = np.sqrt(np.mean(residuals**2))
 
     # Print the values in the console
-    deltaM_label = f"{deltaM_50:.4f} +{deltaM_84-deltaM_50:.4f} -{deltaM_50-deltaM_16:.4f}"
+    deltaM_label = (
+        f"{deltaM_50:.4f} +{deltaM_84-deltaM_50:.4f} -{deltaM_50-deltaM_16:.4f}"
+    )
     omega_label = f"{omega_50:.4f} +{omega_84-omega_50:.4f} -{omega_50-omega_16:.4f}"
     w0_label = f"{w0_50:.4f} +{w0_84-w0_50:.4f} -{w0_50-w0_16:.4f}"
-    wa_label = f"{wa_50:.4f} +{wa_84-wa_50:.4f} -{wa_50-wa_16:.4f}"
 
     print_color("Dataset", legend)
     print_color("z range", f"{z_values[0]:.3f} - {z_values[-1]:.3f}")
@@ -125,19 +129,18 @@ def main():
     print_color("ΔM", deltaM_label)
     print_color("Ωm", omega_label)
     print_color("w0", w0_label)
-    print_color("wa", wa_label)
     print_color("R-squared (%)", f"{100 * r_squared:.2f}")
     print_color("RMSD (mag)", f"{rmsd:.3f}")
     print_color("Skewness of residuals", f"{skewness:.3f}")
     print_color("Chi squared", chi_squared(best_fit_params))
 
     # plot posterior distribution from samples
-    labels = ["ΔM", "Ωm", "w_0", "w_a"]
+    labels = ["ΔM", "Ωm", "w_0"]
     gdsamples = MCSamples(
         samples=samples,
         names=labels,
         labels=labels,
-        settings={"fine_bins_2D": 128, "smooth_scale_2D": 0.9}
+        settings={"fine_bins_2D": 128, "smooth_scale_2D": 0.9},
     )
     g = plots.get_subplot_plotter()
     g.triangle_plot(
@@ -159,18 +162,14 @@ def main():
         y_err=y_err,
         y_model=predicted_distance_modulus_values,
         label=f"$\Omega_m$={omega_label}",
-        x_scale="log"
+        x_scale="log",
     )
 
     # Plot the residual analysis
-    plot_residuals(
-        z_values=z_values,
-        residuals=residuals,
-        y_err=y_err,
-        bins=40
-    )
+    plot_residuals(z_values=z_values, residuals=residuals, y_err=y_err, bins=40)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()
 
 """
@@ -188,7 +187,7 @@ wa: 0
 R-squared (%): 98.41
 RMSD (mag): 0.264
 Skewness of residuals: 3.409
-Chi squared: 1640.3080970418623
+Chi squared: 1640.31
 
 ==============================
 
@@ -205,9 +204,9 @@ Chi squared: 1639.00
 ==============================
 
 Flat w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-ΔM: 0.0309 +0.0134 -0.0134
-Ωm: 0.2969 +0.0486 -0.0541
-w0: -0.8334 +0.1239 -0.1382
+ΔM: 0.0312 +0.0134 -0.0134
+Ωm: 0.2952 +0.0498 -0.0531
+w0: -0.8282 +0.1208 -0.1420
 wa: 0
 R-squared (%): 98.40
 RMSD (mag): 0.264
