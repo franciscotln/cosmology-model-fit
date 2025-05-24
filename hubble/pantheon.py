@@ -3,6 +3,7 @@ import corner
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats as stats
+from scipy.linalg import cho_factor, cho_solve
 from scipy.integrate import cumulative_trapezoid
 from multiprocessing import Pool
 from .plotting import plot_predictions, print_color, plot_residuals
@@ -15,43 +16,31 @@ legend, z_values, apparent_mag_values, cov_matrix = get_data()
 # Speed of light (km/s)
 C = 299792.458
 
-# inverse covariance matrix
-inv_cov_matrix = np.linalg.inv(cov_matrix)
+cho = cho_factor(cov_matrix)
+z_grid = np.linspace(0, np.max(z_values), num=1500)
+sum = 1 + z_grid
+
+
+def integral_of_e_z(params):
+    O_m, w0 = params[1], params[2]
+    Ez = np.sqrt(
+        O_m * sum**3 + (1 - O_m) * ((2 * sum**2) / (1 + sum**2)) ** (3 * (1 + w0))
+    )
+    integral_values = cumulative_trapezoid(1 / Ez, z_grid, initial=0)
+    return np.interp(z_values, z_grid, integral_values)
 
 
 # Flat
-def integral_of_e_z(z, Omega_m, w0, wa):
-    z_grid = np.linspace(0, np.max(z), num=1500)
-    sum = 1 + z_grid
-    Ez = np.sqrt(
-        Omega_m * sum**3
-        + (1 - Omega_m) * ((2 * sum**2) / (1 + sum**2)) ** (3 * (1 + w0))
-    )
-    integral_values = cumulative_trapezoid(1 / Ez, z_grid, initial=0)
-    return np.interp(z, z_grid, integral_values)
-
-
-def lcdm_apparent_mag(z, params):
-    [M, Omega_m] = params
-    a0_over_ae = 1 + z
-    luminosity_distance = (
-        a0_over_ae * C * integral_of_e_z(z=z, Omega_m=Omega_m, w0=-1, wa=0)
-    )
-    return M + 25 + 5 * np.log10(luminosity_distance)
-
-
-def wcdm_apparent_mag(z, params):
-    [M, Omega_m, w0, wa] = params
-    a0_over_ae = 1 + z
-    luminosity_distance = (
-        a0_over_ae * C * integral_of_e_z(z=z, Omega_m=Omega_m, w0=w0, wa=wa)
-    )
+def wcdm_apparent_mag(params):
+    M = params[0]
+    a0_over_ae = 1 + z_values
+    luminosity_distance = a0_over_ae * C * integral_of_e_z(params)
     return M + 25 + 5 * np.log10(luminosity_distance)
 
 
 def chi_squared(params):
-    delta = apparent_mag_values - wcdm_apparent_mag(z_values, params)
-    return delta.T @ inv_cov_matrix @ delta
+    delta = apparent_mag_values - wcdm_apparent_mag(params)
+    return np.dot(delta, cho_solve(cho, delta))
 
 
 def log_likelihood(params):
@@ -63,7 +52,6 @@ bounds = np.array(
         (-30, -27),  # M
         (0, 1),  # Ωm
         (-2, 0),  # w0
-        (-4, 4),  # wa
     ]
 )
 
@@ -82,10 +70,10 @@ def log_probability(params):
 
 
 def main():
-    steps_to_discard = 100
+    steps_to_discard = 200
     n_dim = len(bounds)
-    n_walkers = 100
-    n_steps = steps_to_discard + 2000
+    n_walkers = n_dim * 8
+    n_steps = steps_to_discard + 8000
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(n_walkers, n_dim))
 
     with Pool(10) as pool:
@@ -106,13 +94,12 @@ def main():
         [M0_16, M0_50, M0_84],
         [omega_16, omega_50, omega_84],
         [w0_16, w0_50, w0_84],
-        [wa_16, wa_50, wa_84],
     ] = np.percentile(samples, [16, 50, 84], axis=0).T
 
-    best_fit_params = [M0_50, omega_50, w0_50, wa_50]
+    best_fit_params = [M0_50, omega_50, w0_50]
 
     # Calculate residuals
-    predicted_apparent_mag = wcdm_apparent_mag(z_values, best_fit_params)
+    predicted_apparent_mag = wcdm_apparent_mag(best_fit_params)
     residuals = apparent_mag_values - predicted_apparent_mag
 
     skewness = stats.skew(residuals)
@@ -131,7 +118,6 @@ def main():
     M0_label = f"{M0_50:.4f} +{M0_84-M0_50:.4f}/-{M0_50-M0_16:.4f}"
     omega_label = f"{omega_50:.4f} +{omega_84-omega_50:.4f}/-{omega_50-omega_16:.4f}"
     w0_label = f"{w0_50:.4f} +{w0_84-w0_50:.4f}/-{w0_50-w0_16:.4f}"
-    wa_label = f"{wa_50:.4f} +{wa_84-wa_50:.4f}/-{wa_50-wa_16:.4f}"
 
     print_color("Dataset", legend)
     print_color("z range", f"{z_values[0]:.4f} - {z_values[-1]:.4f}")
@@ -139,7 +125,6 @@ def main():
     print_color("M0", M0_label)
     print_color("Ωm", omega_label)
     print_color("w0", w0_label)
-    print_color("wa", wa_label)
     print_color("R-squared (%)", f"{100 * r_squared:.2f}")
     print_color("RMSD (mag)", f"{rmsd:.3f}")
     print_color("Skewness of residuals", f"{skewness:.3f}")
@@ -149,23 +134,24 @@ def main():
         chi_squared(best_fit_params) / (len(z_values) - len(best_fit_params)),
     )
 
-    # Plot the data and the fit
-    labels = [r"$M_0$", f"$\Omega_m$", r"$w_0$", r"$w_a$"]
+    labels = ["$M_0$", "$\Omega_m$", "$w_0$"]
     corner.corner(
         samples,
         labels=labels,
-        quantiles=[0.16, 0.5, 0.84],
+        quantiles=[0.159, 0.5, 0.841],
         show_titles=True,
         title_fmt=".4f",
-        title_kwargs={"fontsize": 12},
         smooth=1.5,
         smooth1d=1.5,
-        bins=50,
+        bins=100,
+        levels=(0.393, 0.864),  # 1 and 2 sigmas in 2D
+        fill_contours=False,
+        plot_datapoints=False,
     )
     plt.show()
 
     # Plot chains for each parameter
-    fig, axes = plt.subplots(n_dim, figsize=(10, 7))
+    _, axes = plt.subplots(n_dim, figsize=(10, 7))
     if n_dim == 1:
         axes = [axes]
     for i in range(n_dim):
@@ -186,7 +172,6 @@ def main():
         x_scale="log",
     )
 
-    # Plot the residual analysis
     plot_residuals(
         z_values=z_values,
         residuals=residuals,
@@ -230,15 +215,15 @@ Reduced chi squared: 0.9826
 =============================
 
 Flat w(z) = w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-M0: -28.5782 +0.0152/-0.0157
-Ωm: 0.3183 +0.0569/-0.0618
-w0: -1.0670 +0.1868/-0.2291 (0.32 sigma)
+M0: -28.5787 +0.0154/-0.0155 (M(0.7)=-19.3518)
+Ωm: 0.3201 +0.0556/-0.0610
+w0: -1.0734 +0.1879/-0.2292
 wa: 0
 R-squared: 99.71 %
 RMSD (mag): 0.143
 Skewness of residuals: 0.197
 kurtosis of residuals: 0.698
-Reduced chi squared: 0.9836
+Reduced chi squared: 0.9826
 
 *****************************
 Dataset: Pantheon+ (2022)
@@ -260,32 +245,33 @@ Reduced chi squared: 0.8840
 =============================
 
 wCDM
-M0: -28.5734 +0.0088/-0.0089 (M(0.7)=-19.3489)
-Ωm: 0.2986 +0.0618/-0.0745
-w0: -0.9180 +0.1430/-0.1575 (0.55 sigma)
+M0: -28.5730 +0.0088/-0.0090 (M(0.7)=-19.3486)
+Ωm: 0.2953 +0.0634/-0.0791
+w0: -0.9085 +0.1454/-0.1625
+wa: 0
 R-squared: 99.74 %
 RMSD (mag): 0.154
-Skewness of residuals: 0.082
-kurtosis of residuals: 1.590
+Skewness of residuals: 0.081
+kurtosis of residuals: 1.591
 Reduced chi squared: 0.8843
 
 =============================
 
 Flat w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-M0: -28.5735 +0.0092/-0.0095 (M(0.7)=-19.3490)
-Ωm: 0.3094 +0.0489/-0.0503
-w0: -0.9311 +0.1275/-0.1521 (0.49 sigma)
+M0: -28.5739 +0.0092/-0.0091 (M(0.7)=-19.3495)
+Ωm: 0.3100 +0.0490/-0.0516
+w0: -0.9351 +0.1298/-0.1489
 wa: 0
 R-squared: 99.74 %
 RMSD (mag): 0.154
 Skewness of residuals: 0.083
 kurtosis of residuals: 1.589
-Reduced chi squared: 0.8849
+Reduced chi squared: 0.8843
 
 =============================
 
 Flat w0waCDM
-M0: -28.5727 +0.0099/-0.0102
+M0: -28.5727 +0.0099/-0.0102 (M(0.7)=-19.3482)
 Ωm: 0.3372 +0.0819/-0.1480
 w0: -0.9186 +0.1461/-0.1616 (0.53 sigma)
 wa: -0.3614 +1.0279/-1.8010 (0.26 sigma)
