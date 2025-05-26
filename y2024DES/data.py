@@ -29,10 +29,7 @@ effective_sample_size:
 sum (1 - PROBCC_BEAMS) + low_z size => 1735
 """
 
-effective_sample_size = (
-    1 - selected_columns["PROBCC_BEAMS"][selected_columns["IDSURVEY"] == 10]
-).sum() + selected_columns["zHD"][selected_columns["IDSURVEY"] != 10].size
-
+effective_sample_size = np.round((1 - selected_columns["PROBCC_BEAMS"]).sum()).astype(int)
 
 def get_data():
     return (
