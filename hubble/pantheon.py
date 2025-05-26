@@ -9,37 +9,35 @@ from multiprocessing import Pool
 from .plotting import plot_predictions, print_color, plot_residuals
 from y2022pantheonSHOES.data import get_data
 
-# from y2018pantheon.data import get_data
-
 legend, z_values, apparent_mag_values, cov_matrix = get_data()
 
-# Speed of light (km/s)
-C = 299792.458
+C = 299792.458  # Speed of light (km/s)
+H0 = 70.0  # Hubble constant (km/s/Mpc)
 
 cho = cho_factor(cov_matrix)
 z_grid = np.linspace(0, np.max(z_values), num=1500)
-sum = 1 + z_grid
+one_plus_z = 1 + z_grid
 
 
-def integral_of_e_z(params):
+def integral_E_z(params):
     O_m, w0 = params[1], params[2]
-    Ez = np.sqrt(
-        O_m * sum**3 + (1 - O_m) * ((2 * sum**2) / (1 + sum**2)) ** (3 * (1 + w0))
-    )
+    O_de = 1 - O_m
+    evolving_de = ((2 * one_plus_z**2) / (1 + one_plus_z**2)) ** (3 * (1 + w0))
+    Ez = np.sqrt(O_m * one_plus_z**3 + O_de * evolving_de)
     integral_values = cumulative_trapezoid(1 / Ez, z_grid, initial=0)
     return np.interp(z_values, z_grid, integral_values)
 
 
 # Flat
-def wcdm_apparent_mag(params):
-    M = params[0]
+def model_apparent_mag(params):
+    M = params[0] # absolute magnitude
     a0_over_ae = 1 + z_values
-    luminosity_distance = a0_over_ae * C * integral_of_e_z(params)
+    luminosity_distance = a0_over_ae * (C / H0) * integral_E_z(params)
     return M + 25 + 5 * np.log10(luminosity_distance)
 
 
 def chi_squared(params):
-    delta = apparent_mag_values - wcdm_apparent_mag(params)
+    delta = apparent_mag_values - model_apparent_mag(params)
     return np.dot(delta, cho_solve(cho, delta))
 
 
@@ -49,7 +47,7 @@ def log_likelihood(params):
 
 bounds = np.array(
     [
-        (-30, -27),  # M
+        (-20, -19),  # M
         (0, 1),  # Ωm
         (-2, 0),  # w0
     ]
@@ -72,7 +70,7 @@ def log_probability(params):
 def main():
     steps_to_discard = 200
     n_dim = len(bounds)
-    n_walkers = n_dim * 8
+    n_walkers = n_dim * 16
     n_steps = steps_to_discard + 8000
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(n_walkers, n_dim))
 
@@ -99,7 +97,7 @@ def main():
     best_fit_params = [M0_50, omega_50, w0_50]
 
     # Calculate residuals
-    predicted_apparent_mag = wcdm_apparent_mag(best_fit_params)
+    predicted_apparent_mag = model_apparent_mag(best_fit_params)
     residuals = apparent_mag_values - predicted_apparent_mag
 
     skewness = stats.skew(residuals)
@@ -115,14 +113,14 @@ def main():
     rmsd = np.sqrt(np.mean(residuals**2))
 
     # Print the values in the console
-    M0_label = f"{M0_50:.4f} +{M0_84-M0_50:.4f}/-{M0_50-M0_16:.4f}"
-    omega_label = f"{omega_50:.4f} +{omega_84-omega_50:.4f}/-{omega_50-omega_16:.4f}"
-    w0_label = f"{w0_50:.4f} +{w0_84-w0_50:.4f}/-{w0_50-w0_16:.4f}"
+    M_label = f"{M0_50:.3f} +{M0_84-M0_50:.3f}/-{M0_50-M0_16:.3f}"
+    omega_label = f"{omega_50:.3f} +{omega_84-omega_50:.3f}/-{omega_50-omega_16:.3f}"
+    w0_label = f"{w0_50:.3f} +{w0_84-w0_50:.3f}/-{w0_50-w0_16:.3f}"
 
     print_color("Dataset", legend)
     print_color("z range", f"{z_values[0]:.4f} - {z_values[-1]:.4f}")
     print_color("Sample size", len(z_values))
-    print_color("M0", M0_label)
+    print_color("M", M_label)
     print_color("Ωm", omega_label)
     print_color("w0", w0_label)
     print_color("R-squared (%)", f"{100 * r_squared:.2f}")
@@ -168,7 +166,7 @@ def main():
         y=apparent_mag_values - M0_50,
         y_err=np.sqrt(np.diag(cov_matrix)),
         y_model=predicted_apparent_mag - M0_50,
-        label=f"Best fit: $\Omega_m$={omega_50:.4f}, $M_0$={M0_50:.4f}",
+        label=f"Best fit: $\Omega_m$={omega_50:.4f}, $M$={M0_50:.4f}",
         x_scale="log",
     )
 
@@ -183,84 +181,44 @@ def main():
 if __name__ == "__main__":
     main()
 
+
 """
-*****************************
-Dataset: Pantheon (2018)
-z range: 0.010 - 2.260
-Sample size: 1048
-M0 contains Hubble constant and absolute magnitude
-*****************************
-
-ΛCDM
-M0: -28.5748 +0.0108/-0.0106 (M(0.7)=-19.3495)
-Ωm: 0.2993 +0.0225/-0.0214
-R-squared: 99.71 %
-RMSD (mag): 0.143
-Skewness of residuals: 0.191
-kurtosis of residuals: 0.698
-Reduced chi squared: 0.9817
-
-=============================
-
-wCDM
-M0: -28.5778 +0.0144/-0.0146 (M(0.7)=-19.3509)
-Ωm: 0.3227 +0.0650/-0.0802
-w0: -1.0687 +0.1983/-0.2320
-R-squared: 99.71 %
-RMSD (mag): 0.143
-Skewness of residuals: 0.196
-kurtosis of residuals: 0.698
-Reduced chi squared: 0.9826
-
-=============================
-
-Flat w(z) = w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-M0: -28.5787 +0.0154/-0.0155 (M(0.7)=-19.3518)
-Ωm: 0.3201 +0.0556/-0.0610
-w0: -1.0734 +0.1879/-0.2292
-wa: 0
-R-squared: 99.71 %
-RMSD (mag): 0.143
-Skewness of residuals: 0.197
-kurtosis of residuals: 0.698
-Reduced chi squared: 0.9826
-
 *****************************
 Dataset: Pantheon+ (2022)
 z range: 0.0102 - 2.2614
 Sample size: 1590
-M0 contains Hubble constant and absolute magnitude
 *****************************
 
 ΛCDM
-M0: -28.5767 +0.0070/-0.0068 (M(0.7)=-19.3502)
-Ωm: 0.3310 +0.0181/-0.0178
+M: -19.351 +0.007/-0.007
+Ωm: 0.331 +0.018/-0.018
 w0: -1
-R-squared (%): 99.74
+wa: 0
+R-squared: 99.74 %
 RMSD (mag): 0.154
 Skewness of residuals: 0.091
 kurtosis of residuals: 1.583
-Reduced chi squared: 0.8840
+Reduced chi squared: 0.8845
 
 =============================
 
 wCDM
-M0: -28.5730 +0.0088/-0.0090 (M(0.7)=-19.3486)
-Ωm: 0.2953 +0.0634/-0.0791
-w0: -0.9085 +0.1454/-0.1625
+M: -19.348 +0.009/-0.009
+Ωm: 0.296 +0.063/-0.075
+w0: -0.911 +0.141/-0.163
 wa: 0
 R-squared: 99.74 %
 RMSD (mag): 0.154
 Skewness of residuals: 0.081
-kurtosis of residuals: 1.591
+kurtosis of residuals: 1.590
 Reduced chi squared: 0.8843
 
 =============================
 
 Flat w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-M0: -28.5739 +0.0092/-0.0091 (M(0.7)=-19.3495)
-Ωm: 0.3100 +0.0490/-0.0516
-w0: -0.9351 +0.1298/-0.1489
+M: -19.348 +0.009/-0.009
+Ωm: 0.311 +0.048/-0.052
+w0: -0.935 +0.129/-0.148 (0.44 - 0.50 sigma)
 wa: 0
 R-squared: 99.74 %
 RMSD (mag): 0.154
@@ -271,9 +229,9 @@ Reduced chi squared: 0.8843
 =============================
 
 Flat w0waCDM
-M0: -28.5727 +0.0099/-0.0102 (M(0.7)=-19.3482)
-Ωm: 0.3372 +0.0819/-0.1480
-w0: -0.9186 +0.1461/-0.1616 (0.53 sigma)
+M0: 19.348 +0.010/-0.010
+Ωm: 0.337 +0.082/-0.148
+w0: -0.919 +0.146/-0.162 (0.53 sigma)
 wa: -0.3614 +1.0279/-1.8010 (0.26 sigma)
 R-squared: 99.74 %
 RMSD (mag): 0.154
