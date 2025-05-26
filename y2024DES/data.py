@@ -1,4 +1,5 @@
 # Source: https://github.com/des-science/DES-SN5YR/blob/main/4_DISTANCES_COVMAT/DES-SN5YR_HD.csv
+# https://arxiv.org/pdf/2401.02929
 import os
 import pandas as pd
 import numpy as np
@@ -6,7 +7,9 @@ import numpy as np
 path_to_data = os.path.dirname(os.path.abspath(__file__)) + "/raw-data/"
 data_frame = pd.read_csv(path_to_data + "distances.txt")
 covariance_file = pd.read_csv(path_to_data + "covariance_stat_sys.txt")
-selected_columns = data_frame[["zHD", "zHEL", "MU", "MUERR_FINAL"]]
+selected_columns = data_frame[
+    ["zHD", "zHEL", "MU", "MUERR_FINAL", "PROB_SNNV19", "PROBCC_BEAMS", "IDSURVEY"]
+]
 
 n = selected_columns["zHD"].size
 covariance_stat = covariance_file["cov_mu"].to_numpy().reshape((n, n))
@@ -23,14 +26,17 @@ sort_indices = np.argsort(z_values)
 
 """
 effective_sample_size:
-np.where(selected_columns['PROB_SNNV19'] < 0)[0].size + np.where(selected_columns['PROB_SNNV19'] > 0.1)[0].size
-=> 1735
+sum (1 - PROBCC_BEAMS) + low_z size => 1735
 """
+
+effective_sample_size = (
+    1 - selected_columns["PROBCC_BEAMS"][selected_columns["IDSURVEY"] == 10]
+).sum() + selected_columns["zHD"][selected_columns["IDSURVEY"] != 10].size
 
 
 def get_data():
     return (
-        "DES-SN5YR",
+        f"DES-SN5YR - effective: {effective_sample_size} SNe",
         z_values[sort_indices],
         z_hel_values[sort_indices],
         selected_columns["MU"].to_numpy()[sort_indices],
