@@ -9,7 +9,7 @@ from y2005cc.data import get_data as get_cc_data
 from hubble.plotting import plot_predictions as plot_sn_predictions
 
 cc_legend, z_cc_vals, H_cc_vals, cov_matrix_cc = get_cc_data()
-legend, z_vals, distance_moduli_values, cov_matrix_sn = get_data()
+legend, z_vals, z_hel_vals, distance_moduli_values, cov_matrix_sn = get_data()
 inverse_cov_cc = np.linalg.inv(cov_matrix_cc)
 inverse_cov_sn = np.linalg.inv(cov_matrix_sn)
 

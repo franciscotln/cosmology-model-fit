@@ -2,6 +2,7 @@ import numpy as np
 import emcee
 import corner
 from scipy.integrate import cumulative_trapezoid
+from scipy.linalg import cho_factor, cho_solve
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from y2024DES.data import get_data as get_sn_data
@@ -10,11 +11,11 @@ from y2025BAO.data import get_data as get_bao_data
 from hubble.plotting import plot_predictions as plot_sn_predictions
 
 cc_legend, z_cc_vals, H_cc_vals, cov_matrix_cc = get_cc_data()
-sn_legend, z_sn_vals, distance_moduli_values, cov_matrix_sn = get_sn_data()
+sn_legend, z_sn_vals, z_sn_hel_vals, distance_moduli_values, cov_matrix_sn = get_sn_data()
 bao_legend, bao_data, cov_matrix_bao = get_bao_data()
 
 inverse_cov_cc = np.linalg.inv(cov_matrix_cc)
-inverse_cov_sn = np.linalg.inv(cov_matrix_sn)
+cho_sn = cho_factor(cov_matrix_sn)
 inverse_cov_bao = np.linalg.inv(cov_matrix_bao)
 
 c = 299792.458 # Speed of light in km/s
@@ -33,7 +34,7 @@ def integral_e_z(params):
 
 
 def model_distance_modulus(p):
-    return p['Delta_M'] + 25 + 5 * np.log10((1 + z_sn_vals) * (c / p['H_0']) * integral_e_z(p))
+    return p['Delta_M'] + 25 + 5 * np.log10((1 + z_sn_hel_vals) * (c / p['H_0']) * integral_e_z(p))
 
 
 def plot_bao_predictions(p):
@@ -119,6 +120,7 @@ def bao_predictions(p):
             predictions.append((c / H_z(z, p)) / p['r_d'])
     return np.array(predictions)
 
+
 param_bounds = {
     "Delta_M": (-0.55, 0.55),
     "H_0": (50, 80),
@@ -136,7 +138,7 @@ def array_to_dict(param_array):
 
 def chi_squared(params):
     delta_sn = distance_moduli_values - model_distance_modulus(params)
-    chi_sn = np.dot(delta_sn, np.dot(inverse_cov_sn, delta_sn))
+    chi_sn = np.dot(delta_sn, cho_solve(cho_sn, delta_sn))
 
     delta_bao = bao_data['value'] - bao_predictions(params)
     chi_bao = np.dot(delta_bao, np.dot(inverse_cov_bao, delta_bao))
@@ -164,11 +166,12 @@ def log_probability(param_array):
         return -np.inf
     return lp - 0.5 * chi_squared(array_to_dict(param_array))
 
+
 def main():
     ndim = len(param_names)
     nwalkers = 16 * ndim
     burn_in = 500
-    nsteps = 15000 + burn_in
+    nsteps = 10000 + burn_in
     initial_pos = np.random.default_rng().uniform(
         [param_bounds[name][0] for name in param_names],
         [param_bounds[name][1] for name in param_names],
@@ -234,13 +237,13 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM: w(z) = -1
-ΔM: -0.061 +0.101 -0.105 mag
-H0: 68.18 +3.28 -3.25 km/s/Mpc
-r_d: 147.51 +7.32 -6.69 Mpc
-Ωm: 0.310 +0.008 -0.008
+Delta_M: -0.059 +0.103 -0.106
+H_0: 68.26 +3.35 -3.26 km/s/Mpc
+r_d: 147.29 +7.32 -6.79
+Omega_m: 0.310 +0.008 -0.008
 w0: -1
 wa: 0
-Chi squared: 1673.12
+Chi squared: 1673.52
 Degrees of freedom: 1776
 
 ==============================
@@ -258,13 +261,13 @@ Degrees of freedom: 1775
 ==============================
 
 Flat alternative: w(z) = w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-ΔM: -0.061 +0.101 -0.106 mag
-H0: 67.14 +3.23 -3.22 km/s/Mpc
-r_d: 147.19 +7.30 -6.69 Mpc
-Ωm: 0.305 +0.008 -0.008
-w0: -0.857 +0.042 -0.043 (3.3 - 3.4 sigma)
+ΔM: -0.063 +0.101 -0.107 mag
+H0: 67.06 +3.24 -3.23 km/s/Mpc
+r_d: 147.20 +7.40 -6.69 Mpc
+Ωm: 0.306 +0.008 -0.008
+w0: -0.851 +0.041 -0.043 (3.47 - 3.63 sigma)
 wa: 0
-Chi squared: 1662.25
+Chi squared: 1661.80
 Degrees of freedom: 1775
 
 ==============================

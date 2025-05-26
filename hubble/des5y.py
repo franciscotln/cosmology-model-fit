@@ -1,5 +1,5 @@
 import emcee
-from getdist import MCSamples, plots
+import corner
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats as stats
@@ -9,7 +9,7 @@ from multiprocessing import Pool
 from .plotting import plot_predictions, print_color, plot_residuals
 from y2024DES.data import get_data
 
-legend, z_values, distance_modulus_values, cov_matrix = get_data()
+legend, z_values, z_hel_values, distance_modulus_values, cov_matrix = get_data()
 
 # Speed of light (km/s)
 C = 299792.458
@@ -39,7 +39,7 @@ def integral_e_z(params):
 def model_distance_modulus(params):
     deltaM = params[0]
     comoving_distance = (C / H0) * integral_e_z(params)
-    return deltaM + 25 + 5 * np.log10((1 + z_values) * comoving_distance)
+    return deltaM + 25 + 5 * np.log10((1 + z_hel_values) * comoving_distance)
 
 
 def chi_squared(params):
@@ -77,8 +77,8 @@ def log_probability(params):
 def main():
     steps_to_discard = 500
     ndim = len(bounds)
-    nwalkers = 6 * ndim
-    n_steps = steps_to_discard + 15000
+    nwalkers = 8 * ndim
+    n_steps = steps_to_discard + 14000
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
 
     with Pool(10) as pool:
@@ -135,20 +135,19 @@ def main():
     print_color("Chi squared", chi_squared(best_fit_params))
 
     # plot posterior distribution from samples
-    labels = ["ΔM", "Ωm", "w_0"]
-    gdsamples = MCSamples(
-        samples=samples,
-        names=labels,
+    labels = ["ΔM", "Ωm", "$w_0$"]
+    corner.corner(
+        samples,
         labels=labels,
-        settings={"fine_bins_2D": 128, "smooth_scale_2D": 0.9},
-    )
-    g = plots.get_subplot_plotter()
-    g.triangle_plot(
-        gdsamples,
-        Filled=False,
-        contour_levels=[0.68, 0.95],
-        title_limit=True,
-        diag1d_kwargs={"density": True},
+        quantiles=[0.159, 0.5, 0.841],
+        show_titles=True,
+        title_fmt=".4f",
+        smooth=1.5,
+        smooth1d=1.5,
+        bins=100,
+        levels=(0.393, 0.864),  # 1 and 2 sigmas in 2D
+        fill_contours=False,
+        plot_datapoints=False,
     )
     plt.show()
 
@@ -180,38 +179,38 @@ Sample size: 1829
 ********************************
 
 Flat ΛCDM
-ΔM: 0.0216 +0.0110 -0.0111
-Ωm: 0.3507 +0.0171 -0.0169
+ΔM: 0.022 +0.011 -0.011
+Ωm: 0.352 +0.017 -0.017
 w0: -1
 wa: 0
 R-squared (%): 98.41
-RMSD (mag): 0.264
-Skewness of residuals: 3.409
-Chi squared: 1640.31
+RMSD (mag): 0.263
+Skewness of residuals: 3.407
+Chi squared: 1640.08
 
 ==============================
 
 Flat wCDM
-ΔM: 0.0304 +0.0126 -0.0128
-Ωm: 0.2729 +0.0688 -0.0935
-w0: -0.8154 +0.1435 -0.1536
+ΔM: 0.031 +0.013 -0.013
+Ωm: 0.266 +0.072 -0.096
+w0: -0.80 +0.14 -0.16
 wa: 0
 R-squared (%): 98.40
 RMSD (mag): 0.264
-Skewness of residuals: 3.416
-Chi squared: 1639.00
+Skewness of residuals: 3.415
+Chi squared: 1638.52068
 
 ==============================
 
 Flat w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-ΔM: 0.0312 +0.0134 -0.0134
-Ωm: 0.2952 +0.0498 -0.0531
-w0: -0.8282 +0.1208 -0.1420
+ΔM: 0.032 +0.013 -0.013
+Ωm: 0.292 +0.050 -0.054
+w0: -0.81 +0.12 -0.14
 wa: 0
 R-squared (%): 98.40
 RMSD (mag): 0.264
-Skewness of residuals: 3.418
-Chi squared: 1638.70
+Skewness of residuals: 3.417
+Chi squared: 1638.18
 
 ==============================
 
