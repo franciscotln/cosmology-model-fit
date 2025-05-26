@@ -9,7 +9,9 @@ from multiprocessing import Pool
 from .plotting import plot_predictions, print_color, plot_residuals
 from y2022pantheonSHOES.data_shoes import get_data
 
-legend, z_values, apparent_mag_values, cepheid_distances, cov_matrix = get_data()
+legend, z_values, z_hel_values, apparent_mag_values, cepheid_distances, cov_matrix = (
+    get_data()
+)
 
 cepheids_mask = cepheid_distances != -9
 sigma_distance_moduli = np.sqrt(cov_matrix.diagonal())
@@ -33,7 +35,7 @@ def integral_E_z(params):
 
 def model_mu(params):
     h0 = params[1]
-    luminosity_distance = (c / h0) * (1 + z_values) * integral_E_z(params)
+    luminosity_distance = (c / h0) * (1 + z_hel_values) * integral_E_z(params)
     return 25 + 5 * np.log10(luminosity_distance)
 
 
@@ -121,10 +123,10 @@ def main():
     # Compute root mean square deviation
     rmsd = np.sqrt(np.mean(residuals**2))
 
-    M_label = f"{M_50:.4f} +{M_84-M_50:.4f}/-{M_50-M_16:.4f}"
-    h0_label = f"{h0_50:.4f} +{h0_84-h0_50:.4f}/-{h0_50-h0_16:.4f}"
-    omega_label = f"{omega_50:.4f} +{omega_84-omega_50:.4f}/-{omega_50-omega_16:.4f}"
-    w0_label = f"{w0_50:.4f} +{w0_84-w0_50:.4f}/-{w0_50-w0_16:.4f}"
+    M_label = f"{M_50:.3f} +{M_84-M_50:.3f}/-{M_50-M_16:.3f}"
+    h0_label = f"{h0_50:.2f} +{h0_84-h0_50:.2f}/-{h0_50-h0_16:.2f}"
+    omega_label = f"{omega_50:.3f} +{omega_84-omega_50:.3f}/-{omega_50-omega_16:.3f}"
+    w0_label = f"{w0_50:.3f} +{w0_84-w0_50:.3f}/-{w0_50-w0_16:.3f}"
     print_color("Dataset", legend)
     print_color("z range", f"{z_values[0]:.4f} - {z_values[-1]:.4f}")
     print_color("Sample size", len(z_values))
@@ -136,7 +138,7 @@ def main():
     print_color("RMSD (mag)", f"{rmsd:.3f}")
     print_color("Skewness of residuals", f"{skewness:.3f}")
     print_color("kurtosis of residuals", f"{kurtosis:.3f}")
-    print_color("Chi squared", chi_squared(best_fit_params))
+    print_color("Chi squared", f"{chi_squared(best_fit_params):.2f}")
 
     labels = ["M", "$H_0$", "$\Omega_M$", "$w_0$"]
     corner.corner(
@@ -192,41 +194,42 @@ Sample size: 1657
 *****************************
 
 ΛCDM
-M: -19.2433 +0.0295/-0.0299
-H0 (km/s/Mpc): 73.55 +1.03/-1.02
-Ωm: 0.3310 +0.0183/-0.0176
+M: -19.2437 +0.0292/-0.0297
+H0 (km/s/Mpc): 73.5 +- 1.0
+Ωm: 0.332 +0.018/-0.018
 w0: -1
 wa: 0
-R-squared (%): 99.78
+R-squared: 99.78 %
 RMSD (mag): 0.153
-Skewness of residuals: 0.086
-kurtosis of residuals: 1.557
-Chi squared: 1452.65
+Skewness of residuals: 0.085
+kurtosis of residuals: 1.555
+Chi squared: 1452.02
 
 =============================
 
 wCDM
-M: -19.2433 +0.0295/-0.0294
-H0 (km/s/Mpc): 73.47 +1.03/-1.01
-Ωm: 0.3046 +0.0618/-0.0739
-w0: -0.9326 +0.1460/-0.1643
+M: -19.243 +0.029/-0.029
+H0 (km/s/Mpc): 73.46 +1.02/-1.00
+Ωm: 0.298 +0.062/-0.077
+w0: -0.91 +0.14/-0.16
 wa: 0
 R-squared (%): 99.78
 RMSD (mag): 0.153
-Skewness of residuals: 0.079
+Skewness of residuals: 0.076
 kurtosis of residuals: 1.561
-Chi squared: 1452.41
+Chi squared: 1451.69
 
 =============================
 
 Flat w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-M: -19.2431 +0.0294/-0.0297
-H0 (km/s/Mpc): 73.48 +1.03/-1.03
-Ωm: 0.3128 +0.0483/-0.0500
-w0: -0.9432 +0.1290/-0.1495
+M: -19.243 +0.030/-0.030
+H0 (km/s/Mpc): 73.5 +- 1.0
+Ωm: 0.312 +0.047/-0.050
+w0: -0.93 +0.12/-0.15
+wa: 0
 R-squared (%): 99.78
 RMSD (mag): 0.153
-Skewness of residuals: 0.079
+Skewness of residuals: 0.077
 kurtosis of residuals: 1.561
-Chi squared: 1452.42
+Chi squared: 1451.71
 """

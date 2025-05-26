@@ -9,7 +9,7 @@ from multiprocessing import Pool
 from .plotting import plot_predictions, print_color, plot_residuals
 from y2022pantheonSHOES.data import get_data
 
-legend, z_values, apparent_mag_values, cov_matrix = get_data()
+legend, z_values, z_hel_values, apparent_mag_values, cov_matrix = get_data()
 
 C = 299792.458  # Speed of light (km/s)
 H0 = 70.0  # Hubble constant (km/s/Mpc)
@@ -30,8 +30,8 @@ def integral_E_z(params):
 
 # Flat
 def model_apparent_mag(params):
-    M = params[0] # absolute magnitude
-    a0_over_ae = 1 + z_values
+    M = params[0]  # absolute magnitude
+    a0_over_ae = 1 + z_hel_values
     luminosity_distance = a0_over_ae * (C / H0) * integral_E_z(params)
     return M + 25 + 5 * np.log10(luminosity_distance)
 
@@ -129,7 +129,7 @@ def main():
     print_color("kurtosis of residuals", f"{kurtosis:.3f}")
     print_color(
         "Reduced chi squared",
-        chi_squared(best_fit_params) / (len(z_values) - len(best_fit_params)),
+        f"{chi_squared(best_fit_params) / (len(z_values) - len(best_fit_params)):.4f}",
     )
 
     labels = ["$M_0$", "$\Omega_m$", "$w_0$"]
@@ -191,40 +191,40 @@ Sample size: 1590
 
 ΛCDM
 M: -19.351 +0.007/-0.007
-Ωm: 0.331 +0.018/-0.018
+Ωm: 0.332 +0.018/-0.018
 w0: -1
 wa: 0
 R-squared: 99.74 %
-RMSD (mag): 0.154
-Skewness of residuals: 0.091
-kurtosis of residuals: 1.583
-Reduced chi squared: 0.8845
+RMSD (mag): 0.153
+Skewness of residuals: 0.090
+kurtosis of residuals: 1.582
+Reduced chi squared: 0.8840
 
 =============================
 
 wCDM
 M: -19.348 +0.009/-0.009
-Ωm: 0.296 +0.063/-0.075
-w0: -0.911 +0.141/-0.163
+Ωm: 0.291 +0.064/-0.078
+w0: -0.90 +0.14/-0.16
 wa: 0
 R-squared: 99.74 %
 RMSD (mag): 0.154
-Skewness of residuals: 0.081
+Skewness of residuals: 0.079
 kurtosis of residuals: 1.590
-Reduced chi squared: 0.8843
+Reduced chi squared: 0.8837
 
 =============================
 
 Flat w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
 M: -19.348 +0.009/-0.009
-Ωm: 0.311 +0.048/-0.052
-w0: -0.935 +0.129/-0.148 (0.44 - 0.50 sigma)
+Ωm: 0.307 +0.048/-0.051
+w0: -0.92 +0.13/-0.15
 wa: 0
 R-squared: 99.74 %
 RMSD (mag): 0.154
-Skewness of residuals: 0.083
+Skewness of residuals: 0.080
 kurtosis of residuals: 1.589
-Reduced chi squared: 0.8843
+Reduced chi squared: 0.8838
 
 =============================
 
