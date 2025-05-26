@@ -8,7 +8,7 @@ from y2025BAO.data import get_data as get_bao_data
 from y2022pantheonSHOES.data import get_data
 from hubble.plotting import plot_predictions as plot_sn_predictions
 
-legend, z_vals, apparent_mag_values, cov_matrix_sn = get_data()
+legend, z_vals, z_hel_vals, apparent_mag_values, cov_matrix_sn = get_data()
 inverse_cov_sn = np.linalg.inv(cov_matrix_sn)
 _, data, bao_cov_matrix = get_bao_data()
 inv_bao_cov_matrix = np.linalg.inv(bao_cov_matrix)

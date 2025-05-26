@@ -10,7 +10,7 @@ from y2025BAO.data import get_data as get_bao_data
 from hubble.plotting import plot_predictions as plot_sn_predictions
 
 cc_legend, z_cc_vals, H_cc_vals, cov_matrix_cc = get_cc_data()
-legend, z_vals, apparent_mag_values, cov_matrix_sn = get_data()
+legend, z_vals, z_hels_vals, apparent_mag_values, cov_matrix_sn = get_data()
 bao_legend, data, cov_matrix = get_bao_data()
 inverse_cov_cc = np.linalg.inv(cov_matrix_cc)
 inverse_cov_sn = np.linalg.inv(cov_matrix_sn)
