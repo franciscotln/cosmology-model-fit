@@ -4,58 +4,45 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.integrate import cumulative_trapezoid
 import scipy.stats as stats
+from scipy.linalg import cho_factor, cho_solve
 from multiprocessing import Pool
 from .plotting import plot_predictions, print_color, plot_residuals
 from y2022pantheonSHOES.data_shoes import get_data
 
-legend, z_values, distance_modulus_values, cepheid_distances, cov_matrix = get_data()
+legend, z_values, apparent_mag_values, cepheid_distances, cov_matrix = get_data()
+
+cepheids_mask = cepheid_distances != -9
 sigma_distance_moduli = np.sqrt(cov_matrix.diagonal())
+cho = cho_factor(cov_matrix)
 
-# inverse covariance matrix
-inv_cov_matrix = np.linalg.inv(cov_matrix)
+c = 299792.458  # Speed of light (km/s)
 
-# Speed of light (km/s)
-C = 299792.458
+z_grid = np.linspace(0, np.max(z_values), num=2500)
+one_plus_z = 1 + z_grid
 
 
 # Flat
-def integral_of_e_z(z, params):
-    _, Omega_m, w0, _ = params
-    z_grid = np.linspace(0, np.max(z), num=2000)
-    sum = 1 + z_grid
-    H_over_H0 = np.sqrt(
-        Omega_m * sum**3
-        + (1 - Omega_m) * ((2 * sum**2) / (1 + sum**2)) ** (3 * (1 + w0))
-    )
+def integral_E_z(params):
+    O_m, w0 = params[2], params[3]
+    O_de = 1 - O_m
+    evolving_de = ((2 * one_plus_z**2) / (1 + one_plus_z**2)) ** (3 * (1 + w0))
+    H_over_H0 = np.sqrt(O_m * one_plus_z**3 + O_de * evolving_de)
     integral_values = cumulative_trapezoid(1 / H_over_H0, z_grid, initial=0)
-    return np.interp(z, z_grid, integral_values)
+    return np.interp(z_values, z_grid, integral_values)
 
 
-def wcdm_distance_modulus(z, params):
-    h0 = params[0]
-    normalized_h0 = 100 * h0
-    comoving_distance = (C / normalized_h0) * integral_of_e_z(z, params)
-    luminosity_distance = comoving_distance * (1 + z)
-    return 25 + 5 * np.log10(luminosity_distance)
-
-
-def lcdm_distance_modulus(z, params):
-    [h0, Omega_m] = params
-    normalized_h0 = 100 * h0
-    a0_over_ae = 1 + z
-    comoving_distance = (C / normalized_h0) * integral_of_e_z(z, [h0, Omega_m, -1, 0])
-    luminosity_distance = comoving_distance * a0_over_ae
+def model_mu(params):
+    h0 = params[1]
+    luminosity_distance = (c / h0) * (1 + z_values) * integral_E_z(params)
     return 25 + 5 * np.log10(luminosity_distance)
 
 
 def chi_squared(params):
-    mu_theory = np.where(
-        cepheid_distances != -9,
-        cepheid_distances,
-        wcdm_distance_modulus(z_values, params),
-    )
-    delta = distance_modulus_values - mu_theory
-    return delta.T @ inv_cov_matrix @ delta
+    M = params[0]
+    mu_theory = np.where(cepheids_mask, cepheid_distances, model_mu(params))
+    apparent_mag_theory = mu_theory + M
+    delta = apparent_mag_values - apparent_mag_theory
+    return np.dot(delta, cho_solve(cho, delta))
 
 
 def log_likelihood(params):
@@ -64,10 +51,10 @@ def log_likelihood(params):
 
 bounds = np.array(
     [
-        (0.4, 1.0),  # h0
+        (-20, -19),  # M
+        (40, 100),  # h0
         (0, 1),  # Ωm
         (-2, 0),  # w0
-        (-3, 3),  # wa
     ]
 )
 
@@ -86,10 +73,10 @@ def log_probability(params):
 
 
 def main():
-    steps_to_discard = 100
+    steps_to_discard = 200
     n_dim = len(bounds)
-    n_walkers = 100
-    n_steps = steps_to_discard + 4000
+    n_walkers = n_dim * 16
+    n_steps = steps_to_discard + 8000
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(n_walkers, n_dim))
 
     with Pool(10) as pool:
@@ -107,64 +94,63 @@ def main():
         print_color("Autocorrelation time", "Not available")
 
     [
+        [M_16, M_50, M_84],
         [h0_16, h0_50, h0_84],
         [omega_16, omega_50, omega_84],
         [w0_16, w0_50, w0_84],
-        [wa_16, wa_50, wa_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit_params = [h0_50, omega_50, w0_50, wa_50]
+    best_fit_params = [M_50, h0_50, omega_50, w0_50]
 
-    # Compute residuals
-    predicted_distance_modulus_values = wcdm_distance_modulus(z_values, best_fit_params)
-    residuals = np.where(
-        cepheid_distances != -9,
-        distance_modulus_values - cepheid_distances,
-        distance_modulus_values - predicted_distance_modulus_values,
+    predicted_mu_values = model_mu(best_fit_params)
+    residuals = (
+        apparent_mag_values
+        - M_50
+        - np.where(cepheids_mask, cepheid_distances, predicted_mu_values)
     )
 
     skewness = stats.skew(residuals)
     kurtosis = stats.kurtosis(residuals)
 
     # Compute R-squared
-    average_distance_modulus = np.mean(distance_modulus_values)
+    average_distance_modulus = np.mean(apparent_mag_values)
     ss_res = np.sum(residuals**2)
-    ss_tot = np.sum((distance_modulus_values - average_distance_modulus) ** 2)
+    ss_tot = np.sum((apparent_mag_values - average_distance_modulus) ** 2)
     r_squared = 1 - (ss_res / ss_tot)
 
     # Compute root mean square deviation
     rmsd = np.sqrt(np.mean(residuals**2))
 
-    # Print the values in the console
+    M_label = f"{M_50:.4f} +{M_84-M_50:.4f}/-{M_50-M_16:.4f}"
     h0_label = f"{h0_50:.4f} +{h0_84-h0_50:.4f}/-{h0_50-h0_16:.4f}"
     omega_label = f"{omega_50:.4f} +{omega_84-omega_50:.4f}/-{omega_50-omega_16:.4f}"
     w0_label = f"{w0_50:.4f} +{w0_84-w0_50:.4f}/-{w0_50-w0_16:.4f}"
-    wa_label = f"{wa_50:.4f} +{wa_84-wa_50:.4f}/-{wa_50-wa_16:.4f}"
     print_color("Dataset", legend)
     print_color("z range", f"{z_values[0]:.4f} - {z_values[-1]:.4f}")
     print_color("Sample size", len(z_values))
-    print_color("h = H0 / 100 (km/s/Mpc)", h0_label)
+    print_color("M", M_label)
+    print_color("H0 (km/s/Mpc)", h0_label)
     print_color("Ωm", omega_label)
     print_color("w0", w0_label)
-    print_color("wa", wa_label)
     print_color("R-squared (%)", f"{100 * r_squared:.2f}")
     print_color("RMSD (mag)", f"{rmsd:.3f}")
     print_color("Skewness of residuals", f"{skewness:.3f}")
     print_color("kurtosis of residuals", f"{kurtosis:.3f}")
     print_color("Chi squared", chi_squared(best_fit_params))
 
-    # Plot the data and the fit
-    labels = [r"$h_0$", f"$\Omega_M$", r"$w_0$", r"$w_a$"]
+    labels = ["M", "$H_0$", "$\Omega_M$", "$w_0$"]
     corner.corner(
         samples,
         labels=labels,
+        quantiles=[0.159, 0.5, 0.841],
         show_titles=True,
         title_fmt=".4f",
-        title_kwargs={"fontsize": 12},
-        quantiles=[0.16, 0.5, 0.84],
         smooth=1.5,
         smooth1d=1.5,
-        bins=50,
+        bins=100,
+        levels=(0.393, 0.864),  # 1 and 2 sigmas in 2D
+        fill_contours=False,
+        plot_datapoints=False,
     )
     plt.show()
 
@@ -183,14 +169,13 @@ def main():
     plot_predictions(
         legend=legend,
         x=z_values,
-        y=distance_modulus_values,
+        y=apparent_mag_values - M_50,
         y_err=sigma_distance_moduli,
-        y_model=predicted_distance_modulus_values,
-        label=f"H0={(100 * h0_50):.4f} km/s/Mpc, w0={w0_50:.4f}",
+        y_model=predicted_mu_values,
+        label=f"H0={h0_50:.2f} km/s/Mpc, w0={w0_50:.4f}",
         x_scale="log",
     )
 
-    # Plot the residual analysis
     plot_residuals(
         z_values=z_values, residuals=residuals, y_err=sigma_distance_moduli, bins=40
     )
@@ -207,36 +192,41 @@ Sample size: 1657
 *****************************
 
 ΛCDM
-H0: 73.23 +0.23/-0.23 km/s/Mpc
-Ωm: 0.3307 +0.0178/-0.0176
+M: -19.2433 +0.0295/-0.0299
+H0 (km/s/Mpc): 73.55 +1.03/-1.02
+Ωm: 0.3310 +0.0183/-0.0176
 w0: -1
-R-squared: 99.78 %
+wa: 0
+R-squared (%): 99.78
 RMSD (mag): 0.153
 Skewness of residuals: 0.086
-kurtosis of residuals: 1.559
-Chi squared: 1452.7
+kurtosis of residuals: 1.557
+Chi squared: 1452.65
 
 =============================
 
 wCDM
-H0: 73.12 +0.32/-0.29 km/s/Mpc
-Ωm: 0.3050 +0.0600/-0.0746
-w0: -0.9306 +0.1447/-0.1602
-R-squared: 99.78 %
+M: -19.2433 +0.0295/-0.0294
+H0 (km/s/Mpc): 0.7347 +0.0103/-0.0101
+Ωm: 0.3046 +0.0618/-0.0739
+w0: -0.9326 +0.1460/-0.1643
+wa: 0
+R-squared (%): 99.78
 RMSD (mag): 0.153
-Skewness of residuals: 0.078
-kurtosis of residuals: 1.565
-Chi squared: 1452.5
+Skewness of residuals: 0.079
+kurtosis of residuals: 1.561
+Chi squared: 1452.41
 
 =============================
 
 Flat w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-H0: 73.14 +0.31/-0.30 km/s/Mpc
-Ωm: 0.3144 +0.0478/-0.0500
-w0: -0.9467 +0.1288/-0.1489
-R-squared: 99.78 %
+M: -19.2431 +0.0294/-0.0297
+H0 (km/s/Mpc): 73.48 +1.03/-1.03
+Ωm: 0.3128 +0.0483/-0.0500
+w0: -0.9432 +0.1290/-0.1495
+R-squared (%): 99.78
 RMSD (mag): 0.153
 Skewness of residuals: 0.079
-kurtosis of residuals: 1.564
-Chi squared: 1452.5
+kurtosis of residuals: 1.561
+Chi squared: 1452.42
 """
