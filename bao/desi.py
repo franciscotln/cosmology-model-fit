@@ -1,6 +1,6 @@
 import numpy as np
 import emcee
-from getdist import MCSamples, plots
+import corner
 from scipy.integrate import cumulative_trapezoid
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
@@ -16,8 +16,11 @@ inv_cov_matrix = np.linalg.inv(cov_matrix)
 
 def H_z(z, params):
     omega_m, w0 = params[1], params[2]
-    sum = 1 + z
-    return np.sqrt(omega_m * sum**3 + (1 - omega_m) * ((2 * sum**2) / (1 + sum**2))**(3 * (1 + w0)))
+    one_plus_z = 1 + z
+    return np.sqrt(
+        omega_m * one_plus_z**3
+        + (1 - omega_m) * ((2 * one_plus_z**2) / (1 + one_plus_z**2)) ** (3 * (1 + w0))
+    )
 
 
 def DM_z(zs, params):
@@ -28,7 +31,7 @@ def DM_z(zs, params):
 def DV_z(z, params):
     DH = c / H_z(z, params)
     DM = DM_z(z, params)
-    return (z * DH * DM**2)**(1/3)
+    return (z * DH * DM**2) ** (1 / 3)
 
 
 quantity_funcs = {
@@ -43,16 +46,17 @@ def model_predictions(params):
     return np.array([(quantity_funcs[qty](z, params) / r_d_x_h0) for z, _, qty in data])
 
 
-bounds = np.array([
-    (70, 110), # r_d x h
-    (0.2, 0.7), # Ωm
-    (-3, 1), # w0
-    (-4.5, 1.5), # wa
-])
+bounds = np.array(
+    [
+        (70, 110),  # r_d x h
+        (0.1, 0.7),  # Ωm
+        (-2, 0),  # w0
+    ]
+)
 
 
 def chi_squared(params):
-    delta = data['value'] - model_predictions(params)
+    delta = data["value"] - model_predictions(params)
     return np.dot(delta, np.dot(inv_cov_matrix, delta))
 
 
@@ -82,16 +86,16 @@ def main():
 
         residuals = observed_values - model_predictions(params)
         SS_res = np.sum(residuals**2)
-        SS_tot = np.sum((observed_values - np.mean(observed_values))**2)
-        R_squared = 1 - SS_res/SS_tot
+        SS_tot = np.sum((observed_values - np.mean(observed_values)) ** 2)
+        R_squared = 1 - SS_res / SS_tot
 
-        rmsd = np.sqrt(np.mean(residuals ** 2))
+        rmsd = np.sqrt(np.mean(residuals**2))
 
         print(f"R^2: {R_squared:.4f}")
         print(f"RMSD: {rmsd:.3f}")
 
         unique_quantities = set(quantity_types)
-        colors = { "DV_over_rs": "red", "DM_over_rs": "blue", "DH_over_rs": "green" }
+        colors = {"DV_over_rs": "red", "DM_over_rs": "blue", "DH_over_rs": "green"}
 
         r_d, omega_m = params[0], params[1]
         z_smooth = np.linspace(0, max(z_values), 100)
@@ -102,13 +106,15 @@ def main():
                 x=z_values[mask],
                 y=observed_values[mask],
                 yerr=errors[mask],
-                fmt='.',
+                fmt=".",
                 color=colors[q],
                 label=f"Data: {q}",
                 capsize=2,
                 linestyle="None",
             )
-            model_smooth = np.array([quantity_funcs[q](z, params)/(100*r_d) for z in z_smooth])
+            model_smooth = np.array(
+                [quantity_funcs[q](z, params) / (100 * r_d) for z in z_smooth]
+            )
             plt.plot(z_smooth, model_smooth, color=colors[q], alpha=0.5)
 
         plt.xlabel("Redshift (z)")
@@ -118,7 +124,6 @@ def main():
         plt.title(f"BAO model: $r_d x h$={r_d:.2f}, $\Omega_M$={omega_m:.3f}")
         plt.show()
 
-
     ndim = len(bounds)
     nwalkers = 10 * ndim
     burn_in = 500
@@ -126,7 +131,7 @@ def main():
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):
-      initial_pos[:, dim] = np.random.uniform(lower, upper, nwalkers)
+        initial_pos[:, dim] = np.random.uniform(lower, upper, nwalkers)
 
     with Pool(10) as pool:
         sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool=pool)
@@ -144,42 +149,46 @@ def main():
         [rd_16, rd_50, rd_84],
         [omega_16, omega_50, omega_84],
         [w0_16, w0_50, w0_84],
-        [wa_16, wa_50, wa_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = [rd_50, omega_50, w0_50, wa_50]
+    best_fit = [rd_50, omega_50, w0_50]
 
     print(f"r_d*h: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f}")
-    print(f"Ωm: {omega_50:.3f} +{(omega_84 - omega_50):.3f} -{(omega_50 - omega_16):.3f}")
+    print(
+        f"Ωm: {omega_50:.3f} +{(omega_84 - omega_50):.3f} -{(omega_50 - omega_16):.3f}"
+    )
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
-    print(f"wa: {wa_50:.4f} +{(wa_84 - wa_50):.4f} -{(wa_50 - wa_16):.4f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Degs of freedom: {data['value'].size  - len(best_fit)}")
 
     plot_predictions(best_fit)
 
-    labels = ["r_d x H_0", "Ω_m", "w_0", "w_a"]
-    gdsamples = MCSamples(
-        samples=samples,
-        names=labels,
+    labels = ["$r_d x H_0$", "$Ω_m$", "$w_0$"]
+    corner.corner(
+        samples,
         labels=labels,
-        settings={"fine_bins_2D": 128, "smooth_scale_2D": 0.9}
-    )
-    g = plots.get_subplot_plotter()
-    g.triangle_plot(
-        gdsamples,
-        Filled=False,
-        contour_levels=[0.68, 0.95],
-        title_limit=True,
-        diag1d_kwargs={"density": True},
+        quantiles=[0.159, 0.5, 0.841],
+        show_titles=True,
+        title_fmt=".4f",
+        bins=100,
+        fill_contours=False,
+        plot_datapoints=False,
+        smooth=1.5,
+        smooth1d=1.5,
+        levels=(0.393, 0.864),  # 1 and 2 sigmas in 2D
     )
     plt.show()
+
 
 if __name__ == "__main__":
     main()
 
 
 """
+******************************
+Dataset: DESI 2025
+******************************
+
 Flat ΛCDM model
 r_d*h: 101.52 +0.74 -0.73 km/s
 Ωm: 0.298 +0.009 -0.009
@@ -217,7 +226,7 @@ RMSD: 0.270
 ==============================
 
 Flat w0waCDM
-r_d*h: 92.02 +4.60 -3.53
+r_d*h: 92.02 +4.60 -3.53 km/s
 Ωm: 0.380 +0.036 -0.045
 w0: -0.246 +0.344 -0.400
 wa: -2.5086 +1.4138 -1.1921
@@ -225,4 +234,42 @@ Chi squared: 5.65
 Degs of freedom: 9
 R^2: 0.9994
 RMSD: 0.205
+
+******************************
+Dataset: SDSS 2020
+******************************
+
+Flat ΛCDM model
+r_d*h: 100.24 +1.45 -1.45 km/s
+Ωm: 0.303 +0.023 -0.021
+w0: -1
+wa: 0
+Chi squared: 9.43
+Degs of freedom: 10
+R^2: 0.9955
+RMSD: 0.606
+
+==============================
+
+Flat wCDM model
+r_d*h: 97.01 +2.74 -2.50 km/s
+Ωm: 0.282 +0.029 -0.034
+w0: -0.787 +0.147 -0.160
+wa: 0
+Chi squared: 7.45
+Degs of freedom: 9
+R^2: 0.9955
+RMSD: 0.610
+
+=============================
+
+Flat w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
+r_d*h: 96.68 +3.15 -2.85 km/s
+Ωm: 0.301 +0.023 -0.021
+w0: -0.759 +0.170 -0.192
+wa: 0
+Chi squared: 7.54
+Degs of freedom: 9
+R^2: 0.9954
+RMSD: 0.611
 """
