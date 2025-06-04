@@ -12,7 +12,7 @@ cov_matrix = np.loadtxt(
     "y2020SDSSBAO/raw-data/covariance.txt", delimiter=" ", dtype=float
 )
 
-legend = "SDSS BAO DR17"
+legend = "SDSS BAO DR16"
 
 
 def get_data():
