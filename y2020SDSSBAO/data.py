@@ -1,6 +1,7 @@
 import numpy as np
 
 # Source: https://www.sdss4.org/science/final-bao-and-rsd-measurements-table/
+# https://github.com/CobayaSampler/bao_data/blob/master/sdss_DR16_LYAUTO_BAO_DMDHgrid.txt
 data = np.genfromtxt(
     "y2020SDSSBAO/raw-data/data.txt",
     dtype=[("z", float), ("value", float), ("quantity", "U10")],
