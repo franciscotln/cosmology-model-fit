@@ -1,7 +1,7 @@
 import numpy as np
 import emcee
 import corner
-from scipy.integrate import cumulative_trapezoid
+from scipy.integrate import cumulative_trapezoid, quad
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from y2023union3.data import get_data
@@ -10,22 +10,23 @@ from hubble.plotting import plot_predictions as plot_sn_predictions
 
 legend, z_vals, distance_moduli_values, cov_matrix_sn = get_data()
 inverse_cov_sn = np.linalg.inv(cov_matrix_sn)
-_, data, bao_cov_matrix = get_bao_data()
+_, bao_data, bao_cov_matrix = get_bao_data()
 inv_bao_cov_matrix = np.linalg.inv(bao_cov_matrix)
 
-c = 299792.458 # Speed of light in km/s
-H0 = 70 # Hubble constant in km/s/Mpc
+c = 299792.458  # Speed of light in km/s
+H0 = 70  # Hubble constant in km/s/Mpc
 
 
-def h_over_h0_model(z, params):
-    _, _, O_m, w0, _ = params
-    sum = 1 + z
-    return np.sqrt(O_m * sum**3 + (1 - O_m) * ((2 * sum**2) / (1 + sum**2))**(3 * (1 + w0)))
+def h_over_h0(z, params):
+    O_m, w0 = params[2], params[3]
+    one_plus_z = 1 + z
+    evolving_de = ((2 * one_plus_z**2) / (1 + one_plus_z**2)) ** (3 * (1 + w0))
+    return np.sqrt(O_m * one_plus_z**3 + (1 - O_m) * evolving_de)
 
 
 def integral_of_e_z(zs, params):
     z = np.linspace(0, np.max(zs), num=2000)
-    integral_values = cumulative_trapezoid(1/h_over_h0_model(z, params), z, initial=0)
+    integral_values = cumulative_trapezoid(1 / h_over_h0(z, params), z, initial=0)
     return np.interp(zs, z, integral_values)
 
 
@@ -37,15 +38,15 @@ def model_distance_modulus(z, params):
 
 
 def plot_bao_predictions(params):
-    observed_values = data["value"]
-    z_values = data["z"]
-    quantity_types = data["quantity"]
+    observed_values = bao_data["value"]
+    z_values = bao_data["z"]
+    quantity_types = bao_data["quantity"]
     errors = np.sqrt(np.diag(bao_cov_matrix))
 
     unique_quantities = set(quantity_types)
-    colors = { "DV_over_rs": "red", "DM_over_rs": "blue", "DH_over_rs": "green" }
+    colors = {"DV_over_rs": "red", "DM_over_rs": "blue", "DH_over_rs": "green"}
 
-    _, r_d, omega_m, w0, wa = params
+    _, r_d, omega_m, w0 = params
     z_smooth = np.linspace(0, max(z_values), 100)
     plt.figure(figsize=(8, 6))
     for q in unique_quantities:
@@ -54,7 +55,7 @@ def plot_bao_predictions(params):
             x=z_values[mask],
             y=observed_values[mask],
             yerr=errors[mask],
-            fmt='.',
+            fmt=".",
             color=colors[q],
             label=f"Data: {q}",
             capsize=2,
@@ -63,40 +64,39 @@ def plot_bao_predictions(params):
         model_smooth = []
         for z in z_smooth:
             if q == "DV_over_rs":
-                model_smooth.append(DV_z(z, params)/(H0 * r_d))
+                model_smooth.append(DV_z(z, params) / (H0 * r_d))
             elif q == "DM_over_rs":
-                model_smooth.append(DM_z(z, params)/(H0 * r_d))
+                model_smooth.append(DM_z(z, params) / (H0 * r_d))
             elif q == "DH_over_rs":
-                model_smooth.append((c / H_z(z, params))/(H0 * r_d))
+                model_smooth.append((c / H_z(z, params)) / (H0 * r_d))
         plt.plot(z_smooth, model_smooth, color=colors[q], alpha=0.5)
 
     plt.xlabel("Redshift (z)")
     plt.ylabel(r"$O = \frac{D}{r_d}$")
     plt.legend()
     plt.grid(True)
-    plt.title(f"BAO model: $\Omega_M$={omega_m:.4f}, $w_0$={w0:.4f}, $w_a$={wa:.4f}")
+    plt.title(f"BAO model: $\Omega_M$={omega_m:.4f}, $w_0$={w0:.4f}")
     plt.show()
 
 
 def H_z(z, params):
-    return h_over_h0_model(z, params)
+    return h_over_h0(z, params)
 
 
-def DM_z(zs, params):
-    z = np.linspace(0, np.max(zs), num=2000)
-    return cumulative_trapezoid(c / H_z(z, params), z, initial=0)[-1]
+def DM_z(z, params):
+    return quad(lambda zp: c / H_z(zp, params), 0, z)[0]
 
 
 def DV_z(z, params):
     DH = c / H_z(z, params)
     DM = DM_z(z, params)
-    return (z * DH * DM**2)**(1/3)
+    return (z * DH * DM**2) ** (1 / 3)
 
 
-def model_predictions(params):
+def bao_predictions(params):
     r_d = params[1]
     predictions = []
-    for z, _, quantity in data:
+    for z, _, quantity in bao_data:
         if quantity == "DV_over_rs":
             predictions.append(DV_z(z, params) / (r_d * H0))
         elif quantity == "DM_over_rs":
@@ -106,20 +106,21 @@ def model_predictions(params):
     return np.array(predictions)
 
 
-bounds = np.array([
-    (-0.5, 0.5), # delta M
-    (115, 160), # r_d
-    (0.2, 0.7), # omega_m
-    (-3, 1), # w0
-    (-4, 4), # wa
-])
+bounds = np.array(
+    [
+        (-0.5, 0.5),  # delta M
+        (115, 160),  # r_d
+        (0.2, 0.7),  # omega_m
+        (-3, 0),  # w0
+    ]
+)
 
 
 def chi_squared(params):
     delta_sn = distance_moduli_values - model_distance_modulus(z_vals, params)
     chi_sn = delta_sn @ inverse_cov_sn @ delta_sn
 
-    delta_bao = data['value'] - model_predictions(params)
+    delta_bao = bao_data["value"] - bao_predictions(params)
     chi_bao = delta_bao @ inv_bao_cov_matrix @ delta_bao
     return chi_sn + chi_bao
 
@@ -149,7 +150,7 @@ def main():
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):
-      initial_pos[:, dim] = np.random.uniform(lower, upper, nwalkers)
+        initial_pos[:, dim] = np.random.uniform(lower, upper, nwalkers)
 
     with Pool(10) as pool:
         sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool=pool)
@@ -169,18 +170,20 @@ def main():
         [rd_16, rd_50, rd_84],
         [omega_16, omega_50, omega_84],
         [w0_16, w0_50, w0_84],
-        [wa_16, wa_50, wa_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = [delta_M_50, rd_50, omega_50, w0_50, wa_50]
+    best_fit = [delta_M_50, rd_50, omega_50, w0_50]
 
-    print(f"ΔM: {delta_M_50:.4f} +{(delta_M_84 - delta_M_50):.4f} -{(delta_M_50 - delta_M_16):.4f}")
+    print(
+        f"ΔM: {delta_M_50:.4f} +{(delta_M_84 - delta_M_50):.4f} -{(delta_M_50 - delta_M_16):.4f}"
+    )
     print(f"r_d: {rd_50:.4f} +{(rd_84 - rd_50):.4f} -{(rd_50 - rd_16):.4f}")
-    print(f"Ωm: {omega_50:.4f} +{(omega_84 - omega_50):.4f} -{(omega_50 - omega_16):.4f}")
+    print(
+        f"Ωm: {omega_50:.4f} +{(omega_84 - omega_50):.4f} -{(omega_50 - omega_16):.4f}"
+    )
     print(f"w0: {w0_50:.4f} +{(w0_84 - w0_50):.4f} -{(w0_50 - w0_16):.4f}")
-    print(f"wa: {wa_50:.4f} +{(wa_84 - wa_50):.4f} -{(wa_50 - wa_16):.4f}")
     print(f"Chi squared: {chi_squared(best_fit):.4f}")
-    print(f"Degrees of freedom: {data['value'].size + z_vals.size - len(best_fit)}")
+    print(f"Degrees of freedom: {bao_data['value'].size + z_vals.size - len(best_fit)}")
 
     plot_bao_predictions(best_fit)
     plot_sn_predictions(
@@ -189,11 +192,11 @@ def main():
         y=distance_moduli_values,
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=model_distance_modulus(z_vals, best_fit),
-        label=f"Best fit: $\Omega_m$={omega_50:.4f}, $w_0$={w0_50:.4f}, $w_a$={wa_50:.4f}",
-        x_scale="log"
+        label=f"Best fit: $\Omega_m$={omega_50:.4f}, $w_0$={w0_50:.4f}",
+        x_scale="log",
     )
 
-    labels = [r"$\Delta_M$", r"$r_d$", f"$\Omega_m$", r"$w_0$", r"$w_a$"]
+    labels = ["$\Delta_M$", "$r_d$", "$\Omega_m$", "$w_0$"]
     corner.corner(
         samples,
         labels=labels,
@@ -205,7 +208,7 @@ def main():
         plot_datapoints=False,
         smooth=1.5,
         smooth1d=1.5,
-        levels=(0.393, 0.864), # 1 and 2 sigmas in 2D
+        levels=(0.393, 0.864),  # 1 and 2 sigmas in 2D
     )
     plt.show()
 
@@ -213,11 +216,11 @@ def main():
     if ndim == 1:
         axes = [axes]
     for i in range(ndim):
-        axes[i].plot(chains_samples[:, :, i], color='black', alpha=0.3, lw=0.4)
+        axes[i].plot(chains_samples[:, :, i], color="black", alpha=0.3, lw=0.4)
         axes[i].set_ylabel(labels[i])
         axes[i].set_xlabel("chain step")
-        axes[i].axvline(x=burn_in, color='red', linestyle='--', alpha=0.5)
-        axes[i].axhline(y=best_fit[i], color='white', linestyle='--', alpha=0.5)
+        axes[i].axvline(x=burn_in, color="red", linestyle="--", alpha=0.5)
+        axes[i].axhline(y=best_fit[i], color="white", linestyle="--", alpha=0.5)
     plt.show()
 
 

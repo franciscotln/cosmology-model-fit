@@ -1,41 +1,42 @@
 import numpy as np
 import emcee
 import corner
-from scipy.integrate import cumulative_trapezoid
+from scipy.integrate import quad
 from scipy.linalg import cho_factor, cho_solve
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from y2025BAO.data import get_data
 
-# Speed of light in km/s
-c = 299792.458
+c = 299792.458  # Speed of light in km/s
 
-# Planck rs = 147.18 ± 0.29 Mpc, h0 = 67.37 ± 0.54
 legend, data, cov_matrix = get_data()
 cho = cho_factor(cov_matrix)
 
-def H_z(z, params):
-    omega_m, w0 = params[1], params[2]
+
+def H_z(z, o_m, w0=-1):
     one_plus_z = 1 + z
     evolving_de = ((2 * one_plus_z**2) / (1 + one_plus_z**2)) ** (3 * (1 + w0))
-    return np.sqrt(omega_m * one_plus_z**3 + (1 - omega_m) * evolving_de)
+    return np.sqrt(o_m * one_plus_z**3 + (1 - o_m) * evolving_de)
 
 
-def DM_z(zs, params):
-    z = np.linspace(0, np.max(zs), num=3000)
-    return cumulative_trapezoid(c / H_z(z, params), z, initial=0)[-1]
+def DM_z(z, params):
+    return quad(lambda zp: c / H_z(z=zp, o_m=params[1], w0=params[2]), 0, z)[0]
 
 
 def DV_z(z, params):
-    DH = c / H_z(z, params)
+    DH = c / H_z(z=z, o_m=params[1], w0=params[2])
     DM = DM_z(z, params)
     return (z * DH * DM**2) ** (1 / 3)
 
 
+def DH_z(z, params):
+    return c / H_z(z=z, o_m=params[1], w0=params[2])
+
+
 quantity_funcs = {
-    "DV_over_rs": lambda z, params: DV_z(z, params),
-    "DM_over_rs": lambda z, params: DM_z(z, params),
-    "DH_over_rs": lambda z, params: (c / H_z(z, params)),
+    "DV_over_rs": DV_z,
+    "DM_over_rs": DM_z,
+    "DH_over_rs": DH_z,
 }
 
 
@@ -48,7 +49,7 @@ bounds = np.array(
     [
         (70, 110),  # r_d x h
         (0.1, 0.7),  # Ωm
-        (-2, 0),  # w0
+        (-2, -0.45),  # w0
     ]
 )
 
@@ -188,8 +189,8 @@ Dataset: DESI 2025
 ******************************
 
 Flat ΛCDM model
-r_d*h: 101.52 +0.74 -0.73 km/s
-Ωm: 0.298 +0.009 -0.009
+r_d*h: 101.52 +0.73 -0.73 km/s
+Ωm: 0.298 +0.009 -0.008
 w0: -1
 wa: 0
 Chi squared: 10.27
@@ -200,26 +201,26 @@ RMSD: 0.305
 ==============================
 
 Flat wCDM model
-r_d*h: 99.79 +1.76 -1.65 km/s
+r_d*h: 99.79 +1.77 -1.67
 Ωm: 0.297 +0.009 -0.009
-w0: -0.915 +0.076 -0.079
+w0: -0.914 +0.075 -0.080
 wa: 0
-Chi squared: 9.12
+Chi squared: 9.11
 Degs of freedom: 10
 R^2: 0.9989
-RMSD: 0.279
+RMSD: 0.278
 
 ===============================
 
 Flat w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-r_d*h: 99.05 +2.15 -1.95 km/s
+r_d*h: 99.13 +2.10 -1.98 km/s
 Ωm: 0.304 +0.010 -0.010
-w0: -0.869 +0.099 -0.108
+w0: -0.873 +0.099 -0.106
 wa: 0
-Chi squared: 8.69
+Chi squared: 8.68
 Degs of freedom: 10
 R^2: 0.9990
-RMSD: 0.270
+RMSD: 0.271
 
 ==============================
 

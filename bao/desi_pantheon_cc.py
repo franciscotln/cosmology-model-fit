@@ -1,7 +1,8 @@
 import numpy as np
 import emcee
 import corner
-from scipy.integrate import cumulative_trapezoid
+from scipy.integrate import cumulative_trapezoid, quad
+from scipy.linalg import cho_factor, cho_solve
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from y2022pantheonSHOES.data import get_data
@@ -10,42 +11,48 @@ from y2025BAO.data import get_data as get_bao_data
 from hubble.plotting import plot_predictions as plot_sn_predictions
 
 cc_legend, z_cc_vals, H_cc_vals, cov_matrix_cc = get_cc_data()
-legend, z_vals, z_hels_vals, apparent_mag_values, cov_matrix_sn = get_data()
-bao_legend, data, cov_matrix = get_bao_data()
-inverse_cov_cc = np.linalg.inv(cov_matrix_cc)
-inverse_cov_sn = np.linalg.inv(cov_matrix_sn)
-inverse_cov_bao = np.linalg.inv(cov_matrix)
+legend, z_sn_vals, z_sn_hel_vals, apparent_mag_values, cov_matrix_sn = get_data()
+bao_legend, bao_data, cov_matrix_bao = get_bao_data()
+cho_cc = cho_factor(cov_matrix_cc)
+cho_sn = cho_factor(cov_matrix_sn)
+cho_bao = cho_factor(cov_matrix_bao)
 
-c = 299792.458 # Speed of light in km/s
+c = 299792.458  # Speed of light in km/s
 
 
-def h_over_h0_model(z, params):
+def h_over_h0(z, params):
     O_m, w0 = params[3], params[4]
-    sum = 1 + z
-    return np.sqrt(O_m * sum**3 + (1 - O_m) * ((2 * sum**2) / (1 + sum**2))**(3 * (1 + w0)))
+    one_plus_z = 1 + z
+    evolving_de = ((2 * one_plus_z**2) / (1 + one_plus_z**2)) ** (3 * (1 + w0))
+    return np.sqrt(O_m * one_plus_z**3 + (1 - O_m) * evolving_de)
 
 
-z_grid = np.linspace(0, np.max(z_vals), num=4000)
+z_grid = np.linspace(0, np.max(z_sn_vals), num=2500)
+
 
 def integral_e_z(params):
-    integral_values = cumulative_trapezoid(1/h_over_h0_model(z_grid, params), z_grid, initial=0)
-    return np.interp(z_vals, z_grid, integral_values)
+    integral_values = cumulative_trapezoid(
+        1 / h_over_h0(z_grid, params), z_grid, initial=0
+    )
+    return np.interp(z_sn_vals, z_grid, integral_values)
 
 
-def model_apparent_mag(params):
+def sn_apparent_mag(params):
     h0, M = params[0], params[1]
-    comoving_distance = (c/h0) * integral_e_z(params)
-    return M + 25 + 5 * np.log10((1 + z_vals) * comoving_distance)
+    comoving_distance = (c / h0) * integral_e_z(params)
+    return M + 25 + 5 * np.log10((1 + z_sn_hel_vals) * comoving_distance)
 
 
 def plot_bao_predictions(params):
-    observed_values = data["value"]
-    z_values = data["z"]
-    quantity_types = data["quantity"]
-    errors = np.sqrt(np.diag(cov_matrix))
+    z_values, observed_values, quantity_types = (
+        bao_data["z"],
+        bao_data["value"],
+        bao_data["quantity"],
+    )
+    errors = np.sqrt(np.diag(cov_matrix_bao))
 
     unique_quantities = set(quantity_types)
-    colors = { "DV_over_rs": "red", "DM_over_rs": "blue", "DH_over_rs": "green" }
+    colors = {"DV_over_rs": "red", "DM_over_rs": "blue", "DH_over_rs": "green"}
 
     h0, r_d, omega_m = params[0], params[2], params[3]
     z_smooth = np.linspace(0, max(z_values), 100)
@@ -56,41 +63,43 @@ def plot_bao_predictions(params):
             x=z_values[mask],
             y=observed_values[mask],
             yerr=errors[mask],
-            fmt='.',
+            fmt=".",
             color=colors[q],
-            label=f"Data: {q}",
+            label=q,
             capsize=2,
             linestyle="None",
         )
         model_smooth = []
         for z in z_smooth:
             if q == "DV_over_rs":
-                model_smooth.append(DV_z(z, params)/r_d)
+                model_smooth.append(DV_z(z, params) / r_d)
             elif q == "DM_over_rs":
-                model_smooth.append(DM_z(z, params)/r_d)
+                model_smooth.append(DM_z(z, params) / r_d)
             elif q == "DH_over_rs":
-                model_smooth.append((c / H_z(z, params))/r_d)
+                model_smooth.append(DH_z(z, params) / r_d)
         plt.plot(z_smooth, model_smooth, color=colors[q], alpha=0.5)
 
     plt.xlabel("Redshift (z)")
     plt.ylabel(r"$O = \frac{D}{r_d}$")
     plt.legend()
     plt.grid(True)
-    plt.title(f"{bao_legend}: $r_d$={r_d:.2f} Mpc, $\Omega_M$={omega_m:.4f}, $H_0$={h0:.2f} km/s/Mpc")
+    plt.title(
+        f"{bao_legend}: $r_d$={r_d:.2f} Mpc, $\Omega_M$={omega_m:.4f}, $H_0$={h0:.2f} km/s/Mpc"
+    )
     plt.show()
 
     plt.errorbar(
         x=z_cc_vals,
         y=H_cc_vals,
         yerr=np.sqrt(np.diag(cov_matrix_cc)),
-        fmt='.',
-        color='blue',
+        fmt=".",
+        color="blue",
         alpha=0.4,
         label="CCH data",
         capsize=2,
         linestyle="None",
     )
-    plt.plot(z_smooth, H_z(z_smooth, params), color='red', alpha=0.5, label="Model")
+    plt.plot(z_smooth, H_z(z_smooth, params), color="red", alpha=0.5, label="Model")
     plt.xlabel("Redshift (z)")
     plt.ylabel(r"$H(z)$")
     plt.xlim(0, np.max(z_cc_vals) + 0.2)
@@ -100,53 +109,56 @@ def plot_bao_predictions(params):
 
 
 def H_z(z, params):
-    h0 = params[0]
-    return h0 * h_over_h0_model(z, params)
+    return params[0] * h_over_h0(z, params)
 
 
-def DM_z(zs, params):
-    z = np.linspace(0, np.max(zs), num=3000)
-    return cumulative_trapezoid(c / H_z(z, params), z, initial=0)[-1]
+def DH_z(z, params):
+    return c / H_z(z, params)
+
+
+def DM_z(z, params):
+    return quad(lambda zp: DH_z(zp, params), 0, z)[0]
 
 
 def DV_z(z, params):
-    DH = c / H_z(z, params)
+    DH = DH_z(z, params)
     DM = DM_z(z, params)
-    return (z * DH * DM**2)**(1/3)
+    return (z * DH * DM**2) ** (1 / 3)
 
 
-def model_predictions(params):
-    r_d = params[2]
-    predictions = []
-    for z, _, quantity in data:
-        if quantity == "DV_over_rs":
-            predictions.append(DV_z(z, params) / r_d)
-        elif quantity == "DM_over_rs":
-            predictions.append(DM_z(z, params) / r_d)
-        elif quantity == "DH_over_rs":
-            predictions.append((c / H_z(z, params)) / r_d)
-    return np.array(predictions)
+quantity_funcs = {
+    "DV_over_rs": DV_z,
+    "DM_over_rs": DM_z,
+    "DH_over_rs": DH_z,
+}
 
 
-bounds = np.array([
-    (50, 80),    # H0
-    (-20, -19),  # M
-    (115, 170),  # r_d
-    (0.15, 0.7), # Ωm
-    (-3, 0),     # w0
-    (-3.5, 3.5), # wa
-])
+def bao_predictions(params):
+    return np.array(
+        [(quantity_funcs[qty](z, params) / params[2]) for z, _, qty in bao_data]
+    )
+
+
+bounds = np.array(
+    [
+        (50, 80),  # H0
+        (-20, -19),  # M
+        (115, 170),  # r_d
+        (0.15, 0.7),  # Ωm
+        (-3, 0),  # w0
+    ]
+)
 
 
 def chi_squared(params):
-    delta_sn = apparent_mag_values - model_apparent_mag(params)
-    chi_sn = np.dot(delta_sn, np.dot(inverse_cov_sn, delta_sn))
+    delta_sn = apparent_mag_values - sn_apparent_mag(params)
+    chi_sn = np.dot(delta_sn, cho_solve(cho_sn, delta_sn))
 
-    delta_bao = data['value'] - model_predictions(params)
-    chi_bao = np.dot(delta_bao, np.dot(inverse_cov_bao, delta_bao))
+    delta_bao = bao_data["value"] - bao_predictions(params)
+    chi_bao = np.dot(delta_bao, cho_solve(cho_bao, delta_bao))
 
     delta_cc = H_cc_vals - H_z(z_cc_vals, params)
-    chi_cc = np.dot(delta_cc, np.dot(inverse_cov_cc, delta_cc))
+    chi_cc = np.dot(delta_cc, cho_solve(cho_cc, delta_cc))
 
     return chi_sn + chi_bao + chi_cc
 
@@ -170,10 +182,12 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 8 * ndim
+    nwalkers = 10 * ndim
     burn_in = 500
-    nsteps = 15000 + burn_in
-    initial_pos = np.random.default_rng().uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
+    nsteps = 10000 + burn_in
+    initial_pos = np.random.default_rng().uniform(
+        bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim)
+    )
 
     with Pool(10) as pool:
         sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool=pool)
@@ -193,34 +207,36 @@ def main():
         [rd_16, rd_50, rd_84],
         [omega_16, omega_50, omega_84],
         [w0_16, w0_50, w0_84],
-        [wa_16, wa_50, wa_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = [h0_50, M_50, rd_50, omega_50, w0_50, wa_50]
+    best_fit = [h0_50, M_50, rd_50, omega_50, w0_50]
 
-    deg_of_freedom = z_vals.size + data['value'].size + z_cc_vals.size - len(best_fit)
+    deg_of_freedom = (
+        z_sn_vals.size + bao_data["value"].size + z_cc_vals.size - len(best_fit)
+    )
 
     print(f"H0: {h0_50:.2f} +{(h0_84 - h0_50):.2f} -{(h0_50 - h0_16):.2f}")
     print(f"M: {M_50:.3f} +{(M_84 - M_50):.3f} -{(M_50 - M_16):.3f}")
     print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f}")
-    print(f"Ωm: {omega_50:.3f} +{(omega_84 - omega_50):.3f} -{(omega_50 - omega_16):.3f}")
+    print(
+        f"Ωm: {omega_50:.3f} +{(omega_84 - omega_50):.3f} -{(omega_50 - omega_16):.3f}"
+    )
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
-    print(f"wa: {wa_50:.3f} +{(wa_84 - wa_50):.3f} -{(wa_50 - wa_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Degrees of freedom: {deg_of_freedom}")
 
     plot_bao_predictions(best_fit)
     plot_sn_predictions(
         legend=legend,
-        x=z_vals,
+        x=z_sn_vals,
         y=apparent_mag_values,
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=model_apparent_mag(best_fit),
+        y_model=sn_apparent_mag(best_fit),
         label=f"Best fit: $\Omega_m$={omega_50:.3f}, $H_0$={h0_50:.2f} km/s/Mpc",
-        x_scale="log"
+        x_scale="log",
     )
 
-    labels = [r"$H_0$", "M", r"$r_d$", "Ωm", r"$w_0$", r"$w_a$"]
+    labels = ["$H_0$", "M", "$r_d$", "Ωm", "$w_0$"]
     corner.corner(
         samples,
         labels=labels,
@@ -232,7 +248,7 @@ def main():
         plot_datapoints=False,
         smooth=1.5,
         smooth1d=1.5,
-        levels=(0.393, 0.864), # 1 and 2 sigmas in 2D
+        levels=(0.393, 0.864),  # 1 and 2 sigmas in 2D
     )
     plt.show()
 
