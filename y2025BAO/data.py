@@ -3,9 +3,9 @@ import numpy as np
 # Source: https://arxiv.org/pdf/2503.14738
 # https://github.com/CobayaSampler/bao_data/tree/master/desi_bao_dr2
 data = np.genfromtxt(
-    "y2025BAO/raw-data/data.txt",
+    "y2025BAO/raw-data/data.csv",
     dtype=[("z", float), ("value", float), ("quantity", "U10")],
-    delimiter=" ",
+    delimiter=",",
     names=True,
 )
 

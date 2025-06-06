@@ -2,6 +2,7 @@ import numpy as np
 import emcee
 import corner
 from scipy.integrate import cumulative_trapezoid
+from scipy.linalg import cho_factor, cho_solve
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from y2025BAO.data import get_data
@@ -11,16 +12,13 @@ c = 299792.458
 
 # Planck rs = 147.18 ± 0.29 Mpc, h0 = 67.37 ± 0.54
 legend, data, cov_matrix = get_data()
-inv_cov_matrix = np.linalg.inv(cov_matrix)
-
+cho = cho_factor(cov_matrix)
 
 def H_z(z, params):
     omega_m, w0 = params[1], params[2]
     one_plus_z = 1 + z
-    return np.sqrt(
-        omega_m * one_plus_z**3
-        + (1 - omega_m) * ((2 * one_plus_z**2) / (1 + one_plus_z**2)) ** (3 * (1 + w0))
-    )
+    evolving_de = ((2 * one_plus_z**2) / (1 + one_plus_z**2)) ** (3 * (1 + w0))
+    return np.sqrt(omega_m * one_plus_z**3 + (1 - omega_m) * evolving_de)
 
 
 def DM_z(zs, params):
@@ -57,7 +55,7 @@ bounds = np.array(
 
 def chi_squared(params):
     delta = data["value"] - model_predictions(params)
-    return np.dot(delta, np.dot(inv_cov_matrix, delta))
+    return np.dot(delta, cho_solve(cho, delta))
 
 
 def log_prior(params):
@@ -240,36 +238,36 @@ Dataset: SDSS 2020
 ******************************
 
 Flat ΛCDM model
-r_d*h: 100.69 +1.35 -1.37 km/s
-Ωm: 0.297 +0.020 -0.019
+r_d*h: 100.54 +1.29 -1.28 km/s
+Ωm: 0.298 +0.017 -0.016
 w0: -1
 wa: 0
-Chi squared: 11.25
+Chi squared: 10.81
 Degs of freedom: 12
-R^2: 0.9942
-RMSD: 0.768
+R^2: 0.9947
+RMSD: 0.739
 
 ==============================
 
 Flat wCDM model
-_d*h: 95.57 +2.80 -2.55 km/s
-Ωm: 0.274 +0.027 -0.036
-w0: -0.706 +0.143 -0.150
+r_d*h: 95.63 +2.87 -2.63 km/s
+Ωm: 0.282 +0.022 -0.030
+w0: -0.725 +0.147 -0.150 (1.83 - 1.87 sigma)
 wa: 0
-Chi squared: 7.36
+Chi squared: 7.51
 Degs of freedom: 11
-R^2: 0.9945
-RMSD: 0.750
+R^2: 0.9952
+RMSD: 0.698
 
 =============================
 
 Flat w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-r_d*h: 95.11 +3.23 -2.94 km/s
-Ωm: 0.304 +0.021 -0.020
-w0: -0.669 +0.162 -0.178
+r_d*h: 95.20 +3.21 -2.94 km/s
+Ωm: 0.309 +0.019 -0.018
+w0: -0.689 +0.163 -0.174 (1.79 - 1.91 sigma)
 wa: 0
-Chi squared: 7.56
+Chi squared: 7.55
 Degs of freedom: 11
-R^2: 0.9943
-RMSD: 0.759
+R^2: 0.9952
+RMSD: 0.701
 """
