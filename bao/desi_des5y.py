@@ -21,7 +21,7 @@ H0 = 70  # Hubble constant in km/s/Mpc as per DES5Y
 def h_over_h0_model(z, params):
     O_m, w0 = params[2], params[3]
     sum = 1 + z
-    evolving_de = sum ** (3 * (1 + w0))  # ((2 * sum**2) / (1 + sum**2))**(3 * (1 + w0))
+    evolving_de = ((2 * sum**2) / (1 + sum**2)) ** (3 * (1 + w0))
     return np.sqrt(O_m * sum**3 + (1 - O_m) * evolving_de)
 
 
@@ -144,7 +144,7 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 8 * ndim
+    nwalkers = 10 * ndim
     burn_in = 500
     nsteps = 8000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
@@ -192,7 +192,7 @@ def main():
         y=distance_moduli_values,
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=model_distance_modulus(best_fit),
-        label=f"Best fit: $\Omega_m$={omega_50:.4f}, $w_0$={w0_50:.4f}",
+        label=f"Best fit: $\Omega_m$={omega_50:.4f}",
         x_scale="log",
     )
 
@@ -230,34 +230,34 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM
-ΔM: -0.004 +0.006 -0.006
-r_d: 143.62 +0.93 -0.94
-Ωm: 0.310 +0.008 -0.008
+ΔM: -0.0040 +0.0065 -0.0065
+r_d: 143.6251 +0.9391 -0.9443 Mpc
+Ωm: 0.3104 +0.0081 -0.0079
 w0: -1
 wa: 0
-Chi squared: 1658.9670
+Chi squared: 1658.9659
 Degrees of freedom: 1839
 
 ==============================
 
 Flat wCDM
-ΔM: 0.026 +0.011 -0.011
-r_d: 141.19 +1.19 -1.15
-Ωm: 0.298 +0.009 -0.009
-w0: -0.872 +0.039 -0.039
+ΔM: 0.0256 +0.0108 -0.0110
+r_d: 141.2230 +1.1841 -1.1620 Mpc
+Ωm: 0.2979 +0.0090 -0.0090
+w0: -0.8709 +0.0382 -0.0388 (3.33 - 3.38 sigma)
 wa: 0
-Chi squared: 1648.1021
+Chi squared: 1648.0923
 Degrees of freedom: 1838
 
 ===============================
 
 Flat w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-ΔM: 0.030 +0.012 -0.012
-r_d: 140.99 +1.18 -1.18
-Ωm: 0.305 +0.008 -0.0080
-w0: -0.849 +0.042 -0.043
+ΔM: 0.0298 +0.0117 -0.0115
+r_d: 141.0102 +1.1880 -1.1929 Mpc
+Ωm: 0.3053 +0.0081 -0.0080
+w0: -0.8503 +0.0418 -0.0426 (3.51 - 3.58 sigma)
 wa: 0
-Chi squared: 1646.9797
+Chi squared: 1646.9805
 Degrees of freedom: 1838
 
 ==============================
