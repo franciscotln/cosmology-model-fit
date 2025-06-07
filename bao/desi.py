@@ -8,29 +8,30 @@ from multiprocessing import Pool
 from y2025BAO.data import get_data
 
 c = 299792.458  # Speed of light in km/s
+H0 = 70.0  # Hubble constant in km/s/Mpc
 
 legend, data, cov_matrix = get_data()
 cho = cho_factor(cov_matrix)
 
 
-def H_z(z, o_m, w0=-1):
+def H_z(z, Om, w0=-1):
     one_plus_z = 1 + z
     evolving_de = ((2 * one_plus_z**2) / (1 + one_plus_z**2)) ** (3 * (1 + w0))
-    return np.sqrt(o_m * one_plus_z**3 + (1 - o_m) * evolving_de)
-
-
-def DM_z(z, params):
-    return quad(lambda zp: c / H_z(z=zp, o_m=params[1], w0=params[2]), 0, z)[0]
-
-
-def DV_z(z, params):
-    DH = c / H_z(z=z, o_m=params[1], w0=params[2])
-    DM = DM_z(z, params)
-    return (z * DH * DM**2) ** (1 / 3)
+    return H0 * np.sqrt(Om * one_plus_z**3 + (1 - Om) * evolving_de)
 
 
 def DH_z(z, params):
-    return c / H_z(z=z, o_m=params[1], w0=params[2])
+    return c / H_z(z=z, Om=params[1], w0=params[2])
+
+
+def DM_z(z, params):
+    return quad(lambda zp: DH_z(zp, params), 0, z)[0]
+
+
+def DV_z(z, params):
+    DH = DH_z(z, params)
+    DM = DM_z(z, params)
+    return (z * DH * DM**2) ** (1 / 3)
 
 
 quantity_funcs = {
@@ -41,15 +42,16 @@ quantity_funcs = {
 
 
 def model_predictions(params):
-    r_d_x_h0 = params[0] * 100
-    return np.array([(quantity_funcs[qty](z, params) / r_d_x_h0) for z, _, qty in data])
+    return np.array(
+        [(quantity_funcs[qty](z, params) / params[0]) for z, _, qty in data]
+    )
 
 
 bounds = np.array(
     [
-        (70, 110),  # r_d x h
+        (120, 160),  # r_d
         (0.1, 0.7),  # Ωm
-        (-2, -0.45),  # w0
+        (-2, 0),  # w0
     ]
 )
 
@@ -76,53 +78,45 @@ def log_probability(params):
     return lp + log_likelihood(params)
 
 
+def plot_bao_predictions(params):
+    errors = np.sqrt(np.diag(cov_matrix))
+    colors = {"DV_over_rs": "red", "DM_over_rs": "blue", "DH_over_rs": "green"}
+
+    residuals = data["value"] - model_predictions(params)
+    SS_res = np.sum(residuals**2)
+    SS_tot = np.sum((data["value"] - np.mean(data["value"])) ** 2)
+    r2 = 1 - SS_res / SS_tot
+
+    print(f"R^2: {r2:.4f}")
+    print(f"RMSD: {np.sqrt(np.mean(residuals**2)):.3f}")
+
+    r_d, Om = params[0], params[1]
+    z_smooth = np.linspace(0, max(data["z"]), 100)
+    plt.figure(figsize=(8, 6))
+    for q in set(data["quantity"]):
+        quantity_mask = data["quantity"] == q
+        plt.errorbar(
+            x=data["z"][quantity_mask],
+            y=data["value"][quantity_mask],
+            yerr=errors[quantity_mask],
+            fmt=".",
+            color=colors[q],
+            label=q,
+            capsize=2,
+            linestyle="None",
+        )
+        model_smooth = [quantity_funcs[q](z, params) / r_d for z in z_smooth]
+        plt.plot(z_smooth, model_smooth, color=colors[q], alpha=0.5)
+
+    plt.xlabel("Redshift (z)")
+    plt.ylabel(r"$O = \frac{D}{r_d}$")
+    plt.legend()
+    plt.grid(True)
+    plt.title(f"{legend}: $r_d$={r_d:.2f}, $\Omega_M$={Om:.3f}")
+    plt.show()
+
+
 def main():
-    def plot_predictions(params):
-        observed_values = data["value"]
-        z_values = data["z"]
-        quantity_types = data["quantity"]
-        errors = np.sqrt(np.diag(cov_matrix))
-
-        residuals = observed_values - model_predictions(params)
-        SS_res = np.sum(residuals**2)
-        SS_tot = np.sum((observed_values - np.mean(observed_values)) ** 2)
-        R_squared = 1 - SS_res / SS_tot
-
-        rmsd = np.sqrt(np.mean(residuals**2))
-
-        print(f"R^2: {R_squared:.4f}")
-        print(f"RMSD: {rmsd:.3f}")
-
-        unique_quantities = set(quantity_types)
-        colors = {"DV_over_rs": "red", "DM_over_rs": "blue", "DH_over_rs": "green"}
-
-        r_d, omega_m = params[0], params[1]
-        z_smooth = np.linspace(0, max(z_values), 100)
-        plt.figure(figsize=(8, 6))
-        for q in unique_quantities:
-            mask = quantity_types == q
-            plt.errorbar(
-                x=z_values[mask],
-                y=observed_values[mask],
-                yerr=errors[mask],
-                fmt=".",
-                color=colors[q],
-                label=f"Data: {q}",
-                capsize=2,
-                linestyle="None",
-            )
-            model_smooth = np.array(
-                [quantity_funcs[q](z, params) / (100 * r_d) for z in z_smooth]
-            )
-            plt.plot(z_smooth, model_smooth, color=colors[q], alpha=0.5)
-
-        plt.xlabel("Redshift (z)")
-        plt.ylabel(r"$O = \frac{D}{r_d}$")
-        plt.legend()
-        plt.grid(True)
-        plt.title(f"BAO model: $r_d x h$={r_d:.2f}, $\Omega_M$={omega_m:.3f}")
-        plt.show()
-
     ndim = len(bounds)
     nwalkers = 10 * ndim
     burn_in = 500
@@ -146,23 +140,21 @@ def main():
 
     [
         [rd_16, rd_50, rd_84],
-        [omega_16, omega_50, omega_84],
+        [Om_16, Om_50, Om_84],
         [w0_16, w0_50, w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = [rd_50, omega_50, w0_50]
+    best_fit = [rd_50, Om_50, w0_50]
 
-    print(f"r_d*h: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f}")
-    print(
-        f"Ωm: {omega_50:.3f} +{(omega_84 - omega_50):.3f} -{(omega_50 - omega_16):.3f}"
-    )
+    print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f}")
+    print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Degs of freedom: {data['value'].size  - len(best_fit)}")
 
-    plot_predictions(best_fit)
+    plot_bao_predictions(best_fit)
 
-    labels = ["$r_d x H_0$", "$Ω_m$", "$w_0$"]
+    labels = ["$r_d$", "$Ω_m$", "$w_0$"]
     corner.corner(
         samples,
         labels=labels,
@@ -189,7 +181,7 @@ Dataset: DESI 2025
 ******************************
 
 Flat ΛCDM model
-r_d*h: 101.52 +0.73 -0.73 km/s
+r_d: 145.04 +1.04 -1.06 Mpc
 Ωm: 0.298 +0.009 -0.008
 w0: -1
 wa: 0
@@ -201,21 +193,21 @@ RMSD: 0.305
 ==============================
 
 Flat wCDM model
-r_d*h: 99.79 +1.77 -1.67
+r_d: 142.55 +2.53 -2.37 Mpc
 Ωm: 0.297 +0.009 -0.009
-w0: -0.914 +0.075 -0.080
+w0: -0.915 +0.077 -0.079
 wa: 0
-Chi squared: 9.11
+Chi squared: 9.14
 Degs of freedom: 10
 R^2: 0.9989
-RMSD: 0.278
+RMSD: 0.279
 
 ===============================
 
 Flat w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-r_d*h: 99.13 +2.10 -1.98 km/s
+r_d: 141.61 +3.01 -2.82 Mpc
 Ωm: 0.304 +0.010 -0.010
-w0: -0.873 +0.099 -0.106
+w0: -0.873 +0.098 -0.105
 wa: 0
 Chi squared: 8.68
 Degs of freedom: 10
@@ -239,7 +231,7 @@ Dataset: SDSS 2020
 ******************************
 
 Flat ΛCDM model
-r_d*h: 100.54 +1.29 -1.28 km/s
+r_d: 143.65 +1.83 -1.82 Mpc
 Ωm: 0.298 +0.017 -0.016
 w0: -1
 wa: 0
@@ -251,19 +243,19 @@ RMSD: 0.739
 ==============================
 
 Flat wCDM model
-r_d*h: 95.63 +2.87 -2.63 km/s
-Ωm: 0.282 +0.022 -0.030
-w0: -0.725 +0.147 -0.150 (1.83 - 1.87 sigma)
+r_d: 136.51 +4.04 -3.74 Mpc
+Ωm: 0.282 +0.023 -0.031
+w0: -0.720 +0.147 -0.148
 wa: 0
-Chi squared: 7.51
+Chi squared: 7.48
 Degs of freedom: 11
-R^2: 0.9952
-RMSD: 0.698
+R^2: 0.9953
+RMSD: 0.694
 
 =============================
 
 Flat w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-r_d*h: 95.20 +3.21 -2.94 km/s
+r_d: 135.97 +4.65 -4.21 Mpc
 Ωm: 0.309 +0.019 -0.018
 w0: -0.689 +0.163 -0.174 (1.79 - 1.91 sigma)
 wa: 0
