@@ -9,101 +9,99 @@ from y2024DES.data import get_data
 from y2025BAO.data import get_data as get_bao_data
 from hubble.plotting import plot_predictions as plot_sn_predictions
 
-legend, z_vals, z_hel_vals, distance_moduli_values, cov_matrix_sn = get_data()
+sn_legend, z_cmb_vals, z_hel_vals, mu_values, cov_matrix_sn = get_data()
 cho_sn = cho_factor(cov_matrix_sn)
-_, data, cov_matrix = get_bao_data()
-inv_cov_matrix = np.linalg.inv(cov_matrix)
+bao_legend, bao_data, cov_matrix_bao = get_bao_data()
+cho_bao = cho_factor(cov_matrix_bao)
 
 c = 299792.458  # Speed of light in km/s
 H0 = 70  # Hubble constant in km/s/Mpc as per DES5Y
 
 
-def h_over_h0_model(z, params):
+def h_over_h0(z, params):
     O_m, w0 = params[2], params[3]
-    sum = 1 + z
-    evolving_de = ((2 * sum**2) / (1 + sum**2)) ** (3 * (1 + w0))
-    return np.sqrt(O_m * sum**3 + (1 - O_m) * evolving_de)
+    one_plus_z = 1 + z
+    evolving_de = ((2 * one_plus_z**2) / (1 + one_plus_z**2)) ** (3 * (1 + w0))
+    return np.sqrt(O_m * one_plus_z**3 + (1 - O_m) * evolving_de)
 
 
-def integral_of_e_z(params):
-    z = np.linspace(0, np.max(z_vals), num=2000)
-    integral_values = cumulative_trapezoid(1 / h_over_h0_model(z, params), z, initial=0)
-    return np.interp(z_vals, z, integral_values)
+z_grid_sn = np.linspace(0, np.max(z_cmb_vals), num=2000)
 
 
-def model_distance_modulus(params):
-    delta_M = params[0]
-    comoving_distance = (c / H0) * integral_of_e_z(params)
-    return delta_M + 25 + 5 * np.log10((1 + z_hel_vals) * comoving_distance)
+def integral_Ez(params):
+    integral_values = cumulative_trapezoid(
+        1 / h_over_h0(z_grid_sn, params), z_grid_sn, initial=0
+    )
+    return np.interp(z_cmb_vals, z_grid_sn, integral_values)
+
+
+def distance_modulus(params):
+    return (
+        params[0] + 25 + 5 * np.log10((1 + z_hel_vals) * (c / H0) * integral_Ez(params))
+    )
 
 
 def plot_bao_predictions(params):
-    observed_values = data["value"]
-    z_values = data["z"]
-    quantity_types = data["quantity"]
-    errors = np.sqrt(np.diag(cov_matrix))
-
-    unique_quantities = set(quantity_types)
     colors = {"DV_over_rs": "red", "DM_over_rs": "blue", "DH_over_rs": "green"}
+    errors = np.sqrt(np.diag(cov_matrix_bao))
+    z_smooth = np.linspace(0, max(bao_data["z"]), 100)
 
-    r_d, omega_m = params[1], params[2]
-    z_smooth = np.linspace(0, max(z_values), 100)
     plt.figure(figsize=(8, 6))
-    for q in unique_quantities:
-        mask = quantity_types == q
+    for q in set(bao_data["quantity"]):
+        quantity_mask = bao_data["quantity"] == q
         plt.errorbar(
-            x=z_values[mask],
-            y=observed_values[mask],
-            yerr=errors[mask],
+            x=bao_data["z"][quantity_mask],
+            y=bao_data["value"][quantity_mask],
+            yerr=errors[quantity_mask],
             fmt=".",
             color=colors[q],
-            label=f"Data: {q}",
+            label=q,
             capsize=2,
             linestyle="None",
         )
-        model_smooth = []
-        for z in z_smooth:
-            if q == "DV_over_rs":
-                model_smooth.append(DV_z(z, params) / (H0 * r_d))
-            elif q == "DM_over_rs":
-                model_smooth.append(DM_z(z, params) / (H0 * r_d))
-            elif q == "DH_over_rs":
-                model_smooth.append((c / H_z(z, params)) / (H0 * r_d))
+        model_smooth = [bao_quantity_funcs[q](z, params) / params[1] for z in z_smooth]
         plt.plot(z_smooth, model_smooth, color=colors[q], alpha=0.5)
 
     plt.xlabel("Redshift (z)")
     plt.ylabel(r"$O = \frac{D}{r_d}$")
     plt.legend()
     plt.grid(True)
-    plt.title(f"BAO model: $\Omega_M$={omega_m:.4f}")
+    plt.title(bao_legend)
     plt.show()
 
 
 def H_z(z, params):
-    return h_over_h0_model(z, params)
+    return H0 * h_over_h0(z, params)
 
 
-def DM_z(zs, params):
-    return quad(lambda z: c / H_z(z, params), 0, zs)[0]
+def DH_z(z, params):
+    return c / H_z(z, params)
+
+
+def DM_z(z, params):
+    return quad(lambda zp: DH_z(zp, params), 0, z)[0]
 
 
 def DV_z(z, params):
-    DH = c / H_z(z, params)
+    DH = DH_z(z, params)
     DM = DM_z(z, params)
     return (z * DH * DM**2) ** (1 / 3)
 
 
-def model_predictions(params):
-    r_d = params[1]
-    predictions = []
-    for z, _, quantity in data:
-        if quantity == "DV_over_rs":
-            predictions.append(DV_z(z, params) / (r_d * H0))
-        elif quantity == "DM_over_rs":
-            predictions.append(DM_z(z, params) / (r_d * H0))
-        elif quantity == "DH_over_rs":
-            predictions.append((c / H_z(z, params)) / (r_d * H0))
-    return np.array(predictions)
+bao_quantity_funcs = {
+    "DV_over_rs": DV_z,
+    "DM_over_rs": DM_z,
+    "DH_over_rs": DH_z,
+}
+
+
+def bao_predictions(params):
+    return np.array(
+        [
+            bao_quantity_funcs[qty](z, params) / params[1]
+            for z, qty in zip(bao_data["z"], bao_data["quantity"])
+        ]
+    )
 
 
 bounds = np.array(
@@ -117,11 +115,11 @@ bounds = np.array(
 
 
 def chi_squared(params):
-    delta_sn = distance_moduli_values - model_distance_modulus(params)
+    delta_sn = mu_values - distance_modulus(params)
     chi_sn = np.dot(delta_sn, cho_solve(cho_sn, delta_sn))
 
-    delta_bao = data["value"] - model_predictions(params)
-    chi_bao = np.dot(delta_bao, np.dot(inv_cov_matrix, delta_bao))
+    delta_bao = bao_data["value"] - bao_predictions(params)
+    chi_bao = np.dot(delta_bao, cho_solve(cho_bao, delta_bao))
     return chi_sn + chi_bao
 
 
@@ -166,33 +164,31 @@ def main():
     samples = sampler.get_chain(discard=burn_in, flat=True)
 
     [
-        [delta_M_16, delta_M_50, delta_M_84],
+        [dM_16, dM_50, dM_84],
         [rd_16, rd_50, rd_84],
-        [omega_16, omega_50, omega_84],
+        [Om_16, Om_50, Om_84],
         [w0_16, w0_50, w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = [delta_M_50, rd_50, omega_50, w0_50]
+    best_fit = [dM_50, rd_50, Om_50, w0_50]
 
-    print(
-        f"ΔM: {delta_M_50:.4f} +{(delta_M_84 - delta_M_50):.4f} -{(delta_M_50 - delta_M_16):.4f}"
-    )
+    print(f"ΔM: {dM_50:.4f} +{(dM_84 - dM_50):.4f} -{(dM_50 - dM_16):.4f}")
     print(f"r_d: {rd_50:.4f} +{(rd_84 - rd_50):.4f} -{(rd_50 - rd_16):.4f}")
-    print(
-        f"Ωm: {omega_50:.4f} +{(omega_84 - omega_50):.4f} -{(omega_50 - omega_16):.4f}"
-    )
+    print(f"Ωm: {Om_50:.4f} +{(Om_84 - Om_50):.4f} -{(Om_50 - Om_16):.4f}")
     print(f"w0: {w0_50:.4f} +{(w0_84 - w0_50):.4f} -{(w0_50 - w0_16):.4f}")
     print(f"Chi squared: {chi_squared(best_fit):.4f}")
-    print(f"Degrees of freedom: {data['value'].size + z_vals.size - len(best_fit)}")
+    print(
+        f"Degrees of freedom: {bao_data['value'].size + z_cmb_vals.size - len(best_fit)}"
+    )
 
     plot_bao_predictions(best_fit)
     plot_sn_predictions(
-        legend=legend,
-        x=z_vals,
-        y=distance_moduli_values,
+        legend=sn_legend,
+        x=z_cmb_vals,
+        y=mu_values,
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=model_distance_modulus(best_fit),
-        label=f"Best fit: $\Omega_m$={omega_50:.4f}",
+        y_model=distance_modulus(best_fit),
+        label=f"Best fit: $\Omega_m$={Om_50:.4f}",
         x_scale="log",
     )
 
