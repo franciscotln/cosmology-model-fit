@@ -1,4 +1,5 @@
 # Source: https://raw.githubusercontent.com/PantheonPlusSH0ES/DataRelease/main/Pantheon%2B_Data/4_DISTANCES_AND_COVAR/Pantheon%2BSH0ES.dat
+# https://arxiv.org/pdf/2202.04077
 import os
 import pandas as pd
 import numpy as np

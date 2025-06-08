@@ -24,8 +24,7 @@ one_plus_z = 1 + z_grid
 
 
 # Flat
-def integral_E_z(params):
-    O_m, w0 = params[2], params[3]
+def integral_E_z(O_m, w0=-1):
     O_de = 1 - O_m
     evolving_de = ((2 * one_plus_z**2) / (1 + one_plus_z**2)) ** (3 * (1 + w0))
     H_over_H0 = np.sqrt(O_m * one_plus_z**3 + O_de * evolving_de)
@@ -34,15 +33,13 @@ def integral_E_z(params):
 
 
 def model_mu(params):
-    h0 = params[1]
-    luminosity_distance = (c / h0) * (1 + z_hel_values) * integral_E_z(params)
-    return 25 + 5 * np.log10(luminosity_distance)
+    H0 = params[1]
+    return 25 + 5 * np.log10((c / H0) * (1 + z_hel_values) * integral_E_z(*params[2:]))
 
 
 def chi_squared(params):
-    M = params[0]
     mu_theory = np.where(cepheids_mask, cepheid_distances, model_mu(params))
-    apparent_mag_theory = mu_theory + M
+    apparent_mag_theory = mu_theory + params[0]
     delta = apparent_mag_values - apparent_mag_theory
     return np.dot(delta, cho_solve(cho, delta))
 
@@ -54,7 +51,7 @@ def log_likelihood(params):
 bounds = np.array(
     [
         (-20, -19),  # M
-        (40, 100),  # h0
+        (40, 100),  # H0
         (0, 1),  # Ωm
         (-2, 0),  # w0
     ]
@@ -111,13 +108,9 @@ def main():
         - np.where(cepheids_mask, cepheid_distances, predicted_mu_values)
     )
 
-    skewness = stats.skew(residuals)
-    kurtosis = stats.kurtosis(residuals)
-
     # Compute R-squared
-    average_distance_modulus = np.mean(apparent_mag_values)
     ss_res = np.sum(residuals**2)
-    ss_tot = np.sum((apparent_mag_values - average_distance_modulus) ** 2)
+    ss_tot = np.sum((apparent_mag_values - np.mean(apparent_mag_values)) ** 2)
     r_squared = 1 - (ss_res / ss_tot)
 
     # Compute root mean square deviation
@@ -136,8 +129,8 @@ def main():
     print_color("w0", w0_label)
     print_color("R-squared (%)", f"{100 * r_squared:.2f}")
     print_color("RMSD (mag)", f"{rmsd:.3f}")
-    print_color("Skewness of residuals", f"{skewness:.3f}")
-    print_color("kurtosis of residuals", f"{kurtosis:.3f}")
+    print_color("Skewness of residuals", f"{stats.skew(residuals):.3f}")
+    print_color("kurtosis of residuals", f"{stats.kurtosis(residuals):.3f}")
     print_color("Chi squared", f"{chi_squared(best_fit_params):.2f}")
 
     labels = ["M", "$H_0$", "$\Omega_M$", "$w_0$"]
@@ -174,7 +167,7 @@ def main():
         y=apparent_mag_values - M_50,
         y_err=sigma_distance_moduli,
         y_model=predicted_mu_values,
-        label=f"H0={h0_50:.2f} km/s/Mpc, w0={w0_50:.4f}",
+        label=f"H0={h0_50:.2f} km/s/Mpc",
         x_scale="log",
     )
 
@@ -194,7 +187,7 @@ Sample size: 1657
 *****************************
 
 ΛCDM
-M: -19.2437 +0.0292/-0.0297
+M: -19.24 +0.03/-0.03 mag
 H0 (km/s/Mpc): 73.5 +- 1.0
 Ωm: 0.332 +0.018/-0.018
 w0: -1
@@ -208,28 +201,28 @@ Chi squared: 1452.02
 =============================
 
 wCDM
-M: -19.243 +0.029/-0.029
-H0 (km/s/Mpc): 73.46 +1.02/-1.00
-Ωm: 0.298 +0.062/-0.077
-w0: -0.91 +0.14/-0.16
+M: -19.24 +0.03/-0.03 mag
+H0 (km/s/Mpc): 73.5 +1.0/-1.0 km/s/Mpc
+Ωm: 0.301 +0.062/-0.075
+w0: -0.92 +0.14/-0.16
 wa: 0
 R-squared (%): 99.78
 RMSD (mag): 0.153
 Skewness of residuals: 0.076
 kurtosis of residuals: 1.561
-Chi squared: 1451.69
+Chi squared: 1451.70
 
 =============================
 
 Flat w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-M: -19.243 +0.030/-0.030
-H0 (km/s/Mpc): 73.5 +- 1.0
-Ωm: 0.312 +0.047/-0.050
-w0: -0.93 +0.12/-0.15
+M: -19.24 +0.03/-0.03 mag
+H0 (km/s/Mpc): 73.5 +1.0/-1.0 km/s/Mpc
+Ωm: 0.311 +0.048/-0.051
+w0: -0.93 +0.13/-0.15
 wa: 0
 R-squared (%): 99.78
 RMSD (mag): 0.153
 Skewness of residuals: 0.077
-kurtosis of residuals: 1.561
+kurtosis of residuals: 1.560
 Chi squared: 1451.71
 """
