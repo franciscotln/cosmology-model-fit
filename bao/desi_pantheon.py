@@ -9,36 +9,33 @@ from y2025BAO.data import get_data as get_bao_data
 from y2022pantheonSHOES.data import get_data
 from hubble.plotting import plot_predictions as plot_sn_predictions
 
-legend, z_sn_vals, z_hel_vals, mb_vals, cov_matrix_sn = get_data()
+legend, z_cmb, z_hel, mb_vals, cov_matrix_sn = get_data()
 bao_legend, data, bao_cov_matrix = get_bao_data()
 cho_sn = cho_factor(cov_matrix_sn)
 cho_bao = cho_factor(bao_cov_matrix)
 
 c = 299792.458  # Speed of light in km/s
-H0 = 70.0  # Hubble constant in km/s/Mpc
 
 
-def h_over_h0(z, params):
-    O_m, w0 = params[2], params[3]
+def Ez(z, O_m, w0=-1):
     one_plus_z = 1 + z
     evolving_de = ((2 * one_plus_z**2) / (1 + one_plus_z**2)) ** (3 * (1 + w0))
     return np.sqrt(O_m * one_plus_z**3 + (1 - O_m) * evolving_de)
 
 
-z_grid = np.linspace(0, np.max(z_sn_vals), num=2000)
+grid = np.linspace(0, np.max(z_cmb), num=2000)
 
 
-def integral_e_z(params):
-    integral_values = cumulative_trapezoid(
-        1 / h_over_h0(z_grid, params), z_grid, initial=0
-    )
-    return np.interp(z_sn_vals, z_grid, integral_values)
+def integral_Ez(params):
+    x = grid
+    y = 1 / Ez(grid, *params[3:])
+    return np.interp(z_cmb, x, cumulative_trapezoid(y=y, x=x, initial=0))
 
 
 def apparent_mag(params):
-    M0 = params[1]
-    luminosity_distance = (1 + z_hel_vals) * (c / H0) * integral_e_z(params)
-    return M0 + 25 + 5 * np.log10(luminosity_distance)
+    M, H0 = params[1], params[2]
+    dL = (1 + z_hel) * (c / H0) * integral_Ez(params)
+    return M + 25 + 5 * np.log10(dL)
 
 
 def plot_bao_predictions(params):
@@ -79,7 +76,7 @@ def plot_bao_predictions(params):
 
 
 def H_z(z, params):
-    return H0 * h_over_h0(z, params)
+    return params[2] * Ez(z, *params[3:])
 
 
 def DH_z(z, params):
@@ -110,8 +107,9 @@ def bao_predictions(params):
 
 bounds = np.array(
     [
-        (115, 160),  # r_d
+        (120, 160),  # r_d
         (-20, -19),  # M
+        (50, 80),  # H0
         (0.2, 0.7),  # Ωm
         (-2, 0),  # w0
     ]
@@ -127,9 +125,10 @@ def chi_squared(params):
     return chi_sn + chi_bao
 
 
+# Prior for r_d from Planck 2018 https://arxiv.org/abs/1807.06209
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
-        return 0.0
+        return -0.5 * ((147.09 - params[0]) / 0.26) ** 2
     return -np.inf
 
 
@@ -146,9 +145,9 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 16 * ndim
+    nwalkers = 10 * ndim
     burn_in = 500
-    nsteps = 8000 + burn_in
+    nsteps = 10000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):
@@ -170,33 +169,33 @@ def main():
     [
         [rd_16, rd_50, rd_84],
         [M_16, M_50, M_84],
-        [omega_16, omega_50, omega_84],
+        [H0_16, H0_50, H0_84],
+        [Om_16, Om_50, Om_84],
         [w0_16, w0_50, w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = [rd_50, M_50, omega_50, w0_50]
+    best_fit = [rd_50, M_50, H0_50, Om_50, w0_50]
 
     print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f}")
     print(f"M0: {M_50:.3f} +{(M_84 - M_50):.3f} -{(M_50 - M_16):.3f}")
-    print(
-        f"Ωm: {omega_50:.3f} +{(omega_84 - omega_50):.3f} -{(omega_50 - omega_16):.3f}"
-    )
+    print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f}")
+    print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
-    print(f"Degrees of freedom: {data['z'].size + z_sn_vals.size - len(best_fit)}")
+    print(f"Degrees of freedom: {data['z'].size + z_cmb.size - len(best_fit)}")
 
     plot_bao_predictions(best_fit)
     plot_sn_predictions(
         legend=legend,
-        x=z_sn_vals,
+        x=z_cmb,
         y=mb_vals,
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=apparent_mag(best_fit),
-        label=f"Best fit: $\Omega_m$={omega_50:.3f}",
+        label=f"Best fit: $\Omega_m$={Om_50:.3f}",
         x_scale="log",
     )
 
-    labels = ["$r_d$", "$M_0$", "$\Omega_m$", "$w_0$"]
+    labels = ["$r_d$", "$M_0$", "$H_0$", "$\Omega_m$", "$w_0$"]
     corner.corner(
         samples,
         labels=labels,
@@ -229,44 +228,48 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM
-r_d: 144.29 +0.96 -0.96 Mpc
-M0: -19.360 +0.005 -0.005 mag
+r_d: 147.09 +0.26 -0.26
+M0: -19.402 +0.013 -0.013
+H0: 68.66 +0.48 -0.47
 Ωm: 0.304 +0.008 -0.008
 w0: -1
 wa: 0
 Chi squared: 1416.14
-Degrees of freedom: 1600
+Degrees of freedom: 1599
 
 ====================
 
 Flat wCDM
-r_d: 142.60 +1.24 -1.25 Mpc
-M0: -19.348 +0.007 -0.007 mag
-Ωm: 0.2977 +0.0086 -0.0085
-w0: -0.916 +0.039 -0.039 (2.13 sigma)
+r_d: 147.09 +0.26 -0.26 Mpc
+M0: -19.416 +0.015 -0.015 mag
+H0: 67.83 +0.61 -0.60 km/s/Mpc
+Ωm: 0.298 +0.009 -0.009
+w0: -0.914 +0.040 -0.040 (2.15 sigma)
 wa: 0
-Chi squared: 1412.41
-Degrees of freedom: 1599
+Chi squared: 1411.54
+Degrees of freedom: 1598
 
 ====================
 
 Flat w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-r_d: 142.44 +1.27 -1.24 Mpc
-M0: -19.346 +0.008 -0.008 mag
+r_d: 147.09 +0.26 -0.26 Mpc
+M0: -19.416 +0.015 -0.015 mag
+H0: 67.79 +0.61 -0.61 km/s/Mpc
 Ωm: 0.302 +0.008 -0.008
-w0: -0.903 +0.044 -0.044 (2.2 sigma)
+w0: -0.901 +0.044 -0.044 (2.25 sigma)
 wa: 0
-Chi squared: 1411.32
-Degrees of freedom: 1599
+Chi squared: 1411.31
+Degrees of freedom: 1598
 
 ====================
 
 Flat w0waCDM
-r_d: 142.56 +1.26 -1.27 Mpc
-M0: -19.346 +0.009 -0.009 mag
-Ωm: 0.3021 +0.0154 -0.0228
-w0: -0.8964 +0.0607 -0.0561 (1.77 sigma)
-wa: -0.1376 +0.4676 -0.4503 (0.30 sigma)
-Chi squared: 1412.36
-Degrees of freedom: 1598
+r_d: 147.08 +0.26 -0.26 Mpc
+M0: -19.415 +0.015 -0.015 mag
+H0: 67.80 +0.61 -0.61 km/s/Mpc
+Ωm: 0.303 +0.016 -0.024
+w0: -0.892 +0.062 -0.056 (1.74 - 1.93 sigma)
+wa: 0.162 +0.495 - 0.454 (0.33 - 0.36 sigma)
+Chi squared: 1411.36
+Degrees of freedom: 1597
 """
