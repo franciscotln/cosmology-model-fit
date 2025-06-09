@@ -1,4 +1,3 @@
-from pyexpat import model
 import numpy as np
 import emcee
 import corner
@@ -16,35 +15,32 @@ cho_sn = cho_factor(cov_matrix_sn)
 cho_bao = cho_factor(bao_cov_matrix)
 
 c = 299792.458  # Speed of light in km/s
-H0 = 70  # Hubble constant in km/s/Mpc
 
 
 def h_over_h0(z, params):
-    O_m, w0 = params[2], params[3]
+    O_m, w0 = params[3], params[4]
     one_plus_z = 1 + z
     evolving_de = ((2 * one_plus_z**2) / (1 + one_plus_z**2)) ** (3 * (1 + w0))
     return np.sqrt(O_m * one_plus_z**3 + (1 - O_m) * evolving_de)
 
 
-z_grid = np.linspace(0, np.max(z_sn_vals), num=2000)
+grid = np.linspace(0, np.max(z_sn_vals), num=2000)
 
 
 def integral_of_e_z(params):
-    integral_values = cumulative_trapezoid(
-        1 / h_over_h0(z_grid, params), z_grid, initial=0
-    )
-    return np.interp(z_sn_vals, z_grid, integral_values)
+    integral_values = cumulative_trapezoid(1 / h_over_h0(grid, params), grid, initial=0)
+    return np.interp(z_sn_vals, grid, integral_values)
 
 
 def distance_modulus(params):
-    delta_M = params[0]
-    a0_over_ae = 1 + z_sn_vals
-    comoving_distance = (c / H0) * integral_of_e_z(params)
-    return delta_M + 25 + 5 * np.log10(a0_over_ae * comoving_distance)
+    dM = params[0]
+    H0 = params[2]
+    dL = (1 + z_sn_vals) * (c / H0) * integral_of_e_z(params)
+    return dM + 25 + 5 * np.log10(dL)
 
 
 def H_z(z, params):
-    return H0 * h_over_h0(z, params)
+    return params[2] * h_over_h0(z, params)
 
 
 def DH_z(z, params):
@@ -110,7 +106,8 @@ bounds = np.array(
     [
         (-0.6, 0.6),  # delta M
         (115, 160),  # r_d
-        (0.2, 0.7),  # omega_m
+        (50, 80),  # H0
+        (0.2, 0.7),  # Ωm
         (-3, 1),  # w0
     ]
 )
@@ -125,9 +122,10 @@ def chi_squared(params):
     return chi_sn + chi_bao
 
 
+# Prior for r_d from Planck 2018 https://arxiv.org/abs/1807.06209
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
-        return 0.0
+        return -0.5 * ((147.09 - params[1]) / 0.26) ** 2
     return -np.inf
 
 
@@ -166,21 +164,19 @@ def main():
     samples = sampler.get_chain(discard=burn_in, flat=True)
 
     [
-        [delta_M_16, delta_M_50, delta_M_84],
+        [dM_16, dM_50, dM_84],
         [rd_16, rd_50, rd_84],
-        [omega_16, omega_50, omega_84],
+        [H0_16, H0_50, H0_84],
+        [Om_16, Om_50, Om_84],
         [w0_16, w0_50, w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = [delta_M_50, rd_50, omega_50, w0_50]
+    best_fit = [dM_50, rd_50, H0_50, Om_50, w0_50]
 
-    print(
-        f"ΔM: {delta_M_50:.3f} +{(delta_M_84 - delta_M_50):.3f} -{(delta_M_50 - delta_M_16):.3f}"
-    )
+    print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f}")
     print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f}")
-    print(
-        f"Ωm: {omega_50:.3f} +{(omega_84 - omega_50):.3f} -{(omega_50 - omega_16):.3f}"
-    )
+    print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f}")
+    print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.4f}")
     print(
@@ -194,11 +190,11 @@ def main():
         y=mu_vals,
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=distance_modulus(best_fit),
-        label=f"Best fit: $\Omega_m$={omega_50:.3f}, $w_0$={w0_50:.3f}",
+        label=f"Best fit: $\Omega_m$={Om_50:.3f}",
         x_scale="log",
     )
 
-    labels = ["$\Delta_M$", "$r_d$", "$\Omega_m$", "$w_0$"]
+    labels = ["$\Delta_M$", "$r_d$", "$H_0$", "$\Omega_m$", "$w_0$"]
     corner.corner(
         samples,
         labels=labels,
@@ -231,44 +227,36 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM model
-ΔM: -0.0755 +0.0880 -0.0895 mag
-r_d: 144.3352 +1.0044 -1.0057 Mpc
-Ωm: 0.3039 +0.0084 -0.0083
+ΔM: -0.119 +0.089 -0.090 mag
+r_d: 147.09 +0.26 -0.26 Mpc
+H0: 68.70 +0.49 -0.49 km/s/Mpc
+Ωm: 0.304 +0.008 -0.008
 w0: -1
 wa: 0
-Chi squared: 38.8156
-Degrees of freedom: 32
+Chi squared: 38.8148
+Degrees of freedom: 31
 
 =============================
 
 Flat wCDM
-ΔM: -0.065 +0.088 -0.088 mag
-r_d: 141.06 +1.57 -1.56 Mpc
+ΔM: -0.156 +0.091 -0.091 mag
+r_d: 147.09 +0.26 -0.26 Mpc
+H0: 67.12 +0.76 -0.75 km/s/Mpc
 Ωm: 0.298 +0.009 -0.009
-w0: -0.866 +0.050 -0.051 (2.63 sigma)
+w0: -0.865 +0.051 -0.052
 wa: 0
-Chi squared: 32.1547
-Degrees of freedom: 31
+Chi squared: 32.1534
+Degrees of freedom: 30
 
 ==============================
 
 Flat w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-ΔM: -0.060 +0.089 -0.089 mag
-r_d: 140.44 +1.70 -1.66 Mpc
+ΔM: -0.161 +0.091 -0.090 mag
+r_d: 147.09 +0.26 -0.26 Mpc
+H0: 66.84 +0.81 -0.80 km/s/Mpc
 Ωm: 0.306 +0.009 -0.008
-w0: -0.830 +0.059 -0.060 (2.83 - 2.88 sigma)
+w0: -0.830 +0.059 -0.060
 wa: 0
-Chi squared: 30.9566
-Degrees of freedom: 31
-
-=============================
-
-Flat w0waCDM
-ΔM: -0.0455 +0.0895 -0.0899 mag
-r_d: 139.0781 +1.8874 -1.8501 Mpc
-Ωm: 0.3310 +0.0154 -0.0179
-w0: -1.7117 +0.4692 -0.4614 (1.53 sigma)
-wa: -1.0165 +0.5654 -0.5614 (1.80 sigma)
-Chi squared: 28.7904
+Chi squared: 30.9523
 Degrees of freedom: 30
 """
