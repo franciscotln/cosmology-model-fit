@@ -9,36 +9,32 @@ from y2024DES.data import get_data
 from y2025BAO.data import get_data as get_bao_data
 from hubble.plotting import plot_predictions as plot_sn_predictions
 
-sn_legend, z_cmb_vals, z_hel_vals, mu_values, cov_matrix_sn = get_data()
+sn_legend, z_cmb, z_hel, mu_values, cov_matrix_sn = get_data()
 cho_sn = cho_factor(cov_matrix_sn)
 bao_legend, bao_data, cov_matrix_bao = get_bao_data()
 cho_bao = cho_factor(cov_matrix_bao)
 
 c = 299792.458  # Speed of light in km/s
-H0 = 70  # Hubble constant in km/s/Mpc as per DES5Y
 
 
-def h_over_h0(z, params):
-    O_m, w0 = params[2], params[3]
+def Ez(z, Om, w0=-1, wa=0):
     one_plus_z = 1 + z
     evolving_de = ((2 * one_plus_z**2) / (1 + one_plus_z**2)) ** (3 * (1 + w0))
-    return np.sqrt(O_m * one_plus_z**3 + (1 - O_m) * evolving_de)
+    return np.sqrt(Om * one_plus_z**3 + (1 - Om) * evolving_de)
 
 
-z_grid_sn = np.linspace(0, np.max(z_cmb_vals), num=2000)
+grid = np.linspace(0, np.max(z_cmb), num=2000)
 
 
 def integral_Ez(params):
-    integral_values = cumulative_trapezoid(
-        1 / h_over_h0(z_grid_sn, params), z_grid_sn, initial=0
-    )
-    return np.interp(z_cmb_vals, z_grid_sn, integral_values)
+    x = grid
+    y = 1 / Ez(grid, *params[3:])
+    return np.interp(z_cmb, grid, cumulative_trapezoid(y=y, x=x, initial=0))
 
 
-def distance_modulus(params):
-    return (
-        params[0] + 25 + 5 * np.log10((1 + z_hel_vals) * (c / H0) * integral_Ez(params))
-    )
+def theory_mu(params):
+    dM, H0 = params[0], params[2]
+    return dM + 25 + 5 * np.log10((1 + z_hel) * (c / H0) * integral_Ez(params))
 
 
 def plot_bao_predictions(params):
@@ -71,7 +67,7 @@ def plot_bao_predictions(params):
 
 
 def H_z(z, params):
-    return H0 * h_over_h0(z, params)
+    return params[2] * Ez(z, *params[3:])
 
 
 def DH_z(z, params):
@@ -108,14 +104,15 @@ bounds = np.array(
     [
         (-0.5, 0.5),  # delta M
         (115, 160),  # r_d
-        (0.1, 0.7),  # omega_m
+        (50, 80),  # H0
+        (0.1, 0.7),  # Ωm
         (-3, 0),  # w0
     ]
 )
 
 
 def chi_squared(params):
-    delta_sn = mu_values - distance_modulus(params)
+    delta_sn = mu_values - theory_mu(params)
     chi_sn = np.dot(delta_sn, cho_solve(cho_sn, delta_sn))
 
     delta_bao = bao_data["value"] - bao_predictions(params)
@@ -123,9 +120,10 @@ def chi_squared(params):
     return chi_sn + chi_bao
 
 
+# Prior for r_d from Planck 2018 https://arxiv.org/abs/1807.06209
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
-        return 0.0
+        return -0.5 * ((147.09 - params[1]) / 0.26) ** 2
     return -np.inf
 
 
@@ -166,33 +164,33 @@ def main():
     [
         [dM_16, dM_50, dM_84],
         [rd_16, rd_50, rd_84],
+        [H0_16, H0_50, H0_84],
         [Om_16, Om_50, Om_84],
         [w0_16, w0_50, w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = [dM_50, rd_50, Om_50, w0_50]
+    best_fit = [dM_50, rd_50, H0_50, Om_50, w0_50]
 
-    print(f"ΔM: {dM_50:.4f} +{(dM_84 - dM_50):.4f} -{(dM_50 - dM_16):.4f}")
-    print(f"r_d: {rd_50:.4f} +{(rd_84 - rd_50):.4f} -{(rd_50 - rd_16):.4f}")
-    print(f"Ωm: {Om_50:.4f} +{(Om_84 - Om_50):.4f} -{(Om_50 - Om_16):.4f}")
-    print(f"w0: {w0_50:.4f} +{(w0_84 - w0_50):.4f} -{(w0_50 - w0_16):.4f}")
-    print(f"Chi squared: {chi_squared(best_fit):.4f}")
-    print(
-        f"Degrees of freedom: {bao_data['value'].size + z_cmb_vals.size - len(best_fit)}"
-    )
+    print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f}")
+    print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f}")
+    print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f}")
+    print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
+    print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
+    print(f"Chi squared: {chi_squared(best_fit):.2f}")
+    print(f"Degrees of freedom: {bao_data['value'].size + z_cmb.size - len(best_fit)}")
 
     plot_bao_predictions(best_fit)
     plot_sn_predictions(
         legend=sn_legend,
-        x=z_cmb_vals,
+        x=z_cmb,
         y=mu_values,
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=distance_modulus(best_fit),
-        label=f"Best fit: $\Omega_m$={Om_50:.4f}",
+        y_model=theory_mu(best_fit),
+        label=f"Model: $\Omega_m$={Om_50:.3f}",
         x_scale="log",
     )
 
-    labels = ["$\Delta_M$", "$r_d$", "$\Omega_m$", "$w_0$"]
+    labels = ["$\Delta_M$", "$r_d$", "$H_0$", "$\Omega_m$", "$w_0$"]
     corner.corner(
         samples,
         labels=labels,
@@ -226,44 +224,48 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM
-ΔM: -0.0040 +0.0065 -0.0065
-r_d: 143.6251 +0.9391 -0.9443 Mpc
-Ωm: 0.3104 +0.0081 -0.0079
+ΔM: -0.056 +0.011 -0.011 mag
+r_d: 147.09 +0.26 -0.26 Mpc
+H0: 68.36 +0.46 -0.46 km/s/Mpc
+Ωm: 0.310 +0.008 -0.008
 w0: -1
 wa: 0
-Chi squared: 1658.9659
-Degrees of freedom: 1839
+Chi squared: 1658.97
+Degrees of freedom: 1838
 
 ==============================
 
 Flat wCDM
-ΔM: 0.0256 +0.0108 -0.0110
-r_d: 141.2230 +1.1841 -1.1620 Mpc
-Ωm: 0.2979 +0.0090 -0.0090
-w0: -0.8709 +0.0382 -0.0388 (3.33 - 3.38 sigma)
+ΔM: -0.063 +0.011 -0.011 mag
+r_d: 147.08 +0.26 -0.26 Mpc
+H0: 67.21 +0.57 -0.56 km/s/Mpc
+Ωm: 0.298 +0.009 -0.009
+w0: -0.871 +0.038 -0.039 (3.31 - 3.39 sigma)
 wa: 0
-Chi squared: 1648.0923
-Degrees of freedom: 1838
+Chi squared: 1648.10
+Degrees of freedom: 1837
 
 ===============================
 
 Flat w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-ΔM: 0.0298 +0.0117 -0.0115
-r_d: 141.0102 +1.1880 -1.1929 Mpc
-Ωm: 0.3053 +0.0081 -0.0080
-w0: -0.8503 +0.0418 -0.0426 (3.51 - 3.58 sigma)
+ΔM: -0.062 +0.012 -0.011 mag
+r_d: 147.09 +0.26 -0.26 Mpc
+H0: 67.10 +0.57 -0.57 km/s/Mpc
+Ωm: 0.305 +0.008 -0.008
+w0: -0.849 +0.041 -0.042 (3.60 - 3.68 sigma)
 wa: 0
-Chi squared: 1646.9805
-Degrees of freedom: 1838
+Chi squared: 1646.98
+Degrees of freedom: 1837
 
-==============================
+===============================
 
 Flat w0waCDM
-ΔM: 0.0374 +0.0138 -0.0140
-r_d: 140.8937 +1.2340 -1.1907 Mpc
-Ωm: 0.3199 +0.0132 -0.0167
-w0: -0.7942 +0.0733 -0.0685 (2.9 sigma)
-wa: -0.6713 +0.4795 -0.4728 (1.41 sigma)
-Chi squared: 1646.1246
-Degrees of freedom: 1837
+ΔM: -0.057 +0.012 -0.012 mag
+r_d: 147.09 +0.26 -0.26 Mpc
+H0: 66.97 +0.59 -0.58 km/s/Mpc
+Ωm: 0.321 +0.013 -0.015
+w0: -0.784 +0.074 -0.068 (2.92 - 3.18 sigma)
+wa: -0.723 +0.461/-0.456 (1.57 - 1.59 sigma)
+Chi squared: 1645.47
+Degrees of freedom: 1836
 """
