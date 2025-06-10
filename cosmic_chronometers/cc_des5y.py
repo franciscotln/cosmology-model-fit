@@ -19,14 +19,14 @@ c = 299792.458  # Speed of light in km/s
 grid = np.linspace(0, np.max(z_cmb), num=2000)
 
 
-def h_over_h0(z, O_m, w0=-1):
+def Ez(z, O_m, w0=-1):
     sum = 1 + z
     evolving_de = ((2 * sum**2) / (1 + sum**2)) ** (3 * (1 + w0))
     return np.sqrt(O_m * sum**3 + (1 - O_m) * evolving_de)
 
 
 def integral_Ez(params):
-    integral = cumulative_trapezoid(1 / h_over_h0(grid, *params[2:]), grid, initial=0)
+    integral = cumulative_trapezoid(1 / Ez(grid, *params[2:]), grid, initial=0)
     return np.interp(z_cmb, grid, integral)
 
 
@@ -36,7 +36,7 @@ def theory_mu(params):
 
 
 def H_z(z, params):
-    return params[1] * h_over_h0(z, *params[2:])
+    return params[1] * Ez(z, *params[2:])
 
 
 def plot_cc_predictions(params):
@@ -150,7 +150,7 @@ def main():
 
     corner.corner(
         samples,
-        labels=["ΔM", "$H_0$", "Ωm"],  # , "$w_0$"],
+        labels=["ΔM", "$H_0$", "Ωm", "$w_0$"],
         quantiles=[0.159, 0.5, 0.841],
         show_titles=True,
         title_fmt=".3f",
@@ -170,35 +170,34 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM: w(z) = -1
-ΔM: -0.112 +0.103 -0.111 mag
-H0: 65.9 +3.3 -3.3 km/s/Mpc
-Ωm: 0.351 +0.017 -0.016
+ΔM: -0.117 +0.103 -0.106 mag
+H0: 65.7 +3.3 -3.2 km/s/Mpc
+Ωm: 0.350 +0.017 -0.016
 w0: -1
 wa: 0
-Chi squared: 1654.76
+Chi squared: 1654.77
 Degrees of freedom: 1764
 
 ==============================
 
 Flat wCDM: w(z) = w0
-ΔM: -0.066 +0.114 -0.115 mag
-H0: 67.0 +3.6 -3.5 km/s/Mpc
-Ωm: 0.295 +0.052 -0.060
-w0: -0.855 +0.113 -0.128 (1.13 - 1.28 sigma)
+ΔM: -0.070 +0.112 -0.115 mag
+H0: 66.9 +3.5 -3.5 km/s/Mpc
+Ωm: 0.299 +0.050 -0.059
+w0: -0.862 +0.113 -0.123
 wa: 0
-Chi squared: 1653.44
+Chi squared: 1653.57
 Degrees of freedom: 1763
 
 ==============================
 
 Flat alternative: w(z) = w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-ΔM: -0.062 +0.110 -0.115 mag
-H0: 67.1 +3.5 -3.4 km/s/Mpc
-Ωm: 0.308 +0.039 -0.040
-w0: -0.855 +0.103 -0.118 (1.23 - 1.41 sigma)
+ΔM: -0.068 +0.109 -0.116 mag
+H0: 66.9 +3.5 -3.5 km/s/Mpc
+Ωm: 0.310 +0.039 -0.040
+w0: -0.860 +0.103 -0.117
 wa: 0
-Chi squared: 1653.11
-Degrees of freedom: 1763
+Chi squared: 1653.26
 
 ==============================
 
