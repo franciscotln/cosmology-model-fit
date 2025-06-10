@@ -159,42 +159,44 @@ https://arxiv.org/pdf/2307.09501
 *****************************
 
 Flat ΛCDM
-H0: 66.7 +5.4 -5.5 km/s/Mpc
-Ωm: 0.334 +0.079 -0.063
+H0: 66.3 +5.4 -5.4 km/s/Mpc
+Ωm: 0.338 +0.079 -0.063
 w0: -1
 wa: 0
-Chi squared: 14.54
+Chi squared: 14.59
+Log likelihood: -129.99
 Degs of freedom: 30
 
 ===============================
 
 Flat wCDM
-H0: 70.8 +10.4 -8.2
-Ωm: 0.307 +0.078 -0.068
-w0: -1.494 +0.689 -0.899
+H0: 71.4 +11.1 -8.6 km/s/Mpc
+Ωm: 0.306 +0.080 -0.068
+w0: -1.599 +0.734 -0.920
 wa: 0
-Chi squared: 15.03
-Log likelihood: -130.29
+Chi squared: 14.90
+Log likelihood: -130.15
 Degs of freedom: 29
 
 ===============================
 
 Flat w(z) = w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-H0: 71.4 +11.0 -9.1 km/s/Mpc
-Ωm: 0.305 +0.080 -0.064
-w0: -1.570 +0.786 -0.973
+H0: 72.0 +11.3 -9.3 km/s/Mpc
+Ωm: 0.304 +0.081 -0.065
+w0: -1.683 +0.821 -0.965
 wa: 0
-Chi squared: 14.61
-Log likelihood: -130.08
+Chi squared: 14.47
+Log likelihood: -129.94
 Degs of freedom: 29
 
 =============================
 
 Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
-H0: 71.5 +11.2 -9.2 km/s/Mpc
-Ωm: 0.316 +0.102 -0.086
-w0: -1.562 +0.869 -0.993
-wa: -0.612 +2.848 -2.973
-Chi squared: 15.00
+H0: 72.6 +11.6 -9.6
+Ωm: 0.310 +0.102 -0.082
+w0: -1.705 +0.901 -0.978
+wa: -0.583 +2.936 - 2.997 (unconstrained)
+Chi squared: 14.88
+Log likelihood: -130.14
 Degs of freedom: 28
 """
