@@ -125,10 +125,12 @@ def chi_squared(params):
     return chi_sn + chi_bao
 
 
-# Prior for r_d from Planck 2018 https://arxiv.org/abs/1807.06209
+# Prior from Planck 2018 https://arxiv.org/abs/1807.06209
+# Ωm x ​h^2 = 0.14237 ± 0.00135
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
-        return -0.5 * ((147.09 - params[0]) / 0.26) ** 2
+        Om_x_h2 = params[3] * (params[2] / 100) ** 2
+        return -0.5 * ((0.14237 - Om_x_h2) / 0.00135) ** 2
     return -np.inf
 
 
@@ -212,8 +214,6 @@ def main():
     plt.show()
 
     _, axes = plt.subplots(ndim, figsize=(10, 7))
-    if ndim == 1:
-        axes = [axes]
     for i in range(ndim):
         axes[i].plot(chains_samples[:, :, i], color="black", alpha=0.3)
         axes[i].set_ylabel(labels[i])
@@ -228,9 +228,9 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM
-r_d: 147.09 +0.26 -0.26
-M0: -19.402 +0.013 -0.013
-H0: 68.66 +0.48 -0.47
+r_d: 147.68 +1.33 -1.30 Mpc
+M0: -19.411 +0.028 -0.028 mag
+H0: 68.39 +0.95 -0.95 km/s/Mpc
 Ωm: 0.304 +0.008 -0.008
 w0: -1
 wa: 0
@@ -240,36 +240,24 @@ Degrees of freedom: 1599
 ====================
 
 Flat wCDM
-r_d: 147.09 +0.26 -0.26 Mpc
-M0: -19.416 +0.015 -0.015 mag
-H0: 67.83 +0.61 -0.60 km/s/Mpc
-Ωm: 0.298 +0.009 -0.009
-w0: -0.914 +0.040 -0.040 (2.15 sigma)
+r_d: 144.32 +2.10 -2.15 Mpc
+M0: -19.375 +0.034 -0.033 mag
+H0: 69.14 +1.07 -1.02 km/s/Mpc
+Ωm: 0.298 +0.009 -0.008
+w0: -0.914 +0.040 -0.040
 wa: 0
-Chi squared: 1411.54
+Chi squared: 1411.53
 Degrees of freedom: 1598
 
 ====================
 
 Flat w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-r_d: 147.09 +0.26 -0.26 Mpc
-M0: -19.416 +0.015 -0.015 mag
-H0: 67.79 +0.61 -0.61 km/s/Mpc
+r_d: 145.30 +1.71 -1.74 Mpc
+M0: -19.389 +0.030 -0.030 mag
+H0: 68.64 +0.96 -0.95 km/s/Mpc
 Ωm: 0.302 +0.008 -0.008
-w0: -0.901 +0.044 -0.044 (2.25 sigma)
+w0: -0.902 +0.043 -0.045
 wa: 0
-Chi squared: 1411.31
+Chi squared: 1411.32
 Degrees of freedom: 1598
-
-====================
-
-Flat w0waCDM
-r_d: 147.08 +0.26 -0.26 Mpc
-M0: -19.415 +0.015 -0.015 mag
-H0: 67.80 +0.61 -0.61 km/s/Mpc
-Ωm: 0.303 +0.016 -0.024
-w0: -0.892 +0.062 -0.056 (1.74 - 1.93 sigma)
-wa: 0.162 +0.495 - 0.454 (0.33 - 0.36 sigma)
-Chi squared: 1411.36
-Degrees of freedom: 1597
 """
