@@ -8,6 +8,7 @@ from multiprocessing import Pool
 from y2024DES.data import get_data, effective_sample_size
 from y2005cc.data import get_data as get_cc_data
 from hubble.plotting import plot_predictions as plot_sn_predictions
+from .plot_predictions import plot_predictions as plot_cc_predictions
 
 cc_legend, z_cc_vals, H_cc_vals, cov_matrix_cc = get_cc_data()
 sn_legend, z_cmb, z_hel, observed_mu_vals, cov_matrix_sn = get_data()
@@ -37,29 +38,6 @@ def theory_mu(params):
 
 def H_z(z, params):
     return params[1] * Ez(z, *params[2:])
-
-
-def plot_cc_predictions(params):
-    h0 = params[1]
-    z_smooth = np.linspace(0, max(z_cc_vals), 100)
-    plt.errorbar(
-        x=z_cc_vals,
-        y=H_cc_vals,
-        yerr=np.sqrt(np.diag(cov_matrix_cc)),
-        fmt=".",
-        color="blue",
-        alpha=0.4,
-        label="CCH data",
-        capsize=2,
-        linestyle="None",
-    )
-    plt.plot(z_smooth, H_z(z_smooth, params), color="green", alpha=0.5, label="Model")
-    plt.xlabel("Redshift (z)")
-    plt.ylabel("$H(z)$")
-    plt.xlim(0, np.max(z_cc_vals) + 0.2)
-    plt.legend()
-    plt.title(f"{cc_legend}: $H_0$={h0:.1f} km/s/Mpc")
-    plt.show()
 
 
 bounds = np.array(
@@ -137,7 +115,13 @@ def main():
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Degrees of freedom: {deg_of_freedom}")
 
-    plot_cc_predictions(best_fit)
+    plot_cc_predictions(
+        H_z=lambda z: H_z(z, best_fit),
+        z=z_cc_vals,
+        H=H_cc_vals,
+        H_err=np.sqrt(np.diag(cov_matrix_cc)),
+        label=f"{cc_legend}: $H_0$={h0_50:.1f} km/s/Mpc",
+    )
     plot_sn_predictions(
         legend=sn_legend,
         x=z_cmb,

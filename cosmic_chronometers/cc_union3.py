@@ -8,6 +8,7 @@ from multiprocessing import Pool
 from y2023union3.data import get_data as get_sn_data
 from y2005cc.data import get_data as get_cc_data
 from hubble.plotting import plot_predictions as plot_sn_predictions
+from .plot_predictions import plot_predictions as plot_cc_predictions
 
 legend_cc, z_cc_vals, H_cc_vals, cov_matrix_cc = get_cc_data()
 legend_sn, z_sn_vals, mu_vals, cov_matrix_sn = get_sn_data()
@@ -36,29 +37,6 @@ def mu_theory(params):
     dM, h0 = params[0], params[1]
     dL = (1 + z_sn_vals) * (c / h0) * integral_Ez(params)
     return dM + 25 + 5 * np.log10(dL)
-
-
-def plot_cc_predictions(params):
-    z_smooth = np.linspace(0, max(z_cc_vals), 100)
-    plt.figure(figsize=(8, 6))
-    plt.errorbar(
-        x=z_cc_vals,
-        y=H_cc_vals,
-        yerr=np.sqrt(np.diag(cov_matrix_cc)),
-        fmt=".",
-        color="blue",
-        alpha=0.4,
-        label="CC data",
-        capsize=2,
-        linestyle="None",
-    )
-    plt.plot(z_smooth, H_z(z_smooth, params), color="green", alpha=0.5)
-    plt.xlabel("Redshift (z)")
-    plt.ylabel(r"$H(z)$")
-    plt.xlim(0, np.max(z_cc_vals) + 0.2)
-    plt.legend()
-    plt.title(f"{legend_cc}: $H_0$={params[1]:.1f} km/s/Mpc")
-    plt.show()
 
 
 def H_z(z, params):
@@ -140,7 +118,13 @@ def main():
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Degrees of freedom: {deg_of_freedom}")
 
-    plot_cc_predictions(best_fit)
+    plot_cc_predictions(
+        H_z=lambda z: H_z(z, best_fit),
+        z=z_cc_vals,
+        H=H_cc_vals,
+        H_err=np.sqrt(np.diag(cov_matrix_cc)),
+        label=f"{legend_cc}: $H_0$={h0_50:.1f} km/s/Mpc",
+    )
     plot_sn_predictions(
         legend=legend_sn,
         x=z_sn_vals,
