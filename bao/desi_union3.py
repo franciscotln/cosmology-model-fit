@@ -17,7 +17,7 @@ cho_bao = cho_factor(bao_cov_matrix)
 c = 299792.458  # Speed of light in km/s
 
 
-def h_over_h0(z, params):
+def Ez(z, params):
     O_m, w0 = params[3], params[4]
     one_plus_z = 1 + z
     evolving_de = ((2 * one_plus_z**2) / (1 + one_plus_z**2)) ** (3 * (1 + w0))
@@ -28,7 +28,7 @@ grid = np.linspace(0, np.max(z_sn_vals), num=2000)
 
 
 def integral_of_e_z(params):
-    integral_values = cumulative_trapezoid(1 / h_over_h0(grid, params), grid, initial=0)
+    integral_values = cumulative_trapezoid(1 / Ez(grid, params), grid, initial=0)
     return np.interp(z_sn_vals, grid, integral_values)
 
 
@@ -40,7 +40,7 @@ def distance_modulus(params):
 
 
 def H_z(z, params):
-    return params[2] * h_over_h0(z, params)
+    return params[2] * Ez(z, params)
 
 
 def DH_z(z, params):
@@ -102,6 +102,15 @@ def plot_bao_predictions(params):
     plt.show()
 
 
+def chi_squared(params):
+    delta_sn = mu_vals - distance_modulus(params)
+    chi_sn = np.dot(delta_sn, cho_solve(cho_sn, delta_sn))
+
+    delta_bao = bao_data["value"] - bao_predictions(params)
+    chi_bao = np.dot(delta_bao, cho_solve(cho_bao, delta_bao))
+    return chi_sn + chi_bao
+
+
 bounds = np.array(
     [
         (-0.6, 0.6),  # delta M
@@ -113,19 +122,12 @@ bounds = np.array(
 )
 
 
-def chi_squared(params):
-    delta_sn = mu_vals - distance_modulus(params)
-    chi_sn = np.dot(delta_sn, cho_solve(cho_sn, delta_sn))
-
-    delta_bao = bao_data["value"] - bao_predictions(params)
-    chi_bao = np.dot(delta_bao, cho_solve(cho_bao, delta_bao))
-    return chi_sn + chi_bao
-
-
-# Prior for r_d from Planck 2018 https://arxiv.org/abs/1807.06209
+# Prior from Planck 2018 https://arxiv.org/abs/1807.06209
+# Ωm x ​h^2 = 0.14237 ± 0.00135
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
-        return -0.5 * ((147.09 - params[1]) / 0.26) ** 2
+        Om_x_h2 = params[3] * (params[2] / 100) ** 2
+        return -0.5 * ((0.14237 - Om_x_h2) / 0.00135) ** 2
     return -np.inf
 
 
@@ -227,36 +229,36 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM model
-ΔM: -0.119 +0.089 -0.090 mag
-r_d: 147.09 +0.26 -0.26 Mpc
-H0: 68.70 +0.49 -0.49 km/s/Mpc
+ΔM: -0.129 +0.093 -0.093 mag
+r_d: 147.64 +1.37 -1.36 Mpc
+H0: 68.43 +1.01 -0.99 km/s/Mpc
 Ωm: 0.304 +0.008 -0.008
 w0: -1
 wa: 0
-Chi squared: 38.8148
+Chi squared: 38.8159
 Degrees of freedom: 31
 
 =============================
 
 Flat wCDM
-ΔM: -0.156 +0.091 -0.091 mag
-r_d: 147.09 +0.26 -0.26 Mpc
-H0: 67.12 +0.76 -0.75 km/s/Mpc
+ΔM: -0.091 +0.095 -0.095 mag
+r_d: 142.85 +2.44 -2.59 Mpc
+H0: 69.15 +1.13 -1.08 km/s/Mpc
 Ωm: 0.298 +0.009 -0.009
 w0: -0.865 +0.051 -0.052
 wa: 0
-Chi squared: 32.1534
+Chi squared: 32.1517
 Degrees of freedom: 30
 
 ==============================
 
 Flat w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-ΔM: -0.161 +0.091 -0.090 mag
-r_d: 147.09 +0.26 -0.26 Mpc
-H0: 66.84 +0.81 -0.80 km/s/Mpc
+ΔM: -0.118 +0.094 -0.093 mag
+r_d: 144.22 +1.86 -1.86 Mpc
+H0: 68.16 +1.00 -0.98 km/s/Mpc
 Ωm: 0.306 +0.009 -0.008
-w0: -0.830 +0.059 -0.060
+w0: -0.829 +0.059 -0.060
 wa: 0
-Chi squared: 30.9523
+Chi squared: 30.9519
 Degrees of freedom: 30
 """

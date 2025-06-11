@@ -2,26 +2,25 @@ import numpy as np
 import emcee
 import corner
 from scipy.integrate import quad
+from scipy.constants import c as c0
 from scipy.linalg import cho_factor, cho_solve
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from y2025BAO.data import get_data
 
-c = 299792.458  # Speed of light in km/s
-H0 = 70.0  # Hubble constant in km/s/Mpc
-
+c = c0 / 1000  # Speed of light in km/s
 legend, data, cov_matrix = get_data()
 cho = cho_factor(cov_matrix)
 
 
-def H_z(z, Om, w0=-1):
+def H_z(z, H0, Om, w0):
     one_plus_z = 1 + z
     evolving_de = ((2 * one_plus_z**2) / (1 + one_plus_z**2)) ** (3 * (1 + w0))
     return H0 * np.sqrt(Om * one_plus_z**3 + (1 - Om) * evolving_de)
 
 
 def DH_z(z, params):
-    return c / H_z(z=z, Om=params[1], w0=params[2])
+    return c / H_z(z, *params[1:])
 
 
 def DM_z(z, params):
@@ -49,9 +48,10 @@ def model_predictions(params):
 
 bounds = np.array(
     [
-        (120, 160),  # r_d
+        (130, 160),  # r_d
+        (50, 80),  # H0
         (0.1, 0.7),  # Ωm
-        (-2, 0),  # w0
+        (-1.5, 0),  # w0
     ]
 )
 
@@ -61,9 +61,12 @@ def chi_squared(params):
     return np.dot(delta, cho_solve(cho, delta))
 
 
+# Prior from Planck 2018 https://arxiv.org/abs/1807.06209
+# Ωm x ​h^2 = 0.14237 ± 0.00135
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
-        return 0.0
+        Om_x_h2 = params[2] * (params[1] / 100) ** 2
+        return -0.5 * ((0.14237 - Om_x_h2) / 0.00135) ** 2
     return -np.inf
 
 
@@ -81,6 +84,11 @@ def log_probability(params):
 def plot_bao_predictions(params):
     errors = np.sqrt(np.diag(cov_matrix))
     colors = {"DV_over_rs": "red", "DM_over_rs": "blue", "DH_over_rs": "green"}
+    latex_labels = {
+        "DV_over_rs": "$D_V$ / $r_d$",
+        "DM_over_rs": "$D_M$ / $r_d$",
+        "DH_over_rs": "$D_H$ / $r_d$",
+    }
 
     residuals = data["value"] - model_predictions(params)
     SS_res = np.sum(residuals**2)
@@ -90,7 +98,7 @@ def plot_bao_predictions(params):
     print(f"R^2: {r2:.4f}")
     print(f"RMSD: {np.sqrt(np.mean(residuals**2)):.3f}")
 
-    r_d, Om = params[0], params[1]
+    r_d, Om = params[0], params[2]
     z_smooth = np.linspace(0, max(data["z"]), 100)
     plt.figure(figsize=(8, 6))
     for q in set(data["quantity"]):
@@ -101,7 +109,7 @@ def plot_bao_predictions(params):
             yerr=errors[quantity_mask],
             fmt=".",
             color=colors[q],
-            label=q,
+            label=latex_labels[q],
             capsize=2,
             linestyle="None",
         )
@@ -112,7 +120,7 @@ def plot_bao_predictions(params):
     plt.ylabel(r"$O = \frac{D}{r_d}$")
     plt.legend()
     plt.grid(True)
-    plt.title(f"{legend}: $r_d$={r_d:.2f}, $\Omega_M$={Om:.3f}")
+    plt.title(f"{legend}: $r_d$={r_d:.2f} Mpc, $\Omega_M$={Om:.3f}")
     plt.show()
 
 
@@ -140,13 +148,15 @@ def main():
 
     [
         [rd_16, rd_50, rd_84],
+        [H0_16, H0_50, H0_84],
         [Om_16, Om_50, Om_84],
         [w0_16, w0_50, w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = [rd_50, Om_50, w0_50]
+    best_fit = [rd_50, H0_50, Om_50, w0_50]
 
     print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f}")
+    print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f}")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
@@ -154,13 +164,12 @@ def main():
 
     plot_bao_predictions(best_fit)
 
-    labels = ["$r_d$", "$Ω_m$", "$w_0$"]
     corner.corner(
         samples,
-        labels=labels,
+        labels=["$r_d$", "$H_0$", "$Ω_m$", "$w_0$"],
         quantiles=[0.159, 0.5, 0.841],
         show_titles=True,
-        title_fmt=".4f",
+        title_fmt=".3f",
         bins=100,
         fill_contours=False,
         plot_datapoints=False,
@@ -180,87 +189,81 @@ if __name__ == "__main__":
 Dataset: DESI 2025
 ******************************
 
-Flat ΛCDM model
-r_d: 145.04 +1.04 -1.06 Mpc
+Flat ΛCDM:
+r_d: 146.81 +1.40 -1.39 Mpc
+H0: 69.16 +1.05 -1.05 km/s/Mpc
 Ωm: 0.298 +0.009 -0.008
 w0: -1
 wa: 0
 Chi squared: 10.27
-Degs of freedom: 11
+Degs of freedom: 10
 R^2: 0.9987
 RMSD: 0.305
 
-==============================
-
-Flat wCDM model
-r_d: 142.55 +2.53 -2.37 Mpc
-Ωm: 0.297 +0.009 -0.009
-w0: -0.915 +0.077 -0.079
-wa: 0
-Chi squared: 9.14
-Degs of freedom: 10
-R^2: 0.9989
-RMSD: 0.279
-
 ===============================
 
-Flat w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-r_d: 141.61 +3.01 -2.82 Mpc
-Ωm: 0.304 +0.010 -0.010
-w0: -0.873 +0.098 -0.105
+Flat wCDM:
+r_d: 144.37 +2.72 -3.00 Mpc
+H0: 69.24 +1.09 -1.09 km/s/Mpc
+Ωm: 0.297 +0.009 -0.009
+w0: -0.916 +0.077 -0.080
 wa: 0
-Chi squared: 8.68
-Degs of freedom: 10
-R^2: 0.9990
-RMSD: 0.271
+Chi squared: 9.14
+Degs of freedom: 9
+R^2: 0.9989
+RMSD: 0.282
 
 ==============================
 
-Flat w0waCDM
-r_d*h: 92.02 +4.60 -3.53 km/s
-Ωm: 0.380 +0.036 -0.045
-w0: -0.246 +0.344 -0.400
-wa: -2.5086 +1.4138 -1.1921
-Chi squared: 5.65
+Flat wzCDM:
+r_d: 144.92 +2.13 -2.16 Mpc
+H0: 68.44 +1.19 -1.17 km/s/Mpc
+Ωm: 0.304 +0.010 -0.010
+w0: -0.873 +0.100 -0.105
+wa: 0
+Chi squared: 8.69
 Degs of freedom: 9
-R^2: 0.9994
-RMSD: 0.205
+R^2: 0.9990
+RMSD: 0.273
 
 ******************************
 Dataset: SDSS 2020
 ******************************
 
-Flat ΛCDM model
-r_d: 143.65 +1.83 -1.82 Mpc
+Flat ΛCDM
+r_d: 145.53 +2.69 -2.66 Mpc
+H0: 69.09 +1.97 -1.92 km/s/Mpc
 Ωm: 0.298 +0.017 -0.016
 w0: -1
 wa: 0
 Chi squared: 10.81
-Degs of freedom: 12
+Degs of freedom: 11
 R^2: 0.9947
-RMSD: 0.739
+RMSD: 0.737
 
-==============================
+================================
 
-Flat wCDM model
-r_d: 136.51 +4.04 -3.74 Mpc
-Ωm: 0.282 +0.023 -0.031
-w0: -0.720 +0.147 -0.148
+Flat wCDM
+r_d: 136.34 +6.44 -7.98 Mpc
+H0: 70.68 +3.03 -2.47 km/s/Mpc
+Ωm: 0.285 +0.021 -0.023
+w0: -0.741 +0.123 -0.142
 wa: 0
-Chi squared: 7.48
-Degs of freedom: 11
-R^2: 0.9953
-RMSD: 0.694
+Chi squared: 7.65
+Degs of freedom: 10
+R^2: 0.9958
+RMSD: 0.657
 
-=============================
+================================
 
-Flat w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-r_d: 135.97 +4.65 -4.21 Mpc
-Ωm: 0.309 +0.019 -0.018
-w0: -0.689 +0.163 -0.174 (1.79 - 1.91 sigma)
+Flat wzCDM
+r_d: 140.56 +4.08 -4.23 Mpc
+H0: 67.87 +2.05 -1.97 km/s/Mpc
+Ωm: 0.309 +0.018 -0.018
+w0: -0.692 +0.165 -0.176 (1.75 - 1.87 sigma)
 wa: 0
-Chi squared: 7.55
-Degs of freedom: 11
-R^2: 0.9952
-RMSD: 0.701
+Chi squared: 7.57
+Degs of freedom: 10
+R^2: 0.9954
+RMSD: 0.687
 """
