@@ -4,7 +4,7 @@ from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import (
     ConstantKernel as C,
     WhiteKernel,
-    RBF,
+    DotProduct,
 )
 from y2005cc.data import get_data
 
@@ -20,7 +20,7 @@ normalised_sigma = dH_values / H_std
 fixed_noise_to_avoid_singular_matrix = WhiteKernel(
     noise_level=0.005, noise_level_bounds="fixed"
 )
-kernel = C(1**2) * RBF(0.85) + fixed_noise_to_avoid_singular_matrix
+kernel = C(0.5**2) * DotProduct(sigma_0=3) ** 4 + fixed_noise_to_avoid_singular_matrix
 gp = GaussianProcessRegressor(
     kernel=kernel,
     alpha=normalised_sigma**2,
@@ -35,14 +35,19 @@ cov_pred = cov_pred * H_std**2
 H_pred = H_pred * H_std + H_mean
 sigma = np.sqrt(np.diag(cov_pred))
 
-print("H0", f"{H_pred[0]:.2f} ± {sigma[0]:.2f}")  # H0 73.5 ± 7 km/s/Mpc
-print("GP score:", gp.score(1 + z_values, normalized_H))  # 0.881
+print("H0", f"{H_pred[0]:.2f} ± {sigma[0]:.2f}")
+# H0 67.28 +- 5.77 km/s/Mpc
+print("GP score:", gp.score(z_values, normalized_H))
+# 0.898
 print(
     "GP marginal likelihood value",
     gp.log_marginal_likelihood_value_ - H_values.size * np.log(H_std),
-)  # -136.96
+)
+# -137.56
 print("GP kernel", gp.kernel_)
-print("cov mat condition number", np.linalg.cond(cov_pred))  # 612
+# 0.0258**2 * DotProduct(sigma_0=2.66) ** 4 + WhiteKernel(noise_level=0.005)
+print("cov mat condition number", np.linalg.cond(cov_pred))
+# 703
 
 plt.style.use("dark_background")
 plt.errorbar(z_values, H_values, yerr=dH_values, fmt=".", label="CC Data", capsize=2)
