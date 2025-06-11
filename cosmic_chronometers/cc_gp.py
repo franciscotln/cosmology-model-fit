@@ -20,7 +20,7 @@ normalised_sigma = dH_values / H_std
 fixed_noise_to_avoid_singular_matrix = WhiteKernel(
     noise_level=0.005, noise_level_bounds="fixed"
 )
-kernel = C(0.5**2) * DotProduct(sigma_0=3) ** 4 + fixed_noise_to_avoid_singular_matrix
+kernel = C(0.5**2) * DotProduct(sigma_0=2.5) ** 4 + fixed_noise_to_avoid_singular_matrix
 gp = GaussianProcessRegressor(
     kernel=kernel,
     alpha=normalised_sigma**2,
@@ -36,7 +36,7 @@ H_pred = H_pred * H_std + H_mean
 sigma = np.sqrt(np.diag(cov_pred))
 
 print("H0", f"{H_pred[0]:.2f} ± {sigma[0]:.2f}")
-# H0 67.28 +- 5.77 km/s/Mpc
+# H0 67.3 +- 5.8 km/s/Mpc
 print("GP score:", gp.score(z_values, normalized_H))
 # 0.898
 print(
