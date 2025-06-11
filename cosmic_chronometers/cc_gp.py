@@ -1,43 +1,30 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.gaussian_process.kernels import (
-    ConstantKernel as C,
-    WhiteKernel,
-    DotProduct,
-)
+from sklearn.gaussian_process.kernels import ConstantKernel as C, Matern
 from y2005cc.data import get_data
 
 legend, z_values, H_values, cov_matrix = get_data()
 dH_values = np.sqrt(np.diag(cov_matrix))  # simple diagonal covariance matrix
 z_values = z_values.reshape(-1, 1)
 
-H_std = np.std(H_values)
-H_mean = np.mean(H_values)
-normalized_H = (H_values - H_mean) / H_std
-normalised_sigma = dH_values / H_std
-
 gp = GaussianProcessRegressor(
-    kernel=C((1 / H_std) ** 2) * DotProduct() ** 4 + WhiteKernel(1e-4, "fixed"),
-    alpha=normalised_sigma**2,
+    kernel=C(np.mean(H_values) ** 2) * Matern(length_scale=2.5, nu=4.5),
+    alpha=dH_values**2,
     normalize_y=False,
     n_restarts_optimizer=20,
 )
-gp.fit(z_values.reshape(-1, 1), normalized_H.reshape(-1, 1))
+gp.fit(z_values.reshape(-1, 1), H_values.reshape(-1, 1))
 
 z_pred = np.linspace(0, z_values.max(), 100).reshape(-1, 1)
 H_pred, cov_pred = gp.predict(z_pred, return_cov=True)
-cov_pred = cov_pred * H_std**2
-H_pred = H_pred * H_std + H_mean
 sigma = np.sqrt(np.diag(cov_pred))
-likelihood = gp.log_marginal_likelihood_value_ - H_values.size * np.log(H_std)
+likelihood = gp.log_marginal_likelihood_value_
 
-print("H0", f"{H_pred[0]:.1f} ± {sigma[0]:.1f}")  # H0 67.4 +- 4.9 km/s/Mpc
-print("GP score:", gp.score(z_values, normalized_H))  # 0.898
-print("Likelihood", likelihood)  # -137.29
-print(
-    "GP kernel", gp.kernel_
-)  # 0.026**2 * DotProduct(sigma_0=2.64) ** 4 + WhiteKernel(noise_level=0.0001)
+print("H0", f"{H_pred[0]:.1f} ± {sigma[0]:.1f}")  # H0 67.1 +- 5.8 km/s/Mpc
+print("GP score:", gp.score(z_values, H_values))  # 0.902
+print("Likelihood", likelihood)  # -138.46
+print("GP kernel", gp.kernel_)  # 129**2 * Matern(length_scale=2.25, nu=4.5)
 
 flat_z = z_pred.ravel()
 plt.style.use("dark_background")
@@ -63,5 +50,4 @@ plt.close()
 plt.imshow(cov_pred, cmap="hot", interpolation="none")
 plt.colorbar()
 plt.title("Covariance Matrix")
-plt.savefig("cosmic_chronometers/cc_gp_cov_matrix.png", dpi=300)
-plt.close()
+plt.show()
