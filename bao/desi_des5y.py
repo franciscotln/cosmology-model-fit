@@ -100,6 +100,15 @@ def bao_predictions(params):
     )
 
 
+def chi_squared(params):
+    delta_sn = mu_values - theory_mu(params)
+    chi_sn = np.dot(delta_sn, cho_solve(cho_sn, delta_sn))
+
+    delta_bao = bao_data["value"] - bao_predictions(params)
+    chi_bao = np.dot(delta_bao, cho_solve(cho_bao, delta_bao))
+    return chi_sn + chi_bao
+
+
 bounds = np.array(
     [
         (-0.5, 0.5),  # delta M
@@ -111,19 +120,12 @@ bounds = np.array(
 )
 
 
-def chi_squared(params):
-    delta_sn = mu_values - theory_mu(params)
-    chi_sn = np.dot(delta_sn, cho_solve(cho_sn, delta_sn))
-
-    delta_bao = bao_data["value"] - bao_predictions(params)
-    chi_bao = np.dot(delta_bao, cho_solve(cho_bao, delta_bao))
-    return chi_sn + chi_bao
-
-
-# Prior for r_d from Planck 2018 https://arxiv.org/abs/1807.06209
+# Prior from Planck 2018 https://arxiv.org/abs/1807.06209
+# Ωm x ​h^2 = 0.14237 ± 0.00135
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
-        return -0.5 * ((147.09 - params[1]) / 0.26) ** 2
+        Om_x_h2 = params[3] * (params[2] / 100) ** 2
+        return -0.5 * ((0.14237 - Om_x_h2) / 0.00135) ** 2
     return -np.inf
 
 
@@ -224,9 +226,9 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM
-ΔM: -0.056 +0.011 -0.011 mag
-r_d: 147.09 +0.26 -0.26 Mpc
-H0: 68.36 +0.46 -0.46 km/s/Mpc
+ΔM: -0.076 +0.025 -0.026 mag
+r_d: 148.48 +1.32 -1.29 Mpc
+H0: 67.71 +0.93 -0.93 km/s/Mpc
 Ωm: 0.310 +0.008 -0.008
 w0: -1
 wa: 0
@@ -236,23 +238,23 @@ Degrees of freedom: 1838
 ==============================
 
 Flat wCDM
-ΔM: -0.063 +0.011 -0.011 mag
-r_d: 147.08 +0.26 -0.26 Mpc
-H0: 67.21 +0.57 -0.56 km/s/Mpc
+ΔM: -0.002 +0.038 -0.036 mag
+r_d: 143.03 +2.23 -2.33 Mpc
+H0: 69.13 +1.13 -1.08 km/s/Mpc
 Ωm: 0.298 +0.009 -0.009
 w0: -0.871 +0.038 -0.039 (3.31 - 3.39 sigma)
 wa: 0
-Chi squared: 1648.10
+Chi squared: 1648.09
 Degrees of freedom: 1837
 
 ===============================
 
 Flat w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-ΔM: -0.062 +0.012 -0.011 mag
-r_d: 147.09 +0.26 -0.26 Mpc
-H0: 67.10 +0.57 -0.57 km/s/Mpc
+ΔM: -0.023 +0.030 -0.030 mag
+r_d: 144.52 +1.72 -1.74 Mpc
+H0: 68.31 +0.95 -0.95 km/s/Mpc
 Ωm: 0.305 +0.008 -0.008
-w0: -0.849 +0.041 -0.042 (3.60 - 3.68 sigma)
+w0: -0.850 +0.041 -0.042 (3.57 - 3.66 sigma)
 wa: 0
 Chi squared: 1646.98
 Degrees of freedom: 1837
@@ -260,12 +262,12 @@ Degrees of freedom: 1837
 ===============================
 
 Flat w0waCDM
-ΔM: -0.057 +0.012 -0.012 mag
-r_d: 147.09 +0.26 -0.26 Mpc
-H0: 66.97 +0.59 -0.58 km/s/Mpc
-Ωm: 0.321 +0.013 -0.015
-w0: -0.784 +0.074 -0.068 (2.92 - 3.18 sigma)
-wa: -0.723 +0.461/-0.456 (1.57 - 1.59 sigma)
-Chi squared: 1645.47
+ΔM: -0.071 +0.047 -0.038 mag
+r_d: 148.08 +2.59 -3.25 Mpc
+H0: 66.54 +1.67 -1.34 km/s/Mpc
+Ωm: 0.322 +0.013 -0.015
+w0: -0.783 +0.074 -0.068
+wa: -0.729 +0.454 -0.458
+Chi squared: 1645.45
 Degrees of freedom: 1836
 """
