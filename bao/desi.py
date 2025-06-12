@@ -111,7 +111,7 @@ def main():
 
     best_fit = [rd_50, H0_50, Om_50, w0_50]
 
-    residuals = data["value"] - theory_predictions(data["z"], data["quantity"])
+    residuals = data["value"] - theory_predictions(data["z"], data["quantity"], best_fit)
     SS_res = np.sum(residuals**2)
     SS_tot = np.sum((data["value"] - np.mean(data["value"])) ** 2)
     r2 = 1 - SS_res / SS_tot
