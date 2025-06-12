@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def plot_predictions(H_z, z, H, H_err, label):
+def plot_cc_predictions(H_z, z, H, H_err, label):
     z_smooth = np.linspace(0, max(z), 100)
     plt.figure(figsize=(8, 6))
     plt.errorbar(

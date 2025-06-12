@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from y2005cc.data import get_data as get_cc_data
 from y2025BAO.data import get_data as get_bao_data
+from .plot_predictions import plot_bao_predictions
+from cosmic_chronometers.plot_predictions import plot_cc_predictions
 
 cc_legend, z_cc_vals, H_cc_vals, cc_cov_matrix = get_cc_data()
 bao_legend, data, bao_cov_matrix = get_bao_data()
@@ -41,16 +43,14 @@ def DV_z(z, params):
 
 
 quantity_funcs = {
-    "DV_over_rs": DV_z,
-    "DM_over_rs": DM_z,
-    "DH_over_rs": DH_z,
+    "DV_over_rs": lambda z, params: DV_z(z, params) / params[1],
+    "DM_over_rs": lambda z, params: DM_z(z, params) / params[1],
+    "DH_over_rs": lambda z, params: DH_z(z, params) / params[1],
 }
 
 
-def bao_theory(params):
-    return np.array(
-        [(quantity_funcs[qty](z, params) / params[1]) for z, _, qty in data]
-    )
+def theory_bao(z, qty, params):
+    return np.array([(quantity_funcs[qty](z, params)) for z, qty in zip(z, qty)])
 
 
 bounds = np.array(
@@ -67,7 +67,7 @@ def chi_squared(params):
     delta_cc = H_cc_vals - H_z(z_cc_vals, params)
     chi_cc = np.dot(delta_cc, cho_solve(cho_cc, delta_cc))
 
-    delta_bao = data["value"] - bao_theory(params)
+    delta_bao = data["value"] - theory_bao(data["z"], data["quantity"], params)
     chi_bao = np.dot(delta_bao, cho_solve(cho_bao, delta_bao))
     return chi_cc + chi_bao
 
@@ -87,68 +87,6 @@ def log_probability(params):
     if np.isinf(lp):
         return -np.inf
     return lp + log_likelihood(params)
-
-
-def plot_all_predictions(params):
-    observed_values = data["value"]
-    z_values = data["z"]
-    quantity_types = data["quantity"]
-    errors = np.sqrt(np.diag(bao_cov_matrix))
-
-    unique_quantities = set(quantity_types)
-    colors = {"DV_over_rs": "red", "DM_over_rs": "blue", "DH_over_rs": "green"}
-
-    h0, r_d = params[0], params[1]
-    z_smooth = np.linspace(0, max(z_values), 100)
-    plt.figure(figsize=(8, 6))
-    for q in unique_quantities:
-        mask = quantity_types == q
-        plt.errorbar(
-            x=z_values[mask],
-            y=observed_values[mask],
-            yerr=errors[mask],
-            fmt=".",
-            color=colors[q],
-            label=q,
-            capsize=2,
-            linestyle="None",
-        )
-        model_smooth = []
-        for z in z_smooth:
-            if q == "DV_over_rs":
-                model_smooth.append(DV_z(z, params) / r_d)
-            elif q == "DM_over_rs":
-                model_smooth.append(DM_z(z, params) / r_d)
-            elif q == "DH_over_rs":
-                model_smooth.append((c / H_z(z, params)) / r_d)
-        plt.plot(z_smooth, model_smooth, color=colors[q], alpha=0.5)
-
-    plt.xlabel("Redshift (z)")
-    plt.ylabel(r"$O = \frac{D}{r_d}$")
-    plt.legend()
-    plt.grid(True)
-    plt.title(f"{bao_legend}: $H_0$={h0:.2f}, $r_d$={r_d:.2f}")
-    plt.show()
-
-    plt.errorbar(
-        x=z_cc_vals,
-        y=H_cc_vals,
-        yerr=np.sqrt(np.diag(cc_cov_matrix)),
-        fmt=".",
-        color="blue",
-        alpha=0.4,
-        label="CC data",
-        capsize=2,
-        linestyle="None",
-    )
-
-    plt.plot(z_smooth, H_z(z_smooth, params), color="green", alpha=0.5)
-    plt.xlabel("Redshift (z)")
-    plt.ylabel(r"$H(z)$ - km/s/Mpc")
-    plt.xlim(0, np.max(z_cc_vals) + 0.2)
-    plt.legend()
-    plt.title(f"{cc_legend}: $H_0$={h0:.2f} km/s/Mpc")
-    plt.show()
 
 
 def main():
@@ -189,7 +127,19 @@ def main():
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Degrees of freedom: {data['value'].size + z_cc_vals.size - len(best_fit)}")
 
-    plot_all_predictions(best_fit)
+    plot_bao_predictions(
+        theory_predictions=lambda z, qty: theory_bao(z, qty, best_fit),
+        data=data,
+        errors=np.sqrt(np.diag(bao_cov_matrix)),
+        title=f"{bao_legend}: $H_0$={h0_50:.2f}, $r_d$={rd_50:.2f}",
+    )
+    plot_cc_predictions(
+        H_z=lambda z: H_z(z, best_fit),
+        z=z_cc_vals,
+        H=H_cc_vals,
+        H_err=np.sqrt(np.diag(cc_cov_matrix)),
+        label=f"{cc_legend}: $H_0$={h0_50:.1f} km/s/Mpc",
+    )
 
     labels = ["$H_0$", "$r_d$", "$\Omega_m$", "$w_0$"]
     corner.corner(

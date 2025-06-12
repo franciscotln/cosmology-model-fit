@@ -8,7 +8,7 @@ from multiprocessing import Pool
 from y2023union3.data import get_data as get_sn_data
 from y2005cc.data import get_data as get_cc_data
 from hubble.plotting import plot_predictions as plot_sn_predictions
-from .plot_predictions import plot_predictions as plot_cc_predictions
+from .plot_predictions import plot_cc_predictions
 
 legend_cc, z_cc_vals, H_cc_vals, cov_matrix_cc = get_cc_data()
 legend_sn, z_sn_vals, mu_vals, cov_matrix_sn = get_sn_data()

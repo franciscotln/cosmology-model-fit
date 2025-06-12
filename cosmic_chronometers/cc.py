@@ -4,7 +4,7 @@ import emcee
 import corner
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
-from .plot_predictions import plot_predictions
+from .plot_predictions import plot_cc_predictions
 from y2005cc.data import get_data
 
 # Speed of light in km/s
@@ -87,7 +87,7 @@ def main():
     print(f"Log likelihood: {log_likelihood(best_fit):.2f}")
     print(f"Degs of freedom: {z_values.size  - len(best_fit)}")
 
-    plot_predictions(
+    plot_cc_predictions(
         H_z=lambda z: H_z(z, *best_fit),
         z=z_values,
         H=H_values,
