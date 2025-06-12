@@ -8,6 +8,7 @@ from multiprocessing import Pool
 from y2023union3.data import get_data
 from y2025BAO.data import get_data as get_bao_data
 from hubble.plotting import plot_predictions as plot_sn_predictions
+from .plot_predictions import plot_bao_predictions
 
 sn_legend, z_sn_vals, mu_vals, cov_matrix_sn = get_data()
 bao_legend, bao_data, bao_cov_matrix = get_bao_data()
@@ -58,55 +59,23 @@ def DV_z(z, params):
 
 
 quantity_funcs = {
-    "DV_over_rs": DV_z,
-    "DM_over_rs": DM_z,
-    "DH_over_rs": DH_z,
+    "DV_over_rs": lambda z, params: DV_z(z, params) / params[1],
+    "DM_over_rs": lambda z, params: DM_z(z, params) / params[1],
+    "DH_over_rs": lambda z, params: DH_z(z, params) / params[1],
 }
 
 
-def bao_predictions(params):
-    r_d = params[1]
-    return np.array([(quantity_funcs[qty](z, params) / r_d) for z, _, qty in bao_data])
-
-
-def plot_bao_predictions(params):
-    colors = {"DV_over_rs": "red", "DM_over_rs": "blue", "DH_over_rs": "green"}
-    quantity_types = bao_data["quantity"]
-    errors = np.sqrt(np.diag(bao_cov_matrix))
-    r_d = params[1]
-    z_smooth = np.linspace(0, max(bao_data["z"]), 100)
-
-    plt.figure(figsize=(8, 6))
-    for q in set(quantity_types):
-        mask = quantity_types == q
-        plt.errorbar(
-            x=bao_data["z"][mask],
-            y=bao_data["value"][mask],
-            yerr=errors[mask],
-            fmt=".",
-            color=colors[q],
-            label=q,
-            capsize=2,
-            linestyle="None",
-        )
-        model_smooth = []
-        for z in z_smooth:
-            model_smooth.append(quantity_funcs[q](z, params) / r_d)
-        plt.plot(z_smooth, model_smooth, color=colors[q], alpha=0.5)
-
-    plt.xlabel("Redshift (z)")
-    plt.ylabel(r"$O = \frac{D}{r_d}$")
-    plt.legend()
-    plt.grid(True)
-    plt.title(bao_legend)
-    plt.show()
+def theory_predictions(z, qty, params):
+    return np.array([(quantity_funcs[qty](z, params)) for z, qty in zip(z, qty)])
 
 
 def chi_squared(params):
     delta_sn = mu_vals - distance_modulus(params)
     chi_sn = np.dot(delta_sn, cho_solve(cho_sn, delta_sn))
 
-    delta_bao = bao_data["value"] - bao_predictions(params)
+    delta_bao = bao_data["value"] - theory_predictions(
+        bao_data["z"], bao_data["quantity"], params
+    )
     chi_bao = np.dot(delta_bao, cho_solve(cho_bao, delta_bao))
     return chi_sn + chi_bao
 
@@ -181,11 +150,14 @@ def main():
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.4f}")
-    print(
-        f"Degrees of freedom: {bao_data['value'].size + z_sn_vals.size - len(best_fit)}"
-    )
+    print(f"Degs of freedom: {bao_data['value'].size + z_sn_vals.size - len(best_fit)}")
 
-    plot_bao_predictions(best_fit)
+    plot_bao_predictions(
+        theory_predictions=lambda z, qty: theory_predictions(z, qty, best_fit),
+        data=bao_data,
+        errors=np.sqrt(np.diag(bao_cov_matrix)),
+        title=bao_legend,
+    )
     plot_sn_predictions(
         legend=sn_legend,
         x=z_sn_vals,

@@ -7,6 +7,7 @@ from scipy.linalg import cho_factor, cho_solve
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from y2025BAO.data import get_data
+from .plot_predictions import plot_bao_predictions
 
 c = c0 / 1000  # Speed of light in km/s
 legend, data, cov_matrix = get_data()
@@ -34,16 +35,14 @@ def DV_z(z, params):
 
 
 quantity_funcs = {
-    "DV_over_rs": DV_z,
-    "DM_over_rs": DM_z,
-    "DH_over_rs": DH_z,
+    "DV_over_rs": lambda z, params: DV_z(z, params) / params[0],
+    "DM_over_rs": lambda z, params: DM_z(z, params) / params[0],
+    "DH_over_rs": lambda z, params: DH_z(z, params) / params[0],
 }
 
 
-def model_predictions(params):
-    return np.array(
-        [(quantity_funcs[qty](z, params) / params[0]) for z, _, qty in data]
-    )
+def theory_predictions(z, qty, params):
+    return np.array([(quantity_funcs[qty](z, params)) for z, qty in zip(z, qty)])
 
 
 bounds = np.array(
@@ -57,7 +56,7 @@ bounds = np.array(
 
 
 def chi_squared(params):
-    delta = data["value"] - model_predictions(params)
+    delta = data["value"] - theory_predictions(data["z"], data["quantity"], params)
     return np.dot(delta, cho_solve(cho, delta))
 
 
@@ -81,54 +80,11 @@ def log_probability(params):
     return lp + log_likelihood(params)
 
 
-def plot_bao_predictions(params):
-    errors = np.sqrt(np.diag(cov_matrix))
-    colors = {"DV_over_rs": "red", "DM_over_rs": "blue", "DH_over_rs": "green"}
-    latex_labels = {
-        "DV_over_rs": "$D_V$ / $r_d$",
-        "DM_over_rs": "$D_M$ / $r_d$",
-        "DH_over_rs": "$D_H$ / $r_d$",
-    }
-
-    residuals = data["value"] - model_predictions(params)
-    SS_res = np.sum(residuals**2)
-    SS_tot = np.sum((data["value"] - np.mean(data["value"])) ** 2)
-    r2 = 1 - SS_res / SS_tot
-
-    print(f"R^2: {r2:.4f}")
-    print(f"RMSD: {np.sqrt(np.mean(residuals**2)):.3f}")
-
-    r_d, Om = params[0], params[2]
-    z_smooth = np.linspace(0, max(data["z"]), 100)
-    plt.figure(figsize=(8, 6))
-    for q in set(data["quantity"]):
-        quantity_mask = data["quantity"] == q
-        plt.errorbar(
-            x=data["z"][quantity_mask],
-            y=data["value"][quantity_mask],
-            yerr=errors[quantity_mask],
-            fmt=".",
-            color=colors[q],
-            label=latex_labels[q],
-            capsize=2,
-            linestyle="None",
-        )
-        model_smooth = [quantity_funcs[q](z, params) / r_d for z in z_smooth]
-        plt.plot(z_smooth, model_smooth, color=colors[q], alpha=0.5)
-
-    plt.xlabel("Redshift (z)")
-    plt.ylabel(r"$O = \frac{D}{r_d}$")
-    plt.legend()
-    plt.grid(True)
-    plt.title(f"{legend}: $r_d$={r_d:.2f} Mpc, $\Omega_M$={Om:.3f}")
-    plt.show()
-
-
 def main():
     ndim = len(bounds)
     nwalkers = 10 * ndim
     burn_in = 500
-    nsteps = 20000 + burn_in
+    nsteps = 10000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):
@@ -155,15 +111,26 @@ def main():
 
     best_fit = [rd_50, H0_50, Om_50, w0_50]
 
+    residuals = data["value"] - theory_predictions(data["z"], data["quantity"])
+    SS_res = np.sum(residuals**2)
+    SS_tot = np.sum((data["value"] - np.mean(data["value"])) ** 2)
+    r2 = 1 - SS_res / SS_tot
+
     print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f}")
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f}")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Degs of freedom: {data['value'].size  - len(best_fit)}")
+    print(f"R^2: {r2:.4f}")
+    print(f"RMSD: {np.sqrt(np.mean(residuals**2)):.3f}")
 
-    plot_bao_predictions(best_fit)
-
+    plot_bao_predictions(
+        theory_predictions=lambda z, qty: theory_predictions(z, qty, best_fit),
+        data=data,
+        errors=np.sqrt(np.diag(cov_matrix)),
+        title=f"{legend}: $r_d$={rd_50:.2f} Mpc, $\Omega_M$={Om_50:.3f}",
+    )
     corner.corner(
         samples,
         labels=["$r_d$", "$H_0$", "$Ω_m$", "$w_0$"],
