@@ -193,6 +193,12 @@ def main():
         print("Autocorrelation time could not be computed", e)
 
     samples = sampler.get_chain(discard=burn_in, flat=True)
+    print("Correlation matrix:")
+    print(
+        np.array2string(
+            np.corrcoef(samples, rowvar=False), precision=5, suppress_small=True
+        )
+    )
 
     [
         [f_cc_16, f_cc_50, f_cc_84],
@@ -284,4 +290,11 @@ r_d: 147.4 +5.0 -4.7 Mpc
 w0: -0.837 +0.059 -0.060 (2.72 - 2.76 sigma)
 Chi squared: 62.20
 Degrees of freedom: 61
+Correlation matrix:
+[ 1.       0.01128  0.0014  -0.0052   0.01718 -0.03021]
+[ 0.01128  1.       0.64993 -0.62987 -0.13955 -0.14164]
+[ 0.0014   0.64993  1.      -0.94412 -0.23606 -0.29018]
+[-0.0052  -0.62987 -0.94412  1.       0.05335  0.01724]
+[ 0.01718 -0.13955 -0.23606  0.05335  1.       0.10322]
+[-0.03021 -0.14164 -0.29018  0.01724  0.10322  1.     ]
 """
