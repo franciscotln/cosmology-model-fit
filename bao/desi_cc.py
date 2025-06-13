@@ -13,19 +13,23 @@ from cosmic_chronometers.plot_predictions import plot_cc_predictions
 cc_legend, z_cc_vals, H_cc_vals, cc_cov_matrix = get_cc_data()
 bao_legend, data, bao_cov_matrix = get_bao_data()
 cho_bao = cho_factor(bao_cov_matrix)
-cho_cc = cho_factor(cc_cov_matrix)
+inv_cov_cc = np.linalg.inv(cc_cov_matrix)
+logdet_cc = np.linalg.slogdet(cc_cov_matrix)[1]
+N_cc = len(z_cc_vals)
 
 c = 299792.458  # Speed of light in km/s
 
 
 def Ez(z, O_m, w0):
     sum = 1 + z
-    evolving_de = ((2 * sum**2) / (1 + sum**2)) ** (3 * (1 + w0))
+    w0 = -1
+    # evolving_de = ((2 * sum**2) / (1 + sum**2)) ** (3 * (1 + w0))
+    evolving_de = sum ** (3 * (1 + w0))
     return np.sqrt(O_m * sum**3 + (1 - O_m) * evolving_de)
 
 
 def H_z(z, params):
-    return params[0] * Ez(z, *params[2:])
+    return params[1] * Ez(z, *params[3:])
 
 
 def DH_z(z, params):
@@ -43,9 +47,9 @@ def DV_z(z, params):
 
 
 quantity_funcs = {
-    "DV_over_rs": lambda z, params: DV_z(z, params) / params[1],
-    "DM_over_rs": lambda z, params: DM_z(z, params) / params[1],
-    "DH_over_rs": lambda z, params: DH_z(z, params) / params[1],
+    "DV_over_rs": lambda z, params: DV_z(z, params) / params[2],
+    "DM_over_rs": lambda z, params: DM_z(z, params) / params[2],
+    "DH_over_rs": lambda z, params: DH_z(z, params) / params[2],
 }
 
 
@@ -55,6 +59,7 @@ def theory_bao(z, qty, params):
 
 bounds = np.array(
     [
+        (0.4, 2.5),  # f_cc
         (50, 100),  # H0
         (120, 180),  # r_d
         (0.2, 0.7),  # Ωm
@@ -64,8 +69,9 @@ bounds = np.array(
 
 
 def chi_squared(params):
+    f_cc = params[0]
     delta_cc = H_cc_vals - H_z(z_cc_vals, params)
-    chi_cc = np.dot(delta_cc, cho_solve(cho_cc, delta_cc))
+    chi_cc = np.dot(delta_cc, np.dot(inv_cov_cc * f_cc**2, delta_cc))
 
     delta_bao = data["value"] - theory_bao(data["z"], data["quantity"], params)
     chi_bao = np.dot(delta_bao, cho_solve(cho_bao, delta_bao))
@@ -79,7 +85,9 @@ def log_prior(params):
 
 
 def log_likelihood(params):
-    return -0.5 * chi_squared(params)
+    f_cc = params[0]
+    normalization_cc = N_cc * np.log(2 * np.pi) + logdet_cc - 2 * N_cc * np.log(f_cc)
+    return -0.5 * chi_squared(params) - 0.5 * normalization_cc
 
 
 def log_probability(params):
@@ -112,14 +120,16 @@ def main():
     samples = sampler.get_chain(discard=burn_in, flat=True)
 
     [
+        [f_cc_16, f_cc_50, f_cc_84],
         [h0_16, h0_50, h0_84],
         [rd_16, rd_50, rd_84],
         [Om_16, Om_50, Om_84],
         [w0_16, w0_50, w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = [h0_50, rd_50, Om_50, w0_50]
+    best_fit = [f_cc_50, h0_50, rd_50, Om_50, w0_50]
 
+    print(f"f_cc: {f_cc_50:.2f} +{(f_cc_84 - f_cc_50):.2f} -{(f_cc_50 - f_cc_16):.2f}")
     print(f"H0: {h0_50:.1f} +{(h0_84 - h0_50):.1f} -{(h0_50 - h0_16):.1f}")
     print(f"r_d: {rd_50:.1f} +{(rd_84 - rd_50):.1f} -{(rd_50 - rd_16):.1f}")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
@@ -137,17 +147,17 @@ def main():
         H_z=lambda z: H_z(z, best_fit),
         z=z_cc_vals,
         H=H_cc_vals,
-        H_err=np.sqrt(np.diag(cc_cov_matrix)),
+        H_err=np.sqrt(np.diag(cc_cov_matrix)) / f_cc_50,
         label=f"{cc_legend}: $H_0$={h0_50:.1f} km/s/Mpc",
     )
 
-    labels = ["$H_0$", "$r_d$", "$\Omega_m$", "$w_0$"]
+    labels = ["$f_{CCH}$", "$H_0$", "$r_d$", "$\Omega_m$", "$w_0$"]
     corner.corner(
         samples,
         labels=labels,
         quantiles=[0.159, 0.5, 0.841],
         show_titles=True,
-        title_fmt=".4f",
+        title_fmt=".3f",
         smooth=1.5,
         smooth1d=1.5,
         bins=100,
@@ -163,33 +173,33 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM model
-H0: 68.8 +3.3 -3.3 km/s/Mpc
-r_d: 147.4 +7.3 -6.7 Mpc
-Ωm: 0.298 +0.009 -0.008
+f_cc: 1.45 +0.19 -0.18
+H0: 69.0 +2.3 -2.3 km/s/Mpc
+r_d: 147.1 +5.0 -4.7 Mpc
+Ωm: 0.299 +0.009 -0.008
 w0: -1
-wa: 0
-Chi squared: 25.03
-Degrees of freedom: 42
+Chi squared: 41.47
+Degrees of freedom: 41
 
 =============================
 
 Flat wCDM model
-H0: 67.7 +3.5 -3.4 km/s/Mpc
-r_d: 147.5 +7.3 -6.7 Mpc
+f_cc: 1.45 +0.19 -0.18
+H0: 67.8 +2.6 -2.5 km/s/Mpc
+r_d: 147.3 +5.0 -4.7 Mpc
 Ωm: 0.298 +0.009 -0.009
-w0: -0.919 +0.076 -0.080
-wa: 0
-Chi squared: 23.91
-Degrees of freedom: 41
+w0: -0.923 +0.074 -0.078
+Chi squared: 40.35
+Degrees of freedom: 40
 
 ==============================
 
 Flat w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-H0: 67.3 +3.5 -3.5 km/s/Mpc
-r_d: 147.5 +7.3 -6.7 Mpc
+f_cc: 1.45 +0.19 -0.18
+H0: 67.4 +2.7 -2.6 km/s/Mpc
+r_d: 147.4 +5.0 -4.7 Mpc
 Ωm: 0.304 +0.010 -0.010
-w0: -0.880 +0.099 -0.105
-wa: 0
-Chi squared: 23.59
-Degrees of freedom: 41
+w0: -0.889 +0.098 -0.105
+Chi squared: 39.98
+Degrees of freedom: 40
 """
