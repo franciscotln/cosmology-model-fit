@@ -12,50 +12,54 @@ from .plot_predictions import plot_cc_predictions
 
 cc_legend, z_cc_vals, H_cc_vals, cov_matrix_cc = get_cc_data()
 sn_legend, z_cmb, z_hel, observed_mu_vals, cov_matrix_sn = get_data()
-cho_cc = cho_factor(cov_matrix_cc)
 cho_sn = cho_factor(cov_matrix_sn)
+inv_cov_cc = np.linalg.inv(cov_matrix_cc)
+logdet_cc = np.linalg.slogdet(cov_matrix_cc)[1]
+N_cc = len(z_cc_vals)
 
 c = 299792.458  # Speed of light in km/s
 
 grid = np.linspace(0, np.max(z_cmb), num=2000)
 
 
-def Ez(z, O_m, w0=-1):
+def Ez(z, O_m, w0):
     sum = 1 + z
     evolving_de = ((2 * sum**2) / (1 + sum**2)) ** (3 * (1 + w0))
     return np.sqrt(O_m * sum**3 + (1 - O_m) * evolving_de)
 
 
 def integral_Ez(params):
-    integral = cumulative_trapezoid(1 / Ez(grid, *params[2:]), grid, initial=0)
+    integral = cumulative_trapezoid(1 / Ez(grid, *params[3:]), grid, initial=0)
     return np.interp(z_cmb, grid, integral)
 
 
 def theory_mu(params):
-    dM, H0 = params[0], params[1]
+    dM, H0 = params[1], params[2]
     return dM + 25 + 5 * np.log10((1 + z_hel) * (c / H0) * integral_Ez(params))
 
 
 def H_z(z, params):
-    return params[1] * Ez(z, *params[2:])
+    return params[2] * Ez(z, *params[3:])
 
 
 bounds = np.array(
     [
+        (0.4, 2.5),  # f_cc
         (-0.7, 0.7),  # ΔM
         (50, 80),  # H0
         (0.1, 0.5),  # Ωm
-        (-3, 1),  # w0
+        (-2, 0),  # w0
     ]
 )
 
 
 def chi_squared(params):
+    f_cc = params[0]
     delta_sn = observed_mu_vals - theory_mu(params)
     chi_sn = np.dot(delta_sn, cho_solve(cho_sn, delta_sn))
 
     delta_cc = H_cc_vals - H_z(z_cc_vals, params)
-    chi_cc = np.dot(delta_cc, cho_solve(cho_cc, delta_cc))
+    chi_cc = np.dot(delta_cc, np.dot(inv_cov_cc * f_cc**2, delta_cc))
 
     return chi_sn + chi_cc
 
@@ -67,7 +71,9 @@ def log_prior(params):
 
 
 def log_likelihood(params):
-    return -0.5 * chi_squared(params)
+    f_cc = params[0]
+    normalization_cc = N_cc * np.log(2 * np.pi) + logdet_cc - 2 * N_cc * np.log(f_cc)
+    return -0.5 * chi_squared(params) - 0.5 * normalization_cc
 
 
 def log_probability(params):
@@ -81,10 +87,8 @@ def main():
     ndim = len(bounds)
     nwalkers = 10 * ndim
     burn_in = 500
-    nsteps = 10000 + burn_in
-    initial_pos = np.random.default_rng().uniform(
-        bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim)
-    )
+    nsteps = 8000 + burn_in
+    initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
 
     with Pool(10) as pool:
         sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool=pool)
@@ -99,15 +103,17 @@ def main():
     samples = sampler.get_chain(discard=burn_in, flat=True)
 
     [
+        [f_cc_16, f_cc_50, f_cc_84],
         [dM_16, dM_50, dM_84],
         [h0_16, h0_50, h0_84],
         [Om_16, Om_50, Om_84],
         [w0_16, w0_50, w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = [dM_50, h0_50, Om_50, w0_50]
+    best_fit = [f_cc_50, dM_50, h0_50, Om_50, w0_50]
     deg_of_freedom = effective_sample_size + z_cc_vals.size - len(best_fit)
 
+    print(f"f_cc: {f_cc_50:.2f} +{(f_cc_84 - f_cc_50):.2f} -{(f_cc_50 - f_cc_16):.2f}")
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f}")
     print(f"H0: {h0_50:.1f} +{(h0_84 - h0_50):.1f} -{(h0_50 - h0_16):.1f}")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
@@ -119,7 +125,7 @@ def main():
         H_z=lambda z: H_z(z, best_fit),
         z=z_cc_vals,
         H=H_cc_vals,
-        H_err=np.sqrt(np.diag(cov_matrix_cc)),
+        H_err=np.sqrt(np.diag(cov_matrix_cc)) / f_cc_50,
         label=f"{cc_legend}: $H_0$={h0_50:.1f} km/s/Mpc",
     )
     plot_sn_predictions(
@@ -134,7 +140,7 @@ def main():
 
     corner.corner(
         samples,
-        labels=["ΔM", "$H_0$", "Ωm", "$w_0$"],
+        labels=["$f_{CCH}$", "ΔM", "$H_0$", "Ωm", "$w_0$"],
         quantiles=[0.159, 0.5, 0.841],
         show_titles=True,
         title_fmt=".3f",
@@ -154,42 +160,33 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM: w(z) = -1
-ΔM: -0.117 +0.103 -0.106 mag
-H0: 65.7 +3.3 -3.2 km/s/Mpc
-Ωm: 0.350 +0.017 -0.016
-w0: -1
-wa: 0
-Chi squared: 1654.77
-Degrees of freedom: 1764
-
-==============================
-
-Flat wCDM: w(z) = w0
-ΔM: -0.070 +0.112 -0.115 mag
-H0: 66.9 +3.5 -3.5 km/s/Mpc
-Ωm: 0.299 +0.050 -0.059
-w0: -0.862 +0.113 -0.123
-wa: 0
-Chi squared: 1653.57
+f_cc: 1.46 +0.19 -0.18
+ΔM: -0.115 +0.073 -0.075 mag
+H0: 65.8 +2.4 -2.3 km/s/Mpc
+Ωm: 0.350 +0.016 -0.016
+w0: -0.991 +0.682 -0.678
+Chi squared: 1671.20
 Degrees of freedom: 1763
 
 ==============================
 
-Flat alternative: w(z) = w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-ΔM: -0.068 +0.109 -0.116 mag
-H0: 66.9 +3.5 -3.5 km/s/Mpc
-Ωm: 0.310 +0.039 -0.040
-w0: -0.860 +0.103 -0.117
-wa: 0
-Chi squared: 1653.26
+Flat wCDM: w(z) = w0
+f_cc: 1.44 +0.19 -0.18
+ΔM: -0.083 +0.083 -0.084 mag
+H0: 66.5 +2.6 -2.5 km/s/Mpc
+Ωm: 0.311 +0.042 -0.048
+w0: -0.891 +0.102 -0.110
+Chi squared: 1669.71
+Degrees of freedom: 1762
 
 ==============================
 
-ΔM: -0.117 +0.114 -0.118 mag
-H0: 65.20 +3.54 -3.45 km/s/Mpc
-Ωm: 0.400 +0.033 -0.054
-w0: -0.803 +0.112 -0.124
-wa: -2.358 +1.443 -0.827 (unconstrained)
-Chi squared: 1650.40
+Flat alternative: w(z) = w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
+f_cc: 1.44 +0.19 -0.18
+ΔM: -0.079 +0.081 -0.083 mag
+H0: 66.6 +2.5 -2.5 km/s/Mpc
+Ωm: 0.318 +0.033 -0.034
+w0: -0.884 +0.095 -0.107
+Chi squared: 1669.16
 Degrees of freedom: 1762
 """
