@@ -13,9 +13,11 @@ from hubble.plotting import plot_predictions as plot_sn_predictions
 cc_legend, z_cc_vals, H_cc_vals, cov_matrix_cc = get_cc_data()
 sn_legend, z_sn_vals, sn_mu_vals, cov_matrix_sn = get_data()
 bao_legend, bao_data, cov_matrix_bao = get_bao_data()
-cho_cc = cho_factor(cov_matrix_cc)
 cho_sn = cho_factor(cov_matrix_sn)
 cho_bao = cho_factor(cov_matrix_bao)
+inv_cov_cc = np.linalg.inv(cov_matrix_cc)
+logdet_cc = np.linalg.slogdet(cov_matrix_cc)[1]
+N_cc = len(z_cc_vals)
 
 c = 299792.458  # Speed of light in km/s
 
@@ -30,13 +32,13 @@ z_grid = np.linspace(0, np.max(z_sn_vals), num=3000)
 
 
 def integral_Ez(params):
-    y = 1 / Ez(z_grid, *params[3:])
+    y = 1 / Ez(z_grid, *params[4:])
     integral_values = cumulative_trapezoid(y=y, x=z_grid, initial=0)
     return np.interp(z_sn_vals, z_grid, integral_values)
 
 
 def mu_theory(params):
-    dM, h0 = params[0], params[1]
+    dM, h0 = params[1], params[2]
     dL = (1 + z_sn_vals) * (c / h0) * integral_Ez(params)
     return dM + 25 + 5 * np.log10(dL)
 
@@ -50,7 +52,7 @@ def plot_bao_predictions(params):
     unique_quantities = set(quantity_types)
     colors = {"DV_over_rs": "red", "DM_over_rs": "blue", "DH_over_rs": "green"}
 
-    h0, r_d = params[1], params[2]
+    f_cc, h0, r_d = params[0], params[2], params[3]
     z_smooth = np.linspace(0, max(z_values), 100)
     plt.figure(figsize=(8, 6))
     for q in unique_quantities:
@@ -85,7 +87,7 @@ def plot_bao_predictions(params):
     plt.errorbar(
         x=z_cc_vals,
         y=H_cc_vals,
-        yerr=np.sqrt(np.diag(cov_matrix_cc)),
+        yerr=np.sqrt(np.diag(cov_matrix_cc)) / f_cc,
         fmt=".",
         color="blue",
         alpha=0.4,
@@ -103,7 +105,7 @@ def plot_bao_predictions(params):
 
 
 def H_z(z, params):
-    return params[1] * Ez(z, *params[3:])
+    return params[2] * Ez(z, *params[4:])
 
 
 def DM_z(z, params):
@@ -117,7 +119,7 @@ def DV_z(z, params):
 
 
 def bao_theory(params):
-    r_d = params[2]
+    r_d = params[3]
     predictions = []
     for z, _, quantity in bao_data:
         if quantity == "DV_over_rs":
@@ -131,6 +133,7 @@ def bao_theory(params):
 
 bounds = np.array(
     [
+        (0.4, 2.5),  # f_cc
         (-0.7, 0.7),  # ΔM
         (55, 80),  # H0
         (125, 170),  # r_d
@@ -141,6 +144,7 @@ bounds = np.array(
 
 
 def chi_squared(params):
+    f_cc = params[0]
     delta_sn = sn_mu_vals - mu_theory(params)
     chi_sn = np.dot(delta_sn, cho_solve(cho_sn, delta_sn))
 
@@ -148,7 +152,7 @@ def chi_squared(params):
     chi_bao = np.dot(delta_bao, cho_solve(cho_bao, delta_bao))
 
     delta_cc = H_cc_vals - H_z(z_cc_vals, params)
-    chi_cc = np.dot(delta_cc, cho_solve(cho_cc, delta_cc))
+    chi_cc = np.dot(delta_cc, np.dot(inv_cov_cc * f_cc**2, delta_cc))
     return chi_sn + chi_bao + chi_cc
 
 
@@ -159,7 +163,9 @@ def log_prior(params):
 
 
 def log_likelihood(params):
-    return -0.5 * chi_squared(params)
+    f_cc = params[0]
+    normalization_cc = N_cc * np.log(2 * np.pi) + logdet_cc - 2 * N_cc * np.log(f_cc)
+    return -0.5 * chi_squared(params) - 0.5 * normalization_cc
 
 
 def log_probability(params):
@@ -174,9 +180,7 @@ def main():
     nwalkers = 10 * ndim
     burn_in = 500
     nsteps = 20000 + burn_in
-    initial_pos = np.random.default_rng().uniform(
-        bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim)
-    )
+    initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
 
     with Pool(10) as pool:
         sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool=pool)
@@ -191,6 +195,7 @@ def main():
     samples = sampler.get_chain(discard=burn_in, flat=True)
 
     [
+        [f_cc_16, f_cc_50, f_cc_84],
         [dM_16, dM_50, dM_84],
         [h0_16, h0_50, h0_84],
         [rd_16, rd_50, rd_84],
@@ -198,12 +203,13 @@ def main():
         [w0_16, w0_50, w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = [dM_50, h0_50, rd_50, Om_50, w0_50]
+    best_fit = [f_cc_50, dM_50, h0_50, rd_50, Om_50, w0_50]
 
     deg_of_freedom = (
         z_sn_vals.size + bao_data["value"].size + z_cc_vals.size - len(best_fit)
     )
 
+    print(f"f_cc: {f_cc_50:.2f} +{(f_cc_84 - f_cc_50):.2f} -{(f_cc_50 - f_cc_16):.2f}")
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f}")
     print(f"H0: {h0_50:.1f} +{(h0_84 - h0_50):.1f} -{(h0_50 - h0_16):.1f}")
     print(f"r_d: {rd_50:.1f} +{(rd_84 - rd_50):.1f} -{(rd_50 - rd_16):.1f}")
@@ -223,7 +229,7 @@ def main():
         x_scale="log",
     )
 
-    labels = ["ΔM", "$H_0$", "$r_d$", "Ωm", "$w_0$"]
+    labels = ["$f_{CCH}$", "ΔM", "$H_0$", "$r_d$", "Ωm", "$w_0$"]
     corner.corner(
         samples,
         labels=labels,
@@ -246,36 +252,36 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM: w(z) = -1
-ΔM: -0.127 +0.135 -0.138 mag
-H0: 68.5 +3.3 -3.3 km/s/Mpc
-r_d: 147.5 +7.3 -6.6 Mpc
-Ωm: 0.304 +0.008 -0.008
+f_cc: 1.46 +0.19 -0.18
+ΔM: -0.121 +0.115 -0.116 mag
+H0: 68.6 +2.3 -2.3 km/s/Mpc
+r_d: 147.2 +5.0 -4.7 Mpc
+Ωm: 0.305 +0.008 -0.008
 w0: -1
-wa: 0
-Chi squared: 53.49
-Degrees of freedom: 63
+Chi squared: 70.13
+Degrees of freedom: 62
 
 ==============================
 
 Flat wCDM: w(z) = w0
-ΔM: -0.161 +0.136 -0.138 mag
-H0: 67.0 +3.3 -3.3 km/s/Mpc
-r_d: 147.5 +7.3 -6.7 Mpc
-Ωm: 0.298 +0.009 -0.009
-w0: -0.868 +0.051 -0.052
-wa: 0
-Chi squared: 47.04
-Degrees of freedom: 62
+f_cc: 1.45 +0.19 -0.18
+ΔM: -0.162 +0.116 -0.117 mag
+H0: 67.0 +2.4 -2.4 km/s/Mpc
+r_d: 147.5 +5.1 -4.8 Mpc
+Ωm: 0.299 +0.009 -0.009
+w0: -0.871 +0.050 -0.051 (2.53 - 2.58 sigma)
+Chi squared: 63.34
+Degrees of freedom: 61
 
 ==============================
 
 Flat alternative: w(z) = w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-ΔM: -0.168 +0.136 -0.138 mag
-H0: 66.6 +3.3 -3.2 km/s/Mpc
-r_d: 147.6 +7.2 -6.6 Mpc
-Ωm: 0.307 +0.008 -0.008
-w0: -0.834 +0.059 -0.060
-wa: 0
-Chi squared: 45.94
-Degrees of freedom: 62
+f_cc: 1.44 +0.19 -0.18
+ΔM: -0.165 +0.115 -0.117 mag
+H0: 66.7 +2.3 -2.3 km/s/Mpc
+r_d: 147.4 +5.0 -4.7 Mpc
+Ωm: 0.307 +0.009 -0.008
+w0: -0.837 +0.059 -0.060 (2.72 - 2.76 sigma)
+Chi squared: 62.20
+Degrees of freedom: 61
 """
