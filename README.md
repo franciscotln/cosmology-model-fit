@@ -13,5 +13,5 @@ python3 -m hubble.pantheon
 
 ## To run BAO fits
 ```bash
-python3 - bao.desi
+python3 -m bao.desi
 ```
