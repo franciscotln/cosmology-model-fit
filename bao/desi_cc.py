@@ -22,9 +22,7 @@ c = 299792.458  # Speed of light in km/s
 
 def Ez(z, O_m, w0):
     sum = 1 + z
-    w0 = -1
-    # evolving_de = ((2 * sum**2) / (1 + sum**2)) ** (3 * (1 + w0))
-    evolving_de = sum ** (3 * (1 + w0))
+    evolving_de = ((2 * sum**2) / (1 + sum**2)) ** (3 * (1 + w0))
     return np.sqrt(O_m * sum**3 + (1 - O_m) * evolving_de)
 
 
