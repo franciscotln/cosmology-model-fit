@@ -11,38 +11,37 @@ from y2025BAO.data import get_data as get_bao_data
 from hubble.plotting import plot_predictions as plot_sn_predictions
 
 cc_legend, z_cc_vals, H_cc_vals, cov_matrix_cc = get_cc_data()
-sn_legend, z_sn_vals, z_sn_hel_vals, distance_moduli_values, cov_matrix_sn = (
-    get_sn_data()
-)
+sn_legend, z_sn_vals, z_sn_hel_vals, mu_values, cov_matrix_sn = get_sn_data()
 bao_legend, bao_data, cov_matrix_bao = get_bao_data()
 
-cho_cc = cho_factor(cov_matrix_cc)
 cho_sn = cho_factor(cov_matrix_sn)
 cho_bao = cho_factor(cov_matrix_bao)
+inv_cov_cc = np.linalg.inv(cov_matrix_cc)
+logdet_cc = np.linalg.slogdet(cov_matrix_cc)[1]
+N_cc = len(z_cc_vals)
 
 c = 299792.458  # Speed of light in km/s
 
 z_grid_sn = np.linspace(0, np.max(z_sn_vals), num=3000)
 
 
-def h_over_h0_model(z, p):
+def Ez(z, p):
     one_plus_z = 1 + z
     evolving_de = ((2 * one_plus_z**2) / (1 + one_plus_z**2)) ** (3 * (1 + p["w_0"]))
     return np.sqrt(p["Omega_m"] * one_plus_z**3 + (1 - p["Omega_m"]) * evolving_de)
 
 
-def integral_e_z(params):
-    integral_values = cumulative_trapezoid(
-        1 / h_over_h0_model(z_grid_sn, params), z_grid_sn, initial=0
-    )
+def integral_Ez(params):
+    y = 1 / Ez(z_grid_sn, params)
+    integral_values = cumulative_trapezoid(y=y, x=z_grid_sn, initial=0)
     return np.interp(z_sn_vals, z_grid_sn, integral_values)
 
 
-def distance_modulus(p):
+def mu_theory(p):
     return (
         p["Delta_M"]
         + 25
-        + 5 * np.log10((1 + z_sn_hel_vals) * (c / p["H_0"]) * integral_e_z(p))
+        + 5 * np.log10((1 + z_sn_hel_vals) * (c / p["H_0"]) * integral_Ez(p))
     )
 
 
@@ -89,7 +88,7 @@ def plot_cc_predictions(p):
     plt.errorbar(
         x=z_cc_vals,
         y=H_cc_vals,
-        yerr=np.sqrt(np.diag(cov_matrix_cc)),
+        yerr=np.sqrt(np.diag(cov_matrix_cc)) / p["f_cc"],
         fmt=".",
         color="blue",
         alpha=0.4,
@@ -101,12 +100,12 @@ def plot_cc_predictions(p):
     plt.ylabel(r"$H(z)$")
     plt.xlim(0, np.max(z_cc_vals) + 0.2)
     plt.legend()
-    plt.title(f"{cc_legend}: $H_0$={p['H_0']:.2f} km/s/Mpc")
+    plt.title(f"{cc_legend}: $H_0$={p['H_0']:.1f} km/s/Mpc")
     plt.show()
 
 
 def H_z(z, p):
-    return p["H_0"] * h_over_h0_model(z, p)
+    return p["H_0"] * Ez(z, p)
 
 
 def DM_z(z, params):
@@ -119,7 +118,7 @@ def DV_z(z, params):
     return (z * DH * DM**2) ** (1 / 3)
 
 
-def bao_predictions(p):
+def bao_theory(p):
     predictions = []
     for z, _, quantity in bao_data:
         if quantity == "DV_over_rs":
@@ -132,6 +131,7 @@ def bao_predictions(p):
 
 
 param_bounds = {
+    "f_cc": (0.4, 2.5),
     "Delta_M": (-0.55, 0.55),
     "H_0": (50, 80),
     "r_d": (110, 175),
@@ -147,14 +147,14 @@ def array_to_dict(param_array):
 
 
 def chi_squared(params):
-    delta_sn = distance_moduli_values - distance_modulus(params)
+    delta_sn = mu_values - mu_theory(params)
     chi_sn = np.dot(delta_sn, cho_solve(cho_sn, delta_sn))
 
-    delta_bao = bao_data["value"] - bao_predictions(params)
+    delta_bao = bao_data["value"] - bao_theory(params)
     chi_bao = np.dot(delta_bao, cho_solve(cho_bao, delta_bao))
 
     delta_cc = H_cc_vals - H_z(z_cc_vals, params)
-    chi_cc = np.dot(delta_cc, cho_solve(cho_cc, delta_cc))
+    chi_cc = np.dot(delta_cc, np.dot(inv_cov_cc * params["f_cc"] ** 2, delta_cc))
     return chi_sn + chi_bao + chi_cc
 
 
@@ -167,14 +167,16 @@ def log_prior(param_array):
 
 
 def log_likelihood(params):
-    return -0.5 * chi_squared(params)
+    f_cc = params["f_cc"]
+    normalization_cc = N_cc * np.log(2 * np.pi) + logdet_cc - 2 * N_cc * np.log(f_cc)
+    return -0.5 * chi_squared(params) - 0.5 * normalization_cc
 
 
 def log_probability(param_array):
     lp = log_prior(param_array)
     if not np.isfinite(lp):
         return -np.inf
-    return lp - 0.5 * chi_squared(array_to_dict(param_array))
+    return lp + log_likelihood(array_to_dict(param_array))
 
 
 def main():
@@ -182,7 +184,7 @@ def main():
     nwalkers = 16 * ndim
     burn_in = 500
     nsteps = 10000 + burn_in
-    initial_pos = np.random.default_rng().uniform(
+    initial_pos = np.random.uniform(
         [param_bounds[name][0] for name in param_names],
         [param_bounds[name][1] for name in param_names],
         size=(nwalkers, ndim),
@@ -198,7 +200,13 @@ def main():
     except emcee.autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
 
-    samples = sampler.get_chain(discard=burn_in, flat=True, thin=1)
+    samples = sampler.get_chain(discard=burn_in, flat=True)
+    print("correlation matrix:")
+    print(
+        np.array2string(
+            np.corrcoef(samples, rowvar=False), precision=5, suppress_small=True
+        )
+    )
 
     percentiles = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
     summary = {}
@@ -217,10 +225,10 @@ def main():
     plot_sn_predictions(
         legend=sn_legend,
         x=z_sn_vals,
-        y=distance_moduli_values,
+        y=mu_values,
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=distance_modulus(best_fit_dict),
-        label=rf"Best fit: $H_0$={summary['H_0'][0]:.2f} km/s/Mpc, $\Omega_m$={summary['Omega_m'][0]:.3f}",
+        y_model=mu_theory(best_fit_dict),
+        label=rf"Best fit: $H_0$={summary['H_0'][0]:.1f} km/s/Mpc, $\Omega_m$={summary['Omega_m'][0]:.3f}",
         x_scale="log",
     )
 
@@ -246,48 +254,56 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM: w(z) = -1
-ΔM: -0.058 +0.101 -0.104 mag
-H0: 68.279 +3.274 -3.222 km/s/Mpc
-r_d: 147.224 +7.212 -6.663 Mpc
-Ωm: 0.311 +0.008 -0.008
-w0: -1
-wa: 0
-Chi squared: 1673.51
-Degrees of freedom: 1776
+f_cc: 1.463 +0.189 -0.180
+Delta_M: -0.062 +0.071 -0.073 mag
+H_0: 68.141 +2.284 -2.275 km/s/Mpc
+r_d: 147.474 +4.997 -4.680 Mpc
+Omega_m: 0.311 +0.008 -0.008
+w_0: -1
+Chi squared: 1690.24
+Degrees of freedom: 1775
+Correlation matrix:
+[ 1.       0.01569  0.00938 -0.02196  0.02458 ]
+[ 0.01569  1.       0.99594 -0.98890 -0.15820 ]
+[ 0.00938  0.99594  1.      -0.98027 -0.22340 ]
+[-0.02196 -0.98890 -0.98027  1.       0.05103 ]
+[ 0.02458 -0.15820 -0.22340  0.05103  1.      ]
 
 ==============================
 
 Flat wCDM: w(z) = w0
-ΔM: -0.061 +0.101 -0.105 mag
-H0: 67.28 +3.24 -3.22 km/s/Mpc
-r_d: 147.08 +7.25 -6.67 Mpc
-Ωm: 0.298 +0.009 -0.009
-w0: -0.877 +0.038 -0.038 (3.2 sigma)
-wa: 0
-Chi squared: 1663.20
-Degrees of freedom: 1775
+f_cc: 1.454 +0.188 -0.180
+Delta_M: -0.068 +0.071 -0.074 mag
+H_0: 67.1 +2.2 -2.3 km/s/Mpc
+r_d: 147.4 +5.0 -4.7 Mpc
+Omega_m: 0.299 +0.009 -0.009
+w_0: -0.874 +0.038 -0.039 (3.23 - 3.32 sigma)
+Chi squared: 1679.55
+Degrees of freedom: 1774
+Correlation matrix:
+[ 1.       0.00185  -0.00030 -0.00758  0.03830 -0.03138 ]
+[ 0.00185  1.       0.98934  -0.98876 -0.11233 -0.05496 ]
+[-0.00030  0.98934  1.       -0.97030 -0.10450 -0.17391 ]
+[-0.00758 -0.98876 -0.97030   1.       0.03945  0.01680 ]
+[ 0.03830 -0.11233 -0.10450   0.03945  1.      -0.46432 ]
+[-0.03138 -0.05496 -0.17391   0.01680 -0.46432  1.      ]
 
 ==============================
 
 Flat alternative: w(z) = w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-Delta_M: -0.065 +0.101 -0.106 mag
-H_0: 67.031 +3.235 -3.224 km/s/Mpc
-r_d: 147.255 +7.332 -6.672 Mpc
-Ωm: 0.306 +0.008 -0.008
-w0: -0.852 +0.042 -0.042 (3.52 sigma)
-wa: 0
-Chi squared: 1661.80
-Degrees of freedom: 1775
-
-==============================
-
-Flat w0waCDM: w(z) = w0 + wa * z/(1 + z)
-ΔM: -0.056 +0.101 -0.107 mag
-H0: 67.05 +3.25 -3.25 km/s/Mpc
-r_d: 147.09 +7.39 -6.68 Mpc
-Ωm: 0.319 +0.013 -0.017
-w0: -0.800 +0.074 -0.067 (2.7 - 3.0 sigma)
-wa: -0.6385 +0.4721 -0.4662
-Chi squared: 1661.08
+f_cc: 1.45 +0.19 -0.18
+Delta_M: -0.067 +0.071 -0.074 mag
+H_0: 67.0 +2.3 -2.3 km/s/Mpc
+r_d: 147.4 +5.0 -4.7 Mpc
+Omega_m: 0.306 +0.008 -0.008
+w_0: -0.855 +0.042 -0.043 (3.37 - 3.45 sigma)
+Chi squared: 1678.37
 Degrees of freedom: 1774
+Correlation matrix:
+[ 1.       0.00458  0.00309 -0.00909  0.01969 -0.02924]
+[ 0.00458  1.       0.98764 -0.98892 -0.14398 -0.03624]
+[ 0.00309  0.98764  1.      -0.96906 -0.1772  -0.1688 ]
+[-0.00909 -0.98892 -0.96906  1.       0.04682  0.00449]
+[ 0.01969 -0.14398 -0.1772   0.04682  1.      -0.15024]
+[-0.02924 -0.03624 -0.1688   0.00449 -0.15024  1.     ]
 """
