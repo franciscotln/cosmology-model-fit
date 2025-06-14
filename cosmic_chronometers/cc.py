@@ -13,13 +13,13 @@ inv_cov = np.linalg.inv(cov_matrix)
 logdet = np.linalg.slogdet(cov_matrix)[1]
 
 
-def H_z(z, h0, Om, w0=-1):
+def H_z(z, h0, Om, w0):
     one_plus_z = 1 + z
     evolving_de = ((2 * one_plus_z**2) / (1 + one_plus_z**2)) ** (3 * (1 + w0))
     return h0 * np.sqrt(Om * one_plus_z**3 + (1 - Om) * evolving_de)
 
 
-bounds = np.array([(50, 100), (0, 0.7), (-2.5, 0), (0.4, 3)])  # H0, Om, w0, f
+bounds = np.array([(50, 100), (0, 0.7), (-3.0, 0), (0.4, 3)])  # H0, Om, w0, f
 
 
 def chi_squared(params):
@@ -69,7 +69,7 @@ def main():
 
     samples = sampler.get_chain(discard=burn_in, flat=True)
     print("correlation matrix:")
-    print(np.corrcoef(samples, rowvar=False))
+    print(np.array2string(np.corrcoef(samples, rowvar=False), precision=5))
 
     [
         [H0_16, H0_50, H0_84],
@@ -129,28 +129,59 @@ f: 1.444 +0.188 -0.181
 Chi squared: 30.39
 Log likelihood: -126.13
 Degs of freedom: 29
+Correlation matrix:
+[ 1.      -0.80616  0.03154]
+[-0.80616  1.      -0.04752]
+[ 0.03154 -0.04752  1.     ]
 
+Without f:
+H0: 66.4 +5.4 -5.5 km/s/Mpc
+Ωm: 0.337 +0.080 -0.063
+w0: -1.507 +1.029 -1.016
+Chi squared: 14.58
+Log likelihood: -129.99
+Degs of freedom: 29
+correlation matrix:
+[ 1.      -0.80980 ]
+[-0.80980   1.     ]
+
+Log likelihood ratio test:
+-2 * log(L0/L1) = -2 * log(L0) + 2 * log(L1)
+-2 * (-129.99) + 2 * (-126.13) = 7.74
+p-value = 0.0054
+99.46% confident that the model with f is better than the one without f.
+So the uncertainties in the H(z) dataset are overestimated by a factor of 1.44 ± 0.19.
+2.3 sigma between f=1 and f=1.44.
 =========================
 
 Flat wCDM
-H0: 70.7 +6.9 -6.2 km/s/Mpc
-Ωm: 0.317 +0.052 -0.046
-w0: -1.449 +0.517 -0.560
-wa: 0
-f: 1.440 +0.191 -0.181
-Chi squared: 29.96
-Log likelihood: -126.02
+H0: 71.3 +7.7 -6.4 km/s/Mpc
+Ωm: 0.313 +0.052 -0.049
+w0: -1.494 +0.542 -0.648
+f: 1.435 +0.189 -0.180
+Chi squared: 29.83
+Log likelihood: -126.05
 Degs of freedom: 28
+Degs of freedom: 28
+Correlation matrix:
+[ 1.      -0.43701 -0.77479  0.01649]
+[-0.43701  1.       0.04666  0.04024]
+[-0.77479  0.04666  1.       0.00621]
+[ 0.01649  0.04024  0.00621  1.     ]
 
 =========================
 
 Flat w(z) = w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-H0: 71.4 +6.8 -6.4 km/s/Mpc
-Ωm: 0.311 +0.052 -0.044
-w0: -1.530 +0.554 -0.561
-wa: 0
-f: 1.443 +0.192 -0.181
-Chi squared: 29.71
-Log likelihood: -125.81
+H0: 72.2 +7.9 -6.8 km/s/Mpc
+Ωm: 0.306 +0.054 -0.046
+w0: -1.605 +0.594 -0.680
+f: 1.442 +0.191 -0.181
+Chi squared: 29.66
+Log likelihood: -125.83
 Degs of freedom: 28
+Correlation matrix:
+[ 1.      -0.78514 -0.78039  0.02504]
+[-0.78514  1.       0.43328 -0.02962]
+[-0.78039  0.43328  1.      -0.00263]
+[ 0.02504 -0.02962 -0.00263  1.     ]
 """
