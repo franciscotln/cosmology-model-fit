@@ -9,6 +9,7 @@ from y2024DES.data import effective_sample_size as sn_sample, get_data as get_sn
 from y2005cc.data import get_data as get_cc_data
 from y2025BAO.data import get_data as get_bao_data
 from hubble.plotting import plot_predictions as plot_sn_predictions
+from cosmic_chronometers.plot_predictions import plot_cc_predictions
 
 cc_legend, z_cc_vals, H_cc_vals, cov_matrix_cc = get_cc_data()
 sn_legend, z_sn_vals, z_sn_hel_vals, mu_values, cov_matrix_sn = get_sn_data()
@@ -77,30 +78,8 @@ def plot_bao_predictions(p):
     plt.legend()
     plt.grid(True)
     plt.title(
-        f"{bao_legend}: $H_0$={p['H_0']:.2f} km/s/Mpc, $r_d$={p['r_d']:.2f} Mpc, $\Omega_M$={p['Omega_m']:.3f}"
+        f"{bao_legend}: $H_0$={p['H_0']:.1f} km/s/Mpc, $r_d$={p['r_d']:.1f} Mpc, $\Omega_M$={p['Omega_m']:.3f}"
     )
-    plt.show()
-
-
-def plot_cc_predictions(p):
-    z_smooth = np.linspace(0, np.max(z_cc_vals), 100)
-
-    plt.errorbar(
-        x=z_cc_vals,
-        y=H_cc_vals,
-        yerr=np.sqrt(np.diag(cov_matrix_cc)) / p["f_cc"],
-        fmt=".",
-        color="blue",
-        alpha=0.4,
-        label="CCH data",
-        capsize=2,
-    )
-    plt.plot(z_smooth, H_z(z_smooth, p), color="red", alpha=0.5, label="Model")
-    plt.xlabel("Redshift (z)")
-    plt.ylabel(r"$H(z)$")
-    plt.xlim(0, np.max(z_cc_vals) + 0.2)
-    plt.legend()
-    plt.title(f"{cc_legend}: $H_0$={p['H_0']:.1f} km/s/Mpc")
     plt.show()
 
 
@@ -202,11 +181,7 @@ def main():
 
     samples = sampler.get_chain(discard=burn_in, flat=True)
     print("correlation matrix:")
-    print(
-        np.array2string(
-            np.corrcoef(samples, rowvar=False), precision=5, suppress_small=True
-        )
-    )
+    print(np.array2string(np.corrcoef(samples, rowvar=False), precision=5))
 
     percentiles = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
     summary = {}
@@ -221,7 +196,13 @@ def main():
     print(f"Degrees of freedom: {deg_of_freedom}")
 
     plot_bao_predictions(best_fit_dict)
-    plot_cc_predictions(best_fit_dict)
+    plot_cc_predictions(
+        H_z=lambda z: H_z(z, best_fit_dict),
+        z=z_cc_vals,
+        H=H_cc_vals,
+        H_err=np.sqrt(np.diag(cov_matrix_cc)) / best_fit_dict["f_cc"],
+        label=f"{cc_legend} $H_0$: {best_fit_dict['H_0']:.1f} km/s/Mpc",
+    )
     plot_sn_predictions(
         legend=sn_legend,
         x=z_sn_vals,
