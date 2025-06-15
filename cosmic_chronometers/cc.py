@@ -121,67 +121,67 @@ https://arxiv.org/pdf/2307.09501
 *****************************
 
 Flat ΛCDM
-H0: 66.8 +3.7 -3.8 km/s/Mpc
-Ωm: 0.331 +0.053 -0.044
+With f:
+H0: 67.1 +3.7 -3.8 km/s/Mpc
+Ωm: 0.329 +0.052 -0.044
 w0: -1
 wa: 0
-f: 1.444 +0.188 -0.181
-Chi squared: 30.39
-Log likelihood: -126.13
+f: 1.445 +0.189 -0.181
+Chi squared: 30.30
+Log likelihood: -126.07
 Degs of freedom: 29
 Correlation matrix:
-[ 1.      -0.80616  0.03154]
-[-0.80616  1.      -0.04752]
-[ 0.03154 -0.04752  1.     ]
+[ 1.      -0.80632  0.03013 ]
+[-0.80632  1.      -0.04886 ]
+[ 0.03013 -0.04886  1.      ]
 
 Without f:
-H0: 66.4 +5.4 -5.5 km/s/Mpc
-Ωm: 0.337 +0.080 -0.063
-w0: -1.507 +1.029 -1.016
-Chi squared: 14.58
-Log likelihood: -129.99
+H0: 66.7 +5.4 -5.4 km/s/Mpc
+Ωm: 0.335 +0.079 -0.063
+w0: -1
+Chi squared: 14.53
+Log likelihood: -129.97
 Degs of freedom: 29
 correlation matrix:
-[ 1.      -0.80980 ]
-[-0.80980   1.     ]
+[ 1.      -0.80595 ]
+[-0.80595   1.     ]
 
 Log likelihood ratio test:
 -2 * log(L0/L1) = -2 * log(L0) + 2 * log(L1)
--2 * (-129.99) + 2 * (-126.13) = 7.74
-p-value = 0.0054
-99.46% confident that the model with f is better than the one without f.
+-2 * (-129.97) + 2 * (-126.07) = 7.8
+p-value = 0.005
+99.5% confident that the model with f is better than the one without f.
 So the uncertainties in the H(z) dataset are overestimated by a factor of 1.44 ± 0.19.
-2.3 sigma between f=1 and f=1.44.
+2.35 - 2.46 sigma between f=1 and f=1.44.
 =========================
 
 Flat wCDM
-H0: 71.3 +7.7 -6.4 km/s/Mpc
-Ωm: 0.313 +0.052 -0.049
-w0: -1.494 +0.542 -0.648
-f: 1.435 +0.189 -0.180
-Chi squared: 29.83
-Log likelihood: -126.05
-Degs of freedom: 28
+H0: 70.4 +7.3 -6.1 km/s/Mpc
+Ωm: 0.313 +0.052 -0.051
+w0: -1.375 +0.522 -0.628
+f: 1.430 +0.190 -0.180
+Chi squared: 29.93
+Log likelihood: -126.21
 Degs of freedom: 28
 Correlation matrix:
-[ 1.      -0.43701 -0.77479  0.01649]
-[-0.43701  1.       0.04666  0.04024]
-[-0.77479  0.04666  1.       0.00621]
-[ 0.01649  0.04024  0.00621  1.     ]
+[ 1.      -0.36086 -0.7633  -0.00567 ]
+[-0.36086  1.      -0.05208  0.03674 ]
+[-0.7633  -0.05208  1.       0.03591 ]
+[-0.00567  0.03674  0.03591  1.      ]
 
 =========================
 
 Flat w(z) = w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-H0: 72.2 +7.9 -6.8 km/s/Mpc
-Ωm: 0.306 +0.054 -0.046
-w0: -1.605 +0.594 -0.680
-f: 1.442 +0.191 -0.181
-Chi squared: 29.66
-Log likelihood: -125.83
+H0: 71.4 +7.7 -6.5 km/s/Mpc
+Ωm: 0.309 +0.053 -0.046
+w0: -1.489 +0.568 -0.686
+f: 1.434 +0.189 -0.181
+Chi squared: 29.59
+Log likelihood: -125.97
 Degs of freedom: 28
 Correlation matrix:
-[ 1.      -0.78514 -0.78039  0.02504]
-[-0.78514  1.       0.43328 -0.02962]
-[-0.78039  0.43328  1.      -0.00263]
-[ 0.02504 -0.02962 -0.00263  1.     ]
+[ 1.      -0.75047 -0.77447  0.00623 ]
+[-0.75047  1.       0.37586 -0.02014 ]
+[-0.77447  0.37586  1.       0.02124 ]
+[ 0.00623 -0.02014  0.02124  1.      ]
 """
