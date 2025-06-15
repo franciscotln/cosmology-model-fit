@@ -91,12 +91,12 @@ bounds = np.array(
 )
 
 
-# Prior from Planck 2018 https://arxiv.org/abs/1807.06209
-# Ωm x ​h^2 = 0.14237 ± 0.00135
+# Prior from Planck 2018 https://arxiv.org/abs/1807.06209 table 1 (Combined column)
+# Ωm x ​h^2 = 0.1428 ± 0.0011. Prior width increased by 70% to 0.00187
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
         Om_x_h2 = params[3] * (params[2] / 100) ** 2
-        return -0.5 * ((0.14237 - Om_x_h2) / 0.00135) ** 2
+        return -0.5 * ((0.1428 - Om_x_h2) / 0.00187) ** 2
     return -np.inf
 
 
@@ -201,38 +201,38 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM model
-ΔM: -0.129 +0.093 -0.093 mag
-r_d: 147.64 +1.37 -1.36 Mpc
-H0: 68.43 +1.01 -0.99 km/s/Mpc
+ΔM: -0.123 +0.094 -0.094 mag
+r_d: 147.41 +1.53 -1.50 Mpc
+H0: 68.54 +1.05 -1.04 km/s/Mpc
 Ωm: 0.304 +0.008 -0.008
 w0: -1
 wa: 0
-Chi squared: 38.8159
+Chi squared: 38.8150
 Degrees of freedom: 31
 
 =============================
 
 Flat wCDM
-ΔM: -0.091 +0.095 -0.095 mag
-r_d: 142.85 +2.44 -2.59 Mpc
-H0: 69.15 +1.13 -1.08 km/s/Mpc
+ΔM: -0.087 +0.097 -0.097 mag
+r_d: 142.65 +2.52 -2.66 Mpc
+H0: 69.26 +1.16 -1.14 km/s/Mpc
 Ωm: 0.298 +0.009 -0.009
-w0: -0.865 +0.051 -0.052
+w0: -0.866 +0.051 -0.052
 wa: 0
-Chi squared: 32.1517
-Degrees of freedom: 30
+Chi squared: 32.1546
+Degs of freedom: 30
 
 ==============================
 
 Flat w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-ΔM: -0.118 +0.094 -0.093 mag
-r_d: 144.22 +1.86 -1.86 Mpc
-H0: 68.16 +1.00 -0.98 km/s/Mpc
+ΔM: -0.116 +0.094 -0.094 mag
+r_d: 144.03 +1.98 -1.96 Mpc
+H0: 68.26 +1.05 -1.05 km/s/Mpc
 Ωm: 0.306 +0.009 -0.008
-w0: -0.829 +0.059 -0.060
+w0: -0.830 +0.059 -0.060
 wa: 0
-Chi squared: 30.9519
-Degrees of freedom: 30
+Chi squared: 30.9527
+Degs of freedom: 30
 
 ==============================
 

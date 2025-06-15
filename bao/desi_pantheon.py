@@ -125,12 +125,12 @@ def chi_squared(params):
     return chi_sn + chi_bao
 
 
-# Prior from Planck 2018 https://arxiv.org/abs/1807.06209
-# Ωm x ​h^2 = 0.14237 ± 0.00135
+# Prior from Planck 2018 https://arxiv.org/abs/1807.06209 table 1 (Combined column)
+# Ωm x ​h^2 = 0.1428 ± 0.0011. Prior width increased by 70% to 0.00187
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
         Om_x_h2 = params[3] * (params[2] / 100) ** 2
-        return -0.5 * ((0.14237 - Om_x_h2) / 0.00135) ** 2
+        return -0.5 * ((0.1428 - Om_x_h2) / 0.00187) ** 2
     return -np.inf
 
 

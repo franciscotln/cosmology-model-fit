@@ -60,12 +60,12 @@ def chi_squared(params):
     return np.dot(delta, cho_solve(cho, delta))
 
 
-# Prior from Planck 2018 https://arxiv.org/abs/1807.06209
-# Ωm x ​h^2 = 0.14237 ± 0.00135. Prior width increased by 70% to 0.0023
+# Prior from Planck 2018 https://arxiv.org/abs/1807.06209 table 1 (Combined column)
+# Ωm x ​h^2 = 0.1428 ± 0.0011. Prior width increased by 70% to 0.00187
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
         Om_x_h2 = params[2] * (params[1] / 100) ** 2
-        return -0.5 * ((0.14237 - Om_x_h2) / 0.0023) ** 2
+        return -0.5 * ((0.1428 - Om_x_h2) / 0.00187) ** 2
     return -np.inf
 
 
@@ -111,7 +111,9 @@ def main():
 
     best_fit = [rd_50, H0_50, Om_50, w0_50]
 
-    residuals = data["value"] - theory_predictions(data["z"], data["quantity"], best_fit)
+    residuals = data["value"] - theory_predictions(
+        data["z"], data["quantity"], best_fit
+    )
     SS_res = np.sum(residuals**2)
     SS_tot = np.sum((data["value"] - np.mean(data["value"])) ** 2)
     r2 = 1 - SS_res / SS_tot
@@ -157,8 +159,8 @@ Dataset: DESI 2025
 ******************************
 
 Flat ΛCDM:
-r_d: 146.82 +1.70 -1.68 Mpc
-H0: 69.14 +1.15 -1.13 km/s/Mpc
+r_d: 146.57 +1.57 -1.54 Mpc
+H0: 69.27 +1.13 -1.09 km/s/Mpc
 Ωm: 0.298 +0.009 -0.008
 w0: -1
 wa: 0
@@ -170,25 +172,25 @@ RMSD: 0.305
 ===============================
 
 Flat wCDM:
-r_d: 144.38 +2.85 -3.08 Mpc
-H0: 69.20 +1.20 -1.16 km/s/Mpc
+r_d: 144.12 +2.78 -3.03 Mpc
+H0: 69.33 +1.15 -1.11 km/s/Mpc
 Ωm: 0.297 +0.009 -0.009
-w0: -0.915 +0.075 -0.079
+w0: -0.913 +0.076 -0.080
 wa: 0
-Chi squared: 9.09
+Chi squared: 9.16
 Degs of freedom: 9
 R^2: 0.9989
-RMSD: 0.281
+RMSD: 0.282
 
 ==============================
 
 Flat wzCDM:
-r_d: 144.93 +2.36 -2.35
-H0: 68.42 +1.30 -1.26
+r_d: 144.68 +2.28 -2.26 Mpc
+H0: 68.55 +1.24 -1.21 km/s/Mpc
 Ωm: 0.304 +0.010 -0.010
-w0: -0.873 +0.099 -0.105
+w0: -0.872 +0.100 -0.107
 wa: 0
-Chi squared: 8.68
+Chi squared: 8.69
 Degs of freedom: 9
 R^2: 0.9990
 RMSD: 0.272
@@ -198,39 +200,39 @@ Dataset: SDSS 2020
 ******************************
 
 Flat ΛCDM
-r_d: 145.48 +2.88 -2.79 Mpc
-H0: 69.13 +2.02 -1.99 km/s/Mpc
-Ωm: 0.298 +0.017 -0.016
+r_d: 145.18 +2.78 -2.68 Mpc
+H0: 69.28 +1.98 -1.98 km/s/Mpc
+Ωm: 0.297 +0.017 -0.016
 w0: -1
 wa: 0
 Chi squared: 10.81
 Degs of freedom: 11
-R^2: 0.9947
-RMSD: 0.739
+R^2: 0.9946
+RMSD: 0.741
 
 ================================
 
 Flat wCDM
-r_d: 138.13 +5.43 -5.04 Mpc
-H0: 69.99 +2.02 -2.15 km/s/Mpc
-Ωm: 0.290 +0.018 -0.016
-w0: -0.776 +0.096 -0.127
+r_d: 137.94 +5.37 -4.95 Mpc
+H0: 70.07 +1.96 -2.09 km/s/Mpc
+Ωm: 0.291 +0.018 -0.016
+w0: -0.776 +0.096 -0.125
 wa: 0
-Chi squared: 7.54
+Chi squared: 7.53
 Degs of freedom: 10
 R^2: 0.9956
-RMSD: 0.671
+RMSD: 0.672
 
 ================================
 
 Flat wzCDM
-r_d: 140.56 +4.16 -4.25 Mpc
-H0: 67.83 +2.08 -2.00 km/s/Mpc
-Ωm: 0.309 +0.018 -0.018
-w0: -0.689 +0.159 -0.176
+r_d: 140.38 +4.07 -4.17 Mpc
+H0: 67.96 +2.03 -2.00 km/s/Mpc
+Ωm: 0.309 +0.019 -0.017
+w0: -0.691 +0.160 -0.175
 wa: 0
-Chi squared: 7.57
+Chi squared: 7.58
 Degs of freedom: 10
 R^2: 0.9954
-RMSD: 0.686
+RMSD: 0.685
 """
