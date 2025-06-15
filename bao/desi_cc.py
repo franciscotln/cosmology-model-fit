@@ -133,6 +133,7 @@ def main():
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
+    print(f"log likelihood: {log_likelihood(best_fit):.2f}")
     print(f"Degrees of freedom: {data['value'].size + z_cc_vals.size - len(best_fit)}")
 
     plot_bao_predictions(
@@ -177,27 +178,43 @@ r_d: 146.8 +5.0 -4.6 Mpc
 Ωm: 0.299 +0.009 -0.008
 w0: -1
 Chi squared: 41.61
+log likelihood: -131.35
 Degrees of freedom: 41
 
 =============================
 
 Flat wCDM model
 f_cc: 1.46 +0.19 -0.18
-H0: 68.0 +2.6 -2.5 km/s/Mpc
+H0: 67.9 +2.6 -2.5 km/s/Mpc
 r_d: 147.0 +5.0 -4.7 Mpc
 Ωm: 0.298 +0.009 -0.009
 w0: -0.921 +0.075 -0.078
-Chi squared: 40.26
+Chi squared: 40.43
+log likelihood: -130.81
 Degrees of freedom: 40
 
 ==============================
 
 Flat w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-f_cc: 1.45 +0.19 -0.18
+f_cc: 1.46 +0.19 -0.18
 H0: 67.6 +2.7 -2.6 km/s/Mpc
 r_d: 147.0 +5.0 -4.7 Mpc
 Ωm: 0.304 +0.010 -0.010
 w0: -0.886 +0.097 -0.103
-Chi squared: 39.89
+Chi squared: 40.03
+log likelihood: -130.68
 Degrees of freedom: 40
+
+=============================
+
+Flat w0waCDM model
+f_cc: 1.43 +0.19 -0.18
+H0: 64.7 +3.8 -3.7 km/s/Mpc
+r_d: 147.1 +5.2 -4.8 Mpc
+Ωm: 0.350 +0.043 -0.049
+w0: -0.535 +0.397 -0.362
+wa: -1.520 +1.411 -1.409
+Chi squared: 37.56
+log likelihood: -130.14
+Degrees of freedom: 39
 """
