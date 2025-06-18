@@ -5,13 +5,9 @@ import gpytorch
 from gpytorch.likelihoods import _GaussianLikelihoodBase
 from gpytorch.distributions import MultivariateNormal
 from gpytorch.likelihoods.noise_models import HomoskedasticNoise
+from gpytorch.lazy import DiagLazyTensor, NonLazyTensor, ZeroLazyTensor, LinearOperator
 import gpytorch.settings as settings
 import gpytorch.utils.warnings as warnings
-
-LinearOperator = gpytorch.linear_operator.operators.LinearOperator
-DenseLinearOperator = gpytorch.linear_operator.operators.DenseLinearOperator
-DiagLinearOperator = gpytorch.linear_operator.operators.DiagLinearOperator
-ZeroLinearOperator = gpytorch.linear_operator.operators.ZeroLinearOperator
 
 
 class FixedGaussianNoise(gpytorch.Module):
@@ -22,13 +18,19 @@ class FixedGaussianNoise(gpytorch.Module):
         """
         super().__init__()
 
-        # Check if full covariance matrix or vector
+        min_noise = settings.min_fixed_noise.value(noise.dtype)
         if noise.ndim == 2:
-            # Assume full covariance matrix
             if not torch.allclose(noise, noise.transpose(-1, -2)):
                 raise ValueError("Covariance matrix must be symmetric.")
+            diag = noise.diag()
+            if diag.lt(min_noise).any():
+                warnings.warn(
+                    "Very small noise values detected on the diagonal. Rounding small noise values up.",
+                    warnings.NumericalWarning,
+                )
+                noise = noise.clone()
+                noise.diagonal().clamp_min_(min_noise)
         elif noise.ndim == 1:
-            min_noise = settings.min_fixed_noise.value(noise.dtype)
             if noise.lt(min_noise).any():
                 warnings.warn(
                     "Very small noise values detected. Rounding small noise values up.",
@@ -56,9 +58,9 @@ class FixedGaussianNoise(gpytorch.Module):
         scaled_noise = raw_noise * self.noise_scale**2
 
         if scaled_noise.ndim == 2:
-            return DenseLinearOperator(scaled_noise)
+            return NonLazyTensor(scaled_noise)
         else:
-            return DiagLinearOperator(scaled_noise)
+            return DiagLazyTensor(scaled_noise)
 
     def _apply(self, fn):
         self.noise = fn(self.noise)
@@ -190,7 +192,7 @@ class FixedNoiseGaussianLikelihood(_GaussianLikelihoodBase):
 
         if self.second_noise_covar is not None:
             res = res + self.second_noise_covar(*params, shape=shape, **kwargs)
-        elif isinstance(res, ZeroLinearOperator):
+        elif isinstance(res, ZeroLazyTensor):
             warnings.warn(
                 "You have passed data through a FixedNoiseGaussianLikelihood that did not match the size "
                 "of the fixed noise, *and* you did not specify noise. This is treated as a no-op.",
