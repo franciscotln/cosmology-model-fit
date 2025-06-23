@@ -55,7 +55,7 @@ class FixedGaussianNoise(gpytorch.Module):
         **kwargs: Any,
     ) -> LinearOperator:
         raw_noise = noise if noise is not None else self.noise
-        scaled_noise = raw_noise * self.noise_scale**2
+        scaled_noise = raw_noise * self.noise_scale
 
         if scaled_noise.ndim == 2:
             return NonLazyTensor(scaled_noise)
