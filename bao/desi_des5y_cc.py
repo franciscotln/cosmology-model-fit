@@ -10,6 +10,7 @@ from y2005cc.data import get_data as get_cc_data
 from y2025BAO.data import get_data as get_bao_data
 from hubble.plotting import plot_predictions as plot_sn_predictions
 from cosmic_chronometers.plot_predictions import plot_cc_predictions
+from .plot_predictions import plot_bao_predictions
 
 cc_legend, z_cc_vals, H_cc_vals, cov_matrix_cc = get_cc_data()
 sn_legend, z_sn_vals, z_sn_hel_vals, mu_values, cov_matrix_sn = get_sn_data()
@@ -28,8 +29,8 @@ z_grid_sn = np.linspace(0, np.max(z_sn_vals), num=3000)
 
 def Ez(z, p):
     one_plus_z = 1 + z
-    evolving_de = ((2 * one_plus_z**2) / (1 + one_plus_z**2)) ** (3 * (1 + p["w_0"]))
-    return np.sqrt(p["Omega_m"] * one_plus_z**3 + (1 - p["Omega_m"]) * evolving_de)
+    rho_de = ((2 * one_plus_z**2) / (1 + one_plus_z**2)) ** (3 * (1 + p["w_0"]))
+    return np.sqrt(p["Omega_m"] * one_plus_z**3 + (1 - p["Omega_m"]) * rho_de)
 
 
 def integral_Ez(params):
@@ -46,45 +47,12 @@ def mu_theory(p):
     )
 
 
-def plot_bao_predictions(p):
-    colors = {"DV_over_rs": "red", "DM_over_rs": "blue", "DH_over_rs": "green"}
-    z_smooth = np.linspace(0, max(bao_data["z"]), 100)
-
-    plt.figure(figsize=(8, 6))
-    for q in set(bao_data["quantity"]):
-        mask = bao_data["quantity"] == q
-        plt.errorbar(
-            x=bao_data["z"][mask],
-            y=bao_data["value"][mask],
-            yerr=np.sqrt(np.diag(cov_matrix_bao))[mask],
-            fmt=".",
-            color=colors[q],
-            label=f"BAO {q}",
-            capsize=2,
-            alpha=0.6,
-        )
-        model_smooth = []
-        for z in z_smooth:
-            if q == "DV_over_rs":
-                model_smooth.append(DV_z(z, p) / p["r_d"])
-            elif q == "DM_over_rs":
-                model_smooth.append(DM_z(z, p) / p["r_d"])
-            elif q == "DH_over_rs":
-                model_smooth.append((c / H_z(z, p)) / p["r_d"])
-        plt.plot(z_smooth, model_smooth, color=colors[q], alpha=0.6)
-
-    plt.xlabel("Redshift (z)")
-    plt.ylabel(r"$O = \frac{D}{r_d}$")
-    plt.legend()
-    plt.grid(True)
-    plt.title(
-        f"{bao_legend}: $H_0$={p['H_0']:.1f} km/s/Mpc, $r_d$={p['r_d']:.1f} Mpc, $\Omega_M$={p['Omega_m']:.3f}"
-    )
-    plt.show()
-
-
 def H_z(z, p):
     return p["H_0"] * Ez(z, p)
+
+
+def DH_z(z, params):
+    return c / H_z(z, params)
 
 
 def DM_z(z, params):
@@ -97,16 +65,15 @@ def DV_z(z, params):
     return (z * DH * DM**2) ** (1 / 3)
 
 
-def bao_theory(p):
-    predictions = []
-    for z, _, quantity in bao_data:
-        if quantity == "DV_over_rs":
-            predictions.append(DV_z(z, p) / p["r_d"])
-        elif quantity == "DM_over_rs":
-            predictions.append(DM_z(z, p) / p["r_d"])
-        elif quantity == "DH_over_rs":
-            predictions.append((c / H_z(z, p)) / p["r_d"])
-    return np.array(predictions)
+bao_quantity_funcs = {
+    "DV_over_rs": lambda z, p: DV_z(z, p) / p["r_d"],
+    "DM_over_rs": lambda z, p: DM_z(z, p) / p["r_d"],
+    "DH_over_rs": lambda z, p: DH_z(z, p) / p["r_d"],
+}
+
+
+def theory_predictions(z, qty, params):
+    return np.array([(bao_quantity_funcs[qty](z, params)) for z, qty in zip(z, qty)])
 
 
 param_bounds = {
@@ -129,7 +96,9 @@ def chi_squared(params):
     delta_sn = mu_values - mu_theory(params)
     chi_sn = np.dot(delta_sn, cho_solve(cho_sn, delta_sn))
 
-    delta_bao = bao_data["value"] - bao_theory(params)
+    delta_bao = bao_data["value"] - theory_predictions(
+        bao_data["z"], bao_data["quantity"], params
+    )
     chi_bao = np.dot(delta_bao, cho_solve(cho_bao, delta_bao))
 
     delta_cc = H_cc_vals - H_z(z_cc_vals, params)
@@ -195,7 +164,12 @@ def main():
     print(f"Chi squared: {chi_squared(best_fit_dict):.2f}")
     print(f"Degrees of freedom: {deg_of_freedom}")
 
-    plot_bao_predictions(best_fit_dict)
+    plot_bao_predictions(
+        theory_predictions=lambda z, qty: theory_predictions(z, qty, best_fit_dict),
+        data=bao_data,
+        errors=np.sqrt(np.diag(cov_matrix_bao)),
+        title=f"{bao_legend}: $r_d$={best_fit_dict['r_d']:.1f} Mpc",
+    )
     plot_cc_predictions(
         H_z=lambda z: H_z(z, best_fit_dict),
         z=z_cc_vals,
@@ -235,56 +209,56 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM: w(z) = -1
-f_cc: 1.466 +0.186 -0.178 (2.5 - 2.6 sigma)
-Delta_M: -0.057 +0.070 -0.073 mag
-H_0: 68.296 +2.271 -2.275 km/s/Mpc
-r_d: 147.177 +4.958 -4.627 Mpc
-Omega_m: 0.311 +0.008 -0.008
-w_0: -1
-Chi squared: 1690.24
+f_cc: 1.470 +0.190 -0.182
+ΔM: -0.058 +0.072 -0.072 mag
+H0: 68.3 +2.3 -2.3 km/s/Mpc
+r_d: 147.2 +4.9 -4.7 Mpc
+Ωm: 0.311 +0.008 -0.008
+w0: -1
+Chi squared: 1690.38
 Degrees of freedom: 1775
 Correlation matrix:
-[ 1.       0.02475  0.01896 -0.03038  0.01691]
-[ 0.02475  1.       0.99593 -0.98894 -0.14798]
-[ 0.01896  0.99593  1.      -0.98045 -0.21282]
-[-0.03038 -0.98894 -0.98045  1.       0.0416 ]
-[ 0.01691 -0.14798 -0.21282  0.0416   1.     ]
+[[ 1.       0.01129  0.00657 -0.01832  0.01085]
+ [ 0.01129  1.       0.99586 -0.98895 -0.15224]
+ [ 0.00657  0.99586  1.      -0.98028 -0.21788]
+ [-0.01832 -0.98895 -0.98028  1.       0.04513]
+ [ 0.01085 -0.15224 -0.21788  0.04513  1.     ]]
 
 ==============================
 
 Flat wCDM: w(z) = w0
-f_cc: 1.462 +0.186 -0.180
-Delta_M: -0.064 +0.070 -0.073 mag
-H_0: 67.172 +2.263 -2.252 km/s/Mpc
-r_d: 147.165 +4.974 -4.634 Mpc
-Omega_m: 0.299 +0.009 -0.009
-w_0: -0.874 +0.038 -0.038
-Chi squared: 1679.62
+f_cc: 1.456 +0.187 -0.178
+ΔM: -0.064 +0.071 -0.073 mag
+H0: 67.2 +2.3 -2.3 km/s/Mpc
+r_d: 147.2 +5.0 -4.7 Mpc
+Ωm: 0.299 +0.009 -0.009
+w0: -0.875 +0.038 -0.038 (3.29 sigma from -1)
+Chi squared: 1679.35
 Degrees of freedom: 1774
 Correlation matrix:
-[ 1.       0.01192  0.00767 -0.01932  0.03416 -0.01568]
-[ 0.01192  1.       0.9891  -0.9885  -0.11589 -0.04331]
-[ 0.00767  0.9891   1.      -0.96998 -0.10754 -0.16345]
-[-0.01932 -0.9885  -0.96998  1.       0.04133  0.0079 ]
-[ 0.03416 -0.11589 -0.10754  0.04133  1.      -0.47332]
-[-0.01568 -0.04331 -0.16345  0.0079  -0.47332  1.     ]
+[[ 1.       0.01496  0.01328 -0.01863  0.0155  -0.02358]
+ [ 0.01496  1.       0.98923 -0.98865 -0.11032 -0.03967]
+ [ 0.01328  0.98923  1.      -0.96995 -0.10425 -0.15915]
+ [-0.01863 -0.98865 -0.96995  1.       0.03661  0.00123]
+ [ 0.0155  -0.11032 -0.10425  0.03661  1.      -0.46128]
+ [-0.02358 -0.03967 -0.15915  0.00123 -0.46128  1.     ]]
 
 ==============================
 
 Flat alternative: w(z) = w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-f_cc: 1.45 +0.19 -0.18 (2.4 - 2.5 sigma)
-Delta_M: -0.063 +0.071 -0.073 mag
-H_0: 67.1 +2.3 -2.3 km/s/Mpc
-r_d: 147.2 +5.0 -4.7 Mpc
-Omega_m: 0.306 +0.008 -0.008
-w_0: -0.854 +0.041 -0.043 (3.37 - 3.45 sigma)
-Chi squared: 1678.12
+f_cc: 1.454 +0.187 -0.179
+ΔM: -0.062 +0.071 -0.072 mag
+H0: 67.1 +2.3 -2.2 km/s/Mpc
+r_d: 147.1 +5.0 -4.6 Mpc
+Ωm: 0.306 +0.008 -0.008
+w0: -0.854 +0.042 -0.042 (3.48 sigma from -1)
+Chi squared: 1678.30
 Degrees of freedom: 1774
 Correlation matrix:
-[[ 1.       0.01762  0.01561 -0.02313  0.02196 -0.02429]
- [ 0.01762  1.       0.98757 -0.98888 -0.14374 -0.0194 ]
- [ 0.01561  0.98757  1.      -0.96926 -0.17473 -0.15263]
- [-0.02313 -0.98888 -0.96926  1.       0.04673 -0.01102]
- [ 0.02196 -0.14374 -0.17473  0.04673  1.      -0.16327]
- [-0.02429 -0.0194  -0.15263 -0.01102 -0.16327  1.     ]]
+[[ 1.       0.01182  0.00772 -0.01766  0.01974 -0.0115 ]
+ [ 0.01182  1.       0.98738 -0.98857 -0.14577 -0.02838]
+ [ 0.00772  0.98738  1.      -0.96839 -0.17764 -0.16215]
+ [-0.01766 -0.98857 -0.96839  1.       0.04817 -0.00327]
+ [ 0.01974 -0.14577 -0.17764  0.04817  1.      -0.1664 ]
+ [-0.0115  -0.02838 -0.16215 -0.00327 -0.1664   1.     ]]
 """
