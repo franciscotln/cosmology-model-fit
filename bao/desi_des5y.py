@@ -8,6 +8,7 @@ from multiprocessing import Pool
 from y2024DES.data import get_data
 from y2025BAO.data import get_data as get_bao_data
 from hubble.plotting import plot_predictions as plot_sn_predictions
+from .plot_predictions import plot_bao_predictions
 
 sn_legend, z_cmb, z_hel, mu_values, cov_matrix_sn = get_data()
 cho_sn = cho_factor(cov_matrix_sn)
@@ -17,10 +18,10 @@ cho_bao = cho_factor(cov_matrix_bao)
 c = 299792.458  # Speed of light in km/s
 
 
-def Ez(z, Om, w0=-1, wa=0):
-    one_plus_z = 1 + z
-    evolving_de = ((2 * one_plus_z**2) / (1 + one_plus_z**2)) ** (3 * (1 + w0))
-    return np.sqrt(Om * one_plus_z**3 + (1 - Om) * evolving_de)
+def Ez(z, Om, w0):
+    z_plus_1 = 1 + z
+    rho_de = ((2 * z_plus_1**2) / (1 + z_plus_1**2)) ** (3 * (1 + w0))
+    return np.sqrt(Om * z_plus_1**3 + (1 - Om) * rho_de)
 
 
 grid = np.linspace(0, np.max(z_cmb), num=2000)
@@ -35,35 +36,6 @@ def integral_Ez(params):
 def theory_mu(params):
     dM, H0 = params[0], params[2]
     return dM + 25 + 5 * np.log10((1 + z_hel) * (c / H0) * integral_Ez(params))
-
-
-def plot_bao_predictions(params):
-    colors = {"DV_over_rs": "red", "DM_over_rs": "blue", "DH_over_rs": "green"}
-    errors = np.sqrt(np.diag(cov_matrix_bao))
-    z_smooth = np.linspace(0, max(bao_data["z"]), 100)
-
-    plt.figure(figsize=(8, 6))
-    for q in set(bao_data["quantity"]):
-        quantity_mask = bao_data["quantity"] == q
-        plt.errorbar(
-            x=bao_data["z"][quantity_mask],
-            y=bao_data["value"][quantity_mask],
-            yerr=errors[quantity_mask],
-            fmt=".",
-            color=colors[q],
-            label=q,
-            capsize=2,
-            linestyle="None",
-        )
-        model_smooth = [bao_quantity_funcs[q](z, params) / params[1] for z in z_smooth]
-        plt.plot(z_smooth, model_smooth, color=colors[q], alpha=0.5)
-
-    plt.xlabel("Redshift (z)")
-    plt.ylabel(r"$O = \frac{D}{r_d}$")
-    plt.legend()
-    plt.grid(True)
-    plt.title(bao_legend)
-    plt.show()
 
 
 def H_z(z, params):
@@ -85,33 +57,30 @@ def DV_z(z, params):
 
 
 bao_quantity_funcs = {
-    "DV_over_rs": DV_z,
-    "DM_over_rs": DM_z,
-    "DH_over_rs": DH_z,
+    "DV_over_rs": lambda z, params: DV_z(z, params) / params[1],
+    "DM_over_rs": lambda z, params: DM_z(z, params) / params[1],
+    "DH_over_rs": lambda z, params: DH_z(z, params) / params[1],
 }
 
 
-def bao_predictions(params):
-    return np.array(
-        [
-            bao_quantity_funcs[qty](z, params) / params[1]
-            for z, qty in zip(bao_data["z"], bao_data["quantity"])
-        ]
-    )
+def theory_predictions(z, qty, params):
+    return np.array([(bao_quantity_funcs[qty](z, params)) for z, qty in zip(z, qty)])
 
 
 def chi_squared(params):
     delta_sn = mu_values - theory_mu(params)
     chi_sn = np.dot(delta_sn, cho_solve(cho_sn, delta_sn))
 
-    delta_bao = bao_data["value"] - bao_predictions(params)
+    delta_bao = bao_data["value"] - theory_predictions(
+        bao_data["z"], bao_data["quantity"], params
+    )
     chi_bao = np.dot(delta_bao, cho_solve(cho_bao, delta_bao))
     return chi_sn + chi_bao
 
 
 bounds = np.array(
     [
-        (-0.5, 0.5),  # delta M
+        (-0.5, 0.5),  # ΔM
         (115, 160),  # r_d
         (50, 80),  # H0
         (0.1, 0.7),  # Ωm
@@ -181,18 +150,23 @@ def main():
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Degrees of freedom: {bao_data['value'].size + z_cmb.size - len(best_fit)}")
 
-    plot_bao_predictions(best_fit)
+    plot_bao_predictions(
+        theory_predictions=lambda z, qty: theory_predictions(z, qty, best_fit),
+        data=bao_data,
+        errors=np.sqrt(np.diag(cov_matrix_bao)),
+        title=f"{bao_legend}: $r_d$={rd_50:.2f} Mpc",
+    )
     plot_sn_predictions(
         legend=sn_legend,
         x=z_cmb,
         y=mu_values,
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=theory_mu(best_fit),
-        label=f"Model: $\Omega_m$={Om_50:.3f}",
+        label=f"Model: $H_0$={H0_50:.3f}",
         x_scale="log",
     )
 
-    labels = ["$\Delta_M$", "$r_d$", "$H_0$", "$\Omega_m$", "$w_0$"]
+    labels = ["$Δ_M$", "$r_d$", "$H_0$", "$Ω_M$", "$w_0$"]
     corner.corner(
         samples,
         labels=labels,
@@ -209,8 +183,6 @@ def main():
     plt.show()
 
     _, axes = plt.subplots(ndim, figsize=(10, 7))
-    if ndim == 1:
-        axes = [axes]
     for i in range(ndim):
         axes[i].plot(chains_samples[:, :, i], color="black", alpha=0.3, lw=0.4)
         axes[i].set_ylabel(labels[i])
