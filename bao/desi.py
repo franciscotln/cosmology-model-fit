@@ -127,10 +127,12 @@ def main():
 
     best_fit = [H0_50, Ombh2_50, Omch2_50, w0_50]
 
-    # Om is derived from H0, Ombh2, and Omch2
+    # Om and rd are derived from H0, Ombh2, and Omch2
     h_samples = samples[:, 0] / 100
     Om_samples = (samples[:, 1] + samples[:, 2]) / h_samples**2
     Om_16, Om_50, Om_84 = np.percentile(Om_samples, [15.9, 50, 84.1])
+    rd_samples = rd(samples[:, 1], samples[:, 2])
+    rd_16, rd_50, rd_84 = np.percentile(rd_samples, [15.9, 50, 84.1])
 
     residuals = data["value"] - theory_predictions(
         data["z"], data["quantity"], best_fit
@@ -148,7 +150,7 @@ def main():
     )
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Ωm: {Om_50:.4f} +{Om_84-Om_50:.4f} -{Om_50-Om_16:.4f}")
-    print(f"Derived r_d: {rd(Ombh2_50, Omch2_50):.2f} Mpc")
+    print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Degs of freedom: {data['value'].size  - len(best_fit)}")
     print(f"R^2: {r2:.4f}")
@@ -186,12 +188,12 @@ Dataset: DESI 2025
 ******************************
 
 Flat ΛCDM:
-H0: 68.48 +0.58 -0.59 km/s/Mpc
+H0: 68.49 +0.59 -0.59 km/s/Mpc
 Ωb h^2: 0.0220 +0.0006 -0.0006
-Ωc h^2: 0.1177 +0.0046 -0.0044
+Ωc h^2: 0.1177 +0.0045 -0.0044
 w0: -1
-Ωm: 0.2977 +0.0088 -0.0084
-Derived r_d: 148.23 Mpc
+Ωm: 0.2978 +0.0087 -0.0085
+r_d: 148.23 +1.46 -1.45 Mpc
 Chi squared: 10.27
 Degs of freedom: 9
 R^2: 0.9987
@@ -200,13 +202,13 @@ RMSD: 0.305
 ===============================
 
 Flat wCDM:
-H0: 66.52 +2.07 -2.09 km/s/Mpc
+H0: 66.52 +2.08 -2.10 km/s/Mpc
 Ωb h^2: 0.0220 +0.0006 -0.0006
-Ωc h^2: 0.1099 +0.0091 -0.0095
-w0: -0.921 +0.075 -0.080
-Ωm: 0.2972 +0.0089 -0.0086
-Derived r_d: 150.20 Mpc
-Chi squared: 9.05
+Ωc h^2: 0.1099 +0.0091 -0.0096
+w0: -0.921 +0.077 -0.081
+Ωm: 0.2972 +0.0090 -0.0087
+r_d: 150.21 +2.83 -2.48 Mpc
+Chi squared: 9.06
 Degs of freedom: 9
 R^2: 0.9989
 RMSD: 0.281
@@ -214,13 +216,13 @@ RMSD: 0.281
 ==============================
 
 Flat wzCDM:
-H0: 66.23 +2.03 -1.94 km/s/Mpc
+H0: 66.28 +2.07 -1.95 km/s/Mpc
 Ωb h^2: 0.0220 +0.0006 -0.0006
-Ωc h^2: 0.1114 +0.0071 -0.0069
-w0: -0.878 +0.098 -0.106
-Ωm: 0.3038 +0.0102 -0.0101
-Derived r_d: 149.80 Mpc
-Chi squared: 8.68
+Ωc h^2: 0.1116 +0.0071 -0.0070
+w0: -0.881 +0.100 -0.107
+Ωm: 0.3037 +0.0103 -0.0101
+r_d: 149.78 +2.10 -2.04 Mpc
+Chi squared: 8.69
 Degs of freedom: 9
 R^2: 0.9990
 RMSD: 0.273
