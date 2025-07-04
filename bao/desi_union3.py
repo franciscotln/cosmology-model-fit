@@ -19,7 +19,7 @@ c = 299792.458  # Speed of light in km/s
 
 
 def Ez(z, params):
-    O_m, w0 = params[3], params[4]
+    O_m, w0 = params[2], params[3]
     one_plus_z = 1 + z
     evolving_de = ((2 * one_plus_z**2) / (1 + one_plus_z**2)) ** (3 * (1 + w0))
     return np.sqrt(O_m * one_plus_z**3 + (1 - O_m) * evolving_de)
@@ -28,20 +28,18 @@ def Ez(z, params):
 grid = np.linspace(0, np.max(z_sn_vals), num=2000)
 
 
-def integral_of_e_z(params):
+def integral_Ez(params):
     integral_values = cumulative_trapezoid(1 / Ez(grid, params), grid, initial=0)
     return np.interp(z_sn_vals, grid, integral_values)
 
 
 def distance_modulus(params):
-    dM = params[0]
-    H0 = params[2]
-    dL = (1 + z_sn_vals) * (c / H0) * integral_of_e_z(params)
-    return dM + 25 + 5 * np.log10(dL)
+    dL = (1 + z_sn_vals) * c * integral_Ez(params)
+    return params[0] + 25 + 5 * np.log10(dL)
 
 
 def H_z(z, params):
-    return params[2] * Ez(z, params)
+    return Ez(z, params)
 
 
 def DH_z(z, params):
@@ -59,9 +57,9 @@ def DV_z(z, params):
 
 
 quantity_funcs = {
-    "DV_over_rs": lambda z, params: DV_z(z, params) / params[1],
-    "DM_over_rs": lambda z, params: DM_z(z, params) / params[1],
-    "DH_over_rs": lambda z, params: DH_z(z, params) / params[1],
+    "DV_over_rs": lambda z, params: DV_z(z, params) / (params[1] * 100),
+    "DM_over_rs": lambda z, params: DM_z(z, params) / (params[1] * 100),
+    "DH_over_rs": lambda z, params: DH_z(z, params) / (params[1] * 100),
 }
 
 
@@ -82,21 +80,17 @@ def chi_squared(params):
 
 bounds = np.array(
     [
-        (-0.6, 0.6),  # delta M
-        (115, 160),  # r_d
-        (50, 80),  # H0
-        (0.2, 0.7),  # Ωm
-        (-3, 1),  # w0
+        (-10, -8.5),  # ΔM
+        (90, 110),  # r_d * h
+        (0.1, 0.6),  # Ωm
+        (-3, 0),  # w0
     ]
 )
 
 
-# Prior from Planck 2018 https://arxiv.org/abs/1807.06209 table 1 (Combined column)
-# Ωm x ​h^2 = 0.1428 ± 0.0011. Prior width increased by 70% to 0.00187
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
-        Om_x_h2 = params[3] * (params[2] / 100) ** 2
-        return -0.5 * ((0.1428 - Om_x_h2) / 0.00187) ** 2
+        return 0
     return -np.inf
 
 
@@ -113,7 +107,7 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 20 * ndim
+    nwalkers = 16 * ndim
     burn_in = 200
     nsteps = 10000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
@@ -138,16 +132,14 @@ def main():
     [
         [dM_16, dM_50, dM_84],
         [rd_16, rd_50, rd_84],
-        [H0_16, H0_50, H0_84],
         [Om_16, Om_50, Om_84],
         [w0_16, w0_50, w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = [dM_50, rd_50, H0_50, Om_50, w0_50]
+    best_fit = [dM_50, rd_50, Om_50, w0_50]
 
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f}")
-    print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f}")
-    print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f}")
+    print(f"r_d * h: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f}")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.4f}")
@@ -165,11 +157,11 @@ def main():
         y=mu_vals,
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=distance_modulus(best_fit),
-        label=f"Best fit: $\Omega_m$={Om_50:.3f}",
+        label=f"Best fit: $Ω_m$={Om_50:.3f}",
         x_scale="log",
     )
 
-    labels = ["$\Delta_M$", "$r_d$", "$H_0$", "$\Omega_m$", "$w_0$"]
+    labels = ["$Δ_M$", "$r_d x h$", "$Ω_m$", "$w_0$"]
     corner.corner(
         samples,
         labels=labels,
@@ -186,8 +178,6 @@ def main():
     plt.show()
 
     _, axes = plt.subplots(ndim, figsize=(10, 7))
-    if ndim == 1:
-        axes = [axes]
     for i in range(ndim):
         axes[i].plot(chains_samples[:, :, i], color="black", alpha=0.3, lw=0.4)
         axes[i].set_ylabel(labels[i])
@@ -201,72 +191,45 @@ if __name__ == "__main__":
     main()
 
 """
-Flat ΛCDM model
-ΔM: -0.123 +0.094 -0.094 mag
-r_d: 147.41 +1.53 -1.50 Mpc
-H0: 68.54 +1.05 -1.04 km/s/Mpc
-Ωm: 0.304 +0.008 -0.008
+Flat ΛCDM
+ΔM: -9.302 +0.088 -0.089 mag
+r_d * h: 101.05 +0.70 -0.70 Mpc
+Ωm: 0.304 +0.009 -0.008
 w0: -1
-wa: 0
-Chi squared: 38.8150
-Degrees of freedom: 31
+Chi squared: 38.8146
+Degs of freedom: 31
 Correlation matrix:
-[ 1.      -0.31239  0.33648 -0.29945]
-[-0.31239  1.      -0.924    0.71692]
-[ 0.33648 -0.924    1.      -0.90124]
-[-0.29945  0.71692 -0.90124  1.     ]
+[[ 1.      -0.00177  0.00751]
+ [-0.00177  1.      -0.91707]
+ [ 0.00751 -0.91707  1.     ]]
 
 =============================
 
 Flat wCDM
-ΔM: -0.087 +0.097 -0.097 mag
-r_d: 142.65 +2.52 -2.66 Mpc
-H0: 69.26 +1.16 -1.14 km/s/Mpc
+ΔM: -9.292 +0.089 -0.088 mag
+r_d * h: 98.73 +1.12 -1.09 Mpc
 Ωm: 0.298 +0.009 -0.009
 w0: -0.866 +0.051 -0.052
-wa: 0
-Chi squared: 32.1546
-Degs of freedom: 30
+Chi squared: 32.1599 (Δ chi2 6.66)
+Degs of freedom: 31
 Correlation matrix:
-[ 1.      -0.3343   0.37572 -0.3488   0.18234]
-[-0.3343   1.      -0.80236  0.71785 -0.79907]
-[ 0.37572 -0.80236  1.      -0.92003  0.33743]
-[-0.3488   0.71785 -0.92003  1.      -0.36249]
-[ 0.18234 -0.79907  0.33743 -0.36249  1.     ]
+[[ 1.      -0.05576 -0.00938  0.05842]
+ [-0.05576  1.      -0.19773 -0.81645]
+ [-0.00938 -0.19773  1.      -0.35203]
+ [ 0.05842 -0.81645 -0.35203  1.     ]]
+
 ==============================
 
 Flat w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-ΔM: -0.116 +0.094 -0.094 mag
-r_d: 144.03 +1.98 -1.96 Mpc
-H0: 68.26 +1.05 -1.05 km/s/Mpc
+ΔM: -9.286 +0.089 -0.089 mag
+r_d * h: 98.31 +1.17 -1.16 Mpc
 Ωm: 0.306 +0.009 -0.008
-w0: -0.830 +0.059 -0.060
-wa: 0
-Chi squared: 30.9527
-Degs of freedom: 30
+w0: -0.830 +0.058 -0.060
+Chi squared: 30.9542 (Δ chi2 7.86)
+Degs of freedom: 31
 Correlation matrix:
-[ 1.      -0.26396  0.33963 -0.30653  0.01986]
-[-0.26396  1.      -0.66668  0.51032 -0.62091]
-[ 0.33963 -0.66668  1.      -0.90575 -0.10322]
-[-0.30653  0.51032 -0.90575  1.       0.11762]
-[ 0.01986 -0.62091 -0.10322  0.11762  1.     ]
-
-==============================
-
-Flat w0waCDM
-ΔM: -0.182 +0.104 -0.101 mag
-r_d: 148.39 +2.49 -3.16 Mpc
-H0: 65.62 +1.91 -1.55 km/s/Mpc
-Ωm: 0.331 +0.016 -0.018
-w0: -0.697 +0.115 -0.111
-wa: -1.005 +0.568 -0.562
-Chi squared: 28.7899
-Degs of freedom: 29
-Correlation matrix:
-[ 1.      -0.48338  0.52216 -0.50216 -0.34395  0.40968]
-[-0.48338  1.      -0.89413  0.83896  0.47099 -0.74098]
-[ 0.52216 -0.89413  1.      -0.97166 -0.73209  0.82706]
-[-0.50216  0.83896 -0.97166  1.       0.76805 -0.85881]
-[-0.34395  0.47099 -0.73209  0.76805  1.      -0.89365]
-[ 0.40968 -0.74098  0.82706 -0.85881 -0.89365  1.     ]
+[[ 1.      -0.0571   0.01859  0.06202]
+ [-0.0571   1.      -0.57653 -0.84135]
+ [ 0.01859 -0.57653  1.       0.10991]
+ [ 0.06202 -0.84135  0.10991  1.     ]]
 """

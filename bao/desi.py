@@ -14,14 +14,28 @@ legend, data, cov_matrix = get_data()
 cho = cho_factor(cov_matrix)
 
 
-def H_z(z, H0, Om, w0):
+def rd(omega_b_h2, omega_c_h2, N_eff=3.04):  # Mpc
+    # https://arxiv.org/abs/2212.04522
+    return (
+        147.05
+        * (omega_b_h2 / 0.02236) ** -0.13
+        * ((omega_b_h2 + omega_c_h2) / 0.1432) ** -0.23
+        * (N_eff / 3.04) ** -0.1
+    )
+
+
+def H_z(z, H0, omega_b_h2, omega_c_h2, w0=-1):
+    h = H0 / 100
+    Om = (omega_b_h2 + omega_c_h2) / h**2
+    OL = 1 - Om
+
     one_plus_z = 1 + z
-    evolving_de = ((2 * one_plus_z**2) / (1 + one_plus_z**2)) ** (3 * (1 + w0))
-    return H0 * np.sqrt(Om * one_plus_z**3 + (1 - Om) * evolving_de)
+    rho_de = (2 * one_plus_z**2 / (1 + one_plus_z**2)) ** (3 * (1 + w0))
+    return H0 * np.sqrt(Om * one_plus_z**3 + OL * rho_de)
 
 
 def DH_z(z, params):
-    return c / H_z(z, *params[1:])
+    return c / H_z(z, *params)
 
 
 def DM_z(z, params):
@@ -35,9 +49,9 @@ def DV_z(z, params):
 
 
 quantity_funcs = {
-    "DV_over_rs": lambda z, params: DV_z(z, params) / params[0],
-    "DM_over_rs": lambda z, params: DM_z(z, params) / params[0],
-    "DH_over_rs": lambda z, params: DH_z(z, params) / params[0],
+    "DV_over_rs": lambda z, params: DV_z(z, params) / rd(*params[1:3]),
+    "DM_over_rs": lambda z, params: DM_z(z, params) / rd(*params[1:3]),
+    "DH_over_rs": lambda z, params: DH_z(z, params) / rd(*params[1:3]),
 }
 
 
@@ -47,9 +61,9 @@ def theory_predictions(z, qty, params):
 
 bounds = np.array(
     [
-        (125, 160),  # r_d
         (50, 80),  # H0
-        (0.1, 0.7),  # Ωm
+        (0.001, 0.04),  # Ωb h^2
+        (0.01, 0.2),  # Ωc h^2
         (-1.5, 0),  # w0
     ]
 )
@@ -60,13 +74,15 @@ def chi_squared(params):
     return np.dot(delta, cho_solve(cho, delta))
 
 
-# Prior from Planck 2018 https://arxiv.org/abs/1807.06209 table 1 (Combined column)
-# Ωm x ​h^2 = 0.1428 ± 0.0011. Prior width increased by 70% to 0.00187
+# Prior from BBN: https://arxiv.org/abs/2401.15054
+omega_b_h2_prior = 0.02196
+omega_b_h2_prior_sigma = 0.00063
+
+
 def log_prior(params):
-    if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
-        Om_x_h2 = params[2] * (params[1] / 100) ** 2
-        return -0.5 * ((0.1428 - Om_x_h2) / 0.00187) ** 2
-    return -np.inf
+    if not np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
+        return -np.inf
+    return -0.5 * ((omega_b_h2_prior - params[1]) / omega_b_h2_prior_sigma) ** 2
 
 
 def log_likelihood(params):
@@ -84,7 +100,7 @@ def main():
     ndim = len(bounds)
     nwalkers = 10 * ndim
     burn_in = 500
-    nsteps = 10000 + burn_in
+    nsteps = 20000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):
@@ -103,13 +119,18 @@ def main():
     samples = sampler.get_chain(discard=burn_in, flat=True)
 
     [
-        [rd_16, rd_50, rd_84],
         [H0_16, H0_50, H0_84],
-        [Om_16, Om_50, Om_84],
+        [Ombh2_16, Ombh2_50, Ombh2_84],
+        [Omch2_16, Omch2_50, Omch2_84],
         [w0_16, w0_50, w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = [rd_50, H0_50, Om_50, w0_50]
+    best_fit = [H0_50, Ombh2_50, Omch2_50, w0_50]
+
+    # Om is derived from H0, Ombh2, and Omch2
+    h_samples = samples[:, 0] / 100
+    Om_samples = (samples[:, 1] + samples[:, 2]) / h_samples**2
+    Om_16, Om_50, Om_84 = np.percentile(Om_samples, [15.9, 50, 84.1])
 
     residuals = data["value"] - theory_predictions(
         data["z"], data["quantity"], best_fit
@@ -118,10 +139,16 @@ def main():
     SS_tot = np.sum((data["value"] - np.mean(data["value"])) ** 2)
     r2 = 1 - SS_res / SS_tot
 
-    print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f}")
-    print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f}")
-    print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
+    print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
+    print(
+        f"Ωb h^2: {Ombh2_50:.4f} +{(Ombh2_84 - Ombh2_50):.4f} -{(Ombh2_50 - Ombh2_16):.4f}"
+    )
+    print(
+        f"Ωc h^2: {Omch2_50:.4f} +{(Omch2_84 - Omch2_50):.4f} -{(Omch2_50 - Omch2_16):.4f}"
+    )
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
+    print(f"Ωm: {Om_50:.4f} +{Om_84-Om_50:.4f} -{Om_50-Om_16:.4f}")
+    print(f"Derived r_d: {rd(Ombh2_50, Omch2_50):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Degs of freedom: {data['value'].size  - len(best_fit)}")
     print(f"R^2: {r2:.4f}")
@@ -131,11 +158,11 @@ def main():
         theory_predictions=lambda z, qty: theory_predictions(z, qty, best_fit),
         data=data,
         errors=np.sqrt(np.diag(cov_matrix)),
-        title=f"{legend}: $r_d$={rd_50:.2f} Mpc, $\Omega_M$={Om_50:.3f}",
+        title=f"{legend}: $H_0$={H0_50:.2f} km/s/Mpc, $\\Omega_m$={Om_50:.4f}",
     )
     corner.corner(
         samples,
-        labels=["$r_d$", "$H_0$", "$Ω_m$", "$w_0$"],
+        labels=["$H_0$", "$Ω_b$", "$Ω_c$", "$w_0$"],
         quantiles=[0.159, 0.5, 0.841],
         show_titles=True,
         title_fmt=".3f",
@@ -159,80 +186,86 @@ Dataset: DESI 2025
 ******************************
 
 Flat ΛCDM:
-r_d: 146.57 +1.57 -1.54 Mpc
-H0: 69.27 +1.13 -1.09 km/s/Mpc
-Ωm: 0.298 +0.009 -0.008
+H0: 68.48 +0.58 -0.59 km/s/Mpc
+Ωb h^2: 0.0220 +0.0006 -0.0006
+Ωc h^2: 0.1177 +0.0046 -0.0044
 w0: -1
-wa: 0
+Ωm: 0.2977 +0.0088 -0.0084
+Derived r_d: 148.23 Mpc
 Chi squared: 10.27
-Degs of freedom: 10
+Degs of freedom: 9
 R^2: 0.9987
 RMSD: 0.305
 
 ===============================
 
 Flat wCDM:
-r_d: 144.12 +2.78 -3.03 Mpc
-H0: 69.33 +1.15 -1.11 km/s/Mpc
-Ωm: 0.297 +0.009 -0.009
-w0: -0.913 +0.076 -0.080
-wa: 0
-Chi squared: 9.16
+H0: 66.52 +2.07 -2.09 km/s/Mpc
+Ωb h^2: 0.0220 +0.0006 -0.0006
+Ωc h^2: 0.1099 +0.0091 -0.0095
+w0: -0.921 +0.075 -0.080
+Ωm: 0.2972 +0.0089 -0.0086
+Derived r_d: 150.20 Mpc
+Chi squared: 9.05
 Degs of freedom: 9
 R^2: 0.9989
-RMSD: 0.282
+RMSD: 0.281
 
 ==============================
 
 Flat wzCDM:
-r_d: 144.68 +2.28 -2.26 Mpc
-H0: 68.55 +1.24 -1.21 km/s/Mpc
-Ωm: 0.304 +0.010 -0.010
-w0: -0.872 +0.100 -0.107
-wa: 0
-Chi squared: 8.69
+H0: 66.23 +2.03 -1.94 km/s/Mpc
+Ωb h^2: 0.0220 +0.0006 -0.0006
+Ωc h^2: 0.1114 +0.0071 -0.0069
+w0: -0.878 +0.098 -0.106
+Ωm: 0.3038 +0.0102 -0.0101
+Derived r_d: 149.80 Mpc
+Chi squared: 8.68
 Degs of freedom: 9
 R^2: 0.9990
-RMSD: 0.272
+RMSD: 0.273
 
 ******************************
 Dataset: SDSS 2020
 ******************************
 
 Flat ΛCDM
-r_d: 145.77 +2.93 -2.83 Mpc
-H0: 68.87 +2.07 -2.04 km/s/Mpc
-Ωm: 0.301 +0.018 -0.017
+H0: 67.43 +0.93 -0.93 km/s/Mpc
+Ωb h^2: 0.0220 +0.0006 -0.0006
+Ωc h^2: 0.1150 +0.0099 -0.0092
 w0: -1
-wa: 0
+Ωm: 0.3012 +0.0180 -0.0169
+Derived r_d: 148.91 Mpc
 Chi squared: 10.48
 Degs of freedom: 10
 R^2: 0.9941
-RMSD: 0.774
+RMSD: 0.770
 
 ================================
 
 Flat wCDM
-r_d: 137.65 +6.18 -6.83 Mpc
-H0: 70.18 +2.62 -2.41 km/s/Mpc
-Ωm: 0.290 +0.021 -0.020
-w0: -0.76 +0.11 -0.14
-wa: 0
-Chi squared: 7.59
+H0: 61.67 +3.89 -4.37 km/s/Mpc
+Ωb h^2: 0.0220 +0.0006 -0.0006
+Ωc h^2: 0.0893 +0.0200 -0.0224
+w0: -0.767 +0.134 -0.146
+Ωm: 0.2901 +0.0211 -0.0241
+Derived r_d: 156.18 Mpc
+Chi squared: 7.43
 Degs of freedom: 10
-R^2: 0.9951
-RMSD: 0.704
+R^2: 0.9949
+RMSD: 0.717
 
 ================================
 
 Flat wzCDM
-r_d: 140.91 +4.27 -4.39 Mpc
-H0: 67.75 +2.16 -2.07 km/s/Mpc
-Ωm: 0.311 +0.019 -0.019
-w0: -0.70 +0.16 -0.18
-wa: 0
-Chi squared: 7.56
+H0: 62.58 +3.30 -3.17 km/s/Mpc
+Ωb h^2: 0.0220 +0.0006 -0.0006
+Ωc h^2: 0.1000 +0.0139 -0.0131
+w0: -0.721 +0.167 -0.181
+Ωm: 0.3106 +0.0195 -0.0182
+Derived r_d: 152.90 Mpc
+Chi squared: 7.57
 Degs of freedom: 10
-R^2: 0.9948
-RMSD: 0.726
+R^2: 0.9947
+RMSD: 0.732
 """
