@@ -164,7 +164,7 @@ def main():
     )
     corner.corner(
         samples,
-        labels=["$H_0$", "$Ω_b$", "$Ω_c$", "$w_0$"],
+        labels=["$H_0$", "$Ω_b x h^2$", "$Ω_c x h^2$", "$w_0$"],
         quantiles=[0.159, 0.5, 0.841],
         show_titles=True,
         title_fmt=".3f",
