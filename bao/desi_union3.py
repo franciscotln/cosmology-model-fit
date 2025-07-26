@@ -21,8 +21,8 @@ c = 299792.458  # Speed of light in km/s
 def Ez(z, params):
     O_m, w0 = params[2], params[3]
     one_plus_z = 1 + z
-    evolving_de = ((2 * one_plus_z**2) / (1 + one_plus_z**2)) ** (3 * (1 + w0))
-    return np.sqrt(O_m * one_plus_z**3 + (1 - O_m) * evolving_de)
+    rho_de = np.exp((1 + w0) * (1 - 1 / one_plus_z**3))
+    return np.sqrt(O_m * one_plus_z**3 + (1 - O_m) * rho_de)
 
 
 grid = np.linspace(0, np.max(z_sn_vals), num=2000)
@@ -197,7 +197,7 @@ r_d * h: 101.04 +0.71 -0.71 Mpc
 Ωm: 0.304 +0.008 -0.008
 w0: -1
 Chi squared: 38.8155
-Degs of freedom: 31
+Degs of freedom: 32
 Correlation matrix:
 [[ 1.      -0.00769  0.01009]
  [-0.00769  1.      -0.9176]
@@ -232,4 +232,19 @@ Correlation matrix:
  [-0.07077  1.      -0.5783  -0.84273]
  [ 0.01807 -0.5783   1.       0.11475]
  [ 0.07806 -0.84273  0.11475  1.     ]]
+
+==============================
+
+Flat w(z) = -1 + (1 + w0) / (1 + z)**3
+ΔM: -9.279 +0.090 -0.089 mag
+r_d * h: 97.75 +1.28 -1.26 Mpc
+Ωm: 0.313 +0.009 -0.009
+w0: -0.748 +0.082 -0.083
+Chi squared: 29.8775 (Δ chi2 8.94)
+Degs of freedom: 31
+Correlation matrix:
+[[ 1.      -0.09482  0.05417  0.09815]
+ [-0.09482  1.      -0.7252  -0.87088]
+ [ 0.05417 -0.7252   1.       0.35945]
+ [ 0.09815 -0.87088  0.35945  1.     ]]
 """

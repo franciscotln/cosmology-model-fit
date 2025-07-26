@@ -23,8 +23,8 @@ c = 299792.458  # Speed of light in km/s
 def h_over_h0(z, params):
     O_m, w0 = params[3], params[4]
     one_plus_z = 1 + z
-    evolving_de = ((2 * one_plus_z**2) / (1 + one_plus_z**2)) ** (3 * (1 + w0))
-    return np.sqrt(O_m * one_plus_z**3 + (1 - O_m) * evolving_de)
+    rho_de = np.exp((1 + w0) * (1 - 1 / one_plus_z**3))
+    return np.sqrt(O_m * one_plus_z**3 + (1 - O_m) * rho_de)
 
 
 z_grid = np.linspace(0, np.max(z_sn_vals), num=2500)
@@ -289,6 +289,17 @@ r_d: 147.23 +7.29 -6.61 Mpc
 w0: -0.906 +0.044 -0.045 (2.1 sigma)
 wa: 0
 Chi squared: 1426.99
+Degrees of freedom: 1630
+
+==============================
+
+Flat alternative: w(z) = -1 + (1 + w0) / (1 + z)**3
+H0: 67.87 +3.26 -3.24 km/s/Mpc
+M: -19.412 +0.101 -0.105 mag
+r_d: 146.94 +7.20 -6.63 Mpc
+Ωm: 0.305 +0.008 -0.008
+w0: -0.881 +0.055 -0.056 (2.13 - 2.16 sigma)
+Chi squared: 1426.21
 Degrees of freedom: 1630
 
 ==============================

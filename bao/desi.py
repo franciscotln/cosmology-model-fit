@@ -30,7 +30,7 @@ def H_z(z, H0, omega_b_h2, omega_c_h2, w0=-1):
     OL = 1 - Om
 
     one_plus_z = 1 + z
-    rho_de = (2 * one_plus_z**2 / (1 + one_plus_z**2)) ** (3 * (1 + w0))
+    rho_de = np.exp((1 + w0) * (1 - 1 / one_plus_z**3))
     return H0 * np.sqrt(Om * one_plus_z**3 + OL * rho_de)
 
 
@@ -195,7 +195,7 @@ w0: -1
 Ωm: 0.2978 +0.0087 -0.0085
 r_d: 148.23 +1.46 -1.45 Mpc
 Chi squared: 10.27
-Degs of freedom: 9
+Degs of freedom: 10
 R^2: 0.9987
 RMSD: 0.305
 
@@ -227,6 +227,20 @@ Degs of freedom: 9
 R^2: 0.9990
 RMSD: 0.273
 
+==============================
+
+Flat wzCDM 2:
+H0: 65.49 +2.39 -2.23 km/s/Mpc
+Ωb h^2: 0.0220 +0.0006 -0.0006
+Ωc h^2: 0.1118 +0.0064 -0.0062
+w0: -0.769 +0.170 -0.179
+Ωm: 0.3118 +0.0141 -0.0140
+r_d: 149.71 +1.93 -1.88 Mpc
+Chi squared: 8.28
+Degs of freedom: 9
+R^2: 0.9990
+RMSD: 0.263
+
 ******************************
 Dataset: SDSS 2020
 ******************************
@@ -239,7 +253,7 @@ w0: -1
 Ωm: 0.3012 +0.0180 -0.0169
 Derived r_d: 148.91 Mpc
 Chi squared: 10.48
-Degs of freedom: 10
+Degs of freedom: 11
 R^2: 0.9941
 RMSD: 0.770
 
@@ -270,4 +284,18 @@ Chi squared: 7.57
 Degs of freedom: 10
 R^2: 0.9947
 RMSD: 0.732
+
+================================
+
+Flat wzCDM 2
+H0: 62.40 +3.53 -3.21 km/s/Mpc
+Ωb h^2: 0.0220 +0.0006 -0.0006
+Ωc h^2: 0.1041 +0.0122 -0.0113
+w0: -0.587 +0.261 -0.282
+Ωm: 0.3229 +0.0238 -0.0229
+Derived r_d: 151.78 +3.49 -3.34 Mpc
+Chi squared: 7.82
+Degs of freedom: 10
+R^2: 0.9944
+RMSD: 0.750
 """

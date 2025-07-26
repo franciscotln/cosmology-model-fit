@@ -20,7 +20,7 @@ c = 299792.458  # Speed of light in km/s
 
 def Ez(z, Om, w0):
     z_plus_1 = 1 + z
-    rho_de = ((2 * z_plus_1**2) / (1 + z_plus_1**2)) ** (3 * (1 + w0))
+    rho_de = np.exp((1 + w0) * (1 - 1 / z_plus_1**3))
     return np.sqrt(Om * z_plus_1**3 + (1 - Om) * rho_de)
 
 
@@ -198,7 +198,7 @@ r_d * h: 100.55 +0.67 -0.66 Mpc
 w0: -1
 wa: 0
 Chi squared: 1658.97
-Degrees of freedom: 1838
+Degrees of freedom: 1839
 
 ==============================
 
@@ -220,5 +220,16 @@ r_d * h: 98.71 +0.85 -0.83 Mpc
 w0: -0.850 +0.042 -0.043 (3.49 - 3.57 sigma)
 wa: 0
 Chi squared: 1646.98 (Δ chi2 11.99)
+Degrees of freedom: 1838
+
+===============================
+
+Flat w(z) = -1 + (1 + w0) / (1 + z)**3
+ΔM: -9.190 +0.013 -0.013
+r_d * h: 98.54 +0.85 -0.84
+Ωm: 0.309 +0.008 -0.008
+w0: -0.800 +0.055 -0.054 (3.64 - 3.70 sigma)
+wa: 0
+Chi squared: 1646.00 (Δ chi2 12.97)
 Degrees of freedom: 1838
 """

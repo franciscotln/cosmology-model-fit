@@ -23,8 +23,8 @@ one_plus_z = 1 + z
 
 def h_over_h0(params):
     omega_m, w0 = params[1], params[2]
-    evolving_de = ((2 * one_plus_z**2) / (1 + one_plus_z**2)) ** (3 * (1 + w0))
-    return np.sqrt(omega_m * one_plus_z**3 + (1 - omega_m) * evolving_de)
+    rho_de = np.exp((1 + w0) * (1 - 1 / one_plus_z**3))
+    return np.sqrt(omega_m * one_plus_z**3 + (1 - omega_m) * rho_de)
 
 
 def integral_of_e_z(params):
@@ -198,7 +198,21 @@ Skewness of residuals: -1.107
 Chi squared: 21.8765
 Degs of freedom: 19
 
-=============================
+
+==============================
+
+Flat alternative: w(z) = -1 + (1 + w0) / (1 + z)**3
+ΔM: -0.0512 +0.0890/-0.0889 mag
+Ωm: 0.3024 +0.0473/-0.0475
+w0: -0.7127 +0.1611/-0.1885 (1.52 - 1.78 sigma)
+wa: 0
+R-squared (%): 99.94
+RMSD (mag): 0.052
+Skewness of residuals: -1.025
+Chi squared: 21.5037
+Degs of freedom: 19
+
+==============================
 
 Flat w0waCDM
 ΔM: -0.0326 +0.0913/-0.0907 mag

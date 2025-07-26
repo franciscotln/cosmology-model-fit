@@ -15,8 +15,8 @@ logdet = np.linalg.slogdet(cov_matrix)[1]
 
 def H_z(z, h0, Om, w0):
     one_plus_z = 1 + z
-    evolving_de = ((2 * one_plus_z**2) / (1 + one_plus_z**2)) ** (3 * (1 + w0))
-    return h0 * np.sqrt(Om * one_plus_z**3 + (1 - Om) * evolving_de)
+    rho_de = np.exp((1 + w0) * (1 - 1 / one_plus_z**3))
+    return h0 * np.sqrt(Om * one_plus_z**3 + (1 - Om) * rho_de)
 
 
 bounds = np.array([(50, 100), (0, 0.7), (-3.0, 0), (0.4, 3)])  # H0, Om, w0, f
@@ -184,4 +184,20 @@ Correlation matrix:
 [-0.75047  1.       0.37586 -0.02014 ]
 [-0.77447  0.37586  1.       0.02124 ]
 [ 0.00623 -0.02014  0.02124  1.      ]
+
+=========================
+
+Flat w(z) = -1 + (1 + w0) / (1 + z)**3
+H0: 71.7 +8.2 -7.2 km/s/Mpc
+Ωm: 0.301 +0.059 -0.050
+w0: -1.579 +0.730 -0.779
+f: 1.440 +0.190 -0.181
+Chi squared: 29.71
+Log likelihood: -125.89
+Degs of freedom: 28
+Correlation matrix:
+[[ 1.      -0.83963 -0.79888  0.03775]
+ [-0.83963  1.       0.54646 -0.05792]
+ [-0.79888  0.54646  1.      -0.02175]
+ [ 0.03775 -0.05792 -0.02175  1.     ]]
 """

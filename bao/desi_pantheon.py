@@ -19,8 +19,8 @@ c = 299792.458  # Speed of light in km/s
 
 def Ez(z, O_m, w0=-1):
     one_plus_z = 1 + z
-    evolving_de = ((2 * one_plus_z**2) / (1 + one_plus_z**2)) ** (3 * (1 + w0))
-    return np.sqrt(O_m * one_plus_z**3 + (1 - O_m) * evolving_de)
+    rho_de = np.exp((1 + w0) * (1 - 1 / one_plus_z**3))
+    return np.sqrt(O_m * one_plus_z**3 + (1 - O_m) * rho_de)
 
 
 grid = np.linspace(0, np.max(z_cmb), num=2000)
@@ -259,5 +259,16 @@ H0: 68.64 +0.96 -0.95 km/s/Mpc
 w0: -0.902 +0.043 -0.045
 wa: 0
 Chi squared: 1411.32
+Degrees of freedom: 1598
+
+====================
+
+Flat -1 + (1 + w0) / (1 + z)**3
+r_d: 145.66 +1.69 -1.66 Mpc
+M0: -19.393 +0.030 -0.030 mag
+H0: 68.45 +1.00 -0.98 km/s/Mpc
+Ωm: 0.305 +0.008 -0.008
+w0: -0.879 +0.055 -0.056
+Chi squared: 1411.44
 Degrees of freedom: 1598
 """
