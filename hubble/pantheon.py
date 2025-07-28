@@ -22,8 +22,8 @@ one_plus_z = 1 + z_grid
 def integral_E_z(params):
     O_m, w0 = params[1], params[2]
     O_de = 1 - O_m
-    evolving_de = ((2 * one_plus_z**2) / (1 + one_plus_z**2)) ** (3 * (1 + w0))
-    Ez = np.sqrt(O_m * one_plus_z**3 + O_de * evolving_de)
+    rho_de = np.exp((1 + w0) * (1 - 1 / one_plus_z**3))
+    Ez = np.sqrt(O_m * one_plus_z**3 + O_de * rho_de)
     integral_values = cumulative_trapezoid(1 / Ez, z_grid, initial=0)
     return np.interp(z_values, z_grid, integral_values)
 
@@ -222,6 +222,18 @@ w0: -0.92 +0.13/-0.15
 wa: 0
 R-squared: 99.74 %
 RMSD (mag): 0.154
+Skewness of residuals: 0.080
+kurtosis of residuals: 1.589
+Reduced chi squared: 0.8838
+
+=============================
+
+Flat w(z) = -1 + (1 + w0) / (1 + z)**3
+M: -19.347 +0.010/-0.010
+Ωm: 0.314 +0.039/-0.040
+w0: -0.92 +0.13/-0.15
+R-squared (%): 99.74
+RMSD (mag): 0.153
 Skewness of residuals: 0.080
 kurtosis of residuals: 1.589
 Reduced chi squared: 0.8838
