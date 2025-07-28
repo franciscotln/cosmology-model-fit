@@ -21,9 +21,9 @@ c = 299792.458  # Speed of light in km/s
 
 
 def Ez(z, O_m, w0):
-    sum = 1 + z
-    rho_de = np.exp((1 + w0) * (1 - 1 / sum**3))
-    return np.sqrt(O_m * sum**3 + (1 - O_m) * rho_de)
+    one_plus_z = 1 + z
+    rho_de = (2 * one_plus_z**3 / (1 + one_plus_z**3)) ** (2 * (1 + w0))
+    return np.sqrt(O_m * one_plus_z**3 + (1 - O_m) * rho_de)
 
 
 def H_z(z, params):
@@ -195,14 +195,14 @@ Degrees of freedom: 40
 
 ==============================
 
-Flat w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-f_cc: 1.46 +0.19 -0.18
-H0: 67.6 +2.7 -2.6 km/s/Mpc
-r_d: 147.0 +5.0 -4.7 Mpc
-Ωm: 0.304 +0.010 -0.010
-w0: -0.886 +0.097 -0.103
-Chi squared: 40.03
-log likelihood: -130.68
+Flat w0 - (1 + w0) * (((1 + z)**3 - 1) / ((1 + z)**3 + 1))
+f_cc: 1.45 +0.19 -0.18
+H0: 67.3 +2.8 -2.7 km/s/Mpc
+r_d: 147.0 +5.0 -4.6 Mpc
+Ωm: 0.307 +0.011 -0.011
+w0: -0.855 +0.119 -0.125
+Chi squared: 39.81
+log likelihood: -130.62
 Degrees of freedom: 40
 
 ==============================

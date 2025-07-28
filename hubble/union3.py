@@ -23,7 +23,7 @@ one_plus_z = 1 + z
 
 def h_over_h0(params):
     omega_m, w0 = params[1], params[2]
-    rho_de = np.exp((1 + w0) * (1 - 1 / one_plus_z**3))
+    rho_de = (2 * one_plus_z**3 / (1 + one_plus_z**3)) ** (2 * (1 + w0))
     return np.sqrt(omega_m * one_plus_z**3 + (1 - omega_m) * rho_de)
 
 
@@ -187,15 +187,15 @@ degrees of freedom: 19
 
 ==============================
 
-Flat alternative: w(z) = w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-ΔM: -0.0561 +0.0888/-0.0888 mag
-Ωm: 0.2872 +0.0605/-0.0646
-w0: -0.7601 +0.1448/-0.1744 (1.38 - 1.66 sigma)
+Flat alternative: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
+ΔM: -0.0551 +0.0894/-0.0889 mag
+Ωm: 0.2960 +0.0535/-0.0551
+w0: -0.7528 +0.1453/-0.1741 (1.42 - 1.70 sigma)
 wa: 0
 R-squared (%): 99.94
-RMSD (mag): 0.054
-Skewness of residuals: -1.107
-Chi squared: 21.8765
+RMSD (mag): 0.053
+Skewness of residuals: -1.055
+Chi squared: 21.7351
 Degs of freedom: 19
 
 
