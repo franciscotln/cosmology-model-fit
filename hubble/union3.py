@@ -134,6 +134,17 @@ def main():
     )
     plt.show()
 
+    # Plot chains for each parameter
+    _, axes = plt.subplots(n_dim, figsize=(10, 7))
+    chains_samples = sampler.get_chain(discard=0, flat=False)
+    for i in range(n_dim):
+        axes[i].plot(chains_samples[:, :, i], color="black", alpha=0.3)
+        axes[i].set_ylabel(labels[i])
+        axes[i].set_xlabel("chain step")
+        axes[i].axvline(x=discarded_steps, color="red", linestyle="--", alpha=0.5)
+        axes[i].axhline(y=best_fit_params[i], color="white", linestyle="--", alpha=0.5)
+    plt.show()
+
     sigma_mu = np.sqrt(np.diag(cov_matrix))
 
     plot_predictions(
