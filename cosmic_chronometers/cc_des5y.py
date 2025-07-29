@@ -23,9 +23,9 @@ grid = np.linspace(0, np.max(z_cmb), num=2000)
 
 
 def Ez(z, O_m, w0):
-    sum = 1 + z
-    evolving_de = ((2 * sum**2) / (1 + sum**2)) ** (3 * (1 + w0))
-    return np.sqrt(O_m * sum**3 + (1 - O_m) * evolving_de)
+    one_plus_z = 1 + z
+    rho_de = (2 * one_plus_z**3 / (1 + one_plus_z**3)) ** (2 * (1 + w0))
+    return np.sqrt(O_m * one_plus_z**3 + (1 - O_m) * rho_de)
 
 
 def integral_Ez(params):
@@ -181,12 +181,12 @@ Degrees of freedom: 1762
 
 ==============================
 
-Flat alternative: w(z) = w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-f_cc: 1.44 +0.19 -0.18
-ΔM: -0.079 +0.081 -0.083 mag
-H0: 66.6 +2.5 -2.5 km/s/Mpc
-Ωm: 0.318 +0.033 -0.034
-w0: -0.884 +0.095 -0.107
-Chi squared: 1669.16
+Flat alternative: w(z) = -1 + 2 * (1 + w0) / ((1 + z)**3 + 1)
+f_cc: 1.45 +0.19 -0.18
+ΔM: -0.072 +0.082 -0.083 mag
+H0: 66.8 +2.6 -2.5 km/s/Mpc
+Ωm: 0.318 +0.030 -0.030
+w0: -0.868 +0.094 -0.104
+Chi squared: 1669.14
 Degrees of freedom: 1762
 """
