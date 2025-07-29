@@ -26,8 +26,8 @@ one_plus_z = 1 + z_grid
 # Flat
 def integral_E_z(O_m, w0=-1):
     O_de = 1 - O_m
-    evolving_de = ((2 * one_plus_z**2) / (1 + one_plus_z**2)) ** (3 * (1 + w0))
-    H_over_H0 = np.sqrt(O_m * one_plus_z**3 + O_de * evolving_de)
+    rho_de = (2 * one_plus_z**3 / (1 + one_plus_z**3)) ** (2 * (1 + w0))
+    H_over_H0 = np.sqrt(O_m * one_plus_z**3 + O_de * rho_de)
     integral_values = cumulative_trapezoid(1 / H_over_H0, z_grid, initial=0)
     return np.interp(z_values, z_grid, integral_values)
 
@@ -214,15 +214,15 @@ Chi squared: 1451.70
 
 =============================
 
-Flat w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-M: -19.24 +0.03/-0.03 mag
-H0 (km/s/Mpc): 73.5 +1.0/-1.0 km/s/Mpc
-Ωm: 0.311 +0.048/-0.051
-w0: -0.93 +0.13/-0.15
+Flat w0 - (1 + w0) * (((1 + z)**3 - 1) / ((1 + z)**3 + 1))
+M: -19.244 +0.029/-0.030 mag
+H0 (km/s/Mpc): 73.44 +1.04/-1.03 km/s/Mpc
+Ωm: 0.314 +0.043/-0.045
+w0: -0.935 +0.126/-0.143
 wa: 0
 R-squared (%): 99.78
 RMSD (mag): 0.153
 Skewness of residuals: 0.077
-kurtosis of residuals: 1.560
+kurtosis of residuals: 1.561
 Chi squared: 1451.71
 """
