@@ -171,6 +171,10 @@ if __name__ == "__main__":
     main()
 
 """
+******************************
+Dataset: DESI 2025
+******************************
+
 Flat ΛCDM model
 f_cc: 1.46 +0.19 -0.18
 H0: 69.1 +2.3 -2.3 km/s/Mpc
@@ -196,7 +200,6 @@ Degrees of freedom: 40
 ==============================
 
 Flat w0 - (1 + w0) * (((1 + z)**3 - 1) / ((1 + z)**3 + 1))
-** DESI DR2 2025 **
 f_cc: 1.45 +0.19 -0.18
 H0: 67.3 +2.8 -2.7 km/s/Mpc
 r_d: 147.0 +5.0 -4.6 Mpc
@@ -204,28 +207,6 @@ r_d: 147.0 +5.0 -4.6 Mpc
 w0: -0.855 +0.119 -0.125
 Chi squared: 39.81
 log likelihood: -130.62
-Degrees of freedom: 40
-
-** SDSS compilation 2020 **
-f_cc: 1.45 +0.19 -0.18
-H0: 67.1 +3.2 -3.1
-r_d: 146.4 +5.1 -4.8
-Ωm: 0.305 +0.017 -0.016
-w0: -0.822 +0.167 -0.179
-Chi squared: 41.39
-log likelihood: -131.58
-Degrees of freedom: 44
-
-==============================
-
-Flat -1 + (1 + w0) / (1 + z)**3
-f_cc: 1.45 +0.19 -0.18
-H0: 66.9 +2.9 -2.9 km/s/Mpc
-r_d: 147.0 +5.0 -4.7 Mpc
-Ωm: 0.311 +0.014 -0.013
-w0: -0.791 +0.166 -0.174
-Chi squared: 39.63
-log likelihood: -130.57
 Degrees of freedom: 40
 
 =============================
@@ -240,4 +221,42 @@ wa: -1.520 +1.411 -1.409
 Chi squared: 37.56
 log likelihood: -130.14
 Degrees of freedom: 39
+
+******************************
+Dataset: SDSS 2020 compilation
+******************************
+
+Flat ΛCDM model
+f_cc: 1.46 +0.19 -0.18
+H0: 69.1 +2.5 -2.5 km/s/Mpc
+r_d: 146.1 +5.1 -4.7 Mpc
+Ωm: 0.298 +0.015 -0.015
+w0: -1
+Chi squared: 43.04
+log likelihood: -132.16
+Degrees of freedom: 44
+
+=============================
+
+Flat wCDM model
+f_cc: 1.45 +0.19 -0.18
+H0: 67.0 +3.0 -2.9 km/s/Mpc
+r_d: 146.7 +5.2 -4.8 Mpc
+Ωm: 0.289 +0.018 -0.019
+w0: -0.836 +0.122 -0.128
+Chi squared: 40.96
+log likelihood: -131.33
+Degrees of freedom: 44
+
+=============================
+
+Flat w0 - (1 + w0) * (((1 + z)**3 - 1) / ((1 + z)**3 + 1))
+f_cc: 1.44 +0.19 -0.18
+H0: 67.1 +3.2 -3.1 km/s/Mpc
+r_d: 146.3 +5.2 -4.8 Mpc
+Ωm: 0.305 +0.017 -0.016
+w0: -0.820 +0.165 -0.176
+Chi squared: 41.30
+log likelihood: -131.58
+Degrees of freedom: 44
 """
