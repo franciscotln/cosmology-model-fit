@@ -234,7 +234,7 @@ r_d: 146.1 +5.1 -4.7 Mpc
 w0: -1
 Chi squared: 43.04
 log likelihood: -132.16
-Degrees of freedom: 44
+Degrees of freedom: 45
 
 =============================
 
