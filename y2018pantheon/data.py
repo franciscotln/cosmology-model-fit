@@ -11,6 +11,7 @@ n = data_frame['zcmb'].values.size
 variances = convariances_file['cov_mu'].to_numpy().reshape((n, n))
 
 z_values = data_frame['zcmb'].to_numpy()
+z_hel_values = data_frame['zhel'].to_numpy()
 apparent_magnitude_vals = data_frame['mb'].to_numpy()
 sigma_magnitudes = data_frame['dmb'].to_numpy()
 full_covariance_matrix = variances + np.diag(sigma_magnitudes ** 2)
@@ -21,6 +22,7 @@ def get_data():
     return (
         'Pantheon2018',
         z_values[sort_indices],
+        z_hel_values[sort_indices],
         apparent_magnitude_vals[sort_indices],
         full_covariance_matrix[sort_indices, :][:, sort_indices]
     )
