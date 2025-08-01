@@ -18,7 +18,7 @@ H0 = 70  # Hubble constant (km/s/Mpc)
 def Ez(z, params):
     one_plus_z = 1 + z
     Om, w0 = params[3], params[4]
-    rho_DE = ((2 * one_plus_z**2) / (1 + one_plus_z**2)) ** (3 * (1 + w0))
+    rho_DE = ((2 * one_plus_z**3) / (1 + one_plus_z**3)) ** (2 * (1 + w0))
     return np.sqrt(Om * one_plus_z**3 + (1 - Om) * rho_DE)
 
 
@@ -257,12 +257,12 @@ chi squared total: 28.89
 ==============================
 
 Flat wzCDM
-ΔM: -0.145 +0.097 -0.099 mag
-s: 0.406 +0.077 -0.060 mag^2
-rd: 141.313 +2.966 -2.787 Mpc
-Ωm: 0.306 +0.010 -0.010
-w0: -0.867 +0.098 -0.104
-chi squared BAO: 8.70
-chi squared quasars: 19.73
-chi squared total: 28.42
+ΔM: -0.135 +0.099 -0.100 mag
+s: 0.406 +0.076 -0.060 mag^2
+rd: 140.537 +3.378 -3.130 Mpc
+Ωm: 0.310 +0.012 -0.012
+w0: -0.827 +0.122 -0.129
+chi squared BAO: 8.47
+chi squared quasars: 19.75
+chi squared total: 28.21
 """

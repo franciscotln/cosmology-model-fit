@@ -23,7 +23,7 @@ z_unique = np.sort(np.unique(np.concatenate((z_qsr, z_sn))))
 
 def Ez(z, Om, w0):
     one_plus_z = 1 + z
-    rho_DE = ((2 * one_plus_z**2) / (1 + one_plus_z**2)) ** (3 * (1 + w0))
+    rho_DE = ((2 * one_plus_z**3) / (1 + one_plus_z**3)) ** (2 * (1 + w0))
     return np.sqrt(Om * one_plus_z**3 + (1 - Om) * rho_DE)
 
 
@@ -273,13 +273,13 @@ chi squared total: 1658.57
 ==================================
 
 Flat wzCDM
-ΔM_qsr: -0.139 +0.088 -0.089 mag
-s: 0.405 +0.076 -0.059 mag^2
-ΔM_sn: 0.030 +0.012 -0.012 mag
-rd: 140.930 +1.172 -1.175 Mpc
-Ωm: 0.306 +0.008 -0.008
-w0: -0.852 +0.041 -0.042 (3.52 - 3.61 sigma)
-chi squared SN: 1638.30
-chi squared quasars: 19.82
-chi squared total: 1658.12
+ΔM_qsr: -0.134 +0.089 -0.089 mag
+s: 0.408 +0.077 -0.060 mag^2
+ΔM_sn: 0.033 +0.012 -0.012 mag
+rd: 140.800 +1.197 -1.163 Mpc
+Ωm: 0.309 +0.008 -0.008
+w0: -0.836 +0.045 -0.046
+chi squared SN: 1638.08
+chi squared quasars: 19.55
+chi squared total: 1657.63
 """
