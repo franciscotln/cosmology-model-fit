@@ -194,9 +194,9 @@ Dataset: SDSS 2020 compilation
 Flat ΛCDM:
 H0: 68.82 +0.73 -0.73 km/s/Mpc
 Ωm: 0.2944 +0.0163 -0.0154
-w0: -0.751 +0.511 -0.512
+w0: -1
 Chi squared: 11.81
-Degs of freedom: 14
+Degs of freedom: 15
 R^2: 0.9955
 RMSD: 0.684
 
