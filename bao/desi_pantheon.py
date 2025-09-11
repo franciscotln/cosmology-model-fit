@@ -15,12 +15,13 @@ cho_sn = cho_factor(cov_matrix_sn)
 cho_bao = cho_factor(bao_cov_matrix)
 
 c = 299792.458  # Speed of light in km/s
+rd = 147.09  # Mpc, fixed
 
-
-def Ez(z, O_m, w0=-1):
+def Ez(z, O_m, w0):
     one_plus_z = 1 + z
-    rho_de = (2 * one_plus_z**3 / (1 + one_plus_z**3)) ** (2 * (1 + w0))
-    return np.sqrt(O_m * one_plus_z**3 + (1 - O_m) * rho_de)
+    cubed = one_plus_z**3
+    # rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
+    return np.sqrt(O_m * cubed + (1 - O_m) * 1)
 
 
 grid = np.linspace(0, np.max(z_cmb), num=2000)
@@ -28,12 +29,12 @@ grid = np.linspace(0, np.max(z_cmb), num=2000)
 
 def integral_Ez(params):
     x = grid
-    y = 1 / Ez(grid, *params[3:])
+    y = 1 / Ez(grid, *params[2:])
     return np.interp(z_cmb, x, cumulative_trapezoid(y=y, x=x, initial=0))
 
 
 def apparent_mag(params):
-    M, H0 = params[1], params[2]
+    M, H0 = params[0], params[1]
     dL = (1 + z_hel) * (c / H0) * integral_Ez(params)
     return M + 25 + 5 * np.log10(dL)
 
@@ -41,7 +42,6 @@ def apparent_mag(params):
 def plot_bao_predictions(params):
     errors = np.sqrt(np.diag(bao_cov_matrix))
     colors = {"DV_over_rs": "red", "DM_over_rs": "blue", "DH_over_rs": "green"}
-    r_d = params[0]
     z_smooth = np.linspace(0, max(data["z"]), 100)
 
     plt.figure(figsize=(8, 6))
@@ -60,11 +60,11 @@ def plot_bao_predictions(params):
         model_smooth = []
         for z in z_smooth:
             if q == "DV_over_rs":
-                model_smooth.append(DV_z(z, params) / r_d)
+                model_smooth.append(DV_z(z, params) / rd)
             elif q == "DM_over_rs":
-                model_smooth.append(DM_z(z, params) / r_d)
+                model_smooth.append(DM_z(z, params) / rd)
             elif q == "DH_over_rs":
-                model_smooth.append((DH_z(z, params)) / r_d)
+                model_smooth.append((DH_z(z, params)) / rd)
         plt.plot(z_smooth, model_smooth, color=colors[q], alpha=0.5)
 
     plt.xlabel("Redshift (z)")
@@ -76,7 +76,7 @@ def plot_bao_predictions(params):
 
 
 def H_z(z, params):
-    return params[2] * Ez(z, *params[3:])
+    return params[1] * Ez(z, *params[2:])
 
 
 def DH_z(z, params):
@@ -101,13 +101,11 @@ quantity_funcs = {
 
 
 def bao_predictions(params):
-    r_d = params[0]
-    return np.array([(quantity_funcs[qty](z, params) / r_d) for z, _, qty in data])
+    return np.array([(quantity_funcs[qty](z, params) / rd) for z, _, qty in data])
 
 
 bounds = np.array(
     [
-        (120, 160),  # r_d
         (-20, -19),  # M
         (50, 80),  # H0
         (0.2, 0.7),  # Ωm
@@ -125,12 +123,9 @@ def chi_squared(params):
     return chi_sn + chi_bao
 
 
-# Prior from Planck 2018 https://arxiv.org/abs/1807.06209 table 1 (Combined column)
-# Ωm x ​h^2 = 0.1428 ± 0.0011. Prior width increased by 70% to 0.00187
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
-        Om_x_h2 = params[3] * (params[2] / 100) ** 2
-        return -0.5 * ((0.1428 - Om_x_h2) / 0.00187) ** 2
+        return 0
     return -np.inf
 
 
@@ -169,16 +164,14 @@ def main():
     samples = sampler.get_chain(discard=burn_in, flat=True)
 
     [
-        [rd_16, rd_50, rd_84],
         [M_16, M_50, M_84],
         [H0_16, H0_50, H0_84],
         [Om_16, Om_50, Om_84],
         [w0_16, w0_50, w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = [rd_50, M_50, H0_50, Om_50, w0_50]
+    best_fit = [M_50, H0_50, Om_50, w0_50]
 
-    print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f}")
     print(f"M0: {M_50:.3f} +{(M_84 - M_50):.3f} -{(M_50 - M_16):.3f}")
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f}")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
@@ -197,7 +190,7 @@ def main():
         x_scale="log",
     )
 
-    labels = ["$r_d$", "$M_0$", "$H_0$", "$\Omega_m$", "$w_0$"]
+    labels = ["$M_0$", "$H_0$", "$\Omega_m$", "$w_0$"]
     corner.corner(
         samples,
         labels=labels,
@@ -228,46 +221,33 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM
-r_d: 147.68 +1.33 -1.30 Mpc
-M0: -19.411 +0.028 -0.028 mag
-H0: 68.39 +0.95 -0.95 km/s/Mpc
+r_d: 147.09 Mpc (fixed)
+M0: -19.401 +0.012 -0.013
+H0: 68.68 +0.45 -0.45
 Ωm: 0.304 +0.008 -0.008
 w0: -1
-wa: 0
-Chi squared: 1416.14
-Degrees of freedom: 1599
+Chi squared: 1416.44
+Degrees of freedom: 1600
 
-====================
+===============================
 
 Flat wCDM
-r_d: 144.32 +2.10 -2.15 Mpc
-M0: -19.375 +0.034 -0.033 mag
-H0: 69.14 +1.07 -1.02 km/s/Mpc
-Ωm: 0.298 +0.009 -0.008
-w0: -0.914 +0.040 -0.040
-wa: 0
-Chi squared: 1411.53
-Degrees of freedom: 1598
+r_d: 147.09 Mpc (fixed)
+M0: -19.416 +0.014 -0.014 mag
+H0: 67.83 +0.59 -0.58 km/s/Mpc
+Ωm: 0.297 +0.009 -0.009
+w0: -0.914 +0.040 -0.040 (2.15 sigma from -1)
+Chi squared: 1411.82 (Δ chi2 4.62)
+Degrees of freedom: 1599
 
-====================
+===============================
 
-Flat w0 - (1 + w0) * (((1 + z)**3 - 1) / ((1 + z)**3 + 1))
-r_d: 145.41 +1.76 -1.74 Mpc
-M0: -19.391 +0.031 -0.031 mag
-H0: 68.56 +1.02 -0.99 km/s/Mpc
+Flat w0 - (1 + w0) * ((1 + z)**3 - 1) / ((1 + z)**3 + 1)
+r_d: 147.09 Mpc (fixed)
+M0: -19.415 +0.014 -0.014 mag
+H0: 67.79 +0.60 -0.60 km/s/Mpc
 Ωm: 0.304 +0.008 -0.008
-w0: -0.895 +0.047 -0.048
-Chi squared: 1411.31
-Degrees of freedom: 1598
-
-====================
-
-Flat -1 + (1 + w0) / (1 + z)**3
-r_d: 145.66 +1.69 -1.66 Mpc
-M0: -19.393 +0.030 -0.030 mag
-H0: 68.45 +1.00 -0.98 km/s/Mpc
-Ωm: 0.305 +0.008 -0.008
-w0: -0.879 +0.055 -0.056
-Chi squared: 1411.44
-Degrees of freedom: 1598
+w0: -0.895 +0.047 -0.048 (2.19 - 2.23 sigma from -1)
+Chi squared: 1411.56 (Δ chi2 4.88)
+Degrees of freedom: 1599
 """
