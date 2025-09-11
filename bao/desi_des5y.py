@@ -20,8 +20,9 @@ c = 299792.458  # Speed of light in km/s
 
 def Ez(z, Om, w0):
     z_plus_1 = 1 + z
-    rho_de = (2 * z_plus_1**3 / (1 + z_plus_1**3)) ** (2 * (1 + w0))
-    return np.sqrt(Om * z_plus_1**3 + (1 - Om) * rho_de)
+    cubed = z_plus_1**3
+    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
+    return np.sqrt(Om * cubed + (1 - Om) * rho_de)
 
 
 grid = np.linspace(0, np.max(z_cmb), num=2000)
@@ -193,43 +194,43 @@ if __name__ == "__main__":
 """
 Flat ΛCDM
 ΔM: -9.230 +0.006 -0.006 mag
-r_d * h: 100.55 +0.67 -0.66 Mpc
+r_d * h: 100.56 +0.65 -0.65 Mpc
 Ωm: 0.310 +0.008 -0.008
 w0: -1
 wa: 0
-Chi squared: 1658.97
+Chi squared: 1659.32
 Degrees of freedom: 1839
 
-==============================
+===============================
 
 Flat wCDM
 ΔM: -9.200 +0.011 -0.011 mag
-r_d * h: 98.85 +0.83 -0.81 Mpc
+r_d * h: 98.86 +0.83 -0.82 Mpc
 Ωm: 0.298 +0.009 -0.009
-w0: -0.872 +0.039 -0.038 (3.28 - 3.37 sigma)
+w0: -0.872 +0.038 -0.039 (3.28 - 3.37 sigma from -1)
 wa: 0
-Chi squared: 1648.11 (Δ chi2 10.86)
+Chi squared: 1648.43 (Δ chi2 10.89)
 Degrees of freedom: 1838
 
 ===============================
 
 Flat w0 - (1 + w0) * (((1 + z)**3 - 1) / ((1 + z)**3 + 1))
 ΔM: -9.193 +0.012 -0.012 mag
-r_d * h: 98.64 +0.84 -0.83 Mpc
+r_d * h: 98.60 +0.83 -0.82 Mpc
 Ωm: 0.307 +0.008 -0.008
-w0: -0.834 +0.045 -0.046 (3.61 - 3.69 sigma)
+w0: -0.833 +0.045 -0.046 (3.63 - 3.71 sigma from -1)
 wa: 0
-Chi squared: 1646.49 (Δ chi2 12.48)
+Chi squared: 1646.77 (Δ chi2 12.55)
 Degrees of freedom: 1838
 
 ===============================
 
 Flat w(z) = w0 + wa * z / (1 + z)
 ΔM: -9.187 +0.014 -0.014 mag
-r_d * h: 98.53 +0.84 -0.84 Mpc
+r_d * h: 98.54 +0.85 -0.85 Mpc
 Ωm: 0.321 +0.013 -0.016
-w0: -0.785 +0.073 -0.068 (2.95 - 3.16 sigma)
-wa: -0.708 +0.459 -0.464 (1.54 sigma)
-Chi squared: 1645.45 (Δ chi2 13.52)
+w0: -0.785 +0.073 -0.068 (2.95 - 3.16 sigma from -1)
+wa: -0.712 +0.470 -0.455 (1.51 - 1.56 sigma from 0)
+Chi squared: 1645.67 (Δ chi2 13.65)
 Degrees of freedom: 1837
 """
