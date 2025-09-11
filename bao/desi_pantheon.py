@@ -20,8 +20,8 @@ rd = 147.09  # Mpc, fixed
 def Ez(z, O_m, w0):
     one_plus_z = 1 + z
     cubed = one_plus_z**3
-    # rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
-    return np.sqrt(O_m * cubed + (1 - O_m) * 1)
+    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
+    return np.sqrt(O_m * cubed + (1 - O_m) * rho_de)
 
 
 grid = np.linspace(0, np.max(z_cmb), num=2000)
