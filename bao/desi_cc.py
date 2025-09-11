@@ -22,8 +22,9 @@ c = 299792.458  # Speed of light in km/s
 
 def Ez(z, O_m, w0):
     one_plus_z = 1 + z
-    rho_de = (2 * one_plus_z**3 / (1 + one_plus_z**3)) ** (2 * (1 + w0))
-    return np.sqrt(O_m * one_plus_z**3 + (1 - O_m) * rho_de)
+    cubic = one_plus_z**3
+    rho_de = (2 * cubic / (1 + cubic)) ** (2 * (1 + w0))
+    return np.sqrt(O_m * cubic + (1 - O_m) * rho_de)
 
 
 def H_z(z, params):
@@ -179,22 +180,22 @@ Flat ΛCDM model
 f_cc: 1.46 +0.19 -0.18
 H0: 69.1 +2.3 -2.3 km/s/Mpc
 r_d: 146.8 +5.0 -4.6 Mpc
-Ωm: 0.299 +0.009 -0.008
+Ωm: 0.299 +0.008 -0.008
 w0: -1
-Chi squared: 41.61
-log likelihood: -131.35
+Chi squared: 41.83
+log likelihood: -131.49
 Degrees of freedom: 41
 
 =============================
 
 Flat wCDM model
 f_cc: 1.46 +0.19 -0.18
-H0: 67.9 +2.6 -2.5 km/s/Mpc
-r_d: 147.0 +5.0 -4.7 Mpc
+H0: 68.0 +2.6 -2.5 km/s/Mpc
+r_d: 147.0 +4.9 -4.7 Mpc
 Ωm: 0.298 +0.009 -0.009
-w0: -0.921 +0.075 -0.078
-Chi squared: 40.43
-log likelihood: -130.81
+w0: -0.923 +0.073 -0.077
+Chi squared: 40.72
+log likelihood: -130.95
 Degrees of freedom: 40
 
 ==============================
@@ -202,11 +203,11 @@ Degrees of freedom: 40
 Flat w0 - (1 + w0) * (((1 + z)**3 - 1) / ((1 + z)**3 + 1))
 f_cc: 1.45 +0.19 -0.18
 H0: 67.3 +2.8 -2.7 km/s/Mpc
-r_d: 147.0 +5.0 -4.6 Mpc
+r_d: 147.0 +5.0 -4.7 Mpc
 Ωm: 0.307 +0.011 -0.011
-w0: -0.855 +0.119 -0.125
-Chi squared: 39.81
-log likelihood: -130.62
+w0: -0.858 +0.116 -0.123
+Chi squared: 40.09
+log likelihood: -130.75
 Degrees of freedom: 40
 
 =============================
@@ -214,12 +215,12 @@ Degrees of freedom: 40
 Flat w0waCDM model
 f_cc: 1.43 +0.19 -0.18
 H0: 64.7 +3.8 -3.7 km/s/Mpc
-r_d: 147.1 +5.2 -4.8 Mpc
+r_d: 147.1 +5.1 -4.8 Mpc
 Ωm: 0.350 +0.043 -0.049
-w0: -0.535 +0.397 -0.362
-wa: -1.520 +1.411 -1.409
-Chi squared: 37.56
-log likelihood: -130.14
+w0: -0.532 +0.391 -0.366
+wa: -1.531 +1.430 -1.393
+Chi squared: 37.77
+log likelihood: -130.24
 Degrees of freedom: 39
 
 ******************************
