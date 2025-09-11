@@ -32,9 +32,7 @@ z_grid = np.linspace(0, np.max(z_sn_vals), num=2500)
 
 
 def integral_Ez(params):
-    integral_values = cumulative_trapezoid(
-        1 / Ez(z_grid, params), z_grid, initial=0
-    )
+    integral_values = cumulative_trapezoid(1 / Ez(z_grid, params), z_grid, initial=0)
     return np.interp(z_sn_vals, z_grid, integral_values)
 
 
@@ -275,7 +273,7 @@ H0: 67.83 +3.31 -3.29 km/s/Mpc
 M: -19.416 +0.102 -0.107 mag
 r_d: 147.07 +7.38 -6.70 Mpc
 Ωm: 0.298 +0.009 -0.008
-w0: -0.916 +0.040 -0.040
+w0: -0.916 +0.040 -0.040 (2.10 sigma from -1)
 Chi squared: 1426.55
 Degrees of freedom: 1630
 
@@ -286,7 +284,7 @@ H0: 67.76 +3.30 -3.17 km/s/Mpc
 M: -19.416 +0.102 -0.103 mag
 r_d: 147.15 +7.11 -6.69 Mpc
 Ωm: 0.304 +0.008 -0.008
-w0: -0.897 +0.047 -0.047
+w0: -0.897 +0.047 -0.047 (2.19 sigma from -1)
 Chi squared: 1426.33
 Degrees of freedom: 1630
 """
