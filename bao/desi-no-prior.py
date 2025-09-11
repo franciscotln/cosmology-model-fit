@@ -18,8 +18,9 @@ rd = 147.09  # Mpc, fixed
 def H_z(z, H0, Om, w0):
     OL = 1 - Om
     one_plus_z = 1 + z
-    rho_de = (2 * one_plus_z**3 / (1 + one_plus_z**3)) ** (2 * (1 + w0))
-    return H0 * np.sqrt(Om * one_plus_z**3 + OL * rho_de)
+    cubed = one_plus_z**3
+    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
+    return H0 * np.sqrt(Om * cubed + OL * rho_de)
 
 
 def DH_z(z, params):
@@ -150,15 +151,15 @@ if __name__ == "__main__":
 
 """
 ******************************
-Dataset: DESI 2025
+Dataset: DESI DR2 2024
 ******************************
 
 Flat ΛCDM:
 rd: 147.09 Mpc (fixed)
-H0: 69.02 +0.50 -0.50 km/s/Mpc
-Ωm: 0.2977 +0.0087 -0.0085
+H0: 69.03 +0.49 -0.49 km/s/Mpc
+Ωm: 0.2975 +0.0086 -0.0083
 w0: -1
-Chi squared: 10.27
+Chi squared: 10.54
 Degs of freedom: 11
 R^2: 0.9987
 RMSD: 0.305
@@ -167,10 +168,10 @@ RMSD: 0.305
 
 Flat wCDM:
 rd: 147.09 Mpc (fixed)
-H0: 67.85 +1.20 -1.14 km/s/Mpc
-Ωm: 0.2970 +0.0090 -0.0088
-w0: -0.915 +0.076 -0.080 (1.06 - 1.12 sigma from -1)
-Chi squared: 9.12
+H0: 67.88 +1.18 -1.12 km/s/Mpc
+Ωm: 0.2969 +0.0089 -0.0087
+w0: -0.917 +0.074 -0.078 (1.06 - 1.12 sigma from -1)
+Chi squared: 9.38
 Degs of freedom: 10
 R^2: 0.9989
 RMSD: 0.279
@@ -179,13 +180,13 @@ RMSD: 0.279
 
 Flat alternative: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
 rd: 147.09 Mpc (fixed)
-H0: 67.02 +1.61 -1.50 km/s/Mpc
-Ωm: 0.3079 +0.0118 -0.0116
-w0: -0.833 +0.121 -0.129 (1.29 - 1.38 sigma from -1)
-Chi squared: 8.44
+H0: 67.06 +1.58 -1.47 km/s/Mpc
+Ωm: 0.3075 +0.0116 -0.0115
+w0: -0.836 +0.118 -0.126 (1.30 - 1.39 sigma from -1)
+Chi squared: 8.72
 Degs of freedom: 10
 R^2: 0.9990
-RMSD: 0.265
+RMSD: 0.266
 
 ******************************
 Dataset: SDSS 2020 compilation
