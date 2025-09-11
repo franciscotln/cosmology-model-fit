@@ -20,26 +20,27 @@ cho_bao = cho_factor(cov_matrix_bao)
 c = 299792.458  # Speed of light in km/s
 
 
-def h_over_h0(z, params):
+def Ez(z, params):
     O_m, w0 = params[3], params[4]
     one_plus_z = 1 + z
-    rho_de = np.exp((1 + w0) * (1 - 1 / one_plus_z**3))
-    return np.sqrt(O_m * one_plus_z**3 + (1 - O_m) * rho_de)
+    cubed = one_plus_z**3
+    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
+    return np.sqrt(O_m * cubed + (1 - O_m) * rho_de)
 
 
 z_grid = np.linspace(0, np.max(z_sn_vals), num=2500)
 
 
-def integral_e_z(params):
+def integral_Ez(params):
     integral_values = cumulative_trapezoid(
-        1 / h_over_h0(z_grid, params), z_grid, initial=0
+        1 / Ez(z_grid, params), z_grid, initial=0
     )
     return np.interp(z_sn_vals, z_grid, integral_values)
 
 
 def sn_apparent_mag(params):
     h0, M = params[0], params[1]
-    comoving_distance = (c / h0) * integral_e_z(params)
+    comoving_distance = (c / h0) * integral_Ez(params)
     return M + 25 + 5 * np.log10((1 + z_sn_hel_vals) * comoving_distance)
 
 
@@ -109,7 +110,7 @@ def plot_bao_predictions(params):
 
 
 def H_z(z, params):
-    return params[0] * h_over_h0(z, params)
+    return params[0] * Ez(z, params)
 
 
 def DH_z(z, params):
@@ -259,58 +260,33 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM: w(z) = -1
-H0: 68.70 +3.30 -3.26 km/s/Mpc
-M: -19.401 +0.101 -0.105 mag
-r_d: 147.03 +7.25 -6.67 Mpc
-Ωm: 0.304 +0.008 -0.008
+H0: 68.59 +3.36 -3.30
+M: -19.404 +0.104 -0.107
+r_d: 147.24 +7.32 -6.85
+Ωm: 0.305 +0.008 -0.008
 w0: -1
-wa: 0
-Chi squared: 1431.36
+Chi squared: 1431.04
 Degrees of freedom: 1631
 
-==============================
+===============================
 
 Flat wCDM: w(z) = w0
-H0: 67.87 +3.25 -3.28 km/s/Mpc
-M: -19.416 +0.101 -0.106 mag
-r_d: 147.11 +7.29 -6.66 Mpc
+H0: 67.83 +3.31 -3.29 km/s/Mpc
+M: -19.416 +0.102 -0.107 mag
+r_d: 147.07 +7.38 -6.70 Mpc
 Ωm: 0.298 +0.009 -0.008
-w0: -0.917 +0.040 -0.040 (2.1 sigma)
-Chi squared: 1427.13
+w0: -0.916 +0.040 -0.040
+Chi squared: 1426.55
 Degrees of freedom: 1630
 
-==============================
+===============================
 
-Flat alternative: w(z) = w0 - (1 + w0) * (((1 + z)**2 - 1) / ((1 + z)**2 + 1))
-H0: 67.75 +3.25 -3.24 km/s/Mpc
-M: -19.418 +0.101 -0.106 mag
-r_d: 147.23 +7.29 -6.61 Mpc
-Ωm: 0.303 +0.008 -0.008
-w0: -0.906 +0.044 -0.045 (2.1 sigma)
-wa: 0
-Chi squared: 1426.99
+Flat: w(z) = w0 - (1 + w0) * ((1 + z)**3 - 1) / ((1 + z)**3 + 1)
+H0: 67.76 +3.30 -3.17 km/s/Mpc
+M: -19.416 +0.102 -0.103 mag
+r_d: 147.15 +7.11 -6.69 Mpc
+Ωm: 0.304 +0.008 -0.008
+w0: -0.897 +0.047 -0.047
+Chi squared: 1426.33
 Degrees of freedom: 1630
-
-==============================
-
-Flat alternative: w(z) = -1 + (1 + w0) / (1 + z)**3
-H0: 67.87 +3.26 -3.24 km/s/Mpc
-M: -19.412 +0.101 -0.105 mag
-r_d: 146.94 +7.20 -6.63 Mpc
-Ωm: 0.305 +0.008 -0.008
-w0: -0.881 +0.055 -0.056 (2.13 - 2.16 sigma)
-Chi squared: 1426.21
-Degrees of freedom: 1630
-
-==============================
-
-Flat w0waCDM: w(z) = w0 + wa * z/(1 + z)
-H0: 67.95 +3.24 -3.27 km/s/Mpc
-M: -19.411 +0.101 -0.106 mag
-r_d: 146.86 +7.27 -6.58 Mpc
-Ωm: 0.301 +0.016 -0.027
-w0: -0.899 +0.061 -0.055
-wa: -0.098 +0.516 -0.463
-Chi squared: 1427.29
-Degrees of freedom: 1629
 """
