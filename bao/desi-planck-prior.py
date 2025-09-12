@@ -18,7 +18,7 @@ def Ez(z, O_m, w0):
     one_plus_z = 1 + z
     cubic = one_plus_z**3
     rho_de = (2 * cubic / (1 + cubic)) ** (2 * (1 + w0))
-    return np.sqrt(O_m * cubic + (1 - O_m))
+    return np.sqrt(O_m * cubic + (1 - O_m) * rho_de)
 
 
 def H_z(z, params):
@@ -163,30 +163,30 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM
-r_d: 146.58 +1.55 -1.53 Mpc
-H0: 69.27 +1.11 -1.09 km/s/Mpc
+r_d: 146.58 +1.56 -1.52 Mpc
+H0: 69.27 +1.10 -1.10 km/s/Mpc
 Ωm: 0.298 +0.009 -0.008
 w0: -1
-Chi squared: 10.54
+Chi squared: 10.27
 Degrees of freedom: 10
 
-====================
+===============================
 
 Flat wCDM w(z) = w0
-r_d: 144.18 +2.75 -3.00 Mpc
-H0: 69.35 +1.13 -1.11 km/s/Mpc
+r_d: 144.15 +2.79 -3.05 Mpc
+H0: 69.32 +1.15 -1.12 km/s/Mpc
 Ωm: 0.297 +0.009 -0.009
-w0: -0.918 +0.075 -0.078
-Chi squared: 9.40
+w0: -0.915 +0.076 -0.080
+Chi squared: 9.11
 Degrees of freedom: 9
 
-====================
+===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-r_d: 144.83 +2.08 -2.07 Mpc
-H0: 68.14 +1.38 -1.32 km/s/Mpc
-Ωm: 0.307 +0.012 -0.011
-w0: -0.837 +0.119 -0.126
-Chi squared: 8.72
+r_d: 144.83 +2.10 -2.09 Mpc
+H0: 68.09 +1.40 -1.33 km/s/Mpc
+Ωm: 0.308 +0.012 -0.012
+w0: -0.833 +0.122 -0.129
+Chi squared: 8.44
 Degrees of freedom: 9
 """
