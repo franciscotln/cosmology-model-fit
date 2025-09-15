@@ -16,7 +16,7 @@ cho_sn = cho_factor(cov_matrix_sn)
 cho_bao = cho_factor(bao_cov_matrix)
 
 c = 299792.458  # Speed of light in km/s
-
+rd = 147.09  # Mpc, fixed
 
 def Ez(z, params):
     O_m, w0 = params[2], params[3]
@@ -26,7 +26,7 @@ def Ez(z, params):
     return np.sqrt(O_m * cubic + (1 - O_m) * rho_de)
 
 
-grid = np.linspace(0, np.max(z_sn_vals), num=2000)
+grid = np.linspace(0, np.max(z_sn_vals), num=3000)
 
 
 def integral_Ez(params):
@@ -35,12 +35,12 @@ def integral_Ez(params):
 
 
 def distance_modulus(params):
-    dL = (1 + z_sn_vals) * c * integral_Ez(params)
+    dL = (1 + z_sn_vals) * c * integral_Ez(params) / params[1]
     return params[0] + 25 + 5 * np.log10(dL)
 
 
 def H_z(z, params):
-    return Ez(z, params)
+    return params[1] * Ez(z, params)
 
 
 def DH_z(z, params):
@@ -58,9 +58,9 @@ def DV_z(z, params):
 
 
 quantity_funcs = {
-    "DV_over_rs": lambda z, params: DV_z(z, params) / (params[1] * 100),
-    "DM_over_rs": lambda z, params: DM_z(z, params) / (params[1] * 100),
-    "DH_over_rs": lambda z, params: DH_z(z, params) / (params[1] * 100),
+    "DV_over_rs": lambda z, params: DV_z(z, params) / rd,
+    "DM_over_rs": lambda z, params: DM_z(z, params) / rd,
+    "DH_over_rs": lambda z, params: DH_z(z, params) / rd,
 }
 
 
@@ -81,8 +81,8 @@ def chi_squared(params):
 
 bounds = np.array(
     [
-        (-10, -8.5),  # ΔM
-        (90, 110),  # r_d * h
+        (-0.7, 0.7),  # ΔM
+        (60, 75),  # H0
         (0.1, 0.6),  # Ωm
         (-2, 0),  # w0
     ]
@@ -108,8 +108,8 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 16 * ndim
-    burn_in = 200
+    nwalkers = 10 * ndim
+    burn_in = 500
     nsteps = 20000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
@@ -132,15 +132,15 @@ def main():
 
     [
         [dM_16, dM_50, dM_84],
-        [rd_16, rd_50, rd_84],
+        [H0_16, H0_50, H0_84],
         [Om_16, Om_50, Om_84],
         [w0_16, w0_50, w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = [dM_50, rd_50, Om_50, w0_50]
+    best_fit = [dM_50, H0_50, Om_50, w0_50]
 
-    print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f}")
-    print(f"r_d * h: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f}")
+    print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
+    print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.4f}")
@@ -162,7 +162,7 @@ def main():
         x_scale="log",
     )
 
-    labels = ["$Δ_M$", "$r_d x h$", "$Ω_m$", "$w_0$"]
+    labels = ["$Δ_M$", "$H_0$", "$Ω_m$", "$w_0$"]
     corner.corner(
         samples,
         labels=labels,
@@ -197,86 +197,96 @@ DESI BAO DR2 2025
 ******************************
 
 Flat ΛCDM
-ΔM: -9.303 +0.088 -0.088 mag
-r_d * h: 101.03 +0.71 -0.71 Mpc
-Ωm: 0.304 +0.009 -0.008
-w0: -0.999 +0.681 -0.683
-Chi squared: 38.8160
+r_d: 147.09 Mpc (fixed)
+ΔM: -0.118 +0.090 -0.091 mag
+H0: 68.69 +0.48 -0.47 km/s/Mpc
+Ωm: 0.304 +0.008 -0.008
+w0: -1
+Chi squared: 38.8146
 Degs of freedom: 32
 Correlation matrix:
-[[ 1.00000e+00 -1.50885e-02  1.55475e-02]
- [-1.50885e-02  1.00000e+00 -9.17535e-01]
- [ 1.55475e-02 -9.17535e-01  1.00000e+00]]
+[[ 1.       0.15839 -0.14604]
+ [ 0.15839  1.      -0.91605]
+ [-0.14604 -0.91605  1.     ]]
 
 =============================
 
 Flat wCDM
-ΔM: -9.290 +0.088 -0.089 mag
-r_d * h: 98.73 +1.12 -1.09 Mpc
+r_d: 147.09 Mpc (fixed)
+ΔM: -0.156 +0.091 -0.091 mag
+H0: 67.13 +0.76 -0.75 km/s/Mpc
 Ωm: 0.298 +0.009 -0.009
-w0: -0.866 +0.051 -0.052
-Chi squared: 32.1563
+w0: -0.866 +0.052 -0.052
+Chi squared: 32.1558 (Δ chi2 6.6588)
 Degs of freedom: 31
 Correlation matrix:
-[[ 1.      -0.05636 -0.00234  0.05386]
- [-0.05636  1.      -0.19142 -0.81482]
- [-0.00234 -0.19142  1.      -0.36068]
- [ 0.05386 -0.81482 -0.36068  1.     ]]
+[[ 1.       0.2202  -0.05857 -0.16744]
+ [ 0.2202   1.      -0.19067 -0.81834]
+ [-0.05857 -0.19067  1.      -0.35673]
+ [-0.16744 -0.81834 -0.35673  1.     ]]
 
 ==============================
 
 Flat -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-ΔM: -9.283 +0.089 -0.088 mag
-r_d * h: 98.04 +1.23 -1.20 Mpc
+r_d: 147.09 Mpc (fixed)
+ΔM: -0.163 +0.092 -0.091 mag
+H0: 66.66 +0.84 -0.82 km/s/Mpc
 Ωm: 0.310 +0.009 -0.009
-w0: -0.802 +0.066 -0.068
-Chi squared: 30.3680
+w0: -0.803 +0.066 -0.067
+Chi squared: 30.3681 (Δ chi2 8.4465)
 Degs of freedom: 31
 Correlation matrix:
-[[ 1.      -0.06448  0.02475  0.07098]
- [-0.06448  1.      -0.67024 -0.85568]
- [ 0.02475 -0.67024  1.       0.25631]
- [ 0.07098 -0.85568  0.25631  1.     ]]
+[[ 1.       0.22667 -0.16799 -0.17722]
+ [ 0.22667  1.      -0.66957 -0.85583]
+ [-0.16799 -0.66957  1.       0.25683]
+ [-0.17722 -0.85583  0.25683  1.     ]]
 
 ******************************
 SDSS BAO DR16 compilation 2020
 ******************************
 
 Flat ΛCDM
-ΔM: -9.301 +0.088 -0.088 mag
-r_d * h: 100.15 +0.96 -0.95 Mpc
+r_d: 147.09 Mpc (fixed)
+ΔM: -0.137 +0.091 -0.090 mag
+H0: 68.09 +0.65 -0.65 km/s/Mpc
 Ωm: 0.313 +0.015 -0.014
 w0: -1
-Chi squared: 39.8737
+Chi squared: 39.873
 Degs of freedom: 36
+Correlation matrix:
+[[ 1.       0.21127 -0.17231]
+ [ 0.21127  1.      -0.85116]
+ [-0.17231 -0.85116  1.     ]]
 
 ==============================
 
 Flat wCDM
-ΔM: -9.285 +0.089 -0.089 mag
-r_d * h: 97.83 +1.24 -1.21 Mpc
-Ωm: 0.285 +0.018 -0.018
-w0: -0.806 +0.066 -0.069 (2.81 - 2.94 sigma from -1)
-Chi squared: 31.9981 (Δ chi2 7.8756)
+r_d: 147.09 Mpc (fixed)
+ΔM: -0.171 +0.091 -0.091 mag
+H0: 66.52 +0.84 -0.83 km/s/Mpc
+Ωm: 0.285 +0.018 -0.019
+w0: -0.807 +0.067 -0.068
+Chi squared: 31.999 (Δ chi2 7.874)
 Degs of freedom: 35
 Correlation matrix:
-[[ 1.      -0.05676 -0.02696  0.06515]
- [-0.05676  1.       0.01977 -0.71908]
- [-0.02696  0.01977  1.      -0.63207]
- [ 0.06515 -0.71908 -0.63207  1.     ]]
+[[ 1.       0.24296 -0.01448 -0.15654]
+ [ 0.24296  1.       0.01761 -0.71864]
+ [-0.01448  0.01761  1.      -0.63004]
+ [-0.15654 -0.71864 -0.63004  1.     ]]
 
 ==============================
 
 Flat -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-ΔM: -9.281 +0.089 -0.088 mag
-r_d * h: 97.60 +1.30 -1.26 Mpc
+r_d: 147.09 Mpc (fixed)
+ΔM: -0.171 +0.091 -0.092 mag
+H0: 66.35 +0.88 -0.86 km/s/Mpc
 Ωm: 0.303 +0.015 -0.014
-w0: -0.772 +0.077 -0.080 (2.85 - 2.96 sigma from -1)
-Chi squared: 31.8358 (Δ chi2 8.0379)
+w0: -0.771 +0.077 -0.079
+Chi squared: 31.834 (Δ chi2 8.039)
 Degs of freedom: 35
 Correlation matrix:
-[[ 1.      -0.07     0.00277  0.08178]
- [-0.07     1.      -0.40121 -0.74783]
- [ 0.00277 -0.40121  1.      -0.17619]
- [ 0.08178 -0.74783 -0.17619  1.     ]]
+[[ 1.       0.24304 -0.12174 -0.15046]
+ [ 0.24304  1.      -0.38784 -0.75141]
+ [-0.12174 -0.38784  1.      -0.18599]
+ [-0.15046 -0.75141 -0.18599  1.     ]]
 """
