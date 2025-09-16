@@ -176,43 +176,43 @@ if __name__ == "__main__":
 Dataset: DESI 2025
 *******************************
 
-Flat ΛCDM model
+Flat ΛCDM
 f_cc: 1.46 +0.19 -0.18
-H0: 69.1 +2.3 -2.3 km/s/Mpc
+H0: 69.1 +2.4 -2.3 km/s/Mpc
 r_d: 146.8 +5.0 -4.7 Mpc
 Ωm: 0.299 +0.009 -0.008
-w0: -0.756 +0.857 -0.854
-Chi squared: 41.56
+w0: -1
+Chi squared: 41.58
 log likelihood: -131.35
 Degrees of freedom: 41
 
 ===============================
 
-Flat wCDM model
+Flat wCDM
 f_cc: 1.46 +0.19 -0.18
 H0: 67.9 +2.6 -2.5 km/s/Mpc
-r_d: 147.0 +5.0 -4.7 Mpc
+r_d: 147.0 +5.1 -4.7 Mpc
 Ωm: 0.298 +0.009 -0.009
-w0: -0.922 +0.075 -0.078
-Chi squared: 40.48
-log likelihood: -130.80
+w0: -0.920 +0.075 -0.078
+Chi squared: 40.31
+log likelihood: -130.82
 Degrees of freedom: 40
 
 ===============================
 
-Flat w0 - (1 + w0) * (((1 + z)**3 - 1) / ((1 + z)**3 + 1))
+Flat -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
 f_cc: 1.45 +0.19 -0.18
-H0: 67.2 +2.8 -2.7 km/s/Mpc
-r_d: 147.1 +5.0 -4.7 Mpc
+H0: 67.3 +2.8 -2.7 km/s/Mpc
+r_d: 147.0 +5.0 -4.7 Mpc
 Ωm: 0.307 +0.011 -0.011
-w0: -0.853 +0.118 -0.126
-Chi squared: 39.66
+w0: -0.854 +0.119 -0.126
+Chi squared: 39.69
 log likelihood: -130.62
 Degrees of freedom: 40
 
 ===============================
 
-Flat w0waCDM model
+Flat w0waCDM
 f_cc: 1.43 +0.19 -0.18
 H0: 64.8 +3.7 -3.5 km/s/Mpc
 r_d: 147.1 +5.1 -4.8 Mpc
@@ -227,7 +227,7 @@ Degrees of freedom: 39
 Dataset: SDSS 2020 compilation
 *******************************
 
-Flat ΛCDM model
+Flat ΛCDM
 f_cc: 1.46 +0.19 -0.18
 H0: 69.1 +2.5 -2.5 km/s/Mpc
 r_d: 146.1 +5.1 -4.7 Mpc
@@ -239,7 +239,7 @@ Degrees of freedom: 45
 
 ===============================
 
-Flat wCDM model
+Flat wCDM
 f_cc: 1.45 +0.19 -0.18
 H0: 67.0 +3.0 -2.9 km/s/Mpc
 r_d: 146.7 +5.2 -4.8 Mpc
@@ -251,7 +251,7 @@ Degrees of freedom: 44
 
 ===============================
 
-Flat w0 - (1 + w0) * (((1 + z)**3 - 1) / ((1 + z)**3 + 1))
+Flat -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
 f_cc: 1.44 +0.19 -0.18
 H0: 67.1 +3.2 -3.1 km/s/Mpc
 r_d: 146.3 +5.2 -4.8 Mpc
