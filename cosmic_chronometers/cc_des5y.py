@@ -19,13 +19,14 @@ N_cc = len(z_cc_vals)
 
 c = 299792.458  # Speed of light in km/s
 
-grid = np.linspace(0, np.max(z_cmb), num=2000)
-
 
 def Ez(z, O_m, w0):
-    one_plus_z = 1 + z
-    rho_de = (2 * one_plus_z**3 / (1 + one_plus_z**3)) ** (2 * (1 + w0))
-    return np.sqrt(O_m * one_plus_z**3 + (1 - O_m) * rho_de)
+    cubed = (1 + z) ** 3
+    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
+    return np.sqrt(O_m * cubed + (1 - O_m) * rho_de)
+
+
+grid = np.linspace(0, np.max(z_cmb), num=2500)
 
 
 def integral_Ez(params):
@@ -34,8 +35,9 @@ def integral_Ez(params):
 
 
 def theory_mu(params):
-    dM, H0 = params[1], params[2]
-    return dM + 25 + 5 * np.log10((1 + z_hel) * (c / H0) * integral_Ez(params))
+    offset_mag, H0 = params[1], params[2]
+    dL = (1 + z_hel) * (c / H0) * integral_Ez(params)
+    return offset_mag + 25 + 5 * np.log10(dL)
 
 
 def H_z(z, params):
@@ -164,7 +166,7 @@ f_cc: 1.46 +0.19 -0.18
 ΔM: -0.115 +0.073 -0.075 mag
 H0: 65.8 +2.4 -2.3 km/s/Mpc
 Ωm: 0.350 +0.016 -0.016
-w0: -0.991 +0.682 -0.678
+w0: -1
 Chi squared: 1671.20
 Degrees of freedom: 1763
 
@@ -186,7 +188,7 @@ f_cc: 1.45 +0.19 -0.18
 ΔM: -0.072 +0.082 -0.083 mag
 H0: 66.8 +2.6 -2.5 km/s/Mpc
 Ωm: 0.318 +0.030 -0.030
-w0: -0.868 +0.094 -0.104
-Chi squared: 1669.14
+w0: -0.869 +0.094 -0.105
+Chi squared: 1669.12
 Degrees of freedom: 1762
 """
