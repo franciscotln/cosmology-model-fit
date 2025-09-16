@@ -18,17 +18,17 @@ H0 = 70  # Hubble constant (km/s/Mpc)
 
 
 z = np.linspace(0, np.max(z_values), num=4000)
-one_plus_z = 1 + z
+cubed = (1 + z) ** 3
 
 
-def h_over_h0(params):
+def Ez(params):
     omega_m, w0 = params[1], params[2]
-    rho_de = (2 * one_plus_z**3 / (1 + one_plus_z**3)) ** (2 * (1 + w0))
-    return np.sqrt(omega_m * one_plus_z**3 + (1 - omega_m) * rho_de)
+    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
+    return np.sqrt(omega_m * cubed + (1 - omega_m) * rho_de)
 
 
 def integral_of_e_z(params):
-    integral_values = cumulative_trapezoid(1 / h_over_h0(params), z, initial=0)
+    integral_values = cumulative_trapezoid(1 / Ez(params), z, initial=0)
     return np.interp(z_values, z, integral_values)
 
 
@@ -164,75 +164,63 @@ if __name__ == "__main__":
     main()
 
 """
-*****************************
+*******************************
 Dataset: Union 3 Bins
 z range: 0.050 - 2.262
 Sample size: 22
-*****************************
+*******************************
 
 Flat ΛCDM
 
-ΔM: -0.0698 +0.0878/-0.0874 mag
-Ωm: 0.3570 +0.0274/-0.0266
+ΔM: -0.068 +0.088/-0.088 mag
+Ωm: 0.357 +0.028/-0.026
 w0: -1
 wa: 0
 R-squared (%): 99.95
-RMSD (mag): 0.050
-Skewness of residuals: 0.582
-Chi squared: 23.9594
+RMSD (mag): 0.051
+Skewness of residuals: 0.576
+Chi squared: 24.0
 degrees of freedom: 20
 
-=============================
+===============================
 
 Flat wCDM
 
-ΔM: -0.0601 +0.0876/-0.0876 mag
-Ωm: 0.2532 +0.0883/-0.1113
-w0: -0.7483 +0.1568/-0.1893 (1.45 sigma)
+ΔM: -0.059 +0.088/-0.088 mag
+Ωm: 0.252 +0.089/-0.113
+w0: -0.748 +0.158/-0.189 (1.45 sigma)
 wa: 0
 R-squared (%): 99.94
-RMSD (mag): 0.054
-Skewness of residuals: -1.244
-Chi squared: 22.1323
+RMSD (mag): 0.055
+Skewness of residuals: -1.264
+Chi squared: 22.1
 degrees of freedom: 19
 
-==============================
+===============================
 
 Flat alternative: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-ΔM: -0.0551 +0.0894/-0.0889 mag
-Ωm: 0.2960 +0.0535/-0.0551
-w0: -0.7528 +0.1453/-0.1741 (1.42 - 1.70 sigma)
+
+ΔM: -0.055 +0.089/-0.088 mag
+Ωm: 0.295 +0.054/-0.055
+w0: -0.750 +0.146/-0.175 (1.43 - 1.71 sigma)
 wa: 0
 R-squared (%): 99.94
 RMSD (mag): 0.053
-Skewness of residuals: -1.055
-Chi squared: 21.7351
+Skewness of residuals: -1.081
+Chi squared: 21.7
 Degs of freedom: 19
 
-
-==============================
-
-Flat alternative: w(z) = -1 + (1 + w0) / (1 + z)**3
-ΔM: -0.0512 +0.0890/-0.0889 mag
-Ωm: 0.3024 +0.0473/-0.0475
-w0: -0.7127 +0.1611/-0.1885 (1.52 - 1.78 sigma)
-wa: 0
-R-squared (%): 99.94
-RMSD (mag): 0.052
-Skewness of residuals: -1.025
-Chi squared: 21.5037
-Degs of freedom: 19
-
-==============================
+===============================
 
 Flat w0waCDM
-ΔM: -0.0326 +0.0913/-0.0907 mag
-Ωm: 0.4449 +0.0523/-0.0800
-w0: -0.5456 +0.2772/-0.2322 (1.78 sigma)
-wa: -4.3188 +2.6906/-3.1919 (1.47 sigma)
+
+ΔM: -0.0333 +0.090/-0.090 mag
+Ωm: 0.437 +0.057/-0.086
+w0: -0.570 +0.271/-0.229
+wa: -3.942 +2.859/-3.194
 R-squared (%): 99.96
-RMSD (mag): 0.042
-Skewness of residuals: 0.724
-Chi squared: 20.5888
+RMSD (mag): 0.043
+Skewness of residuals: 0.629
+Chi squared: 20.6
 degrees of freedom: 18
 """
