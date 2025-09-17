@@ -48,7 +48,8 @@ def get_data():
 Covariance components: https://arxiv.org/pdf/2003.07362
 Covariance matrix construction: https://gitlab.com/mmoresco/CCcovariance/-/blob/master/examples/CC_covariance.ipynb
 
-Current data from https://arxiv.org/pdf/2307.09501 
+Current data from https://arxiv.org/pdf/2307.09501
+and https://arxiv.org/pdf/2506.03836
 z,H,sigma_H,method,ref
 0.09,69,12,F,72
 0.27,77,14,F,72

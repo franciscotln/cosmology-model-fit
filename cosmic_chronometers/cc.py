@@ -118,71 +118,72 @@ if __name__ == "__main__":
 *******************************
 Results for data from
 https://arxiv.org/pdf/2307.09501
+and one data point from
+https://arxiv.org/pdf/2506.03836
 *******************************
 
 Flat ΛCDM
 With f:
-H0: 67.1 +3.7 -3.8 km/s/Mpc
+H0: 67.0 +3.7 -3.8 km/s/Mpc
 Ωm: 0.329 +0.052 -0.044
 w0: -1
-wa: 0
-f: 1.445 +0.189 -0.181
-Chi squared: 30.30
-Log likelihood: -126.07
-Degs of freedom: 29
+f: 1.456 +0.186 -0.179
+Chi squared: 31.34
+Log likelihood: -130.44
+Degs of freedom: 30
 Correlation matrix:
-[ 1.      -0.80632  0.03013 ]
-[-0.80632  1.      -0.04886 ]
-[ 0.03013 -0.04886  1.      ]
+[[ 1.      -0.80842  0.03265]
+ [-0.80842  1.      -0.05184]
+ [ 0.03265 -0.05184  1.     ]]
 
 Without f:
-H0: 66.7 +5.4 -5.4 km/s/Mpc
-Ωm: 0.335 +0.079 -0.063
+H0: 66.6 +5.4 -5.5 km/s/Mpc
+Ωm: 0.335 +0.080 -0.063
 w0: -1
-Chi squared: 14.53
-Log likelihood: -129.97
-Degs of freedom: 29
+Chi squared: 14.81
+Log likelihood: -134.57
+Degs of freedom: 31
 correlation matrix:
-[ 1.      -0.80595 ]
-[-0.80595   1.     ]
+[[ 1.      -0.80645]
+ [-0.80645  1.     ]]
 
 Log likelihood ratio test:
 -2 * log(L0/L1) = -2 * log(L0) + 2 * log(L1)
--2 * (-129.97) + 2 * (-126.07) = 7.8
-p-value = 0.005
-99.5% confident that the model with f is better than the one without f.
-So the uncertainties in the H(z) dataset are overestimated by a factor of 1.44 ± 0.19.
-2.35 - 2.46 sigma between f=1 and f=1.44.
+-2 * (-134.57) + 2 * (-130.44) = 8.26
+p-value = 0.0016
+We are 99.84% confident that the model with f is better than the one without f.
+So the uncertainties in the H(z) dataset are overestimated by a factor of 1.46 ± 0.18.
+2.5 sigma between f=1 and f=1.46.
 
 ===============================
 
 Flat wCDM
-H0: 70.3 +7.3 -6.1 km/s/Mpc
+H0: 70.6 +7.3 -6.2 km/s/Mpc
 Ωm: 0.313 +0.052 -0.050
-w0: -1.377 +0.517 -0.637
-f: 1.431 +0.189 -0.181
-Chi squared: 29.92
-Log likelihood: -126.20
-Degs of freedom: 28
+w0: -1.409 +0.521 -0.629
+f: 1.441 +0.188 -0.179
+Chi squared: 30.83
+Log likelihood: -130.52
+Degs of freedom: 29
 Correlation matrix:
-[[ 1.      -0.3785  -0.7599  -0.00985]
- [-0.3785   1.      -0.03595  0.03098]
- [-0.7599  -0.03595  1.       0.04381]
- [-0.00985  0.03098  0.04381  1.     ]]
+[[ 1.      -0.39663 -0.76288 -0.00373]
+ [-0.39663  1.      -0.01346  0.02089]
+ [-0.76288 -0.01346  1.       0.03699]
+ [-0.00373  0.02089  0.03699  1.     ]]
 
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / ((1 + z)**3 + 1)
-H0: 71.8 +7.9 -6.9 km/s/Mpc
-Ωm: 0.304 +0.056 -0.047
-w0: -1.533 +0.620 -0.724
-f: 1.437 +0.189 -0.180
-Chi squared: 29.62
-Log likelihood: -125.91
-Degs of freedom: 28
+H0: 71.9 +7.9 -6.8 km/s/Mpc
+Ωm: 0.304 +0.055 -0.046
+w0: -1.546 +0.612 -0.715
+f: 1.449 +0.188 -0.180
+Chi squared: 30.60
+Log likelihood: -130.23
+Degs of freedom: 29
 Correlation matrix:
-[[ 1.      -0.80728 -0.78915  0.01215]
- [-0.80728  1.       0.4792  -0.03188]
- [-0.78915  0.4792   1.       0.01055]
- [ 0.01215 -0.03188  0.01055  1.     ]]
+[[ 1.      -0.811   -0.78965  0.03278]
+ [-0.811    1.       0.48468 -0.05246]
+ [-0.78965  0.48468  1.      -0.00735]
+ [ 0.03278 -0.05246 -0.00735  1.     ]]
 """
