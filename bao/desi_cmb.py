@@ -15,6 +15,7 @@ c = 299792.458  # km/s
 PLANCK_R_mean = 1.750235
 PLANCK_lA_mean = 301.4707
 PLANCK_Ob_h2_mean = 0.02235976
+planck_priors = np.array([PLANCK_R_mean, PLANCK_lA_mean, PLANCK_Ob_h2_mean])
 inv_cov_mat = np.array(
     [
         [94392.3971, -1360.4913, 1664517.2916],
@@ -78,17 +79,15 @@ def DA_z(z, params):
     return (c / params[0]) * integral / (1 + z)
 
 
-def lA_and_R(params):
-    H0 = params[0]
-    Om = params[1]
-    Ob_h2 = params[2]
+def cmb_distances(params):
+    H0, Om, Ob_h2 = params[0], params[1], params[2]
     Om_h2 = Om * (H0 / 100) ** 2
     zstar = z_star(Ob_h2, Om_h2)
     rs_star = rs_z(zstar, params)
     DA_star = DA_z(zstar, params)
     lA = (1 + zstar) * np.pi * DA_star / rs_star
     R = np.sqrt(Om) * H0 * (1 + zstar) * DA_star / c
-    return (R, lA, Ob_h2)
+    return np.array([R, lA, Ob_h2])
 
 
 def H_z(z, params):
@@ -109,30 +108,26 @@ def DV_z(z, params):
     return (z * DH * DM**2) ** (1 / 3)
 
 
-def bao_theory_predictions(z, qty, params):
-    Obh2_50 = params[2]
-    Om_50 = params[1]
-    H0_50 = params[0]
-    Omh2_50 = Om_50 * (H0_50 / 100) ** 2
-    z_drag_val = z_drag(Obh2_50, Omh2_50)
-    rd = rs_z(z_drag_val, params)
+bao_funcs = {
+    "DV_over_rs": lambda z, p: DV_z(z, p),
+    "DM_over_rs": lambda z, p: DM_z(z, p),
+    "DH_over_rs": lambda z, p: DH_z(z, p),
+}
 
-    funcs = {
-        "DV_over_rs": lambda zz: DV_z(zz, params) / rd,
-        "DM_over_rs": lambda zz: DM_z(zz, params) / rd,
-        "DH_over_rs": lambda zz: DH_z(zz, params) / rd,
-    }
-    return np.array([funcs[q](zi) for zi, q in zip(z, qty)])
+
+def bao_predictions(z, qty, params):
+    H0_50, Om_50, Obh2_50 = params[0], params[1], params[2]
+    Omh2_50 = Om_50 * (H0_50 / 100) ** 2
+    rd = rs_z(z_drag(Obh2_50, Omh2_50), params)
+
+    return np.array([bao_funcs[q](zi, params) / rd for zi, q in zip(z, qty)])
 
 
 def chi_squared(params):
-    R_model, lA_model, Ob_model = lA_and_R(params)
-    x = np.array([R_model, lA_model, Ob_model])
-    d = np.array([PLANCK_R_mean, PLANCK_lA_mean, PLANCK_Ob_h2_mean])
-    delta = x - d
+    delta = planck_priors - cmb_distances(params)
     chi2_cmb = delta @ inv_cov_mat @ delta
 
-    delta_bao = bao_data["value"] - bao_theory_predictions(
+    delta_bao = bao_data["value"] - bao_predictions(
         bao_data["z"], bao_data["quantity"], params
     )
     chi_bao = np.dot(delta_bao, cho_solve(cho_bao, delta_bao))
@@ -169,9 +164,9 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 20 * ndim
+    nwalkers = 16 * ndim
     burn_in = 500
-    nsteps = 10000 + burn_in
+    nsteps = 12000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):
@@ -215,7 +210,7 @@ def main():
     print(f"Chi squared: {chi_squared(best_fit):.4f}")
 
     plot_bao_predictions(
-        theory_predictions=lambda z, qty: bao_theory_predictions(z, qty, best_fit),
+        theory_predictions=lambda z, qty: bao_predictions(z, qty, best_fit),
         data=bao_data,
         errors=np.sqrt(np.diag(bao_cov_matrix)),
         title=bao_legend,
@@ -279,13 +274,13 @@ Degs of freedom: 10
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-H0: 68.59 +1.44 -1.39 km/s/Mpc
-Ωm: 0.301 +0.012 -0.012
+H0: 68.55 +1.45 -1.38 km/s/Mpc
+Ωm: 0.302 +0.012 -0.012
 Ωb h^2: 0.02251 +0.00013 -0.00013
-w0: -1.009 +0.090 -0.090
+w0: -1.007 +0.089 -0.092
 z*: 1091.60
-z_drag: 1059.68
-r_s(z*) = 144.61 Mpc
+z_drag: 1059.67
+r_s(z*) = 144.62 Mpc
 r_s(z_drag) = 147.45 Mpc
 Chi squared: 13.87
 Degs of freedom: 10
