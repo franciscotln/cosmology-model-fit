@@ -45,20 +45,18 @@ def Ez(z, params):
     return np.sqrt(Or * one_plus_z**4 + Om * cubed + Ode * rho_de)
 
 
-def z_star(Ob_h2, Om_h2):
-    # Wayne Hu, Naoshi Sugiyama (arXiv:astro-ph/9510117v2 equation E-1)
-    g1 = 0.0783 * Ob_h2**-0.238 / (1 + 39.5 * Ob_h2**0.763)
-    g2 = 0.560 / (1 + 21.1 * Ob_h2**1.81)
-    return 1048 * (1 + 0.00124 * Ob_h2**-0.738) * (1 + g1 * Om_h2**g2)
+def z_star(wb, wm):
+    # arXiv:2106.00428v2
+    return wm**-0.731631 + (
+        (391.672 * wm**-0.372296 + 937.422 * wb**-0.97966) * wm**0.0192951 * wb**0.93681
+    )
 
 
-def z_drag(Ob_h2, Om_h2):
-    b1 = 0.313 * Om_h2**-0.419 * (1 + 0.607 * Om_h2**0.674)
-    b2 = 0.238 * Om_h2**0.223
-    # Calibrated 1340 to reproduce Planck 2018 r_drag
-    # Wayne Hu, Naoshi Sugiyama use 1345 (arXiv:astro-ph/9510117v2 equation E-2)
-    # Daniel J. Eisenstein, Wayne Hu use 1291 (arXiv:astro-ph/9709112v1 equation 4)
-    return (1340 * Om_h2**0.251 / (1 + 0.659 * Om_h2**0.828)) * (1 + b1 * Ob_h2**b2)
+def z_drag(wb, wm):
+    # arXiv:2106.00428v2
+    return (
+        1 + 428.169 * wb**0.256459 * wm**0.616388 + 925.56 * wm**0.751615
+    ) * wm**-0.714129
 
 
 def rs_z(z, params):
@@ -111,9 +109,9 @@ def DV_z(z, params):
 
 
 bao_funcs = {
-    "DV_over_rs": lambda z, p: DV_z(z, p),
-    "DM_over_rs": lambda z, p: DM_z(z, p),
-    "DH_over_rs": lambda z, p: DH_z(z, p),
+    "DV_over_rs": DV_z,
+    "DM_over_rs": DM_z,
+    "DH_over_rs": DH_z,
 }
 
 
@@ -207,9 +205,9 @@ def main():
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"z*: {z_st:.2f}")
     print(f"z_drag: {z_dr:.2f}")
-    print(f"r_s(z*) = {rs_z(z_st, best_fit):.4f} Mpc")
-    print(f"r_s(z_drag) = {rs_z(z_dr, best_fit):.4f} Mpc")
-    print(f"Chi squared: {chi_squared(best_fit):.4f}")
+    print(f"r_s(z*) = {rs_z(z_st, best_fit):.2f} Mpc")
+    print(f"r_s(z_drag) = {rs_z(z_dr, best_fit):.2f} Mpc")
+    print(f"Chi squared: {chi_squared(best_fit):.2f}")
 
     plot_bao_predictions(
         theory_predictions=lambda z, qty: bao_predictions(z, qty, best_fit),
@@ -248,57 +246,57 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM w(z) = -1
-H0: 68.45 +0.30 -0.30 km/s/Mpc
-Ωm: 0.303 +0.004 -0.004
-Ωb h^2: 0.02252 +0.00012 -0.00012
+H0: 68.36 ± 0.30 km/s/Mpc
+Ωm: 0.300 ± 0.004
+Ωb h^2: 0.02254 ± 0.00012
 w0: -1
-z*: 1091.59
-z_drag: 1059.68
-r_s(z*) = 144.62 Mpc
-r_s(z_drag) = 147.46 Mpc
-Chi squared: 13.87
+z*: 1088.48
+z_drag: 1060.09
+r_s(z*) = 145.24 Mpc
+r_s(z_drag) = 147.76 Mpc
+Chi squared: 15.26
 Degs of freedom: 14
 
 ===============================
 
 Flat wCDM w(z) = w0
-H0: 69.15 +0.99 -0.96 km/s/Mpc
-Ωm: 0.298 +0.008 -0.008
-Ωb h^2: 0.02248 +0.00013 -0.00013
-w0: -1.030 +0.040 -0.041
-z*: 1091.69
-z_drag: 1059.64
-r_s(z*) = 144.52 Mpc
-r_s(z_drag) = 147.36 Mpc
-Chi squared: 13.36
+H0: 69.02 +0.98 -0.95 km/s/Mpc
+Ωm: 0.296 ± 0.008
+Ωb h^2: 0.02251 ± 0.00013
+w0: -1.029 +0.039 -0.041
+z*: 1088.55
+z_drag: 1060.04
+r_s(z*) = 145.14 Mpc
+r_s(z_drag) = 147.68 Mpc
+Chi squared: 14.81 (Δ chi2 0.45)
 Degs of freedom: 13
 
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-H0: 68.55 +1.45 -1.38 km/s/Mpc
-Ωm: 0.302 +0.012 -0.012
-Ωb h^2: 0.02251 +0.00013 -0.00013
-w0: -1.007 +0.089 -0.092
-z*: 1091.60
-z_drag: 1059.67
-r_s(z*) = 144.62 Mpc
-r_s(z_drag) = 147.45 Mpc
-Chi squared: 13.87
+H0: 68.34 +1.44 -1.37 km/s/Mpc
+Ωm: 0.300 ±0.012
+Ωb h^2: 0.02254 ± 0.00013
+w0: -0.999 +0.089 -0.091
+z*: 1088.47
+z_drag: 1060.09
+r_s(z*) = 145.24 Mpc
+r_s(z_drag) = 147.77 Mpc
+Chi squared: 15.26 (Δ chi2 0.00)
 Degs of freedom: 13
 
 ===============================
 
 Flat w(z) = w0 + wa * z / (1 + z)
-H0: 63.81 +2.11 -1.86 km/s/Mpc
-Ωm: 0.354 +0.023 -0.023
-Ωb h^2: 0.02235 +0.00014 -0.00014
-w0: -0.435 +0.231 -0.234
-wa: -1.699 +0.675 -0.699
-z*: 1092.02
-z_drag: 1059.50
-r_s(z*) = 144.1382 Mpc
-r_s(z_drag) = 147.0117 Mpc
-Chi squared: 6.60
+H0: 63.42 +2.15 -2.05 km/s/Mpc
+Ωm: 0.354 +0.025 -0.024
+Ωb h^2: 0.02237 ± 0.00014
+w0: -0.405 +0.259 -0.238
+wa: -1.776 +0.686 -0.782
+z*: 1088.81
+z_drag: 1059.87
+r_s(z*) = 144.77 Mpc
+r_s(z_drag) = 147.34 Mpc
+Chi squared: 7.30 (Δ chi2 7.96)
 Degs of freedom: 12
 """

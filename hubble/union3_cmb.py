@@ -12,10 +12,7 @@ from .plotting import plot_predictions
 c = 299792.458  # km/s
 
 # --- PLANCK DISTANCE PRIORS (Chen+2018 arXiv:1808.05724v1) ---
-PLANCK_R_mean = 1.750235
-PLANCK_lA_mean = 301.4707
-PLANCK_Ob_h2_mean = 0.02235976
-planck_priors = np.array([PLANCK_R_mean, PLANCK_lA_mean, PLANCK_Ob_h2_mean])
+planck_priors = np.array([1.750235, 301.4707, 0.02235976])  # R, lA, Ωb x h^2
 inv_cov_mat = np.array(
     [
         [94392.3971, -1360.4913, 1664517.2916],
@@ -56,20 +53,18 @@ def distance_modulus(params):
     return offset_mag + 25 + 5 * np.log10(dL)
 
 
-def z_star(Ob_h2, Om_h2):
-    # Wayne Hu, Naoshi Sugiyama (arXiv:astro-ph/9510117v2 equation E-1)
-    g1 = 0.0783 * Ob_h2**-0.238 / (1 + 39.5 * Ob_h2**0.763)
-    g2 = 0.560 / (1 + 21.1 * Ob_h2**1.81)
-    return 1048 * (1 + 0.00124 * Ob_h2**-0.738) * (1 + g1 * Om_h2**g2)
+def z_star(wb, wm):
+    # arXiv:2106.00428v2
+    return wm**-0.731631 + (
+        (391.672 * wm**-0.372296 + 937.422 * wb**-0.97966) * wm**0.0192951 * wb**0.93681
+    )
 
 
-def z_drag(Ob_h2, Om_h2):
-    # Calibrated 1340 to reproduce Planck 2018 r_drag
-    # Wayne Hu, Naoshi Sugiyama use 1345 (arXiv:astro-ph/9510117v2 equation E-2)
-    # Daniel J. Eisenstein, Wayne Hu use 1291 (arXiv:astro-ph/9709112v1 equation 4)
-    b1 = 0.313 * Om_h2**-0.419 * (1 + 0.607 * Om_h2**0.674)
-    b2 = 0.238 * Om_h2**0.223
-    return (1340 * Om_h2**0.251 / (1 + 0.659 * Om_h2**0.828)) * (1 + b1 * Ob_h2**b2)
+def z_drag(wb, wm):
+    # arXiv:2106.00428v2
+    return (
+        1 + 428.169 * wb**0.256459 * wm**0.616388 + 925.56 * wm**0.751615
+    ) * wm**-0.714129
 
 
 def rs_z(z, params):
@@ -237,61 +232,61 @@ Sample size: 22
 *******************************
 
 Flat ΛCDM w(z) = -1
-H0: 67.15 ± 0.58 km/s/Mpc
-Ωm: 0.320 ± 0.008
+H0: 66.87 +0.59 -0.58 km/s/Mpc
+Ωm: 0.321 ± 0.008
 Ωb h^2: 0.02231 ± 0.00015
 w0: -1
-ΔM: -0.165 ± 0.090
-z*: 1092.12
-z_drag: 1059.44
-r_s(z*) = 144.04 Mpc
-r_s(z_drag) = 146.92 Mpc
-Chi squared: 26.01
+ΔM: -0.175 +0.090 -0.089
+z*: 1088.93
+z_drag: 1059.79
+r_s(z*) = 144.58 Mpc
+r_s(z_drag) = 147.16 Mpc
+Chi squared: 25.98
 Degrees of freedom: 21
 
 ===============================
 
 Flat wCDM w(z) = w0
-H0: 65.31 ± 1.22 km/s/Mpc
+H0: 65.07 +1.23 -1.22 km/s/Mpc
 Ωm: 0.337 +0.014 -0.013
 Ωb h^2: 0.02236 ± 0.00015
-w0: -0.927 ± 0.043
-ΔM: -0.217 ± 0.095
-z*: 1091.99
-z_drag: 1059.51
-r_s(z*) = 144.16 Mpc
-r_s(z_drag) = 147.03 Mpc
-Chi squared: 23.18
+w0: -0.928 +0.044 -0.043
+ΔM: -0.224 +0.095 -0.097
+z*: 1088.84
+z_drag: 1059.86
+r_s(z*) = 144.72 Mpc
+r_s(z_drag) = 147.29 Mpc
+Chi squared: 23.19 (Δ chi2 2.79)
 Degrees of freedom: 20
 
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)^3)
-H0: 65.41 +1.10 -1.08 km/s/Mpc
-Ωm: 0.336 ± 0.012
+H0: 65.16 +1.08 -1.09 km/s/Mpc
+Ωm: 0.336 +0.013 -0.012
 Ωb h^2: 0.02237 ± 0.00015
-w0: -0.877 +0.068 -0.067
-ΔM: -0.209 +0.092 -0.093
-z*: 1091.98
-z_drag: 1059.52
-r_s(z*) = 144.17 Mpc
-r_s(z_drag) = 147.04 Mpc
-Chi squared: 22.57
+w0: -0.877 +0.067 -0.066
+ΔM: -0.217 +0.094 -0.093
+z*: 1088.83
+z_drag: 1059.87
+r_s(z*) = 144.72 Mpc
+r_s(z_drag) = 147.30 Mpc
+Chi squared: 22.57 (Δ chi2 3.41)
 Degrees of freedom: 20
 
 ===============================
 
 Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
-H0: 66.64 +1.32 -1.39 km/s/Mpc
+H0: 66.37 +1.33 -1.40 km/s/Mpc
 Ωm: 0.324 +0.015 -0.013
-Ωb h^2: 0.02235 ±0.00015
-w0: -0.687 ± 0.160
-wa: -1.131 +0.740 -0.770
-ΔM: -0.154 +0.100 -0.102
-z*: 1092.02
-z_drag: 1059.50
-r_s(z*) = 144.13 Mpc
-r_s(z_drag) = 147.01 Mpc
-Chi squared: 21.53
+Ωb h^2: 0.02235 +0.00015 -0.00015
+w0: -0.684 +0.163 -0.165
+wa: -1.147 +0.755 -0.783
+ΔM: -0.161 +0.099 -0.101
+z*: 1088.86
+z_drag: 1059.84
+r_s(z*) = 144.67 Mpc
+r_s(z_drag) = 147.25 Mpc
+Chi squared: 21.52 (Δ chi2 4.46)
 Degrees of freedom: 19
 """

@@ -35,20 +35,18 @@ def Ez(z, params):
     return np.sqrt(Or * one_plus_z**4 + Om * one_plus_z**3 + Ode)
 
 
-def z_star(Ob_h2, Om_h2):
-    # Wayne Hu, Naoshi Sugiyama (arXiv:astro-ph/9510117v2 equation E-1)
-    g1 = 0.0783 * Ob_h2**-0.238 / (1 + 39.5 * Ob_h2**0.763)
-    g2 = 0.560 / (1 + 21.1 * Ob_h2**1.81)
-    return 1048 * (1 + 0.00124 * Ob_h2**-0.738) * (1 + g1 * Om_h2**g2)
+def z_star(wb, wm):
+    # arXiv:2106.00428v2 (A4)
+    return wm**-0.731631 + (
+        (391.672 * wm**-0.372296 + 937.422 * wb**-0.97966) * wm**0.0192951 * wb**0.93681
+    )
 
 
-def z_drag(Ob_h2, Om_h2):
-    b1 = 0.313 * Om_h2**-0.419 * (1 + 0.607 * Om_h2**0.674)
-    b2 = 0.238 * Om_h2**0.223
-    # Calibrated 1340 to reproduce Planck 2018 r_drag
-    # Wayne Hu, Naoshi Sugiyama use 1345 (arXiv:astro-ph/9510117v2 equation E-2)
-    # Daniel J. Eisenstein, Wayne Hu use 1291 (arXiv:astro-ph/9709112v1 equation 4)
-    return (1340 * Om_h2**0.251 / (1 + 0.659 * Om_h2**0.828)) * (1 + b1 * Ob_h2**b2)
+def z_drag(wb, wm):
+    # arXiv:2106.00428v2 (A2)
+    return (
+        1 + 428.169 * wb**0.256459 * wm**0.616388 + 925.56 * wm**0.751615
+    ) * wm**-0.714129
 
 
 def rs_z(z, params):
@@ -189,12 +187,12 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM w(z) = -1
-H0: 67.44 +0.61 -0.61 km/s/Mpc
-Ωm: 0.316 +0.009 -0.008
-Ωb h^2: 0.02236 +0.00015 -0.00015
-z*: 1092.00
-r_s(*) = 144.16 Mpc
-z_drag: 1059.50
-r_s(drag) = 147.03 Mpc
-Chi squared: 0.0014
+H0: 67.15 ± 0.61 km/s/Mpc
+Ωm: 0.317 +0.009 -0.008
+Ωb h^2: 0.02236 ± 0.00015
+z*: 1088.84
+z_drag: 1059.85
+r_s(z*) = 144.70 Mpc
+r_s(z_drag) = 147.27 Mpc
+Chi squared: 0.0007
 """
