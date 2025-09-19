@@ -54,8 +54,9 @@ def z_star(Ob_h2, Om_h2):
 def z_drag(Ob_h2, Om_h2):
     b1 = 0.313 * Om_h2**-0.419 * (1 + 0.607 * Om_h2**0.674)
     b2 = 0.238 * Om_h2**0.223
-    # Calibrated 1340 to reproduce Planck r_drag (see discussion: EH98 vs CAMB/Planck)
-    # see arXiv:astro-ph/9510117v2, equation E-2
+    # Calibrated 1340 to reproduce Planck 2018 r_drag
+    # Wayne Hu, Naoshi Sugiyama use 1345 (arXiv:astro-ph/9510117v2 equation E-2)
+    # Daniel J. Eisenstein, Wayne Hu use 1291 (arXiv:astro-ph/9709112v1 equation 4)
     return (1340 * Om_h2**0.251 / (1 + 0.659 * Om_h2**0.828)) * (1 + b1 * Ob_h2**b2)
 
 

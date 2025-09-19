@@ -12,6 +12,7 @@ c = 299792.458  # km/s
 PLANCK_R_mean = 1.750235
 PLANCK_lA_mean = 301.4707
 PLANCK_Ob_h2_mean = 0.02235976
+planck_priors = np.array([PLANCK_R_mean, PLANCK_lA_mean, PLANCK_Ob_h2_mean])
 inv_cov_mat = np.array(
     [
         [94392.3971, -1360.4913, 1664517.2916],
@@ -29,7 +30,6 @@ def Ez(z, params):
     z_eq = 2.5 * 10**4 * Om * h**2 * (2.7 / TCMB) ** 4
     Or = Om / (1 + z_eq)
     Ode = 1 - Om - Or
-
     one_plus_z = 1 + z
 
     return np.sqrt(Or * one_plus_z**4 + Om * one_plus_z**3 + Ode)
@@ -44,8 +44,9 @@ def z_star(Ob_h2, Om_h2):
 def z_drag(Ob_h2, Om_h2):
     b1 = 0.313 * Om_h2**-0.419 * (1 + 0.607 * Om_h2**0.674)
     b2 = 0.238 * Om_h2**0.223
-    # Calibrated 1340 to reproduce Planck r_drag (see discussion: EH98 vs CAMB/Planck)
-    # see arXiv:astro-ph/9510117v2, equation E-2
+    # Calibrated 1340 to reproduce Planck 2018 r_drag
+    # Wayne Hu, Naoshi Sugiyama use 1345 (arXiv:astro-ph/9510117v2 equation E-2)
+    # Daniel J. Eisenstein, Wayne Hu use 1291 (arXiv:astro-ph/9709112v1 equation 4)
     return (1340 * Om_h2**0.251 / (1 + 0.659 * Om_h2**0.828)) * (1 + b1 * Ob_h2**b2)
 
 
@@ -69,7 +70,7 @@ def DA_z(z, params):
     return (c / params[0]) * integral / (1 + z)
 
 
-def lA_and_R(params):
+def cmb_distances(params):
     H0, Om, Ob_h2 = params[0], params[1], params[2]
     Om_h2 = Om * (H0 / 100) ** 2
     zstar = z_star(Ob_h2, Om_h2)
@@ -77,17 +78,12 @@ def lA_and_R(params):
     DA_star = DA_z(zstar, params)
     lA = (1 + zstar) * np.pi * DA_star / rs_star
     R = np.sqrt(Om) * H0 * (1 + zstar) * DA_star / c
-    return (R, lA, Ob_h2)
+    return np.array([R, lA, Ob_h2])
 
 
 def chi_squared(params):
-    R_model, lA_model, Ob_model = lA_and_R(params)
-    x = np.array([R_model, lA_model, Ob_model])
-    d = np.array([PLANCK_R_mean, PLANCK_lA_mean, PLANCK_Ob_h2_mean])
-    delta = x - d
-    chi2_cmb = delta @ inv_cov_mat @ delta
-
-    return chi2_cmb
+    delta = planck_priors - cmb_distances(params)
+    return delta @ inv_cov_mat @ delta
 
 
 bounds = np.array(
@@ -192,12 +188,12 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM w(z) = -1
-H0: 67.43 +0.61 -0.60 km/s/Mpc
+H0: 67.44 +0.61 -0.61 km/s/Mpc
 Ωm: 0.316 +0.009 -0.008
 Ωb h^2: 0.02236 +0.00015 -0.00015
 z*: 1092.00
 r_s(*) = 144.16 Mpc
-z_drag: 1059.51
+z_drag: 1059.50
 r_s(drag) = 147.03 Mpc
-Chi squared: 0.0008
+Chi squared: 0.0014
 """
