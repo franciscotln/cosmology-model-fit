@@ -46,6 +46,7 @@ def Ez(z, params):
 
 
 def z_star(Ob_h2, Om_h2):
+    # Wayne Hu, Naoshi Sugiyama (arXiv:astro-ph/9510117v2 equation E-1)
     g1 = 0.0783 * Ob_h2**-0.238 / (1 + 39.5 * Ob_h2**0.763)
     g2 = 0.560 / (1 + 21.1 * Ob_h2**1.81)
     return 1048 * (1 + 0.00124 * Ob_h2**-0.738) * (1 + g1 * Om_h2**g2)
@@ -256,7 +257,7 @@ z_drag: 1059.68
 r_s(z*) = 144.62 Mpc
 r_s(z_drag) = 147.46 Mpc
 Chi squared: 13.87
-Degs of freedom: 11
+Degs of freedom: 14
 
 ===============================
 
@@ -270,7 +271,7 @@ z_drag: 1059.64
 r_s(z*) = 144.52 Mpc
 r_s(z_drag) = 147.36 Mpc
 Chi squared: 13.36
-Degs of freedom: 10
+Degs of freedom: 13
 
 ===============================
 
@@ -284,7 +285,7 @@ z_drag: 1059.67
 r_s(z*) = 144.62 Mpc
 r_s(z_drag) = 147.45 Mpc
 Chi squared: 13.87
-Degs of freedom: 10
+Degs of freedom: 13
 
 ===============================
 
@@ -299,5 +300,5 @@ z_drag: 1059.50
 r_s(z*) = 144.1382 Mpc
 r_s(z_drag) = 147.0117 Mpc
 Chi squared: 6.60
-Degs of freedom: 9
+Degs of freedom: 12
 """
