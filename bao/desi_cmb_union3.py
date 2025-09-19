@@ -25,8 +25,9 @@ inv_cov_mat = np.array(
         [1664517.2916, 3671.618, 79719182.5162],
     ]
 )
+N_EFF = 3.046
 TCMB = 2.7255  # K
-O_GAMMA_H2 = 2.38095e-5 * (TCMB / 2.7) ** 4.0
+O_GAMMA_H2 = 2.4728e-5 * (TCMB / 2.7255) ** 4
 
 
 sn_legend, z_sn_vals, mu_vals, cov_matrix_sn = get_data()
@@ -37,11 +38,14 @@ cho_bao = cho_factor(bao_cov_matrix)
 sn_grid = np.linspace(0, np.max(z_sn_vals), num=3000)
 
 
+def Omega_r_h2(Neff=N_EFF):
+    return O_GAMMA_H2 * (1 + 0.2271 * Neff)
+
+
 def Ez(z, params):
     H0, Om, w0 = params[0], params[1], params[3]
     h = H0 / 100
-    z_eq = 2.5 * 10**4 * Om * h**2 * (2.7 / TCMB) ** 4
-    Or = Om / (1 + z_eq)
+    Or = Omega_r_h2() / h**2
     Ode = 1 - Om - Or
 
     one_plus_z = 1 + z
@@ -127,27 +131,26 @@ def DV_z(z, params):
     return (z * DH * DM**2) ** (1 / 3)
 
 
-def bao_theory_predictions(z, qty, params):
-    Obh2_50 = params[2]
-    Om_50 = params[1]
-    H0_50 = params[0]
-    Omh2_50 = Om_50 * (H0_50 / 100) ** 2
-    z_drag_val = z_drag(Obh2_50, Omh2_50)
-    rd = rs_z(z_drag_val, params)
+bao_funcs = {
+    "DV_over_rs": DV_z,
+    "DM_over_rs": DM_z,
+    "DH_over_rs": DH_z,
+}
 
-    funcs = {
-        "DV_over_rs": lambda zz: DV_z(zz, params) / rd,
-        "DM_over_rs": lambda zz: DM_z(zz, params) / rd,
-        "DH_over_rs": lambda zz: DH_z(zz, params) / rd,
-    }
-    return np.array([funcs[q](zi) for zi, q in zip(z, qty)])
+
+def bao_theory(z, qty, params):
+    H0, Om, Obh2 = params[0], params[1], params[2]
+    Omh2 = Om * (H0 / 100) ** 2
+    rd = rs_z(z_drag(Obh2, Omh2), params)
+
+    return np.array([bao_funcs[q](zi, params) / rd for zi, q in zip(z, qty)])
 
 
 def chi_squared(params):
     delta = planck_priors - cmb_distances(params)
     chi2_cmb = delta @ inv_cov_mat @ delta
 
-    delta_bao = bao_data["value"] - bao_theory_predictions(
+    delta_bao = bao_data["value"] - bao_theory(
         bao_data["z"], bao_data["quantity"], params
     )
     chi_bao = np.dot(delta_bao, cho_solve(cho_bao, delta_bao))
@@ -236,7 +239,7 @@ def main():
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
 
     plot_bao_predictions(
-        theory_predictions=lambda z, qty: bao_theory_predictions(z, qty, best_fit),
+        theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
         data=bao_data,
         errors=np.sqrt(np.diag(bao_cov_matrix)),
         title=bao_legend,
@@ -281,64 +284,64 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM w(z) = -1
-H0: 68.27 ± 0.30 km/s/Mpc
+H0: 68.52 ± 0.30 km/s/Mpc
 Ωm: 0.302 ± 0.004
-Ωb h^2: 0.02253 +0.00012 -0.00013
+Ωb h^2: 0.02253 ± 0.00012
 w0: -1
 wa: 0
-ΔM: -0.133 +0.090 -0.088
-z*: 1088.51
-z_drag: 1060.07
-r_s(z*) = 145.19 Mpc
-r_s(z_drag) = 147.73 Mpc
+ΔM: -0.125 ± 0.089
+z*: 1088.58
+z_drag: 1060.15
+r_s(z*) = 144.64 Mpc
+r_s(z_drag) = 147.17 Mpc
 Chi squared: 43.73
 Degs of freedom: 35
 
 ===============================
 
 Flat wCDM w(z) = w0
-H0: 67.69 ± 0.70 km/s/Mpc
+H0: 67.96 +0.71 -0.70 km/s/Mpc
 Ωm: 0.306 ± 0.006
-Ωb h^2: 0.02257 ± 0.00013
-w0: -0.974 ± 0.029
+Ωb h^2: 0.02256 ± 0.00013
+w0: -0.975 ± 0.029
 wa: 0
-ΔM: -0.148 +0.090 -0.092
-z*: 1088.43
-z_drag: 1060.12
-r_s(z*) = 145.30 Mpc
-r_s(z_drag) = 147.83 Mpc
+ΔM: -0.139 +0.091 -0.090
+z*: 1088.51
+z_drag: 1060.20
+r_s(z*) = 144.75 Mpc
+r_s(z_drag) = 147.26 Mpc
 Chi squared: 42.88 (Δ chi2 0.85)
 Degs of freedom: 34
 
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-H0: 66.72 +0.82 -0.80 km/s/Mpc
+H0: 66.97 +0.82 -0.80 km/s/Mpc
 Ωm: 0.314 ± 0.007
-Ωb h^2: 0.02258 ± 0.00013
-w0: -0.893 +0.052 -0.053
+Ωb h^2: 0.02259 ± 0.00013
+w0: -0.893 ± 0.053
 wa: 0
-ΔM: -0.170 +0.091 -0.092
-z*: 1088.40
-z_drag: 1060.15
-r_s(z*) = 145.34 Mpc
-r_s(z_drag) = 147.87 Mpc
-Chi squared: 39.67 (Δ chi2 4.06)
+ΔM: -0.161 ± 0.091
+z*: 1088.47
+z_drag: 1060.22
+r_s(z*) = 144.80 Mpc
+r_s(z_drag) = 147.31 Mpc
+Chi squared: 39.68 (Δ chi2 4.05)
 Degs of freedom: 34
 
 ===============================
 
 Flat w(z) = w0 + wa * z / (1 + z)
-H0: 65.91 +0.85 -0.83 km/s/Mpc
+H0: 66.17 +0.85 -0.84 km/s/Mpc
 Ωm: 0.327 +0.009 -0.009
 Ωb h^2: 0.02241 +0.00014 -0.00013
-w0: -0.678 +0.093 -0.089
-wa: -1.028 +0.302 -0.325
-ΔM: -0.175 +0.091 -0.090
-z*: 1088.74
-z_drag: 1059.91
-r_s(z*) = 144.87 Mpc
-r_s(z_drag) = 147.43 Mpc
-Chi squared: 29.97 (Δ chi2 13.76)
+w0: -0.677 +0.093 -0.090
+wa: -1.031 +0.305 -0.328
+ΔM: -0.167 +0.091 -0.090
+z*: 1088.81
+z_drag: 1059.99
+r_s(z*) = 144.31 Mpc
+r_s(z_drag) = 146.87 Mpc
+Chi squared: 29.95 (Δ chi2 13.78)
 Degs of freedom: 33
 """

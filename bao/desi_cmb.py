@@ -23,19 +23,23 @@ inv_cov_mat = np.array(
         [1664517.2916, 3671.618, 79719182.5162],
     ]
 )
+N_EFF = 3.046
 TCMB = 2.7255  # K
-O_GAMMA_H2 = 2.38095e-5 * (TCMB / 2.7) ** 4.0
+O_GAMMA_H2 = 2.4728e-5 * (TCMB / 2.7255) ** 4
 
 
 bao_legend, bao_data, bao_cov_matrix = get_bao_data()
 cho_bao = cho_factor(bao_cov_matrix)
 
 
+def Omega_r_h2(Neff=N_EFF):
+    return O_GAMMA_H2 * (1 + 0.2271 * Neff)
+
+
 def Ez(z, params):
     H0, Om, w0 = params[0], params[1], params[3]
     h = H0 / 100
-    z_eq = 2.5 * 10**4 * Om * h**2 * (2.7 / TCMB) ** 4
-    Or = Om / (1 + z_eq)
+    Or = Omega_r_h2() / h**2
     Ode = 1 - Om - Or
 
     one_plus_z = 1 + z
@@ -116,9 +120,9 @@ bao_funcs = {
 
 
 def bao_predictions(z, qty, params):
-    H0_50, Om_50, Obh2_50 = params[0], params[1], params[2]
-    Omh2_50 = Om_50 * (H0_50 / 100) ** 2
-    rd = rs_z(z_drag(Obh2_50, Omh2_50), params)
+    H0, Om, Obh2 = params[0], params[1], params[2]
+    Omh2 = Om * (H0 / 100) ** 2
+    rd = rs_z(z_drag(Obh2, Omh2), params)
 
     return np.array([bao_funcs[q](zi, params) / rd for zi, q in zip(z, qty)])
 
@@ -246,57 +250,57 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM w(z) = -1
-H0: 68.36 ± 0.30 km/s/Mpc
+H0: 68.62 ± 0.30 km/s/Mpc
 Ωm: 0.300 ± 0.004
 Ωb h^2: 0.02254 ± 0.00012
 w0: -1
-z*: 1088.48
-z_drag: 1060.09
-r_s(z*) = 145.24 Mpc
-r_s(z_drag) = 147.76 Mpc
+z*: 1088.55
+z_drag: 1060.17
+r_s(z*) = 144.68 Mpc
+r_s(z_drag) = 147.21 Mpc
 Chi squared: 15.26
 Degs of freedom: 14
 
 ===============================
 
 Flat wCDM w(z) = w0
-H0: 69.02 +0.98 -0.95 km/s/Mpc
+H0: 69.27 +0.99 -0.95 km/s/Mpc
 Ωm: 0.296 ± 0.008
 Ωb h^2: 0.02251 ± 0.00013
-w0: -1.029 +0.039 -0.041
-z*: 1088.55
-z_drag: 1060.04
-r_s(z*) = 145.14 Mpc
-r_s(z_drag) = 147.68 Mpc
+w0: -1.028 +0.039 -0.041
+z*: 1088.62
+z_drag: 1060.12
+r_s(z*) = 144.59 Mpc
+r_s(z_drag) = 147.12 Mpc
 Chi squared: 14.81 (Δ chi2 0.45)
 Degs of freedom: 13
 
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-H0: 68.34 +1.44 -1.37 km/s/Mpc
-Ωm: 0.300 ±0.012
+H0: 68.63 +1.45 -1.37 km/s/Mpc
+Ωm: 0.300 ± 0.012
 Ωb h^2: 0.02254 ± 0.00013
-w0: -0.999 +0.089 -0.091
-z*: 1088.47
-z_drag: 1060.09
-r_s(z*) = 145.24 Mpc
-r_s(z_drag) = 147.77 Mpc
+w0: -1.000 +0.088 -0.091
+z*: 1088.55
+z_drag: 1060.17
+r_s(z*) = 144.68 Mpc
+r_s(z_drag) = 147.21 Mpc
 Chi squared: 15.26 (Δ chi2 0.00)
 Degs of freedom: 13
 
 ===============================
 
 Flat w(z) = w0 + wa * z / (1 + z)
-H0: 63.42 +2.15 -2.05 km/s/Mpc
-Ωm: 0.354 +0.025 -0.024
-Ωb h^2: 0.02237 ± 0.00014
-w0: -0.405 +0.259 -0.238
-wa: -1.776 +0.686 -0.782
-z*: 1088.81
-z_drag: 1059.87
-r_s(z*) = 144.77 Mpc
-r_s(z_drag) = 147.34 Mpc
-Chi squared: 7.30 (Δ chi2 7.96)
+H0: 63.81 +2.01 -1.78 km/s/Mpc
+Ωm: 0.353 +0.021 -0.022
+Ωb h^2: 0.02238 +0.00014 -0.00014
+w0: -0.423 +0.217 -0.223
+wa: -1.723 +0.644 -0.654
+z*: 1088.87
+z_drag: 1059.96
+r_s(z*) = 144.22 Mpc
+r_s(z_drag) = 146.78 Mpc
+Chi squared: 7.24 (Δ chi2 8.02)
 Degs of freedom: 12
 """

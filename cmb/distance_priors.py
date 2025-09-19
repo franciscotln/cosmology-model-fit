@@ -20,15 +20,19 @@ inv_cov_mat = np.array(
         [1664517.2916, 3671.618, 79719182.5162],
     ]
 )
+N_EFF = 3.046
 TCMB = 2.7255  # K
-O_GAMMA_H2 = 2.38095e-5 * (TCMB / 2.7) ** 4.0
+O_GAMMA_H2 = 2.4728e-5 * (TCMB / 2.7255) ** 4
+
+
+def Omega_r_h2(Neff=N_EFF):
+    return O_GAMMA_H2 * (1 + 0.2271 * Neff)
 
 
 def Ez(z, params):
     H0, Om = params[0], params[1]
     h = H0 / 100
-    z_eq = 2.5 * 10**4 * Om * h**2 * (2.7 / TCMB) ** 4
-    Or = Om / (1 + z_eq)
+    Or = Omega_r_h2() / h**2
     Ode = 1 - Om - Or
     one_plus_z = 1 + z
 
@@ -146,14 +150,14 @@ def main():
     z_dr = z_drag(Obh2_50, Omh2_50)
 
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
-    print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
+    print(f"Ωm: {Om_50:.4f} +{(Om_84 - Om_50):.4f} -{(Om_50 - Om_16):.4f}")
     print(
         f"Ωb h^2: {Obh2_50:.5f} +{(Obh2_84 - Obh2_50):.5f} -{(Obh2_50 - Obh2_16):.5f}"
     )
     print(f"z*: {z_st:.2f}")
     print(f"z_drag: {z_dr:.2f}")
-    print(f"r_s(z*) = {rs_z(z_st, best_fit):.4f} Mpc")
-    print(f"r_s(z_drag) = {rs_z(z_dr, best_fit):.4f} Mpc")
+    print(f"r_s(z*) = {rs_z(z_st, best_fit):.2f} Mpc")
+    print(f"r_s(z_drag) = {rs_z(z_dr, best_fit):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.4f}")
 
     labels = ["$H_0$", "$Ω_m$", "$Ω_b h^2$"]
@@ -187,12 +191,12 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM w(z) = -1
-H0: 67.15 ± 0.61 km/s/Mpc
-Ωm: 0.317 +0.009 -0.008
+H0: 67.40 +0.62 -0.61 km/s/Mpc
+Ωm: 0.3168 +0.0086 -0.0084
 Ωb h^2: 0.02236 ± 0.00015
-z*: 1088.84
-z_drag: 1059.85
-r_s(z*) = 144.70 Mpc
-r_s(z_drag) = 147.27 Mpc
-Chi squared: 0.0007
+z*: 1088.92
+z_drag: 1059.93
+r_s(z*) = 144.15 Mpc
+r_s(z_drag) = 146.71 Mpc
+Chi squared: 0.0014
 """
