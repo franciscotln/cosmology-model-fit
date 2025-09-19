@@ -293,5 +293,5 @@ z_drag: 1059.50
 r_s(z*) = 144.13 Mpc
 r_s(z_drag) = 147.01 Mpc
 Chi squared: 21.53
-Degrees of freedom: 20
+Degrees of freedom: 19
 """
