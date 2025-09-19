@@ -36,6 +36,7 @@ def Ez(z, params):
 
 
 def z_star(Ob_h2, Om_h2):
+    # Wayne Hu, Naoshi Sugiyama use 1345 (arXiv:astro-ph/9510117v2 equation E-1)
     g1 = 0.0783 * Ob_h2**-0.238 / (1 + 39.5 * Ob_h2**0.763)
     g2 = 0.560 / (1 + 21.1 * Ob_h2**1.81)
     return 1048 * (1 + 0.00124 * Ob_h2**-0.738) * (1 + g1 * Om_h2**g2)
