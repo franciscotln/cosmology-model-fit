@@ -25,8 +25,9 @@ inv_cov_mat = np.array(
         [1664517.2916, 3671.618, 79719182.5162],
     ]
 )
+N_EFF = 3.046
 TCMB = 2.7255  # K
-O_GAMMA_H2 = 2.38095e-5 * (TCMB / 2.7) ** 4.0
+O_GAMMA_H2 = 2.4728e-5 * (TCMB / 2.7255) ** 4
 
 
 sn_legend, z_cmb, z_hel, mu_values, cov_matrix_sn = get_data()
@@ -37,11 +38,14 @@ cho_bao = cho_factor(bao_cov_matrix)
 sn_grid = np.linspace(0, np.max(z_cmb), num=3000)
 
 
+def Omega_r_h2(Neff=N_EFF):
+    return O_GAMMA_H2 * (1 + 0.2271 * Neff)
+
+
 def Ez(z, params):
     H0, Om, w0 = params[0], params[1], params[3]
     h = H0 / 100
-    z_eq = 2.5 * 10**4 * Om * h**2 * (2.7 / TCMB) ** 4
-    Or = Om / (1 + z_eq)
+    Or = Omega_r_h2() / h**2
     Ode = 1 - Om - Or
     one_plus_z = 1 + z
     rho_de = (2 * one_plus_z**3 / (1 + one_plus_z**3)) ** (2 * (1 + w0))
@@ -60,20 +64,18 @@ def theory_mu(params):
     return offset_mag + 25 + 5 * np.log10(dL)
 
 
-def z_star(Ob_h2, Om_h2):
-    # Wayne Hu, Naoshi Sugiyama (arXiv:astro-ph/9510117v2 equation E-1)
-    g1 = 0.0783 * Ob_h2**-0.238 / (1 + 39.5 * Ob_h2**0.763)
-    g2 = 0.560 / (1 + 21.1 * Ob_h2**1.81)
-    return 1048 * (1 + 0.00124 * Ob_h2**-0.738) * (1 + g1 * Om_h2**g2)
+def z_star(wb, wm):
+    # arXiv:2106.00428v2
+    return wm**-0.731631 + (
+        (391.672 * wm**-0.372296 + 937.422 * wb**-0.97966) * wm**0.0192951 * wb**0.93681
+    )
 
 
-def z_drag(Ob_h2, Om_h2):
-    # Calibrated 1340 to reproduce Planck 2018 r_drag
-    # Wayne Hu, Naoshi Sugiyama use 1345 (arXiv:astro-ph/9510117v2 equation E-2)
-    # Daniel J. Eisenstein, Wayne Hu use 1291 (arXiv:astro-ph/9709112v1 equation 4)
-    b1 = 0.313 * Om_h2**-0.419 * (1 + 0.607 * Om_h2**0.674)
-    b2 = 0.238 * Om_h2**0.223
-    return (1340 * Om_h2**0.251 / (1 + 0.659 * Om_h2**0.828)) * (1 + b1 * Ob_h2**b2)
+def z_drag(wb, wm):
+    # arXiv:2106.00428v2
+    return (
+        1 + 428.169 * wb**0.256459 * wm**0.616388 + 925.56 * wm**0.751615
+    ) * wm**-0.714129
 
 
 def rs_z(z, params):
@@ -269,64 +271,64 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM w(z) = -1
-H0: 68.24 +0.29 -0.29 km/s/Mpc
-Ωm: 0.305 +0.004 -0.004
-Ωb h^2: 0.02248 +0.00012 -0.00012
+H0: 68.41 +0.30 -0.29 km/s/Mpc
+Ωm: 0.303 ± 0.004
+Ωb h^2: 0.02250 ± 0.00012
 w0: -1
 wa: 0
-ΔM: -0.062 +0.008 -0.008
-z*: 1091.69
-z_drag: 1059.63
-r_s(z*) = 144.54 Mpc
-r_s(z_drag) = 147.38 Mpc
-Chi squared: 1662.61
+ΔM: -0.059 ± 0.008
+z*: 1088.62
+z_drag: 1060.11
+r_s(z*) = 144.60 Mpc
+r_s(z_drag) = 147.13 Mpc
+Chi squared: 1664.84
 Degrees of freedom: 1747
 
 ===============================
 
 Flat wCDM w(z) = w0
-H0: 67.31 +0.55 -0.55 km/s/Mpc
-Ωm: 0.312 +0.005 -0.005
-Ωb h^2: 0.02256 +0.00013 -0.00013
-w0: -0.954 +0.022 -0.023
+H0: 67.43 ± 0.55 km/s/Mpc
+Ωm: 0.310 ± 0.005
+Ωb h^2: 0.02259 ± 0.00013
+w0: -0.953 +0.022 -0.023
 wa: 0
-ΔM: -0.076 +0.011 -0.011
-z*: 1091.48
-z_drag: 1059.73
-r_s(z*) = 144.76 Mpc
-r_s(z_drag) = 147.58 Mpc
-Chi squared: 1658.60 (Δ chi2 = 4.01)
+ΔM: -0.073 +0.011 -0.011
+z*: 1088.46
+z_drag: 1060.23
+r_s(z*) = 144.82 Mpc
+r_s(z_drag) = 147.33 Mpc
+Chi squared: 1660.35 (Δ chi2 4.49)
 Degrees of freedom: 1746
 
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-H0: 66.80 +0.56 -0.55 km/s/Mpc
-Ωm: 0.317 +0.005 -0.005
-Ωb h^2: 0.02256 +0.00013 -0.00013
-w0: -0.892 +0.036 -0.037
-wa: -(1 + w0) = -0.108
-ΔM: -0.078 +0.010 -0.010
-z*: 1091.48
-z_drag: 1059.73
-r_s(z*) = 144.74 Mpc
-r_s(z_drag) = 147.57 Mpc
-Chi squared: 1654.06 (Δ chi2 = 8.55)
+H0: 66.91 ± 0.56 km/s/Mpc
+Ωm: 0.315 +0.006 -0.005
+Ωb h^2: 0.02259 ± 0.00013
+w0: -0.888 ± 0.036
+wa: -1*(1 + w0) = -0.112 ± 0.036
+ΔM: -0.074 ± 0.010
+z*: 1088.46
+z_drag: 1060.23
+r_s(z*) = 144.80 Mpc
+r_s(z_drag) = 147.31 Mpc
+Chi squared: 1655.39 (Δ chi2 9.45)
 Degrees of freedom: 1746
 
 ===============================
 
 Flat w(z) = w0 + wa * z / (1 + z)
-H0: 66.90 +0.57 -0.56 km/s/Mpc
-Ωm: 0.320 +0.006 -0.006
-Ωb h^2: 0.02239 +0.00014 -0.00014
-w0: -0.767 +0.061 -0.059
-wa: -0.795 +0.239 -0.259
-ΔM: -0.058 +0.012 -0.012
-z*: 1091.91
-z_drag: 1059.53
-r_s(z*) = 144.27 Mpc
-r_s(z_drag) = 147.13 Mpc
-Chi squared: 1645.91 (Δ chi2 = 16.70)
+H0: 66.96 +0.57 -0.57 km/s/Mpc
+Ωm: 0.319 +0.006 -0.006
+Ωb h^2: 0.02242 +0.00014 -0.00013
+w0: -0.760 +0.059 -0.058
+wa: -0.805 +0.232 -0.250
+ΔM: -0.055 +0.012 -0.012
+z*: 1088.79
+z_drag: 1060.00
+r_s(z*) = 144.35 Mpc
+r_s(z_drag) = 146.90 Mpc
+Chi squared: 1646.84 (Δ chi2 18.00)
 Degrees of freedom: 1745
 """
