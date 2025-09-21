@@ -141,19 +141,20 @@ def main():
 
     best_fit = [H0_50, Om_50, Obh2_50]
 
-    Omh2_50 = Om_50 * (H0_50 / 100) ** 2
-    z_st = z_star(Obh2_50, Omh2_50)
-    z_dr = z_drag(Obh2_50, Omh2_50)
+    z_st_samples = z_star(samples[:, 2], samples[:, 1] * (samples[:, 0] / 100) ** 2)
+    z_dr_samples = z_drag(samples[:, 2], samples[:, 1] * (samples[:, 0] / 100) ** 2)
+    z_st_16, z_st_50, z_st_84 = np.percentile(z_st_samples, [15.9, 50, 84.1])
+    z_d_16, z_d_50, z_d_84 = np.percentile(z_dr_samples, [15.9, 50, 84.1])
 
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
     print(f"Ωm: {Om_50:.4f} +{(Om_84 - Om_50):.4f} -{(Om_50 - Om_16):.4f}")
     print(
         f"Ωb h^2: {Obh2_50:.5f} +{(Obh2_84 - Obh2_50):.5f} -{(Obh2_50 - Obh2_16):.5f}"
     )
-    print(f"z*: {z_st:.2f}")
-    print(f"z_drag: {z_dr:.2f}")
-    print(f"r_s(z*) = {rs_z(z_st, best_fit):.2f} Mpc")
-    print(f"r_s(z_drag) = {rs_z(z_dr, best_fit):.2f} Mpc")
+    print(f"z*: {z_st_50:.2f} +{(z_st_84 - z_st_50):.2f} -{(z_st_50 - z_st_16):.2f}")
+    print(f"z_drag: {z_d_50:.2f} +{(z_d_84 - z_d_50):.2f} -{(z_d_50 - z_d_16):.2f}")
+    print(f"r_s(z*) = {rs_z(z_st_50, best_fit):.2f} Mpc")
+    print(f"r_s(z_drag) = {rs_z(z_d_50, best_fit):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.4f}")
 
     labels = ["$H_0$", "$Ω_m$", "$Ω_b h^2$"]
