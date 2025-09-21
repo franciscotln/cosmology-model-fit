@@ -7,28 +7,12 @@ import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from y2023union3.data import get_data
 from y2025BAO.data import get_data as get_bao_data
+import cmb.data as cmb
 from hubble.plotting import plot_predictions as plot_sn_predictions
 from .plot_predictions import plot_bao_predictions
 
 
 c = 299792.458  # km/s
-
-# --- PLANCK DISTANCE PRIORS (Chen+2018 arXiv:1808.05724v1) ---
-PLANCK_R_mean = 1.750235
-PLANCK_lA_mean = 301.4707
-PLANCK_Ob_h2_mean = 0.02235976
-planck_priors = np.array([PLANCK_R_mean, PLANCK_lA_mean, PLANCK_Ob_h2_mean])
-inv_cov_mat = np.array(
-    [
-        [94392.3971, -1360.4913, 1664517.2916],
-        [-1360.4913, 161.4349, 3671.618],
-        [1664517.2916, 3671.618, 79719182.5162],
-    ]
-)
-N_EFF = 3.046
-TCMB = 2.7255  # K
-O_GAMMA_H2 = 2.4728e-5 * (TCMB / 2.7255) ** 4
-
 
 sn_legend, z_sn_vals, mu_vals, cov_matrix_sn = get_data()
 bao_legend, bao_data, bao_cov_matrix = get_bao_data()
@@ -38,14 +22,10 @@ cho_bao = cho_factor(bao_cov_matrix)
 sn_grid = np.linspace(0, np.max(z_sn_vals), num=3000)
 
 
-def Omega_r_h2(Neff=N_EFF):
-    return O_GAMMA_H2 * (1 + 0.2271 * Neff)
-
-
 def Ez(z, params):
     H0, Om, w0 = params[0], params[1], params[3]
     h = H0 / 100
-    Or = Omega_r_h2() / h**2
+    Or = cmb.Omega_r_h2() / h**2
     Ode = 1 - Om - Or
 
     one_plus_z = 1 + z
@@ -65,46 +45,28 @@ def distance_modulus(params):
     return offset_mag + 25 + 5 * np.log10(dL)
 
 
-def z_star(wb, wm):
-    # arXiv:2106.00428v2
-    return wm**-0.731631 + (
-        (391.672 * wm**-0.372296 + 937.422 * wb**-0.97966) * wm**0.0192951 * wb**0.93681
-    )
-
-
-def z_drag(wb, wm):
-    # arXiv:2106.00428v2
-    return (
-        1 + 428.169 * wb**0.256459 * wm**0.616388 + 925.56 * wm**0.751615
-    ) * wm**-0.714129
-
-
 def rs_z(z, params):
     H0, Ob_h2 = params[0], params[2]
-    Rb = 3 * Ob_h2 / (4 * O_GAMMA_H2)
+    Rb = 3 * Ob_h2 / (4 * cmb.O_GAMMA_H2)
 
-    def integrand(a):
-        zp = -1 + 1 / a
-        denominator = a**2 * Ez(zp, params) * np.sqrt(3 * (1 + Rb * a))
-        return 1 / denominator
+    def integrand(zp):
+        denom = Ez(zp, params) * np.sqrt(3 * (1 + Rb / (1 + zp)))
+        return 1 / denom
 
-    a_lower = 1e-8
-    a_upper = 1 / (1 + z)
-    I = quad(integrand, a_lower, a_upper)[0]
+    z_lower = z
+    z_upper = np.inf
+    I = quad(integrand, z_lower, z_upper, limit=100)[0]
     return (c / H0) * I
 
 
 def DA_z(z, params):
-    integral = quad(lambda zp: 1 / Ez(zp, params), 0, z)[0]
-    return (c / params[0]) * integral / (1 + z)
+    return DM_z(z, params) / (1 + z)
 
 
 def cmb_distances(params):
-    H0 = params[0]
-    Om = params[1]
-    Ob_h2 = params[2]
+    H0, Om, Ob_h2 = params[0], params[1], params[2]
     Om_h2 = Om * (H0 / 100) ** 2
-    zstar = z_star(Ob_h2, Om_h2)
+    zstar = cmb.z_star(Ob_h2, Om_h2)
     rs_star = rs_z(zstar, params)
     DA_star = DA_z(zstar, params)
 
@@ -141,14 +103,14 @@ bao_funcs = {
 def bao_theory(z, qty, params):
     H0, Om, Obh2 = params[0], params[1], params[2]
     Omh2 = Om * (H0 / 100) ** 2
-    rd = rs_z(z_drag(Obh2, Omh2), params)
+    rd = rs_z(cmb.z_drag(Obh2, Omh2), params)
 
     return np.array([bao_funcs[q](zi, params) / rd for zi, q in zip(z, qty)])
 
 
 def chi_squared(params):
-    delta = planck_priors - cmb_distances(params)
-    chi2_cmb = delta @ inv_cov_mat @ delta
+    delta = cmb.DISTANCE_PRIORS - cmb_distances(params)
+    chi2_cmb = delta @ cmb.inv_cov_mat @ delta
 
     delta_bao = bao_data["value"] - bao_theory(
         bao_data["z"], bao_data["quantity"], params
@@ -222,8 +184,8 @@ def main():
     best_fit = [H0_50, Om_50, Obh2_50, w0_50, dM_50]
 
     Omh2_50 = Om_50 * (H0_50 / 100) ** 2
-    z_st = z_star(Obh2_50, Omh2_50)
-    z_dr = z_drag(Obh2_50, Omh2_50)
+    z_st = cmb.z_star(Obh2_50, Omh2_50)
+    z_dr = cmb.z_drag(Obh2_50, Omh2_50)
 
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
@@ -320,7 +282,7 @@ H0: 66.97 +0.82 -0.80 km/s/Mpc
 Ωm: 0.314 ± 0.007
 Ωb h^2: 0.02259 ± 0.00013
 w0: -0.893 ± 0.053
-wa: 0
+wa: -(1 + w0) = -0.107 ± 0.053
 ΔM: -0.161 ± 0.091
 z*: 1088.47
 z_drag: 1060.22

@@ -4,55 +4,25 @@ import corner
 from scipy.integrate import quad
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
+import data as cmb
 
 
 c = 299792.458  # km/s
-
-# --- PLANCK DISTANCE PRIORS (Chen+2018 arXiv:1808.05724v1) ---
-DISTANCE_PRIORS = np.array([1.750235, 301.4707, 0.02235976])
-inv_cov_mat = np.array(
-    [
-        [94392.3971, -1360.4913, 1664517.2916],
-        [-1360.4913, 161.4349, 3671.618],
-        [1664517.2916, 3671.618, 79719182.5162],
-    ]
-)
-N_EFF = 3.046
-TCMB = 2.7255  # K
-O_GAMMA_H2 = 2.4728e-5 * (TCMB / 2.7255) ** 4
-
-
-def Omega_r_h2(Neff=N_EFF):
-    return O_GAMMA_H2 * (1 + 0.2271 * Neff)
 
 
 def Ez(z, params):
     H0, Om = params[0], params[1]
     h = H0 / 100
-    Or = Omega_r_h2() / h**2
+    Or = cmb.Omega_r_h2() / h**2
     Ode = 1 - Om - Or
     one_plus_z = 1 + z
 
     return np.sqrt(Or * one_plus_z**4 + Om * one_plus_z**3 + Ode)
 
 
-def z_star(wb, wm):
-    # arXiv:2106.00428v2 (A4)
-    return wm**-0.731631 + (
-        (391.672 * wm**-0.372296 + 937.422 * wb**-0.97966) * wm**0.0192951 * wb**0.93681
-    )
-
-
-def z_drag(wb, wm):
-    # arXiv:2106.00428v2 (A2)
-    return (
-        1 + 428.169 * wb**0.256459 * wm**0.616388 + 925.56 * wm**0.751615
-    ) * wm**-0.714129
-
-
 def rs_z(z, params):
     H0, Ob_h2 = params[0], params[2]
-    Rb = 3 * Ob_h2 / (4 * O_GAMMA_H2)
+    Rb = 3 * Ob_h2 / (4 * cmb.O_GAMMA_H2)
 
     def integrand(zp):
         denom = Ez(zp, params) * np.sqrt(3 * (1 + Rb / (1 + zp)))
@@ -72,7 +42,7 @@ def DA_z(z, params):
 def cmb_distances(params):
     H0, Om, Ob_h2 = params[0], params[1], params[2]
     Om_h2 = Om * (H0 / 100) ** 2
-    zstar = z_star(Ob_h2, Om_h2)
+    zstar = cmb.z_star(Ob_h2, Om_h2)
     rs_star = rs_z(zstar, params)
     DA_star = DA_z(zstar, params)
     lA = (1 + zstar) * np.pi * DA_star / rs_star
@@ -81,8 +51,8 @@ def cmb_distances(params):
 
 
 def chi_squared(params):
-    delta = DISTANCE_PRIORS - cmb_distances(params)
-    return delta @ inv_cov_mat @ delta
+    delta = cmb.DISTANCE_PRIORS - cmb_distances(params)
+    return delta @ cmb.inv_cov_mat @ delta
 
 
 bounds = np.array(
@@ -141,8 +111,8 @@ def main():
 
     best_fit = [H0_50, Om_50, Obh2_50]
 
-    z_st_samples = z_star(samples[:, 2], samples[:, 1] * (samples[:, 0] / 100) ** 2)
-    z_dr_samples = z_drag(samples[:, 2], samples[:, 1] * (samples[:, 0] / 100) ** 2)
+    z_st_samples = cmb.z_star(samples[:, 2], samples[:, 1] * (samples[:, 0] / 100) ** 2)
+    z_dr_samples = cmb.z_drag(samples[:, 2], samples[:, 1] * (samples[:, 0] / 100) ** 2)
     z_st_16, z_st_50, z_st_84 = np.percentile(z_st_samples, [15.9, 50, 84.1])
     z_d_16, z_d_50, z_d_84 = np.percentile(z_dr_samples, [15.9, 50, 84.1])
 
