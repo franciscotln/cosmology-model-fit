@@ -9,10 +9,7 @@ from multiprocessing import Pool
 c = 299792.458  # km/s
 
 # --- PLANCK DISTANCE PRIORS (Chen+2018 arXiv:1808.05724v1) ---
-PLANCK_R_mean = 1.750235
-PLANCK_lA_mean = 301.4707
-PLANCK_Ob_h2_mean = 0.02235976
-planck_priors = np.array([PLANCK_R_mean, PLANCK_lA_mean, PLANCK_Ob_h2_mean])
+DISTANCE_PRIORS = np.array([1.750235, 301.4707, 0.02235976])
 inv_cov_mat = np.array(
     [
         [94392.3971, -1360.4913, 1664517.2916],
@@ -57,14 +54,13 @@ def rs_z(z, params):
     H0, Ob_h2 = params[0], params[2]
     Rb = 3 * Ob_h2 / (4 * O_GAMMA_H2)
 
-    def integrand(a):
-        zp = -1 + 1 / a
-        denom = a**2 * Ez(zp, params) * np.sqrt(3 * (1 + Rb * a))
+    def integrand(zp):
+        denom = Ez(zp, params) * np.sqrt(3 * (1 + Rb / (1 + zp)))
         return 1 / denom
 
-    a_lower = 1e-8
-    a_upper = 1 / (1 + z)
-    I = quad(integrand, a_lower, a_upper)[0]
+    z_lower = z
+    z_upper = np.inf
+    I = quad(integrand, z_lower, z_upper, limit=100)[0]
     return (c / H0) * I
 
 
@@ -85,7 +81,7 @@ def cmb_distances(params):
 
 
 def chi_squared(params):
-    delta = planck_priors - cmb_distances(params)
+    delta = DISTANCE_PRIORS - cmb_distances(params)
     return delta @ inv_cov_mat @ delta
 
 
@@ -191,12 +187,12 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM w(z) = -1
-H0: 67.40 +0.62 -0.61 km/s/Mpc
-Ωm: 0.3168 +0.0086 -0.0084
+H0: 67.41 +0.62 -0.62 km/s/Mpc
+Ωm: 0.3166 +0.0086 -0.0084
 Ωb h^2: 0.02236 ± 0.00015
-z*: 1088.92
-z_drag: 1059.93
-r_s(z*) = 144.15 Mpc
-r_s(z_drag) = 146.71 Mpc
-Chi squared: 0.0014
+z*: 1088.92 ± 0.22
+z_drag: 1059.93 ± 0.30
+r_s(z*) = 144.16 Mpc
+r_s(z_drag) = 146.72 Mpc
+Chi squared: 0.0003
 """
