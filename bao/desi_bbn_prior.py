@@ -2,41 +2,40 @@ import numpy as np
 import emcee
 import corner
 from scipy.integrate import quad
-from scipy.constants import c as c0
 from scipy.linalg import cho_factor, cho_solve
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from y2025BAO.data import get_data
+from cmb.data import r_drag, Omega_r_h2, c
 from .plot_predictions import plot_bao_predictions
 
-c = c0 / 1000  # Speed of light in km/s
 legend, data, cov_matrix = get_data()
 cho = cho_factor(cov_matrix)
 
 
-def rd(omega_b_h2, omega_c_h2, N_eff=3.04):  # Mpc
-    # https://arxiv.org/abs/2212.04522
-    return (
-        147.05
-        * (omega_b_h2 / 0.02236) ** -0.13
-        * ((omega_b_h2 + omega_c_h2) / 0.1432) ** -0.23
-        * (N_eff / 3.04) ** -0.1
-    )
+def rd(params):  # Mpc
+    H0, Om, Obh2 = params[0], params[1], params[2]
+    Omh2 = Om * (H0 / 100) ** 2
+    return r_drag(wb=Obh2, wm=Omh2)
 
 
-def H_z(z, H0, omega_b_h2, omega_c_h2, w0=-1):
+def Ez(z, H0, Om, w0):
     h = H0 / 100
-    Om = (omega_b_h2 + omega_c_h2) / h**2
-    OL = 1 - Om
-
+    Or = Omega_r_h2() / h**2
+    OL = 1 - Om - Or
     one_plus_z = 1 + z
     cubic = one_plus_z**3
     rho_de = (2 * cubic / (1 + cubic)) ** (2 * (1 + w0))
-    return H0 * np.sqrt(Om * cubic + OL * rho_de)
+    return np.sqrt(Or * one_plus_z**4 + Om * one_plus_z**3 + OL * rho_de)
+
+
+def H_z(z, H0, Om, w0):
+    return H0 * Ez(z, H0, Om, w0)
 
 
 def DH_z(z, params):
-    return c / H_z(z, *params)
+    H0, Om, w0 = params[0], params[1], params[3]
+    return c / H_z(z, H0, Om, w0)
 
 
 def DM_z(z, params):
@@ -50,9 +49,9 @@ def DV_z(z, params):
 
 
 quantity_funcs = {
-    "DV_over_rs": lambda z, params: DV_z(z, params) / rd(*params[1:3]),
-    "DM_over_rs": lambda z, params: DM_z(z, params) / rd(*params[1:3]),
-    "DH_over_rs": lambda z, params: DH_z(z, params) / rd(*params[1:3]),
+    "DV_over_rs": lambda z, params: DV_z(z, params) / rd(params),
+    "DM_over_rs": lambda z, params: DM_z(z, params) / rd(params),
+    "DH_over_rs": lambda z, params: DH_z(z, params) / rd(params),
 }
 
 
@@ -63,8 +62,8 @@ def theory_predictions(z, qty, params):
 bounds = np.array(
     [
         (50, 80),  # H0
-        (0.001, 0.04),  # Ωb h^2
-        (0.01, 0.2),  # Ωc h^2
+        (0.15, 0.55),  # Ωm
+        (0.015, 0.030),  # Ωb h^2
         (-1.5, 0),  # w0
     ]
 )
@@ -83,7 +82,7 @@ omega_b_h2_prior_sigma = 0.00063
 def log_prior(params):
     if not np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
         return -np.inf
-    return -0.5 * ((omega_b_h2_prior - params[1]) / omega_b_h2_prior_sigma) ** 2
+    return -0.5 * ((omega_b_h2_prior - params[2]) / omega_b_h2_prior_sigma) ** 2
 
 
 def log_likelihood(params):
@@ -121,18 +120,17 @@ def main():
 
     [
         [H0_16, H0_50, H0_84],
-        [Ombh2_16, Ombh2_50, Ombh2_84],
-        [Omch2_16, Omch2_50, Omch2_84],
+        [Om_16, Om_50, Om_84],
+        [Obh2_16, Obh2_50, Obh2_84],
         [w0_16, w0_50, w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = [H0_50, Ombh2_50, Omch2_50, w0_50]
+    best_fit = [H0_50, Om_50, Obh2_50, w0_50]
 
-    # Om and rd are derived from H0, Ombh2, and Omch2
     h_samples = samples[:, 0] / 100
-    Om_samples = (samples[:, 1] + samples[:, 2]) / h_samples**2
-    Om_16, Om_50, Om_84 = np.percentile(Om_samples, [15.9, 50, 84.1])
-    rd_samples = rd(samples[:, 1], samples[:, 2])
+    Omh2_samples = samples[:, 1] * h_samples**2
+    rd_samples = r_drag(wb=samples[:, 2], wm=Omh2_samples)
+    Omh2_16, Omh2_50, Omh2_84 = np.percentile(Omh2_samples, [15.9, 50, 84.1])
     rd_16, rd_50, rd_84 = np.percentile(rd_samples, [15.9, 50, 84.1])
 
     residuals = data["value"] - theory_predictions(
@@ -144,13 +142,13 @@ def main():
 
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
     print(
-        f"Ωb h^2: {Ombh2_50:.4f} +{(Ombh2_84 - Ombh2_50):.4f} -{(Ombh2_50 - Ombh2_16):.4f}"
+        f"Ωb h^2: {Obh2_50:.4f} +{(Obh2_84 - Obh2_50):.4f} -{(Obh2_50 - Obh2_16):.4f}"
     )
     print(
-        f"Ωc h^2: {Omch2_50:.4f} +{(Omch2_84 - Omch2_50):.4f} -{(Omch2_50 - Omch2_16):.4f}"
+        f"Ωm h^2: {Omh2_50:.4f} +{(Omh2_84 - Omh2_50):.4f} -{(Omh2_50 - Omh2_16):.4f}"
     )
-    print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Ωm: {Om_50:.4f} +{Om_84-Om_50:.4f} -{Om_50-Om_16:.4f}")
+    print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Degs of freedom: {data['value'].size  - len(best_fit)}")
@@ -165,7 +163,7 @@ def main():
     )
     corner.corner(
         samples,
-        labels=["$H_0$", "$Ω_b x h^2$", "$Ω_c x h^2$", "$w_0$"],
+        labels=["$H_0$", "$Ω_m$", "$Ω_b x h^2$", "$w_0$"],
         quantiles=[0.159, 0.5, 0.841],
         show_titles=True,
         title_fmt=".3f",
@@ -189,13 +187,13 @@ Dataset: DESI 2025
 *******************************
 
 Flat ΛCDM:
-H0: 68.48 +0.58 -0.59 km/s/Mpc
-Ωb h^2: 0.0220 +0.0006 -0.0006
-Ωc h^2: 0.1177 +0.0045 -0.0044
+H0: 68.52 +0.65 -0.64 km/s/Mpc
+Ωb h^2: 0.0220 ± 0.0006
+Ωm h^2: 0.1397 +0.0053 -0.0051
+Ωm: 0.2975 +0.0088 -0.0085
 w0: -1
-Ωm: 0.2978 +0.0086 -0.0085
-r_d: 148.23 +1.46 -1.43 Mpc
-Chi squared: 10.27
+r_d: 148.18 +1.68 -1.69 Mpc
+Chi squared: 10.29
 Degs of freedom: 10
 R^2: 0.9987
 RMSD: 0.305
@@ -203,43 +201,43 @@ RMSD: 0.305
 ===============================
 
 Flat wCDM:
-H0: 66.52 +2.07 -2.11 km/s/Mpc
-Ωb h^2: 0.0220 +0.0006 -0.0006
-Ωc h^2: 0.1099 +0.0091 -0.0096
-w0: -0.921 +0.077 -0.080
-Ωm: 0.2972 +0.0090 -0.0088
-r_d: 150.21 +2.82 -2.48 Mpc
-Chi squared: 9.06
+H0: 66.29 +2.23 -2.25 km/s/Mpc
+Ωb h^2: 0.0220 ± 0.0006
+Ωm h^2: 0.1308 +0.0100 -0.0102
+Ωm: 0.2968 +0.0091 -0.0088
+w0: -0.917 +0.076 -0.079
+r_d: 150.66 +3.20 -2.92 Mpc
+Chi squared: 9.05
 Degs of freedom: 9
 R^2: 0.9989
-RMSD: 0.281
+RMSD: 0.280
 
 ===============================
 
 Flat alternative: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-H0: 65.90 +2.17 -2.02 km/s/Mpc
-Ωb h^2: 0.0220 +0.0006 -0.0006
-Ωc h^2: 0.1118 +0.0066 -0.0064
-w0: -0.840 +0.121 -0.130
-Ωm: 0.3076 +0.0119 -0.0118
-r_d: 149.72 +1.98 -1.92 Mpc
-Chi squared: 8.45
+H0: 65.73 +2.25 -2.12 km/s/Mpc
+Ωb h^2: 0.0220 ± 0.0006
+Ωm h^2: 0.1329 +0.0073 -0.0070
+Ωm: 0.3075 +0.0119 -0.0117
+w0: -0.834 +0.122 -0.129
+r_d: 150.03 +2.26 -2.22 Mpc
+Chi squared: 8.43
 Degs of freedom: 9
 R^2: 0.9990
-RMSD: 0.267
+RMSD: 0.266
 
 *******************************
 Dataset: SDSS 2020
 *******************************
 
 Flat ΛCDM
-H0: 67.43 +0.93 -0.93 km/s/Mpc
-Ωb h^2: 0.0220 +0.0006 -0.0006
-Ωc h^2: 0.1150 +0.0099 -0.0092
+H0: 67.40 +1.10 -1.05 km/s/Mpc
+Ωb h^2: 0.0220 ± 0.0006
+Ωm h^2: 0.1368 +0.0111 -0.0100
+Ωm: 0.3012 +0.0183 -0.0170
 w0: -1
-Ωm: 0.3012 +0.0180 -0.0169
-Derived r_d: 148.91 Mpc
-Chi squared: 10.48
+r_d: 148.93 +3.02 -3.08 Mpc
+Chi squared: 10.50
 Degs of freedom: 11
 R^2: 0.9941
 RMSD: 0.770
@@ -247,42 +245,28 @@ RMSD: 0.770
 ===============================
 
 Flat wCDM
-H0: 61.67 +3.89 -4.37 km/s/Mpc
-Ωb h^2: 0.0220 +0.0006 -0.0006
-Ωc h^2: 0.0893 +0.0200 -0.0224
-w0: -0.767 +0.134 -0.146
-Ωm: 0.2901 +0.0211 -0.0241
-Derived r_d: 156.18 Mpc
+H0: 60.88 +4.22 -4.65 km/s/Mpc
+Ωb h^2: 0.0220 ± 0.0006
+Ωm h^2: 0.1077 +0.0215 -0.0235
+Ωm: 0.2882 +0.0218 -0.0256
+w0: -0.755 +0.137 -0.147
+r_d: 157.95 +9.27 -6.92 Mpc
 Chi squared: 7.43
 Degs of freedom: 10
-R^2: 0.9949
-RMSD: 0.717
+R^2: 0.9950
+RMSD: 0.714
 
 ===============================
 
-Flat wzCDM
-H0: 62.58 +3.30 -3.17 km/s/Mpc
-Ωb h^2: 0.0220 +0.0006 -0.0006
-Ωc h^2: 0.1000 +0.0139 -0.0131
-w0: -0.721 +0.167 -0.181
-Ωm: 0.3106 +0.0195 -0.0182
-Derived r_d: 152.90 Mpc
-Chi squared: 7.57
+Flat alternative: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
+H0: 62.11 +3.49 -3.19 km/s/Mpc
+Ωb h^2: 0.0220 ± 0.0006
+Ωm h^2: 0.1228 +0.0137 -0.0125
+Ωm: 0.3177 +0.0212 -0.0203
+w0: -0.663 +0.195 -0.211
+r_d: 153.01 +4.14 -4.11 Mpc
+Chi squared: 7.66
 Degs of freedom: 10
-R^2: 0.9947
-RMSD: 0.732
-
-===============================
-
-Flat wzCDM 2
-H0: 62.40 +3.53 -3.21 km/s/Mpc
-Ωb h^2: 0.0220 +0.0006 -0.0006
-Ωc h^2: 0.1041 +0.0122 -0.0113
-w0: -0.587 +0.261 -0.282
-Ωm: 0.3229 +0.0238 -0.0229
-Derived r_d: 151.78 +3.49 -3.34 Mpc
-Chi squared: 7.82
-Degs of freedom: 10
-R^2: 0.9944
-RMSD: 0.750
+R^2: 0.9946
+RMSD: 0.740
 """
