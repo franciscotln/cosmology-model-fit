@@ -18,8 +18,7 @@ cho_sn = cho_factor(cov_matrix_sn)
 sn_grid = np.linspace(0, np.max(z_sn_vals), num=3000)
 
 
-def Ez(z, params):
-    H0, Om, w0 = params[0], params[1], params[3]
+def Ez(z, H0, Om, w0):
     h = H0 / 100
     Or = cmb.Omega_r_h2() / h**2
     Ode = 1 - Om - Or
@@ -30,44 +29,19 @@ def Ez(z, params):
 
 
 def mu_theory(params):
-    H0, offset_mag = params[0], params[-1]
-    integral_vals = cumulative_trapezoid(1 / Ez(sn_grid, params), sn_grid, initial=0)
+    H0, Om, _, w0, mag_offset = params
+    integral_vals = cumulative_trapezoid(
+        1 / Ez(sn_grid, H0, Om, w0), sn_grid, initial=0
+    )
     I = np.interp(z_sn_vals, sn_grid, integral_vals)
     dL = (1 + z_sn_vals) * I * c / H0
-    return offset_mag + 25 + 5 * np.log10(dL)
-
-
-def rs_z(z, params):
-    H0, Ob_h2 = params[0], params[2]
-    Rb = 3 * Ob_h2 / (4 * cmb.O_GAMMA_H2)
-
-    def integrand(zp):
-        denominator = Ez(zp, params) * np.sqrt(3 * (1 + Rb / (1 + zp)))
-        return 1 / denominator
-
-    I = quad(integrand, z, np.inf, limit=100)[0]
-    return (c / H0) * I
-
-
-def DA_z(z, params):
-    integral = quad(lambda zp: 1 / Ez(zp, params), 0, z)[0]
-    return (c / params[0]) * integral / (1 + z)
-
-
-def cmb_distances(params):
-    H0, Om, Ob_h2 = params[0], params[1], params[2]
-    Om_h2 = Om * (H0 / 100) ** 2
-    zstar = cmb.z_star(Ob_h2, Om_h2)
-    rs_star = rs_z(zstar, params)
-    DA_star = DA_z(zstar, params)
-
-    lA = np.pi * (1 + zstar) * DA_star / rs_star
-    R = np.sqrt(Om) * H0 * (1 + zstar) * DA_star / c
-    return np.array([R, lA, Ob_h2])
+    return mag_offset + 25 + 5 * np.log10(dL)
 
 
 def chi_squared(params):
-    delta = cmb.DISTANCE_PRIORS - cmb_distances(params)
+    H0, Om, Ob_h2, w0, _ = params
+    Ez_func = lambda z: Ez(z, H0, Om, w0)
+    delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez_func, H0, Om, Ob_h2)
     chi2_cmb = delta @ cmb.inv_cov_mat @ delta
 
     delta_sn = mu_vals - mu_theory(params)
@@ -158,8 +132,12 @@ def main():
     print(
         f"z_drag: {z_dr_50:.2f} +{(z_dr_84 - z_dr_50):.2f} -{(z_dr_50 - z_dr_16):.2f}"
     )
-    print(f"r_s(z*) = {rs_z(z_st_50, best_fit):.2f} Mpc")
-    print(f"r_s(z_drag) = {rs_z(z_dr_50, best_fit):.2f} Mpc")
+    print(
+        f"r_s(z*) = {cmb.rs_z(lambda z: Ez(z, H0_50, Om_50, w0_50), z_st_50, H0_50, Obh2_50):.2f} Mpc"
+    )
+    print(
+        f"r_s(z_drag) = {cmb.rs_z(lambda z: Ez(z, H0_50, Om_50, w0_50), z_dr_50, H0_50, Obh2_50):.2f} Mpc"
+    )
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
 
     plot_predictions(
