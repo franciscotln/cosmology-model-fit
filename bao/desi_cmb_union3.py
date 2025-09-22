@@ -22,61 +22,26 @@ cho_bao = cho_factor(bao_cov_matrix)
 sn_grid = np.linspace(0, np.max(z_sn_vals), num=3000)
 
 
-def Ez(z, params):
-    H0, Om, w0 = params[0], params[1], params[3]
+def Ez(z, H0, Om, w0):
     h = H0 / 100
     Or = cmb.Omega_r_h2() / h**2
     Ode = 1 - Om - Or
-
     one_plus_z = 1 + z
     rho_de = (2 * one_plus_z**3 / (1 + one_plus_z**3)) ** (2 * (1 + w0))
 
     return np.sqrt(Or * one_plus_z**4 + Om * one_plus_z**3 + Ode * rho_de)
 
 
-def integral_Ez(params):
-    integral_values = cumulative_trapezoid(1 / Ez(sn_grid, params), sn_grid, initial=0)
-    return np.interp(z_sn_vals, sn_grid, integral_values)
-
-
-def distance_modulus(params):
-    H0, offset_mag = params[0], params[-1]
-    dL = (1 + z_sn_vals) * integral_Ez(params) * c / H0
-    return offset_mag + 25 + 5 * np.log10(dL)
-
-
-def rs_z(z, params):
-    H0, Ob_h2 = params[0], params[2]
-    Rb = 3 * Ob_h2 / (4 * cmb.O_GAMMA_H2)
-
-    def integrand(zp):
-        denom = Ez(zp, params) * np.sqrt(3 * (1 + Rb / (1 + zp)))
-        return 1 / denom
-
-    z_lower = z
-    z_upper = np.inf
-    I = quad(integrand, z_lower, z_upper, limit=100)[0]
-    return (c / H0) * I
-
-
-def DA_z(z, params):
-    return DM_z(z, params) / (1 + z)
-
-
-def cmb_distances(params):
-    H0, Om, Ob_h2 = params[0], params[1], params[2]
-    Om_h2 = Om * (H0 / 100) ** 2
-    zstar = cmb.z_star(Ob_h2, Om_h2)
-    rs_star = rs_z(zstar, params)
-    DA_star = DA_z(zstar, params)
-
-    lA = np.pi * (1 + zstar) * DA_star / rs_star
-    R = np.sqrt(Om) * H0 * (1 + zstar) * DA_star / c
-    return np.array([R, lA, Ob_h2])
+def mu_theory(Ez_func, params):
+    H0, mag_offset = params[0], params[-1]
+    integral_vals = cumulative_trapezoid(1 / Ez_func(sn_grid), sn_grid, initial=0)
+    I = np.interp(z_sn_vals, sn_grid, integral_vals)
+    return mag_offset + 25 + 5 * np.log10((1 + z_sn_vals) * I * c / H0)
 
 
 def H_z(z, params):
-    return params[0] * Ez(z, params)
+    H0, Om, w0 = params[0], params[1], params[3]
+    return H0 * Ez(z, H0, Om, w0)
 
 
 def DH_z(z, params):
@@ -109,7 +74,9 @@ def bao_theory(z, qty, params):
 
 
 def chi_squared(params):
-    delta = cmb.DISTANCE_PRIORS - cmb_distances(params)
+    H0, Om, Ob_h2, w0 = params[0], params[1], params[2], params[3]
+    Ez_func = lambda z: Ez(z, H0, Om, w0)
+    delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez_func, H0, Om, Ob_h2)
     chi2_cmb = delta @ cmb.inv_cov_mat @ delta
 
     delta_bao = bao_data["value"] - bao_theory(
@@ -117,7 +84,7 @@ def chi_squared(params):
     )
     chi_bao = np.dot(delta_bao, cho_solve(cho_bao, delta_bao))
 
-    delta_sn = mu_vals - distance_modulus(params)
+    delta_sn = mu_vals - mu_theory(Ez_func, params)
     chi_sn = np.dot(delta_sn, cho_solve(cho_sn, delta_sn))
 
     return chi2_cmb + chi_bao + chi_sn
@@ -194,6 +161,7 @@ def main():
     z_star_16, z_star_50, z_star_84 = np.percentile(z_star_samples, one_sigma_contours)
     z_drag_16, z_drag_50, z_drag_84 = np.percentile(z_drag_samples, one_sigma_contours)
     r_drag_16, r_drag_50, r_drag_84 = np.percentile(r_drag_samples, one_sigma_contours)
+    Ez_func = lambda z: Ez(z, H0_50, Om_50, w0_50)
 
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
@@ -211,7 +179,7 @@ def main():
     print(
         f"z_drag: {z_drag_50:.2f} +{(z_drag_84 - z_drag_50):.2f} -{(z_drag_50 - z_drag_16):.2f}"
     )
-    print(f"r_s(z*) = {rs_z(z_star_50, best_fit):.2f} Mpc")
+    print(f"r_s(z*) = {cmb.rs_z(Ez_func, z_star_50, H0_50, Obh2_50):.2f} Mpc")
     print(
         f"r_s(z_drag) = {r_drag_50:.2f} +{(r_drag_84 - r_drag_50):.2f} -{(r_drag_50 - r_drag_16):.2f} Mpc"
     )
@@ -228,7 +196,7 @@ def main():
         x=z_sn_vals,
         y=mu_vals,
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=distance_modulus(best_fit),
+        y_model=mu_theory(Ez_func, best_fit),
         label=f"Best fit: $Ω_m$={Om_50:.3f}",
         x_scale="log",
     )
