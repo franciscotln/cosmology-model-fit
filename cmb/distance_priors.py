@@ -1,17 +1,12 @@
 import numpy as np
 import emcee
 import corner
-from scipy.integrate import quad
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
-import data as cmb
+import cmb.data as cmb
 
 
-c = 299792.458  # km/s
-
-
-def Ez(z, params):
-    H0, Om = params[0], params[1]
+def Ez(z, H0, Om):
     h = H0 / 100
     Or = cmb.Omega_r_h2() / h**2
     Ode = 1 - Om - Or
@@ -20,46 +15,16 @@ def Ez(z, params):
     return np.sqrt(Or * one_plus_z**4 + Om * one_plus_z**3 + Ode)
 
 
-def rs_z(z, params):
-    H0, Ob_h2 = params[0], params[2]
-    Rb = 3 * Ob_h2 / (4 * cmb.O_GAMMA_H2)
-
-    def integrand(zp):
-        denom = Ez(zp, params) * np.sqrt(3 * (1 + Rb / (1 + zp)))
-        return 1 / denom
-
-    z_lower = z
-    z_upper = np.inf
-    I = quad(integrand, z_lower, z_upper, limit=100)[0]
-    return (c / H0) * I
-
-
-def DA_z(z, params):
-    integral = quad(lambda zp: 1 / Ez(zp, params), 0, z)[0]
-    return (c / params[0]) * integral / (1 + z)
-
-
-def cmb_distances(params):
-    H0, Om, Ob_h2 = params[0], params[1], params[2]
-    Om_h2 = Om * (H0 / 100) ** 2
-    zstar = cmb.z_star(Ob_h2, Om_h2)
-    rs_star = rs_z(zstar, params)
-    DA_star = DA_z(zstar, params)
-    lA = (1 + zstar) * np.pi * DA_star / rs_star
-    R = np.sqrt(Om) * H0 * (1 + zstar) * DA_star / c
-    return np.array([R, lA, Ob_h2])
-
-
 def chi_squared(params):
-    delta = cmb.DISTANCE_PRIORS - cmb_distances(params)
+    delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez, *params)
     return delta @ cmb.inv_cov_mat @ delta
 
 
 bounds = np.array(
     [
         (60, 75),  # H0
-        (0.1, 0.6),  # Ωm
-        (0.019, 0.025),  # Ωb * h^2
+        (0.15, 0.45),  # Ωm
+        (0.020, 0.024),  # Ωb * h^2
     ]
 )
 
@@ -85,7 +50,7 @@ def main():
     ndim = len(bounds)
     nwalkers = 20 * ndim
     burn_in = 500
-    nsteps = 10000 + burn_in
+    nsteps = 15000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):
@@ -123,8 +88,8 @@ def main():
     )
     print(f"z*: {z_st_50:.2f} +{(z_st_84 - z_st_50):.2f} -{(z_st_50 - z_st_16):.2f}")
     print(f"z_drag: {z_d_50:.2f} +{(z_d_84 - z_d_50):.2f} -{(z_d_50 - z_d_16):.2f}")
-    print(f"r_s(z*) = {rs_z(z_st_50, best_fit):.2f} Mpc")
-    print(f"r_s(z_drag) = {rs_z(z_d_50, best_fit):.2f} Mpc")
+    print(f"r_s(z*) = {cmb.rs_z(Ez, z_st_50, *best_fit):.2f} Mpc")
+    print(f"r_s(z_drag) = {cmb.rs_z(Ez, z_d_50, *best_fit):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.4f}")
 
     labels = ["$H_0$", "$Ω_m$", "$Ω_b h^2$"]
@@ -162,14 +127,14 @@ Flat ΛCDM w(z) = -1
 ===============================
 
 Chen+2018 compression
-H0: 67.41 +0.62 -0.62 km/s/Mpc
-Ωm: 0.3166 +0.0086 -0.0084
+H0: 67.40 +0.62 -0.61 km/s/Mpc
+Ωm: 0.3168 +0.0086 -0.0084
 Ωb h^2: 0.02236 ± 0.00015
 z*: 1088.92 ± 0.22
 z_drag: 1059.93 ± 0.30
 r_s(z*) = 144.16 Mpc
 r_s(z_drag) = 146.72 Mpc
-Chi squared: 0.0003
+Chi squared: 0.0012
 
 ===============================
 
