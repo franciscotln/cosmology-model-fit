@@ -4,21 +4,23 @@ from scipy.constants import c as c0
 
 c = c0 / 1000  # km/s
 
-# --- PLANCK DISTANCE PRIORS (Chen+2018 arXiv:1808.05724v1) ---
+# --- PLANCK DISTANCE PRIORS (arXiv:2503.14738v2 Abdul Karim+) ---
+# θ* ≡ rs(z*) / DM(z*)
 DISTANCE_PRIORS = np.array(
     [
-        1.750235,  # R
-        301.4707,  # lA
-        0.02235976,  # Ωb h^2
+        0.01041,  # θ*
+        0.02223,  # Ωb h^2
+        0.14208,  # Ωm h^2
     ]
 )
-inv_cov_mat = np.array(
+covariance = 10**-9 * np.array(
     [
-        [94392.3971, -1360.4913, 1664517.2916],
-        [-1360.4913, 161.4349, 3671.618],
-        [1664517.2916, 3671.618, 79719182.5162],
+        [0.006621, 0.12444, -1.1929],
+        [0.12444, 21.344, -94.001],
+        [-1.1929, -94.001, 1488.4],
     ]
 )
+inv_cov_mat = np.linalg.inv(covariance)
 N_EFF = 3.046
 TCMB = 2.7255  # K
 O_GAMMA_H2 = 2.4728e-5 * (TCMB / 2.7255) ** 4
@@ -29,14 +31,14 @@ def Omega_r_h2(Neff=N_EFF):
 
 
 def z_star(wb, wm):
-    # arXiv:2106.00428v2 (eq A4)
+    # arXiv:2106.00428v2 (A4)
     return wm**-0.731631 + (
         (391.672 * wm**-0.372296 + 937.422 * wb**-0.97966) * wm**0.0192951 * wb**0.93681
     )
 
 
 def z_drag(wb, wm):
-    # arXiv:2106.00428v2 (eq A2)
+    # arXiv:2106.00428v2 (A2)
     return (
         1 + 428.169 * wb**0.256459 * wm**0.616388 + 925.56 * wm**0.751615
     ) * wm**-0.714129
@@ -66,9 +68,8 @@ def cmb_distances(Ez_func, H0, Om, Ob_h2):
     rs_star = rs_z(Ez_func, zstar, H0, Om, Ob_h2)
     DA_star = DA_z(Ez_func, zstar, H0, Om)
 
-    R = np.sqrt(Om) * H0 * (1 + zstar) * DA_star / c
-    lA = (1 + zstar) * np.pi * DA_star / rs_star
-    return np.array([R, lA, Ob_h2])
+    theta = rs_star / ((1 + zstar) * DA_star)
+    return np.array([theta, Ob_h2, Om_h2])
 
 
 def r_drag(wb, wm):

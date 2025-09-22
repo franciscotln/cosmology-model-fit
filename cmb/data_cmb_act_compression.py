@@ -4,21 +4,22 @@ from scipy.constants import c as c0
 
 c = c0 / 1000  # km/s
 
-# --- PLANCK DISTANCE PRIORS (Chen+2018 arXiv:1808.05724v1) ---
+# --- PLANCK DISTANCE PRIORS (Prakhar Bansal+2025 arXiv:2502.07185v2) ---
 DISTANCE_PRIORS = np.array(
     [
-        1.750235,  # R
-        301.4707,  # lA
-        0.02235976,  # Ωb h^2
+        1.7504,  # R
+        301.77,  # lA
+        0.022371,  # Ωb h^2
     ]
 )
-inv_cov_mat = np.array(
+cov_matrix = 10**-8 * np.array(
     [
-        [94392.3971, -1360.4913, 1664517.2916],
-        [-1360.4913, 161.4349, 3671.618],
-        [1664517.2916, 3671.618, 79719182.5162],
+        [1559.83, -1325.41, -36.45],
+        [-1325.41, 714691.80, 269.77],
+        [-36.45, 269.77, 2.10],
     ]
 )
+inv_cov_mat = np.linalg.inv(cov_matrix)
 N_EFF = 3.046
 TCMB = 2.7255  # K
 O_GAMMA_H2 = 2.4728e-5 * (TCMB / 2.7255) ** 4
