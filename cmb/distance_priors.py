@@ -77,10 +77,12 @@ def main():
 
     best_fit = [H0_50, Om_50, Obh2_50]
 
-    Omh2_samples = samples[:, 1] * (samples[:, 0] / 100.0) ** 2
-    z_st_samples = cmb.z_star(samples[:, 2], samples[:, 1] * (samples[:, 0] / 100) ** 2)
-    z_dr_samples = cmb.z_drag(samples[:, 2], samples[:, 1] * (samples[:, 0] / 100) ** 2)
+    Omh2_samples = samples[:, 1] * (samples[:, 0] / 100) ** 2
+    r_drag_samples = cmb.r_drag(samples[:, 2], Omh2_samples)
+    z_st_samples = cmb.z_star(samples[:, 2], Omh2_samples)
+    z_dr_samples = cmb.z_drag(samples[:, 2], Omh2_samples)
     Omh2_16, Omh2_50, Omh2_84 = np.percentile(Omh2_samples, [15.9, 50, 84.1])
+    r_d_16, r_d_50, r_d_84 = np.percentile(r_drag_samples, [15.9, 50, 84.1])
     z_st_16, z_st_50, z_st_84 = np.percentile(z_st_samples, [15.9, 50, 84.1])
     z_d_16, z_d_50, z_d_84 = np.percentile(z_dr_samples, [15.9, 50, 84.1])
 
@@ -95,7 +97,9 @@ def main():
     print(f"z*: {z_st_50:.2f} +{(z_st_84 - z_st_50):.2f} -{(z_st_50 - z_st_16):.2f}")
     print(f"z_drag: {z_d_50:.2f} +{(z_d_84 - z_d_50):.2f} -{(z_d_50 - z_d_16):.2f}")
     print(f"r_s(z*) = {cmb.rs_z(Ez, z_st_50, *best_fit):.2f} Mpc")
-    print(f"r_s(z_drag) = {cmb.rs_z(Ez, z_d_50, *best_fit):.2f} Mpc")
+    print(
+        f"r_s(z_drag) = {r_d_50:.2f} +{(r_d_84 - r_d_50):.2f} -{(r_d_50 - r_d_16):.2f} Mpc"
+    )
     print(f"Chi squared: {chi_squared(best_fit):.4f}")
 
     labels = ["$H_0$", "$Ω_m$", "$Ω_b h^2$"]
@@ -140,7 +144,7 @@ H0: 67.41 +0.62 -0.61 km/s/Mpc
 z*: 1088.92 ± 0.22
 z_drag: 1059.93 ± 0.30
 r_s(z*) = 144.16 Mpc
-r_s(z_drag) = 146.72 Mpc
+r_s(z_drag) = 146.72 ± 0.29 Mpc
 Chi squared: 0.0003
 
 ===============================

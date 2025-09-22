@@ -23,14 +23,14 @@ def Omega_r_h2(Neff=N_EFF):
 
 
 def z_star(wb, wm):
-    # arXiv:2106.00428v2 (A4)
+    # arXiv:2106.00428v2 (eq A4)
     return wm**-0.731631 + (
         (391.672 * wm**-0.372296 + 937.422 * wb**-0.97966) * wm**0.0192951 * wb**0.93681
     )
 
 
 def z_drag(wb, wm):
-    # arXiv:2106.00428v2 (A2)
+    # arXiv:2106.00428v2 (eq A2)
     return (
         1 + 428.169 * wb**0.256459 * wm**0.616388 + 925.56 * wm**0.751615
     ) * wm**-0.714129
@@ -63,3 +63,10 @@ def cmb_distances(Ez_func, H0, Om, Ob_h2):
     R = np.sqrt(Om) * H0 * (1 + zstar) * DA_star / c
     lA = (1 + zstar) * np.pi * DA_star / rs_star
     return np.array([R, lA, Ob_h2])
+
+
+def r_drag(wb, wm):
+    # arXiv:2106.00428v2 (eq 6)
+    numerator = 45.5337 * np.log(7.20376 / wm)
+    denominator = np.sqrt(1 + 9.98592 * (wb**0.801347))
+    return numerator / denominator
