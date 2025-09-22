@@ -6,23 +6,11 @@ from scipy.linalg import cho_factor, cho_solve
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from y2023union3.data import get_data
+import cmb.data as cmb
 from .plotting import plot_predictions
 
 
-c = 299792.458  # km/s
-
-# --- PLANCK DISTANCE PRIORS (Chen+2018 arXiv:1808.05724v1) ---
-planck_priors = np.array([1.750235, 301.4707, 0.02235976])  # R, lA, Ωb x h^2
-inv_cov_mat = np.array(
-    [
-        [94392.3971, -1360.4913, 1664517.2916],
-        [-1360.4913, 161.4349, 3671.618],
-        [1664517.2916, 3671.618, 79719182.5162],
-    ]
-)
-N_EFF = 3.046
-TCMB = 2.7255  # K
-O_GAMMA_H2 = 2.4728e-5 * (TCMB / 2.7255) ** 4
+c = cmb.c  # km/s
 
 sn_legend, z_sn_vals, mu_vals, cov_matrix_sn = get_data()
 cho_sn = cho_factor(cov_matrix_sn)
@@ -30,14 +18,10 @@ cho_sn = cho_factor(cov_matrix_sn)
 sn_grid = np.linspace(0, np.max(z_sn_vals), num=3000)
 
 
-def Omega_r_h2(Neff=N_EFF):
-    return O_GAMMA_H2 * (1 + 0.2271 * Neff)
-
-
 def Ez(z, params):
     H0, Om, w0 = params[0], params[1], params[3]
     h = H0 / 100
-    Or = Omega_r_h2() / h**2
+    Or = cmb.Omega_r_h2() / h**2
     Ode = 1 - Om - Or
     one_plus_z = 1 + z
     rho_de = (2 * one_plus_z**3 / (1 + one_plus_z**3)) ** (2 * (1 + w0))
@@ -45,43 +29,23 @@ def Ez(z, params):
     return np.sqrt(Or * one_plus_z**4 + Om * one_plus_z**3 + Ode * rho_de)
 
 
-def integral_Ez(params):
-    integral_values = cumulative_trapezoid(1 / Ez(sn_grid, params), sn_grid, initial=0)
-    return np.interp(z_sn_vals, sn_grid, integral_values)
-
-
-def distance_modulus(params):
+def mu_theory(params):
     H0, offset_mag = params[0], params[-1]
-    dL = (1 + z_sn_vals) * integral_Ez(params) * c / H0
+    integral_vals = cumulative_trapezoid(1 / Ez(sn_grid, params), sn_grid, initial=0)
+    I = np.interp(z_sn_vals, sn_grid, integral_vals)
+    dL = (1 + z_sn_vals) * I * c / H0
     return offset_mag + 25 + 5 * np.log10(dL)
-
-
-def z_star(wb, wm):
-    # arXiv:2106.00428v2
-    return wm**-0.731631 + (
-        (391.672 * wm**-0.372296 + 937.422 * wb**-0.97966) * wm**0.0192951 * wb**0.93681
-    )
-
-
-def z_drag(wb, wm):
-    # arXiv:2106.00428v2
-    return (
-        1 + 428.169 * wb**0.256459 * wm**0.616388 + 925.56 * wm**0.751615
-    ) * wm**-0.714129
 
 
 def rs_z(z, params):
     H0, Ob_h2 = params[0], params[2]
-    Rb = 3 * Ob_h2 / (4 * O_GAMMA_H2)
+    Rb = 3 * Ob_h2 / (4 * cmb.O_GAMMA_H2)
 
-    def integrand(a):
-        zp = -1 + 1 / a
-        denominator = a**2 * Ez(zp, params) * np.sqrt(3 * (1 + Rb * a))
+    def integrand(zp):
+        denominator = Ez(zp, params) * np.sqrt(3 * (1 + Rb / (1 + zp)))
         return 1 / denominator
 
-    a_lower = 1e-8
-    a_upper = 1 / (1 + z)
-    I = quad(integrand, a_lower, a_upper)[0]
+    I = quad(integrand, z, np.inf, limit=100)[0]
     return (c / H0) * I
 
 
@@ -93,7 +57,7 @@ def DA_z(z, params):
 def cmb_distances(params):
     H0, Om, Ob_h2 = params[0], params[1], params[2]
     Om_h2 = Om * (H0 / 100) ** 2
-    zstar = z_star(Ob_h2, Om_h2)
+    zstar = cmb.z_star(Ob_h2, Om_h2)
     rs_star = rs_z(zstar, params)
     DA_star = DA_z(zstar, params)
 
@@ -103,10 +67,10 @@ def cmb_distances(params):
 
 
 def chi_squared(params):
-    delta = planck_priors - cmb_distances(params)
-    chi2_cmb = delta @ inv_cov_mat @ delta
+    delta = cmb.DISTANCE_PRIORS - cmb_distances(params)
+    chi2_cmb = delta @ cmb.inv_cov_mat @ delta
 
-    delta_sn = mu_vals - distance_modulus(params)
+    delta_sn = mu_vals - mu_theory(params)
     chi_sn = np.dot(delta_sn, cho_solve(cho_sn, delta_sn))
 
     return chi2_cmb + chi_sn
@@ -117,7 +81,7 @@ bounds = np.array(
         (60, 75),  # H0
         (0.1, 0.45),  # Ωm
         (0.019, 0.025),  # Ωb * h^2
-        (-1.5, 0),  # w0
+        (-1.7, -0.3),  # w0
         (-0.7, 0.7),  # ΔM
     ]
 )
@@ -172,21 +136,30 @@ def main():
 
     best_fit = [H0_50, Om_50, Obh2_50, w0_50, dM_50]
 
-    Omh2_50 = Om_50 * (H0_50 / 100) ** 2
-    z_st = z_star(Obh2_50, Omh2_50)
-    z_dr = z_drag(Obh2_50, Omh2_50)
+    Omh2_samples = samples[:, 1] * (samples[:, 0] / 100) ** 2
+    z_star_samples = cmb.z_star(samples[:, 2], Omh2_samples)
+    z_drag_samples = cmb.z_drag(samples[:, 2], Omh2_samples)
+
+    Omh2_16, Omh2_50, Omh2_84 = np.percentile(Omh2_samples, [15.9, 50, 84.1])
+    z_st_16, z_st_50, z_st_84 = np.percentile(z_star_samples, [15.9, 50, 84.1])
+    z_dr_16, z_dr_50, z_dr_84 = np.percentile(z_drag_samples, [15.9, 50, 84.1])
 
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
+    print(
+        f"Ωm h^2: {Omh2_50:.5f} +{(Omh2_84 - Omh2_50):.5f} -{(Omh2_50 - Omh2_16):.5f}"
+    )
     print(
         f"Ωb h^2: {Obh2_50:.5f} +{(Obh2_84 - Obh2_50):.5f} -{(Obh2_50 - Obh2_16):.5f}"
     )
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f}")
-    print(f"z*: {z_st:.2f}")
-    print(f"z_drag: {z_dr:.2f}")
-    print(f"r_s(z*) = {rs_z(z_st, best_fit):.2f} Mpc")
-    print(f"r_s(z_drag) = {rs_z(z_dr, best_fit):.2f} Mpc")
+    print(f"z*: {z_st_50:.2f} +{(z_st_84 - z_st_50):.2f} -{(z_st_50 - z_st_16):.2f}")
+    print(
+        f"z_drag: {z_dr_50:.2f} +{(z_dr_84 - z_dr_50):.2f} -{(z_dr_50 - z_dr_16):.2f}"
+    )
+    print(f"r_s(z*) = {rs_z(z_st_50, best_fit):.2f} Mpc")
+    print(f"r_s(z_drag) = {rs_z(z_dr_50, best_fit):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
 
     plot_predictions(
@@ -194,7 +167,7 @@ def main():
         x=z_sn_vals,
         y=mu_vals,
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=distance_modulus(best_fit),
+        y_model=mu_theory(best_fit),
         label=f"Best fit: $Ω_m$={Om_50:.3f}",
         x_scale="log",
     )
@@ -235,29 +208,31 @@ Sample size: 22
 *******************************
 
 Flat ΛCDM w(z) = -1
-H0: 67.14 +0.59 -0.58 km/s/Mpc
+H0: 67.13 +0.59 -0.58 km/s/Mpc
 Ωm: 0.321 ± 0.008
-Ωb h^2: 0.02232 ± 0.00015
+Ωm h^2: 0.14446 +0.00122 -0.00123
+Ωb h^2: 0.02231 ± 0.00015
 w0: -1
-ΔM: -0.166 ± 0.090
-z*: 1089.00
-z_drag: 1059.88
+ΔM: -0.167 +0.090 -0.091
+z*: 1089.00 +0.22 -0.21
+z_drag: 1059.88 +0.29 -0.30
 r_s(z*) = 144.03 Mpc
-r_s(z_drag) = 146.60 Mpc
+r_s(z_drag) = 146.61 Mpc
 Chi squared: 26.0
 Degrees of freedom: 21
 
 ===============================
 
 Flat wCDM w(z) = w0
-H0: 65.33 +1.24 -1.24 km/s/Mpc
+H0: 65.30 +1.25 -1.23 km/s/Mpc
 Ωm: 0.337 +0.014 -0.013
-Ωb h^2: 0.02236 +0.00015 -0.00015
-w0: -0.928 +0.044 -0.044
-ΔM: -0.216 +0.095 -0.095
-z*: 1088.91
-z_drag: 1059.93
-r_s(z*) = 144.16 Mpc
+Ωm h^2: 0.14383 ± 0.00129
+Ωb h^2: 0.02236 ± 0.00015
+w0: -0.927 ± 0.044
+ΔM: -0.216 +0.095 -0.096
+z*: 1088.91 ± 0.22
+z_drag: 1059.94 ± 0.30
+r_s(z*) = 144.17 Mpc
 r_s(z_drag) = 146.73 Mpc
 Chi squared: 23.2 (Δ chi2 2.8)
 Degrees of freedom: 20
@@ -265,31 +240,33 @@ Degrees of freedom: 20
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)^3)
-H0: 65.39 +1.10 -1.09 km/s/Mpc
-Ωm: 0.336 +0.012 -0.012
-Ωb h^2: 0.02237 +0.00015 -0.00015
-w0: -0.877 +0.068 -0.067
+H0: 65.41 ± 1.08 km/s/Mpc
+Ωm: 0.336 ± 0.012
+Ωm h^2: 0.14380 +0.00127 -0.00128
+Ωb h^2: 0.02236 ± 0.00015
+w0: -0.878 ± 0.067
 ΔM: -0.209 +0.093 -0.094
-z*: 1088.90
-z_drag: 1059.94
-r_s(z*) = 144.17 Mpc
-r_s(z_drag) = 146.73 Mpc
+z*: 1088.90 ± 0.22
+z_drag: 1059.94 ± 0.30
+r_s(z*) = 144.18 Mpc
+r_s(z_drag) = 146.74 Mpc
 Chi squared: 22.6 (Δ chi2 3.4)
 Degrees of freedom: 20
 
 ===============================
 
 Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
-H0: 66.64 +1.33 -1.38 km/s/Mpc
-Ωm: 0.324 +0.014 -0.013
-Ωb h^2: 0.02235 +0.00015 -0.00015
-w0: -0.686 +0.161 -0.161
-wa: -1.147 +0.747 -0.773
-ΔM: -0.152 +0.100 -0.102
-z*: 1088.94
-z_drag: 1059.92
+H0: 66.58 +1.34 -1.38 km/s/Mpc
+Ωm: 0.325 +0.015 -0.013
+Ωm h^2: 0.14396 +0.00131 -0.00129
+Ωb h^2: 0.02235 ± 0.00015
+w0: -0.689 +0.154 -0.159
+wa: -1.122 +0.732 -0.734
+ΔM: -0.154 +0.100 -0.101
+z*: 1088.93 ± 0.22
+z_drag: 1059.93 ± 0.30
 r_s(z*) = 144.13 Mpc
 r_s(z_drag) = 146.69 Mpc
-Chi squared: 21.9 (Δ chi2 4.1)
+Chi squared: 21.80 (Δ chi2 4.2)
 Degrees of freedom: 19
 """
