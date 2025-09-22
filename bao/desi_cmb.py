@@ -6,9 +6,10 @@ from scipy.linalg import cho_factor, cho_solve
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from y2025BAO.data import get_data as get_bao_data
-import cmb.data as cmb
+import cmb.data_desi_compression as cmb
 from .plot_predictions import plot_bao_predictions
 
+c = cmb.c  # speed of light in km/s
 
 bao_legend, bao_data, bao_cov_matrix = get_bao_data()
 cho_bao = cho_factor(bao_cov_matrix)
@@ -27,44 +28,12 @@ def Ez(z, params):
     return np.sqrt(Or * one_plus_z**4 + Om * cubed + Ode * rho_de)
 
 
-def rs_z(z, params):
-    H0, Ob_h2 = params[0], params[2]
-    Rb = 3 * Ob_h2 / (4 * cmb.O_GAMMA_H2)
-
-    def integrand(a):
-        zp = -1 + 1 / a
-        denom = a**2 * Ez(zp, params) * np.sqrt(3 * (1 + Rb * a))
-        return 1 / denom
-
-    a_lower = 1e-8
-    a_upper = 1 / (1 + z)
-    I = quad(integrand, a_lower, a_upper)[0]
-    return (cmb.c / H0) * I
-
-
-def DA_z(z, params):
-    integral = quad(lambda zp: 1 / Ez(zp, params), 0, z)[0]
-    return (cmb.c / params[0]) * integral / (1 + z)
-
-
-def cmb_distances(params):
-    H0, Om, Ob_h2 = params[0], params[1], params[2]
-    Om_h2 = Om * (H0 / 100) ** 2
-    zstar = cmb.z_star(Ob_h2, Om_h2)
-    rs_star = rs_z(zstar, params)
-    DA_star = DA_z(zstar, params)
-
-    lA = (1 + zstar) * np.pi * DA_star / rs_star
-    R = np.sqrt(Om) * H0 * (1 + zstar) * DA_star / cmb.c
-    return np.array([R, lA, Ob_h2])
-
-
 def H_z(z, params):
     return params[0] * Ez(z, params)
 
 
 def DH_z(z, params):
-    return cmb.c / H_z(z, params)
+    return c / H_z(z, params)
 
 
 def DM_z(z, params):
@@ -72,7 +41,7 @@ def DM_z(z, params):
 
 
 def DV_z(z, params):
-    DH = cmb.c / H_z(z, params)
+    DH = c / H_z(z, params)
     DM = DM_z(z, params)
     return (z * DH * DM**2) ** (1 / 3)
 
@@ -93,7 +62,9 @@ def bao_predictions(z, qty, params):
 
 
 def chi_squared(params):
-    delta = cmb.DISTANCE_PRIORS - cmb_distances(params)
+    H0, Om, Ob_h2 = params[0], params[1], params[2]
+    Ez_func = lambda z: Ez(z, params)
+    delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez_func, H0, Om, Ob_h2)
     chi2_cmb = delta @ cmb.inv_cov_mat @ delta
 
     delta_bao = bao_data["value"] - bao_predictions(
@@ -106,10 +77,10 @@ def chi_squared(params):
 
 bounds = np.array(
     [
-        (60, 75),  # H0
-        (0.1, 0.6),  # Ωm
-        (0.019, 0.025),  # Ωb * h^2
-        (-2, 0),  # w0
+        (55, 75),  # H0
+        (0.15, 0.45),  # Ωm
+        (0.021, 0.023),  # Ωb * h^2
+        (-1.5, 0),  # w0
     ]
 )
 
@@ -155,27 +126,40 @@ def main():
     samples = sampler.get_chain(discard=burn_in, flat=True)
 
     pct = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
-    (H0_16, H0_50, H0_84) = pct[0]
-    (Om_16, Om_50, Om_84) = pct[1]
-    (Obh2_16, Obh2_50, Obh2_84) = pct[2]
-    (w0_16, w0_50, w0_84) = pct[3]
+    H0_16, H0_50, H0_84 = pct[0]
+    Om_16, Om_50, Om_84 = pct[1]
+    Obh2_16, Obh2_50, Obh2_84 = pct[2]
+    w0_16, w0_50, w0_84 = pct[3]
 
     best_fit = [H0_50, Om_50, Obh2_50, w0_50]
 
-    Omh2_50 = Om_50 * (H0_50 / 100) ** 2
-    z_st = cmb.z_star(Obh2_50, Omh2_50)
-    z_dr = cmb.z_drag(Obh2_50, Omh2_50)
+    Om_h2_samples = samples[:, 1] * (samples[:, 0] / 100) ** 2
+    z_st_samples = cmb.z_star(samples[:, 2], Om_h2_samples)
+    z_dr_samples = cmb.z_drag(samples[:, 2], Om_h2_samples)
+    r_drag_samples = cmb.r_drag(samples[:, 2], Om_h2_samples)
+
+    Omh2_16, Omh2_50, Omh2_84 = np.percentile(Om_h2_samples, [15.9, 50, 84.1])
+    r_d_16, r_d_50, r_d_84 = np.percentile(r_drag_samples, [15.9, 50, 84.1])
+    z_st_16, z_st_50, z_st_84 = np.percentile(z_st_samples, [15.9, 50, 84.1])
+    z_d_16, z_d_50, z_d_84 = np.percentile(z_dr_samples, [15.9, 50, 84.1])
 
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(
+        f"Ωm h^2: {Omh2_50:.5f} +{(Omh2_84 - Omh2_50):.5f} -{(Omh2_50 - Omh2_16):.5f}"
+    )
+    print(
         f"Ωb h^2: {Obh2_50:.5f} +{(Obh2_84 - Obh2_50):.5f} -{(Obh2_50 - Obh2_16):.5f}"
     )
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
-    print(f"z*: {z_st:.2f}")
-    print(f"z_drag: {z_dr:.2f}")
-    print(f"r_s(z*) = {rs_z(z_st, best_fit):.2f} Mpc")
-    print(f"r_s(z_drag) = {rs_z(z_dr, best_fit):.2f} Mpc")
+    print(f"z*: {z_st_50:.2f} +{(z_st_84 - z_st_50):.2f} -{(z_st_50 - z_st_16):.2f}")
+    print(f"z_drag: {z_d_50:.2f} +{(z_d_84 - z_d_50):.2f} -{(z_d_50 - z_d_16):.2f}")
+    print(
+        f"r_s(z*) = {cmb.rs_z(lambda z: Ez(z, best_fit), z_st_50, H0_50, Obh2_50):.2f} Mpc"
+    )
+    print(
+        f"r_s(z_drag) = {r_d_50:.2f} +{(r_d_84 - r_d_50):.2f} -{(r_d_50 - r_d_16):.2f} Mpc"
+    )
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
 
     plot_bao_predictions(
@@ -215,66 +199,70 @@ if __name__ == "__main__":
 
 """
 *******************************
-Dataset: DESI DR2 2024
+Dataset: DESI DR2 2024 + (θ∗,ωb,ωbc)CMB
 *******************************
 
 Flat ΛCDM w(z) = -1
-H0: 68.62 ± 0.30 km/s/Mpc
-Ωm: 0.300 ± 0.004
-Ωb h^2: 0.02254 ± 0.00012
+H0: 68.50 ± 0.30 km/s/Mpc
+Ωm: 0.299 ± 0.004
+Ωm h^2: 0.14012 ± 0.00062
+Ωb h^2: 0.02239 ± 0.00012
 w0: -1
-z*: 1088.55
-z_drag: 1060.17
-r_s(z*) = 144.68 Mpc
-r_s(z_drag) = 147.21 Mpc
-Chi squared: 15.26
+z*: 1088.63 ± 0.14
+z_drag: 1059.72 ± 0.27
+r_s(z*) = 145.11 Mpc
+r_s(z_drag) = 147.69 ± 0.19 Mpc
+Chi squared: 13.92
 Degs of freedom: 14
 
 ===============================
 
 Flat wCDM w(z) = w0
-H0: 69.27 +0.99 -0.95 km/s/Mpc
-Ωm: 0.296 ± 0.008
-Ωb h^2: 0.02251 ± 0.00013
-w0: -1.028 +0.039 -0.041
-z*: 1088.62
-z_drag: 1060.12
-r_s(z*) = 144.59 Mpc
-r_s(z_drag) = 147.12 Mpc
-Chi squared: 14.81 (Δ chi2 0.45)
+H0: 68.91 +0.95 -0.93 km/s/Mpc
+Ωm: 0.296 ± 0.007
+Ωm h^2: 0.14041 +0.00087 -0.00088
+Ωb h^2: 0.02236 ± 0.00013
+w0: -1.018 +0.038 -0.039
+z*: 1088.68 ± 0.17
+z_drag: 1059.68 ± 0.28
+r_s(z*) = 145.05 Mpc
+r_s(z_drag) = 147.63 ± 0.22 Mpc
+Chi squared: 13.76 (Δ chi2 0.16)
 Degs of freedom: 13
 
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-H0: 68.63 +1.45 -1.37 km/s/Mpc
-Ωm: 0.300 ± 0.012
-Ωb h^2: 0.02254 ± 0.00013
-w0: -1.000 +0.088 -0.091
-z*: 1088.55
-z_drag: 1060.17
-r_s(z*) = 144.68 Mpc
-r_s(z_drag) = 147.21 Mpc
-Chi squared: 15.26 (Δ chi2 0.00)
+H0: 68.20 +1.43 -1.36 km/s/Mpc
+Ωm: 0.301 ± 0.012
+Ωm h^2: 0.14001 +0.00079 -0.00078
+Ωb h^2: 0.02239 ± 0.00013
+w0: -0.981 +0.088 -0.090
+z*: 1088.62 ± 0.16
+z_drag: 1059.73 +0.27 -0.28
+r_s(z*) = 145.13 Mpc
+r_s(z_drag) = 147.71 ± 0.21 Mpc
+Chi squared: 13.86 (Δ chi2 0.06)
 Degs of freedom: 13
 
 ===============================
 
 Flat w(z) = w0 + wa * z / (1 + z)
-H0: 63.81 +2.01 -1.78 km/s/Mpc
-Ωm: 0.353 +0.021 -0.022
-Ωb h^2: 0.02238 ± 0.00014
-w0: -0.423 +0.217 -0.223
-wa: -1.723 +0.644 -0.654
-z*: 1088.87
-z_drag: 1059.96
-r_s(z*) = 144.22 Mpc
-r_s(z_drag) = 146.78 Mpc
-Chi squared: 7.24 (Δ chi2 8.02)
+H0: 63.84 +2.04 -1.89 km/s/Mpc
+Ωm: 0.348 +0.023 -0.022
+Ωm h^2: 0.14198 +0.00096 -0.00098
+Ωb h^2: 0.02223 +0.00014 -0.00013
+w0: -0.460 +0.229 -0.222
+wa: -1.578 +0.638 -0.679
+z*: 1088.93 ± 0.19
+z_drag: 1059.51 ± 0.28
+r_s(z*) = 144.72 Mpc
+r_s(z_drag) = 147.32 +0.24 -0.23 Mpc
+Chi squared: 7.36 (Δ chi2 6.56)
 Degs of freedom: 12
 
 *******************************
-Dataset: SDSS DR16 2020
+Dataset: SDSS DR16 2020 + Chen+2018 CMB compression
 *******************************
 
 Flat ΛCDM w(z) = -1
