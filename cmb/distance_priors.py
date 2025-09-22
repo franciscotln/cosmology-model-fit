@@ -1,3 +1,4 @@
+from matplotlib.pylab import f
 import numpy as np
 import emcee
 import corner
@@ -76,13 +77,18 @@ def main():
 
     best_fit = [H0_50, Om_50, Obh2_50]
 
+    Omh2_samples = samples[:, 1] * (samples[:, 0] / 100.0) ** 2
     z_st_samples = cmb.z_star(samples[:, 2], samples[:, 1] * (samples[:, 0] / 100) ** 2)
     z_dr_samples = cmb.z_drag(samples[:, 2], samples[:, 1] * (samples[:, 0] / 100) ** 2)
+    Omh2_16, Omh2_50, Omh2_84 = np.percentile(Omh2_samples, [15.9, 50, 84.1])
     z_st_16, z_st_50, z_st_84 = np.percentile(z_st_samples, [15.9, 50, 84.1])
     z_d_16, z_d_50, z_d_84 = np.percentile(z_dr_samples, [15.9, 50, 84.1])
 
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
     print(f"Ωm: {Om_50:.4f} +{(Om_84 - Om_50):.4f} -{(Om_50 - Om_16):.4f}")
+    print(
+        f"Ωm h^2: {Omh2_50:.5f} +{(Omh2_84 - Omh2_50):.5f} -{(Omh2_50 - Omh2_16):.5f}"
+    )
     print(
         f"Ωb h^2: {Obh2_50:.5f} +{(Obh2_84 - Obh2_50):.5f} -{(Obh2_50 - Obh2_16):.5f}"
     )
@@ -127,14 +133,15 @@ Flat ΛCDM w(z) = -1
 ===============================
 
 Chen+2018 compression
-H0: 67.40 +0.62 -0.61 km/s/Mpc
-Ωm: 0.3168 +0.0086 -0.0084
+H0: 67.41 +0.62 -0.61 km/s/Mpc
+Ωm: 0.3166 +0.0086 -0.0084
+Ωm h^2: 0.14388 +0.00129 -0.00128
 Ωb h^2: 0.02236 ± 0.00015
 z*: 1088.92 ± 0.22
 z_drag: 1059.93 ± 0.30
 r_s(z*) = 144.16 Mpc
 r_s(z_drag) = 146.72 Mpc
-Chi squared: 0.0012
+Chi squared: 0.0003
 
 ===============================
 
