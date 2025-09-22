@@ -228,18 +228,6 @@ Reduced chi squared: 0.8838
 
 =============================
 
-Flat w(z) = -1 + (1 + w0) / (1 + z)**3
-M: -19.347 +0.010/-0.010
-Ωm: 0.314 +0.039/-0.040
-w0: -0.92 +0.13/-0.15
-R-squared (%): 99.74
-RMSD (mag): 0.153
-Skewness of residuals: 0.080
-kurtosis of residuals: 1.589
-Reduced chi squared: 0.8838
-
-=============================
-
 Flat w0waCDM
 M0: 19.348 +0.010/-0.010
 Ωm: 0.337 +0.082/-0.148
