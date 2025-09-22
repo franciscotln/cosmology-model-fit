@@ -10,7 +10,7 @@ import cmb.data as cmb
 from hubble.plotting import plot_predictions as plot_sn_predictions
 
 
-c = 299792.458  # km/s
+c = cmb.c  # km/s
 
 
 sn_legend, z_cmb, z_hel, mu_values, cov_matrix_sn = get_data()
@@ -30,15 +30,11 @@ def Ez(z, params):
     return np.sqrt(Or * one_plus_z**4 + Om * one_plus_z**3 + Ode * rho_de)
 
 
-def integral_Ez(params):
-    integral_values = cumulative_trapezoid(1 / Ez(sn_grid, params), sn_grid, initial=0)
-    return np.interp(z_cmb, sn_grid, integral_values)
-
-
 def theory_mu(params):
-    H0, offset_mag = params[0], params[-1]
-    dL = (1 + z_hel) * integral_Ez(params) * c / H0
-    return offset_mag + 25 + 5 * np.log10(dL)
+    H0, mag_offset = params[0], params[-1]
+    integral_vals = cumulative_trapezoid(1 / Ez(sn_grid, params), sn_grid, initial=0)
+    I = np.interp(z_cmb, sn_grid, integral_vals)
+    return mag_offset + 25 + 5 * np.log10((1 + z_hel) * I * c / H0)
 
 
 def rs_z(z, params):
@@ -236,6 +232,16 @@ Degrees of freedom: 1733
 ===============================
 
 Flat w(z) = w0 + wa * z / (1 + z)
-
+H0: 67.08 +1.02 -1.13 km/s/Mpc
+Ωm: 0.320 +0.012 -0.011
+Ωb h^2: 0.02235 +0.00015 -0.00015
+w0: -0.770 +0.112 -0.114
+wa: -0.859 +0.563 -0.575
+ΔM: -0.055 +0.034 -0.038
+z*: 1088.94
+z_drag: 1059.93
+r_s(z*) = 144.12 Mpc
+r_s(z_drag) = 146.68 Mpc
+Chi squared: 1637.34 (Δ chi2 6.34)
 Degrees of freedom: 1732
 """
