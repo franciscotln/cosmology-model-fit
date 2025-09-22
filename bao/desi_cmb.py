@@ -87,7 +87,7 @@ bao_funcs = {
 def bao_predictions(z, qty, params):
     H0, Om, Obh2 = params[0], params[1], params[2]
     Omh2 = Om * (H0 / 100) ** 2
-    rd = rs_z(cmb.z_drag(Obh2, Omh2), params)
+    rd = cmb.r_drag(wb=Obh2, wm=Omh2)
 
     return np.array([bao_funcs[q](zi, params) / rd for zi, q in zip(z, qty)])
 
