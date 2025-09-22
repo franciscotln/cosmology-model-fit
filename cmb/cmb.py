@@ -16,7 +16,9 @@ def Ez(z, H0, Om):
 
 
 def chi_squared(params):
-    delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez, *params)
+    H0, Om, Ob_h2 = params
+    Ez_func = lambda z: Ez(z, H0, Om)
+    delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez_func, H0, Om, Ob_h2)
     return delta @ cmb.inv_cov_mat @ delta
 
 
@@ -95,7 +97,9 @@ def main():
     )
     print(f"z*: {z_st_50:.2f} +{(z_st_84 - z_st_50):.2f} -{(z_st_50 - z_st_16):.2f}")
     print(f"z_drag: {z_d_50:.2f} +{(z_d_84 - z_d_50):.2f} -{(z_d_50 - z_d_16):.2f}")
-    print(f"r_s(z*) = {cmb.rs_z(Ez, z_st_50, *best_fit):.2f} Mpc")
+    print(
+        f"r_s(z*) = {cmb.rs_z(lambda z: Ez(z, H0_50, Om_50), z_st_50, H0_50, Obh2_50):.2f} Mpc"
+    )
     print(
         f"r_s(z_drag) = {r_d_50:.2f} +{(r_d_84 - r_d_50):.2f} -{(r_d_50 - r_d_16):.2f} Mpc"
     )
