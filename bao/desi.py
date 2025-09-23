@@ -15,12 +15,12 @@ cho = cho_factor(cov_matrix)
 rd = 147.09  # Mpc, fixed
 
 
-def H_z(z, H0, Om, w0):
+def H_z(z, h, Om, w0):
     OL = 1 - Om
     one_plus_z = 1 + z
     cubed = one_plus_z**3
     rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
-    return H0 * np.sqrt(Om * cubed + OL * rho_de)
+    return 100 * h * np.sqrt(Om * cubed + OL * rho_de)
 
 
 def DH_z(z, params):
@@ -50,9 +50,9 @@ def theory_predictions(z, qty, params):
 
 bounds = np.array(
     [
-        (50, 80),  # H0
-        (0.1, 0.7),  # Ωm
-        (-1.5, 0),  # w0
+        (0.550, 0.750),  # h
+        (0.150, 0.450),  # Ωm
+        (-1.650, 0.000),  # w0
     ]
 )
 
@@ -102,12 +102,12 @@ def main():
     samples = sampler.get_chain(discard=burn_in, flat=True)
 
     [
-        [H0_16, H0_50, H0_84],
+        [h_16, h_50, h_84],
         [Om_16, Om_50, Om_84],
         [w0_16, w0_50, w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = [H0_50, Om_50, w0_50]
+    best_fit = [h_50, Om_50, w0_50]
     residuals = data["value"] - theory_predictions(
         data["z"], data["quantity"], best_fit
     )
@@ -115,8 +115,8 @@ def main():
     SS_tot = np.sum((data["value"] - np.mean(data["value"])) ** 2)
     r2 = 1 - SS_res / SS_tot
 
-    print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
-    print(f"Ωm: {Om_50:.4f} +{Om_84-Om_50:.4f} -{Om_50-Om_16:.4f}")
+    print(f"h: {h_50:.3f} +{(h_84 - h_50):.3f} -{(h_50 - h_16):.3f}")
+    print(f"Ωm: {Om_50:.3f} +{Om_84-Om_50:.3f} -{Om_50-Om_16:.3f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Degs of freedom: {data['value'].size  - len(best_fit)}")
@@ -127,11 +127,11 @@ def main():
         theory_predictions=lambda z, qty: theory_predictions(z, qty, best_fit),
         data=data,
         errors=np.sqrt(np.diag(cov_matrix)),
-        title=f"{legend}: $H_0$={H0_50:.2f} km/s/Mpc, $\\Omega_m$={Om_50:.4f}",
+        title=f"{legend}: $H_0$={100 * h_50:.1f} km/s/Mpc, $Ω_m$={Om_50:.3f}",
     )
     corner.corner(
         samples,
-        labels=["$H_0$", "$Ω_m$", "$w_0$"],
+        labels=["$h$", "$Ω_m$", "$w_0$"],
         quantiles=[0.159, 0.5, 0.841],
         show_titles=True,
         title_fmt=".3f",
@@ -156,8 +156,8 @@ Dataset: DESI DR2 2024
 
 Flat ΛCDM:
 rd: 147.09 Mpc (fixed)
-H0: 69.02 +0.50 -0.50 km/s/Mpc
-Ωm: 0.2977 +0.0087 -0.0085
+h: 0.690 +0.005 -0.005
+Ωm: 0.298 +0.009 -0.008
 w0: -1
 Chi squared: 10.27
 Degs of freedom: 11
@@ -168,10 +168,10 @@ RMSD: 0.305
 
 Flat wCDM:
 rd: 147.09 Mpc (fixed)
-H0: 67.85 +1.20 -1.13 km/s/Mpc
-Ωm: 0.2970 +0.0090 -0.0088
-w0: -0.916 +0.076 -0.080 (1.05 - 1.11 sigma from -1)
-Chi squared: 9.11
+h: 0.678 +0.012 -0.011
+Ωm: 0.297 ± 0.009
+w0: -0.915 +0.076 -0.080 (1.06 - 1.12 sigma from -1)
+Chi squared: 9.11 (Δ chi2 1.16)
 Degs of freedom: 10
 R^2: 0.9989
 RMSD: 0.279
@@ -180,10 +180,10 @@ RMSD: 0.279
 
 Flat alternative: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
 rd: 147.09 Mpc (fixed)
-H0: 67.01 +1.61 -1.51 km/s/Mpc
-Ωm: 0.3079 +0.0117 -0.0117
-w0: -0.833 +0.122 -0.129 (1.29 - 1.37 sigma from -1)
-Chi squared: 8.44
+h: 0.670 +0.016 -0.015
+Ωm: 0.308 ± 0.012
+w0: -0.831 +0.122 -0.130 (1.30 - 1.39 sigma from -1)
+Chi squared: 8.43 (Δ chi2 1.84)
 Degs of freedom: 10
 R^2: 0.9990
 RMSD: 0.265
@@ -193,8 +193,8 @@ Dataset: SDSS 2020 compilation
 *******************************
 
 Flat ΛCDM:
-H0: 68.82 +0.73 -0.73 km/s/Mpc
-Ωm: 0.2944 +0.0163 -0.0154
+h: 0.688 +0.007 -0.007
+Ωm: 0.294 +0.016 -0.015
 w0: -1
 Chi squared: 11.81
 Degs of freedom: 15
@@ -204,22 +204,22 @@ RMSD: 0.684
 ===============================
 
 Flat wCDM:
-H0: 66.52 +1.75 -1.63 km/s/Mpc
-Ωm: 0.2845 +0.0189 -0.0210
-w0: -0.811 +0.130 -0.133
-Chi squared: 9.81
+h: 0.665 +0.018 -0.016
+Ωm: 0.284 +0.019 -0.021
+w0: -0.810 +0.129 -0.134
+Chi squared: 9.82
 Degs of freedom: 14
 R^2: 0.9956
-RMSD: 0.676
+RMSD: 0.677
 
 ===============================
 
 Flat alternative: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-H0: 66.28 +2.13 -1.98 km/s/Mpc
-Ωm: 0.3042 +0.0185 -0.0175
-w0: -0.768 +0.172 -0.185
-Chi squared: 10.04
+h: 0.663 +0.021 -0.020
+Ωm: 0.304 +0.019 -0.018
+w0: -0.769 +0.174 -0.185
+Chi squared: 10.05
 Degs of freedom: 14
-R^2: 0.9956
-RMSD: 0.678
+R^2: 0.9955
+RMSD: 0.680
 """
