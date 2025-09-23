@@ -3,11 +3,11 @@ import emcee
 import corner
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
-import cmb.data as cmb
+import cmb.data_union3_compression as cmb
 
 
-def Ez(z, H0, Om):
-    h = H0 / 100
+def Ez(z, params):
+    h, Om = params[0] / 100, params[1]
     Or = cmb.Omega_r_h2() / h**2
     Ode = 1 - Om - Or
     one_plus_z = 1 + z
@@ -16,10 +16,8 @@ def Ez(z, H0, Om):
 
 
 def chi_squared(params):
-    H0, Om, Ob_h2 = params
-    Ez_func = lambda z: Ez(z, H0, Om)
-    delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez_func, H0, Om, Ob_h2)
-    return delta @ cmb.inv_cov_mat @ delta
+    delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(lambda z: Ez(z, params), *params)
+    return np.dot(delta, np.dot(cmb.inv_cov_mat, delta))
 
 
 bounds = np.array(
@@ -50,9 +48,9 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 20 * ndim
+    nwalkers = 16 * ndim
     burn_in = 500
-    nsteps = 15000 + burn_in
+    nsteps = 16000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):
@@ -98,7 +96,7 @@ def main():
     print(f"z*: {z_st_50:.2f} +{(z_st_84 - z_st_50):.2f} -{(z_st_50 - z_st_16):.2f}")
     print(f"z_drag: {z_d_50:.2f} +{(z_d_84 - z_d_50):.2f} -{(z_d_50 - z_d_16):.2f}")
     print(
-        f"r_s(z*) = {cmb.rs_z(lambda z: Ez(z, H0_50, Om_50), z_st_50, H0_50, Obh2_50):.2f} Mpc"
+        f"r_s(z*) = {cmb.rs_z(lambda z: Ez(z, best_fit), z_st_50, H0_50, Obh2_50):.2f} Mpc"
     )
     print(
         f"r_s(z_drag) = {r_d_50:.2f} +{(r_d_84 - r_d_50):.2f} -{(r_d_50 - r_d_16):.2f} Mpc"
@@ -153,15 +151,15 @@ Chi squared: 0.0003
 ===============================
 
 Rubin+ Union3 compression
-H0: 67.14 ± 0.61 km/s/Mpc
+H0: 67.11 ± 0.61 km/s/Mpc
 Ωm: 0.3151 +0.0085 -0.0083
-Ωm h^2: 0.14204 +0.00126 -0.00125
+Ωm h^2: 0.14194 +0.00126 -0.00125
 Ωb h^2: 0.02239 ± 0.00015
-z*: 1088.76 +0.22 -0.21
-z_drag: 1059.87 ± 0.30
-r_s(z*) = 144.61 Mpc
-r_s(z_drag) = 147.17 ± 0.29 Mpc
-Chi squared: 0.0006
+z*: 1088.75 +0.22 -0.21
+z_drag: 1059.86 ± 0.30
+r_s(z*) = 144.67 Mpc
+r_s(z_drag) = 147.20 ± 0.29 Mpc
+Chi squared: 0.0015
 
 ===============================
 
