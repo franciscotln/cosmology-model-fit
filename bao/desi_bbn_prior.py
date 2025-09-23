@@ -68,21 +68,21 @@ bounds = np.array(
     ]
 )
 
-
-def chi_squared(params):
-    delta = data["value"] - theory_predictions(data["z"], data["quantity"], params)
-    return np.dot(delta, cho_solve(cho, delta))
-
-
 # Prior from BBN: https://arxiv.org/abs/2401.15054
 omega_b_h2_prior = 0.02196
 omega_b_h2_prior_sigma = 0.00063
 
 
+def chi_squared(params):
+    bbn_delta = (omega_b_h2_prior - params[2]) / omega_b_h2_prior_sigma
+    delta = data["value"] - theory_predictions(data["z"], data["quantity"], params)
+    return np.dot(delta, cho_solve(cho, delta)) + bbn_delta**2
+
+
 def log_prior(params):
     if not np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
         return -np.inf
-    return -0.5 * ((omega_b_h2_prior - params[2]) / omega_b_h2_prior_sigma) ** 2
+    return 0.0
 
 
 def log_likelihood(params):
@@ -151,7 +151,7 @@ def main():
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
-    print(f"Degs of freedom: {data['value'].size  - len(best_fit)}")
+    print(f"Degs of freedom: {1 + data['value'].size  - len(best_fit)}")
     print(f"R^2: {r2:.4f}")
     print(f"RMSD: {np.sqrt(np.mean(residuals**2)):.3f}")
 
@@ -183,46 +183,46 @@ if __name__ == "__main__":
 
 """
 *******************************
-Dataset: DESI 2025
+Dataset: DESI DR2 2025
 *******************************
 
 Flat ΛCDM:
-H0: 68.52 +0.65 -0.64 km/s/Mpc
+H0: 68.51 ± 0.65 km/s/Mpc
 Ωb h^2: 0.0220 ± 0.0006
-Ωm h^2: 0.1397 +0.0053 -0.0051
-Ωm: 0.2975 +0.0088 -0.0085
+Ωm h^2: 0.1397 +0.0053 -0.0050
+Ωm: 0.2976 +0.0087 -0.0084
 w0: -1
-r_d: 148.18 +1.68 -1.69 Mpc
+r_d: 148.17 +1.69 -1.67 Mpc
 Chi squared: 10.29
-Degs of freedom: 10
+Degs of freedom: 11
 R^2: 0.9987
 RMSD: 0.305
 
 ===============================
 
 Flat wCDM:
-H0: 66.29 +2.23 -2.25 km/s/Mpc
+H0: 66.31 +2.22 -2.25 km/s/Mpc
 Ωb h^2: 0.0220 ± 0.0006
-Ωm h^2: 0.1308 +0.0100 -0.0102
-Ωm: 0.2968 +0.0091 -0.0088
-w0: -0.917 +0.076 -0.079
-r_d: 150.66 +3.20 -2.92 Mpc
+Ωm h^2: 0.1308 +0.0099 -0.0103
+Ωm: 0.2968 +0.0090 -0.0088
+w0: -0.918 +0.076 -0.079
+r_d: 150.63 +3.22 -2.91 Mpc
 Chi squared: 9.05
-Degs of freedom: 9
+Degs of freedom: 10
 R^2: 0.9989
-RMSD: 0.280
+RMSD: 0.281
 
 ===============================
 
 Flat alternative: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-H0: 65.73 +2.25 -2.12 km/s/Mpc
+H0: 65.70 +2.24 -2.11 km/s/Mpc
 Ωb h^2: 0.0220 ± 0.0006
-Ωm h^2: 0.1329 +0.0073 -0.0070
-Ωm: 0.3075 +0.0119 -0.0117
-w0: -0.834 +0.122 -0.129
-r_d: 150.03 +2.26 -2.22 Mpc
-Chi squared: 8.43
-Degs of freedom: 9
+Ωm h^2: 0.1328 +0.0073 -0.0070
+Ωm: 0.3076 +0.0119 -0.0117
+w0: -0.832 +0.122 -0.128
+r_d: 150.06 +2.24 -2.23 Mpc
+Chi squared: 8.42
+Degs of freedom: 10
 R^2: 0.9990
 RMSD: 0.266
 
@@ -238,7 +238,7 @@ H0: 67.40 +1.10 -1.05 km/s/Mpc
 w0: -1
 r_d: 148.93 +3.02 -3.08 Mpc
 Chi squared: 10.50
-Degs of freedom: 11
+Degs of freedom: 12
 R^2: 0.9941
 RMSD: 0.770
 
@@ -252,7 +252,7 @@ H0: 60.88 +4.22 -4.65 km/s/Mpc
 w0: -0.755 +0.137 -0.147
 r_d: 157.95 +9.27 -6.92 Mpc
 Chi squared: 7.43
-Degs of freedom: 10
+Degs of freedom: 11
 R^2: 0.9950
 RMSD: 0.714
 
@@ -266,7 +266,7 @@ H0: 62.11 +3.49 -3.19 km/s/Mpc
 w0: -0.663 +0.195 -0.211
 r_d: 153.01 +4.14 -4.11 Mpc
 Chi squared: 7.66
-Degs of freedom: 10
+Degs of freedom: 11
 R^2: 0.9946
 RMSD: 0.740
 """
