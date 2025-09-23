@@ -10,6 +10,8 @@ from .plot_predictions import plot_cc_predictions
 c = cmb.c  # Speed of light in km/s
 
 legend, z_values, H_values, cov_matrix_cc = get_data()
+cc_err_factor = 1.5  # Error reduction factor
+cov_matrix_cc = cov_matrix_cc / cc_err_factor**2
 inv_cov_cc = np.linalg.inv(cov_matrix_cc)
 logdet = np.linalg.slogdet(cov_matrix_cc)[1]
 
@@ -28,15 +30,15 @@ bounds = np.array(
         (55, 80),  # H0
         (0.1, 0.5),  # Om
         (0.0210, 0.0235),  # Ωb * h^2
-        (0.4, 3),  # f
+        (0.4, 3),  # f_cc
     ]
 )
 
 
 def chi_squared(params):
-    f = params[-1]
+    f_cc = params[-1]
     delta_cc = H_values - H_z(z_values, params)
-    chi2_cc = np.dot(delta_cc, np.dot(inv_cov_cc * f**2, delta_cc))
+    chi2_cc = np.dot(delta_cc, np.dot(inv_cov_cc * f_cc**2, delta_cc))
 
     delta_cm = cmb.DISTANCE_PRIORS - cmb.cmb_distances(
         lambda z: H_z(z, params) / params[0], *params[0:3]
@@ -145,16 +147,16 @@ Flat ΛCDM
 H0: 67.25 ± 0.50 km/s/Mpc
 Ωm: 0.317 ± 0.007
 Ωb x h^2: 0.02237 ± 0.00014
-f: 1.50 +0.19 -0.18
-Chi squared: 33.27
+f_cc: 1.00 +0.12 -0.12
+Chi squared: 33.31
 Log likelihood: -130.47
 Degs of freedom: 32
 
 correlation matrix:
-[[ 1.      -0.99279  0.69804 -0.00458]
- [-0.99279  1.      -0.63138  0.00347]
- [ 0.69804 -0.63138  1.      -0.00995]
- [-0.00458  0.00347 -0.00995  1.     ]]
+[[ 1.      -0.99291  0.703   -0.00839]
+ [-0.99291  1.      -0.63719  0.00822]
+ [ 0.703   -0.63719  1.      -0.00837]
+ [-0.00839  0.00822 -0.00837  1.     ]]
 
 ===============================
 
