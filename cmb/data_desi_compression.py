@@ -72,8 +72,5 @@ def cmb_distances(Ez_func, H0, Om, Ob_h2):
     return np.array([theta, Ob_h2, Om_h2])
 
 
-def r_drag(wb, wm):
-    # arXiv:2106.00428v2 (eq 6)
-    numerator = 45.5337 * np.log(7.20376 / wm)
-    denominator = np.sqrt(1 + 9.98592 * (wb**0.801347))
-    return numerator / denominator
+def r_drag(wb, wm):  # arXiv:2503.14738v2 (eq 2)
+    return 147.05 * (0.02236 / wb) ** 0.13 * (0.1432 / wm) ** 0.23

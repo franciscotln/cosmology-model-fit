@@ -5,7 +5,7 @@ from scipy.integrate import quad
 from scipy.linalg import cho_factor, cho_solve
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
-from cmb.data import r_drag, c
+from cmb.data_desi_compression import r_drag, c
 from y2005cc.data import get_data as get_cc_data
 from y2025BAO.data import get_data as get_bao_data
 from .plot_predictions import plot_bao_predictions
@@ -143,7 +143,7 @@ def main():
     rd_samples = rd(samples[:, 0], samples[:, 1], samples[:, 2])
     rd_16, rd_50, rd_84 = np.percentile(rd_samples, [15.9, 50, 84.1], axis=0)
 
-    print(f"H0: {H0_50:.1f} +{(H0_84 - H0_50):.1f} -{(H0_50 - H0_16):.1f} km/s/Mpc")
+    print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
     print(
         f"Ωb h^2: {Obh2_50:.5f} +{(Obh2_84 - Obh2_50):.5f} -{(Obh2_50 - Obh2_16):.5f}"
     )
@@ -195,40 +195,40 @@ Dataset: DESI DR2 2025
 *******************************
 
 Flat ΛCDM
-H0: 68.6 +0.6 -0.6 km/s/Mpc
-Ωb h^2: 0.02200 +0.00062 -0.00062
-Ωm: 0.299 +0.008 -0.008
+H0: 68.51 ± 0.57 km/s/Mpc
+Ωb h^2: 0.02200 +0.00061 -0.00062
+Ωm: 0.299 ± 0.008
 w0: -1
-f_cc: 1.49 +0.18 -0.18
-rd: 147.82 +1.53 -1.53 Mpc
-Chi squared: 43.57
-log likelihood: -135.76
+f_cc: 1.49 +0.19 -0.18
+rd: 148.00 +1.38 -1.35 Mpc
+Chi squared: 43.56
+log likelihood: -135.77
 Degs of freedom: 43
 
 ===============================
 
 Flat wCDM
-H0: 67.1 +2.0 -1.9 km/s/Mpc
-Ωb h^2: 0.02204 +0.00061 -0.00062
-Ωm: 0.300 +0.009 -0.008
-w0: -0.943 +0.068 -0.072
-f_cc: 1.48 +0.18 -0.18
-rd: 149.30 +2.58 -2.43 Mpc
-Chi squared: 42.26
-log likelihood: -135.38
+H0: 67.04 +1.86 -1.84 km/s/Mpc
+Ωb h^2: 0.02203 +0.00062 -0.00061
+Ωm: 0.299 +0.009 -0.008
+w0: -0.939 +0.070 -0.074
+f_cc: 1.48 ± 0.18
+rd: 149.39 +2.34 -2.13 Mpc
+Chi squared: 42.24
+log likelihood: -135.36
 Degs of freedom: 42
 
 ===============================
 
 Flat -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-H0: 66.5 +2.1 -2.0 km/s/Mpc
-Ωb h^2: 0.02202 +0.00062 -0.00061
-Ωm: 0.308 +0.011 -0.011
-w0: -0.873 +0.118 -0.123
-f_cc: 1.48 +0.19 -0.18
-rd: 149.08 +2.00 -1.95 Mpc
-Chi squared: 41.85
-log likelihood: -135.15
+H0: 66.4 +2.0 -1.9 km/s/Mpc
+Ωb h^2: 0.02203 ± 0.00062
+Ωm: 0.308 ± 0.011
+w0: -0.867 +0.117 -0.125
+f_cc: 1.47 ± 0.18
+rd: 149.15 +1.79 -1.74 Mpc
+Chi squared: 41.59
+log likelihood: -135.14
 Degs of freedom: 42
 
 ===============================

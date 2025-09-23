@@ -6,16 +6,16 @@ from scipy.linalg import cho_factor, cho_solve
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from y2025BAO.data import get_data
-from cmb.data import r_drag, Omega_r_h2, c
+from cmb.data_desi_compression import Omega_r_h2, r_drag, c
 from .plot_predictions import plot_bao_predictions
 
 legend, data, cov_matrix = get_data()
 cho = cho_factor(cov_matrix)
 
 
-def rd(params):  # Mpc
-    H0, Om, Obh2 = params[0], params[1], params[2]
-    Omh2 = Om * (H0 / 100) ** 2
+def rd(H0, Om, Obh2):
+    h = H0 / 100
+    Omh2 = Om * h**2
     return r_drag(wb=Obh2, wm=Omh2)
 
 
@@ -49,9 +49,9 @@ def DV_z(z, params):
 
 
 quantity_funcs = {
-    "DV_over_rs": lambda z, params: DV_z(z, params) / rd(params),
-    "DM_over_rs": lambda z, params: DM_z(z, params) / rd(params),
-    "DH_over_rs": lambda z, params: DH_z(z, params) / rd(params),
+    "DV_over_rs": lambda z, params: DV_z(z, params) / rd(*params[0:3]),
+    "DM_over_rs": lambda z, params: DM_z(z, params) / rd(*params[0:3]),
+    "DH_over_rs": lambda z, params: DH_z(z, params) / rd(*params[0:3]),
 }
 
 
@@ -129,7 +129,7 @@ def main():
 
     h_samples = samples[:, 0] / 100
     Omh2_samples = samples[:, 1] * h_samples**2
-    rd_samples = r_drag(wb=samples[:, 2], wm=Omh2_samples)
+    rd_samples = rd(samples[:, 0], samples[:, 1], samples[:, 2])
     Omh2_16, Omh2_50, Omh2_84 = np.percentile(Omh2_samples, [15.9, 50, 84.1])
     rd_16, rd_50, rd_84 = np.percentile(rd_samples, [15.9, 50, 84.1])
 
@@ -187,12 +187,12 @@ Dataset: DESI DR2 2025
 *******************************
 
 Flat ΛCDM:
-H0: 68.51 ± 0.65 km/s/Mpc
+H0: 68.46 +0.58 -0.59 km/s/Mpc
 Ωb h^2: 0.0220 ± 0.0006
-Ωm h^2: 0.1397 +0.0053 -0.0050
-Ωm: 0.2976 +0.0087 -0.0084
+Ωm h^2: 0.1394 +0.0047 -0.0046
+Ωm: 0.2975 +0.0088 -0.0085
 w0: -1
-r_d: 148.17 +1.69 -1.67 Mpc
+r_d: 148.30 +1.46 -1.45 Mpc
 Chi squared: 10.29
 Degs of freedom: 11
 R^2: 0.9987
@@ -201,26 +201,26 @@ RMSD: 0.305
 ===============================
 
 Flat wCDM:
-H0: 66.31 +2.22 -2.25 km/s/Mpc
+H0: 66.33 +2.08 -2.10 km/s/Mpc
 Ωb h^2: 0.0220 ± 0.0006
-Ωm h^2: 0.1308 +0.0099 -0.0103
+Ωm h^2: 0.1310 +0.0093 -0.0097
 Ωm: 0.2968 +0.0090 -0.0088
-w0: -0.918 +0.076 -0.079
-r_d: 150.63 +3.22 -2.91 Mpc
-Chi squared: 9.05
+w0: -0.915 +0.076 -0.080
+r_d: 150.47 +2.84 -2.53 Mpc
+Chi squared: 9.04
 Degs of freedom: 10
 R^2: 0.9989
-RMSD: 0.281
+RMSD: 0.279
 
 ===============================
 
 Flat alternative: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-H0: 65.70 +2.24 -2.11 km/s/Mpc
+H0: 65.77 +2.14 -2.01 km/s/Mpc
 Ωb h^2: 0.0220 ± 0.0006
-Ωm h^2: 0.1328 +0.0073 -0.0070
-Ωm: 0.3076 +0.0119 -0.0117
-w0: -0.832 +0.122 -0.128
-r_d: 150.06 +2.24 -2.23 Mpc
+Ωm h^2: 0.1332 +0.0067 -0.0064
+Ωm: 0.3075 +0.0119 -0.0116
+w0: -0.833 +0.121 -0.128
+r_d: 149.88 +1.95 -1.92 Mpc
 Chi squared: 8.42
 Degs of freedom: 10
 R^2: 0.9990
