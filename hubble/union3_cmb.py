@@ -6,7 +6,7 @@ from scipy.linalg import cho_factor, cho_solve
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from y2023union3.data import get_data
-import cmb.data as cmb
+import cmb.data_union3_compression as cmb
 from .plotting import plot_predictions
 
 
@@ -18,7 +18,8 @@ cho_sn = cho_factor(cov_matrix_sn)
 sn_grid = np.linspace(0, np.max(z_sn_vals), num=3000)
 
 
-def Ez(z, H0, Om, w0):
+def Ez(z, params):
+    H0, Om, w0 = params[0], params[1], params[3]
     h = H0 / 100
     Or = cmb.Omega_r_h2() / h**2
     Ode = 1 - Om - Or
@@ -29,19 +30,16 @@ def Ez(z, H0, Om, w0):
 
 
 def mu_theory(params):
-    H0, Om, _, w0, mag_offset = params
-    integral_vals = cumulative_trapezoid(
-        1 / Ez(sn_grid, H0, Om, w0), sn_grid, initial=0
-    )
+    H0, mag_offset = params[0], params[-1]
+    integral_vals = cumulative_trapezoid(1 / Ez(sn_grid, params), sn_grid, initial=0)
     I = np.interp(z_sn_vals, sn_grid, integral_vals)
     dL = (1 + z_sn_vals) * I * c / H0
     return mag_offset + 25 + 5 * np.log10(dL)
 
 
 def chi_squared(params):
-    H0, Om, Ob_h2, w0, _ = params
-    Ez_func = lambda z: Ez(z, H0, Om, w0)
-    delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez_func, H0, Om, Ob_h2)
+    Ez_func = lambda z: Ez(z, params)
+    delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez_func, *params[0:3])
     chi2_cmb = delta @ cmb.inv_cov_mat @ delta
 
     delta_sn = mu_vals - mu_theory(params)
@@ -55,7 +53,7 @@ bounds = np.array(
         (60, 75),  # H0
         (0.1, 0.45),  # Ωm
         (0.019, 0.025),  # Ωb * h^2
-        (-1.7, -0.3),  # w0
+        (-1.7, 0),  # w0
         (-0.7, 0.7),  # ΔM
     ]
 )
@@ -133,10 +131,10 @@ def main():
         f"z_drag: {z_dr_50:.2f} +{(z_dr_84 - z_dr_50):.2f} -{(z_dr_50 - z_dr_16):.2f}"
     )
     print(
-        f"r_s(z*) = {cmb.rs_z(lambda z: Ez(z, H0_50, Om_50, w0_50), z_st_50, H0_50, Obh2_50):.2f} Mpc"
+        f"r_s(z*) = {cmb.rs_z(lambda z: Ez(z, best_fit), z_st_50, H0_50, Obh2_50):.2f} Mpc"
     )
     print(
-        f"r_s(z_drag) = {cmb.rs_z(lambda z: Ez(z, H0_50, Om_50, w0_50), z_dr_50, H0_50, Obh2_50):.2f} Mpc"
+        f"r_s(z_drag) = {cmb.rs_z(lambda z: Ez(z, best_fit), z_dr_50, H0_50, Obh2_50):.2f} Mpc"
     )
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
 
@@ -186,65 +184,65 @@ Sample size: 22
 *******************************
 
 Flat ΛCDM w(z) = -1
-H0: 67.13 +0.59 -0.58 km/s/Mpc
-Ωm: 0.321 ± 0.008
-Ωm h^2: 0.14446 +0.00122 -0.00123
-Ωb h^2: 0.02231 ± 0.00015
+H0: 66.9 +0.58 -0.57 km/s/Mpc
+Ωm: 0.319 ± 0.008
+Ωm h^2: 0.14262 +0.00120 -0.00119
+Ωb h^2: 0.02235 +0.00015 - 0.00014
 w0: -1
-ΔM: -0.167 +0.090 -0.091
-z*: 1089.00 +0.22 -0.21
-z_drag: 1059.88 +0.29 -0.30
-r_s(z*) = 144.03 Mpc
-r_s(z_drag) = 146.61 Mpc
-Chi squared: 26.0
+ΔM: -0.174 +0.090 -0.091
+z*: 1088.84 ± 0.21
+z_drag: 1059.81 ± 0.30
+r_s(z*) = 144.49 Mpc
+r_s(z_drag) = 147.07 Mpc
+Chi squared: 26.2
 Degrees of freedom: 21
 
 ===============================
 
 Flat wCDM w(z) = w0
-H0: 65.30 +1.25 -1.23 km/s/Mpc
-Ωm: 0.337 +0.014 -0.013
-Ωm h^2: 0.14383 ± 0.00129
-Ωb h^2: 0.02236 ± 0.00015
-w0: -0.927 ± 0.044
-ΔM: -0.216 +0.095 -0.096
-z*: 1088.91 ± 0.22
-z_drag: 1059.94 ± 0.30
-r_s(z*) = 144.17 Mpc
-r_s(z_drag) = 146.73 Mpc
+H0: 65.0 +1.2 -1.2 km/s/Mpc
+Ωm: 0.336 +0.014 -0.013
+Ωm h^2: 0.14201 ± 0.00125
+Ωb h^2: 0.02239 ± 0.00015
+w0: -0.925 ± 0.044
+ΔM: -0.227 ± 0.095
+z*: 1088.75 ± 0.22
+z_drag: 1059.88 +0.29 -0.30
+r_s(z*) = 144.61 Mpc
+r_s(z_drag) = 147.18 Mpc
 Chi squared: 23.2 (Δ chi2 2.8)
 Degrees of freedom: 20
 
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)^3)
-H0: 65.41 ± 1.08 km/s/Mpc
-Ωm: 0.336 ± 0.012
-Ωm h^2: 0.14380 +0.00127 -0.00128
-Ωb h^2: 0.02236 ± 0.00015
-w0: -0.878 ± 0.067
-ΔM: -0.209 +0.093 -0.094
-z*: 1088.90 ± 0.22
-z_drag: 1059.94 ± 0.30
-r_s(z*) = 144.18 Mpc
-r_s(z_drag) = 146.74 Mpc
-Chi squared: 22.6 (Δ chi2 3.4)
+H0: 65.1 +1.1 -1.1 km/s/Mpc
+Ωm: 0.335 ± 0.012
+Ωm h^2: 0.14196 +0.00126 -0.00124
+Ωb h^2: 0.02240 ± 0.00015
+w0: -0.874 ± 0.067
+ΔM: -0.219 ± 0.093
+z*: 1088.74 ± 0.22
+z_drag: 1059.88 +0.29 -0.30
+r_s(z*) = 144.63 Mpc
+r_s(z_drag) = 147.19 Mpc
+Chi squared: 22.5 (Δ chi2 3.7)
 Degrees of freedom: 20
 
 ===============================
 
 Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
-H0: 66.58 +1.34 -1.38 km/s/Mpc
-Ωm: 0.325 +0.015 -0.013
-Ωm h^2: 0.14396 +0.00131 -0.00129
-Ωb h^2: 0.02235 ± 0.00015
-w0: -0.689 +0.154 -0.159
-wa: -1.122 +0.732 -0.734
-ΔM: -0.154 +0.100 -0.101
-z*: 1088.93 ± 0.22
-z_drag: 1059.93 ± 0.30
-r_s(z*) = 144.13 Mpc
-r_s(z_drag) = 146.69 Mpc
-Chi squared: 21.80 (Δ chi2 4.2)
+H0: 66.2 +1.3 -1.4 km/s/Mpc
+Ωm: 0.324 +0.014 -0.013
+Ωm h^2: 0.14203 +0.00126 -0.00125
+Ωb h^2: 0.02239 ± 0.00015
+w0: -0.685 +0.155 -0.154
+wa: -1.123 +0.706 -0.746
+ΔM: -0.167 ± 0.100
+z*: 1088.76 +0.22 -0.21
+z_drag: 1059.86 ± 0.30
+r_s(z*) = 144.64 Mpc
+r_s(z_drag) = 147.20 Mpc
+Chi squared: 21.4 (Δ chi2 4.8)
 Degrees of freedom: 19
 """
