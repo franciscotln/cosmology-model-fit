@@ -1,3 +1,4 @@
+from numba import njit
 import numpy as np
 from scipy.integrate import quad
 from scipy.constants import c as c0
@@ -30,6 +31,7 @@ def Omega_r_h2(Neff=N_EFF):
     return O_GAMMA_H2 * (1 + 0.2271 * Neff)
 
 
+@njit
 def z_star(wb, wm):
     # arXiv:2106.00428v2 (eq A4)
     return wm**-0.731631 + (
@@ -37,6 +39,7 @@ def z_star(wb, wm):
     )
 
 
+@njit
 def z_drag(wb, wm):
     # arXiv:2106.00428v2 (eq A2)
     return (
@@ -44,35 +47,36 @@ def z_drag(wb, wm):
     ) * wm**-0.714129
 
 
-def rs_z(Ez_func, z, H0, Ob_h2):
+def rs_z(Ez_func, z, params, H0, Ob_h2):
     Rb = 3 * Ob_h2 / (4 * O_GAMMA_H2)
 
     def integrand(zp):
-        denom = Ez_func(zp) * np.sqrt(3 * (1 + Rb / (1 + zp)))
+        denom = Ez_func(zp, params) * np.sqrt(3 * (1 + Rb / (1 + zp)))
         return 1 / denom
 
     z_lower = z
     z_upper = np.inf
-    I = quad(integrand, z_lower, z_upper, limit=100)[0]
-    return (c / H0) * I
+    return c * quad(integrand, z_lower, z_upper, limit=100)[0] / H0
 
 
-def DA_z(Ez_func, z, H0):
-    integral = quad(lambda zp: 1 / Ez_func(zp), 0, z)[0]
-    return (c / H0) * integral / (1 + z)
+@njit
+def DA_z(Ez_func, z, params):
+    zp = np.linspace(0.0, z, 20_000)
+    I = np.trapz(y=1.0 / Ez_func(zp, params), x=zp)
+    return I / (1.0 + z)
 
 
-def cmb_distances(Ez_func, H0, Om, Ob_h2):
-    Om_h2 = Om * (H0 / 100) ** 2
-    zstar = z_star(Ob_h2, Om_h2)
-    rs_star = rs_z(Ez_func, zstar, H0, Ob_h2)
-    DA_star = DA_z(Ez_func, zstar, H0)
+def cmb_distances(Ez_func, params, H0, Om, Ob_h2):
+    zstar = z_star(wb=Ob_h2, wm=Om * (H0 / 100) ** 2)
+    rs_star = rs_z(Ez_func, zstar, params, H0, Ob_h2)
+    DA_star = c * DA_z(Ez_func, zstar, params) / H0
 
     R = np.sqrt(Om) * H0 * (1 + zstar) * DA_star / c
     lA = (1 + zstar) * np.pi * DA_star / rs_star
     return np.array([R, lA, Ob_h2])
 
 
+@njit
 def r_drag(wb, wm):
     # arXiv:2106.00428v2 (eq 6)
     numerator = 45.5337 * np.log(7.20376 / wm)

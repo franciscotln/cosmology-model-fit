@@ -1,4 +1,4 @@
-import numba
+from numba import njit
 import numpy as np
 import emcee
 import corner
@@ -9,7 +9,7 @@ import cmb.data_union3_compression as cmb
 Or_h2 = cmb.Omega_r_h2()
 
 
-@numba.njit
+@njit
 def Ez(z, params):
     h, Om = params[0] / 100, params[1]
     Or = Or_h2 / h**2
@@ -20,7 +20,8 @@ def Ez(z, params):
 
 
 def chi_squared(params):
-    delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(lambda z: Ez(z, params), *params)
+    H0, Om, Ob_h2 = params
+    delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez, params, H0, Om, Ob_h2)
     return np.dot(delta, np.dot(cmb.inv_cov_mat, delta))
 
 
@@ -29,10 +30,12 @@ bounds = np.array(
         (60, 75),  # H0
         (0.15, 0.45),  # Ωm
         (0.020, 0.024),  # Ωb * h^2
-    ]
+    ],
+    dtype=np.float64,
 )
 
 
+@njit
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
         return 0
@@ -70,7 +73,6 @@ def main():
     except emcee.autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
 
-    chains_samples = sampler.get_chain(discard=0, flat=False)
     samples = sampler.get_chain(discard=burn_in, flat=True)
 
     pct = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
@@ -78,7 +80,7 @@ def main():
     (Om_16, Om_50, Om_84) = pct[1]
     (Obh2_16, Obh2_50, Obh2_84) = pct[2]
 
-    best_fit = [H0_50, Om_50, Obh2_50]
+    best_fit = np.array([H0_50, Om_50, Obh2_50], dtype=np.float64)
 
     Omh2_samples = samples[:, 1] * (samples[:, 0] / 100) ** 2
     r_drag_samples = cmb.r_drag(samples[:, 2], Omh2_samples)
@@ -99,9 +101,7 @@ def main():
     )
     print(f"z*: {z_st_50:.2f} +{(z_st_84 - z_st_50):.2f} -{(z_st_50 - z_st_16):.2f}")
     print(f"z_drag: {z_d_50:.2f} +{(z_d_84 - z_d_50):.2f} -{(z_d_50 - z_d_16):.2f}")
-    print(
-        f"r_s(z*) = {cmb.rs_z(lambda z: Ez(z, best_fit), z_st_50, H0_50, Obh2_50):.2f} Mpc"
-    )
+    print(f"r_s(z*) = {cmb.rs_z(Ez, z_st_50, best_fit, H0_50, Obh2_50):.2f} Mpc")
     print(
         f"r_s(z_drag) = {r_d_50:.2f} +{(r_d_84 - r_d_50):.2f} -{(r_d_50 - r_d_16):.2f} Mpc"
     )
@@ -121,15 +121,6 @@ def main():
         smooth1d=1.5,
         levels=(0.393, 0.864),
     )
-    plt.show()
-
-    _, axes = plt.subplots(ndim, figsize=(10, 7))
-    for i in range(ndim):
-        axes[i].plot(chains_samples[:, :, i], color="black", alpha=0.3, lw=0.4)
-        axes[i].set_ylabel(labels[i])
-        axes[i].set_xlabel("chain step")
-        axes[i].axvline(x=burn_in, color="red", linestyle="--", alpha=0.5)
-        axes[i].axhline(y=best_fit[i], color="white", linestyle="--", alpha=0.5)
     plt.show()
 
 
