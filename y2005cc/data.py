@@ -4,11 +4,11 @@ import numpy as np
 data = pd.read_csv("y2005cc/raw-data/data.csv")
 cov_components = pd.read_csv("y2005cc/raw-data/cov_components.csv")
 
-z = data["z"].to_numpy()
-Hz = data["H"].to_numpy()
-sigma_H = data["sigma_H"].to_numpy()
+z = data["z"].to_numpy(dtype=np.float64)
+Hz = data["H"].to_numpy(dtype=np.float64)
+sigma_H = data["sigma_H"].to_numpy(dtype=np.float64)
 
-zmod = cov_components["z"].to_numpy()
+zmod = cov_components["z"].to_numpy(dtype=np.float64)
 imf_intp = np.interp(z, zmod, cov_components["imf"]) / 100
 slib_intp = np.interp(z, zmod, cov_components["stlib"]) / 100
 sps_intp = np.interp(z, zmod, cov_components["sps"]) / 100

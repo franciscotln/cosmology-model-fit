@@ -7,8 +7,8 @@ cov_data = np.genfromtxt("y2023union3/raw-data/covariance.txt")
 
 n = data_frame["zcmb"].size
 covariance_matrix = cov_data.reshape((n, n))
-z_values = data_frame["zcmb"].to_numpy()
-mu_values = data_frame["mu"].to_numpy()
+z_values = data_frame["zcmb"].to_numpy(dtype=np.float64)
+mu_values = data_frame["mu"].to_numpy(dtype=np.float64)
 sort_indices = np.argsort(z_values)
 
 
