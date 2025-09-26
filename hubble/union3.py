@@ -1,3 +1,4 @@
+import numba
 import emcee
 import matplotlib.pyplot as plt
 import numpy as np
@@ -21,6 +22,7 @@ z = np.linspace(0, np.max(z_values), num=4000)
 cubed = (1 + z) ** 3
 
 
+@numba.jit
 def Ez(params):
     omega_m, w0 = params[1], params[2]
     rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))

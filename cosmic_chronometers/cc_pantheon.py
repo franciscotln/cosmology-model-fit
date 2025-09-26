@@ -1,3 +1,4 @@
+import numba
 import numpy as np
 import emcee
 import corner
@@ -17,16 +18,16 @@ inv_cov_cc = np.linalg.inv(cov_matrix_cc)
 logdet_cc = np.linalg.slogdet(cov_matrix_cc)[1]
 N_cc = len(z_cc_vals)
 
+z_grid_sn = np.linspace(0, np.max(z_vals), num=2000)
+
 c = 299792.458  # Speed of light in km/s
 
 
+@numba.njit
 def Ez(z, O_m, w0):
     one_plus_z = 1 + z
     rho_de = (2 * one_plus_z**3 / (1 + one_plus_z**3)) ** (2 * (1 + w0))
     return np.sqrt(O_m * one_plus_z**3 + (1 - O_m) * rho_de)
-
-
-z_grid_sn = np.linspace(0, np.max(z_vals), num=2000)
 
 
 def integral_Ez(params):
@@ -88,9 +89,9 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 16 * ndim
+    nwalkers = 8 * ndim
     burn_in = 500
-    nsteps = 8000 + burn_in
+    nsteps = 10000 + burn_in
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
 
     with Pool(10) as pool:

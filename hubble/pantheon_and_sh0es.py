@@ -1,3 +1,4 @@
+from numba import njit
 import emcee
 import corner
 import matplotlib.pyplot as plt
@@ -19,22 +20,23 @@ cho = cho_factor(cov_matrix)
 
 c = 299792.458  # Speed of light (km/s)
 
-z_grid = np.linspace(0, np.max(z_values), num=2500)
+z_grid = np.linspace(0, np.max(z_values), num=1000)
 one_plus_z = 1 + z_grid
+one_plus_z_hel = 1 + z_hel_values
 
 
-# Flat
-def integral_E_z(O_m, w0=-1):
-    O_de = 1 - O_m
+@njit
+def Ez(params):
+    O_m, w0 = params[2], params[3]
     rho_de = (2 * one_plus_z**3 / (1 + one_plus_z**3)) ** (2 * (1 + w0))
-    H_over_H0 = np.sqrt(O_m * one_plus_z**3 + O_de * rho_de)
-    integral_values = cumulative_trapezoid(1 / H_over_H0, z_grid, initial=0)
-    return np.interp(z_values, z_grid, integral_values)
+    return np.sqrt(O_m * one_plus_z**3 + (1 - O_m) * rho_de)
 
 
 def model_mu(params):
     H0 = params[1]
-    return 25 + 5 * np.log10((c / H0) * (1 + z_hel_values) * integral_E_z(*params[2:]))
+    integral_vals = cumulative_trapezoid(1 / Ez(params), z_grid, initial=0)
+    I = np.interp(z_values, z_grid, integral_vals)
+    return 25 + 5 * np.log10((c / H0) * one_plus_z_hel * I)
 
 
 def chi_squared(params):
@@ -58,6 +60,7 @@ bounds = np.array(
 )
 
 
+@njit
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
         return 0.0
@@ -74,8 +77,8 @@ def log_probability(params):
 def main():
     steps_to_discard = 200
     n_dim = len(bounds)
-    n_walkers = n_dim * 16
-    n_steps = steps_to_discard + 8000
+    n_walkers = n_dim * 8
+    n_steps = steps_to_discard + 10000
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(n_walkers, n_dim))
 
     with Pool(10) as pool:

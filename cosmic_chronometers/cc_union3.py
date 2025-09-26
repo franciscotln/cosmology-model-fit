@@ -1,3 +1,4 @@
+import numba
 import numpy as np
 import emcee
 import corner
@@ -19,26 +20,22 @@ cho_sn = cho_factor(cov_matrix_sn)
 
 c = 299792.458  # Speed of light in km/s
 
+z_grid = np.linspace(0, np.max(z_sn_vals), num=1000)
 
+
+@numba.njit
 def Ez(z, O_m, w0):
     one_plus_z = 1 + z
     rho_de = (2 * one_plus_z**3 / (1 + one_plus_z**3)) ** (2 * (1 + w0))
     return np.sqrt(O_m * one_plus_z**3 + (1 - O_m) * rho_de)
 
 
-grid = np.linspace(0, np.max(z_sn_vals), num=3000)
-
-
-def integral_Ez(params):
-    y = 1 / Ez(grid, *params[3:])
-    integral_values = cumulative_trapezoid(y=y, x=grid, initial=0)
-    return np.interp(z_sn_vals, grid, integral_values)
-
-
 def mu_theory(params):
     dM, h0 = params[1], params[2]
-    dL = (1 + z_sn_vals) * (c / h0) * integral_Ez(params)
-    return dM + 25 + 5 * np.log10(dL)
+    y = 1 / Ez(z_grid, *params[3:])
+    integral_values = cumulative_trapezoid(y=y, x=z_grid, initial=0)
+    I = np.interp(z_sn_vals, z_grid, integral_values)
+    return dM + 25 + 5 * np.log10((1 + z_sn_vals) * (c / h0) * I)
 
 
 def H_z(z, params):

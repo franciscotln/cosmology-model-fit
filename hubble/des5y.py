@@ -1,3 +1,4 @@
+from numba import njit
 import emcee
 import corner
 import matplotlib.pyplot as plt
@@ -15,24 +16,24 @@ cho = cho_factor(covmat)
 C = 299792.458  # Speed of light (km/s)
 H0 = 70  # Hubble constant km/s/Mpc
 
-grid = np.linspace(0, np.max(z_cmb_vals), num=2500)
+grid = np.linspace(0, np.max(z_cmb_vals), num=1000)
 one_plus_z = 1 + grid
+one_plus_z_hel = 1 + z_hel_vals
 
 
-def integral_Ez(Om, w0=-1):
+@njit
+def Ez(params):
+    Om, w0 = params[1], params[2]
     Ode = 1 - Om
     rho_de = (2 * one_plus_z**3 / (1 + one_plus_z**3)) ** (2 * (1 + w0))
-    Ez = np.sqrt(Om * one_plus_z**3 + Ode * rho_de)
-    integral_vals = cumulative_trapezoid(1 / Ez, grid, initial=0)
-    return np.interp(z_cmb_vals, grid, integral_vals)
-
-
-def dL(params):
-    return (1 + z_hel_vals) * (C / H0) * integral_Ez(*params[1:])
+    return np.sqrt(Om * one_plus_z**3 + Ode * rho_de)
 
 
 def theory_mu(params):
-    return params[0] + 25 + 5 * np.log10(dL(params))
+    integral_vals = cumulative_trapezoid(1 / Ez(params), grid, initial=0)
+    I = np.interp(z_cmb_vals, grid, integral_vals)
+    dL = one_plus_z_hel * (C / H0) * I
+    return params[0] + 25 + 5 * np.log10(dL)
 
 
 def chi_squared(params):
@@ -47,6 +48,7 @@ def log_likelihood(params):
 bounds = np.array([(-0.6, 0.6), (0, 0.8), (-1.5, 0)])  # ΔM  # Ωm  # w0
 
 
+@njit
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
         return 0.0
@@ -64,8 +66,8 @@ def log_probability(params):
 def main():
     steps_to_discard = 500
     ndim = len(bounds)
-    nwalkers = 10 * ndim
-    nsteps = steps_to_discard + 12000
+    nwalkers = 8 * ndim
+    nsteps = steps_to_discard + 10000
     initial_state = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
 
     with Pool(10) as pool:
@@ -87,7 +89,7 @@ def main():
         [w0_16, w0_50, w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit_params = [dM_50, Om_50, w0_50]
+    best_fit_params = np.array([dM_50, Om_50, w0_50])
 
     theory_mu_vals = theory_mu(best_fit_params)
     residuals = observed_mu_vals - theory_mu_vals
@@ -100,7 +102,6 @@ def main():
     # Calculate root mean square deviation
     rmsd = np.sqrt(np.mean(residuals**2))
 
-    # Print the values in the console
     dM_label = f"{dM_50:.3f} +{dM_84-dM_50:.3f} -{dM_50-dM_16:.3f}"
     Om_label = f"{Om_50:.3f} +{Om_84-Om_50:.3f} -{Om_50-Om_16:.3f}"
     w0_label = f"{w0_50:.2f} +{w0_84-w0_50:.2f} -{w0_50-w0_16:.2f}"

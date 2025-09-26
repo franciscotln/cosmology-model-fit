@@ -1,3 +1,4 @@
+import numba
 import numpy as np
 import emcee
 import corner
@@ -5,10 +6,13 @@ import matplotlib.pyplot as plt
 from multiprocessing import Pool
 import cmb.data_union3_compression as cmb
 
+Or_h2 = cmb.Omega_r_h2()
 
+
+@numba.njit
 def Ez(z, params):
     h, Om = params[0] / 100, params[1]
-    Or = cmb.Omega_r_h2() / h**2
+    Or = Or_h2 / h**2
     Ode = 1 - Om - Or
     one_plus_z = 1 + z
 
@@ -48,9 +52,9 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 16 * ndim
+    nwalkers = 8 * ndim
     burn_in = 500
-    nsteps = 16000 + burn_in
+    nsteps = 20000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):

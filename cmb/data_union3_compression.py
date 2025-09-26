@@ -1,3 +1,4 @@
+from numba import njit
 import numpy as np
 from scipy.integrate import quad
 from scipy.constants import c as c0
@@ -30,6 +31,7 @@ def Omega_r_h2(Neff=N_EFF):
     return O_GAMMA_H2 * (1 + 0.2271 * Neff)
 
 
+@njit
 def z_star(wb, wm):
     # arXiv:2106.00428v2 (A4)
     return wm**-0.731631 + (
@@ -37,6 +39,7 @@ def z_star(wb, wm):
     )
 
 
+@njit
 def z_drag(wb, wm):
     # arXiv:2106.00428v2 (A2)
     return (
@@ -70,6 +73,7 @@ def cmb_distances(Ez_func, H0, Om, Ob_h2):
     return np.array([R, theta_100, Ob_h2])
 
 
+@njit
 def r_drag(wb, wm):
     # arXiv:2106.00428v2 (eq 6)
     numerator = 45.5337 * np.log(7.20376 / wm)

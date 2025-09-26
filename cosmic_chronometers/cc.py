@@ -1,3 +1,4 @@
+from numba import njit
 import numpy as np
 import emcee
 import corner
@@ -13,6 +14,7 @@ inv_cov = np.linalg.inv(cov_matrix)
 logdet = np.linalg.slogdet(cov_matrix)[1]
 
 
+@njit
 def H_z(z, h0, Om, w0):
     cubed = (1 + z) ** 3
     rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))

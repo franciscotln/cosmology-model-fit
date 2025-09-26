@@ -1,3 +1,4 @@
+from numba import njit
 import emcee
 import corner
 import matplotlib.pyplot as plt
@@ -15,29 +16,27 @@ C = 299792.458  # Speed of light (km/s)
 H0 = 70.0  # Hubble constant (km/s/Mpc)
 
 cho = cho_factor(cov_matrix)
-z_grid = np.linspace(0, np.max(z_values), num=1500)
-one_plus_z = 1 + z_grid
+z_grid = np.linspace(0, np.max(z_values), num=1000)
+cubed = (1 + z_grid) ** 3
+one_plus_z_hel = 1 + z_hel_values
 
 
-def integral_E_z(params):
+@njit
+def Ez(params):
     O_m, w0 = params[1], params[2]
     O_de = 1 - O_m
-    rho_de = (2 * one_plus_z**3 / (1 + one_plus_z**3)) ** (2 * (1 + w0))
-    Ez = np.sqrt(O_m * one_plus_z**3 + O_de * rho_de)
-    integral_values = cumulative_trapezoid(1 / Ez, z_grid, initial=0)
-    return np.interp(z_values, z_grid, integral_values)
+    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
+    return np.sqrt(O_m * cubed + O_de * rho_de)
 
 
-# Flat
-def model_apparent_mag(params):
-    M = params[0]  # absolute magnitude
-    a0_over_ae = 1 + z_hel_values
-    luminosity_distance = a0_over_ae * (C / H0) * integral_E_z(params)
-    return M + 25 + 5 * np.log10(luminosity_distance)
+def apparent_mag(params):
+    integral_vals = cumulative_trapezoid(1 / Ez(params), z_grid, initial=0)
+    I = np.interp(z_values, z_grid, integral_vals)
+    return params[0] + 25 + 5 * np.log10(one_plus_z_hel * (C / H0) * I)
 
 
 def chi_squared(params):
-    delta = apparent_mag_values - model_apparent_mag(params)
+    delta = apparent_mag_values - apparent_mag(params)
     return np.dot(delta, cho_solve(cho, delta))
 
 
@@ -70,8 +69,8 @@ def log_probability(params):
 def main():
     steps_to_discard = 200
     n_dim = len(bounds)
-    n_walkers = n_dim * 16
-    n_steps = steps_to_discard + 8000
+    n_walkers = n_dim * 8
+    n_steps = steps_to_discard + 10000
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(n_walkers, n_dim))
 
     with Pool(10) as pool:
@@ -97,7 +96,7 @@ def main():
     best_fit_params = [M0_50, omega_50, w0_50]
 
     # Calculate residuals
-    predicted_apparent_mag = model_apparent_mag(best_fit_params)
+    predicted_apparent_mag = apparent_mag(best_fit_params)
     residuals = apparent_mag_values - predicted_apparent_mag
 
     skewness = stats.skew(residuals)

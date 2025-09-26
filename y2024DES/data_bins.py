@@ -2,24 +2,26 @@ import os
 import pandas as pd
 import numpy as np
 
-path_to_data = os.path.dirname(os.path.abspath(__file__)) + '/raw-data/'
-data_frame = pd.read_csv(path_to_data + 'distances.txt')
-covariance_file = pd.read_csv(path_to_data + 'covariance_stat_sys.txt')
+path_to_data = os.path.dirname(os.path.abspath(__file__)) + "/raw-data/"
+data_frame = pd.read_csv(path_to_data + "distances.txt")
+covariance_file = pd.read_csv(path_to_data + "covariance_stat_sys.txt")
 
-selected_columns = data_frame[['zHD', 'MU', 'MUERR_FINAL']]
-n = selected_columns['zHD'].size
-covariances_stat = covariance_file['cov_mu'].to_numpy().reshape((n, n))
+selected_columns = data_frame[["zHD", "MU", "MUERR_FINAL"]]
+n = selected_columns["zHD"].size
+covariances_stat = covariance_file["cov_mu"].to_numpy(dtype=np.float64).reshape((n, n))
 
 # Add statistical uncertainties
-covariance_matrix = covariances_stat + np.diag(selected_columns['MUERR_FINAL'].values ** 2)
+covariance_matrix = covariances_stat + np.diag(
+    selected_columns["MUERR_FINAL"].values ** 2
+)
 
 # Sort by redshift
-z_values = selected_columns['zHD'].to_numpy()
+z_values = selected_columns["zHD"].to_numpy(dtype=np.float64)
 sort_indices = np.argsort(z_values)
 
 z_sorted = z_values[sort_indices]
-mu_sorted = selected_columns['MU'].to_numpy()[sort_indices]
-mu_err_sorted = selected_columns['MUERR_FINAL'].to_numpy()[sort_indices]
+mu_sorted = selected_columns["MU"].to_numpy(dtype=np.float64)[sort_indices]
+mu_err_sorted = selected_columns["MUERR_FINAL"].to_numpy(dtype=np.float64)[sort_indices]
 full_covariance_sorted = covariance_matrix[sort_indices, :][:, sort_indices]
 
 # Number of elements per bin
@@ -29,7 +31,7 @@ num_bins = int(np.ceil(n / bin_size))
 # Lists to store binned results
 z_bins = []
 mu_bins = []
-full_covariance_bins = np.zeros((num_bins, num_bins))  
+full_covariance_bins = np.zeros((num_bins, num_bins))
 
 # Bin the data
 bin_indices = np.array_split(np.arange(n), num_bins)
@@ -62,7 +64,7 @@ for i in range(num_bins):
 def get_data():
     return (
         f"DES-SN5YR - {bin_size} bins",
-        np.array(z_bins),
-        np.array(mu_bins),
-        np.array(full_covariance_bins),
+        np.array(z_bins, dtype=np.float64),
+        np.array(mu_bins, dtype=np.float64),
+        np.array(full_covariance_bins, dtype=np.float64),
     )

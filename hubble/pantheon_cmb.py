@@ -1,7 +1,8 @@
+from numba import njit
 import numpy as np
 import emcee
 import corner
-from scipy.integrate import cumulative_trapezoid, quad
+from scipy.integrate import cumulative_trapezoid
 from scipy.linalg import cho_factor, cho_solve
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
@@ -10,29 +11,33 @@ import cmb.data_cmb_act_compression as cmb
 from hubble.plotting import plot_predictions as plot_sn_predictions
 
 c = cmb.c  # Speed of light in km/s
+O_r_h2 = cmb.Omega_r_h2()
 
 sn_legend, z_cmb, z_hel, mb_values, cov_matrix_sn = get_data()
 cho_sn = cho_factor(cov_matrix_sn)
 
-sn_grid = np.linspace(0, np.max(z_cmb), num=3000)
+sn_grid = np.linspace(0, np.max(z_cmb), num=1500)
+one_plus_z_hel = 1 + z_hel
 
 
+@njit
 def Ez(z, params):
     H0, Om, w0 = params[0], params[1], params[3]
     h = H0 / 100
-    Or = cmb.Omega_r_h2() / h**2
+    Or = O_r_h2 / h**2
     Ode = 1 - Om - Or
     one_plus_z = 1 + z
-    fz_de = (2 * one_plus_z**3 / (1 + one_plus_z**3)) ** (2 * (1 + w0))
+    cubed = one_plus_z**3
+    fz_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
 
-    return np.sqrt(Or * one_plus_z**4 + Om * one_plus_z**3 + Ode * fz_de)
+    return np.sqrt(Or * one_plus_z**4 + Om * cubed + Ode * fz_de)
 
 
 def sn_apparent_mag(params):
     H0, M = params[0], params[-1]
     integral_vals = cumulative_trapezoid(1 / Ez(sn_grid, params), sn_grid, initial=0)
     I = np.interp(z_cmb, sn_grid, integral_vals)
-    dL = (1 + z_hel) * (c / H0) * I
+    dL = one_plus_z_hel * (c / H0) * I
     return M + 25 + 5 * np.log10(dL)
 
 
@@ -59,6 +64,7 @@ bounds = np.array(
 )
 
 
+@njit
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
         return 0
@@ -78,9 +84,9 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 10 * ndim
+    nwalkers = 8 * ndim
     burn_in = 500
-    nsteps = 8000 + burn_in
+    nsteps = 10000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):

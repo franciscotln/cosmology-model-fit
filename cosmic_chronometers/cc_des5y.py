@@ -1,3 +1,4 @@
+import numba
 import numpy as np
 import emcee
 import corner
@@ -17,31 +18,28 @@ inv_cov_cc = np.linalg.inv(cov_matrix_cc)
 logdet_cc = np.linalg.slogdet(cov_matrix_cc)[1]
 N_cc = len(z_cc_vals)
 
+grid = np.linspace(0, np.max(z_cmb), num=2000)
+
 c = 299792.458  # Speed of light in km/s
 
 
-def Ez(z, O_m, w0):
+@numba.njit
+def Ez(z, params):
+    O_m, w0 = params[3], params[4]
     cubed = (1 + z) ** 3
     rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
     return np.sqrt(O_m * cubed + (1 - O_m) * rho_de)
 
 
-grid = np.linspace(0, np.max(z_cmb), num=2500)
-
-
-def integral_Ez(params):
-    integral = cumulative_trapezoid(1 / Ez(grid, *params[3:]), grid, initial=0)
-    return np.interp(z_cmb, grid, integral)
-
-
 def theory_mu(params):
     offset_mag, H0 = params[1], params[2]
-    dL = (1 + z_hel) * (c / H0) * integral_Ez(params)
-    return offset_mag + 25 + 5 * np.log10(dL)
+    integral = cumulative_trapezoid(1 / Ez(grid, params), grid, initial=0)
+    I = np.interp(z_cmb, grid, integral)
+    return offset_mag + 25 + 5 * np.log10((1 + z_hel) * (c / H0) * I)
 
 
 def H_z(z, params):
-    return params[2] * Ez(z, *params[3:])
+    return params[2] * Ez(z, params)
 
 
 bounds = np.array(
@@ -87,9 +85,9 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 10 * ndim
+    nwalkers = 8 * ndim
     burn_in = 500
-    nsteps = 8000 + burn_in
+    nsteps = 10000 + burn_in
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
 
     with Pool(10) as pool:

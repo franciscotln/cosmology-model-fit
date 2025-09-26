@@ -1,3 +1,4 @@
+import numba
 import numpy as np
 import emcee
 import corner
@@ -11,36 +12,38 @@ from .plotting import plot_predictions
 
 
 c = cmb.c  # km/s
+O_r_h2 = cmb.Omega_r_h2()
 
 sn_legend, z_sn_vals, mu_vals, cov_matrix_sn = get_data()
 cho_sn = cho_factor(cov_matrix_sn)
 
-sn_grid = np.linspace(0, np.max(z_sn_vals), num=3000)
+sn_grid = np.linspace(0, np.max(z_sn_vals), num=1000)
 
 
+@numba.jit
 def Ez(z, params):
     H0, Om, w0 = params[0], params[1], params[3]
     h = H0 / 100
-    Or = cmb.Omega_r_h2() / h**2
+    Or = O_r_h2 / h**2
     Ode = 1 - Om - Or
     one_plus_z = 1 + z
-    rho_de = (2 * one_plus_z**3 / (1 + one_plus_z**3)) ** (2 * (1 + w0))
+    cubed = one_plus_z**3
+    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
 
-    return np.sqrt(Or * one_plus_z**4 + Om * one_plus_z**3 + Ode * rho_de)
+    return np.sqrt(Or * one_plus_z**4 + Om * cubed + Ode * rho_de)
 
 
 def mu_theory(params):
     H0, mag_offset = params[0], params[-1]
     integral_vals = cumulative_trapezoid(1 / Ez(sn_grid, params), sn_grid, initial=0)
     I = np.interp(z_sn_vals, sn_grid, integral_vals)
-    dL = (1 + z_sn_vals) * I * c / H0
-    return mag_offset + 25 + 5 * np.log10(dL)
+    return mag_offset + 25 + 5 * np.log10((1 + z_sn_vals) * I * c / H0)
 
 
 def chi_squared(params):
     Ez_func = lambda z: Ez(z, params)
     delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez_func, *params[0:3])
-    chi2_cmb = delta @ cmb.inv_cov_mat @ delta
+    chi2_cmb = np.dot(delta, np.dot(cmb.inv_cov_mat, delta))
 
     delta_sn = mu_vals - mu_theory(params)
     chi_sn = np.dot(delta_sn, cho_solve(cho_sn, delta_sn))
@@ -78,9 +81,9 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 16 * ndim
+    nwalkers = 8 * ndim
     burn_in = 500
-    nsteps = 10000 + burn_in
+    nsteps = 15000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):

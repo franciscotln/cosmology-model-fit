@@ -1,3 +1,4 @@
+from numba import njit
 import numpy as np
 import emcee
 import corner
@@ -11,18 +12,20 @@ from hubble.plotting import plot_predictions as plot_sn_predictions
 
 
 c = cmb.c  # km/s
-
+O_r_h2 = cmb.Omega_r_h2()
 
 sn_legend, z_cmb, z_hel, mu_values, cov_matrix_sn = get_data()
 cho_sn = cho_factor(cov_matrix_sn)
 
-sn_grid = np.linspace(0, np.max(z_cmb), num=3000)
+sn_grid = np.linspace(0, np.max(z_cmb), num=1000)
+one_plus_z_hel = 1 + z_hel
 
 
+@njit
 def Ez(z, params):
     H0, Om, w0 = params[0], params[1], params[3]
     h = H0 / 100
-    Or = cmb.Omega_r_h2() / h**2
+    Or = O_r_h2 / h**2
     Ode = 1 - Om - Or
     one_plus_z = 1 + z
     rho_de = (2 * one_plus_z**3 / (1 + one_plus_z**3)) ** (2 * (1 + w0))
@@ -34,7 +37,7 @@ def theory_mu(params):
     H0, mag_offset = params[0], params[-1]
     integral_vals = cumulative_trapezoid(1 / Ez(sn_grid, params), sn_grid, initial=0)
     I = np.interp(z_cmb, sn_grid, integral_vals)
-    return mag_offset + 25 + 5 * np.log10((1 + z_hel) * I * c / H0)
+    return mag_offset + 25 + 5 * np.log10(one_plus_z_hel * I * c / H0)
 
 
 def chi_squared(params):
@@ -61,6 +64,7 @@ bounds = np.array(
 )
 
 
+@njit
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
         return 0
@@ -80,9 +84,9 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 10 * ndim
+    nwalkers = 8 * ndim
     burn_in = 500
-    nsteps = 8000 + burn_in
+    nsteps = 10000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):

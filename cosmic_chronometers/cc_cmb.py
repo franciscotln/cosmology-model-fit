@@ -1,3 +1,4 @@
+import numba
 import numpy as np
 import emcee
 import corner
@@ -8,6 +9,7 @@ from y2005cc.data import get_data
 from .plot_predictions import plot_cc_predictions
 
 c = cmb.c  # Speed of light in km/s
+Or_h2 = cmb.Omega_r_h2()
 
 legend, z_values, H_values, cov_matrix_cc = get_data()
 cc_err_factor = 1.5  # Error reduction factor
@@ -16,10 +18,11 @@ inv_cov_cc = np.linalg.inv(cov_matrix_cc)
 logdet = np.linalg.slogdet(cov_matrix_cc)[1]
 
 
+@numba.njit
 def H_z(z, params):
     H0, Om = params[0], params[1]
     h = H0 / 100
-    Or = cmb.Omega_r_h2() / h**2
+    Or = Or_h2 / h**2
     cubed = (1 + z) ** 3
     rho_de = 1
     return H0 * np.sqrt(Or * (1 + z) ** 4 + Om * cubed + (1 - Om - Or) * rho_de)
@@ -68,9 +71,9 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 16 * ndim
+    nwalkers = 8 * ndim
     burn_in = 500
-    nsteps = 10000 + burn_in
+    nsteps = 20000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):
@@ -99,8 +102,8 @@ def main():
 
     best_fit = [H0_50, Om_50, Obh2_50, f_50]
 
-    print(f"H0: {H0_50:.1f} +{(H0_84 - H0_50):.1f} -{(H0_50 - H0_16):.1f}")
-    print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
+    print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f}")
+    print(f"Ωm: {Om_50:.4f} +{(Om_84 - Om_50):.4f} -{(Om_50 - Om_16):.4f}")
     print(
         f"Ωb x h^2: {Obh2_50:.5f} +{(Obh2_84 - Obh2_50):.5f} -{(Obh2_50 - Obh2_16):.5f}"
     )
