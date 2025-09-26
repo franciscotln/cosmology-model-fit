@@ -1,4 +1,4 @@
-import numba
+from numba import njit
 import numpy as np
 import emcee
 import corner
@@ -23,7 +23,7 @@ c = 299792.458  # Speed of light in km/s
 z_grid = np.linspace(0, np.max(z_sn_vals), num=1000)
 
 
-@numba.njit
+@njit
 def Ez(z, O_m, w0):
     one_plus_z = 1 + z
     rho_de = (2 * one_plus_z**3 / (1 + one_plus_z**3)) ** (2 * (1 + w0))
@@ -38,8 +38,10 @@ def mu_theory(params):
     return dM + 25 + 5 * np.log10((1 + z_sn_vals) * (c / h0) * I)
 
 
+@njit
 def H_z(z, params):
-    return params[2] * Ez(z, *params[3:])
+    H0, Om, w0 = params[2], params[3], params[4]
+    return H0 * Ez(z, Om, w0)
 
 
 bounds = np.array(
@@ -49,7 +51,8 @@ bounds = np.array(
         (55, 80),  # H0
         (0.1, 0.7),  # Ωm
         (-1.5, 0),  # w0
-    ]
+    ],
+    dtype=np.float64,
 )
 
 
@@ -64,6 +67,7 @@ def chi_squared(params):
     return chi_sn + chi_cc
 
 
+@njit
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
         return 0.0

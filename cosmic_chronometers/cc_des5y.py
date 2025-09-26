@@ -38,6 +38,7 @@ def theory_mu(params):
     return offset_mag + 25 + 5 * np.log10((1 + z_hel) * (c / H0) * I)
 
 
+@numba.njit
 def H_z(z, params):
     return params[2] * Ez(z, params)
 
@@ -49,7 +50,8 @@ bounds = np.array(
         (50, 80),  # H0
         (0.1, 0.5),  # Ωm
         (-2, 0),  # w0
-    ]
+    ],
+    dtype=np.float64,
 )
 
 
@@ -64,6 +66,7 @@ def chi_squared(params):
     return chi_sn + chi_cc
 
 
+@numba.njit
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
         return 0.0

@@ -42,8 +42,10 @@ def apparent_mag_theory(params):
     return M + 25 + 5 * np.log10((1 + z_hel_vals) * comoving_distance)
 
 
+@numba.njit
 def H_z(z, params):
-    return params[1] * Ez(z, *params[3:])
+    H0, Om, w0 = params[1], params[3], params[4]
+    return H0 * Ez(z, Om, w0)
 
 
 bounds = np.array(
@@ -53,7 +55,8 @@ bounds = np.array(
         (-20, -19),  # M
         (0.15, 0.70),  # Ωm
         (-1.5, 0.0),  # w0
-    ]
+    ],
+    dtype=np.float64,
 )
 
 
@@ -68,6 +71,7 @@ def chi_squared(params):
     return chi_sn + chi_cc
 
 
+@numba.njit
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
         return 0.0

@@ -21,7 +21,9 @@ def H_z(z, h0, Om, w0):
     return h0 * np.sqrt(Om * cubed + (1 - Om) * rho_de)
 
 
-bounds = np.array([(50, 100), (0, 0.7), (-3.0, 0), (0.4, 3)])  # H0, Om, w0, f
+bounds = np.array(
+    [(50, 100), (0, 0.7), (-3.0, 0), (0.4, 3)], dtype=np.float64
+)  # H0, Om, w0, f
 
 
 def chi_squared(params):
@@ -36,6 +38,7 @@ def log_likelihood(params):
     return -0.5 * (chi_squared(params) + normalization)
 
 
+@njit
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
         return 0.0
