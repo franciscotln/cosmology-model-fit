@@ -137,7 +137,7 @@ def main():
     plt.show()
 
     # Plot chains for each parameter
-    _, axes = plt.subplots(n_dim, figsize=(10, 7))
+    _, axes = plt.subplots(n_dim, figsize=(10, 7), sharex=True)
     chains_samples = sampler.get_chain(discard=0, flat=False)
     for i in range(n_dim):
         axes[i].plot(chains_samples[:, :, i], color="black", alpha=0.3)

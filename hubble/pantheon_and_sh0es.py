@@ -153,7 +153,7 @@ def main():
     plt.show()
 
     # Plot results: chains for each parameter
-    _, axes = plt.subplots(n_dim, figsize=(10, 7))
+    _, axes = plt.subplots(n_dim, figsize=(10, 7), sharex=True)
     if n_dim == 1:
         axes = [axes]
     for i in range(n_dim):

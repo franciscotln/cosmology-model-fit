@@ -1,3 +1,4 @@
+from numba import njit
 import numpy as np
 import emcee
 import corner
@@ -8,6 +9,7 @@ from multiprocessing import Pool
 from y2025BAO.data import get_data as get_bao_data
 from y2022pantheonSHOES.data import get_data
 from hubble.plotting import plot_predictions as plot_sn_predictions
+from .plot_predictions import plot_bao_predictions
 
 legend, z_cmb, z_hel, mb_vals, cov_matrix_sn = get_data()
 bao_legend, data, bao_cov_matrix = get_bao_data()
@@ -17,14 +19,16 @@ cho_bao = cho_factor(bao_cov_matrix)
 c = 299792.458  # Speed of light in km/s
 rd = 147.09  # Mpc, fixed
 
+grid = np.linspace(0, np.max(z_cmb), num=1000)
+one_plus_z_hel = 1 + z_hel
+
+
+@njit
 def Ez(z, O_m, w0):
     one_plus_z = 1 + z
     cubed = one_plus_z**3
     rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
     return np.sqrt(O_m * cubed + (1 - O_m) * rho_de)
-
-
-grid = np.linspace(0, np.max(z_cmb), num=2000)
 
 
 def integral_Ez(params):
@@ -35,73 +39,56 @@ def integral_Ez(params):
 
 def apparent_mag(params):
     M, H0 = params[0], params[1]
-    dL = (1 + z_hel) * (c / H0) * integral_Ez(params)
+    dL = one_plus_z_hel * (c / H0) * integral_Ez(params)
     return M + 25 + 5 * np.log10(dL)
 
 
-def plot_bao_predictions(params):
-    errors = np.sqrt(np.diag(bao_cov_matrix))
-    colors = {"DV_over_rs": "red", "DM_over_rs": "blue", "DH_over_rs": "green"}
-    z_smooth = np.linspace(0, max(data["z"]), 100)
-
-    plt.figure(figsize=(8, 6))
-    for q in set(data["quantity"]):
-        mask = data["quantity"] == q
-        plt.errorbar(
-            x=data["z"][mask],
-            y=data["value"][mask],
-            yerr=errors[mask],
-            fmt=".",
-            color=colors[q],
-            label=q,
-            capsize=2,
-            linestyle="None",
-        )
-        model_smooth = []
-        for z in z_smooth:
-            if q == "DV_over_rs":
-                model_smooth.append(DV_z(z, params) / rd)
-            elif q == "DM_over_rs":
-                model_smooth.append(DM_z(z, params) / rd)
-            elif q == "DH_over_rs":
-                model_smooth.append((DH_z(z, params)) / rd)
-        plt.plot(z_smooth, model_smooth, color=colors[q], alpha=0.5)
-
-    plt.xlabel("Redshift (z)")
-    plt.ylabel(r"$O = \frac{D}{r_d}$")
-    plt.legend()
-    plt.grid(True)
-    plt.title(bao_legend)
-    plt.show()
-
-
+@njit
 def H_z(z, params):
-    return params[1] * Ez(z, *params[2:])
+    H0, Om, w0 = params[1], params[2], params[3]
+    return H0 * Ez(z, Om, w0)
 
 
+@njit
 def DH_z(z, params):
     return c / H_z(z, params)
 
 
+@njit
 def DM_z(z, params):
-    return quad(lambda zp: DH_z(zp, params), 0, z)[0]
+    x = np.linspace(0, z, num=250)
+    y = DH_z(x, params)
+    return np.trapz(y=y, x=x)
 
 
+@njit
 def DV_z(z, params):
     DH = DH_z(z, params)
     DM = DM_z(z, params)
     return (z * DH * DM**2) ** (1 / 3)
 
 
-quantity_funcs = {
-    "DV_over_rs": DV_z,
-    "DM_over_rs": DM_z,
-    "DH_over_rs": DH_z,
+qty_map = {
+    "DV_over_rs": 0,
+    "DM_over_rs": 1,
+    "DH_over_rs": 2,
 }
 
+quantities = np.array([qty_map[q] for q in data["quantity"]], dtype=np.int32)
 
-def bao_predictions(params):
-    return np.array([(quantity_funcs[qty](z, params) / rd) for z, _, qty in data])
+
+@njit
+def bao_theory(z, qty, params):
+    results = np.empty(z.size, dtype=np.float64)
+    for i in range(z.size):
+        q = qty[i]
+        if q == 0:
+            results[i] = DV_z(z[i], params) / rd
+        elif q == 1:
+            results[i] = DM_z(z[i], params) / rd
+        elif q == 2:
+            results[i] = DH_z(z[i], params) / rd
+    return results
 
 
 bounds = np.array(
@@ -110,7 +97,8 @@ bounds = np.array(
         (50, 80),  # H0
         (0.2, 0.7),  # Ωm
         (-2, 0),  # w0
-    ]
+    ],
+    dtype=np.float64,
 )
 
 
@@ -118,11 +106,12 @@ def chi_squared(params):
     delta_sn = mb_vals - apparent_mag(params)
     chi_sn = np.dot(delta_sn, cho_solve(cho_sn, delta_sn))
 
-    delta_bao = data["value"] - bao_predictions(params)
+    delta_bao = data["value"] - bao_theory(data["z"], quantities, params)
     chi_bao = np.dot(delta_bao, cho_solve(cho_bao, delta_bao))
     return chi_sn + chi_bao
 
 
+@njit
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
         return 0
@@ -170,7 +159,7 @@ def main():
         [w0_16, w0_50, w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = [M_50, H0_50, Om_50, w0_50]
+    best_fit = np.array([M_50, H0_50, Om_50, w0_50], dtype=np.float64)
 
     print(f"M0: {M_50:.3f} +{(M_84 - M_50):.3f} -{(M_50 - M_16):.3f}")
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f}")
@@ -179,7 +168,12 @@ def main():
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Degrees of freedom: {data['z'].size + z_cmb.size - len(best_fit)}")
 
-    plot_bao_predictions(best_fit)
+    plot_bao_predictions(
+        theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
+        data=data,
+        errors=np.sqrt(np.diag(bao_cov_matrix)),
+        title=bao_legend,
+    )
     plot_sn_predictions(
         legend=legend,
         x=z_cmb,
@@ -190,7 +184,7 @@ def main():
         x_scale="log",
     )
 
-    labels = ["$M_0$", "$H_0$", "$\Omega_m$", "$w_0$"]
+    labels = ["$M_0$", "$H_0$", "$Ω_m$", "$w_0$"]
     corner.corner(
         samples,
         labels=labels,

@@ -164,7 +164,7 @@ def main():
     )
     plt.show()
 
-    _, axes = plt.subplots(ndim, figsize=(10, 7))
+    _, axes = plt.subplots(ndim, figsize=(10, 7), sharex=True)
     for i in range(ndim):
         axes[i].plot(chains_samples[:, :, i], color="black", alpha=0.3, lw=0.4)
         axes[i].set_ylabel(labels[i])
