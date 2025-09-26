@@ -12,14 +12,16 @@ DISTANCE_PRIORS = np.array(
         0.01041,  # θ*
         0.02223,  # Ωb h^2
         0.14208,  # Ωm h^2
-    ]
+    ],
+    dtype=np.float64,
 )
 covariance = 10**-9 * np.array(
     [
         [0.006621, 0.12444, -1.1929],
         [0.12444, 21.344, -94.001],
         [-1.1929, -94.001, 1488.4],
-    ]
+    ],
+    dtype=np.float64,
 )
 inv_cov_mat = np.linalg.inv(covariance)
 N_EFF = 3.046

@@ -11,14 +11,16 @@ DISTANCE_PRIORS = np.array(
         1.7504,  # R
         301.77,  # lA
         0.022371,  # Ωb h^2
-    ]
+    ],
+    dtype=np.float64,
 )
 cov_matrix = 10**-8 * np.array(
     [
         [1559.83, -1325.41, -36.45],
         [-1325.41, 714691.80, 269.77],
         [-36.45, 269.77, 2.10],
-    ]
+    ],
+    dtype=np.float64,
 )
 inv_cov_mat = np.linalg.inv(cov_matrix)
 N_EFF = 3.046
