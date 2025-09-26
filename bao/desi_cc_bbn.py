@@ -1,7 +1,7 @@
+from numba import njit
 import numpy as np
 import emcee
 import corner
-from scipy.integrate import quad
 from scipy.linalg import cho_factor, cho_solve
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
@@ -19,48 +19,57 @@ logdet_cc = np.linalg.slogdet(cc_cov_matrix)[1]
 N_cc = len(z_cc_vals)
 
 
+@njit
 def rd(H0, Om, Obh2):  # Mpc
     Omh2 = Om * (H0 / 100) ** 2
     return r_drag(wb=Obh2, wm=Omh2)
 
 
-def rho_DE(z, w0):
-    cubic = (1 + z) ** 3
-    return (2 * cubic / (1 + cubic)) ** (2 * (1 + w0))
-
-
+@njit
 def Ez(z, params):
     Om, w0 = params[1], params[3]
-    return np.sqrt(Om * (1 + z) ** 3 + (1 - Om) * rho_DE(z, w0))
+    cubic = (1 + z) ** 3
+    rho_DE = (2 * cubic / (1 + cubic)) ** (2 * (1 + w0))
+    return np.sqrt(Om * cubic + (1 - Om) * rho_DE)
 
 
+@njit
 def H_z(z, params):
     return params[0] * Ez(z, params)
 
 
+@njit
 def DH_z(z, params):
     return c / H_z(z, params)
 
 
+@njit
 def DM_z(z, params):
-    return quad(lambda zp: DH_z(zp, params), 0, z)[0]
+    x = np.linspace(0, z, num=200)
+    y = DH_z(x, params)
+    return np.trapz(y=y, x=x)
 
 
+@njit
 def DV_z(z, params):
     DH = DH_z(z, params)
     DM = DM_z(z, params)
     return (z * DH * DM**2) ** (1 / 3)
 
 
-quantity_funcs = {
-    "DV_over_rs": lambda z, params: DV_z(z, params) / rd(*params[0:3]),
-    "DM_over_rs": lambda z, params: DM_z(z, params) / rd(*params[0:3]),
-    "DH_over_rs": lambda z, params: DH_z(z, params) / rd(*params[0:3]),
-}
-
-
-def theory_bao(z, qty, params):
-    return np.array([(quantity_funcs[qty](z, params)) for z, qty in zip(z, qty)])
+def bao_theory(z, qty, params):
+    H0, Om, Obh2 = params[0], params[1], params[2]
+    rd_val = rd(H0, Om, Obh2)
+    results = np.empty(z.size, dtype=np.float64)
+    for i in range(z.size):
+        q = qty[i]
+        if q == "DV_over_rs":
+            results[i] = DV_z(z[i], params) / rd_val
+        elif q == "DM_over_rs":
+            results[i] = DM_z(z[i], params) / rd_val
+        elif q == "DH_over_rs":
+            results[i] = DH_z(z[i], params) / rd_val
+    return results
 
 
 bounds = np.array(
@@ -83,7 +92,7 @@ def chi_squared(params):
     delta_cc = H_cc_vals - H_z(z_cc_vals, params)
     chi_cc = np.dot(delta_cc, np.dot(inv_cov_cc * f_cc**2, delta_cc))
 
-    delta_bao = data["value"] - theory_bao(data["z"], data["quantity"], params)
+    delta_bao = data["value"] - bao_theory(data["z"], data["quantity"], params)
     chi_bao = np.dot(delta_bao, cho_solve(cho_bao, delta_bao))
 
     bbn_delta = (omega_b_h2_prior - params[2]) / omega_b_h2_prior_sigma
@@ -111,9 +120,9 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 16 * ndim
+    nwalkers = 10 * ndim
     burn_in = 500
-    nsteps = 15000 + burn_in
+    nsteps = 20000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):
@@ -139,7 +148,7 @@ def main():
         [f_cc_16, f_cc_50, f_cc_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = [H0_50, Om_50, Obh2_50, w0_50, f_cc_50]
+    best_fit = np.array([H0_50, Om_50, Obh2_50, w0_50, f_cc_50])
     rd_samples = rd(samples[:, 0], samples[:, 1], samples[:, 2])
     rd_16, rd_50, rd_84 = np.percentile(rd_samples, [15.9, 50, 84.1], axis=0)
 
@@ -156,7 +165,7 @@ def main():
     print(f"Degs of freedom: {1 + data['value'].size + z_cc_vals.size - len(best_fit)}")
 
     plot_bao_predictions(
-        theory_predictions=lambda z, qty: theory_bao(z, qty, best_fit),
+        theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
         data=data,
         errors=np.sqrt(np.diag(bao_cov_matrix)),
         title=f"{bao_legend}: $H_0$={H0_50:.2f} km/s/Mpc",

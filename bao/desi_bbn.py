@@ -1,7 +1,7 @@
+from numba import njit
 import numpy as np
 import emcee
 import corner
-from scipy.integrate import quad
 from scipy.linalg import cho_factor, cho_solve
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
@@ -12,16 +12,21 @@ from .plot_predictions import plot_bao_predictions
 legend, data, cov_matrix = get_data()
 cho = cho_factor(cov_matrix)
 
+Or_h2 = Omega_r_h2()
 
+
+@njit
 def rd(H0, Om, Obh2):
     h = H0 / 100
     Omh2 = Om * h**2
     return r_drag(wb=Obh2, wm=Omh2)
 
 
-def Ez(z, H0, Om, w0):
+@njit
+def Ez(z, params):
+    H0, Om, w0 = params[0], params[1], params[3]
     h = H0 / 100
-    Or = Omega_r_h2() / h**2
+    Or = Or_h2 / h**2
     OL = 1 - Om - Or
     one_plus_z = 1 + z
     cubic = one_plus_z**3
@@ -29,34 +34,42 @@ def Ez(z, H0, Om, w0):
     return np.sqrt(Or * one_plus_z**4 + Om * one_plus_z**3 + OL * rho_de)
 
 
-def H_z(z, H0, Om, w0):
-    return H0 * Ez(z, H0, Om, w0)
+@njit
+def H_z(z, params):
+    return params[0] * Ez(z, params)
 
 
+@njit
 def DH_z(z, params):
-    H0, Om, w0 = params[0], params[1], params[3]
-    return c / H_z(z, H0, Om, w0)
+    return c / H_z(z, params)
 
 
+@njit
 def DM_z(z, params):
-    return quad(lambda zp: DH_z(zp, params), 0, z)[0]
+    x = np.linspace(0, z, num=250)
+    y = DH_z(x, params)
+    return np.trapz(y=y, x=x)
 
 
+@njit
 def DV_z(z, params):
     DH = DH_z(z, params)
     DM = DM_z(z, params)
     return (z * DH * DM**2) ** (1 / 3)
 
 
-quantity_funcs = {
-    "DV_over_rs": lambda z, params: DV_z(z, params) / rd(*params[0:3]),
-    "DM_over_rs": lambda z, params: DM_z(z, params) / rd(*params[0:3]),
-    "DH_over_rs": lambda z, params: DH_z(z, params) / rd(*params[0:3]),
-}
-
-
 def theory_predictions(z, qty, params):
-    return np.array([(quantity_funcs[qty](z, params)) for z, qty in zip(z, qty)])
+    H0, Om, Obh2 = params[0], params[1], params[2]
+    results = np.empty(z.size, dtype=np.float64)
+    for i in range(z.size):
+        q = qty[i]
+        if q == "DV_over_rs":
+            results[i] = DV_z(z[i], params) / rd(H0, Om, Obh2)
+        elif q == "DM_over_rs":
+            results[i] = DM_z(z[i], params) / rd(H0, Om, Obh2)
+        elif q == "DH_over_rs":
+            results[i] = DH_z(z[i], params) / rd(H0, Om, Obh2)
+    return results
 
 
 bounds = np.array(
@@ -98,7 +111,7 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 10 * ndim
+    nwalkers = 8 * ndim
     burn_in = 500
     nsteps = 20000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
@@ -142,10 +155,10 @@ def main():
 
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
     print(
-        f"Ωb h^2: {Obh2_50:.4f} +{(Obh2_84 - Obh2_50):.4f} -{(Obh2_50 - Obh2_16):.4f}"
+        f"Ωb h^2: {Obh2_50:.5f} +{(Obh2_84 - Obh2_50):.5f} -{(Obh2_50 - Obh2_16):.5f}"
     )
     print(
-        f"Ωm h^2: {Omh2_50:.4f} +{(Omh2_84 - Omh2_50):.4f} -{(Omh2_50 - Omh2_16):.4f}"
+        f"Ωm h^2: {Omh2_50:.5f} +{(Omh2_84 - Omh2_50):.5f} -{(Omh2_50 - Omh2_16):.5f}"
     )
     print(f"Ωm: {Om_50:.4f} +{Om_84-Om_50:.4f} -{Om_50-Om_16:.4f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
