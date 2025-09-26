@@ -1,7 +1,8 @@
+from numba import njit
 import numpy as np
 import emcee
 import corner
-from scipy.integrate import cumulative_trapezoid, quad
+from scipy.integrate import cumulative_trapezoid
 from scipy.linalg import cho_factor, cho_solve
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
@@ -17,40 +18,43 @@ cho_bao = cho_factor(cov_matrix_bao)
 
 c = 299792.458  # Speed of light in km/s
 
+grid = np.linspace(0, np.max(z_cmb), num=1000)
+zhel_plus1 = 1 + z_hel
 
-def Ez(z, Om, w0):
+
+@njit
+def Ez(z, params):
+    Om, w0 = params[2], params[3]
     z_plus_1 = 1 + z
     cubed = z_plus_1**3
     rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
     return np.sqrt(Om * cubed + (1 - Om) * rho_de)
 
 
-grid = np.linspace(0, np.max(z_cmb), num=2000)
-
-
-def integral_Ez(params):
-    x = grid
-    y = 1 / Ez(grid, *params[2:])
-    return np.interp(z_cmb, grid, cumulative_trapezoid(y=y, x=x, initial=0))
-
-
 def theory_mu(params):
-    dL = (1 + z_hel) * c * integral_Ez(params)
-    return params[0] + 25 + 5 * np.log10(dL)
+    y = 1 / Ez(grid, params)
+    I = np.interp(z_cmb, grid, cumulative_trapezoid(y=y, x=grid, initial=0))
+    return params[0] + 25 + 5 * np.log10(zhel_plus1 * c * I)
 
 
+@njit
 def H_z(z, params):
-    return Ez(z, *params[2:])
+    return Ez(z, params)
 
 
+@njit
 def DH_z(z, params):
     return c / H_z(z, params)
 
 
+@njit
 def DM_z(z, params):
-    return quad(lambda zp: DH_z(zp, params), 0, z)[0]
+    x = np.linspace(0, z, num=250)
+    y = DH_z(x, params)
+    return np.trapz(y=y, x=x)
 
 
+@njit
 def DV_z(z, params):
     DH = DH_z(z, params)
     DM = DM_z(z, params)
@@ -85,13 +89,15 @@ bounds = np.array(
         (90, 110),  # r_d * h
         (0.1, 0.7),  # Ωm
         (-2, 0),  # w0
-    ]
+    ],
+    dtype=np.float64,
 )
 
 
+@njit
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
-        return 0
+        return 0.0
     return -np.inf
 
 
@@ -108,9 +114,9 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 10 * ndim
+    nwalkers = 8 * ndim
     burn_in = 500
-    nsteps = 8000 + burn_in
+    nsteps = 10000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):
@@ -136,7 +142,7 @@ def main():
         [w0_16, w0_50, w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = [dM_50, rd_50, Om_50, w0_50]
+    best_fit = np.array([dM_50, rd_50, Om_50, w0_50])
 
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f}")
     print(f"r_d * h: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f}")

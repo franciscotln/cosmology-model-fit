@@ -1,3 +1,4 @@
+from numba import njit
 import numpy as np
 import emcee
 import corner
@@ -13,19 +14,22 @@ from .plot_predictions import plot_bao_predictions
 
 
 c = cmb.c  # km/s
+Or_h2 = cmb.Omega_r_h2()
 
 sn_legend, z_cmb, z_hel, mu_values, cov_matrix_sn = get_data()
 bao_legend, bao_data, bao_cov_matrix = get_bao_data()
 cho_sn = cho_factor(cov_matrix_sn)
 cho_bao = cho_factor(bao_cov_matrix)
 
-sn_grid = np.linspace(0, np.max(z_cmb), num=3000)
+sn_grid = np.linspace(0, np.max(z_cmb), num=1000)
+one_plus_z_hel = 1 + z_hel
 
 
+@njit
 def Ez(z, params):
     H0, Om, w0 = params[0], params[1], params[3]
     h = H0 / 100
-    Or = cmb.Omega_r_h2() / h**2
+    Or = Or_h2 / h**2
     Ode = 1 - Om - Or
     one_plus_z = 1 + z
     rho_de = (2 * one_plus_z**3 / (1 + one_plus_z**3)) ** (2 * (1 + w0))
@@ -37,33 +41,32 @@ def theory_mu(params):
     H0, offset_mag = params[0], params[-1]
     integral_vals = cumulative_trapezoid(1 / Ez(sn_grid, params), sn_grid, initial=0)
     I = np.interp(z_cmb, sn_grid, integral_vals)
-    dL = (1 + z_hel) * I * c / H0
+    dL = one_plus_z_hel * I * c / H0
     return offset_mag + 25 + 5 * np.log10(dL)
 
 
+@njit
 def H_z(z, params):
     return params[0] * Ez(z, params)
 
 
+@njit
 def DH_z(z, params):
     return c / H_z(z, params)
 
 
+@njit
 def DM_z(z, params):
-    return quad(lambda zp: DH_z(zp, params), 0, z)[0]
+    x = np.linspace(0, z, num=250)
+    y = DH_z(x, params)
+    return np.trapz(y=y, x=x)
 
 
+@njit
 def DV_z(z, params):
-    DH = c / H_z(z, params)
+    DH = DH_z(z, params)
     DM = DM_z(z, params)
     return (z * DH * DM**2) ** (1 / 3)
-
-
-bao_funcs = {
-    "DV_over_rs": DV_z,
-    "DM_over_rs": DM_z,
-    "DH_over_rs": DH_z,
-}
 
 
 def bao_theory(z, qty, params):
@@ -71,7 +74,16 @@ def bao_theory(z, qty, params):
     Omh2 = Om * (H0 / 100) ** 2
     rd = cmb.r_drag(wb=Obh2, wm=Omh2)
 
-    return np.array([bao_funcs[q](zi, params) / rd for zi, q in zip(z, qty)])
+    results = np.empty(z.size, dtype=np.float64)
+    for i in range(z.size):
+        q = qty[i]
+        if q == "DV_over_rs":
+            results[i] = DV_z(z[i], params) / rd
+        elif q == "DM_over_rs":
+            results[i] = DM_z(z[i], params) / rd
+        elif q == "DH_over_rs":
+            results[i] = DH_z(z[i], params) / rd
+    return results
 
 
 def chi_squared(params):
@@ -98,10 +110,12 @@ bounds = np.array(
         (0.019, 0.025),  # Ωb * h^2
         (-2, 0),  # w0
         (-0.7, 0.7),  # ΔM
-    ]
+    ],
+    dtype=np.float64,
 )
 
 
+@njit
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
         return 0
@@ -121,9 +135,9 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 10 * ndim
+    nwalkers = 8 * ndim
     burn_in = 500
-    nsteps = 8000 + burn_in
+    nsteps = 10000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):
@@ -148,7 +162,7 @@ def main():
     w0_16, w0_50, w0_84 = pct[3]
     dM_16, dM_50, dM_84 = pct[4]
 
-    best_fit = [H0_50, Om_50, Obh2_50, w0_50, dM_50]
+    best_fit = np.array([H0_50, Om_50, Obh2_50, w0_50, dM_50])
 
     Omh2_samples = samples[:, 1] * (samples[:, 0] / 100) ** 2
     z_star_samples = cmb.z_star(samples[:, 2], Omh2_samples)
