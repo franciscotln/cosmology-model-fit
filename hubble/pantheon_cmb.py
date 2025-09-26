@@ -42,9 +42,9 @@ def sn_apparent_mag(params):
 
 
 def chi_squared(params):
-    delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(
-        lambda z: Ez(z, params), *params[0:3]
-    )
+    H0, Om, Ob_h2 = params[0], params[1], params[2]
+
+    delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez, params, H0, Om, Ob_h2)
     chi2_cmb = np.dot(delta, np.dot(cmb.inv_cov_mat, delta))
 
     delta_sn = mb_values - sn_apparent_mag(params)
@@ -60,7 +60,8 @@ bounds = np.array(
         (0.020, 0.025),  # Ωb * h^2
         (-1.5, -0.5),  # w0
         (-20, -19),  # M
-    ]
+    ],
+    dtype=np.float64,
 )
 
 
@@ -112,7 +113,7 @@ def main():
     w0_16, w0_50, w0_84 = pct[3]
     M_16, M_50, M_84 = pct[4]
 
-    best_fit = [H0_50, Om_50, Obh2_50, w0_50, M_50]
+    best_fit = np.array([H0_50, Om_50, Obh2_50, w0_50, M_50], dtype=np.float64)
 
     Omh2_samples = samples[:, 1] * (samples[:, 0] / 100) ** 2
     z_star_samples = cmb.z_star(samples[:, 2], Omh2_samples)
@@ -138,9 +139,7 @@ def main():
     print(
         f"z_drag: {z_dr_50:.2f} +{(z_dr_84 - z_dr_50):.2f} -{(z_dr_50 - z_dr_16):.2f}"
     )
-    print(
-        f"r_s(z*) = {cmb.rs_z(lambda z: Ez(z, best_fit), z_st_50, H0_50, Obh2_50):.2f} Mpc"
-    )
+    print(f"r_s(z*) = {cmb.rs_z(Ez, z_st_50, best_fit, H0_50, Obh2_50):.2f} Mpc")
     print(
         f"r_s(z_drag) = {r_dr_50:.2f} +{(r_dr_84 - r_dr_50):.2f} -{(r_dr_50 - r_dr_16):.2f} Mpc"
     )

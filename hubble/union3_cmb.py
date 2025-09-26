@@ -1,4 +1,4 @@
-import numba
+from numba import njit
 import numpy as np
 import emcee
 import corner
@@ -20,7 +20,7 @@ cho_sn = cho_factor(cov_matrix_sn)
 sn_grid = np.linspace(0, np.max(z_sn_vals), num=1000)
 
 
-@numba.jit
+@njit
 def Ez(z, params):
     H0, Om, w0 = params[0], params[1], params[3]
     h = H0 / 100
@@ -41,8 +41,8 @@ def mu_theory(params):
 
 
 def chi_squared(params):
-    Ez_func = lambda z: Ez(z, params)
-    delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez_func, *params[0:3])
+    H0, Om, Ob_h2 = params[0], params[1], params[2]
+    delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez, params, H0, Om, Ob_h2)
     chi2_cmb = np.dot(delta, np.dot(cmb.inv_cov_mat, delta))
 
     delta_sn = mu_vals - mu_theory(params)
@@ -58,10 +58,12 @@ bounds = np.array(
         (0.019, 0.025),  # Ωb * h^2
         (-1.7, 0),  # w0
         (-0.7, 0.7),  # ΔM
-    ]
+    ],
+    dtype=np.float64,
 )
 
 
+@njit
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
         return 0
@@ -109,7 +111,7 @@ def main():
     w0_16, w0_50, w0_84 = pct[3]
     dM_16, dM_50, dM_84 = pct[4]
 
-    best_fit = [H0_50, Om_50, Obh2_50, w0_50, dM_50]
+    best_fit = np.array([H0_50, Om_50, Obh2_50, w0_50, dM_50], dtype=np.float64)
 
     Omh2_samples = samples[:, 1] * (samples[:, 0] / 100) ** 2
     z_star_samples = cmb.z_star(samples[:, 2], Omh2_samples)
@@ -133,12 +135,8 @@ def main():
     print(
         f"z_drag: {z_dr_50:.2f} +{(z_dr_84 - z_dr_50):.2f} -{(z_dr_50 - z_dr_16):.2f}"
     )
-    print(
-        f"r_s(z*) = {cmb.rs_z(lambda z: Ez(z, best_fit), z_st_50, H0_50, Obh2_50):.2f} Mpc"
-    )
-    print(
-        f"r_s(z_drag) = {cmb.rs_z(lambda z: Ez(z, best_fit), z_dr_50, H0_50, Obh2_50):.2f} Mpc"
-    )
+    print(f"r_s(z*) = {cmb.rs_z(Ez, z_st_50, best_fit, H0_50, Obh2_50):.2f} Mpc")
+    print(f"r_s(z_drag) = {cmb.rs_z(Ez, z_dr_50, best_fit, H0_50, Obh2_50):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
 
     plot_predictions(

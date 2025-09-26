@@ -1,4 +1,4 @@
-import numba
+from numba import njit
 import numpy as np
 import emcee
 import corner
@@ -18,7 +18,7 @@ inv_cov_cc = np.linalg.inv(cov_matrix_cc)
 logdet = np.linalg.slogdet(cov_matrix_cc)[1]
 
 
-@numba.njit
+@njit
 def H_z(z, params):
     H0, Om = params[0], params[1]
     h = H0 / 100
@@ -28,24 +28,28 @@ def H_z(z, params):
     return H0 * np.sqrt(Or * (1 + z) ** 4 + Om * cubed + (1 - Om - Or) * rho_de)
 
 
+@njit
+def Ez(z, params):
+    return H_z(z, params) / params[0]
+
+
 bounds = np.array(
     [
         (55, 80),  # H0
         (0.1, 0.5),  # Om
         (0.0210, 0.0235),  # Ωb * h^2
         (0.4, 3),  # f_cc
-    ]
+    ],
+    dtype=np.float64,
 )
 
 
 def chi_squared(params):
-    f_cc = params[-1]
+    H0, Om, Ob_h2, f_cc = params
     delta_cc = H_values - H_z(z_values, params)
     chi2_cc = np.dot(delta_cc, np.dot(inv_cov_cc * f_cc**2, delta_cc))
 
-    delta_cm = cmb.DISTANCE_PRIORS - cmb.cmb_distances(
-        lambda z: H_z(z, params) / params[0], *params[0:3]
-    )
+    delta_cm = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez, params, H0, Om, Ob_h2)
     chi2_cmb = np.dot(delta_cm, np.dot(cmb.inv_cov_mat, delta_cm))
     return chi2_cc + chi2_cmb
 
@@ -56,6 +60,7 @@ def log_likelihood(params):
     return -0.5 * (chi_squared(params) + normalization)
 
 
+@njit
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
         return 0.0

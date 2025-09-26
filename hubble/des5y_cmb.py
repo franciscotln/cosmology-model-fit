@@ -41,10 +41,9 @@ def theory_mu(params):
 
 
 def chi_squared(params):
-    Ez_func = lambda z: Ez(z, params)
     H0, Om, Ob_h2 = params[0:3]
 
-    delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez_func, H0, Om, Ob_h2)
+    delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez, params, H0, Om, Ob_h2)
     chi2_cmb = np.dot(delta, np.dot(cmb.inv_cov_mat, delta))
 
     delta_sn = mu_values - theory_mu(params)
@@ -60,7 +59,8 @@ bounds = np.array(
         (0.019, 0.025),  # Ωb * h^2
         (-2, 0),  # w0
         (-0.7, 0.7),  # ΔM
-    ]
+    ],
+    dtype=np.float64,
 )
 
 
@@ -111,8 +111,7 @@ def main():
     w0_16, w0_50, w0_84 = pct[3]
     dM_16, dM_50, dM_84 = pct[4]
 
-    best_fit = [H0_50, Om_50, Obh2_50, w0_50, dM_50]
-    Ez_func = lambda z: Ez(z, best_fit)
+    best_fit = np.array([H0_50, Om_50, Obh2_50, w0_50, dM_50], dtype=np.float64)
 
     Omh2_50 = Om_50 * (H0_50 / 100) ** 2
     z_st = cmb.z_star(Obh2_50, Omh2_50)
@@ -127,8 +126,8 @@ def main():
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f}")
     print(f"z*: {z_st:.2f}")
     print(f"z_drag: {z_dr:.2f}")
-    print(f"r_s(z*) = {cmb.rs_z(Ez_func, z_st, H0_50, Obh2_50):.2f} Mpc")
-    print(f"r_s(z_drag) = {cmb.rs_z(Ez_func, z_dr, H0_50, Obh2_50):.2f} Mpc")
+    print(f"r_s(z*) = {cmb.rs_z(Ez, z_st, best_fit, H0_50, Obh2_50):.2f} Mpc")
+    print(f"r_s(z_drag) = {cmb.rs_z(Ez, z_dr, best_fit, H0_50, Obh2_50):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
 
     plot_sn_predictions(
