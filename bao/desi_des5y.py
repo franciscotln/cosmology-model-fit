@@ -61,24 +61,35 @@ def DV_z(z, params):
     return (z * DH * DM**2) ** (1 / 3)
 
 
-bao_quantity_funcs = {
-    "DV_over_rs": lambda z, params: DV_z(z, params) / (params[1] * 100),
-    "DM_over_rs": lambda z, params: DM_z(z, params) / (params[1] * 100),
-    "DH_over_rs": lambda z, params: DH_z(z, params) / (params[1] * 100),
+qty_map = {
+    "DV_over_rs": 0,
+    "DM_over_rs": 1,
+    "DH_over_rs": 2,
 }
 
+quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int64)
 
-def theory_predictions(z, qty, params):
-    return np.array([(bao_quantity_funcs[qty](z, params)) for z, qty in zip(z, qty)])
+
+@njit
+def bao_theory(z, qty, params):
+    rd_h = params[1] * 100
+    results = np.empty(z.size, dtype=np.float64)
+    for i in range(z.size):
+        q = qty[i]
+        if q == 0:
+            results[i] = DV_z(z[i], params) / rd_h
+        elif q == 1:
+            results[i] = DM_z(z[i], params) / rd_h
+        elif q == 2:
+            results[i] = DH_z(z[i], params) / rd_h
+    return results
 
 
 def chi_squared(params):
     delta_sn = mu_values - theory_mu(params)
     chi_sn = np.dot(delta_sn, cho_solve(cho_sn, delta_sn))
 
-    delta_bao = bao_data["value"] - theory_predictions(
-        bao_data["z"], bao_data["quantity"], params
-    )
+    delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
     chi_bao = np.dot(delta_bao, cho_solve(cho_bao, delta_bao))
     return chi_sn + chi_bao
 
@@ -152,7 +163,7 @@ def main():
     print(f"Degrees of freedom: {bao_data['value'].size + z_cmb.size - len(best_fit)}")
 
     plot_bao_predictions(
-        theory_predictions=lambda z, qty: theory_predictions(z, qty, best_fit),
+        theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
         data=bao_data,
         errors=np.sqrt(np.diag(cov_matrix_bao)),
         title=bao_legend,
