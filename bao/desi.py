@@ -1,3 +1,4 @@
+from numba import njit
 import numpy as np
 import emcee
 import corner
@@ -10,12 +11,14 @@ from y2025BAO.data import get_data
 from .plot_predictions import plot_bao_predictions
 
 c = c0 / 1000  # Speed of light in km/s
+rd = 147.09  # Mpc, fixed
 legend, data, cov_matrix = get_data()
 cho = cho_factor(cov_matrix)
-rd = 147.09  # Mpc, fixed
 
 
-def H_z(z, h, Om, w0):
+@njit
+def H_z(z, params):
+    h, Om, w0 = params
     OL = 1 - Om
     one_plus_z = 1 + z
     cubed = one_plus_z**3
@@ -23,45 +26,55 @@ def H_z(z, h, Om, w0):
     return 100 * h * np.sqrt(Om * cubed + OL * rho_de)
 
 
+@njit
 def DH_z(z, params):
-    return c / H_z(z, *params)
+    return c / H_z(z, params)
 
 
+@njit
 def DM_z(z, params):
-    return quad(lambda zp: DH_z(zp, params), 0, z)[0]
+    x = np.linspace(0, z, num=250)
+    y = DH_z(x, params)
+    return np.trapz(y=y, x=x)
 
 
+@njit
 def DV_z(z, params):
     DH = DH_z(z, params)
     DM = DM_z(z, params)
     return (z * DH * DM**2) ** (1 / 3)
 
 
-quantity_funcs = {
-    "DV_over_rs": lambda z, params: DV_z(z, params) / rd,
-    "DM_over_rs": lambda z, params: DM_z(z, params) / rd,
-    "DH_over_rs": lambda z, params: DH_z(z, params) / rd,
-}
-
-
-def theory_predictions(z, qty, params):
-    return np.array([(quantity_funcs[qty](z, params)) for z, qty in zip(z, qty)])
+@njit
+def bao_theory(z, qty, params):
+    results = np.empty(z.size, dtype=np.float64)
+    for i in range(z.size):
+        q = qty[i]
+        if q == "DV_over_rs":
+            results[i] = DV_z(z[i], params) / rd
+        elif q == "DM_over_rs":
+            results[i] = DM_z(z[i], params) / rd
+        elif q == "DH_over_rs":
+            results[i] = DH_z(z[i], params) / rd
+    return results
 
 
 bounds = np.array(
     [
-        (0.550, 0.750),  # h
+        (0.500, 0.800),  # h
         (0.150, 0.450),  # Ωm
-        (-1.650, 0.000),  # w0
-    ]
+        (-2.000, 0.000),  # w0
+    ],
+    dtype=np.float64,
 )
 
 
 def chi_squared(params):
-    delta = data["value"] - theory_predictions(data["z"], data["quantity"], params)
+    delta = data["value"] - bao_theory(data["z"], data["quantity"], params)
     return np.dot(delta, cho_solve(cho, delta))
 
 
+@njit
 def log_prior(params):
     if not np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
         return -np.inf
@@ -81,9 +94,9 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 50 * ndim
+    nwalkers = 20 * ndim
     burn_in = 500
-    nsteps = 10000 + burn_in
+    nsteps = 20000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):
@@ -107,10 +120,8 @@ def main():
         [w0_16, w0_50, w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = [h_50, Om_50, w0_50]
-    residuals = data["value"] - theory_predictions(
-        data["z"], data["quantity"], best_fit
-    )
+    best_fit = np.array([h_50, Om_50, w0_50], dtype=np.float64)
+    residuals = data["value"] - bao_theory(data["z"], data["quantity"], best_fit)
     SS_res = np.sum(residuals**2)
     SS_tot = np.sum((data["value"] - np.mean(data["value"])) ** 2)
     r2 = 1 - SS_res / SS_tot
@@ -124,7 +135,7 @@ def main():
     print(f"RMSD: {np.sqrt(np.mean(residuals**2)):.3f}")
 
     plot_bao_predictions(
-        theory_predictions=lambda z, qty: theory_predictions(z, qty, best_fit),
+        theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
         data=data,
         errors=np.sqrt(np.diag(cov_matrix)),
         title=f"{legend}: $H_0$={100 * h_50:.1f} km/s/Mpc, $Ω_m$={Om_50:.3f}",
@@ -168,9 +179,9 @@ RMSD: 0.305
 
 Flat wCDM:
 rd: 147.09 Mpc (fixed)
-h: 0.678 +0.012 -0.011
+h: 0.679 +0.012 -0.011
 Ωm: 0.297 ± 0.009
-w0: -0.915 +0.076 -0.080 (1.06 - 1.12 sigma from -1)
+w0: -0.916 +0.076 -0.079 (1.05 sigma from -1)
 Chi squared: 9.11 (Δ chi2 1.16)
 Degs of freedom: 10
 R^2: 0.9989
@@ -182,8 +193,8 @@ Flat alternative: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
 rd: 147.09 Mpc (fixed)
 h: 0.670 +0.016 -0.015
 Ωm: 0.308 ± 0.012
-w0: -0.831 +0.122 -0.130 (1.30 - 1.39 sigma from -1)
-Chi squared: 8.43 (Δ chi2 1.84)
+w0: -0.833 +0.122 -0.129 (1.3 sigma from -1)
+Chi squared: 8.44 (Δ chi2 1.83)
 Degs of freedom: 10
 R^2: 0.9990
 RMSD: 0.265

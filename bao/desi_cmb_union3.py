@@ -1,3 +1,4 @@
+from numba import njit
 import numpy as np
 import emcee
 import corner
@@ -13,19 +14,22 @@ from .plot_predictions import plot_bao_predictions
 
 
 c = cmb.c  # km/s
+Or_h2 = cmb.Omega_r_h2()
 
 sn_legend, z_sn_vals, mu_vals, cov_matrix_sn = get_data()
 bao_legend, bao_data, bao_cov_matrix = get_bao_data()
 cho_sn = cho_factor(cov_matrix_sn)
 cho_bao = cho_factor(bao_cov_matrix)
 
-sn_grid = np.linspace(0, np.max(z_sn_vals), num=3000)
+sn_grid = np.linspace(0, np.max(z_sn_vals), num=1000)
+one_plus_z = 1 + z_sn_vals
 
 
+@njit
 def Ez(z, params):
     H0, Om, w0 = params[0], params[1], params[3]
     h = H0 / 100
-    Or = cmb.Omega_r_h2() / h**2
+    Or = Or_h2 / h**2
     Ode = 1 - Om - Or
     one_plus_z = 1 + z
     rho_de = (2 * one_plus_z**3 / (1 + one_plus_z**3)) ** (2 * (1 + w0))
@@ -37,21 +41,27 @@ def mu_theory(Ez_func, params):
     H0, mag_offset = params[0], params[-1]
     integral_vals = cumulative_trapezoid(1 / Ez_func(sn_grid), sn_grid, initial=0)
     I = np.interp(z_sn_vals, sn_grid, integral_vals)
-    return mag_offset + 25 + 5 * np.log10((1 + z_sn_vals) * I * c / H0)
+    return mag_offset + 25 + 5 * np.log10(one_plus_z * I * c / H0)
 
 
+@njit
 def H_z(z, params):
     return params[0] * Ez(z, params)
 
 
+@njit
 def DH_z(z, params):
     return c / H_z(z, params)
 
 
+@njit
 def DM_z(z, params):
-    return quad(lambda zp: DH_z(zp, params), 0, z)[0]
+    x = np.linspace(0, z, num=250)
+    y = DH_z(x, params)
+    return np.trapz(y=y, x=x)
 
 
+@njit
 def DV_z(z, params):
     DH = c / H_z(z, params)
     DM = DM_z(z, params)
@@ -78,7 +88,7 @@ def chi_squared(params):
     Ez_func = lambda z: Ez(z, params)
 
     delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez_func, H0, Om, Ob_h2)
-    chi2_cmb = delta @ cmb.inv_cov_mat @ delta
+    chi2_cmb = np.dot(delta, np.dot(cmb.inv_cov_mat, delta))
 
     delta_bao = bao_data["value"] - bao_theory(
         bao_data["z"], bao_data["quantity"], params
@@ -102,6 +112,7 @@ bounds = np.array(
 )
 
 
+@njit
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
         return 0
@@ -121,9 +132,9 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 16 * ndim
+    nwalkers = 10 * ndim
     burn_in = 500
-    nsteps = 10000 + burn_in
+    nsteps = 20000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):
@@ -149,7 +160,7 @@ def main():
     w0_16, w0_50, w0_84 = pct[3]
     dM_16, dM_50, dM_84 = pct[4]
 
-    best_fit = [H0_50, Om_50, Obh2_50, w0_50, dM_50]
+    best_fit = np.array([H0_50, Om_50, Obh2_50, w0_50, dM_50])
 
     Omh2_samples = samples[:, 1] * (samples[:, 0] / 100) ** 2
     z_star_samples = cmb.z_star(samples[:, 2], Omh2_samples)
@@ -215,15 +226,6 @@ def main():
         smooth1d=1.5,
         levels=(0.393, 0.864),
     )
-    plt.show()
-
-    _, axes = plt.subplots(ndim, figsize=(10, 7))
-    for i in range(ndim):
-        axes[i].plot(chains_samples[:, :, i], color="black", alpha=0.3, lw=0.4)
-        axes[i].set_ylabel(labels[i])
-        axes[i].set_xlabel("chain step")
-        axes[i].axvline(x=burn_in, color="red", linestyle="--", alpha=0.5)
-        axes[i].axhline(y=best_fit[i], color="white", linestyle="--", alpha=0.5)
     plt.show()
 
 

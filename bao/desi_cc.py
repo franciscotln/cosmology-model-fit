@@ -1,7 +1,7 @@
+from numba import njit
 import numpy as np
 import emcee
 import corner
-from scipy.integrate import quad
 from scipy.linalg import cho_factor, cho_solve
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
@@ -20,40 +20,51 @@ N_cc = len(z_cc_vals)
 c = 299792.458  # Speed of light in km/s
 
 
-def Ez(z, O_m, w0):
+@njit
+def Ez(z, params):
+    O_m, w0 = params[3], params[4]
     one_plus_z = 1 + z
     cubic = one_plus_z**3
     rho_de = (2 * cubic / (1 + cubic)) ** (2 * (1 + w0))
     return np.sqrt(O_m * cubic + (1 - O_m) * rho_de)
 
 
+@njit
 def H_z(z, params):
-    return params[1] * Ez(z, *params[3:])
+    return params[1] * Ez(z, params)
 
 
+@njit
 def DH_z(z, params):
     return c / H_z(z, params)
 
 
+@njit
 def DM_z(z, params):
-    return quad(lambda zp: DH_z(zp, params), 0, z)[0]
+    x = np.linspace(0, z, num=250)
+    y = DH_z(x, params)
+    return np.trapz(y=y, x=x)
 
 
+@njit
 def DV_z(z, params):
     DH = DH_z(z, params)
     DM = DM_z(z, params)
     return (z * DH * DM**2) ** (1 / 3)
 
 
-quantity_funcs = {
-    "DV_over_rs": lambda z, params: DV_z(z, params) / params[2],
-    "DM_over_rs": lambda z, params: DM_z(z, params) / params[2],
-    "DH_over_rs": lambda z, params: DH_z(z, params) / params[2],
-}
-
-
 def theory_bao(z, qty, params):
-    return np.array([(quantity_funcs[qty](z, params)) for z, qty in zip(z, qty)])
+    rd = params[2]
+    results = np.empty(z.size, dtype=np.float64)
+    for i in range(z.size):
+        q = qty[i]
+        if q == "DV_over_rs":
+            results[i] = DV_z(z[i], params) / rd
+        elif q == "DM_over_rs":
+            results[i] = DM_z(z[i], params) / rd
+        elif q == "DH_over_rs":
+            results[i] = DH_z(z[i], params) / rd
+    return results
 
 
 bounds = np.array(
@@ -77,6 +88,7 @@ def chi_squared(params):
     return chi_cc + chi_bao
 
 
+@njit
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
         return 0.0
@@ -100,7 +112,7 @@ def main():
     ndim = len(bounds)
     nwalkers = 16 * ndim
     burn_in = 500
-    nsteps = 15000 + burn_in
+    nsteps = 20000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):

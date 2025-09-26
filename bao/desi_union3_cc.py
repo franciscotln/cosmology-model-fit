@@ -1,3 +1,4 @@
+from numba import njit
 import numpy as np
 import emcee
 import corner
@@ -21,26 +22,24 @@ N_cc = len(z_cc_vals)
 
 c = 299792.458  # Speed of light in km/s
 
+z_grid = np.linspace(0, np.max(z_sn_vals), num=1000)
 
-def Ez(z, O_m, w0):
+
+@njit
+def Ez(z, params):
+    O_m, w0 = params[4], params[5]
     one_plus_z = 1 + z
     cubed = one_plus_z**3
     rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
     return np.sqrt(O_m * cubed + (1 - O_m) * rho_de)
 
 
-z_grid = np.linspace(0, np.max(z_sn_vals), num=3000)
-
-
-def integral_Ez(params):
-    y = 1 / Ez(z_grid, *params[4:])
-    integral_values = cumulative_trapezoid(y=y, x=z_grid, initial=0)
-    return np.interp(z_sn_vals, z_grid, integral_values)
-
-
 def mu_theory(params):
     dM, h0 = params[1], params[2]
-    dL = (1 + z_sn_vals) * (c / h0) * integral_Ez(params)
+    y = 1 / Ez(z_grid, params)
+    integral_values = cumulative_trapezoid(y=y, x=z_grid, initial=0)
+    I = np.interp(z_sn_vals, z_grid, integral_values)
+    dL = (1 + z_sn_vals) * (c / h0) * I
     return dM + 25 + 5 * np.log10(dL)
 
 
@@ -105,31 +104,42 @@ def plot_bao_predictions(params):
     plt.show()
 
 
+@njit
+def DH_z(z, params):
+    return c / H_z(z, params)
+
+
+@njit
 def H_z(z, params):
-    return params[2] * Ez(z, *params[4:])
+    return params[2] * Ez(z, params)
 
 
+@njit
 def DM_z(z, params):
-    return quad(lambda zp: c / H_z(zp, params), 0, z)[0]
+    x = np.linspace(0, z, num=250)
+    y = DH_z(x, params)
+    return np.trapz(y=y, x=x)
 
 
+@njit
 def DV_z(z, params):
     DH = c / H_z(z, params)
     DM = DM_z(z, params)
     return (z * DH * DM**2) ** (1 / 3)
 
 
-def bao_theory(params):
-    r_d = params[3]
-    predictions = []
-    for z, _, quantity in bao_data:
-        if quantity == "DV_over_rs":
-            predictions.append(DV_z(z, params) / r_d)
-        elif quantity == "DM_over_rs":
-            predictions.append(DM_z(z, params) / r_d)
-        elif quantity == "DH_over_rs":
-            predictions.append((c / H_z(z, params)) / r_d)
-    return np.array(predictions)
+def bao_theory(z, qty, params):
+    rd = params[3]
+    results = np.empty(z.size, dtype=np.float64)
+    for i in range(z.size):
+        q = qty[i]
+        if q == "DV_over_rs":
+            results[i] = DV_z(z[i], params) / rd
+        elif q == "DM_over_rs":
+            results[i] = DM_z(z[i], params) / rd
+        elif q == "DH_over_rs":
+            results[i] = DH_z(z[i], params) / rd
+    return results
 
 
 bounds = np.array(
@@ -149,7 +159,9 @@ def chi_squared(params):
     delta_sn = sn_mu_vals - mu_theory(params)
     chi_sn = np.dot(delta_sn, cho_solve(cho_sn, delta_sn))
 
-    delta_bao = bao_data["value"] - bao_theory(params)
+    delta_bao = bao_data["value"] - bao_theory(
+        bao_data["z"], bao_data["quantity"], params
+    )
     chi_bao = np.dot(delta_bao, cho_solve(cho_bao, delta_bao))
 
     delta_cc = H_cc_vals - H_z(z_cc_vals, params)
@@ -157,6 +169,7 @@ def chi_squared(params):
     return chi_sn + chi_bao + chi_cc
 
 
+@njit
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
         return 0.0
@@ -178,7 +191,7 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 10 * ndim
+    nwalkers = 16 * ndim
     burn_in = 500
     nsteps = 20000 + burn_in
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))

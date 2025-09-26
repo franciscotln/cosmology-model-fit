@@ -1,7 +1,7 @@
+from numba import njit
 import numpy as np
 import emcee
 import corner
-from scipy.integrate import quad
 from scipy.linalg import cho_factor, cho_solve
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
@@ -10,15 +10,17 @@ import cmb.data_desi_compression as cmb
 from .plot_predictions import plot_bao_predictions
 
 c = cmb.c  # speed of light in km/s
+Or_h2 = cmb.Omega_r_h2()
 
 bao_legend, bao_data, bao_cov_matrix = get_bao_data()
 cho_bao = cho_factor(bao_cov_matrix)
 
 
+@njit
 def Ez(z, params):
     H0, Om, w0 = params[0], params[1], params[3]
     h = H0 / 100
-    Or = cmb.Omega_r_h2() / h**2
+    Or = Or_h2 / h**2
     Ode = 1 - Om - Or
 
     one_plus_z = 1 + z
@@ -28,37 +30,46 @@ def Ez(z, params):
     return np.sqrt(Or * one_plus_z**4 + Om * cubed + Ode * rho_de)
 
 
+@njit
 def H_z(z, params):
     return params[0] * Ez(z, params)
 
 
+@njit
 def DH_z(z, params):
     return c / H_z(z, params)
 
 
+@njit
 def DM_z(z, params):
-    return quad(lambda zp: DH_z(zp, params), 0, z)[0]
+    x = np.linspace(0, z, num=250)
+    y = DH_z(x, params)
+    return np.trapz(y=y, x=x)
 
 
+@njit
 def DV_z(z, params):
-    DH = c / H_z(z, params)
+    DH = DH_z(z, params)
     DM = DM_z(z, params)
     return (z * DH * DM**2) ** (1 / 3)
 
 
-bao_funcs = {
-    "DV_over_rs": DV_z,
-    "DM_over_rs": DM_z,
-    "DH_over_rs": DH_z,
-}
-
-
+@njit
 def bao_predictions(z, qty, params):
     H0, Om, Obh2 = params[0], params[1], params[2]
     Omh2 = Om * (H0 / 100) ** 2
     rd = cmb.r_drag(wb=Obh2, wm=Omh2)
 
-    return np.array([bao_funcs[q](zi, params) / rd for zi, q in zip(z, qty)])
+    results = np.empty(z.size, dtype=np.float64)
+    for i in range(z.size):
+        q = qty[i]
+        if q == "DV_over_rs":
+            results[i] = DV_z(z[i], params) / rd
+        elif q == "DM_over_rs":
+            results[i] = DM_z(z[i], params) / rd
+        elif q == "DH_over_rs":
+            results[i] = DH_z(z[i], params) / rd
+    return results
 
 
 def chi_squared(params):
@@ -86,6 +97,7 @@ bounds = np.array(
 )
 
 
+@njit
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
         return 0
@@ -105,9 +117,9 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 16 * ndim
+    nwalkers = 10 * ndim
     burn_in = 500
-    nsteps = 12000 + burn_in
+    nsteps = 20000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):
@@ -132,7 +144,7 @@ def main():
     Obh2_16, Obh2_50, Obh2_84 = pct[2]
     w0_16, w0_50, w0_84 = pct[3]
 
-    best_fit = [H0_50, Om_50, Obh2_50, w0_50]
+    best_fit = np.array([H0_50, Om_50, Obh2_50, w0_50])
 
     Om_h2_samples = samples[:, 1] * (samples[:, 0] / 100) ** 2
     z_st_samples = cmb.z_star(samples[:, 2], Om_h2_samples)

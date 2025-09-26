@@ -1,3 +1,4 @@
+from numba import njit
 import numpy as np
 import emcee
 import corner
@@ -18,15 +19,16 @@ cho_bao = cho_factor(bao_cov_matrix)
 c = 299792.458  # Speed of light in km/s
 rd = 147.09  # Mpc, fixed
 
+grid = np.linspace(0, np.max(z_sn_vals), num=1000)
+
+
+@njit
 def Ez(z, params):
     O_m, w0 = params[2], params[3]
     one_plus_z = 1 + z
     cubic = one_plus_z**3
     rho_de = (2 * cubic / (1 + cubic)) ** (2 * (1 + w0))
     return np.sqrt(O_m * cubic + (1 - O_m) * rho_de)
-
-
-grid = np.linspace(0, np.max(z_sn_vals), num=3000)
 
 
 def integral_Ez(params):
@@ -39,33 +41,41 @@ def distance_modulus(params):
     return params[0] + 25 + 5 * np.log10(dL)
 
 
+@njit
 def H_z(z, params):
     return params[1] * Ez(z, params)
 
 
+@njit
 def DH_z(z, params):
     return c / H_z(z, params)
 
 
+@njit
 def DM_z(z, params):
-    return quad(lambda zp: DH_z(zp, params), 0, z)[0]
+    x = np.linspace(0, z, num=250)
+    y = DH_z(x, params)
+    return np.trapz(y=y, x=x)
 
 
+@njit
 def DV_z(z, params):
-    DH = c / H_z(z, params)
+    DH = DH_z(z, params)
     DM = DM_z(z, params)
     return (z * DH * DM**2) ** (1 / 3)
 
 
-quantity_funcs = {
-    "DV_over_rs": lambda z, params: DV_z(z, params) / rd,
-    "DM_over_rs": lambda z, params: DM_z(z, params) / rd,
-    "DH_over_rs": lambda z, params: DH_z(z, params) / rd,
-}
-
-
 def theory_predictions(z, qty, params):
-    return np.array([(quantity_funcs[qty](z, params)) for z, qty in zip(z, qty)])
+    results = np.empty(z.size, dtype=np.float64)
+    for i in range(z.size):
+        q = qty[i]
+        if q == "DV_over_rs":
+            results[i] = DV_z(z[i], params) / rd
+        elif q == "DM_over_rs":
+            results[i] = DM_z(z[i], params) / rd
+        elif q == "DH_over_rs":
+            results[i] = DH_z(z[i], params) / rd
+    return results
 
 
 def chi_squared(params):
@@ -89,6 +99,7 @@ bounds = np.array(
 )
 
 
+@njit
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
         return 0
@@ -108,7 +119,7 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 10 * ndim
+    nwalkers = 16 * ndim
     burn_in = 500
     nsteps = 20000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
@@ -137,7 +148,7 @@ def main():
         [w0_16, w0_50, w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = [dM_50, H0_50, Om_50, w0_50]
+    best_fit = np.array([dM_50, H0_50, Om_50, w0_50])
 
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
