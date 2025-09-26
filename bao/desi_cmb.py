@@ -74,9 +74,8 @@ def bao_predictions(z, qty, params):
 
 def chi_squared(params):
     H0, Om, Ob_h2 = params[0], params[1], params[2]
-    Ez_func = lambda z: Ez(z, params)
 
-    delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez_func, H0, Om, Ob_h2)
+    delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez, params, H0, Om, Ob_h2)
     chi2_cmb = np.dot(delta_cmb, np.dot(cmb.inv_cov_mat, delta_cmb))
 
     delta_bao = bao_data["value"] - bao_predictions(
@@ -93,7 +92,8 @@ bounds = np.array(
         (0.25, 0.45),  # Ωm
         (0.021, 0.023),  # Ωb * h^2
         (-1.5, 0),  # w0
-    ]
+    ],
+    dtype=np.float64,
 )
 
 
@@ -144,7 +144,7 @@ def main():
     Obh2_16, Obh2_50, Obh2_84 = pct[2]
     w0_16, w0_50, w0_84 = pct[3]
 
-    best_fit = np.array([H0_50, Om_50, Obh2_50, w0_50])
+    best_fit = np.array([H0_50, Om_50, Obh2_50, w0_50], dtype=np.float64)
 
     Om_h2_samples = samples[:, 1] * (samples[:, 0] / 100) ** 2
     z_st_samples = cmb.z_star(samples[:, 2], Om_h2_samples)
@@ -167,9 +167,7 @@ def main():
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"z*: {z_st_50:.2f} +{(z_st_84 - z_st_50):.2f} -{(z_st_50 - z_st_16):.2f}")
     print(f"z_drag: {z_d_50:.2f} +{(z_d_84 - z_d_50):.2f} -{(z_d_50 - z_d_16):.2f}")
-    print(
-        f"r_s(z*) = {cmb.rs_z(lambda z: Ez(z, best_fit), z_st_50, H0_50, Obh2_50):.2f} Mpc"
-    )
+    print(f"r_s(z*) = {cmb.rs_z(Ez, z_st_50, best_fit, H0_50, Obh2_50):.2f} Mpc")
     print(
         f"r_s(z_drag) = {r_d_50:.2f} +{(r_d_84 - r_d_50):.2f} -{(r_d_50 - r_d_16):.2f} Mpc"
     )

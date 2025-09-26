@@ -1,3 +1,4 @@
+from numba import njit
 import numpy as np
 import emcee
 import corner
@@ -5,47 +6,30 @@ from scipy.integrate import cumulative_trapezoid, quad
 from scipy.linalg import cho_factor, cho_solve
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
+import cmb.data_chen_compression as cmb
 from y2022pantheonSHOES.data import get_data
 from y2025BAO.data import get_data as get_bao_data
 from hubble.plotting import plot_predictions as plot_sn_predictions
 from .plot_predictions import plot_bao_predictions
 
 
-c = 299792.458  # km/s
-
-# --- PLANCK DISTANCE PRIORS (Chen+2018 arXiv:1808.05724v1) ---
-PLANCK_R_mean = 1.750235
-PLANCK_lA_mean = 301.4707
-PLANCK_Ob_h2_mean = 0.02235976
-planck_priors = np.array([PLANCK_R_mean, PLANCK_lA_mean, PLANCK_Ob_h2_mean])
-inv_cov_mat = np.array(
-    [
-        [94392.3971, -1360.4913, 1664517.2916],
-        [-1360.4913, 161.4349, 3671.618],
-        [1664517.2916, 3671.618, 79719182.5162],
-    ]
-)
-N_EFF = 3.046
-TCMB = 2.7255  # K
-O_GAMMA_H2 = 2.4728e-5 * (TCMB / 2.7255) ** 4
-
+c = cmb.c  # km/s
+Or_h2 = cmb.Omega_r_h2()
 
 sn_legend, z_cmb, z_hel, mb_values, cov_matrix_sn = get_data()
 bao_legend, bao_data, bao_cov_matrix = get_bao_data()
 cho_sn = cho_factor(cov_matrix_sn)
 cho_bao = cho_factor(bao_cov_matrix)
 
-sn_grid = np.linspace(0, np.max(z_cmb), num=3000)
+sn_grid = np.linspace(0, np.max(z_cmb), num=1000)
+one_plus_z_hel = 1 + z_hel
 
 
-def Omega_r_h2(Neff=N_EFF):
-    return O_GAMMA_H2 * (1 + 0.2271 * Neff)
-
-
+@njit
 def Ez(z, params):
     H0, Om, w0 = params[0], params[1], params[3]
     h = H0 / 100
-    Or = Omega_r_h2() / h**2
+    Or = Or_h2 / h**2
     Ode = 1 - Om - Or
     one_plus_z = 1 + z
     rho_de = (2 * one_plus_z**3 / (1 + one_plus_z**3)) ** (2 * (1 + w0))
@@ -60,92 +44,56 @@ def integral_Ez(params):
 
 def apparent_mag(params):
     H0, M = params[0], params[-1]
-    dL = (1 + z_hel) * (c / H0) * integral_Ez(params)
+    dL = one_plus_z_hel * (c / H0) * integral_Ez(params)
     return M + 25 + 5 * np.log10(dL)
 
 
-def z_star(wb, wm):
-    # arXiv:2106.00428v2
-    return wm**-0.731631 + (
-        (391.672 * wm**-0.372296 + 937.422 * wb**-0.97966) * wm**0.0192951 * wb**0.93681
-    )
-
-
-def z_drag(wb, wm):
-    # arXiv:2106.00428v2
-    return (
-        1 + 428.169 * wb**0.256459 * wm**0.616388 + 925.56 * wm**0.751615
-    ) * wm**-0.714129
-
-
-def rs_z(z, params):
-    H0, Ob_h2 = params[0], params[2]
-    Rb = 3 * Ob_h2 / (4 * O_GAMMA_H2)
-
-    def integrand(a):
-        zp = -1 + 1 / a
-        denominator = a**2 * Ez(zp, params) * np.sqrt(3 * (1 + Rb * a))
-        return 1 / denominator
-
-    a_lower = 1e-8
-    a_upper = 1 / (1 + z)
-    I = quad(integrand, a_lower, a_upper)[0]
-    return (c / H0) * I
-
-
-def DA_z(z, params):
-    integral = quad(lambda zp: 1 / Ez(zp, params), 0, z)[0]
-    return (c / params[0]) * integral / (1 + z)
-
-
-def cmb_distances(params):
-    H0, Om, Ob_h2 = params[0], params[1], params[2]
-    Om_h2 = Om * (H0 / 100) ** 2
-    zstar = z_star(Ob_h2, Om_h2)
-    rs_star = rs_z(zstar, params)
-    DA_star = DA_z(zstar, params)
-
-    lA = np.pi * (1 + zstar) * DA_star / rs_star
-    R = np.sqrt(Om) * H0 * (1 + zstar) * DA_star / c
-    return np.array([R, lA, Ob_h2])
-
-
+@njit
 def H_z(z, params):
     return params[0] * Ez(z, params)
 
 
+@njit
 def DH_z(z, params):
     return c / H_z(z, params)
 
 
+@njit
 def DM_z(z, params):
-    return quad(lambda zp: DH_z(zp, params), 0, z)[0]
+    x = np.linspace(0, z, num=250)
+    y = DH_z(x, params)
+    return np.trapz(y=y, x=x)
 
 
+@njit
 def DV_z(z, params):
-    DH = c / H_z(z, params)
+    DH = DH_z(z, params)
     DM = DM_z(z, params)
     return (z * DH * DM**2) ** (1 / 3)
-
-
-bao_funcs = {
-    "DV_over_rs": DV_z,
-    "DM_over_rs": DM_z,
-    "DH_over_rs": DH_z,
-}
 
 
 def bao_theory(z, qty, params):
     H0_50, Om_50, Obh2_50 = params[0], params[1], params[2]
     Omh2_50 = Om_50 * (H0_50 / 100) ** 2
-    rd = rs_z(z_drag(Obh2_50, Omh2_50), params)
+    rd = cmb.r_drag(wb=Obh2_50, wm=Omh2_50)
 
-    return np.array([bao_funcs[q](zi, params) / rd for zi, q in zip(z, qty)])
+    results = np.empty(z.size, dtype=np.float64)
+    for i in range(z.size):
+        q = qty[i]
+        if q == "DV_over_rs":
+            results[i] = DV_z(z[i], params) / rd
+        elif q == "DM_over_rs":
+            results[i] = DM_z(z[i], params) / rd
+        elif q == "DH_over_rs":
+            results[i] = DH_z(z[i], params) / rd
+    return results
 
 
 def chi_squared(params):
-    delta = planck_priors - cmb_distances(params)
-    chi2_cmb = delta @ inv_cov_mat @ delta
+    H0, Om, Obh2 = params[0], params[1], params[2]
+
+    delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez, params, H0, Om, Obh2)
+    chi2_cmb = np.dot(delta, np.dot(cmb.inv_cov_mat, delta))
 
     delta_bao = bao_data["value"] - bao_theory(
         bao_data["z"], bao_data["quantity"], params
@@ -165,10 +113,12 @@ bounds = np.array(
         (0.019, 0.025),  # Ωb * h^2
         (-2, 0),  # w0
         (-20, -19),  # M
-    ]
+    ],
+    dtype=np.float64,
 )
 
 
+@njit
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
         return 0
@@ -215,11 +165,11 @@ def main():
     (w0_16, w0_50, w0_84) = pct[3]
     (M_16, M_50, M_84) = pct[4]
 
-    best_fit = [H0_50, Om_50, Obh2_50, w0_50, M_50]
+    best_fit = np.array([H0_50, Om_50, Obh2_50, w0_50, M_50], dtype=np.float64)
 
     Omh2_50 = Om_50 * (H0_50 / 100) ** 2
-    z_st = z_star(Obh2_50, Omh2_50)
-    z_dr = z_drag(Obh2_50, Omh2_50)
+    z_st = cmb.z_star(Obh2_50, Omh2_50)
+    z_dr = cmb.z_drag(Obh2_50, Omh2_50)
 
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
@@ -230,8 +180,8 @@ def main():
     print(f"M: {M_50:.3f} +{(M_84 - M_50):.3f} -{(M_50 - M_16):.3f}")
     print(f"z*: {z_st:.2f}")
     print(f"z_drag: {z_dr:.2f}")
-    print(f"r_s(z*) = {rs_z(z_st, best_fit):.2f} Mpc")
-    print(f"r_s(z_drag) = {rs_z(z_dr, best_fit):.2f} Mpc")
+    print(f"r_s(z*) = {cmb.rs_z(Ez, z_st, best_fit, H0_50, Obh2_50):.2f} Mpc")
+    print(f"r_s(z_drag) = {cmb.rs_z(Ez, z_dr, best_fit, H0_50, Obh2_50):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
 
     plot_bao_predictions(

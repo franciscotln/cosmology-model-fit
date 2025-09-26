@@ -37,9 +37,9 @@ def Ez(z, params):
     return np.sqrt(Or * one_plus_z**4 + Om * one_plus_z**3 + Ode * rho_de)
 
 
-def mu_theory(Ez_func, params):
+def mu_theory(params):
     H0, mag_offset = params[0], params[-1]
-    integral_vals = cumulative_trapezoid(1 / Ez_func(sn_grid), sn_grid, initial=0)
+    integral_vals = cumulative_trapezoid(1 / Ez(sn_grid, params), sn_grid, initial=0)
     I = np.interp(z_sn_vals, sn_grid, integral_vals)
     return mag_offset + 25 + 5 * np.log10(one_plus_z * I * c / H0)
 
@@ -63,7 +63,7 @@ def DM_z(z, params):
 
 @njit
 def DV_z(z, params):
-    DH = c / H_z(z, params)
+    DH = DH_z(z, params)
     DM = DM_z(z, params)
     return (z * DH * DM**2) ** (1 / 3)
 
@@ -85,9 +85,8 @@ def bao_theory(z, qty, params):
 
 def chi_squared(params):
     H0, Om, Ob_h2 = params[0], params[1], params[2]
-    Ez_func = lambda z: Ez(z, params)
 
-    delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez_func, H0, Om, Ob_h2)
+    delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez, params, H0, Om, Ob_h2)
     chi2_cmb = np.dot(delta, np.dot(cmb.inv_cov_mat, delta))
 
     delta_bao = bao_data["value"] - bao_theory(
@@ -95,7 +94,7 @@ def chi_squared(params):
     )
     chi_bao = np.dot(delta_bao, cho_solve(cho_bao, delta_bao))
 
-    delta_sn = mu_vals - mu_theory(Ez_func, params)
+    delta_sn = mu_vals - mu_theory(params)
     chi_sn = np.dot(delta_sn, cho_solve(cho_sn, delta_sn))
 
     return chi2_cmb + chi_bao + chi_sn
@@ -108,7 +107,8 @@ bounds = np.array(
         (0.019, 0.025),  # Ωb * h^2
         (-2, 0),  # w0
         (-0.7, 0.7),  # ΔM
-    ]
+    ],
+    dtype=np.float64,
 )
 
 
@@ -150,7 +150,6 @@ def main():
     except emcee.autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
 
-    chains_samples = sampler.get_chain(discard=0, flat=False)
     samples = sampler.get_chain(discard=burn_in, flat=True)
 
     pct = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
@@ -160,7 +159,7 @@ def main():
     w0_16, w0_50, w0_84 = pct[3]
     dM_16, dM_50, dM_84 = pct[4]
 
-    best_fit = np.array([H0_50, Om_50, Obh2_50, w0_50, dM_50])
+    best_fit = np.array([H0_50, Om_50, Obh2_50, w0_50, dM_50], dtype=np.float64)
 
     Omh2_samples = samples[:, 1] * (samples[:, 0] / 100) ** 2
     z_star_samples = cmb.z_star(samples[:, 2], Omh2_samples)
@@ -173,7 +172,6 @@ def main():
     z_star_16, z_star_50, z_star_84 = np.percentile(z_star_samples, one_sigma_contours)
     z_drag_16, z_drag_50, z_drag_84 = np.percentile(z_drag_samples, one_sigma_contours)
     r_drag_16, r_drag_50, r_drag_84 = np.percentile(r_drag_samples, one_sigma_contours)
-    Ez_func = lambda z: Ez(z, best_fit)
 
     print(f"H0: {H0_50:.1f} +{(H0_84 - H0_50):.1f} -{(H0_50 - H0_16):.1f} km/s/Mpc")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
@@ -191,7 +189,7 @@ def main():
     print(
         f"z_drag: {z_drag_50:.2f} +{(z_drag_84 - z_drag_50):.2f} -{(z_drag_50 - z_drag_16):.2f}"
     )
-    print(f"r_s(z*) = {cmb.rs_z(Ez_func, z_star_50, H0_50, Obh2_50):.2f} Mpc")
+    print(f"r_s(z*) = {cmb.rs_z(Ez, z_star_50, best_fit, H0_50, Obh2_50):.2f} Mpc")
     print(
         f"r_s(z_drag) = {r_drag_50:.2f} +{(r_drag_84 - r_drag_50):.2f} -{(r_drag_50 - r_drag_16):.2f} Mpc"
     )
@@ -208,7 +206,7 @@ def main():
         x=z_sn_vals,
         y=mu_vals,
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=mu_theory(Ez_func, best_fit),
+        y_model=mu_theory(best_fit),
         label=f"Best fit: $Ω_m$={Om_50:.3f}",
         x_scale="log",
     )

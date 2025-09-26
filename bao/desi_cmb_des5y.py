@@ -87,9 +87,9 @@ def bao_theory(z, qty, params):
 
 
 def chi_squared(params):
-    delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(
-        lambda z: Ez(z, params), *params[0:3]
-    )
+    H0, Om, Obh2 = params[0], params[1], params[2]
+
+    delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez, params, H0, Om, Obh2)
     chi2_cmb = np.dot(delta, np.dot(cmb.inv_cov_mat, delta))
 
     delta_bao = bao_data["value"] - bao_theory(
@@ -162,7 +162,7 @@ def main():
     w0_16, w0_50, w0_84 = pct[3]
     dM_16, dM_50, dM_84 = pct[4]
 
-    best_fit = np.array([H0_50, Om_50, Obh2_50, w0_50, dM_50])
+    best_fit = np.array([H0_50, Om_50, Obh2_50, w0_50, dM_50], dtype=np.float64)
 
     Omh2_samples = samples[:, 1] * (samples[:, 0] / 100) ** 2
     z_star_samples = cmb.z_star(samples[:, 2], Omh2_samples)
@@ -175,8 +175,6 @@ def main():
     z_star_16, z_star_50, z_star_84 = np.percentile(z_star_samples, one_sigma_contours)
     z_drag_16, z_drag_50, z_drag_84 = np.percentile(z_drag_samples, one_sigma_contours)
     r_drag_16, r_drag_50, r_drag_84 = np.percentile(r_drag_samples, one_sigma_contours)
-
-    Ez_func = lambda z: Ez(z, best_fit)
 
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
     print(f"Ωm: {Om_50:.4f} +{(Om_84 - Om_50):.4f} -{(Om_50 - Om_16):.4f}")
@@ -194,7 +192,7 @@ def main():
     print(
         f"z_drag: {z_drag_50:.2f} +{(z_drag_84 - z_drag_50):.2f} -{(z_drag_50 - z_drag_16):.2f}"
     )
-    print(f"r_s(z*) = {cmb.rs_z(Ez_func, z_star_50, H0_50, Obh2_50):.2f} Mpc")
+    print(f"r_s(z*) = {cmb.rs_z(Ez, z_star_50, best_fit, H0_50, Obh2_50):.2f} Mpc")
     print(
         f"r_s(z_drag) = {r_drag_50:.2f} +{(r_drag_84 - r_drag_50):.2f} -{(r_drag_50 - r_drag_16):.2f} Mpc"
     )
