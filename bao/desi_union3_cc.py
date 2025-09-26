@@ -128,17 +128,26 @@ def DV_z(z, params):
     return (z * DH * DM**2) ** (1 / 3)
 
 
+qty_map = {
+    "DV_over_rs": 0,
+    "DM_over_rs": 1,
+    "DH_over_rs": 2,
+}
+
+quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int32)
+
+
+@njit
 def bao_theory(z, qty, params):
-    rd = params[3]
     results = np.empty(z.size, dtype=np.float64)
     for i in range(z.size):
         q = qty[i]
-        if q == "DV_over_rs":
-            results[i] = DV_z(z[i], params) / rd
-        elif q == "DM_over_rs":
-            results[i] = DM_z(z[i], params) / rd
-        elif q == "DH_over_rs":
-            results[i] = DH_z(z[i], params) / rd
+        if q == 0:
+            results[i] = DV_z(z[i], params) / params[3]
+        elif q == 1:
+            results[i] = DM_z(z[i], params) / params[3]
+        elif q == 2:
+            results[i] = DH_z(z[i], params) / params[3]
     return results
 
 
@@ -159,9 +168,7 @@ def chi_squared(params):
     delta_sn = sn_mu_vals - mu_theory(params)
     chi_sn = np.dot(delta_sn, cho_solve(cho_sn, delta_sn))
 
-    delta_bao = bao_data["value"] - bao_theory(
-        bao_data["z"], bao_data["quantity"], params
-    )
+    delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
     chi_bao = np.dot(delta_bao, cho_solve(cho_bao, delta_bao))
 
     delta_cc = H_cc_vals - H_z(z_cc_vals, params)

@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 
 def plot_bao_predictions(theory_predictions, data, errors, title):
     config = {
+        "map": {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2},
         "colors": {"DV_over_rs": "red", "DM_over_rs": "blue", "DH_over_rs": "green"},
         "latex_labels": {
             "DV_over_rs": "$D_V$ / $r_d$",
@@ -12,7 +13,7 @@ def plot_bao_predictions(theory_predictions, data, errors, title):
         },
     }
 
-    z_smooth = np.linspace(0, max(data["z"]), 100)
+    z_smooth = np.linspace(0, max(data["z"]), 200)
     plt.figure(figsize=(8, 6))
     for q in set(data["quantity"]):
         quantity_mask = data["quantity"] == q
@@ -28,7 +29,9 @@ def plot_bao_predictions(theory_predictions, data, errors, title):
         )
         plt.plot(
             z_smooth,
-            theory_predictions(z_smooth, np.full_like(z_smooth, q, dtype="U10")),
+            theory_predictions(
+                z_smooth, np.full_like(z_smooth, config["map"][q], dtype=np.int32)
+            ),
             color=config["colors"][q],
             alpha=0.5,
         )

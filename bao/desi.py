@@ -45,16 +45,25 @@ def DV_z(z, params):
     return (z * DH * DM**2) ** (1 / 3)
 
 
+qty_map = {
+    "DV_over_rs": 0,
+    "DM_over_rs": 1,
+    "DH_over_rs": 2,
+}
+
+quantities = np.array([qty_map[q] for q in data["quantity"]], dtype=np.int32)
+
+
 @njit
 def bao_theory(z, qty, params):
     results = np.empty(z.size, dtype=np.float64)
     for i in range(z.size):
         q = qty[i]
-        if q == "DV_over_rs":
+        if q == 0:
             results[i] = DV_z(z[i], params) / rd
-        elif q == "DM_over_rs":
+        elif q == 1:
             results[i] = DM_z(z[i], params) / rd
-        elif q == "DH_over_rs":
+        elif q == 2:
             results[i] = DH_z(z[i], params) / rd
     return results
 
@@ -70,7 +79,7 @@ bounds = np.array(
 
 
 def chi_squared(params):
-    delta = data["value"] - bao_theory(data["z"], data["quantity"], params)
+    delta = data["value"] - bao_theory(data["z"], quantities, params)
     return np.dot(delta, cho_solve(cho, delta))
 
 

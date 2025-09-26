@@ -58,16 +58,26 @@ def DV_z(z, params):
     return (z * DH * DM**2) ** (1 / 3)
 
 
+qty_map = {
+    "DV_over_rs": 0,
+    "DM_over_rs": 1,
+    "DH_over_rs": 2,
+}
+
+quantities = np.array([qty_map[q] for q in data["quantity"]], dtype=np.int32)
+
+
+@njit
 def theory_predictions(z, qty, params):
     H0, Om, Obh2 = params[0], params[1], params[2]
     results = np.empty(z.size, dtype=np.float64)
     for i in range(z.size):
         q = qty[i]
-        if q == "DV_over_rs":
+        if q == 0:
             results[i] = DV_z(z[i], params) / rd(H0, Om, Obh2)
-        elif q == "DM_over_rs":
+        elif q == 1:
             results[i] = DM_z(z[i], params) / rd(H0, Om, Obh2)
-        elif q == "DH_over_rs":
+        elif q == 2:
             results[i] = DH_z(z[i], params) / rd(H0, Om, Obh2)
     return results
 
@@ -88,7 +98,7 @@ omega_b_h2_prior_sigma = 0.00063
 
 def chi_squared(params):
     bbn_delta = (omega_b_h2_prior - params[2]) / omega_b_h2_prior_sigma
-    delta = data["value"] - theory_predictions(data["z"], data["quantity"], params)
+    delta = data["value"] - theory_predictions(data["z"], quantities, params)
     return np.dot(delta, cho_solve(cho, delta)) + bbn_delta**2
 
 
@@ -111,7 +121,7 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 8 * ndim
+    nwalkers = 10 * ndim
     burn_in = 500
     nsteps = 20000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))

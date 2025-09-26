@@ -68,19 +68,31 @@ def DV_z(z, params):
     return (z * DH * DM**2) ** (1 / 3)
 
 
-bao_funcs = {
-    "DV_over_rs": DV_z,
-    "DM_over_rs": DM_z,
-    "DH_over_rs": DH_z,
+qty_map = {
+    "DV_over_rs": 0,
+    "DM_over_rs": 1,
+    "DH_over_rs": 2,
 }
 
+quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int32)
 
+
+@njit
 def bao_theory(z, qty, params):
     H0, Om, Obh2 = params[0], params[1], params[2]
     Omh2 = Om * (H0 / 100) ** 2
     rd = cmb.r_drag(wb=Obh2, wm=Omh2)
 
-    return np.array([bao_funcs[q](zi, params) / rd for zi, q in zip(z, qty)])
+    results = np.empty(z.size, dtype=np.float64)
+    for i in range(z.size):
+        q = qty[i]
+        if q == 0:
+            results[i] = DV_z(z[i], params) / rd
+        elif q == 1:
+            results[i] = DM_z(z[i], params) / rd
+        elif q == 2:
+            results[i] = DH_z(z[i], params) / rd
+    return results
 
 
 def chi_squared(params):
@@ -89,9 +101,7 @@ def chi_squared(params):
     delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez, params, H0, Om, Ob_h2)
     chi2_cmb = np.dot(delta, np.dot(cmb.inv_cov_mat, delta))
 
-    delta_bao = bao_data["value"] - bao_theory(
-        bao_data["z"], bao_data["quantity"], params
-    )
+    delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
     chi_bao = np.dot(delta_bao, cho_solve(cho_bao, delta_bao))
 
     delta_sn = mu_vals - mu_theory(params)
