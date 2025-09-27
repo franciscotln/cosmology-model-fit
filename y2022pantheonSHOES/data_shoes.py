@@ -15,7 +15,7 @@ apparent_mag = selected_columns["m_b_corr"].to_numpy(dtype=np.float64)
 cepheid_distances = selected_columns["CEPH_DIST"].to_numpy(dtype=np.float64)
 
 n = z_values.size
-covariance_matrix = convariances_file["cov_mu_shoes"].to_numpy().reshape((n, n))
+covariance_matrix = convariances_file["cov_mu_shoes"].to_numpy(dtype=np.float64).reshape((n, n))
 
 pantheon_SH0ES_range = np.where(
     (selected_columns["IS_CALIBRATOR"] == 1) | (z_values > 0.01)

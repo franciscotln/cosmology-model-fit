@@ -33,7 +33,7 @@ def DH_z(z, params):
 
 @njit
 def DM_z(z, params):
-    x = np.linspace(0, z, num=250)
+    x = np.linspace(0, z, num=max(250, int(250 * z)))
     y = DH_z(x, params)
     return np.trapz(y=y, x=x)
 
@@ -130,7 +130,7 @@ def main():
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
     best_fit = np.array([h_50, Om_50, w0_50], dtype=np.float64)
-    residuals = data["value"] - bao_theory(data["z"], data["quantity"], best_fit)
+    residuals = data["value"] - bao_theory(data["z"], quantities, best_fit)
     SS_res = np.sum(residuals**2)
     SS_tot = np.sum((data["value"] - np.mean(data["value"])) ** 2)
     r2 = 1 - SS_res / SS_tot

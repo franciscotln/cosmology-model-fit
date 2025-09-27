@@ -17,7 +17,7 @@ sn_legend, z_sn_vals, sn_mu_vals, cov_matrix_sn = get_data()
 bao_legend, bao_data, cov_matrix_bao = get_bao_data()
 cho_sn = cho_factor(cov_matrix_sn)
 cho_bao = cho_factor(cov_matrix_bao)
-inv_cov_cc = np.linalg.inv(cov_matrix_cc)
+cho_cc = cho_factor(cov_matrix_cc)
 logdet_cc = np.linalg.slogdet(cov_matrix_cc)[1]
 N_cc = len(z_cc_vals)
 
@@ -56,14 +56,14 @@ def H_z(z, params):
 
 @njit
 def DM_z(z, params):
-    x = np.linspace(0, z, num=250)
+    x = np.linspace(0, z, num=max(250, int(250 * z)))
     y = DH_z(x, params)
     return np.trapz(y=y, x=x)
 
 
 @njit
 def DV_z(z, params):
-    DH = c / H_z(z, params)
+    DH = DH_z(z, params)
     DM = DM_z(z, params)
     return (z * DH * DM**2) ** (1 / 3)
 
@@ -113,7 +113,7 @@ def chi_squared(params):
     chi_bao = np.dot(delta_bao, cho_solve(cho_bao, delta_bao))
 
     delta_cc = H_cc_vals - H_z(z_cc_vals, params)
-    chi_cc = np.dot(delta_cc, np.dot(inv_cov_cc * f_cc**2, delta_cc))
+    chi_cc = f_cc**2 * np.dot(delta_cc, cho_solve(cho_cc, delta_cc))
     return chi_sn + chi_bao + chi_cc
 
 

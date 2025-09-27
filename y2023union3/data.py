@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 
 data_frame = pd.read_csv("y2023union3/raw-data/bins_union_3.csv")
-cov_data = np.genfromtxt("y2023union3/raw-data/covariance.txt")
+cov_data = np.genfromtxt("y2023union3/raw-data/covariance.txt", dtype=np.float64)
 
 n = data_frame["zcmb"].size
 covariance_matrix = cov_data.reshape((n, n))

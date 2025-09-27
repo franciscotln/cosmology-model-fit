@@ -46,7 +46,7 @@ def DH_z(z, params):
 
 @njit
 def DM_z(z, params):
-    x = np.linspace(0, z, num=250)
+    x = np.linspace(0, z, num=max(250, int(250 * z)))
     y = DH_z(x, params)
     return np.trapz(y=y, x=x)
 
@@ -88,7 +88,8 @@ bounds = np.array(
         (0.15, 0.55),  # Ωm
         (0.015, 0.030),  # Ωb h^2
         (-1.5, 0),  # w0
-    ]
+    ],
+    dtype=np.float64,
 )
 
 # Prior from BBN: https://arxiv.org/abs/2401.15054
@@ -102,6 +103,7 @@ def chi_squared(params):
     return np.dot(delta, cho_solve(cho, delta)) + bbn_delta**2
 
 
+@njit
 def log_prior(params):
     if not np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
         return -np.inf
@@ -156,9 +158,7 @@ def main():
     Omh2_16, Omh2_50, Omh2_84 = np.percentile(Omh2_samples, [15.9, 50, 84.1])
     rd_16, rd_50, rd_84 = np.percentile(rd_samples, [15.9, 50, 84.1])
 
-    residuals = data["value"] - theory_predictions(
-        data["z"], data["quantity"], best_fit
-    )
+    residuals = data["value"] - theory_predictions(data["z"], quantities, best_fit)
     SS_res = np.sum(residuals**2)
     SS_tot = np.sum((data["value"] - np.mean(data["value"])) ** 2)
     r2 = 1 - SS_res / SS_tot
@@ -210,13 +210,13 @@ Dataset: DESI DR2 2025
 *******************************
 
 Flat ΛCDM:
-H0: 68.46 +0.58 -0.59 km/s/Mpc
-Ωb h^2: 0.0220 ± 0.0006
-Ωm h^2: 0.1394 +0.0047 -0.0046
-Ωm: 0.2975 +0.0088 -0.0085
+H0: 68.45 ± 0.59 km/s/Mpc
+Ωb h^2: 0.02196 ± 0.00063
+Ωm h^2: 0.13938 +0.00476 -0.00461
+Ωm: 0.2974 +0.0088 -0.0085
 w0: -1
-r_d: 148.30 +1.46 -1.45 Mpc
-Chi squared: 10.29
+r_d: 148.31 +1.47 -1.44 Mpc
+Chi squared: 10.28
 Degs of freedom: 11
 R^2: 0.9987
 RMSD: 0.305
@@ -224,26 +224,26 @@ RMSD: 0.305
 ===============================
 
 Flat wCDM:
-H0: 66.33 +2.08 -2.10 km/s/Mpc
-Ωb h^2: 0.0220 ± 0.0006
-Ωm h^2: 0.1310 +0.0093 -0.0097
-Ωm: 0.2968 +0.0090 -0.0088
-w0: -0.915 +0.076 -0.080
-r_d: 150.47 +2.84 -2.53 Mpc
+H0: 66.35 +2.05 -2.08 km/s/Mpc
+Ωb h^2: 0.02196 +0.00063 -0.00063
+Ωm h^2: 0.13106 +0.00918 -0.00961
+Ωm: 0.2969 +0.0090 -0.0088
+w0: -0.916 +0.076 -0.079
+r_d: 150.44 +2.81 -2.48 Mpc
 Chi squared: 9.04
 Degs of freedom: 10
 R^2: 0.9989
-RMSD: 0.279
+RMSD: 0.280
 
 ===============================
 
 Flat alternative: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-H0: 65.77 +2.14 -2.01 km/s/Mpc
-Ωb h^2: 0.0220 ± 0.0006
-Ωm h^2: 0.1332 +0.0067 -0.0064
-Ωm: 0.3075 +0.0119 -0.0116
-w0: -0.833 +0.121 -0.128
-r_d: 149.88 +1.95 -1.92 Mpc
+H0: 65.74 +2.14 -2.01 km/s/Mpc
+Ωb h^2: 0.02195 +0.00064 -0.00062
+Ωm h^2: 0.13314 +0.00673 -0.00656
+Ωm: 0.3078 +0.0117 -0.0117
+w0: -0.831 +0.121 -0.128
+r_d: 149.90 +1.99 -1.93 Mpc
 Chi squared: 8.42
 Degs of freedom: 10
 R^2: 0.9990

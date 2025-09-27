@@ -45,7 +45,7 @@ def DH_z(z, params):
 
 @njit
 def DM_z(z, params):
-    x = np.linspace(0, z, num=200)
+    x = np.linspace(0, z, num=max(250, int(250 * z)))
     y = DH_z(x, params)
     return np.trapz(y=y, x=x)
 
@@ -88,7 +88,8 @@ bounds = np.array(
         (0.019, 0.025),  # Ωb h^2
         (-2, 0),  # w0
         (0.5, 2.5),  # f_cc
-    ]
+    ],
+    dtype=np.float64,
 )
 
 # Prior from BBN: https://arxiv.org/abs/2401.15054
@@ -108,6 +109,7 @@ def chi_squared(params):
     return chi_cc + chi_bao + bbn_delta**2
 
 
+@njit
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
         return 0.0
@@ -214,38 +216,38 @@ Dataset: DESI DR2 2025
 
 Flat ΛCDM
 H0: 68.51 ± 0.57 km/s/Mpc
-Ωb h^2: 0.02200 +0.00061 -0.00062
+Ωb h^2: 0.02200 +0.00062 -0.00061
 Ωm: 0.299 ± 0.008
 w0: -1
 f_cc: 1.49 +0.19 -0.18
-rd: 148.00 +1.38 -1.35 Mpc
-Chi squared: 43.56
-log likelihood: -135.77
+rd: 148.00 +1.38 -1.34 Mpc
+Chi squared: 43.47
+log likelihood: -135.76
 Degs of freedom: 43
 
 ===============================
 
 Flat wCDM
-H0: 67.04 +1.86 -1.84 km/s/Mpc
-Ωb h^2: 0.02203 +0.00062 -0.00061
+H0: 67.05 +1.84 -1.83 km/s/Mpc
+Ωb h^2: 0.02204 +0.00062 -0.00062
 Ωm: 0.299 +0.009 -0.008
 w0: -0.939 +0.070 -0.074
-f_cc: 1.48 ± 0.18
-rd: 149.39 +2.34 -2.13 Mpc
-Chi squared: 42.24
+f_cc: 1.48 +0.18 -0.18
+rd: 149.38 +2.31 -2.13 Mpc
+Chi squared: 42.38
 log likelihood: -135.36
 Degs of freedom: 42
 
 ===============================
 
 Flat -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-H0: 66.4 +2.0 -1.9 km/s/Mpc
-Ωb h^2: 0.02203 ± 0.00062
-Ωm: 0.308 ± 0.011
-w0: -0.867 +0.117 -0.125
-f_cc: 1.47 ± 0.18
-rd: 149.15 +1.79 -1.74 Mpc
-Chi squared: 41.59
+H0: 66.46 +2.03 -1.93 km/s/Mpc
+Ωb h^2: 0.02203 +0.00061 -0.00062
+Ωm: 0.308 +0.011 -0.011
+w0: -0.869 +0.118 -0.124
+f_cc: 1.48 +0.18 -0.18
+rd: 149.13 +1.79 -1.75 Mpc
+Chi squared: 41.87
 log likelihood: -135.14
 Degs of freedom: 42
 

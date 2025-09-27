@@ -13,7 +13,7 @@ from cosmic_chronometers.plot_predictions import plot_cc_predictions
 cc_legend, z_cc_vals, H_cc_vals, cc_cov_matrix = get_cc_data()
 bao_legend, data, bao_cov_matrix = get_bao_data()
 cho_bao = cho_factor(bao_cov_matrix)
-inv_cov_cc = np.linalg.inv(cc_cov_matrix)
+cho_cc = cho_factor(cc_cov_matrix)
 logdet_cc = np.linalg.slogdet(cc_cov_matrix)[1]
 N_cc = len(z_cc_vals)
 
@@ -41,7 +41,7 @@ def DH_z(z, params):
 
 @njit
 def DM_z(z, params):
-    x = np.linspace(0, z, num=250)
+    x = np.linspace(0, z, num=max(250, int(250 * z)))
     y = DH_z(x, params)
     return np.trapz(y=y, x=x)
 
@@ -91,7 +91,7 @@ bounds = np.array(
 def chi_squared(params):
     f_cc = params[0]
     delta_cc = H_cc_vals - H_z(z_cc_vals, params)
-    chi_cc = np.dot(delta_cc, np.dot(inv_cov_cc * f_cc**2, delta_cc))
+    chi_cc = f_cc**2 * np.dot(delta_cc, cho_solve(cho_cc, delta_cc))
 
     delta_bao = data["value"] - theory_bao(data["z"], quantities, params)
     chi_bao = np.dot(delta_bao, cho_solve(cho_bao, delta_bao))
@@ -148,7 +148,7 @@ def main():
         [w0_16, w0_50, w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = [f_cc_50, h0_50, rd_50, Om_50, w0_50]
+    best_fit = np.array([f_cc_50, h0_50, rd_50, Om_50, w0_50], dtype=np.float64)
 
     print(f"f_cc: {f_cc_50:.2f} +{(f_cc_84 - f_cc_50):.2f} -{(f_cc_50 - f_cc_16):.2f}")
     print(f"H0: {h0_50:.1f} +{(h0_84 - h0_50):.1f} -{(h0_50 - h0_16):.1f}")
@@ -199,51 +199,51 @@ Dataset: DESI 2025
 *******************************
 
 Flat ΛCDM
-f_cc: 1.46 +0.19 -0.18
+f_cc: 1.47 +0.18 -0.18
 H0: 69.1 +2.4 -2.3 km/s/Mpc
-r_d: 146.8 +5.0 -4.7 Mpc
+r_d: 146.9 +5.0 -4.7 Mpc
 Ωm: 0.299 +0.009 -0.008
 w0: -1
-Chi squared: 41.58
-log likelihood: -131.35
-Degrees of freedom: 41
+Chi squared: 42.49
+log likelihood: -135.73
+Degrees of freedom: 42
 
 ===============================
 
 Flat wCDM
-f_cc: 1.46 +0.19 -0.18
+f_cc: 1.47 +0.19 -0.18
 H0: 67.9 +2.6 -2.5 km/s/Mpc
-r_d: 147.0 +5.1 -4.7 Mpc
-Ωm: 0.298 +0.009 -0.009
-w0: -0.920 +0.075 -0.078
-Chi squared: 40.31
-log likelihood: -130.82
-Degrees of freedom: 40
+r_d: 147.1 +5.0 -4.7 Mpc
+Ωm: 0.298 ± 0.009
+w0: -0.922 +0.076 -0.079
+Chi squared: 41.38
+log likelihood: -135.20
+Degrees of freedom: 41
 
 ===============================
 
 Flat -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-f_cc: 1.45 +0.19 -0.18
+f_cc: 1.46 +0.19 -0.18
 H0: 67.3 +2.8 -2.7 km/s/Mpc
-r_d: 147.0 +5.0 -4.7 Mpc
-Ωm: 0.307 +0.011 -0.011
-w0: -0.854 +0.119 -0.126
-Chi squared: 39.69
-log likelihood: -130.62
-Degrees of freedom: 40
+r_d: 147.1 +5.0 -4.7 Mpc
+Ωm: 0.307 ± 0.011
+w0: -0.856 +0.119 -0.127
+Chi squared: 40.68
+log likelihood: -135.01
+Degrees of freedom: 41
 
 ===============================
 
 Flat w0waCDM
 f_cc: 1.43 +0.19 -0.18
-H0: 64.8 +3.7 -3.5 km/s/Mpc
-r_d: 147.1 +5.1 -4.8 Mpc
-Ωm: 0.348 +0.040 -0.048
-w0: -0.548 +0.362 -0.356
-wa: -1.470 +1.392 -1.292
-Chi squared: 37.75
-log likelihood: -130.17
-Degrees of freedom: 39
+H0: 64.8 +3.8 -3.7
+r_d: 147.2 +5.1 -4.8
+Ωm: 0.348 +0.043 -0.049
+w0: -0.553 +0.394 -0.359
+wa: -1.458 +1.419 -1.405
+Chi squared: 38.55
+log likelihood: -134.57
+Degrees of freedom: 40
 
 *******************************
 Dataset: SDSS 2020 compilation

@@ -42,7 +42,7 @@ def DH_z(z, params):
 
 @njit
 def DM_z(z, params):
-    x = np.linspace(0, z, num=250)
+    x = np.linspace(0, z, num=max(250, int(250 * z)))
     y = DH_z(x, params)
     return np.trapz(y=y, x=x)
 
