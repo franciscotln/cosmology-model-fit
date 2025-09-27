@@ -50,27 +50,25 @@ def z_drag(wb, wm):
 
 
 def rs_integrand(zp, Ez_func, params, Rb):
-    return 1 / (Ez_func(zp, params) * np.sqrt(3 * (1 + Rb / (1 + zp))))
+    return c / (Ez_func(zp, params) * np.sqrt(3 * (1 + Rb / (1 + zp))))
 
 
 def rs_z(Ez_func, z, params, H0, Ob_h2):
     Rb = 3 * Ob_h2 / (4 * O_GAMMA_H2)
-    return (
-        c * quad(rs_integrand, z, np.inf, args=(Ez_func, params, Rb), limit=100)[0] / H0
-    )
+    return quad(rs_integrand, z, np.inf, args=(Ez_func, params, Rb), limit=100)[0] / H0
 
 
 @njit
-def DA_z(Ez_func, z, params):
+def DA_z(Ez_func, z, params, H0):
     zp = np.linspace(0.0, z, 20_000)
-    I = np.trapz(y=1.0 / Ez_func(zp, params), x=zp)
-    return I / (1.0 + z)
+    I = np.trapz(y=c / Ez_func(zp, params), x=zp)
+    return (I / H0) / (1.0 + z)
 
 
 def cmb_distances(Ez_func, params, H0, Om, Ob_h2):
     zstar = z_star(wb=Ob_h2, wm=Om * (H0 / 100) ** 2)
     rs_star = rs_z(Ez_func, zstar, params, H0, Ob_h2)
-    DA_star = c * DA_z(Ez_func, zstar, params) / H0
+    DA_star = DA_z(Ez_func, zstar, params, H0)
     R = np.sqrt(Om) * H0 * (1 + zstar) * DA_star / c
     theta_100 = 100 * rs_star / ((1 + zstar) * DA_star)
     return np.array([R, theta_100, Ob_h2])
