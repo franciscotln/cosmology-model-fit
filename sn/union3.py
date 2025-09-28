@@ -18,7 +18,7 @@ C = 299792.458  # Speed of light (km/s)
 H0 = 70  # Hubble constant (km/s/Mpc)
 
 
-z = np.linspace(0, np.max(z_values), num=4000)
+z = np.linspace(0, np.max(z_values), num=1000)
 cubed = (1 + z) ** 3
 
 
@@ -29,28 +29,28 @@ def Ez(params):
     return np.sqrt(omega_m * cubed + (1 - omega_m) * rho_de)
 
 
-def integral_of_e_z(params):
+def integral_Ez(params):
     integral_values = cumulative_trapezoid(1 / Ez(params), z, initial=0)
     return np.interp(z_values, z, integral_values)
 
 
 # Flat model
-def distance_modulus(params):
+def mu_theory(params):
     a0_over_ae = 1 + z_values
-    comoving_distance = (C / H0) * integral_of_e_z(params)
+    comoving_distance = (C / H0) * integral_Ez(params)
     return params[0] + 25 + 5 * np.log10(a0_over_ae * comoving_distance)
 
 
 def chi_squared(params):
-    delta = mu_vals - distance_modulus(params)
-    return np.dot(delta, cho_solve(cho, delta))
+    delta = mu_vals - mu_theory(params)
+    return np.dot(delta, cho_solve(cho, delta, check_finite=False))
 
 
 def log_likelihood(params):
     return -0.5 * chi_squared(params)
 
 
-bounds = np.array([(-0.6, 0.6), (0, 1), (-2, 0)])  # ΔM  # Ωm  # w0
+bounds = np.array([(-0.6, 0.6), (0.0, 0.6), (-2.0, 0.0)])  # ΔM  # Ωm  # w0
 
 
 def log_prior(params):
@@ -93,7 +93,7 @@ def main():
 
     best_fit_params = [dM_50, omega_50, w0_50]
 
-    predicted_distances = distance_modulus(best_fit_params)
+    predicted_distances = mu_theory(best_fit_params)
     residuals = mu_vals - predicted_distances
 
     # Calculate R-squared
