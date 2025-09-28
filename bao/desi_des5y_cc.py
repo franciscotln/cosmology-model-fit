@@ -9,7 +9,7 @@ from multiprocessing import Pool
 from y2024DES.data import effective_sample_size as sn_sample, get_data as get_sn_data
 from y2005cc.data import get_data as get_cc_data
 from y2025BAO.data import get_data as get_bao_data
-from hubble.plotting import plot_predictions as plot_sn_predictions
+from sn.plotting import plot_predictions as plot_sn_predictions
 from cosmic_chronometers.plot_predictions import plot_cc_predictions
 from .plot_predictions import plot_bao_predictions
 

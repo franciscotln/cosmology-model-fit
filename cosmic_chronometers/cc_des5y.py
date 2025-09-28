@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from y2024DES.data import get_data, effective_sample_size
 from y2005cc.data import get_data as get_cc_data
-from hubble.plotting import plot_predictions as plot_sn_predictions
+from sn.plotting import plot_predictions as plot_sn_predictions
 from .plot_predictions import plot_cc_predictions
 
 cc_legend, z_cc_vals, H_cc_vals, cov_matrix_cc = get_cc_data()

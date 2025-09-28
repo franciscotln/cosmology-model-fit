@@ -9,7 +9,7 @@ from multiprocessing import Pool
 from y2023union3.data import get_data
 from y2005cc.data import get_data as get_cc_data
 from y2025BAO.data import get_data as get_bao_data
-from hubble.plotting import plot_predictions as plot_sn_predictions
+from sn.plotting import plot_predictions as plot_sn_predictions
 from .plot_predictions import plot_bao_predictions
 
 cc_legend, z_cc_vals, H_cc_vals, cov_matrix_cc = get_cc_data()

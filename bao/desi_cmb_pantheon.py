@@ -10,7 +10,7 @@ from multiprocessing import Pool
 import cmb.data_chen_compression as cmb
 from y2022pantheonSHOES.data import get_data
 from y2025BAO.data import get_data as get_bao_data
-from hubble.plotting import plot_predictions as plot_sn_predictions
+from sn.plotting import plot_predictions as plot_sn_predictions
 from .plot_predictions import plot_bao_predictions
 
 

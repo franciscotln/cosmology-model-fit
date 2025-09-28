@@ -9,7 +9,7 @@ from multiprocessing import Pool
 from y2022pantheonSHOES.data import get_data
 from y2005cc.data import get_data as get_cc_data
 from y2025BAO.data import get_data as get_bao_data
-from hubble.plotting import plot_predictions as plot_sn_predictions
+from sn.plotting import plot_predictions as plot_sn_predictions
 from .plot_predictions import plot_bao_predictions
 
 cc_legend, z_cc_vals, H_cc_vals, cov_matrix_cc = get_cc_data()
@@ -94,7 +94,7 @@ def bao_theory(z, qty, params):
 
 bounds = np.array(
     [
-        (50, 80),  # H0
+        (45, 85),  # H0
         (-20, -19),  # M
         (115, 170),  # r_d
         (0.15, 0.7),  # Ωm
@@ -139,7 +139,7 @@ def main():
     ndim = len(bounds)
     nwalkers = 8 * ndim
     burn_in = 500
-    nsteps = 10000 + burn_in
+    nsteps = 12500 + burn_in
     initial_pos = np.random.default_rng().uniform(
         bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim)
     )

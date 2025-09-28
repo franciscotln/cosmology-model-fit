@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from y2025BAO.data import get_data as get_bao_data
 from y2022pantheonSHOES.data import get_data
-from hubble.plotting import plot_predictions as plot_sn_predictions
+from sn.plotting import plot_predictions as plot_sn_predictions
 from .plot_predictions import plot_bao_predictions
 
 legend, z_cmb, z_hel, mb_vals, cov_matrix_sn = get_data()
@@ -133,7 +133,7 @@ def main():
     ndim = len(bounds)
     nwalkers = 10 * ndim
     burn_in = 500
-    nsteps = 10000 + burn_in
+    nsteps = 12500 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):

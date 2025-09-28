@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from y2024DES.data import get_data
 from y2025BAO.data import get_data as get_bao_data
-from hubble.plotting import plot_predictions as plot_sn_predictions
+from sn.plotting import plot_predictions as plot_sn_predictions
 from .plot_predictions import plot_bao_predictions
 
 sn_legend, z_cmb, z_hel, mu_values, cov_matrix_sn = get_data()
