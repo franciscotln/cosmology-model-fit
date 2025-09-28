@@ -1,3 +1,4 @@
+from numba import njit
 import numpy as np
 import emcee
 import corner
@@ -25,14 +26,17 @@ N_cc = len(z_cc_vals)
 
 c = c0 / 1000  # km/s
 
-z_grid_sn = np.linspace(0, np.max(z_sn_vals), num=3000)
+z_grid_sn = np.linspace(0, np.max(z_sn_vals), num=1000)
+one_plus_z_hel = 1 + z_sn_hel_vals
 
 
+@njit
 def Ez(z, p):
+    Om, w0 = p[4], p[5]
     one_plus_z = 1 + z
     cubed = one_plus_z**3
-    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + p["w_0"]))
-    return np.sqrt(p["Omega_m"] * cubed + (1 - p["Omega_m"]) * rho_de)
+    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
+    return np.sqrt(Om * cubed + (1 - Om) * rho_de)
 
 
 def integral_Ez(params):
@@ -41,57 +45,70 @@ def integral_Ez(params):
     return np.interp(z_sn_vals, z_grid_sn, integral_values)
 
 
-def mu_theory(p):
-    return (
-        p["Delta_M"]
-        + 25
-        + 5 * np.log10((1 + z_sn_hel_vals) * (c / p["H_0"]) * integral_Ez(p))
-    )
+def mu_theory(params):
+    mag_offset, H0 = params[1], params[2]
+    dL = one_plus_z_hel * (c / H0) * integral_Ez(params)
+    return mag_offset + 25 + 5 * np.log10(dL)
 
 
+@njit
 def H_z(z, p):
-    return p["H_0"] * Ez(z, p)
+    return p[2] * Ez(z, p)
 
 
+@njit
 def DH_z(z, params):
     return c / H_z(z, params)
 
 
+@njit
 def DM_z(z, params):
-    return quad(lambda zp: c / H_z(zp, params), 0, z)[0]
+    x = np.linspace(0, z, num=max(250, int(250 * z)))
+    y = DH_z(x, params)
+    return np.trapz(y=y, x=x)
 
 
+@njit
 def DV_z(z, params):
-    DH = c / H_z(z, params)
+    DH = DH_z(z, params)
     DM = DM_z(z, params)
     return (z * DH * DM**2) ** (1 / 3)
 
 
-bao_quantity_funcs = {
-    "DV_over_rs": lambda z, p: DV_z(z, p) / p["r_d"],
-    "DM_over_rs": lambda z, p: DM_z(z, p) / p["r_d"],
-    "DH_over_rs": lambda z, p: DH_z(z, p) / p["r_d"],
+qty_map = {
+    "DV_over_rs": 0,
+    "DM_over_rs": 1,
+    "DH_over_rs": 2,
 }
 
+quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int32)
 
+
+@njit
 def theory_predictions(z, qty, params):
-    return np.array([(bao_quantity_funcs[qty](z, params)) for z, qty in zip(z, qty)])
+    results = np.empty(z.size, dtype=np.float64)
+    for i in range(z.size):
+        q = qty[i]
+        if q == 0:
+            results[i] = DV_z(z[i], params) / params[3]
+        elif q == 1:
+            results[i] = DM_z(z[i], params) / params[3]
+        elif q == 2:
+            results[i] = DH_z(z[i], params) / params[3]
+    return results
 
 
-param_bounds = {
-    "f_cc": (0.4, 2.5),
-    "Delta_M": (-0.55, 0.55),
-    "H_0": (50, 80),
-    "r_d": (110, 175),
-    "Omega_m": (0.2, 0.7),
-    "w_0": (-1.1, -0.4),
-}
-
-param_names = list(param_bounds.keys())
-
-
-def array_to_dict(param_array):
-    return dict(zip(param_names, param_array))
+bounds = np.array(
+    [
+        (0.4, 2.5),  # f_cc
+        (-0.55, 0.55),  # ΔM
+        (50, 80),  # H0
+        (110, 175),  # r_d
+        (0.2, 0.7),  # Ωm
+        (-1.1, -0.4),  # w_0
+    ],
+    dtype=np.float64,
+)
 
 
 def chi_squared(params):
@@ -99,46 +116,44 @@ def chi_squared(params):
     chi_sn = np.dot(delta_sn, cho_solve(cho_sn, delta_sn, check_finite=False))
 
     delta_bao = bao_data["value"] - theory_predictions(
-        bao_data["z"], bao_data["quantity"], params
+        bao_data["z"], quantities, params
     )
     chi_bao = np.dot(delta_bao, cho_solve(cho_bao, delta_bao, check_finite=False))
 
     delta_cc = H_cc_vals - H_z(z_cc_vals, params)
-    chi_cc = np.dot(delta_cc, np.dot(inv_cov_cc * params["f_cc"] ** 2, delta_cc))
+    chi_cc = params[0] ** 2 * np.dot(delta_cc, np.dot(inv_cov_cc, delta_cc))
     return chi_sn + chi_bao + chi_cc
 
 
-def log_prior(param_array):
-    for i, name in enumerate(param_names):
-        low, high = param_bounds[name]
-        if not (low < param_array[i] < high):
-            return -np.inf
-    return 0.0
+@njit
+def log_prior(params):
+    if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
+        return 0.0
+    return -np.inf
 
 
 def log_likelihood(params):
-    f_cc = params["f_cc"]
+    f_cc = params[0]
     normalization_cc = N_cc * np.log(2 * np.pi) + logdet_cc - 2 * N_cc * np.log(f_cc)
     return -0.5 * chi_squared(params) - 0.5 * normalization_cc
 
 
-def log_probability(param_array):
-    lp = log_prior(param_array)
+def log_probability(params):
+    lp = log_prior(params)
     if not np.isfinite(lp):
         return -np.inf
-    return lp + log_likelihood(array_to_dict(param_array))
+    return lp + log_likelihood(params)
 
 
 def main():
-    ndim = len(param_names)
-    nwalkers = 10 * ndim
+    ndim = len(bounds)
+    nwalkers = 8 * ndim
     burn_in = 500
-    nsteps = 10000 + burn_in
-    initial_pos = np.random.uniform(
-        [param_bounds[name][0] for name in param_names],
-        [param_bounds[name][1] for name in param_names],
-        size=(nwalkers, ndim),
-    )
+    nsteps = 12500 + burn_in
+    initial_pos = np.zeros((nwalkers, ndim))
+
+    for dim, (lower, upper) in enumerate(bounds):
+        initial_pos[:, dim] = np.random.uniform(lower, upper, nwalkers)
 
     with Pool(10) as pool:
         sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool=pool)
@@ -154,44 +169,62 @@ def main():
     print("correlation matrix:")
     print(np.array2string(np.corrcoef(samples, rowvar=False), precision=5))
 
-    percentiles = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
-    summary = {}
-    for name, (p16, p50, p84) in zip(param_names, percentiles):
-        summary[name] = (p50, p84 - p50, p50 - p16)
-        print(f"{name}: {p50:.3f} +{p84 - p50:.3f} -{p50 - p16:.3f}")
+    [
+        [f_cc_16, f_cc_50, f_cc_84],
+        [dM_16, dM_50, dM_84],
+        [h0_16, h0_50, h0_84],
+        [rd_16, rd_50, rd_84],
+        [Om_16, Om_50, Om_84],
+        [w0_16, w0_50, w0_84],
+    ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit_dict = array_to_dict([entry[0] for entry in summary.values()])
+    best_fit = np.array([f_cc_50, dM_50, h0_50, rd_50, Om_50, w0_50], dtype=np.float64)
+
+    deg_of_freedom = (
+        z_sn_vals.size + bao_data["value"].size + z_cc_vals.size - len(best_fit)
+    )
+
+    print(f"f_cc: {f_cc_50:.2f} +{(f_cc_84 - f_cc_50):.2f} -{(f_cc_50 - f_cc_16):.2f}")
+    print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f}")
+    print(f"H0: {h0_50:.1f} +{(h0_84 - h0_50):.1f} -{(h0_50 - h0_16):.1f}")
+    print(f"r_d: {rd_50:.1f} +{(rd_84 - rd_50):.1f} -{(rd_50 - rd_16):.1f}")
+    print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
+    print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
+    print(f"Chi squared: {chi_squared(best_fit):.2f}")
+    print(f"Degrees of freedom: {deg_of_freedom}")
+
     deg_of_freedom = sn_sample + bao_data["value"].size + z_cc_vals.size - ndim
 
-    print(f"Chi squared: {chi_squared(best_fit_dict):.2f}")
+    print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Degrees of freedom: {deg_of_freedom}")
 
     plot_bao_predictions(
-        theory_predictions=lambda z, qty: theory_predictions(z, qty, best_fit_dict),
+        theory_predictions=lambda z, qty: theory_predictions(z, qty, best_fit),
         data=bao_data,
         errors=np.sqrt(np.diag(cov_matrix_bao)),
-        title=f"{bao_legend}: $r_d$={best_fit_dict['r_d']:.1f} Mpc",
+        title=f"{bao_legend}: $r_d$={rd_50:.1f} Mpc",
     )
     plot_cc_predictions(
-        H_z=lambda z: H_z(z, best_fit_dict),
+        H_z=lambda z: H_z(z, best_fit),
         z=z_cc_vals,
         H=H_cc_vals,
-        H_err=np.sqrt(np.diag(cov_matrix_cc)) / best_fit_dict["f_cc"],
-        label=f"{cc_legend} $H_0$: {best_fit_dict['H_0']:.1f} km/s/Mpc",
+        H_err=np.sqrt(np.diag(cov_matrix_cc)) / f_cc_50,
+        label=f"{cc_legend} $H_0$: {h0_50:.1f} km/s/Mpc",
     )
     plot_sn_predictions(
         legend=sn_legend,
         x=z_sn_vals,
         y=mu_values,
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=mu_theory(best_fit_dict),
-        label=rf"Best fit: $H_0$={summary['H_0'][0]:.1f} km/s/Mpc, $\Omega_m$={summary['Omega_m'][0]:.3f}",
+        y_model=mu_theory(best_fit),
+        label=rf"Best fit: $H_0$={h0_50:.1f} km/s/Mpc, $Ω_m$={Om_50:.3f}",
         x_scale="log",
     )
 
+    labels = ["$f_{CCH}$", "ΔM", "$H_0$", "$r_d$", "Ωm", "$w_0$"]
     corner.corner(
         samples,
-        labels=[f"${name}$" for name in param_names],
+        labels=labels,
         quantiles=[0.159, 0.5, 0.841],
         show_titles=True,
         title_fmt=".3f",
@@ -268,6 +301,7 @@ correlation matrix:
 
 ===============================
 
+Flat w0waCDM: w(z) = w0 + wa * z / (1 + z)
 f_cc: 1.458 +0.182 -0.176
 ΔM: -0.059 +0.071 -0.073 mag
 H0: 67.0 ± 2.3 km/s/Mpc
