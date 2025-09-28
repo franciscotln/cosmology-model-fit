@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from y2024DES.data import get_data
 import cmb.data_cmb_act_compression as cmb
-from hubble.plotting import plot_predictions as plot_sn_predictions
+from .plotting import plot_predictions as plot_sn_predictions
 
 
 c = cmb.c  # km/s
@@ -47,7 +47,7 @@ def chi_squared(params):
     chi2_cmb = np.dot(delta, np.dot(cmb.inv_cov_mat, delta))
 
     delta_sn = mu_values - theory_mu(params)
-    chi_sn = np.dot(delta_sn, cho_solve(cho_sn, delta_sn))
+    chi_sn = np.dot(delta_sn, cho_solve(cho_sn, delta_sn, check_finite=False))
 
     return chi2_cmb + chi_sn
 

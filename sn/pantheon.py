@@ -37,7 +37,7 @@ def apparent_mag(params):
 
 def chi_squared(params):
     delta = apparent_mag_values - apparent_mag(params)
-    return np.dot(delta, cho_solve(cho, delta))
+    return np.dot(delta, cho_solve(cho, delta, check_finite=False))
 
 
 def log_likelihood(params):

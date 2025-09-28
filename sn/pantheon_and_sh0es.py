@@ -43,7 +43,7 @@ def chi_squared(params):
     mu_theory = np.where(cepheids_mask, cepheid_distances, model_mu(params))
     apparent_mag_theory = mu_theory + params[0]
     delta = apparent_mag_values - apparent_mag_theory
-    return np.dot(delta, cho_solve(cho, delta))
+    return np.dot(delta, cho_solve(cho, delta, check_finite=False))
 
 
 def log_likelihood(params):

@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from y2022pantheonSHOES.data import get_data
 import cmb.data_cmb_act_compression as cmb
-from hubble.plotting import plot_predictions as plot_sn_predictions
+from .plotting import plot_predictions as plot_sn_predictions
 
 c = cmb.c  # Speed of light in km/s
 O_r_h2 = cmb.Omega_r_h2()

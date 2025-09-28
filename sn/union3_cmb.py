@@ -2,7 +2,7 @@ from numba import njit
 import numpy as np
 import emcee
 import corner
-from scipy.integrate import cumulative_trapezoid, quad
+from scipy.integrate import cumulative_trapezoid
 from scipy.linalg import cho_factor, cho_solve
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
@@ -46,7 +46,7 @@ def chi_squared(params):
     chi2_cmb = np.dot(delta, np.dot(cmb.inv_cov_mat, delta))
 
     delta_sn = mu_vals - mu_theory(params)
-    chi_sn = np.dot(delta_sn, cho_solve(cho_sn, delta_sn))
+    chi_sn = np.dot(delta_sn, cho_solve(cho_sn, delta_sn, check_finite=False))
 
     return chi2_cmb + chi_sn
 
