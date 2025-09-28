@@ -38,7 +38,7 @@ def theory_mu(params):
 
 def chi_squared(params):
     delta = observed_mu_vals - theory_mu(params)
-    return np.dot(delta, cho_solve(cho, delta))
+    return np.dot(delta, cho_solve(cho, delta, check_finite=False))
 
 
 def log_likelihood(params):
@@ -64,10 +64,10 @@ def log_probability(params):
 
 
 def main():
-    steps_to_discard = 500
+    steps_to_discard = 400
     ndim = len(bounds)
-    nwalkers = 8 * ndim
-    nsteps = steps_to_discard + 10000
+    nwalkers = 5 * ndim
+    nsteps = steps_to_discard + 20000
     initial_state = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
 
     with Pool(10) as pool:
@@ -146,6 +146,16 @@ def main():
         x_scale="log",
     )
     plot_residuals(z_values=z_cmb_vals, residuals=residuals, y_err=y_err, bins=40)
+
+    _, axes = plt.subplots(ndim, figsize=(10, 7), sharex=True)
+    chains_samples = sampler.get_chain(discard=0, flat=False)
+    for i in range(ndim):
+        axes[i].plot(chains_samples[:, :, i], color="black", alpha=0.3)
+        axes[i].set_ylabel(labels[i])
+        axes[i].set_xlabel("chain step")
+        axes[i].axvline(x=steps_to_discard, color="red", linestyle="--", alpha=0.5)
+        axes[i].axhline(y=best_fit_params[i], color="white", linestyle="--", alpha=0.5)
+    plt.show()
 
 
 if __name__ == "__main__":
