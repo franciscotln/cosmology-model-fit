@@ -58,7 +58,7 @@ bounds = np.array(
 def chi_squared(params):
     f_cc = params[0]
     delta_sn = observed_mu_vals - theory_mu(params)
-    chi_sn = np.dot(delta_sn, cho_solve(cho_sn, delta_sn))
+    chi_sn = np.dot(delta_sn, cho_solve(cho_sn, delta_sn, check_finite=False))
 
     delta_cc = H_cc_vals - H_z(z_cc_vals, params)
     chi_cc = np.dot(delta_cc, np.dot(inv_cov_cc * f_cc**2, delta_cc))
@@ -88,9 +88,9 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 8 * ndim
+    nwalkers = 5 * ndim
     burn_in = 500
-    nsteps = 10000 + burn_in
+    nsteps = 20000 + burn_in
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
 
     with Pool(10) as pool:
@@ -163,33 +163,33 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM: w(z) = -1
-f_cc: 1.46 +0.19 -0.18
-ΔM: -0.115 +0.073 -0.075 mag
-H0: 65.8 +2.4 -2.3 km/s/Mpc
-Ωm: 0.350 +0.016 -0.016
+f_cc: 1.47 +0.19 -0.18
+ΔM: -0.113 +0.073 -0.074
+H0: 65.9 +2.4 -2.3
+Ωm: 0.349 +0.016 -0.016
 w0: -1
-Chi squared: 1671.20
-Degrees of freedom: 1763
+Chi squared: 1672.14
+Degrees of freedom: 1764
 
 ==============================
 
 Flat wCDM: w(z) = w0
-f_cc: 1.44 +0.19 -0.18
-ΔM: -0.083 +0.083 -0.084 mag
-H0: 66.5 +2.6 -2.5 km/s/Mpc
-Ωm: 0.311 +0.042 -0.048
-w0: -0.891 +0.102 -0.110
-Chi squared: 1669.71
-Degrees of freedom: 1762
+f_cc: 1.46 +0.18 -0.18
+ΔM: -0.076 +0.083 -0.082
+H0: 66.7 +2.6 -2.5
+Ωm: 0.308 +0.043 -0.048
+w0: -0.883 +0.101 -0.110
+Chi squared: 1670.77
+Degrees of freedom: 1763
 
 ==============================
 
 Flat alternative: w(z) = -1 + 2 * (1 + w0) / ((1 + z)**3 + 1)
-f_cc: 1.45 +0.19 -0.18
-ΔM: -0.072 +0.082 -0.083 mag
-H0: 66.8 +2.6 -2.5 km/s/Mpc
+f_cc: 1.45 +0.18 -0.18
+ΔM: -0.074 +0.081 -0.083
+H0: 66.7 +2.5 -2.5
 Ωm: 0.318 +0.030 -0.030
-w0: -0.869 +0.094 -0.105
-Chi squared: 1669.12
-Degrees of freedom: 1762
+w0: -0.870 +0.094 -0.104
+Chi squared: 1669.96
+Degrees of freedom: 1763
 """

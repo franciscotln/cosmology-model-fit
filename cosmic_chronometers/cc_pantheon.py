@@ -63,7 +63,7 @@ bounds = np.array(
 def chi_squared(params):
     f_cc = params[0]
     delta_sn = apparent_mag_values - apparent_mag_theory(params)
-    chi_sn = np.dot(delta_sn, cho_solve(cov_sn_cho, delta_sn))
+    chi_sn = np.dot(delta_sn, cho_solve(cov_sn_cho, delta_sn, check_finite=False))
 
     delta_cc = H_cc_vals - H_z(z_cc_vals, params)
     chi_cc = np.dot(delta_cc, np.dot(inv_cov_cc * f_cc**2, delta_cc))

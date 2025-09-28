@@ -104,10 +104,10 @@ bounds = np.array(
 
 def chi_squared(params):
     delta_sn = mb_vals - apparent_mag(params)
-    chi_sn = np.dot(delta_sn, cho_solve(cho_sn, delta_sn))
+    chi_sn = np.dot(delta_sn, cho_solve(cho_sn, delta_sn, check_finite=False))
 
     delta_bao = data["value"] - bao_theory(data["z"], quantities, params)
-    chi_bao = np.dot(delta_bao, cho_solve(cho_bao, delta_bao))
+    chi_bao = np.dot(delta_bao, cho_solve(cho_bao, delta_bao, check_finite=False))
     return chi_sn + chi_bao
 
 
