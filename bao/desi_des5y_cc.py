@@ -20,7 +20,7 @@ bao_legend, bao_data, cov_matrix_bao = get_bao_data()
 
 cho_sn = cho_factor(cov_matrix_sn)
 cho_bao = cho_factor(cov_matrix_bao)
-inv_cov_cc = np.linalg.inv(cov_matrix_cc)
+cho_cc = cho_factor(cov_matrix_cc)
 logdet_cc = np.linalg.slogdet(cov_matrix_cc)[1]
 N_cc = len(z_cc_vals)
 
@@ -121,7 +121,9 @@ def chi_squared(params):
     chi_bao = np.dot(delta_bao, cho_solve(cho_bao, delta_bao, check_finite=False))
 
     delta_cc = H_cc_vals - H_z(z_cc_vals, params)
-    chi_cc = params[0] ** 2 * np.dot(delta_cc, np.dot(inv_cov_cc, delta_cc))
+    chi_cc = params[0] ** 2 * np.dot(
+        delta_cc, cho_solve(cho_cc, delta_cc, check_finite=False)
+    )
     return chi_sn + chi_bao + chi_cc
 
 

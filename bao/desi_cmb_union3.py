@@ -102,10 +102,10 @@ def chi_squared(params):
     chi2_cmb = np.dot(delta, np.dot(cmb.inv_cov_mat, delta))
 
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
-    chi_bao = np.dot(delta_bao, cho_solve(cho_bao, delta_bao))
+    chi_bao = np.dot(delta_bao, cho_solve(cho_bao, delta_bao, check_finite=False))
 
     delta_sn = mu_vals - mu_theory(params)
-    chi_sn = np.dot(delta_sn, cho_solve(cho_sn, delta_sn))
+    chi_sn = np.dot(delta_sn, cho_solve(cho_sn, delta_sn, check_finite=False))
 
     return chi2_cmb + chi_bao + chi_sn
 

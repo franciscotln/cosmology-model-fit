@@ -14,7 +14,7 @@ from cosmic_chronometers.plot_predictions import plot_cc_predictions
 cc_legend, z_cc_vals, H_cc_vals, cc_cov_matrix = get_cc_data()
 bao_legend, data, bao_cov_matrix = get_bao_data()
 cho_bao = cho_factor(bao_cov_matrix)
-inv_cov_cc = np.linalg.inv(cc_cov_matrix)
+cho_cc = cho_factor(cc_cov_matrix)
 logdet_cc = np.linalg.slogdet(cc_cov_matrix)[1]
 N_cc = len(z_cc_vals)
 
@@ -100,10 +100,10 @@ omega_b_h2_prior_sigma = 0.00063
 def chi_squared(params):
     f_cc = params[-1]
     delta_cc = H_cc_vals - H_z(z_cc_vals, params)
-    chi_cc = np.dot(delta_cc, np.dot(inv_cov_cc * f_cc**2, delta_cc))
+    chi_cc = np.dot(delta_cc, cho_solve(cho_cc, delta_cc, check_finite=False)) * f_cc**2
 
     delta_bao = data["value"] - bao_theory(data["z"], quantities, params)
-    chi_bao = np.dot(delta_bao, cho_solve(cho_bao, delta_bao))
+    chi_bao = np.dot(delta_bao, cho_solve(cho_bao, delta_bao, check_finite=False))
 
     bbn_delta = (omega_b_h2_prior - params[2]) / omega_b_h2_prior_sigma
     return chi_cc + chi_bao + bbn_delta**2

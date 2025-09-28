@@ -1,4 +1,3 @@
-from tabnanny import check
 from numba import njit
 import numpy as np
 import emcee

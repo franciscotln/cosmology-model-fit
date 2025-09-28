@@ -91,10 +91,10 @@ bounds = np.array(
 def chi_squared(params):
     f_cc = params[0]
     delta_cc = H_cc_vals - H_z(z_cc_vals, params)
-    chi_cc = f_cc**2 * np.dot(delta_cc, cho_solve(cho_cc, delta_cc))
+    chi_cc = f_cc**2 * np.dot(delta_cc, cho_solve(cho_cc, delta_cc, check_finite=False))
 
     delta_bao = data["value"] - theory_bao(data["z"], quantities, params)
-    chi_bao = np.dot(delta_bao, cho_solve(cho_bao, delta_bao))
+    chi_bao = np.dot(delta_bao, cho_solve(cho_bao, delta_bao, check_finite=False))
     return chi_cc + chi_bao
 
 

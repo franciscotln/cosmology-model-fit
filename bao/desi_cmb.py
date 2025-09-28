@@ -88,7 +88,7 @@ def chi_squared(params):
     chi2_cmb = np.dot(delta_cmb, np.dot(cmb.inv_cov_mat, delta_cmb))
 
     delta_bao = bao_data["value"] - bao_predictions(bao_data["z"], quantities, params)
-    chi_bao = np.dot(delta_bao, cho_solve(cho_bao, delta_bao))
+    chi_bao = np.dot(delta_bao, cho_solve(cho_bao, delta_bao, check_finite=False))
 
     return chi2_cmb + chi_bao
 

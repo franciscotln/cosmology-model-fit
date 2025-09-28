@@ -13,10 +13,10 @@ from .plot_predictions import plot_cc_predictions
 
 legend_sn, z_sn_vals, mu_vals, cov_matrix_sn = get_sn_data()
 legend_cc, z_cc_vals, H_cc_vals, cov_matrix_cc = get_cc_data()
-inv_cov_cc = np.linalg.inv(cov_matrix_cc)
 logdet_cc = np.linalg.slogdet(cov_matrix_cc)[1]
 N_cc = len(z_cc_vals)
 cho_sn = cho_factor(cov_matrix_sn)
+cho_cc = cho_factor(cov_matrix_cc)
 
 c = 299792.458  # Speed of light in km/s
 
@@ -62,7 +62,7 @@ def chi_squared(params):
     chi_sn = np.dot(delta_sn, cho_solve(cho_sn, delta_sn))
 
     cc_delta = H_cc_vals - H_z(z_cc_vals, params)
-    chi_cc = np.dot(cc_delta, np.dot(inv_cov_cc * f_cc**2, cc_delta))
+    chi_cc = f_cc**2* np.dot(cc_delta, cho_solve(cho_cc, cc_delta, check_finite=False))
 
     return chi_sn + chi_cc
 

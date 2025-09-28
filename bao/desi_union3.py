@@ -90,12 +90,12 @@ def theory_predictions(z, qty, params):
 
 def chi_squared(params):
     delta_sn = mu_vals - distance_modulus(params)
-    chi_sn = np.dot(delta_sn, cho_solve(cho_sn, delta_sn))
+    chi_sn = np.dot(delta_sn, cho_solve(cho_sn, delta_sn, check_finite=False))
 
     delta_bao = bao_data["value"] - theory_predictions(
         bao_data["z"], quantities, params
     )
-    chi_bao = np.dot(delta_bao, cho_solve(cho_bao, delta_bao))
+    chi_bao = np.dot(delta_bao, cho_solve(cho_bao, delta_bao, check_finite=False))
     return chi_sn + chi_bao
 
 
@@ -158,7 +158,7 @@ def main():
         [w0_16, w0_50, w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = np.array([dM_50, H0_50, Om_50, w0_50])
+    best_fit = np.array([dM_50, H0_50, Om_50, w0_50], dtype=np.float64)
 
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")

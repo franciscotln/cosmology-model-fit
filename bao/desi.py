@@ -80,7 +80,7 @@ bounds = np.array(
 
 def chi_squared(params):
     delta = data["value"] - bao_theory(data["z"], quantities, params)
-    return np.dot(delta, cho_solve(cho, delta))
+    return np.dot(delta, cho_solve(cho, delta, check_finite=False))
 
 
 @njit

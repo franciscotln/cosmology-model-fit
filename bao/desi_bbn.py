@@ -100,7 +100,7 @@ omega_b_h2_prior_sigma = 0.00063
 def chi_squared(params):
     bbn_delta = (omega_b_h2_prior - params[2]) / omega_b_h2_prior_sigma
     delta = data["value"] - theory_predictions(data["z"], quantities, params)
-    return np.dot(delta, cho_solve(cho, delta)) + bbn_delta**2
+    return np.dot(delta, cho_solve(cho, delta, check_finite=False)) + bbn_delta**2
 
 
 @njit
