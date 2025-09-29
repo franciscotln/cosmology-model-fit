@@ -2,6 +2,7 @@ from numba import njit
 import numpy as np
 import emcee
 import corner
+from scipy.linalg import cho_factor, cho_solve
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 import cmb.data_cmb_act_compression as cmb
@@ -14,7 +15,7 @@ Or_h2 = cmb.Omega_r_h2()
 legend, z_values, H_values, cov_matrix_cc = get_data()
 cc_err_factor = 1.5  # Error reduction factor
 cov_matrix_cc = cov_matrix_cc / cc_err_factor**2
-inv_cov_cc = np.linalg.inv(cov_matrix_cc)
+cho_cc = cho_factor(cov_matrix_cc)
 logdet = np.linalg.slogdet(cov_matrix_cc)[1]
 
 
@@ -35,7 +36,7 @@ def Ez(z, params):
 
 bounds = np.array(
     [
-        (55, 80),  # H0
+        (50, 85),  # H0
         (0.1, 0.45),  # Om
         (0.0210, 0.0235),  # Ωb * h^2
         (0.4, 3),  # f_cc
@@ -47,7 +48,9 @@ bounds = np.array(
 def chi_squared(params):
     H0, Om, Ob_h2, f_cc = params
     delta_cc = H_values - H_z(z_values, params)
-    chi2_cc = np.dot(delta_cc, np.dot(inv_cov_cc * f_cc**2, delta_cc))
+    chi2_cc = f_cc**2 * np.dot(
+        delta_cc, cho_solve(cho_cc, delta_cc, check_finite=False)
+    )
 
     delta_cm = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez, params, H0, Om, Ob_h2)
     chi2_cmb = np.dot(delta_cm, np.dot(cmb.inv_cov_mat, delta_cm))
@@ -76,7 +79,7 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 120 * ndim
+    nwalkers = 150 * ndim
     burn_in = 100
     nsteps = 1000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
@@ -90,7 +93,11 @@ def main():
             ndim,
             log_probability,
             pool=pool,
-            moves=[(emcee.moves.KDEMove(), 0.6), (emcee.moves.StretchMove(), 0.4)],
+            moves=[
+                (emcee.moves.KDEMove(), 0.5),
+                (emcee.moves.DEMove(), 0.4),
+                (emcee.moves.DESnookerMove(), 0.1),
+            ],
         )
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
 
@@ -111,7 +118,7 @@ def main():
         [f_16, f_50, f_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = [H0_50, Om_50, Obh2_50, f_50]
+    best_fit = np.array([H0_50, Om_50, Obh2_50, f_50], dtype=np.float64)
 
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f}")
     print(f"Ωm: {Om_50:.4f} +{(Om_84 - Om_50):.4f} -{(Om_50 - Om_16):.4f}")
@@ -169,17 +176,17 @@ https://arxiv.org/pdf/2506.03836
 *******************************
 
 Flat ΛCDM
-H0: 67.25 ± 0.50 km/s/Mpc
+H0: 67.26 ± 0.49 km/s/Mpc
 Ωm: 0.317 ± 0.007
 Ωb x h^2: 0.02237 ± 0.00014
 f_cc: 1.00 +0.12 -0.12
-Chi squared: 33.31
+Chi squared: 33.28
 Log likelihood: -130.47
 Degs of freedom: 32
 
 correlation matrix:
-[[ 1.      -0.99291  0.703   -0.00839]
- [-0.99291  1.      -0.63719  0.00822]
- [ 0.703   -0.63719  1.      -0.00837]
- [-0.00839  0.00822 -0.00837  1.     ]]
+[[ 1.00000e+00 -9.92880e-01  7.00798e-01  6.99075e-04]
+ [-9.92880e-01  1.00000e+00 -6.34888e-01 -1.36239e-03]
+ [ 7.00798e-01 -6.34888e-01  1.00000e+00 -1.27770e-03]
+ [ 6.99075e-04 -1.36239e-03 -1.27770e-03  1.00000e+00]]
 """

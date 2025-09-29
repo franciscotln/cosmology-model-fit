@@ -1,4 +1,4 @@
-import numba
+from numba import njit
 import numpy as np
 import emcee
 import corner
@@ -23,7 +23,7 @@ grid = np.linspace(0, np.max(z_cmb), num=2000)
 c = 299792.458  # Speed of light in km/s
 
 
-@numba.njit
+@njit
 def Ez(z, params):
     O_m, w0 = params[3], params[4]
     cubed = (1 + z) ** 3
@@ -38,7 +38,7 @@ def theory_mu(params):
     return offset_mag + 25 + 5 * np.log10((1 + z_hel) * (c / H0) * I)
 
 
-@numba.njit
+@njit
 def H_z(z, params):
     return params[2] * Ez(z, params)
 
@@ -48,8 +48,8 @@ bounds = np.array(
         (0.4, 2.5),  # f_cc
         (-0.7, 0.7),  # ΔM
         (50, 80),  # H0
-        (0.1, 0.5),  # Ωm
-        (-2, 0),  # w0
+        (0.1, 0.6),  # Ωm
+        (-1.5, 0.5),  # w0
     ],
     dtype=np.float64,
 )
@@ -66,7 +66,7 @@ def chi_squared(params):
     return chi_sn + chi_cc
 
 
-@numba.njit
+@njit
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
         return 0.0
@@ -88,7 +88,7 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 50 * ndim
+    nwalkers = 100 * ndim
     burn_in = 100
     nsteps = 1000 + burn_in
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
@@ -99,7 +99,11 @@ def main():
             ndim,
             log_probability,
             pool=pool,
-            moves=[(emcee.moves.KDEMove(), 0.6), (emcee.moves.StretchMove(), 0.4)],
+            moves=[
+                (emcee.moves.KDEMove(), 0.5),
+                (emcee.moves.DEMove(), 0.4),
+                (emcee.moves.DESnookerMove(), 0.1),
+            ],
         )
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
 
@@ -120,7 +124,7 @@ def main():
         [w0_16, w0_50, w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = [f_cc_50, dM_50, h0_50, Om_50, w0_50]
+    best_fit = np.array([f_cc_50, dM_50, h0_50, Om_50, w0_50], dtype=np.float64)
     deg_of_freedom = effective_sample_size + z_cc_vals.size - len(best_fit)
 
     print(f"f_cc: {f_cc_50:.2f} +{(f_cc_84 - f_cc_50):.2f} -{(f_cc_50 - f_cc_16):.2f}")

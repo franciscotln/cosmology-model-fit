@@ -1,4 +1,4 @@
-import numba
+from numba import njit
 import numpy as np
 import emcee
 import corner
@@ -23,7 +23,7 @@ z_grid_sn = np.linspace(0, np.max(z_vals), num=2000)
 c = 299792.458  # Speed of light in km/s
 
 
-@numba.njit
+@njit
 def Ez(z, O_m, w0):
     one_plus_z = 1 + z
     rho_de = (2 * one_plus_z**3 / (1 + one_plus_z**3)) ** (2 * (1 + w0))
@@ -42,7 +42,7 @@ def apparent_mag_theory(params):
     return M + 25 + 5 * np.log10((1 + z_hel_vals) * comoving_distance)
 
 
-@numba.njit
+@njit
 def H_z(z, params):
     H0, Om, w0 = params[1], params[3], params[4]
     return H0 * Ez(z, Om, w0)
@@ -71,7 +71,7 @@ def chi_squared(params):
     return chi_sn + chi_cc
 
 
-@numba.njit
+@njit
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
         return 0.0
@@ -93,7 +93,7 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 80 * ndim
+    nwalkers = 100 * ndim
     burn_in = 100
     nsteps = 1000 + burn_in
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
@@ -104,7 +104,11 @@ def main():
             ndim,
             log_probability,
             pool=pool,
-            moves=[(emcee.moves.KDEMove(), 0.6), (emcee.moves.StretchMove(), 0.4)],
+            moves=[
+                (emcee.moves.KDEMove(), 0.5),
+                (emcee.moves.DEMove(), 0.4),
+                (emcee.moves.DESnookerMove(), 0.1),
+            ],
         )
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
 
@@ -179,6 +183,7 @@ def main():
     axes[ndim - 1].set_xlabel("chain step")
     plt.show()
 
+
 if __name__ == "__main__":
     main()
 
@@ -207,11 +212,11 @@ Degrees of freedom: 1618
 ==============================
 
 Flat alternative: w(z) = -1 + 2 * (1 + w0) / ((1 + z)**3 + 1)
-f_cc: 1.46 +0.19 -0.18
-H0: 67.2 +2.6 -2.6 km/s/Mpc
-M: -19.437 +0.083 -0.084 mag
-Ωm: 0.322 +0.031 -0.030
-w0: -0.963 +0.097 -0.110
-Chi squared: 1434.41
+f_cc: 1.46 +0.18 -0.18
+H0: 67.2 +2.6 -2.5 km/s/Mpc
+M: -19.437 +0.081 -0.084 mag
+Ωm: 0.323 +0.030 -0.030
+w0: -0.964 +0.097 -0.109
+Chi squared: 1434.50
 Degrees of freedom: 1618
 """

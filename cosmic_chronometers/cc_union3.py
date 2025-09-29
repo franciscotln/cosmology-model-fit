@@ -59,7 +59,7 @@ bounds = np.array(
 def chi_squared(params):
     f_cc = params[0]
     delta_sn = mu_vals - mu_theory(params)
-    chi_sn = np.dot(delta_sn, cho_solve(cho_sn, delta_sn))
+    chi_sn = np.dot(delta_sn, cho_solve(cho_sn, delta_sn, check_finite=False))
 
     cc_delta = H_cc_vals - H_z(z_cc_vals, params)
     chi_cc = f_cc**2 * np.dot(cc_delta, cho_solve(cho_cc, cc_delta, check_finite=False))
@@ -90,8 +90,8 @@ def log_probability(params):
 def main():
     ndim = len(bounds)
     nwalkers = 100 * ndim
-    burn_in = 100
-    nsteps = 1000 + burn_in
+    burn_in = 50
+    nsteps = 1200 + burn_in
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
 
     with Pool(10) as pool:
@@ -100,7 +100,11 @@ def main():
             ndim,
             log_probability,
             pool=pool,
-            moves=[(emcee.moves.KDEMove(), 0.6), (emcee.moves.StretchMove(), 0.4)],
+            moves=[
+                (emcee.moves.KDEMove(), 0.5),
+                (emcee.moves.DEMove(), 0.4),
+                (emcee.moves.DESnookerMove(), 0.1),
+            ],
         )
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
 
@@ -183,36 +187,36 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM: w(z) = -1
-f_cc: 1.47 +0.18 -0.18
-ΔM: -0.204 +0.122 -0.122 mag
+f_cc: 1.47 +0.19 -0.18
+ΔM: -0.204 +0.120 -0.123 mag
 H0: 65.9 +2.6 -2.6 km/s/Mpc
-Ωm: 0.348 +0.024 -0.023
+Ωm: 0.349 +0.024 -0.023
 w0: -1
-Chi squared: 56.25
+Chi squared: 56.16
 Log likelihood: -142.58
 Degrees of freedom: 51
 
 ==============================
 
 Flat wCDM: w(z) = w0
-f_cc: 1.45 +0.19 -0.18
-ΔM: -0.181 +0.125 -0.123 mag
-H0: 66.4 +2.7 -2.6 km/s/Mpc
-Ωm: 0.307 +0.047 -0.054
-w0: -0.86 +0.13 -0.14
-Chi squared: 54.13
-Log likelihood: -141.99
+f_cc: 1.45 +0.18 -0.18
+ΔM: -0.179 +0.124 -0.124 mag
+H0: 66.4 +2.7 -2.7 km/s/Mpc
+Ωm: 0.306 +0.047 -0.055
+w0: -0.86 +0.12 -0.13
+Chi squared: 54.20
+Log likelihood: -141.98
 Degrees of freedom: 50
 
 ==============================
 
 Flat alternative: w(z) = -1 + 2 * (1 + w0) / ((1 + z)**3 + 1)
-f_cc: 1.45 +0.19 -0.18
-ΔM: -0.179 +0.125 -0.125 mag
-H0: 66.3 +2.7 -2.6 km/s/Mpc
-Ωm: 0.321 +0.034 -0.033
+f_cc: 1.45 +0.18 -0.18
+ΔM: -0.180 +0.123 -0.124 mag
+H0: 66.2 +2.6 -2.6 km/s/Mpc
+Ωm: 0.322 +0.034 -0.033
 w0: -0.84 +0.12 -0.13
-Chi squared: 53.90
+Chi squared: 53.87
 Log likelihood: -141.79
 Degrees of freedom: 50
 """
