@@ -32,8 +32,7 @@ def Ez(z, params):
     O_m, w0 = params[3], params[4]
     one_plus_z = 1 + z
     cubed = one_plus_z**3
-    # rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
-    rho_de = cubed**(1 + w0)  # wCDM
+    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
     return np.sqrt(O_m * cubed + (1 - O_m) * rho_de)
 
 
