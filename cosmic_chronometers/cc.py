@@ -94,7 +94,7 @@ def main():
         [f_16, f_50, f_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = [H0_50, Om_50, w0_50, f_50]
+    best_fit = np.array([H0_50, Om_50, w0_50, f_50], dtype=np.float64)
 
     print(f"H0: {H0_50:.1f} +{(H0_84 - H0_50):.1f} -{(H0_50 - H0_16):.1f}")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
@@ -152,32 +152,32 @@ https://arxiv.org/pdf/2506.03836
 Flat ΛCDM
 With f:
 H0: 67.1 +3.7 -3.8 km/s/Mpc
-Ωm: 0.329 +0.052 -0.043
+Ωm: 0.328 +0.051 -0.043
 w0: -1
-f: 1.455 +0.188 -0.179
-Chi squared: 31.29
-Log likelihood: -130.44
+f: 1.455 +0.187 -0.178
+Chi squared: 31.32
+Log likelihood: -130.53
 Degs of freedom: 30
 Correlation matrix:
-[[ 1.      -0.80842  0.03265]
- [-0.80842  1.      -0.05184]
- [ 0.03265 -0.05184  1.     ]]
+[[ 1.          -8.07442e-01  2.91985e-02]
+ [-8.07442e-01  1.          -4.79678e-02]
+ [ 2.91985e-02 -4.79678e-02  1.         ]]
 
 Without f:
-H0: 66.6 +5.4 -5.4 km/s/Mpc
+H0: 66.7 +5.4 -5.5 km/s/Mpc
 Ωm: 0.334 +0.079 -0.062
 w0: -1
 f: 1
-Chi squared: 14.81
-Log likelihood: -134.57
+Chi squared: 14.82
+Log likelihood: -134.65
 Degs of freedom: 31
 correlation matrix:
-[[ 1.      -0.80645]
- [-0.80645  1.     ]]
+[[ 1.       -0.809697]
+ [-0.809697  1.      ]]
 
 Log likelihood ratio test:
 -2 * log(L0/L1) = -2 * log(L0) + 2 * log(L1)
--2 * (-134.57) + 2 * (-130.44) = 8.26
+-2 * (-134.65) + 2 * (-130.53) = 8.24
 p-value = 0.0016
 We are 99.84% confident that the model with f is better than the one without f.
 So the uncertainties in the H(z) dataset are overestimated by a factor of 1.46 ± 0.18.
@@ -186,12 +186,12 @@ So the uncertainties in the H(z) dataset are overestimated by a factor of 1.46 �
 ===============================
 
 Flat wCDM
-H0: 70.9 +7.7 -6.2 km/s/Mpc
-Ωm: 0.311 +0.052 -0.051
-w0: -1.425 +0.524 -0.673
-f: 1.440 +0.189 -0.181
-Chi squared: 30.82
-Log likelihood: -130.53
+H0: 70.7 +7.5 -6.1 km/s/Mpc
+Ωm: 0.312 +0.052 -0.050
+w0: -1.401 +0.515 -0.644
+f: 1.440 +0.188 -0.179
+Chi squared: 30.78
+Log likelihood: -130.61
 Degs of freedom: 29
 Correlation matrix:
 [[ 1.      -0.46261 -0.79425 -0.04056]
@@ -202,16 +202,16 @@ Correlation matrix:
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / ((1 + z)**3 + 1)
-H0: 72.5 +9.0 -7.2 km/s/Mpc
-Ωm: 0.299 +0.056 -0.050
-w0: -1.607 +0.643 -0.825
-f: 1.445 +0.189 -0.180
-Chi squared: 30.45
-Log likelihood: -130.25
+H0: 72.3 +8.7 -7.0 km/s/Mpc
+Ωm: 0.301 +0.056 -0.049
+w0: -1.577 +0.627 -0.794
+f: 1.444 +0.188 -0.180
+Chi squared: 30.43
+Log likelihood: -130.35
 Degs of freedom: 29
 Correlation matrix:
-[[ 1.      -0.83479 -0.82803 -0.02102]
- [-0.83479  1.       0.56565 -0.01148]
- [-0.82803  0.56565  1.       0.0503 ]
- [-0.02102 -0.01148  0.0503   1.     ]]
+[[ 1.      -0.82775 -0.82181 -0.02437]
+ [-0.82775  1.       0.54686 -0.00677]
+ [-0.82181  0.54686  1.       0.05416]
+ [-0.02437 -0.00677  0.05416  1.     ]]
 """
