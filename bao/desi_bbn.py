@@ -123,16 +123,26 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 10 * ndim
-    burn_in = 500
-    nsteps = 20000 + burn_in
+    nwalkers = 125 * ndim
+    burn_in = 100
+    nsteps = 1000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):
         initial_pos[:, dim] = np.random.uniform(lower, upper, nwalkers)
 
     with Pool(10) as pool:
-        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool=pool)
+        sampler = emcee.EnsembleSampler(
+            nwalkers,
+            ndim,
+            log_probability,
+            pool=pool,
+            moves=[
+                (emcee.moves.KDEMove(), 0.5),
+                (emcee.moves.DEMove(), 0.4),
+                (emcee.moves.DESnookerMove(), 0.1),
+            ],
+        )
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
 
     try:
@@ -141,6 +151,7 @@ def main():
     except emcee.autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
 
+    chains_samples = sampler.get_chain(discard=0, flat=False)
     samples = sampler.get_chain(discard=burn_in, flat=True)
 
     [
@@ -150,7 +161,7 @@ def main():
         [w0_16, w0_50, w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = [H0_50, Om_50, Obh2_50, w0_50]
+    best_fit = np.array([H0_50, Om_50, Obh2_50, w0_50], dtype=np.float64)
 
     h_samples = samples[:, 0] / 100
     Omh2_samples = samples[:, 1] * h_samples**2
@@ -184,9 +195,10 @@ def main():
         errors=np.sqrt(np.diag(cov_matrix)),
         title=f"{legend}: $H_0$={H0_50:.2f} km/s/Mpc, $\\Omega_m$={Om_50:.4f}",
     )
+    labels = ["$H_0$", "$Ω_m$", "$Ω_b x h^2$", "$w_0$"]
     corner.corner(
         samples,
-        labels=["$H_0$", "$Ω_m$", "$Ω_b x h^2$", "$w_0$"],
+        labels=labels,
         quantiles=[0.159, 0.5, 0.841],
         show_titles=True,
         title_fmt=".3f",
@@ -197,6 +209,15 @@ def main():
         smooth1d=1.5,
         levels=(0.393, 0.864),  # 1 and 2 sigmas in 2D
     )
+    plt.show()
+
+    _, axes = plt.subplots(ndim, figsize=(10, 7))
+    for i in range(ndim):
+        axes[i].plot(chains_samples[:, :, i], color="black", alpha=0.3, lw=0.4)
+        axes[i].set_ylabel(labels[i])
+        axes[i].axvline(x=burn_in, color="red", linestyle="--", alpha=0.5)
+        axes[i].axhline(y=best_fit[i], color="white", linestyle="--", alpha=0.5)
+    axes[ndim - 1].set_xlabel("chain step")
     plt.show()
 
 
@@ -210,12 +231,12 @@ Dataset: DESI DR2 2025
 *******************************
 
 Flat ΛCDM:
-H0: 68.45 ± 0.59 km/s/Mpc
-Ωb h^2: 0.02196 ± 0.00063
-Ωm h^2: 0.13938 +0.00476 -0.00461
-Ωm: 0.2974 +0.0088 -0.0085
+H0: 68.45 ± 0.58 km/s/Mpc
+Ωb h^2: 0.02196 ± 0.00062
+Ωm h^2: 0.13934 +0.00470 -0.00455
+Ωm: 0.2974 +0.0087 -0.0084
 w0: -1
-r_d: 148.31 +1.47 -1.44 Mpc
+r_d: 148.32 +1.46 -1.42 Mpc
 Chi squared: 10.28
 Degs of freedom: 11
 R^2: 0.9987
@@ -224,12 +245,12 @@ RMSD: 0.305
 ===============================
 
 Flat wCDM:
-H0: 66.35 +2.05 -2.08 km/s/Mpc
+H0: 66.34 +2.05 -2.09 km/s/Mpc
 Ωb h^2: 0.02196 +0.00063 -0.00063
-Ωm h^2: 0.13106 +0.00918 -0.00961
-Ωm: 0.2969 +0.0090 -0.0088
-w0: -0.916 +0.076 -0.079
-r_d: 150.44 +2.81 -2.48 Mpc
+Ωm h^2: 0.13093 +0.00923 -0.00961
+Ωm: 0.2968 +0.0089 -0.0088
+w0: -0.915 +0.076 -0.079
+r_d: 150.48 +2.82 -2.51 Mpc
 Chi squared: 9.04
 Degs of freedom: 10
 R^2: 0.9989
@@ -238,12 +259,12 @@ RMSD: 0.280
 ===============================
 
 Flat alternative: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-H0: 65.74 +2.14 -2.01 km/s/Mpc
-Ωb h^2: 0.02195 +0.00064 -0.00062
-Ωm h^2: 0.13314 +0.00673 -0.00656
-Ωm: 0.3078 +0.0117 -0.0117
-w0: -0.831 +0.121 -0.128
-r_d: 149.90 +1.99 -1.93 Mpc
+H0: 65.77 +2.14 -2.01 km/s/Mpc
+Ωb h^2: 0.02197 +0.00063 -0.00063
+Ωm h^2: 0.13322 +0.00669 -0.00657
+Ωm: 0.3077 +0.0117 -0.0116
+w0: -0.832 +0.121 -0.128
+r_d: 149.87 +1.99 -1.91 Mpc
 Chi squared: 8.42
 Degs of freedom: 10
 R^2: 0.9990
