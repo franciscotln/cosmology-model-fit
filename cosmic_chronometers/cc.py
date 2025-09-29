@@ -3,6 +3,7 @@ import numpy as np
 import emcee
 import corner
 import matplotlib.pyplot as plt
+from scipy.linalg import cho_factor, cho_solve
 from multiprocessing import Pool
 from .plot_predictions import plot_cc_predictions
 from y2005cc.data import get_data
@@ -10,7 +11,7 @@ from y2005cc.data import get_data
 c = 299792.458  # Speed of light in km/s
 
 legend, z_values, H_values, cov_matrix = get_data()
-inv_cov = np.linalg.inv(cov_matrix)
+cho = cho_factor(cov_matrix)
 logdet = np.linalg.slogdet(cov_matrix)[1]
 
 
@@ -22,14 +23,14 @@ def H_z(z, h0, Om, w0):
 
 
 bounds = np.array(
-    [(50, 100), (0, 0.7), (-3.0, 0), (0.4, 3)], dtype=np.float64
+    [(40, 120), (0, 0.7), (-4.0, 1), (0.4, 3)], dtype=np.float64
 )  # H0, Om, w0, f
 
 
 def chi_squared(params):
     f = params[-1]
     delta = H_values - H_z(z_values, *params[0:3])
-    return np.dot(delta, np.dot(inv_cov * f**2, delta))
+    return f**2 * np.dot(delta, cho_solve(cho, delta, check_finite=False))
 
 
 def log_likelihood(params):
@@ -54,16 +55,22 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 16 * ndim
-    burn_in = 500
-    nsteps = 20000 + burn_in
+    nwalkers = 200 * ndim
+    burn_in = 100
+    nsteps = 1000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):
         initial_pos[:, dim] = np.random.uniform(lower, upper, nwalkers)
 
     with Pool(10) as pool:
-        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool=pool)
+        sampler = emcee.EnsembleSampler(
+            nwalkers,
+            ndim,
+            log_probability,
+            pool=pool,
+            moves=[(emcee.moves.KDEMove(), 0.6), (emcee.moves.StretchMove(), 0.4)],
+        )
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
 
     try:
@@ -100,9 +107,10 @@ def main():
         H_err=np.sqrt(np.diag(cov_matrix)) / f_50,
         label=f"{legend} $H_0$: {H0_50:.1f} ± {(H0_84 - H0_50):.1f} km/s/Mpc",
     )
+    labels = ["$H_0$", "$Ω_m$", "$w_0$", "f"]
     corner.corner(
         samples,
-        labels=["$H_0$", "$\Omega_m$", "$w_0$", "f"],
+        labels=labels,
         quantiles=[0.159, 0.5, 0.841],
         show_titles=True,
         title_fmt=".3f",
@@ -113,6 +121,16 @@ def main():
         fill_contours=False,
         plot_datapoints=False,
     )
+    plt.show()
+
+    _, axes = plt.subplots(ndim, figsize=(10, 7), sharex=True)
+    chains_samples = sampler.get_chain(discard=0, flat=False)
+    for i in range(ndim):
+        axes[i].plot(chains_samples[:, :, i], color="black", alpha=0.3)
+        axes[i].set_ylabel(labels[i])
+        axes[i].axvline(x=burn_in, color="red", linestyle="--", alpha=0.5)
+        axes[i].axhline(y=best_fit[i], color="white", linestyle="--", alpha=0.5)
+    axes[ndim - 1].set_xlabel("chain step")
     plt.show()
 
 
@@ -129,11 +147,11 @@ https://arxiv.org/pdf/2506.03836
 
 Flat ΛCDM
 With f:
-H0: 67.0 +3.7 -3.8 km/s/Mpc
-Ωm: 0.329 +0.052 -0.044
+H0: 67.1 +3.7 -3.8 km/s/Mpc
+Ωm: 0.329 +0.052 -0.043
 w0: -1
-f: 1.456 +0.186 -0.179
-Chi squared: 31.34
+f: 1.455 +0.188 -0.179
+Chi squared: 31.29
 Log likelihood: -130.44
 Degs of freedom: 30
 Correlation matrix:
@@ -142,9 +160,10 @@ Correlation matrix:
  [ 0.03265 -0.05184  1.     ]]
 
 Without f:
-H0: 66.6 +5.4 -5.5 km/s/Mpc
-Ωm: 0.335 +0.080 -0.063
+H0: 66.6 +5.4 -5.4 km/s/Mpc
+Ωm: 0.334 +0.079 -0.062
 w0: -1
+f: 1
 Chi squared: 14.81
 Log likelihood: -134.57
 Degs of freedom: 31
@@ -163,32 +182,32 @@ So the uncertainties in the H(z) dataset are overestimated by a factor of 1.46 �
 ===============================
 
 Flat wCDM
-H0: 70.6 +7.3 -6.2 km/s/Mpc
-Ωm: 0.313 +0.052 -0.050
-w0: -1.409 +0.521 -0.629
-f: 1.441 +0.188 -0.179
-Chi squared: 30.83
-Log likelihood: -130.52
+H0: 70.9 +7.7 -6.2 km/s/Mpc
+Ωm: 0.311 +0.052 -0.051
+w0: -1.425 +0.524 -0.673
+f: 1.440 +0.189 -0.181
+Chi squared: 30.82
+Log likelihood: -130.53
 Degs of freedom: 29
 Correlation matrix:
-[[ 1.      -0.39663 -0.76288 -0.00373]
- [-0.39663  1.      -0.01346  0.02089]
- [-0.76288 -0.01346  1.       0.03699]
- [-0.00373  0.02089  0.03699  1.     ]]
+[[ 1.      -0.46261 -0.79425 -0.04056]
+ [-0.46261  1.       0.105    0.0491 ]
+ [-0.79425  0.105    1.       0.07453]
+ [-0.04056  0.0491   0.07453  1.     ]]
 
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / ((1 + z)**3 + 1)
-H0: 71.9 +7.9 -6.8 km/s/Mpc
-Ωm: 0.304 +0.055 -0.046
-w0: -1.546 +0.612 -0.715
-f: 1.449 +0.188 -0.180
-Chi squared: 30.60
-Log likelihood: -130.23
+H0: 72.5 +9.0 -7.2 km/s/Mpc
+Ωm: 0.299 +0.056 -0.050
+w0: -1.607 +0.643 -0.825
+f: 1.445 +0.189 -0.180
+Chi squared: 30.45
+Log likelihood: -130.25
 Degs of freedom: 29
 Correlation matrix:
-[[ 1.      -0.811   -0.78965  0.03278]
- [-0.811    1.       0.48468 -0.05246]
- [-0.78965  0.48468  1.      -0.00735]
- [ 0.03278 -0.05246 -0.00735  1.     ]]
+[[ 1.      -0.83479 -0.82803 -0.02102]
+ [-0.83479  1.       0.56565 -0.01148]
+ [-0.82803  0.56565  1.       0.0503 ]
+ [-0.02102 -0.01148  0.0503   1.     ]]
 """

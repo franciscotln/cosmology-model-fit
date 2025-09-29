@@ -14,7 +14,7 @@ from .plot_predictions import plot_cc_predictions
 cc_legend, z_cc_vals, H_cc_vals, cov_matrix_cc = get_cc_data()
 legend, z_vals, z_hel_vals, apparent_mag_values, cov_matrix_sn = get_data()
 cov_sn_cho = cho_factor(cov_matrix_sn)
-inv_cov_cc = np.linalg.inv(cov_matrix_cc)
+cho_cc = cho_factor(cov_matrix_cc)
 logdet_cc = np.linalg.slogdet(cov_matrix_cc)[1]
 N_cc = len(z_cc_vals)
 
@@ -66,7 +66,7 @@ def chi_squared(params):
     chi_sn = np.dot(delta_sn, cho_solve(cov_sn_cho, delta_sn, check_finite=False))
 
     delta_cc = H_cc_vals - H_z(z_cc_vals, params)
-    chi_cc = np.dot(delta_cc, np.dot(inv_cov_cc * f_cc**2, delta_cc))
+    chi_cc = np.dot(delta_cc, cho_solve(cho_cc, delta_cc, check_finite=False)) * f_cc**2
 
     return chi_sn + chi_cc
 
@@ -93,13 +93,19 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 8 * ndim
-    burn_in = 500
-    nsteps = 10000 + burn_in
+    nwalkers = 80 * ndim
+    burn_in = 100
+    nsteps = 1000 + burn_in
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
 
     with Pool(10) as pool:
-        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool=pool)
+        sampler = emcee.EnsembleSampler(
+            nwalkers,
+            ndim,
+            log_probability,
+            pool=pool,
+            moves=[(emcee.moves.KDEMove(), 0.6), (emcee.moves.StretchMove(), 0.4)],
+        )
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
 
     try:
@@ -163,6 +169,15 @@ def main():
     )
     plt.show()
 
+    _, axes = plt.subplots(ndim, figsize=(10, 7), sharex=True)
+    chains_samples = sampler.get_chain(discard=0, flat=False)
+    for i in range(ndim):
+        axes[i].plot(chains_samples[:, :, i], color="black", alpha=0.3)
+        axes[i].set_ylabel(labels[i])
+        axes[i].axvline(x=burn_in, color="red", linestyle="--", alpha=0.5)
+        axes[i].axhline(y=best_fit[i], color="white", linestyle="--", alpha=0.5)
+    axes[ndim - 1].set_xlabel("chain step")
+    plt.show()
 
 if __name__ == "__main__":
     main()
@@ -170,33 +185,33 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM: w(z) = -1
-f_cc: 1.46 +0.19 -0.18
-H0: 66.9 +2.5 -2.4 km/s/Mpc
-M: -19.450 +0.076 -0.078
+f_cc: 1.47 +0.19 -0.18
+H0: 67.0 +2.4 -2.4 km/s/Mpc
+M: -19.446 +0.075 -0.077 mag
 Ωm: 0.331 +0.017 -0.017
 w0: -1
-Chi squared: 1434.17
-Degrees of freedom: 1618
+Chi squared: 1435.09
+Degrees of freedom: 1619
 
 ==============================
 
 Flat wCDM: w(z) = w0
-f_cc: 1.45 +0.19 -0.18
-H0: 67.1 +2.6 -2.6 km/s/Mpc
-M: -19.44 +0.08 -0.09
-Ωm: 0.320 +0.039 -0.042
-w0: -0.967 +0.102 -0.112
-Chi squared: 1433.44
-Degrees of freedom: 1617
+f_cc: 1.46 +0.19 -0.18
+H0: 67.3 +2.6 -2.6 km/s/Mpc
+M: -19.436 +0.084 -0.086 mag
+Ωm: 0.318 +0.039 -0.043
+w0: -0.962 +0.101 -0.111
+Chi squared: 1434.34
+Degrees of freedom: 1618
 
 ==============================
 
 Flat alternative: w(z) = -1 + 2 * (1 + w0) / ((1 + z)**3 + 1)
-f_cc: 1.45 +0.19 -0.18
-H0: 67.3 +2.6 -2.6 km/s/Mpc
-M: -19.434 +0.082 -0.085 mag
+f_cc: 1.46 +0.19 -0.18
+H0: 67.2 +2.6 -2.6 km/s/Mpc
+M: -19.437 +0.083 -0.084 mag
 Ωm: 0.322 +0.031 -0.030
-w0: -0.963 +0.098 -0.110
-Chi squared: 1433.44
-Degrees of freedom: 1617
+w0: -0.963 +0.097 -0.110
+Chi squared: 1434.41
+Degrees of freedom: 1618
 """
