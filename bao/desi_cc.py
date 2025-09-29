@@ -79,9 +79,9 @@ def theory_bao(z, qty, params):
 bounds = np.array(
     [
         (0.4, 2.5),  # f_cc
-        (50, 100),  # H0
-        (120, 180),  # r_d
-        (0.2, 0.7),  # Ωm
+        (45, 100),  # H0
+        (100, 180),  # r_d
+        (0.1, 0.7),  # Ωm
         (-2, 0.5),  # w0
     ],
     dtype=np.float64,
@@ -120,16 +120,26 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 16 * ndim
-    burn_in = 500
-    nsteps = 20000 + burn_in
+    nwalkers = 100 * ndim
+    burn_in = 100
+    nsteps = 1400 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):
         initial_pos[:, dim] = np.random.uniform(lower, upper, nwalkers)
 
     with Pool(10) as pool:
-        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool=pool)
+        sampler = emcee.EnsembleSampler(
+            nwalkers,
+            ndim,
+            log_probability,
+            pool=pool,
+            moves=[
+                (emcee.moves.KDEMove(), 0.5),
+                (emcee.moves.DEMove(), 0.4),
+                (emcee.moves.DESnookerMove(), 0.1),
+            ],
+        )
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
 
     try:
@@ -138,6 +148,7 @@ def main():
     except emcee.autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
 
+    chains_samples = sampler.get_chain(discard=0, flat=False)
     samples = sampler.get_chain(discard=burn_in, flat=True)
 
     [
@@ -173,7 +184,7 @@ def main():
         label=f"{cc_legend}: $H_0$={h0_50:.1f} km/s/Mpc",
     )
 
-    labels = ["$f_{CCH}$", "$H_0$", "$r_d$", "$\Omega_m$", "$w_0$"]
+    labels = ["$f_{CCH}$", "$H_0$", "$r_d$", "$Ω_m$", "$w_0$"]
     corner.corner(
         samples,
         labels=labels,
@@ -189,6 +200,15 @@ def main():
     )
     plt.show()
 
+    _, axes = plt.subplots(ndim, figsize=(10, 7))
+    for i in range(ndim):
+        axes[i].plot(chains_samples[:, :, i], color="black", alpha=0.3, lw=0.4)
+        axes[i].set_ylabel(labels[i])
+        axes[i].set_xlabel("chain step")
+        axes[i].axvline(x=burn_in, color="red", linestyle="--", alpha=0.5)
+        axes[i].axhline(y=best_fit[i], color="white", linestyle="--", alpha=0.5)
+    plt.show()
+
 
 if __name__ == "__main__":
     main()
@@ -199,37 +219,37 @@ Dataset: DESI 2025
 *******************************
 
 Flat ΛCDM
-f_cc: 1.47 +0.18 -0.18
-H0: 69.1 +2.4 -2.3 km/s/Mpc
-r_d: 146.9 +5.0 -4.7 Mpc
+f_cc: 1.47 +0.19 -0.18
+H0: 69.1 +2.3 -2.3 km/s/Mpc
+r_d: 146.8 +5.0 -4.6 Mpc
 Ωm: 0.299 +0.009 -0.008
 w0: -1
-Chi squared: 42.49
-log likelihood: -135.73
+Chi squared: 42.60
+log likelihood: -135.81
 Degrees of freedom: 42
 
 ===============================
 
 Flat wCDM
-f_cc: 1.47 +0.19 -0.18
+f_cc: 1.47 +0.18 -0.18
 H0: 67.9 +2.6 -2.5 km/s/Mpc
 r_d: 147.1 +5.0 -4.7 Mpc
 Ωm: 0.298 ± 0.009
-w0: -0.922 +0.076 -0.079
-Chi squared: 41.38
-log likelihood: -135.20
+w0: -0.922 +0.075 -0.078
+Chi squared: 41.43
+log likelihood: -135.28
 Degrees of freedom: 41
 
 ===============================
 
 Flat -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-f_cc: 1.46 +0.19 -0.18
+f_cc: 1.46 +0.18 -0.18
 H0: 67.3 +2.8 -2.7 km/s/Mpc
 r_d: 147.1 +5.0 -4.7 Mpc
 Ωm: 0.307 ± 0.011
-w0: -0.856 +0.119 -0.127
-Chi squared: 40.68
-log likelihood: -135.01
+w0: -0.857 +0.119 -0.126
+Chi squared: 40.74
+log likelihood: -135.09
 Degrees of freedom: 41
 
 ===============================
