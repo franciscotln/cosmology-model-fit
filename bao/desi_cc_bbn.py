@@ -6,6 +6,7 @@ from scipy.linalg import cho_factor, cho_solve
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from cmb.data_desi_compression import r_drag, c
+import bbn.prior_lcdm as bbn
 from y2005cc.data import get_data as get_cc_data
 from y2025BAO.data import get_data as get_bao_data
 from .plot_predictions import plot_bao_predictions
@@ -22,7 +23,7 @@ N_cc = len(z_cc_vals)
 @njit
 def rd(H0, Om, Obh2):  # Mpc
     Omh2 = Om * (H0 / 100) ** 2
-    return r_drag(wb=Obh2, wm=Omh2)
+    return r_drag(wb=Obh2, wm=Omh2, n_eff=bbn.N_eff)
 
 
 @njit
@@ -92,10 +93,6 @@ bounds = np.array(
     dtype=np.float64,
 )
 
-# Prior from BBN: https://arxiv.org/abs/2401.15054
-omega_b_h2_prior = 0.02196
-omega_b_h2_prior_sigma = 0.00063
-
 
 def chi_squared(params):
     f_cc = params[-1]
@@ -105,8 +102,9 @@ def chi_squared(params):
     delta_bao = data["value"] - bao_theory(data["z"], quantities, params)
     chi_bao = np.dot(delta_bao, cho_solve(cho_bao, delta_bao, check_finite=False))
 
-    bbn_delta = (omega_b_h2_prior - params[2]) / omega_b_h2_prior_sigma
-    return chi_cc + chi_bao + bbn_delta**2
+    bbn_delta = bbn.Obh2 - params[2]
+    chi_bbn = (bbn_delta / bbn.Obh2_sigma) ** 2
+    return chi_cc + chi_bao + chi_bbn
 
 
 @njit
@@ -131,16 +129,26 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 10 * ndim
-    burn_in = 500
-    nsteps = 20000 + burn_in
+    nwalkers = 100 * ndim
+    burn_in = 100
+    nsteps = 1400 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):
         initial_pos[:, dim] = np.random.uniform(lower, upper, nwalkers)
 
     with Pool(10) as pool:
-        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool=pool)
+        sampler = emcee.EnsembleSampler(
+            nwalkers,
+            ndim,
+            log_probability,
+            pool=pool,
+            moves=[
+                (emcee.moves.KDEMove(), 0.5),
+                (emcee.moves.DEMove(), 0.4),
+                (emcee.moves.DESnookerMove(), 0.1),
+            ],
+        )
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
 
     try:
@@ -215,53 +223,39 @@ Dataset: DESI DR2 2025
 *******************************
 
 Flat ΛCDM
-H0: 68.51 ± 0.57 km/s/Mpc
-Ωb h^2: 0.02200 +0.00062 -0.00061
-Ωm: 0.299 ± 0.008
+H0: 68.66 +0.52 -0.52 km/s/Mpc
+Ωb h^2: 0.02220 +0.00054 -0.00054
+Ωm: 0.299 +0.008 -0.008
 w0: -1
 f_cc: 1.49 +0.19 -0.18
-rd: 148.00 +1.38 -1.34 Mpc
-Chi squared: 43.47
-log likelihood: -135.76
+rd: 147.69 +1.30 -1.25 Mpc
+Chi squared: 43.50
+log likelihood: -135.83
 Degs of freedom: 43
 
 ===============================
 
 Flat wCDM
-H0: 67.05 +1.84 -1.83 km/s/Mpc
-Ωb h^2: 0.02204 +0.00062 -0.00062
+H0: 67.14 +1.85 -1.83 km/s/Mpc
+Ωb h^2: 0.02222 +0.00054 -0.00054
 Ωm: 0.299 +0.009 -0.008
-w0: -0.939 +0.070 -0.074
-f_cc: 1.48 +0.18 -0.18
-rd: 149.38 +2.31 -2.13 Mpc
-Chi squared: 42.38
-log likelihood: -135.36
+w0: -0.937 +0.070 -0.074
+f_cc: 1.48 +0.19 -0.18
+rd: 149.12 +2.28 -2.07 Mpc
+Chi squared: 42.28
+log likelihood: -135.41
 Degs of freedom: 42
 
 ===============================
 
 Flat -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-H0: 66.46 +2.03 -1.93 km/s/Mpc
-Ωb h^2: 0.02203 +0.00061 -0.00062
-Ωm: 0.308 +0.011 -0.011
-w0: -0.869 +0.118 -0.124
-f_cc: 1.48 +0.18 -0.18
-rd: 149.13 +1.79 -1.75 Mpc
-Chi squared: 41.87
-log likelihood: -135.14
+H0: 66.57 +2.02 -1.92 km/s/Mpc
+Ωb h^2: 0.02222 +0.00054 -0.00054
+Ωm: 0.307 +0.011 -0.011
+w0: -0.868 +0.117 -0.124
+f_cc: 1.48 +0.19 -0.18
+rd: 148.84 +1.72 -1.67 Mpc
+Chi squared: 41.63
+log likelihood: -135.19
 Degs of freedom: 42
-
-===============================
-
-Flat w0waCDM
-H0: 65.2 +2.0 -1.9 km/s/Mpc
-Ωb h^2: 0.02193 +0.00062 -0.00062
-Ωm: 0.348 +0.028 -0.028
-w0: -0.547 +0.256 -0.243
-wa: -1.465 +0.871 -0.904
-f_cc: 1.45 +0.18 -0.17
-rd: 145.97 +2.49 -2.19 Mpc
-Chi squared: 39.41
-log likelihood: -134.64
-Degs of freedom: 41
 """

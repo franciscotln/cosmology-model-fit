@@ -6,32 +6,29 @@ from scipy.linalg import cho_factor, cho_solve
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from y2025BAO.data import get_data
-from cmb.data_desi_compression import Omega_r_h2, r_drag, c
+import bbn.prior_lcdm as bbn
+from cmb.data_desi_compression import r_drag, c
 from .plot_predictions import plot_bao_predictions
 
 legend, data, cov_matrix = get_data()
 cho = cho_factor(cov_matrix)
-
-Or_h2 = Omega_r_h2()
 
 
 @njit
 def rd(H0, Om, Obh2):
     h = H0 / 100
     Omh2 = Om * h**2
-    return r_drag(wb=Obh2, wm=Omh2)
+    return r_drag(wb=Obh2, wm=Omh2, n_eff=bbn.N_eff)
 
 
 @njit
 def Ez(z, params):
-    H0, Om, w0 = params[0], params[1], params[3]
-    h = H0 / 100
-    Or = Or_h2 / h**2
-    OL = 1 - Om - Or
+    Om, w0 = params[1], params[3]
+    OL = 1 - Om
     one_plus_z = 1 + z
     cubic = one_plus_z**3
     rho_de = (2 * cubic / (1 + cubic)) ** (2 * (1 + w0))
-    return np.sqrt(Or * one_plus_z**4 + Om * one_plus_z**3 + OL * rho_de)
+    return np.sqrt(Om * one_plus_z**3 + OL * rho_de)
 
 
 @njit
@@ -92,13 +89,9 @@ bounds = np.array(
     dtype=np.float64,
 )
 
-# Prior from BBN: https://arxiv.org/abs/2401.15054
-omega_b_h2_prior = 0.02196
-omega_b_h2_prior_sigma = 0.00063
-
 
 def chi_squared(params):
-    bbn_delta = (omega_b_h2_prior - params[2]) / omega_b_h2_prior_sigma
+    bbn_delta = (bbn.Obh2 - params[2]) / bbn.Obh2_sigma
     delta = data["value"] - theory_predictions(data["z"], quantities, params)
     return np.dot(delta, cho_solve(cho, delta, check_finite=False)) + bbn_delta**2
 
@@ -125,7 +118,7 @@ def main():
     ndim = len(bounds)
     nwalkers = 125 * ndim
     burn_in = 100
-    nsteps = 1000 + burn_in
+    nsteps = 1400 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):
@@ -231,13 +224,13 @@ Dataset: DESI DR2 2025
 *******************************
 
 Flat ΛCDM:
-H0: 68.45 ± 0.58 km/s/Mpc
-Ωb h^2: 0.02196 ± 0.00062
-Ωm h^2: 0.13934 +0.00470 -0.00455
-Ωm: 0.2974 +0.0087 -0.0084
-w0: -1
-r_d: 148.32 +1.46 -1.42 Mpc
-Chi squared: 10.28
+H0: 68.64 +0.53 -0.54 km/s/Mpc
+Ωb h^2: 0.02218 +0.00055 -0.00054
+Ωm h^2: 0.14029 +0.00461 -0.00449
+Ωm: 0.2978 +0.0087 -0.0084
+w0: -0.753 +0.509 -0.506
+r_d: 147.90 +1.36 -1.34 Mpc
+Chi squared: 10.27
 Degs of freedom: 11
 R^2: 0.9987
 RMSD: 0.305
@@ -245,13 +238,13 @@ RMSD: 0.305
 ===============================
 
 Flat wCDM:
-H0: 66.34 +2.05 -2.09 km/s/Mpc
-Ωb h^2: 0.02196 +0.00063 -0.00063
-Ωm h^2: 0.13093 +0.00923 -0.00961
-Ωm: 0.2968 +0.0089 -0.0088
-w0: -0.915 +0.076 -0.079
-r_d: 150.48 +2.82 -2.51 Mpc
-Chi squared: 9.04
+H0: 66.55 +2.05 -2.08 km/s/Mpc
+Ωb h^2: 0.02218 +0.00055 -0.00054
+Ωm h^2: 0.13199 +0.00914 -0.00962
+Ωm: 0.2971 +0.0090 -0.0087
+w0: -0.916 +0.076 -0.079
+r_d: 150.00 +2.75 -2.42 Mpc
+Chi squared: 9.05
 Degs of freedom: 10
 R^2: 0.9989
 RMSD: 0.280
@@ -259,58 +252,14 @@ RMSD: 0.280
 ===============================
 
 Flat alternative: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-H0: 65.77 +2.14 -2.01 km/s/Mpc
-Ωb h^2: 0.02197 +0.00063 -0.00063
-Ωm h^2: 0.13322 +0.00669 -0.00657
-Ωm: 0.3077 +0.0117 -0.0116
-w0: -0.832 +0.121 -0.128
-r_d: 149.87 +1.99 -1.91 Mpc
-Chi squared: 8.42
+H0: 65.95 +2.13 -2.00 km/s/Mpc
+Ωb h^2: 0.02218 +0.00054 -0.00055
+Ωm h^2: 0.13404 +0.00671 -0.00646
+Ωm: 0.3079 +0.0117 -0.0116
+w0: -0.833 +0.121 -0.129
+r_d: 149.46 +1.89 -1.83 Mpc
+Chi squared: 8.43
 Degs of freedom: 10
 R^2: 0.9990
 RMSD: 0.266
-
-*******************************
-Dataset: SDSS 2020
-*******************************
-
-Flat ΛCDM
-H0: 67.40 +1.10 -1.05 km/s/Mpc
-Ωb h^2: 0.0220 ± 0.0006
-Ωm h^2: 0.1368 +0.0111 -0.0100
-Ωm: 0.3012 +0.0183 -0.0170
-w0: -1
-r_d: 148.93 +3.02 -3.08 Mpc
-Chi squared: 10.50
-Degs of freedom: 12
-R^2: 0.9941
-RMSD: 0.770
-
-===============================
-
-Flat wCDM
-H0: 60.88 +4.22 -4.65 km/s/Mpc
-Ωb h^2: 0.0220 ± 0.0006
-Ωm h^2: 0.1077 +0.0215 -0.0235
-Ωm: 0.2882 +0.0218 -0.0256
-w0: -0.755 +0.137 -0.147
-r_d: 157.95 +9.27 -6.92 Mpc
-Chi squared: 7.43
-Degs of freedom: 11
-R^2: 0.9950
-RMSD: 0.714
-
-===============================
-
-Flat alternative: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-H0: 62.11 +3.49 -3.19 km/s/Mpc
-Ωb h^2: 0.0220 ± 0.0006
-Ωm h^2: 0.1228 +0.0137 -0.0125
-Ωm: 0.3177 +0.0212 -0.0203
-w0: -0.663 +0.195 -0.211
-r_d: 153.01 +4.14 -4.11 Mpc
-Chi squared: 7.66
-Degs of freedom: 11
-R^2: 0.9946
-RMSD: 0.740
 """
