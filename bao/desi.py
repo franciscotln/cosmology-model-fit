@@ -103,16 +103,26 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 20 * ndim
-    burn_in = 500
-    nsteps = 20000 + burn_in
+    nwalkers = 200 * ndim
+    burn_in = 100
+    nsteps = 1000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):
         initial_pos[:, dim] = np.random.uniform(lower, upper, nwalkers)
 
     with Pool(10) as pool:
-        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool=pool)
+        sampler = emcee.EnsembleSampler(
+            nwalkers,
+            ndim,
+            log_probability,
+            pool=pool,
+            moves=[
+                (emcee.moves.KDEMove(), 0.5),
+                (emcee.moves.DEMove(), 0.4),
+                (emcee.moves.DESnookerMove(), 0.1),
+            ],
+        )
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
 
     try:
@@ -149,9 +159,10 @@ def main():
         errors=np.sqrt(np.diag(cov_matrix)),
         title=f"{legend}: $H_0$={100 * h_50:.1f} km/s/Mpc, $Ω_m$={Om_50:.3f}",
     )
+    labels = ["$h$", "$Ω_m$", "$w_0$"]
     corner.corner(
         samples,
-        labels=["$h$", "$Ω_m$", "$w_0$"],
+        labels=labels,
         quantiles=[0.159, 0.5, 0.841],
         show_titles=True,
         title_fmt=".3f",
@@ -162,6 +173,16 @@ def main():
         smooth1d=1.5,
         levels=(0.393, 0.864),  # 1 and 2 sigmas in 2D
     )
+    plt.show()
+
+    _, axes = plt.subplots(ndim, figsize=(10, 7), sharex=True)
+    chains_samples = sampler.get_chain(discard=0, flat=False)
+    for i in range(ndim):
+        axes[i].plot(chains_samples[:, :, i], color="black", alpha=0.3)
+        axes[i].set_ylabel(labels[i])
+        axes[i].axvline(x=burn_in, color="red", linestyle="--", alpha=0.5)
+        axes[i].axhline(y=best_fit[i], color="white", linestyle="--", alpha=0.5)
+    axes[ndim - 1].set_xlabel("chain step")
     plt.show()
 
 
@@ -202,7 +223,7 @@ Flat alternative: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
 rd: 147.09 Mpc (fixed)
 h: 0.670 +0.016 -0.015
 Ωm: 0.308 ± 0.012
-w0: -0.833 +0.122 -0.129 (1.3 sigma from -1)
+w0: -0.833 +0.121 -0.127 (1.31 - 1.38 sigma from -1)
 Chi squared: 8.44 (Δ chi2 1.83)
 Degs of freedom: 10
 R^2: 0.9990

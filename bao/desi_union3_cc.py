@@ -139,13 +139,23 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 16 * ndim
-    burn_in = 500
-    nsteps = 20000 + burn_in
+    nwalkers = 85 * ndim
+    burn_in = 100
+    nsteps = 1400 + burn_in
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
 
     with Pool(10) as pool:
-        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool=pool)
+        sampler = emcee.EnsembleSampler(
+            nwalkers,
+            ndim,
+            log_probability,
+            pool=pool,
+            moves=[
+                (emcee.moves.KDEMove(), 0.5),
+                (emcee.moves.DEMove(), 0.4),
+                (emcee.moves.DESnookerMove(), 0.1),
+            ],
+        )
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
 
     try:
@@ -212,6 +222,16 @@ def main():
         smooth1d=1.5,
         levels=(0.393, 0.864),  # 1 and 2 sigmas in 2D
     )
+    plt.show()
+
+    _, axes = plt.subplots(ndim, figsize=(10, 7), sharex=True)
+    chains_samples = sampler.get_chain(discard=0, flat=False)
+    for i in range(ndim):
+        axes[i].plot(chains_samples[:, :, i], color="black", alpha=0.3)
+        axes[i].set_ylabel(labels[i])
+        axes[i].axvline(x=burn_in, color="red", linestyle="--", alpha=0.5)
+        axes[i].axhline(y=best_fit[i], color="white", linestyle="--", alpha=0.5)
+    axes[ndim - 1].set_xlabel("chain step")
     plt.show()
 
 

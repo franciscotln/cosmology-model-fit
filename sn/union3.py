@@ -50,7 +50,7 @@ def log_likelihood(params):
     return -0.5 * chi_squared(params)
 
 
-bounds = np.array([(-0.6, 0.6), (0.0, 0.6), (-2.0, 0.0)])  # ΔM  # Ωm  # w0
+bounds = np.array([(-0.6, 0.6), (0, 1), (-2.5, 0.5)])  # ΔM  # Ωm  # w0
 
 
 def log_prior(params):
@@ -68,22 +68,33 @@ def log_probability(params):
 
 def main():
     n_dim = len(bounds)
-    n_walkers = 16 * n_dim
-    discarded_steps = 500
-    n_steps = discarded_steps + 20000
+    n_walkers = 200 * n_dim
+    burn_in = 100
+    n_steps = burn_in + 1200
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(n_walkers, n_dim))
 
     with Pool(10) as pool:
-        sampler = emcee.EnsembleSampler(n_walkers, n_dim, log_probability, pool=pool)
+        sampler = emcee.EnsembleSampler(
+            n_walkers,
+            n_dim,
+            log_probability,
+            pool=pool,
+            moves=[
+                (emcee.moves.KDEMove(), 0.5),
+                (emcee.moves.DEMove(), 0.4),
+                (emcee.moves.DESnookerMove(), 0.1),
+            ],
+        )
         sampler.run_mcmc(initial_pos, n_steps, progress=True)
 
     try:
         tau = sampler.get_autocorr_time()
         print("auto-correlation time", tau)
+        print("acceptance fraction", np.mean(sampler.acceptance_fraction))
     except emcee.autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
 
-    samples = sampler.get_chain(discard=discarded_steps, flat=True)
+    samples = sampler.get_chain(discard=burn_in, flat=True)
 
     [
         [dM_16, dM_50, dM_84],
@@ -142,9 +153,9 @@ def main():
     for i in range(n_dim):
         axes[i].plot(chains_samples[:, :, i], color="black", alpha=0.3)
         axes[i].set_ylabel(labels[i])
-        axes[i].set_xlabel("chain step")
-        axes[i].axvline(x=discarded_steps, color="red", linestyle="--", alpha=0.5)
+        axes[i].axvline(x=burn_in, color="red", linestyle="--", alpha=0.5)
         axes[i].axhline(y=best_fit_params[i], color="white", linestyle="--", alpha=0.5)
+    axes[n_dim - 1].set_xlabel("chain step")
     plt.show()
 
     sigma_mu = np.sqrt(np.diag(cov_matrix))
@@ -202,13 +213,13 @@ degrees of freedom: 19
 
 Flat alternative: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
 
-ΔM: -0.055 +0.089/-0.088 mag
-Ωm: 0.295 +0.054/-0.055
-w0: -0.750 +0.146/-0.175 (1.43 - 1.71 sigma)
+ΔM: -0.055 +0.088/-0.088 mag
+Ωm: 0.296 +0.053/-0.054
+w0: -0.752 +0.144/-0.173 (1.43 - 1.72 sigma)
 wa: 0
 R-squared (%): 99.94
 RMSD (mag): 0.053
-Skewness of residuals: -1.081
+Skewness of residuals: -1.066
 Chi squared: 21.7
 Degs of freedom: 19
 
