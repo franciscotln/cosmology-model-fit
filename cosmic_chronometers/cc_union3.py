@@ -187,25 +187,25 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM: w(z) = -1
-f_cc: 1.47 +0.19 -0.18
-ΔM: -0.204 +0.120 -0.123 mag
+f_cc: 1.47 +0.18 -0.18
+ΔM: -0.203 +0.122 -0.122 mag
 H0: 65.9 +2.6 -2.6 km/s/Mpc
 Ωm: 0.349 +0.024 -0.023
 w0: -1
-Chi squared: 56.16
-Log likelihood: -142.58
+Chi squared: 56.20
+Log likelihood: -142.67
 Degrees of freedom: 51
 
 ==============================
 
 Flat wCDM: w(z) = w0
-f_cc: 1.45 +0.18 -0.18
-ΔM: -0.179 +0.124 -0.124 mag
-H0: 66.4 +2.7 -2.7 km/s/Mpc
+f_cc: 1.45 +0.19 -0.18
+ΔM: -0.178 +0.123 -0.125 mag
+H0: 66.4 +2.7 -2.6 km/s/Mpc
 Ωm: 0.306 +0.047 -0.055
-w0: -0.86 +0.12 -0.13
-Chi squared: 54.20
-Log likelihood: -141.98
+w0: -0.85 +0.12 -0.13
+Chi squared: 54.26
+Log likelihood: -142.07
 Degrees of freedom: 50
 
 ==============================
@@ -213,10 +213,10 @@ Degrees of freedom: 50
 Flat alternative: w(z) = -1 + 2 * (1 + w0) / ((1 + z)**3 + 1)
 f_cc: 1.45 +0.18 -0.18
 ΔM: -0.180 +0.123 -0.124 mag
-H0: 66.2 +2.6 -2.6 km/s/Mpc
-Ωm: 0.322 +0.034 -0.033
+H0: 66.3 +2.6 -2.6 km/s/Mpc
+Ωm: 0.321 +0.033 -0.033
 w0: -0.84 +0.12 -0.13
-Chi squared: 53.87
-Log likelihood: -141.79
+Chi squared: 53.83
+Log likelihood: -141.87
 Degrees of freedom: 50
 """
