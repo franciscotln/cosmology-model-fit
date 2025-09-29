@@ -7,6 +7,7 @@ from scipy.integrate import cumulative_trapezoid
 from scipy.linalg import cho_factor, cho_solve
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
+import bbn.prior_lcdm as bbn
 from y2024DES.data import get_data, effective_sample_size as sn_size
 from y2025BAO.data import get_data as get_bao_data
 from sn.plotting import plot_predictions as plot_sn_predictions
@@ -14,10 +15,6 @@ from .plot_predictions import plot_bao_predictions
 
 
 c = c0 / 1000  # km/s
-
-# Prior from BBN: https://arxiv.org/abs/2401.15054
-Obh2_prior = 0.02196
-Obh2_prior_sigma = 0.00063
 
 sn_legend, z_cmb, z_hel, mu_values, cov_matrix_sn = get_data()
 bao_legend, bao_data, bao_cov_matrix = get_bao_data()
@@ -29,8 +26,10 @@ one_plus_z_hel = 1 + z_hel
 
 
 @njit
-def r_drag(wb, wm):  # arXiv:2503.14738v2 (eq 2)
-    return 147.05 * (0.02236 / wb) ** 0.13 * (0.1432 / wm) ** 0.23
+def r_drag(wb, wm, n_eff=3.04):  # arXiv:2503.14738v2 (eq 2)
+    return (
+        147.05 * (0.02236 / wb) ** 0.13 * (0.1432 / wm) ** 0.23 * (3.04 / n_eff) ** 0.1
+    )
 
 
 @njit
@@ -39,7 +38,7 @@ def Ez(z, params):
     Ode = 1 - Om
     one_plus_z = 1 + z
     cubed = one_plus_z**3
-    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
+    rho_de = cubed**(1 + w0)  # (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
 
     return np.sqrt(Om * cubed + Ode * rho_de)
 
@@ -104,8 +103,8 @@ def bao_theory(z, qty, params):
 
 
 def chi_squared(params):
-    delta_bbn = Obh2_prior - params[2]
-    chi2_bbn = (delta_bbn / Obh2_prior_sigma) ** 2
+    delta_bbn = bbn.Obh2 - params[2]
+    chi2_bbn = (delta_bbn / bbn.Obh2_sigma) ** 2
 
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
     chi_bao = np.dot(delta_bao, cho_solve(cho_bao, delta_bao, check_finite=False))
@@ -257,39 +256,39 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM w(z) = -1
-H0: 68.46 +0.58 -0.58 km/s/Mpc
-Ωm: 0.3105 +0.0080 -0.0078
-Ωb h^2: 0.02197 +0.00062 -0.00062
-Ωm h^2: 0.14552 +0.00447 -0.00438
+H0: 68.63 +0.53 -0.53 km/s/Mpc
+Ωm: 0.3105 +0.0079 -0.0077
+Ωb h^2: 0.02219 +0.00054 -0.00054
+Ωm h^2: 0.14622 +0.00435 -0.00424
 w0: -1
-ΔM: -0.052 +0.019 -0.020
-r_drag = 146.84 +1.38 -1.34 Mpc
+ΔM: -0.047 +0.018 -0.018
+r_drag = 146.49 +1.27 -1.23 Mpc
 Chi squared: 1658.97
 Degrees of freedom: 1745
 
 ===============================
 
 Flat wCDM w(z) = w0
-H0: 65.23 +1.17 -1.20 km/s/Mpc
-Ωm: 0.2980 +0.0090 -0.0089
-Ωb h^2: 0.02196 ± 0.00063
-Ωm h^2: 0.12685 +0.00718 -0.00724
-w0: -0.872 ± 0.038
-ΔM: -0.128 +0.032 -0.033
-r_drag = 151.58 +2.26 -2.13 Mpc
+H0: 65.37 +1.16 -1.18 km/s/Mpc
+Ωm: 0.2979 +0.0090 -0.0089
+Ωb h^2: 0.02218 +0.00055 -0.00055
+Ωm h^2: 0.12739 +0.00723 -0.00719
+w0: -0.871 +0.038 -0.038
+ΔM: -0.123 +0.031 -0.033
+r_drag = 151.22 +2.18 -2.07 Mpc
 Chi squared: 1648.09 (delta chi2 10.88)
 Degrees of freedom: 1744
 
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-H0: 65.82 ± 0.94 km/s/Mpc
-Ωm: 0.3075 +0.0080 -0.0078
-Ωb h^2: 0.02196 ± 0.00063
-Ωm h^2: 0.13325 +0.00541 -0.00531
-w0: -0.835 +0.045 -0.046
-ΔM: -0.102 +0.024 -0.025
-r_drag = 149.86 +1.69 -1.64 Mpc
+H0: 65.97 +0.91 -0.90 km/s/Mpc
+Ωm: 0.3075 +0.0079 -0.0077
+Ωb h^2: 0.02218 +0.00055 -0.00054
+Ωm h^2: 0.13386 +0.00533 -0.00519
+w0: -0.835 +0.045 -0.045
+ΔM: -0.096 +0.023 -0.023
+r_drag = 149.51 +1.58 -1.55 Mpc
 Chi squared: 1646.49 (delta chi2 12.48)
 Degrees of freedom: 1744
 
