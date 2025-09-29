@@ -6,7 +6,7 @@ from scipy.integrate import cumulative_trapezoid
 from scipy.linalg import cho_factor, cho_solve
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
-from y2024DES.data import get_data
+from y2024DES.data import get_data, effective_sample_size as sn_size
 from y2025BAO.data import get_data as get_bao_data
 from sn.plotting import plot_predictions as plot_sn_predictions
 from .plot_predictions import plot_bao_predictions
@@ -125,16 +125,26 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 8 * ndim
-    burn_in = 500
-    nsteps = 10000 + burn_in
+    nwalkers = 125 * ndim
+    burn_in = 100
+    nsteps = 1000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):
         initial_pos[:, dim] = np.random.uniform(lower, upper, nwalkers)
 
     with Pool(10) as pool:
-        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool=pool)
+        sampler = emcee.EnsembleSampler(
+            nwalkers,
+            ndim,
+            log_probability,
+            pool=pool,
+            moves=[
+                (emcee.moves.KDEMove(), 0.5),
+                (emcee.moves.DEMove(), 0.4),
+                (emcee.moves.DESnookerMove(), 0.1),
+            ],
+        )
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
 
     try:
@@ -160,7 +170,7 @@ def main():
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
-    print(f"Degrees of freedom: {bao_data['value'].size + z_cmb.size - len(best_fit)}")
+    print(f"Degrees of freedom: {bao_data['value'].size + sn_size - len(best_fit)}")
 
     plot_bao_predictions(
         theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
@@ -198,9 +208,9 @@ def main():
     for i in range(ndim):
         axes[i].plot(chains_samples[:, :, i], color="black", alpha=0.3, lw=0.4)
         axes[i].set_ylabel(labels[i])
-        axes[i].set_xlabel("chain step")
         axes[i].axvline(x=burn_in, color="red", linestyle="--", alpha=0.5)
         axes[i].axhline(y=best_fit[i], color="white", linestyle="--", alpha=0.5)
+    axes[ndim - 1].set_xlabel("chain step")
     plt.show()
 
 
@@ -210,13 +220,13 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM
-ΔM: -9.229 +0.006 -0.006 mag
-r_d * h: 100.53 +0.66 -0.65 Mpc
-Ωm: 0.311 +0.008 -0.008
+ΔM: -9.230 +0.006 -0.006 mag
+r_d * h: 100.54 +0.66 -0.65 Mpc
+Ωm: 0.310 +0.008 -0.008
 w0: -1
 wa: 0
 Chi squared: 1658.97
-Degrees of freedom: 1839
+Degrees of freedom: 1755
 
 ===============================
 
@@ -227,18 +237,18 @@ r_d * h: 98.85 +0.82 -0.81 Mpc
 w0: -0.871 +0.038 -0.038
 wa: 0
 Chi squared: 1648.10 (Δ chi2 10.87)
-Degrees of freedom: 1838
+Degrees of freedom: 1754
 
 ===============================
 
 Flat w0 - (1 + w0) * (((1 + z)**3 - 1) / ((1 + z)**3 + 1))
 ΔM: -9.193 +0.012 -0.012 mag
-r_d * h: 98.64 +0.85 -0.83 Mpc
+r_d * h: 98.63 +0.83 -0.82 Mpc
 Ωm: 0.307 +0.008 -0.008
-w0: -0.834 +0.045 -0.047
-wa: 0
+w0: -0.834 +0.045 -0.046
+wa: -(1 + w0)
 Chi squared: 1646.49 (Δ chi2 12.48)
-Degrees of freedom: 1838
+Degrees of freedom: 1754
 
 ===============================
 
@@ -249,5 +259,5 @@ r_d * h: 98.52 +0.85 -0.83 Mpc
 w0: -0.784 +0.074 -0.069
 wa: -0.719 +0.467 -0.463
 Chi squared: 1645.46 (Δ chi2 13.51)
-Degrees of freedom: 1837
+Degrees of freedom: 1753
 """
