@@ -6,7 +6,7 @@ from scipy.linalg import cho_factor, cho_solve
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from y2025BAO.data import get_data
-import bbn.prior_lcdm as bbn
+import y2024BBN.prior_lcdm as bbn
 from cmb.data_desi_compression import r_drag, c
 from .plot_predictions import plot_bao_predictions
 

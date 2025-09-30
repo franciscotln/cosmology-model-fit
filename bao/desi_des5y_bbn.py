@@ -7,7 +7,7 @@ from scipy.integrate import cumulative_trapezoid
 from scipy.linalg import cho_factor, cho_solve
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
-import bbn.prior_lcdm as bbn
+import y2024BBN.prior_lcdm as bbn
 from y2024DES.data import get_data, effective_sample_size as sn_size
 from y2025BAO.data import get_data as get_bao_data
 from sn.plotting import plot_predictions as plot_sn_predictions

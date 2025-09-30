@@ -5,7 +5,7 @@ import numpy as np
 
 data = np.array(
     [
-        0.02196,  # Ωb h^2
+        0.02196,  # Ωb * h²
         2.944,  # N_eff
     ],
     dtype=np.float64,
