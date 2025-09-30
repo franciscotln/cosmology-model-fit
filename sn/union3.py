@@ -100,9 +100,9 @@ def main():
         [dM_16, dM_50, dM_84],
         [omega_16, omega_50, omega_84],
         [w0_16, w0_50, w0_84],
-    ] = np.percentile(samples, [16, 50, 84], axis=0).T
+    ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit_params = [dM_50, omega_50, w0_50]
+    best_fit_params = np.array([dM_50, omega_50, w0_50], dtype=np.float64)
 
     predicted_distances = mu_theory(best_fit_params)
     residuals = mu_vals - predicted_distances
@@ -147,7 +147,6 @@ def main():
     )
     plt.show()
 
-    # Plot chains for each parameter
     _, axes = plt.subplots(n_dim, figsize=(10, 7), sharex=True)
     chains_samples = sampler.get_chain(discard=0, flat=False)
     for i in range(n_dim):
@@ -183,29 +182,29 @@ z range: 0.050 - 2.262
 Sample size: 22
 *******************************
 
-Flat ΛCDM
+Flat ΛCDM: w(z) = -1
 
-ΔM: -0.068 +0.088/-0.088 mag
-Ωm: 0.357 +0.028/-0.026
+ΔM: -0.069 +0.088/-0.088 mag
+Ωm: 0.357 +0.027/-0.027
 w0: -1
 wa: 0
 R-squared (%): 99.95
-RMSD (mag): 0.051
-Skewness of residuals: 0.576
+RMSD (mag): 0.050
+Skewness of residuals: 0.587
 Chi squared: 24.0
 degrees of freedom: 20
 
 ===============================
 
-Flat wCDM
+Flat wCDM: w(z) = w0
 
-ΔM: -0.059 +0.088/-0.088 mag
-Ωm: 0.252 +0.089/-0.113
-w0: -0.748 +0.158/-0.189 (1.45 sigma)
+ΔM: -0.058 +0.088/-0.088 mag
+Ωm: 0.253 +0.088/-0.110
+w0: -0.748 +0.155/-0.187 (1.35 - 1.63 sigma)
 wa: 0
 R-squared (%): 99.94
 RMSD (mag): 0.055
-Skewness of residuals: -1.264
+Skewness of residuals: -1.259
 Chi squared: 22.1
 degrees of freedom: 19
 
@@ -215,17 +214,17 @@ Flat alternative: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
 
 ΔM: -0.055 +0.088/-0.088 mag
 Ωm: 0.296 +0.053/-0.054
-w0: -0.752 +0.144/-0.173 (1.43 - 1.72 sigma)
+w0: -0.751 +0.144/-0.172 (1.45 - 1.73 sigma)
 wa: 0
 R-squared (%): 99.94
 RMSD (mag): 0.053
-Skewness of residuals: -1.066
+Skewness of residuals: -1.068
 Chi squared: 21.7
 Degs of freedom: 19
 
 ===============================
 
-Flat w0waCDM
+Flat w0waCDM: w(z) = w0 + wa * z / (1 + z)
 
 ΔM: -0.0333 +0.090/-0.090 mag
 Ωm: 0.437 +0.057/-0.086

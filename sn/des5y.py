@@ -25,8 +25,8 @@ one_plus_z_hel = 1 + z_hel_vals
 def Ez(params):
     Om, w0 = params[1], params[2]
     Ode = 1 - Om
-    rho_de = (2 * one_plus_z**3 / (1 + one_plus_z**3)) ** (2 * (1 + w0))
-    return np.sqrt(Om * one_plus_z**3 + Ode * rho_de)
+    Rho_de = (2 * one_plus_z**3 / (1 + one_plus_z**3)) ** (2 * (1 + w0))
+    return np.sqrt(Om * one_plus_z**3 + Ode * Rho_de)
 
 
 def theory_mu(params):
@@ -45,7 +45,7 @@ def log_likelihood(params):
     return -0.5 * chi_squared(params)
 
 
-bounds = np.array([(-0.6, 0.6), (0, 0.8), (-1.5, 0)])  # ΔM  # Ωm  # w0
+bounds = np.array([(-0.2, 0.2), (0, 0.8), (-2.0, 0.0)])  # ΔM  # Ωm  # w0
 
 
 @njit
@@ -64,22 +64,31 @@ def log_probability(params):
 
 
 def main():
-    steps_to_discard = 400
+    burn_in = 100
     ndim = len(bounds)
-    nwalkers = 5 * ndim
-    nsteps = steps_to_discard + 20000
+    nwalkers = 500
+    nsteps = burn_in + 1000
     initial_state = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
 
     with Pool(10) as pool:
-        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool=pool)
+        sampler = emcee.EnsembleSampler(
+            nwalkers=nwalkers,
+            ndim=ndim,
+            log_prob_fn=log_probability,
+            pool=pool,
+            moves=[
+                (emcee.moves.KDEMove(), 0.5),
+                (emcee.moves.DEMove(), 0.4),
+                (emcee.moves.DESnookerMove(), 0.1),
+            ],
+        )
         sampler.run_mcmc(initial_state, nsteps, progress=True)
 
-    samples = sampler.get_chain(discard=steps_to_discard, flat=True)
+    samples = sampler.get_chain(discard=burn_in, flat=True)
 
     try:
-        tau = sampler.get_autocorr_time()
-        print_color("Autocorrelation time", tau)
-        print_color("Effective number of independent samples", len(samples) / tau)
+        print_color("Autocorrelation time", sampler.get_autocorr_time())
+        print_color("Acceptance fraction", np.mean(sampler.acceptance_fraction))
     except Exception as e:
         print("Autocorrelation time could not be computed")
 
@@ -89,9 +98,9 @@ def main():
         [w0_16, w0_50, w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit_params = np.array([dM_50, Om_50, w0_50])
+    best_fit = np.array([dM_50, Om_50, w0_50], dtype=np.float64)
 
-    theory_mu_vals = theory_mu(best_fit_params)
+    theory_mu_vals = theory_mu(best_fit)
     residuals = observed_mu_vals - theory_mu_vals
 
     # Calculate R-squared
@@ -115,7 +124,7 @@ def main():
     print_color("R-squared (%)", f"{100 * r_squared:.2f}")
     print_color("RMSD (mag)", f"{rmsd:.3f}")
     print_color("Skewness of residuals", f"{stats.skew(residuals):.3f}")
-    print_color("Chi squared", f"{chi_squared(best_fit_params):.2f}")
+    print_color("Chi squared", f"{chi_squared(best_fit):.2f}")
     print_color("Effective deg of freedom", effective_sample_size - ndim)
 
     # plot posterior distribution from samples
@@ -142,7 +151,7 @@ def main():
         y=observed_mu_vals,
         y_err=y_err,
         y_model=theory_mu_vals,
-        label=f"Model: $\Omega_m$={Om_label}",
+        label=f"Model: $Ω_m$={Om_label}",
         x_scale="log",
     )
     plot_residuals(z_values=z_cmb_vals, residuals=residuals, y_err=y_err, bins=40)
@@ -152,9 +161,9 @@ def main():
     for i in range(ndim):
         axes[i].plot(chains_samples[:, :, i], color="black", alpha=0.3)
         axes[i].set_ylabel(labels[i])
-        axes[i].set_xlabel("chain step")
-        axes[i].axvline(x=steps_to_discard, color="red", linestyle="--", alpha=0.5)
-        axes[i].axhline(y=best_fit_params[i], color="white", linestyle="--", alpha=0.5)
+        axes[i].axvline(x=burn_in, color="red", linestyle="--", alpha=0.5)
+        axes[i].axhline(y=best_fit[i], color="white", linestyle="--", alpha=0.5)
+    axes[ndim - 1].set_xlabel("walkers steps")
     plt.show()
 
 
@@ -170,7 +179,7 @@ Sample size: 1829
 
 Flat ΛCDM
 ΔM: 0.022 +0.011 -0.011
-Ωm: 0.352 +0.017 -0.017
+Ωm: 0.352 +0.017 -0.016
 w0: -1
 wa: 0
 R-squared (%): 98.41
@@ -182,7 +191,7 @@ Chi squared: 1640.08
 
 Flat wCDM
 ΔM: 0.031 +0.013 -0.013
-Ωm: 0.267 +0.072 -0.095
+Ωm: 0.266 +0.072 -0.095
 w0: -0.80 +0.14 -0.16
 wa: 0
 R-squared (%): 98.40
@@ -193,14 +202,14 @@ Chi squared: 1638.52
 ==============================
 
 Flat w0 - (1 + w0) * ((1 + z)**3 - 1) / ((1 + z)**3 + 1)
-ΔM: 0.033 +0.013 -0.014 mag
-Ωm: 0.298 +0.044 -0.046
-w0: -0.81 +0.12 -0.14
+ΔM: 0.033 +0.013 -0.013 mag
+Ωm: 0.298 +0.043 -0.045
+w0: -0.81 +0.12 -0.13
 wa: 0
 R-squared (%): 98.40
 RMSD (mag): 0.264
 Skewness of residuals: 3.417
-Chi squared: 1637.98
+Chi squared: 1637.97
 
 ==============================
 
