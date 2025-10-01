@@ -83,7 +83,7 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 100 * ndim
+    nwalkers = 500
     burn_in = 100
     nsteps = 1500 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
@@ -108,6 +108,7 @@ def main():
     try:
         tau = sampler.get_autocorr_time()
         print("auto-correlation time", tau)
+        print("acceptance fraction", np.mean(sampler.acceptance_fraction))
     except emcee.autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
 

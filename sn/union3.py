@@ -68,9 +68,9 @@ def log_probability(params):
 
 def main():
     n_dim = len(bounds)
-    n_walkers = 200 * n_dim
+    n_walkers = 500
     burn_in = 100
-    n_steps = burn_in + 1200
+    n_steps = burn_in + 1500
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(n_walkers, n_dim))
 
     with Pool(5) as pool:

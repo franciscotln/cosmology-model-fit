@@ -75,23 +75,33 @@ def log_probability(params):
 
 
 def main():
-    steps_to_discard = 200
+    burn_in = 100
     n_dim = len(bounds)
-    n_walkers = n_dim * 8
-    n_steps = steps_to_discard + 10000
+    n_walkers = 500
+    n_steps = burn_in + 1000
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(n_walkers, n_dim))
 
     with Pool(5) as pool:
-        sampler = emcee.EnsembleSampler(n_walkers, n_dim, log_probability, pool=pool)
+        sampler = emcee.EnsembleSampler(
+            n_walkers,
+            n_dim,
+            log_probability,
+            pool=pool,
+            moves=[
+                (emcee.moves.KDEMove(), 0.5),
+                (emcee.moves.DEMove(), 0.4),
+                (emcee.moves.DESnookerMove(), 0.1),
+            ],
+        )
         sampler.run_mcmc(initial_pos, n_steps, progress=True)
 
     chains_samples = sampler.get_chain(discard=0, flat=False)
-    samples = sampler.get_chain(discard=steps_to_discard, flat=True)
+    samples = sampler.get_chain(discard=burn_in, flat=True)
 
     try:
         tau = sampler.get_autocorr_time()
         print_color("Autocorrelation time", tau)
-        print_color("Average autocorrelation time", np.mean(tau))
+        print_color("Acceptance fraction", np.mean(sampler.acceptance_fraction))
     except:
         print_color("Autocorrelation time", "Not available")
 
@@ -102,9 +112,9 @@ def main():
         [w0_16, w0_50, w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit_params = [M_50, h0_50, omega_50, w0_50]
+    best_fit = np.array([M_50, h0_50, omega_50, w0_50], dtype=np.float64)
 
-    predicted_mu_values = model_mu(best_fit_params)
+    predicted_mu_values = model_mu(best_fit)
     residuals = (
         apparent_mag_values
         - M_50
@@ -134,7 +144,7 @@ def main():
     print_color("RMSD (mag)", f"{rmsd:.3f}")
     print_color("Skewness of residuals", f"{stats.skew(residuals):.3f}")
     print_color("kurtosis of residuals", f"{stats.kurtosis(residuals):.3f}")
-    print_color("Chi squared", f"{chi_squared(best_fit_params):.2f}")
+    print_color("Chi squared", f"{chi_squared(best_fit):.2f}")
 
     labels = ["M", "$H_0$", "$\Omega_M$", "$w_0$"]
     corner.corner(
@@ -154,14 +164,12 @@ def main():
 
     # Plot results: chains for each parameter
     _, axes = plt.subplots(n_dim, figsize=(10, 7), sharex=True)
-    if n_dim == 1:
-        axes = [axes]
     for i in range(n_dim):
         axes[i].plot(chains_samples[:, :, i], color="black", alpha=0.3)
         axes[i].set_ylabel(labels[i])
-        axes[i].set_xlabel("chain step")
-        axes[i].axvline(x=steps_to_discard, color="red", linestyle="--", alpha=0.5)
-        axes[i].axhline(y=best_fit_params[i], color="white", linestyle="--", alpha=0.5)
+        axes[i].axvline(x=burn_in, color="red", linestyle="--", alpha=0.5)
+        axes[i].axhline(y=best_fit[i], color="white", linestyle="--", alpha=0.5)
+    axes[n_dim - 1].set_xlabel("chain step")
     plt.show()
 
     plot_predictions(

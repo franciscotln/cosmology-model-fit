@@ -79,7 +79,7 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 150 * ndim
+    nwalkers = 500
     burn_in = 100
     nsteps = 1000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
