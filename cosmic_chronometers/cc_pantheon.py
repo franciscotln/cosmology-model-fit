@@ -93,28 +93,25 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 100 * ndim
+    nwalkers = 500
     burn_in = 100
     nsteps = 1000 + burn_in
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
 
-    with Pool(10) as pool:
+    with Pool(5) as pool:
         sampler = emcee.EnsembleSampler(
             nwalkers,
             ndim,
             log_probability,
             pool=pool,
-            moves=[
-                (emcee.moves.KDEMove(), 0.5),
-                (emcee.moves.DEMove(), 0.4),
-                (emcee.moves.DESnookerMove(), 0.1),
-            ],
+            moves=[(emcee.moves.KDEMove(), 0.5), (emcee.moves.StretchMove(), 0.5)],
         )
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
 
     try:
         tau = sampler.get_autocorr_time()
         print("auto-correlation time", tau)
+        print("acceptance fraction", np.mean(sampler.acceptance_fraction))
     except emcee.autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
 
