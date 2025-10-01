@@ -70,7 +70,7 @@ def main():
     nsteps = burn_in + 1000
     initial_state = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
 
-    with Pool(10) as pool:
+    with Pool(5) as pool:
         sampler = emcee.EnsembleSampler(
             nwalkers=nwalkers,
             ndim=ndim,
@@ -127,7 +127,6 @@ def main():
     print_color("Chi squared", f"{chi_squared(best_fit):.2f}")
     print_color("Effective deg of freedom", effective_sample_size - ndim)
 
-    # plot posterior distribution from samples
     labels = ["ΔM", "$Ω_m$", "$w_0$"]
     corner.corner(
         samples,

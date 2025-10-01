@@ -3,16 +3,15 @@ import numpy as np
 import emcee
 import corner
 from scipy.constants import c as c0
-from scipy.linalg import cho_factor, cho_solve
 import matplotlib.pyplot as plt
-from multiprocessing import Pool
 from y2025BAO.data import get_data
 from .plot_predictions import plot_bao_predictions, plot_bao_residuals
 
 c = c0 / 1000  # Speed of light in km/s
 rd = 147.09  # Mpc, fixed
 legend, data, cov_matrix = get_data()
-cho = cho_factor(cov_matrix)
+cho = np.linalg.cholesky(cov_matrix)
+cho_T = cho.T
 
 
 @njit
@@ -77,9 +76,12 @@ bounds = np.array(
 )
 
 
+@njit
 def chi_squared(params):
     delta = data["value"] - bao_theory(data["z"], quantities, params)
-    return np.dot(delta, cho_solve(cho, delta, check_finite=False))
+    y = np.linalg.solve(cho, delta)
+    x = np.linalg.solve(cho_T, y)
+    return np.dot(delta, x)
 
 
 @njit
@@ -110,19 +112,18 @@ def main():
     for dim, (lower, upper) in enumerate(bounds):
         initial_pos[:, dim] = np.random.uniform(lower, upper, n_walkers)
 
-    with Pool(4) as pool:
-        sampler = emcee.EnsembleSampler(
-            n_walkers,
-            n_dim,
-            log_probability,
-            pool=pool,
-            moves=[
-                (emcee.moves.KDEMove(), 0.5),
-                (emcee.moves.DEMove(), 0.4),
-                (emcee.moves.DESnookerMove(), 0.1),
-            ],
-        )
-        sampler.run_mcmc(initial_pos, nsteps, progress=True)
+    sampler_moves = [
+        (emcee.moves.KDEMove(), 0.5),
+        (emcee.moves.DEMove(), 0.4),
+        (emcee.moves.DESnookerMove(), 0.1),
+    ]
+    sampler = emcee.EnsembleSampler(
+        n_walkers,
+        n_dim,
+        log_probability,
+        moves=sampler_moves,
+    )
+    sampler.run_mcmc(initial_pos, nsteps, progress=True)
 
     try:
         tau = sampler.get_autocorr_time()

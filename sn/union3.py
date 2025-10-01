@@ -73,7 +73,7 @@ def main():
     n_steps = burn_in + 1200
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(n_walkers, n_dim))
 
-    with Pool(10) as pool:
+    with Pool(5) as pool:
         sampler = emcee.EnsembleSampler(
             n_walkers,
             n_dim,
