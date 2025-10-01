@@ -38,7 +38,7 @@ def Ez(z, params):
     Ode = 1 - Om
     one_plus_z = 1 + z
     cubed = one_plus_z**3
-    rho_de = cubed**(1 + w0)  # (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
+    rho_de = cubed ** (1 + w0)  # (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
 
     return np.sqrt(Om * cubed + Ode * rho_de)
 
@@ -147,7 +147,7 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 100 * ndim
+    nwalkers = 500
     burn_in = 100
     nsteps = 1000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
@@ -155,17 +155,13 @@ def main():
     for dim, (lower, upper) in enumerate(bounds):
         initial_pos[:, dim] = np.random.uniform(lower, upper, nwalkers)
 
-    with Pool(10) as pool:
+    with Pool(6) as pool:
         sampler = emcee.EnsembleSampler(
             nwalkers,
             ndim,
             log_probability,
             pool=pool,
-            moves=[
-                (emcee.moves.KDEMove(), 0.5),
-                (emcee.moves.DEMove(), 0.4),
-                (emcee.moves.DESnookerMove(), 0.1),
-            ],
+            moves=[(emcee.moves.KDEMove(), 0.5), (emcee.moves.StretchMove(), 0.5)],
         )
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
 

@@ -112,16 +112,11 @@ def main():
     for dim, (lower, upper) in enumerate(bounds):
         initial_pos[:, dim] = np.random.uniform(lower, upper, n_walkers)
 
-    sampler_moves = [
-        (emcee.moves.KDEMove(), 0.5),
-        (emcee.moves.DEMove(), 0.4),
-        (emcee.moves.DESnookerMove(), 0.1),
-    ]
     sampler = emcee.EnsembleSampler(
         n_walkers,
         n_dim,
         log_probability,
-        moves=sampler_moves,
+        moves=[(emcee.moves.KDEMove(), 0.5), (emcee.moves.StretchMove(), 0.5)],
     )
     sampler.run_mcmc(initial_pos, nsteps, progress=True)
 

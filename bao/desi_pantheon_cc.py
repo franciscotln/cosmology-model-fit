@@ -143,24 +143,20 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 85 * ndim
+    nwalkers = 500
     burn_in = 100
     nsteps = 1400 + burn_in
     initial_pos = np.random.default_rng().uniform(
         bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim)
     )
 
-    with Pool(10) as pool:
+    with Pool(6) as pool:
         sampler = emcee.EnsembleSampler(
             nwalkers,
             ndim,
             log_probability,
             pool=pool,
-            moves=[
-                (emcee.moves.KDEMove(), 0.5),
-                (emcee.moves.DEMove(), 0.4),
-                (emcee.moves.DESnookerMove(), 0.1),
-            ],
+            moves=[(emcee.moves.KDEMove(), 0.5), (emcee.moves.StretchMove(), 0.5)],
         )
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
 
