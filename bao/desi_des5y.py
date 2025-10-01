@@ -125,7 +125,7 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 125 * ndim
+    nwalkers = 500
     burn_in = 100
     nsteps = 1000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
@@ -133,7 +133,7 @@ def main():
     for dim, (lower, upper) in enumerate(bounds):
         initial_pos[:, dim] = np.random.uniform(lower, upper, nwalkers)
 
-    with Pool(10) as pool:
+    with Pool(6) as pool:
         sampler = emcee.EnsembleSampler(
             nwalkers,
             ndim,

@@ -2,13 +2,12 @@ from numba import njit
 import numpy as np
 import emcee
 import corner
-from scipy.integrate import quad
 from scipy.constants import c as c0
 from scipy.linalg import cho_factor, cho_solve
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from y2025BAO.data import get_data
-from .plot_predictions import plot_bao_predictions
+from .plot_predictions import plot_bao_predictions, plot_bao_residuals
 
 c = c0 / 1000  # Speed of light in km/s
 rd = 147.09  # Mpc, fixed
@@ -102,19 +101,19 @@ def log_probability(params):
 
 
 def main():
-    ndim = len(bounds)
-    nwalkers = 200 * ndim
+    n_dim = len(bounds)
+    n_walkers = 500
     burn_in = 100
-    nsteps = 1000 + burn_in
-    initial_pos = np.zeros((nwalkers, ndim))
+    nsteps = 1200 + burn_in
+    initial_pos = np.zeros((n_walkers, n_dim))
 
     for dim, (lower, upper) in enumerate(bounds):
-        initial_pos[:, dim] = np.random.uniform(lower, upper, nwalkers)
+        initial_pos[:, dim] = np.random.uniform(lower, upper, n_walkers)
 
-    with Pool(10) as pool:
+    with Pool(4) as pool:
         sampler = emcee.EnsembleSampler(
-            nwalkers,
-            ndim,
+            n_walkers,
+            n_dim,
             log_probability,
             pool=pool,
             moves=[
@@ -128,6 +127,7 @@ def main():
     try:
         tau = sampler.get_autocorr_time()
         print("auto-correlation time", tau)
+        print("acceptance fraction", np.mean(sampler.acceptance_fraction))
     except emcee.autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
 
@@ -159,6 +159,8 @@ def main():
         errors=np.sqrt(np.diag(cov_matrix)),
         title=f"{legend}: $H_0$={100 * h_50:.1f} km/s/Mpc, $Ω_m$={Om_50:.3f}",
     )
+    plot_bao_residuals(data, residuals, np.sqrt(np.diag(cov_matrix)))
+
     labels = ["$h$", "$Ω_m$", "$w_0$"]
     corner.corner(
         samples,
@@ -175,14 +177,14 @@ def main():
     )
     plt.show()
 
-    _, axes = plt.subplots(ndim, figsize=(10, 7), sharex=True)
+    _, axes = plt.subplots(n_dim, figsize=(10, 7), sharex=True)
     chains_samples = sampler.get_chain(discard=0, flat=False)
-    for i in range(ndim):
+    for i in range(n_dim):
         axes[i].plot(chains_samples[:, :, i], color="black", alpha=0.3)
         axes[i].set_ylabel(labels[i])
         axes[i].axvline(x=burn_in, color="red", linestyle="--", alpha=0.5)
         axes[i].axhline(y=best_fit[i], color="white", linestyle="--", alpha=0.5)
-    axes[ndim - 1].set_xlabel("chain step")
+    axes[n_dim - 1].set_xlabel("chain step")
     plt.show()
 
 
