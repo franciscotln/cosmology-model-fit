@@ -120,7 +120,7 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 100 * ndim
+    nwalkers = 500
     burn_in = 100
     nsteps = 1400 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
@@ -134,7 +134,11 @@ def main():
             ndim,
             log_probability,
             pool=pool,
-            moves=[(emcee.moves.KDEMove(), 0.5), (emcee.moves.StretchMove(), 0.5)],
+            moves=[
+                (emcee.moves.KDEMove(), 0.5),
+                (emcee.moves.DEMove(), 0.4),
+                (emcee.moves.DESnookerMove(), 0.1),
+            ],
         )
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
 

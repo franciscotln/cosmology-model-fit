@@ -116,7 +116,11 @@ def main():
         n_walkers,
         n_dim,
         log_probability,
-        moves=[(emcee.moves.KDEMove(), 0.5), (emcee.moves.StretchMove(), 0.5)],
+        moves=[
+            (emcee.moves.KDEMove(), 0.5),
+            (emcee.moves.DEMove(), 0.4),
+            (emcee.moves.DESnookerMove(), 0.1),
+        ],
     )
     sampler.run_mcmc(initial_pos, nsteps, progress=True)
 
