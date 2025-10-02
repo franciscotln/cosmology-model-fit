@@ -50,11 +50,11 @@ def z_drag(wb, wm):
 def rs_z(Ez_func, z, params, H0, Ob_h2):
     Rb = 3 * Ob_h2 / (4 * O_GAMMA_H2)
 
-    def integrand(zp):
-        denom = Ez_func(zp, params) * np.sqrt(3 * (1 + Rb / (1 + zp)))
+    def integrand(a):
+        denom = a**2 * Ez_func(1 / a - 1, params) * np.sqrt(3 * (1 + Rb * a))
         return c / denom
 
-    return quad(integrand, z, np.inf, limit=100)[0] / H0
+    return quad(integrand, 0, 1 / (1 + z))[0] / H0
 
 
 @njit
