@@ -3,7 +3,7 @@ probing variable equation of state for dark energy
 
 ## Necessary packages to run the code in python3
 ```bash
-pip3 install numpy pandas matplotlib scipy corner
+pip3 install numpy pandas matplotlib scipy corner numba
 ```
 
 ## To run Hubble fits (example below for Pantheon+ sample) as a module
