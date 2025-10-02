@@ -87,7 +87,7 @@ def main():
     ndim = len(bounds)
     nwalkers = 500
     burn_in = 100
-    nsteps = 1000 + burn_in
+    nsteps = 800 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):
@@ -110,10 +110,26 @@ def main():
     try:
         tau = sampler.get_autocorr_time()
         print("auto-correlation time", tau)
+        print("acceptance fraction", np.mean(sampler.acceptance_fraction))
     except emcee.autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
 
     samples = sampler.get_chain(discard=burn_in, flat=True)
+    chains = np.transpose(sampler.get_chain(discard=burn_in, flat=False), (1, 0, 2))  # shape (500, 1000, 5)
+
+    def gelman_rubin(chains):
+        n_chains, n_samples, n_dim = chains.shape
+        rhat = np.zeros(n_dim)
+        for i in range(n_dim):
+            chain_means = np.mean(chains[:, :, i], axis=1)
+            chain_vars = np.var(chains[:, :, i], axis=1, ddof=1)
+            B = n_samples * np.var(chain_means, ddof=1)
+            W = np.mean(chain_vars)
+            var_hat = (1 - 1 / n_samples) * W + B / n_samples
+            rhat[i] = np.sqrt(var_hat / W)
+        return rhat
+
+    print("Gelman-Rubin statistic:", gelman_rubin(chains))
 
     one_sigma_conf_int = [15.9, 50, 84.1]
     pct = np.percentile(samples, one_sigma_conf_int, axis=0).T
