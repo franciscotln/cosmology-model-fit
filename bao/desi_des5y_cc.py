@@ -151,7 +151,7 @@ def main():
     ndim = len(bounds)
     nwalkers = 500
     burn_in = 100
-    nsteps = 1400 + burn_in
+    nsteps = 1000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):
@@ -174,6 +174,7 @@ def main():
     try:
         tau = sampler.get_autocorr_time()
         print("auto-correlation time", tau)
+        print("acceptance fraction", np.mean(sampler.acceptance_fraction))
     except emcee.autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
 
@@ -192,9 +193,7 @@ def main():
 
     best_fit = np.array([f_cc_50, dM_50, h0_50, rd_50, Om_50, w0_50], dtype=np.float64)
 
-    deg_of_freedom = (
-        z_sn_vals.size + bao_data["value"].size + z_cc_vals.size - len(best_fit)
-    )
+    deg_of_freedom = sn_sample + bao_data["value"].size + z_cc_vals.size - ndim
 
     print(f"f_cc: {f_cc_50:.2f} +{(f_cc_84 - f_cc_50):.2f} -{(f_cc_50 - f_cc_16):.2f}")
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f}")
@@ -202,11 +201,6 @@ def main():
     print(f"r_d: {rd_50:.1f} +{(rd_84 - rd_50):.1f} -{(rd_50 - rd_16):.1f}")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
-    print(f"Chi squared: {chi_squared(best_fit):.2f}")
-    print(f"Degrees of freedom: {deg_of_freedom}")
-
-    deg_of_freedom = sn_sample + bao_data["value"].size + z_cc_vals.size - ndim
-
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Degrees of freedom: {deg_of_freedom}")
 
@@ -249,14 +243,14 @@ def main():
     )
     plt.show()
 
-    _, axes = plt.subplots(ndim, figsize=(10, 7), sharex=True)
+    _, axes = plt.subplots(ndim, figsize=(10, 8), sharex=True)
     chains_samples = sampler.get_chain(discard=0, flat=False)
     for i in range(ndim):
         axes[i].plot(chains_samples[:, :, i], color="black", alpha=0.3)
         axes[i].set_ylabel(labels[i])
         axes[i].axvline(x=burn_in, color="red", linestyle="--", alpha=0.5)
         axes[i].axhline(y=best_fit[i], color="white", linestyle="--", alpha=0.5)
-    axes[ndim - 1].set_xlabel("chain step")
+    axes[ndim - 1].set_xlabel("samples trace")
     plt.show()
 
 
@@ -266,60 +260,41 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM: w(z) = -1
-f_cc: 1.475 +0.185 -0.176
-ΔM: -0.060 +0.071 -0.073 mag
-H0: 68.2 ± 2.3 km/s/Mpc
-r_d: 147.3 +5.0 -4.7 Mpc
-Ωm: 0.311 ± 0.008
+f_cc: 1.48 +0.19 -0.18
+ΔM: -0.059 +0.069 -0.072 mag
+H0: 68.3 +2.2 -2.3 km/s/Mpc
+r_d: 147.3 +4.9 -4.6 Mpc
+Ωm: 0.311 +0.008 -0.008
 w0: -1
 wa: 0
-Chi squared: 1691.22
+Chi squared: 1691.26
 Degrees of freedom: 1776
-correlation matrix:
-[[ 1.       0.00351 -0.00149 -0.00919  0.01418]
- [ 0.00351  1.       0.99589 -0.98904 -0.15109]
- [-0.00149  0.99589  1.      -0.98052 -0.21652]
- [-0.00919 -0.98904 -0.98052  1.       0.04535]
- [ 0.01418 -0.15109 -0.21652  0.04535  1.     ]]
 
 ===============================
 
 Flat wCDM: w(z) = w0
-f_cc: 1.465 +0.183 -0.178
-ΔM: -0.067 +0.070 -0.073 mag
-H0: 67.1 +2.2 -2.3 km/s/Mpc
-r_d: 147.3 +5.0 -4.6 Mpc
+f_cc: 1.47 +0.19 -0.18
+ΔM: -0.065 +0.070 -0.072 mag
+H0: 67.2 +2.3 -2.2 km/s/Mpc
+r_d: 147.2 +4.9 -4.6 Mpc
 Ωm: 0.299 ± 0.009
-w0: -0.874 +0.038 -0.039
+w0: -0.875 +0.038 -0.038
 wa: 0
-Chi squared: 1680.37 (Δ chi2 10.85)
+Chi squared: 1680.41 (Δ chi2 10.85)
 Degrees of freedom: 1775
-correlation matrix:
-[[ 1.       0.02669  0.02757 -0.03054  0.02282 -0.03581]
- [ 0.02669  1.       0.98874 -0.98849 -0.10756 -0.03888]
- [ 0.02757  0.98874  1.      -0.96939 -0.09769 -0.16190]
- [-0.03054 -0.98849 -0.96939  1.       0.03462  0.00097]
- [ 0.02282 -0.10756 -0.09769  0.03462  1.      -0.47349]
- [-0.03581 -0.03888 -0.16190  0.00097 -0.47349  1.     ]]
 
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-f_cc: 1.457 +0.185 -0.177
-ΔM: -0.062 +0.070 -0.073 mag
+f_cc: 1.46 +0.18 -0.18
+ΔM: -0.062 +0.071 -0.073 mag
 H0: 67.1 ± 2.3 km/s/Mpc
 r_d: 147.1 +5.0 -4.6 Mpc
 Ωm: 0.308 ± 0.008
-w0: -0.840 ± 0.046
-Chi squared: 1678.59 (Δ chi2 12.63)
+w0: -0.839 +0.045 -0.046
+wa: -(1 + w0) = -0.161 +0.045 -0.046
+Chi squared: 1678.83 (Δ chi2 12.43)
 Degrees of freedom: 1775
-correlation matrix:
-[[ 1.       0.00481  0.00477 -0.01047  0.01397 -0.03256]
- [ 0.00481  1.       0.98638 -0.98869 -0.13334 -0.02747]
- [ 0.00477  0.98638  1.      -0.96767 -0.17919 -0.16885]
- [-0.01047 -0.98869 -0.96767  1.       0.03062 -0.0016 ]
- [ 0.01397 -0.13334 -0.17919  0.03062  1.      -0.06201]
- [-0.03256 -0.02747 -0.16885 -0.0016  -0.06201  1.     ]]
 
 ===============================
 
@@ -333,12 +308,4 @@ w0: -0.796 +0.071 -0.067
 wa: -0.650 ± 0.459
 Chi squared: 1677.85 (Δ chi2 13.37)
 Degrees of freedom: 1774
-correlation matrix:
-[[ 1.       0.00738  0.00861 -0.01549 -0.00662 -0.04123  0.03105]
- [ 0.00738  1.       0.98274 -0.98772 -0.01256  0.03665 -0.06272]
- [ 0.00861  0.98274  1.      -0.9675  -0.11012 -0.12106  0.04569]
- [-0.01549 -0.98772 -0.9675   1.       0.00828 -0.01937  0.01883]
- [-0.00662 -0.01256 -0.11012  0.00828  1.       0.5696  -0.82296]
- [-0.04123  0.03665 -0.12106 -0.01937  0.5696   1.      -0.82899]
- [ 0.03105 -0.06272  0.04569  0.01883 -0.82296 -0.82899  1.     ]]
 """
