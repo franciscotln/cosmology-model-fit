@@ -29,10 +29,10 @@ one_plus_z_sn = 1 + z_sn_vals
 
 @njit
 def Ez(z, params):
-    O_m, w0 = params[4], params[5]
+    O_m, exp_w0 = params[4], params[5]
     one_plus_z = 1 + z
     cubed = one_plus_z**3
-    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
+    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + np.log(exp_w0)))
     return np.sqrt(O_m * cubed + (1 - O_m) * rho_de)
 
 
@@ -100,7 +100,7 @@ bounds = np.array(
         (55, 80),  # H0
         (125, 170),  # r_d
         (0.2, 0.7),  # Ωm
-        (-1.6, -0.4),  # w0
+        (0.01, 1.0),  # e^w0
     ],
     dtype=np.float64,
 )
@@ -164,7 +164,7 @@ def main():
         tau = sampler.get_autocorr_time()
         print("auto-correlation time", tau)
         print("acceptance fraction", np.mean(sampler.acceptance_fraction))
-        print("effective samples", ndim * nwalkers * nsteps / np.max(tau))
+        print("effective samples", ndim * nwalkers * (nsteps - burn_in) / np.max(tau))
     except emcee.autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
 
@@ -178,10 +178,15 @@ def main():
         [h0_16, h0_50, h0_84],
         [rd_16, rd_50, rd_84],
         [Om_16, Om_50, Om_84],
-        [w0_16, w0_50, w0_84],
+        [exp_w0_16, exp_w0_50, exp_w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = np.array([f_cc_50, dM_50, h0_50, rd_50, Om_50, w0_50], dtype=np.float64)
+    best_fit = np.array(
+        [f_cc_50, dM_50, h0_50, rd_50, Om_50, exp_w0_50], dtype=np.float64
+    )
+
+    w0_samples = np.log(samples[:, 5])
+    w0_16, w0_50, w0_84 = np.percentile(w0_samples, [15.9, 50, 84.1])
 
     deg_of_freedom = (
         z_sn_vals.size + bao_data["value"].size + z_cc_vals.size - len(best_fit)
@@ -212,7 +217,7 @@ def main():
         x_scale="log",
     )
 
-    labels = ["$f_{CCH}$", "ΔM", "$H_0$", "$r_d$", "Ωm", "$w_0$"]
+    labels = ["$f_{CCH}$", "ΔM", "$H_0$", "$r_d$", "Ωm", "$e^{w_0}$"]
     corner.corner(
         samples,
         labels=labels,
@@ -245,58 +250,38 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM: w(z) = -1
-f_cc: 1.47 +0.18 -0.18
-ΔM: -0.121 +0.113 -0.113
+f_cc: 1.47 +0.19 -0.18
+ΔM: -0.121 +0.114 -0.113
 H0: 68.6 +2.3 -2.3
-r_d: 147.1 +5.0 -4.6
+r_d: 147.1 +4.9 -4.6
 Ωm: 0.305 +0.008 -0.008
 w0: -1
-Chi squared: 71.07
+Chi squared: 71.15
 Degrees of freedom: 63
-Correlation matrix:
-[[ 1.       0.00839  0.00528 -0.01803  0.02173]
- [ 0.00839  1.       0.63723 -0.62528 -0.14372]
- [ 0.00528  0.63723  1.      -0.97817 -0.24218]
- [-0.01803 -0.62528 -0.97817  1.       0.05877]
- [ 0.02173 -0.14372 -0.24218  0.05877  1.     ]]
 
 ==============================
 
 Flat wCDM: w(z) = w0
-f_cc: 1.47 +0.19 -0.18
-ΔM: -0.158 +0.116 -0.117 mag
-H0: 67.1 +2.4 -2.3 km/s/Mpc
-r_d: 147.3 +5.0 -4.7 Mpc
-Ωm: 0.299 +0.009 -0.009
-w0: -0.871 +0.051 -0.051
-Chi squared: 64.53
+f_cc: 1.47 +0.18 -0.18
+ΔM: -0.159 +0.115 -0.115 mag
+H0: 67.1 +2.3 -2.3 km/s/Mpc
+r_d: 147.3 +4.9 -4.6 Mpc
+Ωm: 0.298 +0.009 -0.009
+w0: -0.869 +0.050 -0.051
+Chi squared: 64.56
 Degrees of freedom: 62
-Correlation matrix:
-[[ 1.       0.01169  0.01152 -0.0159   0.02073 -0.02177]
- [ 0.01169  1.       0.6528  -0.63128 -0.07639 -0.1442 ]
- [ 0.01152  0.6528   1.      -0.94895 -0.10269 -0.27759]
- [-0.0159  -0.63128 -0.94895  1.       0.04269  0.0253 ]
- [ 0.02073 -0.07639 -0.10269  0.04269  1.      -0.3544 ]
- [-0.02177 -0.1442  -0.27759  0.0253  -0.3544   1.     ]]
 
 ==============================
 
 Flat alternative: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
 f_cc: 1.46 +0.18 -0.18
-ΔM: -0.165 +0.115 -0.117 mag
-H0: 66.7 +2.4 -2.3 km/s/Mpc
-r_d: 147.2 +5.0 -4.7 Mpc
+ΔM: -0.165 +0.117 -0.116 mag
+H0: 66.7 +2.3 -2.3 km/s/Mpc
+r_d: 147.2 +5.0 -4.6 Mpc
 Ωm: 0.310 +0.009 -0.008
-w0: -0.811 +0.066 -0.067
-Chi squared: 62.59
+w0: -0.807 +0.065 -0.067
+Chi squared: 62.67
 Degrees of freedom: 62
-Correlation matrix:
-[[ 1.       0.00697  0.01083 -0.01303  0.00814 -0.02863]
- [ 0.00697  1.       0.6435  -0.61921 -0.16838 -0.14937]
- [ 0.01083  0.6435   1.      -0.93879 -0.2726  -0.31085]
- [-0.01303 -0.61921 -0.93879  1.       0.04871  0.02084]
- [ 0.00814 -0.16838 -0.2726   0.04871  1.       0.24825]
- [-0.02863 -0.14937 -0.31085  0.02084  0.24825  1.     ]]
 
 ===============================
 

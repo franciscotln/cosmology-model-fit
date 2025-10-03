@@ -24,10 +24,10 @@ grid = np.linspace(0, np.max(z_sn_vals), num=1000)
 
 @njit
 def Ez(z, params):
-    O_m, w0 = params[2], params[3]
+    O_m, exp_w0 = params[2], params[3]
     one_plus_z = 1 + z
     cubic = one_plus_z**3
-    rho_de = (2 * cubic / (1 + cubic)) ** (2 * (1 + w0))
+    rho_de = (2 * cubic / (1 + cubic)) ** (2 * (1 + np.log(exp_w0)))
     return np.sqrt(O_m * cubic + (1 - O_m) * rho_de)
 
 
@@ -106,8 +106,9 @@ bounds = np.array(
         (-0.7, 0.7),  # ΔM
         (60, 75),  # H0
         (0.1, 0.6),  # Ωm
-        (-2, 0),  # w0
-    ]
+        (0.01, 1.0),  # e^w0
+    ],
+    dtype=np.float64,
 )
 
 
@@ -157,7 +158,7 @@ def main():
         tau = sampler.get_autocorr_time()
         print("auto-correlation time", tau)
         print("acceptance fraction", np.mean(sampler.acceptance_fraction))
-        print("effective samples", ndim * nwalkers * nsteps / np.max(tau))
+        print("effective samples", ndim * nwalkers * (nsteps - burn_in) / np.max(tau))
     except emcee.autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
 
@@ -169,10 +170,13 @@ def main():
         [dM_16, dM_50, dM_84],
         [H0_16, H0_50, H0_84],
         [Om_16, Om_50, Om_84],
-        [w0_16, w0_50, w0_84],
+        [exp_w0_16, exp_w0_50, exp_w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = np.array([dM_50, H0_50, Om_50, w0_50], dtype=np.float64)
+    best_fit = np.array([dM_50, H0_50, Om_50, exp_w0_50], dtype=np.float64)
+
+    w0_samples = np.log(samples[:, 3])
+    w0_16, w0_50, w0_84 = np.percentile(w0_samples, [15.9, 50, 84.1])
 
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
@@ -197,7 +201,7 @@ def main():
         x_scale="log",
     )
 
-    labels = ["$Δ_M$", "$H_0$", "$Ω_m$", "$w_0$"]
+    labels = ["$Δ_M$", "$H_0$", "$Ω_m$", "$e^{w_0}$"]
     corner.corner(
         samples,
         labels=labels,
@@ -248,33 +252,33 @@ Correlation matrix:
 
 Flat wCDM
 r_d: 147.09 Mpc (fixed)
-ΔM: -0.156 +0.090 -0.090 mag
-H0: 67.12 +0.75 -0.73 km/s/Mpc
+ΔM: -0.157 +0.089 -0.090 mag
+H0: 67.10 +0.74 -0.74 km/s/Mpc
 Ωm: 0.298 +0.009 -0.009
-w0: -0.866 +0.050 -0.051
-Chi squared: 32.16 (Δ chi2 6.66)
+w0: -0.863 +0.050 -0.050
+Chi squared: 32.15 (Δ chi2 6.67)
 Degs of freedom: 31
 Correlation matrix:
-[[ 1.       0.22023 -0.06221 -0.16594]
- [ 0.22023  1.      -0.19852 -0.81362]
- [-0.06221 -0.19852  1.      -0.35649]
- [-0.16594 -0.81362 -0.35649  1.     ]]
+[[ 1.       0.2271  -0.06492 -0.17294]
+ [ 0.2271   1.      -0.19514 -0.81673]
+ [-0.06492 -0.19514  1.      -0.35745]
+ [-0.17294 -0.81673 -0.35745  1.     ]]
 
 ===============================
 
 Flat -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
 r_d: 147.09 Mpc (fixed)
-ΔM: -0.164 +0.090 -0.090 mag
-H0: 66.66 +0.82 -0.81 km/s/Mpc
+ΔM: -0.165 +0.090 -0.089 mag
+H0: 66.61 +0.82 -0.80 km/s/Mpc
 Ωm: 0.310 +0.009 -0.009
-w0: -0.802 +0.065 -0.067
+w0: -0.797 +0.065 -0.066
 Chi squared: 30.37 (Δ chi2 8.45)
 Degs of freedom: 31
 Correlation matrix:
-[[ 1.       0.222   -0.16679 -0.17257]
- [ 0.222    1.      -0.66817 -0.85504]
- [-0.16679 -0.66817  1.       0.25343]
- [-0.17257 -0.85504  0.25343  1.     ]]
+[[ 1.       0.22998 -0.17029 -0.18202]
+ [ 0.22998  1.      -0.67101 -0.8569 ]
+ [-0.17029 -0.67101  1.       0.26096]
+ [-0.18202 -0.8569   0.26096  1.     ]]
 
 ===============================
 

@@ -28,9 +28,9 @@ def rd(H0, Om, Obh2):  # Mpc
 
 @njit
 def Ez(z, params):
-    Om, w0 = params[1], params[3]
+    Om, exp_w0 = params[1], params[3]
     cubic = (1 + z) ** 3
-    rho_DE = (2 * cubic / (1 + cubic)) ** (2 * (1 + w0))
+    rho_DE = (2 * cubic / (1 + cubic)) ** (2 * (1 + np.log(exp_w0)))
     return np.sqrt(Om * cubic + (1 - Om) * rho_DE)
 
 
@@ -90,7 +90,7 @@ bounds = np.array(
         (50, 80),  # H0
         (0.15, 0.45),  # Ωm
         (0.019, 0.025),  # Ωb h^2
-        (-2, 0),  # w0
+        (0.01, 1.0),  # e^w0
         (0.5, 2.5),  # f_cc
     ],
     dtype=np.float64,
@@ -158,7 +158,7 @@ def main():
         tau = sampler.get_autocorr_time()
         print("auto-correlation time", tau)
         print("acceptance fraction", np.mean(sampler.acceptance_fraction))
-        print("effective samples", ndim * nwalkers * nsteps / np.max(tau))
+        print("effective samples", ndim * nwalkers * (nsteps - burn_in) / np.max(tau))
     except emcee.autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
 
@@ -168,13 +168,15 @@ def main():
         [H0_16, H0_50, H0_84],
         [Om_16, Om_50, Om_84],
         [Obh2_16, Obh2_50, Obh2_84],
-        [w0_16, w0_50, w0_84],
+        [exp_w0_16, exp_w0_50, exp_w0_84],
         [f_cc_16, f_cc_50, f_cc_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = np.array([H0_50, Om_50, Obh2_50, w0_50, f_cc_50])
+    best_fit = np.array([H0_50, Om_50, Obh2_50, exp_w0_50, f_cc_50])
+    w0_samples = np.log(samples[:, 3])
+    w0_16, w0_50, w0_84 = np.percentile(w0_samples, [15.9, 50, 84.1])
     rd_samples = rd(samples[:, 0], samples[:, 1], samples[:, 2])
-    rd_16, rd_50, rd_84 = np.percentile(rd_samples, [15.9, 50, 84.1], axis=0)
+    rd_16, rd_50, rd_84 = np.percentile(rd_samples, [15.9, 50, 84.1])
 
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
     print(
@@ -202,7 +204,7 @@ def main():
         label=f"{cc_legend}: $H_0$={H0_50:.1f} km/s/Mpc",
     )
 
-    labels = ["$H_0$", "$Ω_m$", "$Ω_b h^2$", "$w_0$", "$f_{CCH}$"]
+    labels = ["$H_0$", "$Ω_m$", "$Ω_b h^2$", "$e^{w_0}$", "$f_{CCH}$"]
     corner.corner(
         samples,
         labels=labels,
@@ -238,39 +240,39 @@ Dataset: DESI DR2 2025
 *******************************
 
 Flat ΛCDM
-H0: 68.66 +0.52 -0.52 km/s/Mpc
-Ωb h^2: 0.02220 +0.00054 -0.00054
+H0: 68.66 +0.51 -0.52 km/s/Mpc
+Ωb h^2: 0.02220 +0.00052 -0.00053
 Ωm: 0.299 +0.008 -0.008
 w0: -1
-f_cc: 1.49 +0.19 -0.18
-rd: 147.69 +1.30 -1.25 Mpc
-Chi squared: 43.50
+f_cc: 1.49 +0.18 -0.17
+rd: 147.70 +1.24 -1.22 Mpc
+Chi squared: 43.46
 log likelihood: -135.83
 Degs of freedom: 43
 
 ===============================
 
 Flat wCDM
-H0: 67.14 +1.85 -1.83 km/s/Mpc
-Ωb h^2: 0.02222 +0.00054 -0.00054
+H0: 67.02 +1.83 -1.80 km/s/Mpc
+Ωb h^2: 0.02224 +0.00053 -0.00054
 Ωm: 0.299 +0.009 -0.008
-w0: -0.937 +0.070 -0.074
-f_cc: 1.48 +0.19 -0.18
-rd: 149.12 +2.28 -2.07 Mpc
-Chi squared: 42.28
+w0: -0.932 +0.068 -0.073
+f_cc: 1.48 +0.18 -0.18
+rd: 149.23 +2.26 -2.07 Mpc
+Chi squared: 42.17
 log likelihood: -135.41
 Degs of freedom: 42
 
 ===============================
 
 Flat -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-H0: 66.57 +2.02 -1.92 km/s/Mpc
-Ωb h^2: 0.02222 +0.00054 -0.00054
-Ωm: 0.307 +0.011 -0.011
-w0: -0.868 +0.117 -0.124
+H0: 66.37 +1.98 -1.93 km/s/Mpc
+Ωb h^2: 0.02223 +0.00054 -0.00054
+Ωm: 0.308 +0.011 -0.011
+w0: -0.854 +0.117 -0.122
 f_cc: 1.48 +0.19 -0.18
-rd: 148.84 +1.72 -1.67 Mpc
-Chi squared: 41.63
+rd: 148.96 +1.73 -1.67 Mpc
+Chi squared: 41.66
 log likelihood: -135.19
 Degs of freedom: 42
 """

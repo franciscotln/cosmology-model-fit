@@ -22,10 +22,10 @@ c = 299792.458  # Speed of light in km/s
 
 @njit
 def Ez(z, params):
-    O_m, w0 = params[3], params[4]
+    O_m, exp_w0 = params[3], params[4]
     one_plus_z = 1 + z
     cubic = one_plus_z**3
-    rho_de = (2 * cubic / (1 + cubic)) ** (2 * (1 + w0))
+    rho_de = (2 * cubic / (1 + cubic)) ** (2 * (1 + np.log(exp_w0)))
     return np.sqrt(O_m * cubic + (1 - O_m) * rho_de)
 
 
@@ -83,8 +83,8 @@ bounds = np.array(
         (0.4, 2.5),  # f_cc
         (45, 100),  # H0
         (100, 180),  # r_d
-        (0.1, 0.7),  # Ωm
-        (-2, 0.5),  # w0
+        (0.2, 0.7),  # Ωm
+        (0.01, 1.0),  # e^w0
     ],
     dtype=np.float64,
 )
@@ -148,7 +148,7 @@ def main():
         tau = sampler.get_autocorr_time()
         print("auto-correlation time", tau)
         print("acceptance fraction", np.mean(sampler.acceptance_fraction))
-        print("effective samples", ndim * nwalkers * nsteps / np.max(tau))
+        print("effective samples", ndim * nwalkers * (nsteps - burn_in) / np.max(tau))
     except emcee.autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
 
@@ -160,10 +160,13 @@ def main():
         [h0_16, h0_50, h0_84],
         [rd_16, rd_50, rd_84],
         [Om_16, Om_50, Om_84],
-        [w0_16, w0_50, w0_84],
+        [exp_w0_16, exp_w0_50, exp_w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = np.array([f_cc_50, h0_50, rd_50, Om_50, w0_50], dtype=np.float64)
+    best_fit = np.array([f_cc_50, h0_50, rd_50, Om_50, exp_w0_50], dtype=np.float64)
+
+    w0_samples = np.log(samples[:, 4])
+    w0_16, w0_50, w0_84 = np.percentile(w0_samples, [15.9, 50, 84.1])
 
     print(f"f_cc: {f_cc_50:.2f} +{(f_cc_84 - f_cc_50):.2f} -{(f_cc_50 - f_cc_16):.2f}")
     print(f"H0: {h0_50:.1f} +{(h0_84 - h0_50):.1f} -{(h0_50 - h0_16):.1f}")
@@ -188,7 +191,7 @@ def main():
         label=f"{cc_legend}: $H_0$={h0_50:.1f} km/s/Mpc",
     )
 
-    labels = ["$f_{CCH}$", "$H_0$", "$r_d$", "$Ω_m$", "$w_0$"]
+    labels = ["$f_{CCH}$", "$H_0$", "$r_d$", "$Ω_m$", "$e^{w_0}$"]
     corner.corner(
         samples,
         labels=labels,
@@ -236,11 +239,11 @@ Degrees of freedom: 42
 
 Flat wCDM
 f_cc: 1.47 +0.18 -0.18
-H0: 67.9 +2.6 -2.5 km/s/Mpc
-r_d: 147.1 +5.0 -4.7 Mpc
-Ωm: 0.298 ± 0.009
-w0: -0.922 +0.075 -0.078
-Chi squared: 41.43
+H0: 67.8 +2.5 -2.5 km/s/Mpc
+r_d: 147.1 +5.0 -4.6 Mpc
+Ωm: 0.298 +0.009 -0.009
+w0: -0.917 +0.075 -0.077
+Chi squared: 41.44
 log likelihood: -135.28
 Degrees of freedom: 41
 
@@ -248,11 +251,11 @@ Degrees of freedom: 41
 
 Flat -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
 f_cc: 1.46 +0.18 -0.18
-H0: 67.3 +2.8 -2.7 km/s/Mpc
-r_d: 147.1 +5.0 -4.7 Mpc
-Ωm: 0.307 ± 0.011
-w0: -0.857 +0.119 -0.126
-Chi squared: 40.74
+H0: 67.1 +2.8 -2.7 km/s/Mpc
+r_d: 147.1 +4.9 -4.6 Mpc
+Ωm: 0.308 ± 0.011
+w0: -0.842 +0.117 -0.124
+Chi squared: 40.70
 log likelihood: -135.09
 Degrees of freedom: 41
 
