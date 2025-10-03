@@ -2,13 +2,13 @@ from numba import njit
 import numpy as np
 import emcee
 import corner
-from scipy.integrate import cumulative_trapezoid, quad
+from scipy.integrate import cumulative_trapezoid
 from scipy.linalg import cho_factor, cho_solve
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from y2023union3.data import get_data
 from y2025BAO.data import get_data as get_bao_data
-import cmb.data_cmb_act_compression as cmb
+import cmb.data_desi_compression as cmb
 from sn.plotting import plot_predictions as plot_sn_predictions
 from .plot_predictions import plot_bao_predictions
 
@@ -266,65 +266,65 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM w(z) = -1
-H0: 68.4 ± 0.3 km/s/Mpc
-Ωm: 0.302 ± 0.004
-Ωb h^2: 0.02255 ± 0.00013
-Ωm h^2: 0.14097 ± 0.00064
+H0: 68.3 +0.3 -0.3 km/s/Mpc
+Ωm: 0.301 +0.004 -0.004
+Ωb h^2: 0.02236 +0.00012 -0.00012
+Ωm h^2: 0.14042 +0.00062 -0.00062
 w0: -1
-ΔM: -0.129 +0.089 -0.089
-z*: 1088.51 ± 0.15
-z_drag: 1060.14 +0.27 -0.28
-r_s(z*) = 144.81 Mpc
-r_s(z_drag) = 147.33 +0.18 -0.19 Mpc
-Chi squared: 46.62
+ΔM: -0.131 +0.086 -0.087
+z*: 1088.68 +0.14 -0.14
+z_drag: 1059.68 +0.26 -0.26
+r_s(z*) = 145.05 Mpc
+r_s(z_drag) = 147.72 +0.17 -0.17 Mpc
+Chi squared: 42.21
 Degs of freedom: 35
 
 ===============================
 
 Flat wCDM w(z) = w0
-H0: 68.0 ± 0.7 km/s/Mpc
-Ωm: 0.304 ± 0.006
-Ωb h^2: 0.02257 ± 0.00013
-Ωm h^2: 0.14067 +0.00082 -0.00083
-w0: -0.984 ± 0.028
-ΔM: -0.139 ± 0.090
-z*: 1088.46 ± 0.17
-z_drag: 1060.18 ± 0.28
-r_s(z*) = 144.87 Mpc
-r_s(z_drag) = 147.38 ± 0.21 Mpc
-Chi squared: 46.28 (Δ chi2 0.34)
+H0: 67.7 +0.7 -0.7 km/s/Mpc
+Ωm: 0.305 +0.006 -0.006
+Ωb h^2: 0.02241 +0.00013 -0.00013
+Ωm h^2: 0.13981 +0.00084 -0.00083
+w0: -0.968 +0.027 -0.028
+ΔM: -0.148 +0.089 -0.089
+z*: 1088.59 +0.16 -0.17
+z_drag: 1059.75 +0.27 -0.27
+r_s(z*) = 145.18 Mpc
+r_s(z_drag) = 147.82 +0.20 -0.20 Mpc
+Chi squared: 40.98 (Δ chi2 1.23)
 Degs of freedom: 34
 
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-H0: 67.0 ± 0.8 km/s/Mpc
-Ωm: 0.313 ± 0.007
-Ωb h^2: 0.02260 ± 0.00013
-Ωm h^2: 0.14034 ± 0.00073
-w0: -0.904 +0.052 -0.053
-ΔM: -0.164 ± 0.091
-z*: 1088.41 ± 0.16
-z_drag: 1060.22 ± 0.28
-r_s(z*) = 144.94 Mpc
-r_s(z_drag) = 147.44 ± 0.20 Mpc
-Chi squared: 43.29 (Δ chi2 3.33)
+H0: 66.7 +0.8 -0.8 km/s/Mpc
+Ωm: 0.314 +0.007 -0.007
+Ωb h^2: 0.02243 +0.00012 -0.00012
+Ωm h^2: 0.13964 +0.00072 -0.00072
+w0: -0.886 +0.052 -0.052
+ΔM: -0.169 +0.088 -0.089
+z*: 1088.56 +0.15 -0.15
+z_drag: 1059.77 +0.27 -0.27
+r_s(z*) = 145.22 Mpc
+r_s(z_drag) = 147.85 +0.18 -0.18 Mpc
+Chi squared: 37.59 (Δ chi2 4.62)
 Degs of freedom: 34
 
 ===============================
 
 Flat w(z) = w0 + wa * z / (1 + z)
-H0: 66.0 ± 0.8 km/s/Mpc
-Ωm: 0.327 ± 0.009
-Ωb h^2: 0.02242 ± 0.00013
-Ωm h^2: 0.14259 +0.00091 -0.00093
-w0: -0.665 +0.091 -0.088
-wa: -1.082 +0.296 -0.317
-ΔM: -0.171 ± 0.091
-z*: 1088.76 ± 0.18
-z_drag: 1059.98 ± 0.28
-r_s(z*) = 144.45 Mpc
-r_s(z_drag) = 147.00 ± 0.22 Mpc
-Chi squared: 30.85 (Δ chi2 15.77)
+H0: 66.0 +0.8 -0.8 km/s/Mpc
+Ωm: 0.326 +0.009 -0.008
+Ωb h^2: 0.02225 +0.00013 -0.00013
+Ωm h^2: 0.14175 +0.00093 -0.00094
+w0: -0.691 +0.088 -0.087
+wa: -0.956 +0.290 -0.306
+ΔM: -0.176 +0.089 -0.088
+z*: 1088.89 +0.18 -0.18
+z_drag: 1059.54 +0.27 -0.28
+r_s(z*) = 144.76 Mpc
+r_s(z_drag) = 147.49 +0.21 -0.20 Mpc
+Chi squared: 29.39 (Δ chi2 10.82)
 Degs of freedom: 33
 """
