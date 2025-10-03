@@ -24,8 +24,8 @@ cubed = (1 + z) ** 3
 
 @njit
 def Ez(params):
-    omega_m, w0 = params[1], params[2]
-    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
+    omega_m, exp_w0 = params[1], params[2]
+    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + np.log(exp_w0)))
     return np.sqrt(omega_m * cubed + (1 - omega_m) * rho_de)
 
 
@@ -34,7 +34,6 @@ def integral_Ez(params):
     return np.interp(z_values, z, integral_values)
 
 
-# Flat model
 def mu_theory(params):
     a0_over_ae = 1 + z_values
     comoving_distance = (C / H0) * integral_Ez(params)
@@ -50,7 +49,7 @@ def log_likelihood(params):
     return -0.5 * chi_squared(params)
 
 
-bounds = np.array([(-0.6, 0.6), (0, 1), (-2.5, 0.5)])  # ΔM  # Ωm  # w0
+bounds = np.array([(-0.6, 0.6), (0, 1), (0.01, 1.0)])  # ΔM, Ωm, e^w0
 
 
 @njit
@@ -92,7 +91,9 @@ def main():
         tau = sampler.get_autocorr_time()
         print("auto-correlation time", tau)
         print("acceptance fraction", np.mean(sampler.acceptance_fraction))
-        print("effective samples", n_walkers * n_steps * n_dim / np.max(tau))
+        print(
+            "effective samples", n_walkers * (n_steps - burn_in) * n_dim / np.max(tau)
+        )
     except emcee.autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
 
@@ -101,10 +102,13 @@ def main():
     [
         [dM_16, dM_50, dM_84],
         [omega_16, omega_50, omega_84],
-        [w0_16, w0_50, w0_84],
+        [exp_w0_16, exp_w0_50, exp_w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit_params = np.array([dM_50, omega_50, w0_50], dtype=np.float64)
+    best_fit_params = np.array([dM_50, omega_50, exp_w0_50], dtype=np.float64)
+
+    w0_samples = np.log(samples[:, 2])
+    w0_16, w0_50, w0_84 = np.percentile(w0_samples, [15.9, 50, 84.1])
 
     predicted_distances = mu_theory(best_fit_params)
     residuals = mu_vals - predicted_distances
@@ -133,7 +137,7 @@ def main():
     print_color("Chi squared", f"{chi_squared(best_fit_params):.4f}")
     print_color("Degs of freedom", len(z_values) - len(best_fit_params))
 
-    labels = ["ΔM", "Ωm", "$w_0$"]
+    labels = ["ΔM", "Ωm", "$e^{w_0}$"]
     corner.corner(
         samples,
         labels=labels,
@@ -186,13 +190,13 @@ Sample size: 22
 
 Flat ΛCDM: w(z) = -1
 
-ΔM: -0.069 +0.088/-0.088 mag
-Ωm: 0.357 +0.027/-0.027
+ΔM: -0.070 +0.086 -0.087 mag
+Ωm: 0.357 +0.027 -0.026
 w0: -1
 wa: 0
 R-squared (%): 99.95
 RMSD (mag): 0.050
-Skewness of residuals: 0.587
+Skewness of residuals: 0.583
 Chi squared: 24.0
 degrees of freedom: 20
 
@@ -200,13 +204,12 @@ degrees of freedom: 20
 
 Flat wCDM: w(z) = w0
 
-ΔM: -0.058 +0.088/-0.088 mag
-Ωm: 0.253 +0.088/-0.110
-w0: -0.748 +0.155/-0.187 (1.35 - 1.63 sigma)
-wa: 0
+ΔM: -0.057 +0.087 -0.088 mag
+Ωm: 0.236 +0.090 -0.109
+w0: -0.7170 +0.1421 -0.1777
 R-squared (%): 99.94
-RMSD (mag): 0.055
-Skewness of residuals: -1.259
+RMSD (mag): 0.056
+Skewness of residuals: -1.493
 Chi squared: 22.1
 degrees of freedom: 19
 
@@ -214,13 +217,13 @@ degrees of freedom: 19
 
 Flat alternative: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
 
-ΔM: -0.055 +0.088/-0.088 mag
-Ωm: 0.296 +0.053/-0.054
-w0: -0.751 +0.144/-0.172 (1.45 - 1.73 sigma)
+ΔM: -0.0535 +0.0884 -0.0877 mag
+Ωm: 0.289 +0.052 -0.054
+w0: -0.727 +0.141 -0.164
 wa: 0
 R-squared (%): 99.94
 RMSD (mag): 0.053
-Skewness of residuals: -1.068
+Skewness of residuals: -1.257
 Chi squared: 21.7
 Degs of freedom: 19
 
