@@ -7,7 +7,7 @@ from scipy.linalg import cho_factor, cho_solve
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from y2024DES.data import get_data
-import cmb.data_cmb_act_compression as cmb
+import cmb.data_chen_compression as cmb
 from .plotting import plot_predictions as plot_sn_predictions
 
 
@@ -44,10 +44,10 @@ def chi_squared(params):
     H0, Om, Ob_h2 = params[0:3]
 
     delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez, params, H0, Om, Ob_h2)
-    chi2_cmb = np.dot(delta, np.dot(cmb.inv_cov_mat, delta))
+    chi2_cmb = delta.dot(np.dot(cmb.inv_cov_mat, delta))
 
     delta_sn = mu_values - theory_mu(params)
-    chi_sn = np.dot(delta_sn, cho_solve(cho_sn, delta_sn, check_finite=False))
+    chi_sn = delta_sn.dot(cho_solve(cho_sn, delta_sn, check_finite=False))
 
     return chi2_cmb + chi_sn
 
@@ -84,9 +84,9 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 500
-    burn_in = 100
-    nsteps = 1000 + burn_in
+    nwalkers = 180
+    burn_in = 200
+    nsteps = 2000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):
@@ -99,9 +99,9 @@ def main():
             log_probability,
             pool=pool,
             moves=[
-                (emcee.moves.KDEMove(), 0.5),
-                (emcee.moves.DEMove(), 0.4),
-                (emcee.moves.DESnookerMove(), 0.1),
+                (emcee.moves.KDEMove(), 0.30),
+                (emcee.moves.DEMove(), 0.56),
+                (emcee.moves.DESnookerMove(), 0.14),
             ],
         )
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
@@ -109,10 +109,13 @@ def main():
     try:
         tau = sampler.get_autocorr_time()
         print("auto-correlation time", tau)
+        print("acceptance fraction", np.mean(sampler.acceptance_fraction))
+        print("effective samples", nwalkers * nsteps * ndim / np.max(tau))
     except emcee.autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
 
     samples = sampler.get_chain(discard=burn_in, flat=True)
+    chains_samples = sampler.get_chain(discard=burn_in, flat=False)
 
     pct = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
     H0_16, H0_50, H0_84 = pct[0]
@@ -159,10 +162,19 @@ def main():
         bins=100,
         fill_contours=False,
         plot_datapoints=False,
-        smooth=1.5,
-        smooth1d=1.5,
+        smooth=2.0,
+        smooth1d=2.0,
         levels=(0.393, 0.864),
     )
+    plt.show()
+
+    plt.figure(figsize=(16, 1.5 * ndim))
+    for n in range(ndim):
+        plt.subplot2grid((ndim, 1), (n, 0))
+        plt.plot(chains_samples[:, :, n], alpha=0.3)
+        plt.ylabel(labels[n])
+        plt.xlim(0, None)
+    plt.tight_layout()
     plt.show()
 
 
@@ -171,61 +183,61 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM w(z) = -1
-H0: 66.83 +0.47 -0.46 km/s/Mpc
-Ωm: 0.323 ± 0.007
-Ωb h^2: 0.02229 ± 0.00014
+H0: 66.86 +0.52 -0.53 km/s/Mpc
+Ωm: 0.324 +0.008 -0.007
+Ωb h^2: 0.02227 +0.00014 -0.00014
 w0: -1
-ΔM: -0.097 ± 0.012
-z*: 1089.02
+ΔM: -0.095 +0.013 -0.013
+z*: 1089.09
 z_drag: 1059.81
-r_s(z*) = 144.09 Mpc
-r_s(z_drag) = 146.67 Mpc
-Chi squared: 1643.83
+r_s(z*) = 143.92 Mpc
+r_s(z_drag) = 146.51 Mpc
+Chi squared: 1643.67
 Degrees of freedom: 1734
 
 ===============================
 
 Flat wCDM w(z) = w0
-H0: 65.59 +0.76 -0.74 km/s/Mpc
-Ωm: 0.333 +0.009 -0.008
-Ωb h^2: 0.02237 ± 0.00014
-w0: -0.943 ± 0.027
-ΔM: -0.116 ± 0.015
-z*: 1088.86
-z_drag: 1059.93
-r_s(z*) = 144.29 Mpc
-r_s(z_drag) = 146.85 Mpc
-Chi squared: 1639.36 (Δ chi2 4.47)
+H0: 65.71 +0.75 -0.75 km/s/Mpc
+Ωm: 0.333 +0.009 -0.009
+Ωb h^2: 0.02236 +0.00014 -0.00015
+w0: -0.942 +0.027 -0.028
+ΔM: -0.112 +0.016 -0.015
+z*: 1088.91
+z_drag: 1059.94
+r_s(z*) = 144.17 Mpc
+r_s(z_drag) = 146.73 Mpc
+Chi squared: 1639.35 (Δ chi2 4.3)
 Degrees of freedom: 1733
 
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-H0: 65.76 +0.65 -0.66 km/s/Mpc
-Ωm: 0.331 ± 0.008
-Ωb h^2: 0.02238 +0.00014 -0.00015
-w0: -0.909 ± 0.041
-ΔM: -0.107 ± 0.013
-z*: 1088.86
-z_drag: 1059.93
-r_s(z*) = 144.30 Mpc
-r_s(z_drag) = 146.86 Mpc
-Chi squared: 1638.71 (Δ chi2 5.12)
+H0: 65.90 +0.67 -0.65 km/s/Mpc
+Ωm: 0.331 +0.008 -0.008
+Ωb h^2: 0.02237 +0.00014 -0.00014
+w0: -0.907 +0.040 -0.041
+ΔM: -0.102 +0.013 -0.013
+z*: 1088.90
+z_drag: 1059.95
+r_s(z*) = 144.18 Mpc
+r_s(z_drag) = 146.75 Mpc
+Chi squared: 1638.69 (Δ chi2 5.0)
 Degrees of freedom: 1733
 
 ===============================
 
 Flat w(z) = w0 + wa * z / (1 + z)
-H0: 66.96 +1.02 -1.11 km/s/Mpc
-Ωm: 0.320 +0.011 -0.010
-Ωb h^2: 0.02236 ± 0.00015
-w0: -0.766 ± 0.115
-wa: -0.881 +0.565 -0.589
-ΔM: -0.059 +0.035 -0.038
-z*: 1088.89
+H0: 67.09 +1.03 -1.11 km/s/Mpc
+Ωm: 0.320 +0.011 -0.011
+Ωb h^2: 0.02235 +0.00015 -0.00015
+w0: -0.766 +0.110 -0.117
+wa: -0.886 +0.583 -0.568
+ΔM: -0.054 +0.034 -0.039
+z*: 1088.94
 z_drag: 1059.92
-r_s(z*) = 144.24 Mpc
-r_s(z_drag) = 146.81 Mpc
-Chi squared: 1637.34 (Δ chi2 6.49)
+r_s(z*) = 144.11 Mpc
+r_s(z_drag) = 146.67 Mpc
+Chi squared: 1637.49 (Δ chi2 6.2)
 Degrees of freedom: 1732
 """

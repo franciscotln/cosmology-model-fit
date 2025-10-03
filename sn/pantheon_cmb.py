@@ -7,7 +7,7 @@ from scipy.linalg import cho_factor, cho_solve
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from y2022pantheonSHOES.data import get_data
-import cmb.data_cmb_act_compression as cmb
+import cmb.data_chen_compression as cmb
 from .plotting import plot_predictions as plot_sn_predictions
 
 c = cmb.c  # Speed of light in km/s
@@ -85,9 +85,9 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 500
-    burn_in = 100
-    nsteps = 800 + burn_in
+    nwalkers = 150
+    burn_in = 200
+    nsteps = 2000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):
@@ -100,9 +100,9 @@ def main():
             log_probability,
             pool=pool,
             moves=[
-                (emcee.moves.KDEMove(), 0.5),
-                (emcee.moves.DEMove(), 0.4),
-                (emcee.moves.DESnookerMove(), 0.1),
+                (emcee.moves.KDEMove(), 0.30),
+                (emcee.moves.DEMove(), 0.56),
+                (emcee.moves.DESnookerMove(), 0.14),
             ],
         )
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
@@ -111,16 +111,17 @@ def main():
         tau = sampler.get_autocorr_time()
         print("auto-correlation time", tau)
         print("acceptance fraction", np.mean(sampler.acceptance_fraction))
+        print("effective samples", nwalkers * ndim * nsteps / np.max(tau))
     except emcee.autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
 
     samples = sampler.get_chain(discard=burn_in, flat=True)
-    chains = np.transpose(sampler.get_chain(discard=burn_in, flat=False), (1, 0, 2))  # shape (500, 1000, 5)
+    chains = np.transpose(sampler.get_chain(discard=burn_in, flat=False), (1, 0, 2))
 
-    def gelman_rubin(chains):
-        n_chains, n_samples, n_dim = chains.shape
-        rhat = np.zeros(n_dim)
-        for i in range(n_dim):
+    def gelman_rubin():
+        n_samples = ndim * nwalkers * (nsteps - burn_in)
+        rhat = np.zeros(ndim)
+        for i in range(ndim):
             chain_means = np.mean(chains[:, :, i], axis=1)
             chain_vars = np.var(chains[:, :, i], axis=1, ddof=1)
             B = n_samples * np.var(chain_means, ddof=1)
@@ -129,7 +130,7 @@ def main():
             rhat[i] = np.sqrt(var_hat / W)
         return rhat
 
-    print("Gelman-Rubin statistic:", gelman_rubin(chains))
+    print("Gelman-Rubin statistic:", gelman_rubin())
 
     one_sigma_conf_int = [15.9, 50, 84.1]
     pct = np.percentile(samples, one_sigma_conf_int, axis=0).T
@@ -190,10 +191,19 @@ def main():
         bins=100,
         fill_contours=False,
         plot_datapoints=False,
-        smooth=1.5,
-        smooth1d=1.5,
+        smooth=2.0,
+        smooth1d=2.0,
         levels=(0.393, 0.864),
     )
+    plt.show()
+
+    plt.figure(figsize=(16, 1.5 * ndim))
+    for n in range(ndim):
+        plt.subplot2grid((ndim, 1), (n, 0))
+        plt.plot(chains[:, :, n], alpha=0.3)
+        plt.ylabel(labels[n])
+        plt.xlim(0, None)
+    plt.tight_layout()
     plt.show()
 
 
@@ -202,65 +212,65 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM w(z) = -1
-H0: 67.12 ± 0.48 km/s/Mpc
-Ωm: 0.319 ± 0.007
-Ωm h^2: 0.14367 ± 0.00108
-Ωb h^2: 0.02235 ± 0.00014
+H0: 67.21 +0.55 -0.53 km/s/Mpc
+Ωm: 0.319 +0.008 -0.007
+Ωm h^2: 0.14429 +0.00114 -0.00113
+Ωb h^2: 0.02233 +0.00014 -0.00014
 w0: -1
-M: -19.447 ± 0.014
-z*: 1088.92 ± 0.20
-z_drag: 1059.89 ± 0.29
-r_s(z*) = 144.22 Mpc
-r_s(z_drag) = 146.78 ± 0.25 Mpc
+M: -19.444 +0.015 -0.015
+z*: 1088.98 +0.20 -0.20
+z_drag: 1059.89 +0.28 -0.28
+r_s(z*) = 144.07 Mpc
+r_s(z_drag) = 146.64 +0.26 -0.27 Mpc
 Chi squared: 1403.48
 Degrees of freedom: 1587
 
 ===============================
 
 Flat wCDM w(z) = w0
-H0: 66.53 +0.83 -0.81 km/s/Mpc
-Ωm: 0.324 ± 0.009
-Ωm h^2: 0.14337 +0.00113 -0.00114
-Ωb h^2: 0.02237 ± 0.00015
-w0: -0.975 +0.029 -0.030
-M: -19.460 ± 0.021
-z*: 1088.87 ± 0.21
-z_drag: 1059.92 +0.29 -0.30
-r_s(z*) = 144.29 Mpc
-r_s(z_drag) = 146.84 ± 0.26 Mpc
-Chi squared: 1402.75
+H0: 66.68 +0.82 -0.81 km/s/Mpc
+Ωm: 0.324 +0.009 -0.009
+Ωm h^2: 0.14384 +0.00127 -0.00126
+Ωb h^2: 0.02236 +0.00015 -0.00015
+w0: -0.975 +0.029 -0.029
+M: -19.456 +0.021 -0.021
+z*: 1088.91 +0.22 -0.22
+z_drag: 1059.93 +0.29 -0.30
+r_s(z*) = 144.17 Mpc
+r_s(z_drag) = 146.73 +0.29 -0.28 Mpc
+Chi squared: 1402.76
 Degrees of freedom: 1586
 
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-H0: 66.62 +0.72 -0.70 km/s/Mpc
-Ωm: 0.323 ± 0.008
-Ωm h^2: 0.14332 +0.00115 -0.00112
-Ωb h^2: 0.02237 ± 0.00014
-w0: -0.962 ± 0.042
-M: -19.456 ± 0.017
-z*: 1088.86 +0.21 -0.20
-z_drag: 1059.92 ± 0.29
-r_s(z*) = 144.29 Mpc
-r_s(z_drag) = 146.85 +0.26 -0.27 Mpc
-Chi squared: 1402.68
+H0: 66.77 +0.72 -0.71 km/s/Mpc
+Ωm: 0.323 +0.008 -0.008
+Ωm h^2: 0.14384 +0.00124 -0.00126
+Ωb h^2: 0.02236 +0.00015 -0.00015
+w0: -0.962 +0.042 -0.042
+M: -19.452 +0.018 -0.018
+z*: 1088.91 +0.22 -0.21
+z_drag: 1059.93 +0.29 -0.29
+r_s(z*) = 144.17 Mpc
+r_s(z_drag) = 146.73 +0.29 -0.28 Mpc
+Chi squared: 1402.67
 Degrees of freedom: 1586
 
 ===============================
 
 Flat w(z) = w0 + wa * z / (1 + z)
-H0: 67.22 +1.29 -1.43 km/s/Mpc
-Ωm: 0.319 +0.014 -0.013
-Ωb h^2: 0.02236 ± 0.00015
-Ωm h^2: 0.14391 +0.00129 -0.00126
-w0: -0.919 +0.107 -0.114
-wa: -0.287 +0.551 -0.563
-M: -19.434 +0.043 -0.049
-z*: 1088.92 ± 0.22
-z_drag: 1059.93 ± 0.30
-r_s(z*) = 144.13 Mpc
-r_s(z_drag) = 146.69 Mpc
-Chi squared: 1402.58
+H0: 67.24 +1.27 -1.40 km/s/Mpc
+Ωm: 0.318 +0.014 -0.012
+Ωm h^2: 0.14390 +0.00124 -0.00125
+Ωb h^2: 0.02236 +0.00014 -0.00015
+w0: -0.919 +0.105 -0.111
+wa: -0.290 +0.543 -0.544
+M: -19.434 +0.042 -0.049
+z*: 1088.92 +0.22 -0.21
+z_drag: 1059.93 +0.29 -0.29
+r_s(z*) = 144.14 Mpc
+r_s(z_drag) = 146.72 +0.29 -0.28 Mpc
+Chi squared: 1402.68
 Degrees of freedom: 1585
 """
