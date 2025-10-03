@@ -16,11 +16,11 @@ cho_T = cho.T
 
 @njit
 def H_z(z, params):
-    h, Om, w0 = params
+    h, Om, exp_w0 = params
     OL = 1 - Om
     one_plus_z = 1 + z
     cubed = one_plus_z**3
-    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
+    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + np.log(exp_w0)))
     return 100 * h * np.sqrt(Om * cubed + OL * rho_de)
 
 
@@ -63,7 +63,7 @@ bounds = np.array(
     [
         (0.500, 0.800),  # h
         (0.150, 0.450),  # Ωm
-        (-2.000, 0.000),  # w0
+        (0.01, 1.0),  # w0
     ],
     dtype=np.float64,
 )
@@ -130,7 +130,9 @@ def main():
     try:
         tau = sampler.get_autocorr_time()
         print("Auto-correlation time:", tau)
-        print("Effective samples:", n_dim * n_walkers * nsteps / np.max(tau))
+        print(
+            "Effective samples:", n_dim * n_walkers * (nsteps - burn_in) / np.max(tau)
+        )
         print("Acceptance fraction:", np.mean(sampler.acceptance_fraction))
     except emcee.autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
@@ -140,10 +142,14 @@ def main():
     [
         [h_16, h_50, h_84],
         [Om_16, Om_50, Om_84],
-        [w0_16, w0_50, w0_84],
+        [exp_w0_16, exp_w0_50, exp_w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = np.array([h_50, Om_50, w0_50], dtype=np.float64)
+    best_fit = np.array([h_50, Om_50, exp_w0_50], dtype=np.float64)
+
+    w0_samples = np.log(samples[:, 2])
+    w0_16, w0_50, w0_84 = np.percentile(w0_samples, [15.9, 50, 84.1])
+
     residuals = data["value"] - bao_theory(data["z"], quantities, best_fit)
     SS_res = np.sum(residuals**2)
     SS_tot = np.sum((data["value"] - np.mean(data["value"])) ** 2)
@@ -165,7 +171,7 @@ def main():
     )
     plot_bao_residuals(data, residuals, np.sqrt(np.diag(cov_matrix)))
 
-    labels = ["$h$", "$Ω_m$", "$w_0$"]
+    labels = ["$h$", "$Ω_m$", "$e^{w_0}$"]
     corner.corner(
         samples,
         labels=labels,
@@ -214,25 +220,25 @@ RMSD: 0.305
 
 Flat wCDM:
 rd: 147.09 Mpc (fixed)
-h: 0.679 +0.012 -0.011
-Ωm: 0.297 ± 0.009
-w0: -0.916 +0.076 -0.079 (1.05 sigma from -1)
-Chi squared: 9.11 (Δ chi2 1.16)
+h: 0.678 +0.012 -0.011
+Ωm: 0.297 +0.009 -0.009
+w0: -0.909 +0.076 -0.079
+Chi squared: 9.10
 Degs of freedom: 10
 R^2: 0.9989
-RMSD: 0.279
+RMSD: 0.277
 
 ===============================
 
 Flat alternative: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
 rd: 147.09 Mpc (fixed)
-h: 0.670 +0.016 -0.015
-Ωm: 0.308 ± 0.012
-w0: -0.833 +0.121 -0.127 (1.31 - 1.38 sigma from -1)
-Chi squared: 8.44 (Δ chi2 1.83)
+h: 0.668 +0.016 -0.015
+Ωm: 0.309 +0.012 -0.012
+w0: -0.816 +0.119 -0.126
+Chi squared: 8.43
 Degs of freedom: 10
-R^2: 0.9990
-RMSD: 0.265
+R^2: 0.9991
+RMSD: 0.262
 
 *******************************
 Dataset: SDSS 2020 compilation
@@ -250,22 +256,22 @@ RMSD: 0.684
 ===============================
 
 Flat wCDM:
-h: 0.665 +0.018 -0.016
-Ωm: 0.284 +0.019 -0.021
-w0: -0.810 +0.129 -0.134
-Chi squared: 9.82
+h: 0.663 +0.017 -0.016
+Ωm: 0.283 +0.019 -0.022
+w0: -0.793 +0.128 -0.132
+Chi squared: 9.81
 Degs of freedom: 14
 R^2: 0.9956
-RMSD: 0.677
+RMSD: 0.673
 
 ===============================
 
 Flat alternative: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-h: 0.663 +0.021 -0.020
-Ωm: 0.304 +0.019 -0.018
-w0: -0.769 +0.174 -0.185
-Chi squared: 10.05
+h: 0.659 +0.021 -0.019
+Ωm: 0.305 +0.018 -0.017
+w0: -0.737 +0.166 -0.178
+Chi squared: 10.04
 Degs of freedom: 14
-R^2: 0.9955
-RMSD: 0.680
+R^2: 0.9956
+RMSD: 0.678
 """

@@ -24,10 +24,10 @@ one_plus_z_hel = 1 + z_hel
 
 
 @njit
-def Ez(z, O_m, w0):
+def Ez(z, O_m, exp_w0):
     one_plus_z = 1 + z
     cubed = one_plus_z**3
-    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
+    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + np.log(exp_w0)))
     return np.sqrt(O_m * cubed + (1 - O_m) * rho_de)
 
 
@@ -98,7 +98,7 @@ bounds = np.array(
         (-20, -19),  # M
         (50, 80),  # H0
         (0.2, 0.7),  # Ωm
-        (-2, 0),  # w0
+        (0.01, 1.0),  # e^w0
     ],
     dtype=np.float64,
 )
@@ -159,7 +159,7 @@ def main():
         tau = sampler.get_autocorr_time()
         print("auto-correlation time", tau)
         print("acceptance fraction:", np.mean(sampler.acceptance_fraction))
-        print("effective samples", ndim * nwalkers * nsteps / np.max(tau))
+        print("effective samples", ndim * nwalkers * (nsteps - burn_in) / np.max(tau))
     except emcee.autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
 
@@ -170,10 +170,13 @@ def main():
         [M_16, M_50, M_84],
         [H0_16, H0_50, H0_84],
         [Om_16, Om_50, Om_84],
-        [w0_16, w0_50, w0_84],
+        [exp_w0_16, exp_w0_50, exp_w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = np.array([M_50, H0_50, Om_50, w0_50], dtype=np.float64)
+    best_fit = np.array([M_50, H0_50, Om_50, exp_w0_50], dtype=np.float64)
+
+    w0_samples = np.log(samples[:, 3])
+    w0_16, w0_50, w0_84 = np.percentile(w0_samples, [15.9, 50, 84.1])
 
     print(f"M0: {M_50:.3f} +{(M_84 - M_50):.3f} -{(M_50 - M_16):.3f}")
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f}")
@@ -198,7 +201,7 @@ def main():
         x_scale="log",
     )
 
-    labels = ["$M_0$", "$H_0$", "$Ω_m$", "$w_0$"]
+    labels = ["$M_0$", "$H_0$", "$Ω_m$", "$e^{w_0}$"]
     corner.corner(
         samples,
         labels=labels,

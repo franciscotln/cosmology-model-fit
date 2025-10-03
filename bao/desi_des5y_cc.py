@@ -32,10 +32,10 @@ one_plus_z_hel = 1 + z_sn_hel_vals
 
 @njit
 def Ez(z, p):
-    Om, w0 = p[4], p[5]
+    Om, exp_w0 = p[4], p[5]
     one_plus_z = 1 + z
     cubed = one_plus_z**3
-    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
+    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + np.log(exp_w0)))
     return np.sqrt(Om * cubed + (1 - Om) * rho_de)
 
 
@@ -107,7 +107,7 @@ bounds = np.array(
         (50, 80),  # H0
         (110, 175),  # r_d
         (0.2, 0.7),  # Ωm
-        (-1.1, -0.4),  # w_0
+        (0.01, 1.0),  # e^w0
     ],
     dtype=np.float64,
 )
@@ -175,7 +175,7 @@ def main():
         tau = sampler.get_autocorr_time()
         print("auto-correlation time", tau)
         print("acceptance fraction", np.mean(sampler.acceptance_fraction))
-        print("effective samples", ndim * nwalkers * nsteps / np.max(tau))
+        print("effective samples", ndim * nwalkers * (nsteps - burn_in) / np.max(tau))
     except emcee.autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
 
@@ -189,10 +189,15 @@ def main():
         [h0_16, h0_50, h0_84],
         [rd_16, rd_50, rd_84],
         [Om_16, Om_50, Om_84],
-        [w0_16, w0_50, w0_84],
+        [exp_w0_16, exp_w0_50, exp_w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = np.array([f_cc_50, dM_50, h0_50, rd_50, Om_50, w0_50], dtype=np.float64)
+    best_fit = np.array(
+        [f_cc_50, dM_50, h0_50, rd_50, Om_50, exp_w0_50], dtype=np.float64
+    )
+
+    w0_samples = np.log(samples[:, 5])
+    w0_16, w0_50, w0_84 = np.percentile(w0_samples, [15.9, 50, 84.1])
 
     deg_of_freedom = sn_sample + bao_data["value"].size + z_cc_vals.size - ndim
 
@@ -228,7 +233,7 @@ def main():
         x_scale="log",
     )
 
-    labels = ["$f_{CCH}$", "ΔM", "$H_0$", "$r_d$", "Ωm", "$w_0$"]
+    labels = ["$f_{CCH}$", "ΔM", "$H_0$", "$r_d$", "Ωm", "$e^{w_0}$"]
     corner.corner(
         samples,
         labels=labels,
@@ -275,26 +280,26 @@ Degrees of freedom: 1776
 
 Flat wCDM: w(z) = w0
 f_cc: 1.47 +0.19 -0.18
-ΔM: -0.065 +0.070 -0.072 mag
-H0: 67.2 +2.3 -2.2 km/s/Mpc
-r_d: 147.2 +4.9 -4.6 Mpc
-Ωm: 0.299 ± 0.009
-w0: -0.875 +0.038 -0.038
+ΔM: -0.066 +0.071 -0.072 mag
+H0: 67.1 +2.3 -2.2 km/s/Mpc
+r_d: 147.3 +4.9 -4.7 Mpc
+Ωm: 0.299 +0.009 -0.009
+w0: -0.873 +0.038 -0.039
 wa: 0
-Chi squared: 1680.41 (Δ chi2 10.85)
+Chi squared: 1680.46 (Δ chi2 10.79)
 Degrees of freedom: 1775
 
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
 f_cc: 1.46 +0.18 -0.18
-ΔM: -0.062 +0.071 -0.073 mag
-H0: 67.1 ± 2.3 km/s/Mpc
-r_d: 147.1 +5.0 -4.6 Mpc
+ΔM: -0.063 +0.070 -0.072 mag
+H0: 67.0 ± 2.2 km/s/Mpc
+r_d: 147.2 +4.9 -4.6 Mpc
 Ωm: 0.308 ± 0.008
-w0: -0.839 +0.045 -0.046
-wa: -(1 + w0) = -0.161 +0.045 -0.046
-Chi squared: 1678.83 (Δ chi2 12.43)
+w0: -0.837 +0.045 -0.046
+wa: -(1 + w0) = -0.163 +0.045 -0.046
+Chi squared: 1678.79 (Δ chi2 12.47)
 Degrees of freedom: 1775
 
 ===============================
