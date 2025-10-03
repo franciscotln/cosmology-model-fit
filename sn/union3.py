@@ -1,4 +1,4 @@
-import numba
+from numba import njit
 import emcee
 import matplotlib.pyplot as plt
 import numpy as np
@@ -22,7 +22,7 @@ z = np.linspace(0, np.max(z_values), num=1000)
 cubed = (1 + z) ** 3
 
 
-@numba.jit
+@njit
 def Ez(params):
     omega_m, w0 = params[1], params[2]
     rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
@@ -43,7 +43,7 @@ def mu_theory(params):
 
 def chi_squared(params):
     delta = mu_vals - mu_theory(params)
-    return np.dot(delta, cho_solve(cho, delta, check_finite=False))
+    return delta.dot(cho_solve(cho, delta, check_finite=False))
 
 
 def log_likelihood(params):
@@ -53,6 +53,7 @@ def log_likelihood(params):
 bounds = np.array([(-0.6, 0.6), (0, 1), (-2.5, 0.5)])  # ΔM  # Ωm  # w0
 
 
+@njit
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
         return 0.0
@@ -68,9 +69,9 @@ def log_probability(params):
 
 def main():
     n_dim = len(bounds)
-    n_walkers = 500
-    burn_in = 100
-    n_steps = burn_in + 1500
+    n_walkers = 150
+    burn_in = 200
+    n_steps = burn_in + 2000
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(n_walkers, n_dim))
 
     with Pool(5) as pool:
@@ -80,9 +81,9 @@ def main():
             log_probability,
             pool=pool,
             moves=[
-                (emcee.moves.KDEMove(), 0.5),
-                (emcee.moves.DEMove(), 0.4),
-                (emcee.moves.DESnookerMove(), 0.1),
+                (emcee.moves.KDEMove(), 0.30),
+                (emcee.moves.DEMove(), 0.56),
+                (emcee.moves.DESnookerMove(), 0.14),
             ],
         )
         sampler.run_mcmc(initial_pos, n_steps, progress=True)
@@ -91,6 +92,7 @@ def main():
         tau = sampler.get_autocorr_time()
         print("auto-correlation time", tau)
         print("acceptance fraction", np.mean(sampler.acceptance_fraction))
+        print("effective samples", n_walkers * n_steps * n_dim / np.max(tau))
     except emcee.autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
 
@@ -138,8 +140,8 @@ def main():
         quantiles=[0.159, 0.5, 0.841],
         show_titles=True,
         title_fmt=".4f",
-        smooth=1.5,
-        smooth1d=1.5,
+        smooth=2.0,
+        smooth1d=2.0,
         bins=100,
         levels=(0.393, 0.864),  # 1 and 2 sigmas in 2D
         fill_contours=False,
@@ -147,14 +149,14 @@ def main():
     )
     plt.show()
 
-    _, axes = plt.subplots(n_dim, figsize=(10, 7), sharex=True)
-    chains_samples = sampler.get_chain(discard=0, flat=False)
-    for i in range(n_dim):
-        axes[i].plot(chains_samples[:, :, i], color="black", alpha=0.3)
-        axes[i].set_ylabel(labels[i])
-        axes[i].axvline(x=burn_in, color="red", linestyle="--", alpha=0.5)
-        axes[i].axhline(y=best_fit_params[i], color="white", linestyle="--", alpha=0.5)
-    axes[n_dim - 1].set_xlabel("chain step")
+    chain_samples = sampler.get_chain(discard=burn_in, flat=False)
+    plt.figure(figsize=(16, 1.5 * n_dim))
+    for n in range(n_dim):
+        plt.subplot2grid((n_dim, 1), (n, 0))
+        plt.plot(chain_samples[:, :, n], alpha=0.3)
+        plt.ylabel(labels[n])
+        plt.xlim(0, None)
+    plt.tight_layout()
     plt.show()
 
     sigma_mu = np.sqrt(np.diag(cov_matrix))
