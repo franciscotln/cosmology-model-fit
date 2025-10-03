@@ -25,9 +25,9 @@ c = 299792.458  # Speed of light in km/s
 
 @njit
 def Ez(z, params):
-    O_m, w0 = params[3], params[4]
+    O_m, exp_w0 = params[3], params[4]
     cubed = (1 + z) ** 3
-    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
+    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + np.log(exp_w0)))
     return np.sqrt(O_m * cubed + (1 - O_m) * rho_de)
 
 
@@ -49,7 +49,7 @@ bounds = np.array(
         (-0.7, 0.7),  # ΔM
         (50, 80),  # H0
         (0.1, 0.6),  # Ωm
-        (-1.5, 0.5),  # w0
+        (0.01, 0.8),  # w0
     ],
     dtype=np.float64,
 )
@@ -88,21 +88,21 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 100 * ndim
-    burn_in = 100
-    nsteps = 1000 + burn_in
+    nwalkers = 150
+    burn_in = 200
+    nsteps = 2000 + burn_in
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
 
-    with Pool(10) as pool:
+    with Pool(6) as pool:
         sampler = emcee.EnsembleSampler(
             nwalkers,
             ndim,
             log_probability,
             pool=pool,
             moves=[
-                (emcee.moves.KDEMove(), 0.5),
-                (emcee.moves.DEMove(), 0.4),
-                (emcee.moves.DESnookerMove(), 0.1),
+                (emcee.moves.KDEMove(), 0.3),
+                (emcee.moves.DEMove(), 0.56),
+                (emcee.moves.DESnookerMove(), 0.14),
             ],
         )
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
@@ -111,6 +111,7 @@ def main():
         tau = sampler.get_autocorr_time()
         print("auto-correlation time", tau)
         print("acceptance fraction", np.mean(sampler.acceptance_fraction))
+        print("effective samples", ndim * nwalkers * (nsteps - burn_in) / np.max(tau))
     except emcee.autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
 
@@ -121,11 +122,14 @@ def main():
         [dM_16, dM_50, dM_84],
         [h0_16, h0_50, h0_84],
         [Om_16, Om_50, Om_84],
-        [w0_16, w0_50, w0_84],
+        [exp_w0_16, exp_w0_50, exp_w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = np.array([f_cc_50, dM_50, h0_50, Om_50, w0_50], dtype=np.float64)
+    best_fit = np.array([f_cc_50, dM_50, h0_50, Om_50, exp_w0_50], dtype=np.float64)
     deg_of_freedom = effective_sample_size + z_cc_vals.size - len(best_fit)
+
+    w0_samples = np.log(samples[:, 4])
+    w0_16, w0_50, w0_84 = np.percentile(w0_samples, [15.9, 50, 84.1])
 
     print(f"f_cc: {f_cc_50:.2f} +{(f_cc_84 - f_cc_50):.2f} -{(f_cc_50 - f_cc_16):.2f}")
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f}")
@@ -148,19 +152,19 @@ def main():
         y=observed_mu_vals,
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=theory_mu(best_fit),
-        label=f"Best fit: $\Omega_m$={Om_50:.3f}, $H_0$={h0_50:.1f} km/s/Mpc",
+        label=f"Best fit: $Ω_m$={Om_50:.3f}, $H_0$={h0_50:.1f} km/s/Mpc",
         x_scale="log",
     )
 
-    labels = ["$f_{CCH}$", "ΔM", "$H_0$", "Ωm", "$w_0$"]
+    labels = ["$f_{CCH}$", "ΔM", "$H_0$", "Ωm", "$e^{w_0}$"]
     corner.corner(
         samples,
         labels=labels,
         quantiles=[0.159, 0.5, 0.841],
         show_titles=True,
         title_fmt=".3f",
-        smooth=1.5,
-        smooth1d=1.5,
+        smooth=2.0,
+        smooth1d=2.0,
         bins=100,
         levels=(0.393, 0.864),  # 1 and 2 sigmas in 2D
         fill_contours=False,
@@ -168,14 +172,14 @@ def main():
     )
     plt.show()
 
-    _, axes = plt.subplots(ndim, figsize=(10, 7), sharex=True)
-    chains_samples = sampler.get_chain(discard=0, flat=False)
-    for i in range(ndim):
-        axes[i].plot(chains_samples[:, :, i], color="black", alpha=0.3)
-        axes[i].set_ylabel(labels[i])
-        axes[i].axvline(x=burn_in, color="red", linestyle="--", alpha=0.5)
-        axes[i].axhline(y=best_fit[i], color="white", linestyle="--", alpha=0.5)
-    axes[ndim - 1].set_xlabel("walkers steps")
+    chains_samples = sampler.get_chain(discard=burn_in, flat=False)
+    plt.figure(figsize=(16, 1.5 * ndim))
+    for n in range(ndim):
+        plt.subplot2grid((ndim, 1), (n, 0))
+        plt.plot(chains_samples[:, :, n], alpha=0.3)
+        plt.ylabel(labels[n])
+        plt.xlim(0, None)
+    plt.tight_layout()
     plt.show()
 
 
@@ -197,21 +201,21 @@ Degrees of freedom: 1764
 
 Flat wCDM: w(z) = w0
 f_cc: 1.46 +0.18 -0.18
-ΔM: -0.076 +0.083 -0.082
-H0: 66.7 +2.6 -2.5
-Ωm: 0.308 +0.043 -0.048
-w0: -0.883 +0.101 -0.110
-Chi squared: 1670.77
+ΔM: -0.073 +0.081 -0.083 mag
+H0: 66.8 +2.5 -2.5 km/s/Mpc
+Ωm: 0.306 +0.043 -0.048
+w0: -0.960 +0.033 -0.036
+Chi squared: 1670.57
 Degrees of freedom: 1763
 
 ==============================
 
 Flat alternative: w(z) = -1 + 2 * (1 + w0) / ((1 + z)**3 + 1)
-f_cc: 1.45 +0.18 -0.18
-ΔM: -0.074 +0.081 -0.083
-H0: 66.7 +2.5 -2.5
-Ωm: 0.318 +0.030 -0.030
-w0: -0.870 +0.094 -0.104
-Chi squared: 1669.96
+f_cc: 1.46 +0.19 -0.18
+ΔM: -0.070 +0.080 -0.081 mag
+H0: 66.8 +2.5 -2.5 km/s/Mpc
+Ωm: 0.316 +0.030 -0.030
+w0: -0.860 +0.093 -0.103
+Chi squared: 1670.06
 Degrees of freedom: 1763
 """

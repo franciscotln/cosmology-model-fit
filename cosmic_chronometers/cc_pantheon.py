@@ -24,9 +24,9 @@ c = 299792.458  # Speed of light in km/s
 
 
 @njit
-def Ez(z, O_m, w0):
+def Ez(z, O_m, exp_w0):
     one_plus_z = 1 + z
-    rho_de = (2 * one_plus_z**3 / (1 + one_plus_z**3)) ** (2 * (1 + w0))
+    rho_de = (2 * one_plus_z**3 / (1 + one_plus_z**3)) ** (2 * (1 + np.log(exp_w0)))
     return np.sqrt(O_m * one_plus_z**3 + (1 - O_m) * rho_de)
 
 
@@ -54,7 +54,7 @@ bounds = np.array(
         (55, 80),  # H0
         (-20, -19),  # M
         (0.15, 0.70),  # Ωm
-        (-1.5, 0.0),  # w0
+        (0.01, 0.8),  # w0
     ],
     dtype=np.float64,
 )
@@ -93,9 +93,9 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 500
-    burn_in = 100
-    nsteps = 1000 + burn_in
+    nwalkers = 150
+    burn_in = 200
+    nsteps = 2000 + burn_in
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
 
     with Pool(5) as pool:
@@ -105,9 +105,9 @@ def main():
             log_probability,
             pool=pool,
             moves=[
-                (emcee.moves.KDEMove(), 0.5),
-                (emcee.moves.DEMove(), 0.4),
-                (emcee.moves.DESnookerMove(), 0.1),
+                (emcee.moves.KDEMove(), 0.3),
+                (emcee.moves.DEMove(), 0.56),
+                (emcee.moves.DESnookerMove(), 0.14),
             ],
         )
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
@@ -116,6 +116,7 @@ def main():
         tau = sampler.get_autocorr_time()
         print("auto-correlation time", tau)
         print("acceptance fraction", np.mean(sampler.acceptance_fraction))
+        print("effective samples", ndim * nwalkers * (nsteps - burn_in) / np.max(tau))
     except emcee.autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
 
@@ -126,10 +127,13 @@ def main():
         [h0_16, h0_50, h0_84],
         [M_16, M_50, M_84],
         [Om_16, Om_50, Om_84],
-        [w0_16, w0_50, w0_84],
+        [exp_w0_16, exp_w0_50, exp_w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = [f_cc_50, h0_50, M_50, Om_50, w0_50]
+    best_fit = [f_cc_50, h0_50, M_50, Om_50, exp_w0_50]
+
+    w0_samples = np.log(samples[:, 4])
+    w0_16, w0_50, w0_84 = np.percentile(w0_samples, [15.9, 50, 84.1])
 
     deg_of_freedom = z_vals.size + z_cc_vals.size - len(best_fit)
 
@@ -158,15 +162,15 @@ def main():
         x_scale="log",
     )
 
-    labels = ["$f_{CCH}$", "$H_0$", "M", "$\Omega_m$", "$w_0$"]
+    labels = ["$f_{CCH}$", "$H_0$", "M", "$Ω_m$", "$e^{w_0}$"]
     corner.corner(
         samples,
         labels=labels,
         quantiles=[0.159, 0.5, 0.841],
         show_titles=True,
         title_fmt=".4f",
-        smooth=1.5,
-        smooth1d=1.5,
+        smooth=2.0,
+        smooth1d=2.0,
         bins=100,
         levels=(0.393, 0.864),  # 1 and 2 sigmas in 2D
         fill_contours=False,
@@ -174,14 +178,14 @@ def main():
     )
     plt.show()
 
-    _, axes = plt.subplots(ndim, figsize=(10, 7), sharex=True)
-    chains_samples = sampler.get_chain(discard=0, flat=False)
-    for i in range(ndim):
-        axes[i].plot(chains_samples[:, :, i], color="black", alpha=0.3)
-        axes[i].set_ylabel(labels[i])
-        axes[i].axvline(x=burn_in, color="red", linestyle="--", alpha=0.5)
-        axes[i].axhline(y=best_fit[i], color="white", linestyle="--", alpha=0.5)
-    axes[ndim - 1].set_xlabel("chain step")
+    chains_samples = sampler.get_chain(discard=burn_in, flat=False)
+    plt.figure(figsize=(16, 1.5 * ndim))
+    for n in range(ndim):
+        plt.subplot2grid((ndim, 1), (n, 0))
+        plt.plot(chains_samples[:, :, n], alpha=0.3)
+        plt.ylabel(labels[n])
+        plt.xlim(0, None)
+    plt.tight_layout()
     plt.show()
 
 
@@ -191,33 +195,33 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM: w(z) = -1
-f_cc: 1.47 +0.19 -0.18
-H0: 67.0 +2.4 -2.4 km/s/Mpc
-M: -19.446 +0.075 -0.077 mag
-Ωm: 0.331 +0.017 -0.017
+f_cc: 1.48 +0.19 -0.18
+H0: 67.1 +2.4 -2.4 km/s/Mpc
+M: -19.445 +0.074 -0.077 mag
+Ωm: 0.330 +0.017 -0.016
 w0: -1
-Chi squared: 1435.09
+Chi squared: 1435.18
 Degrees of freedom: 1619
 
 ==============================
 
 Flat wCDM: w(z) = w0
 f_cc: 1.46 +0.19 -0.18
-H0: 67.3 +2.6 -2.6 km/s/Mpc
-M: -19.436 +0.084 -0.086 mag
-Ωm: 0.318 +0.039 -0.043
-w0: -0.962 +0.101 -0.111
-Chi squared: 1434.34
+H0: 67.4 +2.6 -2.6 km/s/Mpc
+M: -19.431 +0.082 -0.085 mag
+Ωm: 0.314 +0.039 -0.042
+w0: -0.951 +0.100 -0.108
+Chi squared: 1434.39
 Degrees of freedom: 1618
 
 ==============================
 
 Flat alternative: w(z) = -1 + 2 * (1 + w0) / ((1 + z)**3 + 1)
 f_cc: 1.46 +0.18 -0.18
-H0: 67.2 +2.6 -2.5 km/s/Mpc
-M: -19.437 +0.081 -0.084 mag
-Ωm: 0.323 +0.030 -0.030
-w0: -0.964 +0.097 -0.109
-Chi squared: 1434.50
+H0: 67.3 +2.6 -2.5 km/s/Mpc
+M: -19.434 +0.082 -0.082 mag
+Ωm: 0.319 +0.030 -0.029
+w0: -0.952 +0.095 -0.106
+Chi squared: 1434.42
 Degrees of freedom: 1618
 """

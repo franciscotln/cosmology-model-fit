@@ -16,16 +16,17 @@ logdet = np.linalg.slogdet(cov_matrix)[1]
 
 
 @njit
-def H_z(z, h0, Om, w0=-0.833):
+def H_z(z, h0, Om, exp_w0):
     cubed = (1 + z) ** 3
-    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
+    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + np.log(exp_w0)))
     return h0 * np.sqrt(Om * cubed + (1 - Om) * rho_de)
 
 
 bounds = np.array(
     [
-        (40, 120),  # H0
+        (30, 120),  # H0
         (0, 0.7),  # Om
+        (0.0001, 1.2),  # exp(w0)
         (0.4, 3),  # f
     ],
     dtype=np.float64,
@@ -34,7 +35,7 @@ bounds = np.array(
 
 def chi_squared(params):
     f = params[-1]
-    delta = H_values - H_z(z_values, *params[0:2])
+    delta = H_values - H_z(z_values, *params[0:3])
     return f**2 * np.dot(delta, cho_solve(cho, delta, check_finite=False))
 
 
@@ -62,7 +63,7 @@ def main():
     ndim = len(bounds)
     nwalkers = 150
     burn_in = 200
-    nsteps = 2000 + burn_in
+    nsteps = 2500 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):
@@ -75,9 +76,9 @@ def main():
             log_probability,
             pool=pool,
             moves=[
-                (emcee.moves.KDEMove(), 0.5),
-                (emcee.moves.DEMove(), 0.4),
-                (emcee.moves.DESnookerMove(), 0.1),
+                (emcee.moves.KDEMove(), 0.30),
+                (emcee.moves.DEMove(), 0.56),
+                (emcee.moves.DESnookerMove(), 0.14),
             ],
         )
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
@@ -86,7 +87,7 @@ def main():
         tau = sampler.get_autocorr_time()
         print("auto-correlation time", tau)
         print("acceptance fraction", np.mean(sampler.acceptance_fraction))
-        print("effective samples", nwalkers * nsteps * ndim / np.max(tau))
+        print("effective samples", nwalkers * (nsteps - burn_in) * ndim / np.max(tau))
     except emcee.autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
 
@@ -97,26 +98,34 @@ def main():
     [
         [H0_16, H0_50, H0_84],
         [Om_16, Om_50, Om_84],
+        [exp_w0_16, exp_w0_50, exp_w0_84],
         [f_16, f_50, f_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = np.array([H0_50, Om_50, f_50], dtype=np.float64)
+    w0_samples = np.log(samples[:, 2])
+    w0_16, w0_50, w0_84 = np.percentile(w0_samples, [15.9, 50, 84.1])
+
+    best_fit = np.array([H0_50, Om_50, exp_w0_50, f_50], dtype=np.float64)
 
     print(f"H0: {H0_50:.1f} +{(H0_84 - H0_50):.1f} -{(H0_50 - H0_16):.1f}")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
+    print(
+        f"exp(w0): {exp_w0_50:.3f} +{(exp_w0_84 - exp_w0_50):.3f} -{(exp_w0_50 - exp_w0_16):.3f}"
+    )
+    print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"f: {f_50:.3f} +{(f_84 - f_50):.3f} -{(f_50 - f_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Log likelihood: {log_likelihood(best_fit):.2f}")
     print(f"Degs of freedom: {z_values.size  - len(best_fit)}")
 
     plot_cc_predictions(
-        H_z=lambda z: H_z(z, *best_fit[0:2]),
+        H_z=lambda z: H_z(z, *best_fit[0:3]),
         z=z_values,
         H=H_values,
         H_err=np.sqrt(np.diag(cov_matrix)) / f_50,
         label=f"{legend} $H_0$: {H0_50:.1f} ± {(H0_84 - H0_50):.1f} km/s/Mpc",
     )
-    labels = ["$H_0$", "$Ω_m$", "f"]
+    labels = ["$H_0$", "$Ω_m$", "$exp(w0)$", "$f$"]
     corner.corner(
         samples,
         labels=labels,
@@ -191,30 +200,24 @@ So the uncertainties in the H(z) dataset are overestimated by a factor of 1.46 �
 ===============================
 
 Flat wCDM: w(z) = w0
-H0: 66.3 +3.6 -3.7 km/s/Mpc
-Ωm: 0.323 +0.053 -0.045
-w0: -0.916 (fixed - from DESI)
-f: 1.448 +0.187 -0.178
-Chi squared: 31.29
-Log likelihood: -130.67
-Degs of freedom: 30
-Correlation matrix:
-[[ 1.      -0.80322  0.02947]
- [-0.80322  1.      -0.04978]
- [ 0.02947 -0.04978  1.     ]]
+H0: 68.2 +6.4 -5.5 km/s/Mpc
+Ωm: 0.312 +0.053 -0.057
+exp(w0): 0.325 +0.183 -0.134
+w0: -1.124 +0.446 -0.531
+f: 1.441 +0.187 -0.180
+Chi squared: 30.98
+Log likelihood: -130.68
+Degs of freedom: 29
 
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / ((1 + z)**3 + 1)
-H0: 65.5 +3.6 -3.6 km/s/Mpc
-Ωm: 0.333 +0.054 -0.046
-w0: -0.833 (fixed - from DESI)
-f: 1.443 +0.185 -0.178
-Chi squared: 31.34
-Log likelihood: -130.81
-Degs of freedom: 30
-Correlation matrix:
-[[ 1.      -0.79706  0.03142]
- [-0.79706  1.      -0.04873]
- [ 0.03142 -0.04873  1.     ]]
+H0: 68.6 +7.2 -6.2 km/s/Mpc
+Ωm: 0.317 +0.056 -0.048
+exp(w0): 0.309 +0.208 -0.144
+w0: -1.173 +0.514 -0.626
+f: 1.443 +0.187 -0.181
+Chi squared: 30.51
+Log likelihood: -130.40
+Degs of freedom: 29
 """
