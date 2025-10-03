@@ -56,9 +56,13 @@ def DH_z(z, params):
 
 @njit
 def DM_z(z, params):
-    x = np.linspace(0, z, num=max(250, int(250 * z)))
-    y = DH_z(x, params)
-    return np.trapz(y=y, x=x)
+    result = np.empty(z.size, dtype=np.float64)
+    for i in range(z.size):
+        zp = z[i]
+        x = np.linspace(0, zp, num=max(250, int(250 * zp)))
+        y = DH_z(x, params)
+        result[i] = np.trapz(y=y, x=x)
+    return result
 
 
 @njit
@@ -84,15 +88,13 @@ def bao_theory(z, qty, params):
     rd = cmb.r_drag(wb=Obh2, wm=Omh2)
 
     results = np.empty(z.size, dtype=np.float64)
-    for i in range(z.size):
-        q = qty[i]
-        if q == 0:
-            results[i] = DV_z(z[i], params) / rd
-        elif q == 1:
-            results[i] = DM_z(z[i], params) / rd
-        elif q == 2:
-            results[i] = DH_z(z[i], params) / rd
-    return results
+    DV_mask = qty == 0
+    DM_mask = qty == 1
+    DH_mask = qty == 2
+    results[DH_mask] = DH_z(z[DH_mask], params)
+    results[DM_mask] = DM_z(z[DM_mask], params)
+    results[DV_mask] = DV_z(z[DV_mask], params)
+    return results / rd
 
 
 def chi_squared(params):
@@ -142,24 +144,24 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 500
-    burn_in = 100
-    nsteps = 1000 + burn_in
+    nwalkers = 150
+    burn_in = 200
+    nsteps = 2000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):
         initial_pos[:, dim] = np.random.uniform(lower, upper, nwalkers)
 
-    with Pool(10) as pool:
+    with Pool(6) as pool:
         sampler = emcee.EnsembleSampler(
             nwalkers,
             ndim,
             log_probability,
             pool=pool,
             moves=[
-                (emcee.moves.KDEMove(), 0.5),
-                (emcee.moves.DEMove(), 0.4),
-                (emcee.moves.DESnookerMove(), 0.1),
+                (emcee.moves.KDEMove(), 0.30),
+                (emcee.moves.DEMove(), 0.56),
+                (emcee.moves.DESnookerMove(), 0.14),
             ],
         )
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
@@ -167,10 +169,13 @@ def main():
     try:
         tau = sampler.get_autocorr_time()
         print("auto-correlation time", tau)
+        print("acceptance fraction", np.mean(sampler.acceptance_fraction))
+        print("effective samples", ndim * nwalkers * nsteps / np.max(tau))
     except emcee.autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
 
     samples = sampler.get_chain(discard=burn_in, flat=True)
+    chains_samples = sampler.get_chain(discard=burn_in, flat=False)
 
     pct = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
     H0_16, H0_50, H0_84 = pct[0]
@@ -240,10 +245,19 @@ def main():
         bins=100,
         fill_contours=False,
         plot_datapoints=False,
-        smooth=1.5,
-        smooth1d=1.5,
+        smooth=2.0,
+        smooth1d=2.0,
         levels=(0.393, 0.864),
     )
+    plt.show()
+
+    plt.figure(figsize=(16, 1.5 * ndim))
+    for n in range(ndim):
+        plt.subplot2grid((ndim, 1), (n, 0))
+        plt.plot(chains_samples[:, :, n], alpha=0.3)
+        plt.ylabel(labels[n])
+        plt.xlim(0, None)
+    plt.tight_layout()
     plt.show()
 
 

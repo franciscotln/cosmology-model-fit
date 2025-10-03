@@ -49,9 +49,13 @@ def DH_z(z, params):
 
 @njit
 def DM_z(z, params):
-    x = np.linspace(0, z, num=max(250, int(250 * z)))
-    y = DH_z(x, params)
-    return np.trapz(y=y, x=x)
+    result = np.empty(z.size, dtype=np.float64)
+    for i in range(z.size):
+        zp = z[i]
+        x = np.linspace(0, zp, num=max(250, int(250 * zp)))
+        y = DH_z(x, params)
+        result[i] = np.trapz(y=y, x=x)
+    return result
 
 
 @njit
@@ -73,24 +77,22 @@ quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int64
 @njit
 def bao_theory(z, qty, params):
     rd_h = params[1] * 100
+    DV_mask = qty == 0
+    DM_mask = qty == 1
+    DH_mask = qty == 2
     results = np.empty(z.size, dtype=np.float64)
-    for i in range(z.size):
-        q = qty[i]
-        if q == 0:
-            results[i] = DV_z(z[i], params) / rd_h
-        elif q == 1:
-            results[i] = DM_z(z[i], params) / rd_h
-        elif q == 2:
-            results[i] = DH_z(z[i], params) / rd_h
-    return results
+    results[DH_mask] = DH_z(z[DH_mask], params)
+    results[DM_mask] = DM_z(z[DM_mask], params)
+    results[DV_mask] = DV_z(z[DV_mask], params)
+    return results / rd_h
 
 
 def chi_squared(params):
     delta_sn = mu_values - theory_mu(params)
-    chi_sn = np.dot(delta_sn, cho_solve(cho_sn, delta_sn, check_finite=False))
+    chi_sn = delta_sn.dot(cho_solve(cho_sn, delta_sn, check_finite=False))
 
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
-    chi_bao = np.dot(delta_bao, cho_solve(cho_bao, delta_bao, check_finite=False))
+    chi_bao = delta_bao.dot(cho_solve(cho_bao, delta_bao, check_finite=False))
     return chi_sn + chi_bao
 
 
@@ -125,9 +127,9 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 500
-    burn_in = 100
-    nsteps = 1000 + burn_in
+    nwalkers = 150
+    burn_in = 200
+    nsteps = 2000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):
@@ -140,9 +142,9 @@ def main():
             log_probability,
             pool=pool,
             moves=[
-                (emcee.moves.KDEMove(), 0.5),
-                (emcee.moves.DEMove(), 0.4),
-                (emcee.moves.DESnookerMove(), 0.1),
+                (emcee.moves.KDEMove(), 0.30),
+                (emcee.moves.DEMove(), 0.56),
+                (emcee.moves.DESnookerMove(), 0.14),
             ],
         )
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
@@ -150,10 +152,12 @@ def main():
     try:
         tau = sampler.get_autocorr_time()
         print("auto-correlation time", tau)
+        print("acceptance fraction:", np.mean(sampler.acceptance_fraction))
+        print("effective samples", ndim * nwalkers * nsteps / np.max(tau))
     except emcee.autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
 
-    chains_samples = sampler.get_chain(discard=0, flat=False)
+    chains_samples = sampler.get_chain(discard=burn_in, flat=False)
     samples = sampler.get_chain(discard=burn_in, flat=True)
 
     [
@@ -204,13 +208,13 @@ def main():
     )
     plt.show()
 
-    _, axes = plt.subplots(ndim, figsize=(10, 7))
-    for i in range(ndim):
-        axes[i].plot(chains_samples[:, :, i], color="black", alpha=0.3, lw=0.4)
-        axes[i].set_ylabel(labels[i])
-        axes[i].axvline(x=burn_in, color="red", linestyle="--", alpha=0.5)
-        axes[i].axhline(y=best_fit[i], color="white", linestyle="--", alpha=0.5)
-    axes[ndim - 1].set_xlabel("chain step")
+    plt.figure(figsize=(16, 1.5 * ndim))
+    for n in range(ndim):
+        plt.subplot2grid((ndim, 1), (n, 0))
+        plt.plot(chains_samples[:, :, n], alpha=0.3)
+        plt.ylabel(labels[n])
+        plt.xlim(0, None)
+    plt.tight_layout()
     plt.show()
 
 
