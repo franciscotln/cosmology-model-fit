@@ -5,7 +5,7 @@ import corner
 from scipy.linalg import cho_factor, cho_solve
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
-import cmb.data_cmb_act_compression as cmb
+import cmb.data_chen_compression as cmb
 from y2005cc.data import get_data
 from .plot_predictions import plot_cc_predictions
 
@@ -79,24 +79,24 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 500
-    burn_in = 100
-    nsteps = 1000 + burn_in
+    nwalkers = 150
+    burn_in = 200
+    nsteps = 2000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):
         initial_pos[:, dim] = np.random.uniform(lower, upper, nwalkers)
 
-    with Pool(10) as pool:
+    with Pool(5) as pool:
         sampler = emcee.EnsembleSampler(
             nwalkers,
             ndim,
             log_probability,
             pool=pool,
             moves=[
-                (emcee.moves.KDEMove(), 0.5),
-                (emcee.moves.DEMove(), 0.4),
-                (emcee.moves.DESnookerMove(), 0.1),
+                (emcee.moves.KDEMove(), 0.30),
+                (emcee.moves.DEMove(), 0.56),
+                (emcee.moves.DESnookerMove(), 0.14),
             ],
         )
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
@@ -104,6 +104,8 @@ def main():
     try:
         tau = sampler.get_autocorr_time()
         print("auto-correlation time", tau)
+        print("acceptance fraction", np.mean(sampler.acceptance_fraction))
+        print("effective samples", nwalkers * ndim * nsteps / np.max(tau))
     except emcee.autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
 
@@ -153,14 +155,14 @@ def main():
     )
     plt.show()
 
-    _, axes = plt.subplots(ndim, figsize=(10, 7), sharex=True)
-    chains_samples = sampler.get_chain(discard=0, flat=False)
-    for i in range(ndim):
-        axes[i].plot(chains_samples[:, :, i], color="black", alpha=0.3)
-        axes[i].set_ylabel(labels[i])
-        axes[i].axvline(x=burn_in, color="red", linestyle="--", alpha=0.5)
-        axes[i].axhline(y=best_fit[i], color="white", linestyle="--", alpha=0.5)
-    axes[ndim - 1].set_xlabel("chain step")
+    chains_samples = sampler.get_chain(discard=burn_in, flat=False)
+    plt.figure(figsize=(16, 1.5 * ndim))
+    for n in range(ndim):
+        plt.subplot2grid((ndim, 1), (n, 0))
+        plt.plot(chains_samples[:, :, n], alpha=0.3)
+        plt.ylabel(labels[n])
+        plt.xlim(0, None)
+    plt.tight_layout()
     plt.show()
 
 
@@ -176,17 +178,17 @@ https://arxiv.org/pdf/2506.03836
 *******************************
 
 Flat ΛCDM
-H0: 67.26 ± 0.49 km/s/Mpc
-Ωm: 0.317 ± 0.007
-Ωb x h^2: 0.02237 ± 0.00014
+H0: 67.39 +0.60 -0.59 km/s/Mpc
+Ωm: 0.3169 +0.0082 -0.0081
+Ωb x h^2: 0.02236 +0.00015 -0.00015
 f_cc: 1.00 +0.12 -0.12
-Chi squared: 33.28
-Log likelihood: -130.47
+Chi squared: 33.25
+Log likelihood: -130.54
 Degs of freedom: 32
 
 correlation matrix:
-[[ 1.00000e+00 -9.92880e-01  7.00798e-01  6.99075e-04]
- [-9.92880e-01  1.00000e+00 -6.34888e-01 -1.36239e-03]
- [ 7.00798e-01 -6.34888e-01  1.00000e+00 -1.27770e-03]
- [ 6.99075e-04 -1.36239e-03 -1.27770e-03  1.00000e+00]]
+[[ 1.      -0.99333  0.72252 -0.00748]
+ [-0.99333  1.      -0.6542   0.00684]
+ [ 0.72252 -0.6542   1.      -0.00841]
+ [-0.00748  0.00684 -0.00841  1.     ]]
 """
