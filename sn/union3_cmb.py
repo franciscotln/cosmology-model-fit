@@ -83,9 +83,9 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 500
-    burn_in = 100
-    nsteps = 1500 + burn_in
+    nwalkers = 150
+    burn_in = 200
+    nsteps = 2000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):
@@ -98,9 +98,9 @@ def main():
             log_probability,
             pool=pool,
             moves=[
-                (emcee.moves.KDEMove(), 0.5),
-                (emcee.moves.DEMove(), 0.4),
-                (emcee.moves.DESnookerMove(), 0.1),
+                (emcee.moves.KDEMove(), 0.30),
+                (emcee.moves.DEMove(), 0.56),
+                (emcee.moves.DESnookerMove(), 0.14),
             ],
         )
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
@@ -109,10 +109,11 @@ def main():
         tau = sampler.get_autocorr_time()
         print("auto-correlation time", tau)
         print("acceptance fraction", np.mean(sampler.acceptance_fraction))
+        print("effective samples", ndim * nwalkers * nsteps / np.max(tau))
     except emcee.autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
 
-    chains_samples = sampler.get_chain(discard=0, flat=False)
+    chains_samples = sampler.get_chain(discard=burn_in, flat=False)
     samples = sampler.get_chain(discard=burn_in, flat=True)
 
     pct = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
@@ -169,19 +170,19 @@ def main():
         bins=100,
         fill_contours=False,
         plot_datapoints=False,
-        smooth=1.5,
-        smooth1d=1.5,
+        smooth=2.0,
+        smooth1d=2.0,
         levels=(0.393, 0.864),
     )
     plt.show()
 
-    _, axes = plt.subplots(ndim, figsize=(10, 7), sharex=True)
-    for i in range(ndim):
-        axes[i].plot(chains_samples[:, :, i], color="black", alpha=0.3, lw=0.4)
-        axes[i].set_ylabel(labels[i])
-        axes[i].axvline(x=burn_in, color="red", linestyle="--", alpha=0.5)
-        axes[i].axhline(y=best_fit[i], color="white", linestyle="--", alpha=0.5)
-    axes[i].set_xlabel("chain step")
+    plt.figure(figsize=(16, 1.5 * ndim))
+    for n in range(ndim):
+        plt.subplot2grid((ndim, 1), (n, 0))
+        plt.plot(chains_samples[:, :, n], alpha=0.3)
+        plt.ylabel(labels[n])
+        plt.xlim(0, None)
+    plt.tight_layout()
     plt.show()
 
 
@@ -196,65 +197,65 @@ Sample size: 22
 *******************************
 
 Flat ΛCDM w(z) = -1
-H0: 66.9 +0.58 -0.57 km/s/Mpc
-Ωm: 0.319 ± 0.008
-Ωm h^2: 0.14262 +0.00120 -0.00119
-Ωb h^2: 0.02235 +0.00015 - 0.00014
+H0: 67.11 +0.57 -0.57 km/s/Mpc
+Ωm: 0.319 +0.008 -0.008
+Ωm h^2: 0.14359 +0.00122 -0.00121
+Ωb h^2: 0.02234 +0.00014 -0.00014
 w0: -1
-ΔM: -0.174 +0.090 -0.091
-z*: 1088.84 ± 0.21
-z_drag: 1059.81 ± 0.30
-r_s(z*) = 144.49 Mpc
-r_s(z_drag) = 147.07 Mpc
+ΔM: -0.167 +0.089 -0.090
+z*: 1091.99 +0.27 -0.27
+z_drag: 1063.40 +0.29 -0.30
+r_s(z*) = 144.00 Mpc
+r_s(z_drag) = 146.52 Mpc
 Chi squared: 26.2
 Degrees of freedom: 21
 
 ===============================
 
 Flat wCDM w(z) = w0
-H0: 65.0 +1.2 -1.2 km/s/Mpc
+H0: 65.21 +1.22 -1.21 km/s/Mpc
 Ωm: 0.336 +0.014 -0.013
-Ωm h^2: 0.14201 ± 0.00125
-Ωb h^2: 0.02239 ± 0.00015
-w0: -0.925 ± 0.044
-ΔM: -0.227 ± 0.095
-z*: 1088.75 ± 0.22
-z_drag: 1059.88 +0.29 -0.30
-r_s(z*) = 144.61 Mpc
-r_s(z_drag) = 147.18 Mpc
-Chi squared: 23.2 (Δ chi2 2.8)
+Ωm h^2: 0.14293 +0.00128 -0.00127
+Ωb h^2: 0.02240 +0.00015 -0.00015
+w0: -0.925 +0.043 -0.043
+ΔM: -0.220 +0.095 -0.095
+z*: 1091.86 +0.28 -0.28
+z_drag: 1063.46 +0.30 -0.30
+r_s(z*) = 144.14 Mpc
+r_s(z_drag) = 146.64 Mpc
+Chi squared: 23.2 (Δ chi2 3.0)
 Degrees of freedom: 20
 
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)^3)
-H0: 65.1 +1.1 -1.1 km/s/Mpc
-Ωm: 0.335 ± 0.012
-Ωm h^2: 0.14183 ± 0.00124
-Ωb h^2: 0.02240 ± 0.00015
-w0: -0.873 ± 0.066
-ΔM: -0.220 +0.093 -0.092
-z*: 1088.73 +0.22 -0.21
-z_drag: 1059.87 +0.30 -0.30
-r_s(z*) = 144.69 Mpc
-r_s(z_drag) = 147.26 Mpc
-Chi squared: 22.5 (Δ chi2 3.7)
+H0: 65.30 +1.06 -1.06 km/s/Mpc
+Ωm: 0.335 +0.012 -0.012
+Ωm h^2: 0.14290 +0.00127 -0.00127
+Ωb h^2: 0.02240 +0.00015 -0.00014
+w0: -0.872 +0.065 -0.065
+ΔM: -0.213 +0.093 -0.092
+z*: 1091.86 +0.28 -0.28
+z_drag: 1063.46 +0.30 -0.29
+r_s(z*) = 144.15 Mpc
+r_s(z_drag) = 146.66 Mpc
+Chi squared: 22.56 (Δ chi2 3.6)
 Degrees of freedom: 20
 
 ===============================
 
 Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
-H0: 66.2 +1.3 -1.4 km/s/Mpc
+H0: 66.49 +1.32 -1.34 km/s/Mpc
 Ωm: 0.324 +0.014 -0.013
-Ωm h^2: 0.14203 +0.00126 -0.00125
-Ωb h^2: 0.02239 ± 0.00015
-w0: -0.685 +0.155 -0.154
-wa: -1.123 +0.706 -0.746
-ΔM: -0.167 ± 0.100
-z*: 1088.76 +0.22 -0.21
-z_drag: 1059.86 ± 0.30
-r_s(z*) = 144.64 Mpc
-r_s(z_drag) = 147.20 Mpc
-Chi squared: 21.4 (Δ chi2 4.8)
+Ωm h^2: 0.14307 +0.00127 -0.00124
+Ωb h^2: 0.02238 +0.00014 -0.00014
+w0: -0.685 +0.154 -0.158
+wa: -1.123 +0.731 -0.741
+ΔM: -0.158 +0.098 -0.100
+z*: 1091.89 +0.28 -0.27
+z_drag: 1063.45 +0.29 -0.29
+r_s(z*) = 144.11 Mpc
+r_s(z_drag) = 146.62 Mpc
+Chi squared: 21.80 (Δ chi2 4.4)
 Degrees of freedom: 19
 """

@@ -57,10 +57,8 @@ def rs_z(Ez_func, z, params, H0, Ob_h2):
     return quad(integrand, 0, 1 / (1 + z))[0] / H0
 
 
-@njit
 def DA_z(Ez_func, z, params, H0):
-    zp = np.linspace(0.0, z, 20_000)
-    I = np.trapz(y=c / Ez_func(zp, params), x=zp)
+    I = quad(lambda zp: c / Ez_func(zp, params), 0, z)[0]
     return (I / H0) / (1.0 + z)
 
 

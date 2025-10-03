@@ -4,7 +4,7 @@ import emcee
 import corner
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
-import cmb.data_union3_compression as cmb
+import cmb.data_chen_compression as cmb
 
 Or_h2 = cmb.Omega_r_h2()
 
@@ -55,7 +55,7 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 150
+    nwalkers = 200
     burn_in = 200
     nsteps = 2000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
@@ -106,7 +106,7 @@ def main():
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
     print(f"Ωm: {Om_50:.4f} +{(Om_84 - Om_50):.4f} -{(Om_50 - Om_16):.4f}")
     print(
-        f"Ωm h^2: {Omh2_50:.5f} +{(Omh2_84 - Omh2_50):.5f} -{(Omh2_50 - Omh2_16):.5f}"
+        f"Ωm h^2: {Omh2_50:.4f} +{(Omh2_84 - Omh2_50):.4f} -{(Omh2_50 - Omh2_16):.4f}"
     )
     print(
         f"Ωb h^2: {Obh2_50:.5f} +{(Obh2_84 - Obh2_50):.5f} -{(Obh2_50 - Obh2_16):.5f}"
@@ -155,52 +155,52 @@ Flat ΛCDM w(z) = -1
 ===============================
 
 Chen+2018 compression
-H0: 67.42 ± 0.62 km/s/Mpc
-Ωm: 0.3166 +0.0086 -0.0084
-Ωm h^2: 0.14389 ± 0.00129
-Ωb h^2: 0.02236 ± 0.00015
-z*: 1088.92 ± 0.22
-z_drag: 1059.94 ± 0.30
+H0: 67.40 +0.61 -0.60 km/s/Mpc
+Ωm: 0.3167 +0.0085 -0.0082
+Ωm h^2: 0.1439 +0.0013 -0.0013
+Ωb h^2: 0.02236 +0.00015 -0.00015
+z*: 1088.92 +0.22 -0.22
+z_drag: 1059.93 +0.29 -0.29
 r_s(z*) = 144.16 Mpc
-r_s(z_drag) = 146.72 ± 0.29 Mpc
-Chi squared: 0.0011
+r_s(z_drag) = 146.72 +0.29 -0.29 Mpc
+Chi squared: 0.0008
 
 ===============================
 
-Rubin+ Union3 compression
-H0: 67.13 ± 0.61 km/s/Mpc
-Ωm: 0.3149 +0.0085 -0.0083
-Ωm h^2: 0.14192 +0.00127 -0.00126
-Ωb h^2: 0.02239 ± 0.00015
-z*: 1088.75 ± 0.22
-z_drag: 1059.87 ± 0.30
-r_s(z*) = 144.67 Mpc
-r_s(z_drag) = 147.21 ± 0.29 Mpc
+Prakhar Bansal+ (Planck + ACT) compression
+H0: 67.35 +0.52 -0.52 km/s/Mpc
+Ωm: 0.3169 +0.0072 -0.0070
+Ωm h^2: 0.1438 +0.0011 -0.0011
+Ωb h^2: 0.02237 +0.00014 -0.00014
+z*: 1090 (fixed)
+z_drag: 1063.48 +0.29 -0.30
+r_s(z*) = 143.92 Mpc
+r_s(z_drag) = 146.74 +0.25 -0.25 Mpc
 Chi squared: 0.0005
 
 ===============================
 
 Karim+ DESI DR2 compression
-H0: 67.52 +0.59 -0.59 km/s/Mpc
-Ωm: 0.3116 +0.0081 -0.0079
-Ωm h^2: 0.14209 +0.00122 -0.00121
-Ωb h^2: 0.02223 ± 0.00015
-z*: 1088.94 ± 0.22
-z_drag: 1059.51 ± 0.29
+H0: 67.51 +0.59 -0.58 km/s/Mpc
+Ωm: 0.3118 +0.0080 -0.0079
+Ωm h^2: 0.1421 +0.0012 -0.0012
+Ωb h^2: 0.02223 +0.00014 -0.00014
+z*: 1088.94 +0.22 -0.21
+z_drag: 1059.51 +0.28 -0.29
 r_s(z*) = 144.68 Mpc
-r_s(z_drag) = 147.43 ± 0.25 Mpc
-Chi squared: 0.0003
+r_s(z_drag) = 147.43 +0.25 -0.24 Mpc
+Chi squared: 0.0014
 
 ===============================
 
-Prakhar Bansal+ (Planck + ACT) compression
-H0: 67.27 ± 0.51 km/s/Mpc
-Ωm: 0.3168 +0.0073 -0.0071
-Ωm h^2: 0.14337 ± 0.00115
-Ωb h^2: 0.02237 ± 0.00014
-z*: 1088.87 ± 0.21
-z_drag: 1059.92 ± 0.29
-r_s(z*) = 144.28 Mpc
-r_s(z_drag) = 146.84 ± 0.26 Mpc
-Chi squared: 0.0009
+Rubin+ Union3 compression
+H0: 67.39 +0.59 -0.60 km/s/Mpc
+Ωm: 0.3149 +0.0084 -0.0081
+Ωm h^2: 0.1430 +0.0013 -0.0012
+Ωb h^2: 0.02239 +0.00014 -0.00014
+z*: 1091.88 +0.28 -0.28
+z_drag: 1063.46 +0.29 -0.30
+r_s(z*) = 144.13 Mpc
+r_s(z_drag) = 146.92 +0.29 -0.29 Mpc
+Chi squared: 0.0013
 """
