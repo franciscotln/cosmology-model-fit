@@ -5,6 +5,8 @@ import corner
 import matplotlib.pyplot as plt
 from scipy.linalg import cho_factor, cho_solve
 from multiprocessing import Pool
+
+from sympy import O
 from .plot_predictions import plot_cc_predictions
 from y2005cc.data import get_data
 
@@ -14,11 +16,15 @@ legend, z_values, H_values, cov_matrix = get_data()
 cho = cho_factor(cov_matrix)
 logdet = np.linalg.slogdet(cov_matrix)[1]
 
+# Planck prior
+Omh2_planck = 0.1432
+Omh2_planck_sigma = 0.0013 * 4.0  # 4 sigma
+
 
 @njit
-def H_z(z, h0, Om, exp_w0):
+def H_z(z, h0, Om, w0):
     cubed = (1 + z) ** 3
-    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + np.log(exp_w0)))
+    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
     return h0 * np.sqrt(Om * cubed + (1 - Om) * rho_de)
 
 
@@ -26,7 +32,7 @@ bounds = np.array(
     [
         (30, 120),  # H0
         (0, 0.7),  # Om
-        (0.0001, 1.2),  # exp(w0)
+        (-2.5, 0.0),  # w0
         (0.4, 3),  # f
     ],
     dtype=np.float64,
@@ -48,7 +54,9 @@ def log_likelihood(params):
 @njit
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
-        return 0.0
+        Omh2 = params[0] ** 2 * params[1] / 10000
+        delta_Omh2 = Omh2_planck - Omh2
+        return -((delta_Omh2 / Omh2_planck_sigma) ** 2)
     return -np.inf
 
 
@@ -98,25 +106,19 @@ def main():
     [
         [H0_16, H0_50, H0_84],
         [Om_16, Om_50, Om_84],
-        [exp_w0_16, exp_w0_50, exp_w0_84],
+        [w0_16, w0_50, w0_84],
         [f_16, f_50, f_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    w0_samples = np.log(samples[:, 2])
-    w0_16, w0_50, w0_84 = np.percentile(w0_samples, [15.9, 50, 84.1])
-
-    best_fit = np.array([H0_50, Om_50, exp_w0_50, f_50], dtype=np.float64)
+    best_fit = np.array([H0_50, Om_50, w0_50, f_50], dtype=np.float64)
 
     print(f"H0: {H0_50:.1f} +{(H0_84 - H0_50):.1f} -{(H0_50 - H0_16):.1f}")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
-    print(
-        f"exp(w0): {exp_w0_50:.3f} +{(exp_w0_84 - exp_w0_50):.3f} -{(exp_w0_50 - exp_w0_16):.3f}"
-    )
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"f: {f_50:.3f} +{(f_84 - f_50):.3f} -{(f_50 - f_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Log likelihood: {log_likelihood(best_fit):.2f}")
-    print(f"Degs of freedom: {z_values.size  - len(best_fit)}")
+    print(f"Degs of freedom: {1 + z_values.size - len(best_fit)}")
 
     plot_cc_predictions(
         H_z=lambda z: H_z(z, *best_fit[0:3]),
@@ -125,7 +127,7 @@ def main():
         H_err=np.sqrt(np.diag(cov_matrix)) / f_50,
         label=f"{legend} $H_0$: {H0_50:.1f} ± {(H0_84 - H0_50):.1f} km/s/Mpc",
     )
-    labels = ["$H_0$", "$Ω_m$", "$exp(w0)$", "$f$"]
+    labels = ["$H_0$", "$Ω_m$", "$w_0$", "$f$"]
     corner.corner(
         samples,
         labels=labels,
@@ -165,59 +167,50 @@ https://arxiv.org/pdf/2506.03836
 
 Flat ΛCDM: w(z) = -1
 With f:
-H0: 67.1 +3.7 -3.8 km/s/Mpc
-Ωm: 0.328 +0.052 -0.044
-w0: -1 (fixed)
-f: 1.456 +0.188 -0.179
-Chi squared: 31.34
-Log likelihood: -130.53
-Degs of freedom: 30
-Correlation matrix:
-[[ 1.      -0.808    0.03132]
- [-0.808    1.      -0.05145]
- [ 0.03132 -0.05145  1.     ]]
+H0: 67.2 +3.7 -3.7 km/s/Mpc
+Ωm: 0.318 +0.040 -0.033
+w0: -1
+f: 1.47 +0.19 -0.18
+Chi squared: 32.16
+Log likelihood: -130.56
+Degs of freedom: 31
 
 Without f:
 H0: 66.7 +5.4 -5.5 km/s/Mpc
-Ωm: 0.334 +0.079 -0.062
-w0: -1 (fixed)
+Ωm: 0.322 +0.062 -0.047
+w0: -1
 f: 1
-Chi squared: 14.82
-Log likelihood: -134.65
-Degs of freedom: 31
-correlation matrix:
-[[ 1.       -0.809697]
- [-0.809697  1.      ]]
+Chi squared: 14.86
+Log likelihood: -134.67
+Degs of freedom: 32
 
 Log likelihood ratio test:
 -2 * log(L0/L1) = -2 * log(L0) + 2 * log(L1)
--2 * (-134.65) + 2 * (-130.53) = 8.24
+-2 * (-134.67) + 2 * (-130.56) = 8.22
 p-value = 0.0016
 We are 99.84% confident that the model with f is better than the one without f.
-So the uncertainties in the H(z) dataset are overestimated by a factor of 1.46 ± 0.18.
-2.5 sigma between f=1 and f=1.46.
+So the uncertainties in the H(z) dataset are overestimated by a factor of 1.47 ± 0.18.
+2.5 sigma between f=1 and f=1.47.
 
 ===============================
 
 Flat wCDM: w(z) = w0
-H0: 68.2 +6.4 -5.5 km/s/Mpc
-Ωm: 0.312 +0.053 -0.057
-exp(w0): 0.325 +0.183 -0.134
-w0: -1.124 +0.446 -0.531
-f: 1.441 +0.187 -0.180
-Chi squared: 30.98
-Log likelihood: -130.68
-Degs of freedom: 29
+H0: 67.5 +4.4 -4.3 km/s/Mpc
+Ωm: 0.316 +0.044 -0.037
+w0: -1.059 +0.191 -0.274
+f: 1.449 +0.186 -0.179
+Chi squared: 31.27
+Log likelihood: -130.63
+Degs of freedom: 30
 
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / ((1 + z)**3 + 1)
-H0: 68.6 +7.2 -6.2 km/s/Mpc
-Ωm: 0.317 +0.056 -0.048
-exp(w0): 0.309 +0.208 -0.144
-w0: -1.173 +0.514 -0.626
-f: 1.443 +0.187 -0.181
-Chi squared: 30.51
-Log likelihood: -130.40
-Degs of freedom: 29
+H0: 68.3 +5.5 -5.1 km/s/Mpc
+Ωm: 0.308 +0.052 -0.044
+w0: -1.145 +0.365 -0.441
+f: 1.455 +0.186 -0.179
+Chi squared: 31.40
+Log likelihood: -130.56
+Degs of freedom: 30
 """
