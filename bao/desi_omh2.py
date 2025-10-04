@@ -25,7 +25,8 @@ def H_z(z, params):
     OL = 1 - Om
     one_plus_z = 1 + z
     cubed = one_plus_z**3
-    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + np.log(exp_w0)))
+    # rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + np.log(exp_w0)))
+    rho_de = cubed ** ((1 + np.log(exp_w0)))
     return 100 * h * np.sqrt(Om * cubed + OL * rho_de)
 
 
@@ -100,7 +101,7 @@ def chi_squared(params):
 def log_prior(params):
     if not np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
         return -np.inf
-    return 0.0
+    return -np.log(params[2])
 
 
 @njit
@@ -233,22 +234,22 @@ RMSD: 0.305
 Flat wCDM:
 h: 0.694 +0.012 -0.012
 Ωm: 0.297 +0.009 -0.009
-w0: -0.909 +0.076 -0.079
-rd: 143.75 +2.94 -3.19
+w0: -0.915 +0.076 -0.079
+rd: 143.96 +2.93 -3.17
 Chi squared: 9.11
 Degs of freedom: 10
 R^2: 0.9989
-RMSD: 0.280
+RMSD: 0.281
 
 ===============================
 
 Flat alternative: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-h: 0.681 +0.014 -0.014
-Ωm: 0.309 +0.012 -0.011
-w0: -0.815 +0.120 -0.127
-rd: 144.44 +2.27 -2.26
+h: 0.682 +0.015 -0.014
+Ωm: 0.308 +0.012 -0.012
+w0: -0.833 +0.120 -0.129
+rd: 144.63 +2.28 -2.25
 Chi squared: 8.45
 Degs of freedom: 10
 R^2: 0.9990
-RMSD: 0.264
+RMSD: 0.267
 """
