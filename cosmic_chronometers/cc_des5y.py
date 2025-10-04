@@ -18,7 +18,7 @@ cho_cc = cho_factor(cov_matrix_cc)
 logdet_cc = np.linalg.slogdet(cov_matrix_cc)[1]
 N_cc = len(z_cc_vals)
 
-grid = np.linspace(0, np.max(z_cmb), num=2000)
+grid = np.linspace(0, np.max(z_cmb), num=1000)
 
 c = 299792.458  # Speed of light in km/s
 
@@ -46,10 +46,10 @@ def H_z(z, params):
 bounds = np.array(
     [
         (0.4, 2.5),  # f_cc
-        (-0.7, 0.7),  # ΔM
-        (50, 80),  # H0
+        (-0.6, 0.6),  # ΔM
+        (55, 80),  # H0
         (0.1, 0.6),  # Ωm
-        (0.01, 0.8),  # w0
+        (0.1, 0.8),  # w0
     ],
     dtype=np.float64,
 )
@@ -211,11 +211,11 @@ Degrees of freedom: 1763
 ==============================
 
 Flat alternative: w(z) = -1 + 2 * (1 + w0) / ((1 + z)**3 + 1)
-f_cc: 1.46 +0.19 -0.18
-ΔM: -0.070 +0.080 -0.081 mag
-H0: 66.8 +2.5 -2.5 km/s/Mpc
+f_cc: 1.46 +0.18 -0.18
+ΔM: -0.071 +0.080 -0.080 mag
+H0: 66.8 +2.5 -2.4 km/s/Mpc
 Ωm: 0.316 +0.030 -0.030
 w0: -0.860 +0.093 -0.103
-Chi squared: 1670.06
+Chi squared: 1670.07
 Degrees of freedom: 1763
 """
