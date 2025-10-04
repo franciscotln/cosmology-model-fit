@@ -22,13 +22,13 @@ one_plus_z_hel = 1 + z_hel
 
 @njit
 def Ez(z, params):
-    H0, Om, exp_w0 = params[0], params[1], params[3]
+    H0, Om, w0 = params[0], params[1], params[3]
     h = H0 / 100
     Or = O_r_h2 / h**2
     Ode = 1 - Om - Or
     one_plus_z = 1 + z
     cubed = one_plus_z**3
-    fz_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + np.log(exp_w0)))
+    fz_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
 
     return np.sqrt(Or * one_plus_z**4 + Om * cubed + Ode * fz_de)
 
@@ -58,7 +58,7 @@ bounds = np.array(
         (60, 75),  # H0
         (0.15, 0.40),  # Ωm
         (0.020, 0.025),  # Ωb * h^2
-        (0.1, 0.8),  # e^w0
+        (-2.0, 0.0),  # w0
         (-20, -19),  # M
     ],
     dtype=np.float64,
@@ -125,13 +125,10 @@ def main():
     H0_16, H0_50, H0_84 = pct[0]
     Om_16, Om_50, Om_84 = pct[1]
     Obh2_16, Obh2_50, Obh2_84 = pct[2]
-    exp_w0_16, exp_w0_50, exp_w0_84 = pct[3]
+    w0_16, w0_50, w0_84 = pct[3]
     M_16, M_50, M_84 = pct[4]
 
-    best_fit = np.array([H0_50, Om_50, Obh2_50, exp_w0_50, M_50], dtype=np.float64)
-
-    w0_samples = np.log(samples[:, 3])
-    w0_16, w0_50, w0_84 = np.percentile(w0_samples, one_sigma_conf_int)
+    best_fit = np.array([H0_50, Om_50, Obh2_50, w0_50, M_50], dtype=np.float64)
 
     Omh2_samples = samples[:, 1] * (samples[:, 0] / 100) ** 2
     z_star_samples = cmb.z_star(samples[:, 2], Omh2_samples)
@@ -172,7 +169,7 @@ def main():
         label=f"Model: $Ω_m$={Om_50:.3f}",
         x_scale="log",
     )
-    labels = ["$H_0$", "$Ω_m$", "$Ω_b h^2$", "$e^{w_0}$", "M"]
+    labels = ["$H_0$", "$Ω_m$", "$Ω_b h^2$", "$w_0$", "M"]
     corner.corner(
         samples,
         labels=labels,
@@ -219,33 +216,33 @@ Degrees of freedom: 1587
 ===============================
 
 Flat wCDM w(z) = w0
-H0: 66.68 +0.82 -0.81 km/s/Mpc
+H0: 66.67 +0.81 -0.81 km/s/Mpc
 Ωm: 0.324 +0.009 -0.009
-Ωm h^2: 0.14384 +0.00127 -0.00126
-Ωb h^2: 0.02236 +0.00015 -0.00015
-w0: -0.975 +0.029 -0.029
+Ωm h^2: 0.14385 +0.00126 -0.00124
+Ωb h^2: 0.02236 +0.00014 -0.00014
+w0: -0.975 +0.029 -0.030
 M: -19.456 +0.021 -0.021
-z*: 1088.91 +0.22 -0.22
-z_drag: 1059.93 +0.29 -0.30
+z*: 1088.91 +0.22 -0.21
+z_drag: 1059.94 +0.29 -0.29
 r_s(z*) = 144.17 Mpc
-r_s(z_drag) = 146.73 +0.29 -0.28 Mpc
+r_s(z_drag) = 146.72 +0.28 -0.28 Mpc
 Chi squared: 1402.76
 Degrees of freedom: 1586
 
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-H0: 66.75 +0.72 -0.71 km/s/Mpc
+H0: 66.77 +0.72 -0.71 km/s/Mpc
 Ωm: 0.323 +0.008 -0.008
-Ωm h^2: 0.14382 +0.00125 -0.00125
-Ωb h^2: 0.02236 +0.00015 -0.00015
-w0: -0.960 +0.042 -0.042
+Ωm h^2: 0.14384 +0.00123 -0.00125
+Ωb h^2: 0.02236 +0.00014 -0.00014
+w0: -0.961 +0.042 -0.043
 M: -19.452 +0.018 -0.018
-z*: 1088.91 +0.22 -0.21
-z_drag: 1059.93 +0.29 -0.29
-r_s(z*) = 144.17 Mpc
+z*: 1088.91 +0.21 -0.21
+z_drag: 1059.94 +0.29 -0.29
+r_s(z*) = 144.16 Mpc
 r_s(z_drag) = 146.73 +0.29 -0.28 Mpc
-Chi squared: 1402.67
+Chi squared: 1402.70
 Degrees of freedom: 1586
 
 ===============================

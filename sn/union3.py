@@ -24,9 +24,9 @@ cubed = (1 + z) ** 3
 
 @njit
 def Ez(params):
-    omega_m, exp_w0 = params[1], params[2]
-    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + np.log(exp_w0)))
-    return np.sqrt(omega_m * cubed + (1 - omega_m) * rho_de)
+    Om, w0 = params[1], params[2]
+    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
+    return np.sqrt(Om * cubed + (1 - Om) * rho_de)
 
 
 def integral_Ez(params):
@@ -49,7 +49,7 @@ def log_likelihood(params):
     return -0.5 * chi_squared(params)
 
 
-bounds = np.array([(-0.6, 0.6), (0, 1), (0.08, 1.0)])  # ΔM, Ωm, e^w0
+bounds = np.array([(-0.6, 0.6), (0, 1), (-2.0, 0.0)])  # ΔM, Ωm, w0
 
 
 @njit
@@ -104,13 +104,10 @@ def main():
     [
         [dM_16, dM_50, dM_84],
         [omega_16, omega_50, omega_84],
-        [exp_w0_16, exp_w0_50, exp_w0_84],
+        [w0_16, w0_50, w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit_params = np.array([dM_50, omega_50, exp_w0_50], dtype=np.float64)
-
-    w0_samples = np.log(samples[:, 2])
-    w0_16, w0_50, w0_84 = np.percentile(w0_samples, [15.9, 50, 84.1])
+    best_fit_params = np.array([dM_50, omega_50, w0_50], dtype=np.float64)
 
     predicted_distances = mu_theory(best_fit_params)
     residuals = mu_vals - predicted_distances
@@ -139,7 +136,7 @@ def main():
     print_color("Chi squared", f"{chi_squared(best_fit_params):.4f}")
     print_color("Degs of freedom", len(z_values) - len(best_fit_params))
 
-    labels = ["ΔM", "Ωm", "$e^{w_0}$"]
+    labels = ["ΔM", "Ωm", "$w_0$"]
     corner.corner(
         samples,
         labels=labels,
@@ -205,12 +202,13 @@ degrees of freedom: 20
 
 Flat wCDM: w(z) = w0
 
-ΔM: -0.057 +0.087 -0.088 mag
-Ωm: 0.236 +0.090 -0.109
-w0: -0.7170 +0.1421 -0.1777
+ΔM: -0.0579 +0.0863/-0.0872
+Ωm: 0.2523 +0.0864/-0.1088
+w0: -0.7472 +0.1529/-0.1831
+wa: 0
 R-squared (%): 99.94
-RMSD (mag): 0.056
-Skewness of residuals: -1.493
+RMSD (mag): 0.055
+Skewness of residuals: -1.262
 Chi squared: 22.1
 degrees of freedom: 19
 
@@ -218,13 +216,13 @@ degrees of freedom: 19
 
 Flat alternative: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
 
-ΔM: -0.0535 +0.0884 -0.0877 mag
-Ωm: 0.289 +0.052 -0.054
-w0: -0.727 +0.141 -0.164
-wa: 0
+ΔM: -0.0540 +0.0868/-0.0875
+Ωm: 0.2957 +0.0521/-0.0539
+w0: -0.7510 +0.1429/-0.1690
+wa: -(1 + w0) = 0.2510 +0.1690/-0.1429
 R-squared (%): 99.94
 RMSD (mag): 0.053
-Skewness of residuals: -1.257
+Skewness of residuals: -1.062
 Chi squared: 21.7
 Degs of freedom: 19
 

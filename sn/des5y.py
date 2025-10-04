@@ -23,9 +23,9 @@ one_plus_z_hel = 1 + z_hel_vals
 
 @njit
 def Ez(params):
-    Om, exp_w0 = params[1], params[2]
+    Om, w0 = params[1], params[2]
     Ode = 1 - Om
-    Rho_de = (2 * one_plus_z**3 / (1 + one_plus_z**3)) ** (2 * (1 + np.log(exp_w0)))
+    Rho_de = (2 * one_plus_z**3 / (1 + one_plus_z**3)) ** (2 * (1 + w0))
     return np.sqrt(Om * one_plus_z**3 + Ode * Rho_de)
 
 
@@ -45,17 +45,14 @@ def log_likelihood(params):
     return -0.5 * chi_squared(params)
 
 
-bounds = np.array(
-    [(-0.2, 0.2), (0, 0.8), (0.01, 1.0)], dtype=np.float64
-)  # ΔM, Ωm, e^w0
+bounds = np.array([(-0.2, 0.2), (0, 0.8), (-2.0, 0.0)], dtype=np.float64)  # ΔM, Ωm, w0
 
 
 @njit
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
         return 0.0
-    else:
-        return -np.inf
+    return -np.inf
 
 
 def log_probability(params):
@@ -69,7 +66,7 @@ def main():
     burn_in = 200
     ndim = len(bounds)
     nwalkers = 150
-    nsteps = burn_in + 2000
+    nsteps = burn_in + 1500
     initial_state = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
 
     with Pool(6) as pool:
@@ -101,13 +98,10 @@ def main():
     [
         [dM_16, dM_50, dM_84],
         [Om_16, Om_50, Om_84],
-        [exp_w0_16, exp_w0_50, exp_w0_84],
+        [w0_16, w0_50, w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = np.array([dM_50, Om_50, exp_w0_50], dtype=np.float64)
-
-    w0_samples = np.log(samples[:, 2])
-    w0_16, w0_50, w0_84 = np.percentile(w0_samples, [15.9, 50, 84.1])
+    best_fit = np.array([dM_50, Om_50, w0_50], dtype=np.float64)
 
     theory_mu_vals = theory_mu(best_fit)
     residuals = observed_mu_vals - theory_mu_vals
@@ -136,7 +130,7 @@ def main():
     print_color("Chi squared", f"{chi_squared(best_fit):.2f}")
     print_color("Effective deg of freedom", effective_sample_size - ndim)
 
-    labels = ["ΔM", "$Ω_m$", "$e^{w_0}$"]
+    labels = ["ΔM", "$Ω_m$", "$w_0$"]
     corner.corner(
         samples,
         labels=labels,
@@ -198,25 +192,25 @@ Chi squared: 1640.08
 ==============================
 
 Flat wCDM
-ΔM: 0.032 +0.013 -0.013
-Ωm: 0.254 +0.075 -0.097
-w0: -0.78 +0.14 -0.15
+ΔM: 0.031 +0.012 -0.013
+Ωm: 0.265 +0.072 -0.094
+w0: -0.80 +0.14 -0.15
 wa: 0
 R-squared (%): 98.40
 RMSD (mag): 0.264
 Skewness of residuals: 3.415
-Chi squared: 1638.54
+Chi squared: 1638.53
 
 ==============================
 
 Flat w0 - (1 + w0) * ((1 + z)**3 - 1) / ((1 + z)**3 + 1)
-ΔM: 0.034 +0.013 -0.013 mag
-Ωm: 0.293 +0.043 -0.045
-w0: -0.79 +0.11 -0.13
-wa: 0
+ΔM: 0.033 +0.013 -0.013 mag
+Ωm: 0.298 +0.043 -0.045
+w0: -0.81 +0.12 -0.13
+wa: -(1 + w0) = 0.19 +0.13 -0.12
 R-squared (%): 98.40
 RMSD (mag): 0.264
-Skewness of residuals: 3.418
+Skewness of residuals: 3.417
 Chi squared: 1637.97
 
 ==============================
