@@ -23,11 +23,11 @@ def rd(H0, Om, Obh2):
 
 @njit
 def Ez(z, params):
-    Om, exp_w0 = params[1], params[3]
+    Om, w0 = params[1], params[3]
     OL = 1 - Om
     one_plus_z = 1 + z
     cubic = one_plus_z**3
-    rho_de = (2 * cubic / (1 + cubic)) ** (2 * (1 + np.log(exp_w0)))
+    rho_de = (2 * cubic / (1 + cubic)) ** (2 * (1 + w0))
     return np.sqrt(Om * one_plus_z**3 + OL * rho_de)
 
 
@@ -87,7 +87,7 @@ bounds = np.array(
         (50, 80),  # H0
         (0.15, 0.55),  # Ωm
         (0.015, 0.030),  # Ωb h^2
-        (0.15, 0.85),  # w0
+        (-2.0, 0.0),  # w0
     ],
     dtype=np.float64,
 )
@@ -103,7 +103,7 @@ def chi_squared(params):
 def log_prior(params):
     if not np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
         return -np.inf
-    return -np.log(params[3])  # flat prior in w0
+    return 0.0
 
 
 def log_likelihood(params):
@@ -156,16 +156,14 @@ def main():
         [H0_16, H0_50, H0_84],
         [Om_16, Om_50, Om_84],
         [Obh2_16, Obh2_50, Obh2_84],
-        [exp_w0_16, exp_w0_50, exp_w0_84],
+        [w0_16, w0_50, w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = np.array([H0_50, Om_50, Obh2_50, exp_w0_50], dtype=np.float64)
+    best_fit = np.array([H0_50, Om_50, Obh2_50, w0_50], dtype=np.float64)
 
-    w0_samples = np.log(samples[:, 3])
     h_samples = samples[:, 0] / 100
     Omh2_samples = samples[:, 1] * h_samples**2
     rd_samples = rd(samples[:, 0], samples[:, 1], samples[:, 2])
-    w0_16, w0_50, w0_84 = np.percentile(w0_samples, [15.9, 50, 84.1])
     Omh2_16, Omh2_50, Omh2_84 = np.percentile(Omh2_samples, [15.9, 50, 84.1])
     rd_16, rd_50, rd_84 = np.percentile(rd_samples, [15.9, 50, 84.1])
 
@@ -195,7 +193,7 @@ def main():
         errors=np.sqrt(np.diag(cov_matrix)),
         title=f"{legend}: $H_0$={H0_50:.2f} km/s/Mpc, $\\Omega_m$={Om_50:.4f}",
     )
-    labels = ["$H_0$", "$Ω_m$", "$Ω_b x h^2$", "$e^{w_0}$"]
+    labels = ["$H_0$", "$Ω_m$", "$Ω_b x h^2$", "$w_0$"]
     corner.corner(
         samples,
         labels=labels,
@@ -259,12 +257,12 @@ RMSD: 0.280
 ===============================
 
 Flat alternative: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-H0: 65.96 +2.11 -1.98 km/s/Mpc
-Ωb h^2: 0.02218 +0.00055 -0.00054
-Ωm h^2: 0.13404 +0.00669 -0.00644
-Ωm: 0.3079 +0.0117 -0.0117
-w0: -0.834 +0.120 -0.127
-r_d: 149.46 +1.88 -1.83 Mpc
+H0: 65.98 +2.13 -2.01 km/s/Mpc
+Ωb h^2: 0.02218 +0.00055 -0.00055
+Ωm h^2: 0.13414 +0.00660 -0.00650
+Ωm: 0.3078 +0.0117 -0.0116
+w0: -0.834 +0.121 -0.129
+r_d: 149.44 +1.90 -1.83 Mpc
 Chi squared: 8.44
 Degs of freedom: 10
 R^2: 0.9990
