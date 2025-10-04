@@ -17,6 +17,8 @@ bao_legend, bao_data, bao_cov_matrix = get_bao_data()
 cho_bao = cho_factor(bao_cov_matrix)
 
 # arXiv:2503.14738v2 Planck Plik [1]
+z_star = 1089.92
+
 theta_100 = 1.04110
 theta_100_err = 0.00031
 
@@ -87,12 +89,10 @@ def bao_predictions(z, qty, params):
 
 
 def theta_100_theory(params):
-    H0, Om, wb = params[1], params[2], params[3]
-    wm = Om * (H0 / 100) ** 2
-    zstar = cmb.z_star(wb, wm)
-    rs_star = cmb.rs_z(Ez, zstar, params, H0, wb)
-    DA_star = cmb.DA_z(Ez, zstar, params, H0)
-    return 100 * rs_star / ((1 + zstar) * DA_star)
+    H0, wb = params[1], params[3]
+    rs_star = cmb.rs_z(Ez, z_star, params, H0, wb)
+    DA_star = cmb.DA_z(Ez, z_star, params, H0)
+    return 100 * rs_star / ((1 + z_star) * DA_star)
 
 
 def chi_squared(params):
@@ -142,7 +142,7 @@ def main():
     ndim = len(bounds)
     nwalkers = 180
     burn_in = 200
-    nsteps = 2000 + burn_in
+    nsteps = 2200 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):
@@ -182,24 +182,14 @@ def main():
 
     best_fit = np.array([rd_50, H0_50, Om_50, Obh2_50, w0_50], dtype=np.float64)
 
-    Om_h2_samples = samples[:, 2] * (samples[:, 1] / 100) ** 2
-    z_st_samples = cmb.z_star(samples[:, 3], Om_h2_samples)
-
-    Omh2_16, Omh2_50, Omh2_84 = np.percentile(Om_h2_samples, [15.9, 50, 84.1])
-    z_st_16, z_st_50, z_st_84 = np.percentile(z_st_samples, [15.9, 50, 84.1])
-
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
-    print(
-        f"Ωm h^2: {Omh2_50:.4f} +{(Omh2_84 - Omh2_50):.4f} -{(Omh2_50 - Omh2_16):.4f}"
-    )
     print(
         f"Ωb h^2: {Obh2_50:.5f} +{(Obh2_84 - Obh2_50):.5f} -{(Obh2_50 - Obh2_16):.5f}"
     )
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"rd: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
-    print(f"r*: {cmb.rs_z(Ez, z_st_50, best_fit, H0_50, Obh2_50):.2f} Mpc")
-    print(f"z*: {z_st_50:.2f} +{(z_st_84 - z_st_50):.2f} -{(z_st_50 - z_st_16):.2f}")
+    print(f"r*: {cmb.rs_z(Ez, z_star, best_fit, H0_50, Obh2_50):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
 
     plot_bao_predictions(
@@ -243,45 +233,36 @@ Dataset: DESI DR2 2024 + θ∗ + Ωm x h2
 *******************************
 
 Flat ΛCDM w(z) = -1
-H0: 69.34 +1.03 -1.03 km/s/Mpc
+H0: 69.35 +1.03 -1.02 km/s/Mpc
 Ωm: 0.297 +0.009 -0.008
-Ωm h^2: 0.1430 +0.0011 -0.0011
-Ωb h^2: 0.02348 +0.00099 -0.00099
-w0: -1
-rd: 146.43 +1.33 -1.32 Mpc
-z_drag: 1058.61
-r*: 143.59 Mpc
-z*: 1090.37 +1.31 -1.22
-Chi squared: 10.29
+Ωb h^2: 0.02355 +0.00080 -0.00079
+w0: -0.705 +0.478 -0.470
+rd: 146.42 +1.32 -1.31 Mpc
+r*: 143.56 Mpc
+Chi squared: 10.28
 degs of freedom: 11
 
 ===============================
 
 Flat wCDM w(z) = w0
-H0: 69.42 +1.07 -1.04 km/s/Mpc
+H0: 69.44 +1.07 -1.05 km/s/Mpc
 Ωm: 0.297 +0.009 -0.009
-Ωm h^2: 0.1430 +0.0011 -0.0011
-Ωb h^2: 0.02589 +0.00288 -0.00246
-w0: -0.915 +0.076 -0.078
-rd: 143.99 +2.62 -2.94 Mpc
-z_drag: 1068.50
-r*: 142.41 Mpc
-z*: 1087.42 +2.99 -2.94
-Chi squared: 9.65
+Ωb h^2: 0.02558 +0.00243 -0.00201
+w0: -0.913 +0.075 -0.079
+rd: 143.90 +2.63 -2.97 Mpc
+r*: 142.56 Mpc
+Chi squared: 10.14
 degs of freedom: 10
 
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-H0: 68.17 +1.32 -1.27 km/s/Mpc
-Ωm: 0.308 +0.011 -0.011
-Ωm h^2: 0.1430 +0.0011 -0.0011
-Ωb h^2: 0.02512 +0.00163 -0.00160
-w0: -0.831 +0.121 -0.127
-rd: 144.62 +1.92 -1.93 Mpc
-z_drag: 1066.60
-r*: 142.78 Mpc
-z*: 1088.32 +1.98 -1.81
-Chi squared: 8.51
+H0: 68.17 +1.35 -1.28 km/s/Mpc
+Ωm: 0.308 +0.012 -0.012
+Ωb h^2: 0.02490 +0.00137 -0.00131
+w0: -0.829 +0.119 -0.128
+rd: 144.59 +1.90 -1.94 Mpc
+r*: 142.89 Mpc
+Chi squared: 8.63
 degs of freedom: 10
 """
