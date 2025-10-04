@@ -19,7 +19,7 @@ logdet = np.linalg.slogdet(cov_matrix)[1]
 
 # Planck prior
 Omh2_planck = 0.1432
-Omh2_planck_sigma = 0.0013 * 4.0  # 4 sigma
+Omh2_planck_sigma = 0.0013 * 2  # 2 sigma
 
 
 @njit
@@ -172,11 +172,11 @@ https://arxiv.org/pdf/2506.03836
 
 Flat ΛCDM: w(z) = -1
 With f:
-H0: 67.2 +3.7 -3.7 km/s/Mpc
-Ωm: 0.318 +0.040 -0.033
-w0: -1
-f: 1.47 +0.19 -0.18
-Chi squared: 32.16
+H0: 67.2 +3.6 -3.7 km/s/Mpc
+Ωm: 0.318 +0.039 -0.032
+w0: -1.249 +0.856 -0.855
+f: 1.476 +0.184 -0.180
+Chi squared: 32.34
 Log likelihood: -130.56
 Degs of freedom: 31
 
@@ -200,22 +200,22 @@ So the uncertainties in the H(z) dataset are overestimated by a factor of 1.47 �
 ===============================
 
 Flat wCDM: w(z) = w0
-H0: 67.5 +4.4 -4.3 km/s/Mpc
+H0: 67.4 +4.4 -4.3 km/s/Mpc
 Ωm: 0.316 +0.044 -0.037
-w0: -1.059 +0.191 -0.274
-f: 1.449 +0.186 -0.179
-Chi squared: 31.27
-Log likelihood: -130.63
+w0: -1.053 +0.184 -0.264
+f: 1.448 +0.187 -0.179
+Chi squared: 31.25
+Log likelihood: -130.64
 Degs of freedom: 30
 
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / ((1 + z)**3 + 1)
-H0: 68.5 +5.6 -5.2 km/s/Mpc
-Ωm: 0.307 +0.051 -0.044
-w0: -1.168 +0.375 -0.452
-f: 1.455 +0.186 -0.179
-Chi squared: 31.40
-Log likelihood: -130.56
+H0: 68.2 +5.5 -5.1 km/s/Mpc
+Ωm: 0.308 +0.052 -0.044
+w0: -1.139 +0.357 -0.439
+f: 1.453 +0.187 -0.177
+Chi squared: 31.35
+Log likelihood: -130.58
 Degs of freedom: 30
 """
