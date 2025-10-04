@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from scipy.linalg import cho_factor, cho_solve
 from multiprocessing import Pool
 
+from sklearn.feature_selection import chi2
 from sympy import O
 from .plot_predictions import plot_cc_predictions
 from y2005cc.data import get_data
@@ -42,7 +43,13 @@ bounds = np.array(
 def chi_squared(params):
     f = params[-1]
     delta = H_values - H_z(z_values, *params[0:3])
-    return f**2 * np.dot(delta, cho_solve(cho, delta, check_finite=False))
+    chi2_cc = f**2 * np.dot(delta, cho_solve(cho, delta, check_finite=False))
+
+    Omh2 = params[0] ** 2 * params[1] / 10000
+    delta_Omh2 = Omh2_planck - Omh2
+    chi2_planck = (delta_Omh2 / Omh2_planck_sigma) ** 2
+
+    return chi2_cc + chi2_planck
 
 
 def log_likelihood(params):
@@ -54,9 +61,7 @@ def log_likelihood(params):
 @njit
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
-        Omh2 = params[0] ** 2 * params[1] / 10000
-        delta_Omh2 = Omh2_planck - Omh2
-        return -((delta_Omh2 / Omh2_planck_sigma) ** 2)
+        return 0.0
     return -np.inf
 
 
@@ -206,9 +211,9 @@ Degs of freedom: 30
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / ((1 + z)**3 + 1)
-H0: 68.3 +5.5 -5.1 km/s/Mpc
-Ωm: 0.308 +0.052 -0.044
-w0: -1.145 +0.365 -0.441
+H0: 68.5 +5.6 -5.2 km/s/Mpc
+Ωm: 0.307 +0.051 -0.044
+w0: -1.168 +0.375 -0.452
 f: 1.455 +0.186 -0.179
 Chi squared: 31.40
 Log likelihood: -130.56
