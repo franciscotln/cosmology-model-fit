@@ -84,7 +84,7 @@ bounds = np.array(
         (45, 100),  # H0
         (100, 180),  # r_d
         (0.2, 0.7),  # Ωm
-        (0.01, 1.0),  # e^w0
+        (0.10, 0.80),  # e^w0
     ],
     dtype=np.float64,
 )
@@ -103,7 +103,7 @@ def chi_squared(params):
 @njit
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
-        return 0.0
+        return -np.log(params[4])  # flat prior in w0
     return -np.inf
 
 
@@ -238,24 +238,24 @@ Degrees of freedom: 42
 ===============================
 
 Flat wCDM
-f_cc: 1.47 +0.18 -0.18
-H0: 67.8 +2.5 -2.5 km/s/Mpc
-r_d: 147.1 +5.0 -4.6 Mpc
+f_cc: 1.46 +0.19 -0.18
+H0: 67.9 +2.5 -2.5 km/s/Mpc
+r_d: 147.1 +4.9 -4.7 Mpc
 Ωm: 0.298 +0.009 -0.009
-w0: -0.917 +0.075 -0.077
-Chi squared: 41.44
+w0: -0.923 +0.075 -0.077
+Chi squared: 41.27
 log likelihood: -135.28
 Degrees of freedom: 41
 
 ===============================
 
 Flat -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-f_cc: 1.46 +0.18 -0.18
-H0: 67.1 +2.8 -2.7 km/s/Mpc
-r_d: 147.1 +4.9 -4.6 Mpc
-Ωm: 0.308 ± 0.011
-w0: -0.842 +0.117 -0.124
-Chi squared: 40.70
+f_cc: 1.46 +0.19 -0.18
+H0: 67.3 +2.7 -2.7 km/s/Mpc
+r_d: 147.1 +5.0 -4.6 Mpc
+Ωm: 0.307 ± 0.011
+w0: -0.856 +0.118 -0.128
+Chi squared: 40.72
 log likelihood: -135.09
 Degrees of freedom: 41
 
