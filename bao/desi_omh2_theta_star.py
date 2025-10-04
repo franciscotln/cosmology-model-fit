@@ -33,7 +33,7 @@ def Ez(z, params):
 
     one_plus_z = 1 + z
     cubed = one_plus_z**3
-    rho_de = 1#(2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
+    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
     return np.sqrt(Or * one_plus_z**4 + Om * cubed + Ode * rho_de)
 
 
