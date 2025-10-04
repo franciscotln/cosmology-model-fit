@@ -22,10 +22,10 @@ c = 299792.458  # Speed of light in km/s
 
 @njit
 def Ez(z, params):
-    O_m, exp_w0 = params[3], params[4]
+    O_m, w0 = params[3], params[4]
     one_plus_z = 1 + z
     cubic = one_plus_z**3
-    rho_de = (2 * cubic / (1 + cubic)) ** (2 * (1 + np.log(exp_w0)))
+    rho_de = (2 * cubic / (1 + cubic)) ** (2 * (1 + w0))
     return np.sqrt(O_m * cubic + (1 - O_m) * rho_de)
 
 
@@ -84,7 +84,7 @@ bounds = np.array(
         (45, 100),  # H0
         (100, 180),  # r_d
         (0.2, 0.7),  # Ωm
-        (0.10, 0.80),  # e^w0
+        (-2.0, 0.0),  # w0
     ],
     dtype=np.float64,
 )
@@ -103,7 +103,7 @@ def chi_squared(params):
 @njit
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
-        return -np.log(params[4])  # flat prior in w0
+        return 0.0
     return -np.inf
 
 
@@ -160,18 +160,21 @@ def main():
         [h0_16, h0_50, h0_84],
         [rd_16, rd_50, rd_84],
         [Om_16, Om_50, Om_84],
-        [exp_w0_16, exp_w0_50, exp_w0_84],
+        [w0_16, w0_50, w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = np.array([f_cc_50, h0_50, rd_50, Om_50, exp_w0_50], dtype=np.float64)
+    best_fit = np.array([f_cc_50, h0_50, rd_50, Om_50, w0_50], dtype=np.float64)
 
-    w0_samples = np.log(samples[:, 4])
-    w0_16, w0_50, w0_84 = np.percentile(w0_samples, [15.9, 50, 84.1])
+    Omh2_samples = samples[:, 1] ** 2 * samples[:, 3] / 100**2
+    Omh2_16, Omh2_50, Omh2_84 = np.percentile(Omh2_samples, [15.9, 50, 84.1])
 
     print(f"f_cc: {f_cc_50:.2f} +{(f_cc_84 - f_cc_50):.2f} -{(f_cc_50 - f_cc_16):.2f}")
     print(f"H0: {h0_50:.1f} +{(h0_84 - h0_50):.1f} -{(h0_50 - h0_16):.1f}")
     print(f"r_d: {rd_50:.1f} +{(rd_84 - rd_50):.1f} -{(rd_50 - rd_16):.1f}")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
+    print(
+        f"Ωm h^2: {Omh2_50:.4f} +{(Omh2_84 - Omh2_50):.4f} -{(Omh2_50 - Omh2_16):.4f}"
+    )
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"log likelihood: {log_likelihood(best_fit):.2f}")
@@ -191,7 +194,7 @@ def main():
         label=f"{cc_legend}: $H_0$={h0_50:.1f} km/s/Mpc",
     )
 
-    labels = ["$f_{CCH}$", "$H_0$", "$r_d$", "$Ω_m$", "$e^{w_0}$"]
+    labels = ["$f_{CCH}$", "$H_0$", "$r_d$", "$Ω_m$", "$w_0$"]
     corner.corner(
         samples,
         labels=labels,
@@ -226,36 +229,39 @@ Dataset: DESI 2025
 *******************************
 
 Flat ΛCDM
-f_cc: 1.47 +0.19 -0.18
+f_cc: 1.47 +0.18 -0.18
 H0: 69.1 +2.3 -2.3 km/s/Mpc
-r_d: 146.8 +5.0 -4.6 Mpc
+r_d: 146.9 +5.0 -4.6 Mpc
 Ωm: 0.299 +0.009 -0.008
+Ωm h^2: 0.1425 +0.0094 -0.0093
 w0: -1
-Chi squared: 42.60
+Chi squared: 42.59
 log likelihood: -135.81
 Degrees of freedom: 42
 
 ===============================
 
 Flat wCDM
-f_cc: 1.46 +0.19 -0.18
+f_cc: 1.47 +0.19 -0.18
 H0: 67.9 +2.5 -2.5 km/s/Mpc
 r_d: 147.1 +4.9 -4.7 Mpc
 Ωm: 0.298 +0.009 -0.009
-w0: -0.923 +0.075 -0.077
-Chi squared: 41.27
-log likelihood: -135.28
+Ωm h^2: 0.1376 +0.0105 -0.0102
+w0: -0.922 +0.074 -0.078
+Chi squared: 41.40
+log likelihood: -135.27
 Degrees of freedom: 41
 
 ===============================
 
 Flat -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
 f_cc: 1.46 +0.19 -0.18
-H0: 67.3 +2.7 -2.7 km/s/Mpc
-r_d: 147.1 +5.0 -4.6 Mpc
-Ωm: 0.307 ± 0.011
-w0: -0.856 +0.118 -0.128
-Chi squared: 40.72
+H0: 67.2 +2.8 -2.7 km/s/Mpc
+r_d: 147.2 +4.9 -4.7 Mpc
+Ωm: 0.307 +0.012 -0.011
+Ωm h^2: 0.1389 +0.0100 -0.0094
+w0: -0.856 +0.119 -0.125
+Chi squared: 40.71
 log likelihood: -135.09
 Degrees of freedom: 41
 

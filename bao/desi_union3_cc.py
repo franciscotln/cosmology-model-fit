@@ -29,10 +29,10 @@ one_plus_z_sn = 1 + z_sn_vals
 
 @njit
 def Ez(z, params):
-    O_m, exp_w0 = params[4], params[5]
+    O_m, w0 = params[4], params[5]
     one_plus_z = 1 + z
     cubed = one_plus_z**3
-    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + np.log(exp_w0)))
+    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
     return np.sqrt(O_m * cubed + (1 - O_m) * rho_de)
 
 
@@ -100,7 +100,7 @@ bounds = np.array(
         (55, 80),  # H0
         (125, 170),  # r_d
         (0.2, 0.7),  # Ωm
-        (0.2, 0.7),  # e^w0
+        (-2.0, 0.0),  # w0
     ],
     dtype=np.float64,
 )
@@ -122,7 +122,7 @@ def chi_squared(params):
 @njit
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
-        return -np.log(params[5])
+        return 0.0
     return -np.inf
 
 
@@ -178,15 +178,13 @@ def main():
         [h0_16, h0_50, h0_84],
         [rd_16, rd_50, rd_84],
         [Om_16, Om_50, Om_84],
-        [exp_w0_16, exp_w0_50, exp_w0_84],
+        [w0_16, w0_50, w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = np.array(
-        [f_cc_50, dM_50, h0_50, rd_50, Om_50, exp_w0_50], dtype=np.float64
-    )
+    best_fit = np.array([f_cc_50, dM_50, h0_50, rd_50, Om_50, w0_50], dtype=np.float64)
 
-    w0_samples = np.log(samples[:, 5])
-    w0_16, w0_50, w0_84 = np.percentile(w0_samples, [15.9, 50, 84.1])
+    Omh2_samples = samples[:, 4] * samples[:, 2] ** 2 / 100**2
+    Omh2_16, Omh2_50, Omh2_84 = np.percentile(Omh2_samples, [15.9, 50, 84.1])
 
     deg_of_freedom = (
         z_sn_vals.size + bao_data["value"].size + z_cc_vals.size - len(best_fit)
@@ -197,6 +195,9 @@ def main():
     print(f"H0: {h0_50:.1f} +{(h0_84 - h0_50):.1f} -{(h0_50 - h0_16):.1f}")
     print(f"r_d: {rd_50:.1f} +{(rd_84 - rd_50):.1f} -{(rd_50 - rd_16):.1f}")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
+    print(
+        f"Ωm h^2: {Omh2_50:.4f} +{(Omh2_84 - Omh2_50):.4f} -{(Omh2_50 - Omh2_16):.4f}"
+    )
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Degrees of freedom: {deg_of_freedom}")
@@ -217,7 +218,7 @@ def main():
         x_scale="log",
     )
 
-    labels = ["$f_{CCH}$", "ΔM", "$H_0$", "$r_d$", "Ωm", "$e^{w_0}$"]
+    labels = ["$f_{CCH}$", "ΔM", "$H_0$", "$r_d$", "Ωm", "$w_0$"]
     corner.corner(
         samples,
         labels=labels,
@@ -250,37 +251,40 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM: w(z) = -1
-f_cc: 1.47 +0.19 -0.18
-ΔM: -0.121 +0.114 -0.113
-H0: 68.6 +2.3 -2.3
-r_d: 147.1 +4.9 -4.6
+f_cc: 1.48 +0.18 -0.18
+ΔM: -0.120 +0.114 -0.115
+H0: 68.7 +2.3 -2.3
+r_d: 147.1 +5.0 -4.6
 Ωm: 0.305 +0.008 -0.008
+Ωm h^2: 0.1437 +0.0095 -0.0094
 w0: -1
-Chi squared: 71.15
+Chi squared: 71.19
 Degrees of freedom: 63
 
 ==============================
 
 Flat wCDM: w(z) = w0
-f_cc: 1.46 +0.18 -0.18
-ΔM: -0.157 +0.113 -0.117 mag
+f_cc: 1.46 +0.18 -0.17
+ΔM: -0.159 +0.115 -0.116 mag
 H0: 67.1 +2.3 -2.3 km/s/Mpc
-r_d: 147.2 +4.9 -4.6 Mpc
-Ωm: 0.298 +0.009 -0.009
+r_d: 147.3 +5.0 -4.6 Mpc
+Ωm: 0.299 +0.009 -0.009
+Ωm h^2: 0.1342 +0.0100 -0.0096
 w0: -0.870 +0.050 -0.052
-Chi squared: 64.43
+Chi squared: 64.41
 Degrees of freedom: 62
 
 ==============================
 
 Flat alternative: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
 f_cc: 1.46 +0.18 -0.18
-ΔM: -0.164 +0.116 -0.116 mag
+ΔM: -0.165 +0.117 -0.116 mag
 H0: 66.7 +2.4 -2.3 km/s/Mpc
-r_d: 147.2 +5.0 -4.7 Mpc
+r_d: 147.2 +4.9 -4.7 Mpc
 Ωm: 0.310 +0.009 -0.008
-w0: -0.811 +0.065 -0.067
-Chi squared: 62.75
+Ωm h^2: 0.1379 +0.0096 -0.0092
+w0: -0.812 +0.065 -0.067
+Chi squared: 62.73 (Δ chi2 8.46 from ΛCDM)
 Degrees of freedom: 62
 
 ===============================

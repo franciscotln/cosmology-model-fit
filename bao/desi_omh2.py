@@ -15,17 +15,17 @@ cho = np.linalg.cholesky(cov_matrix)
 cho_T = cho.T
 
 # Planck prior
-Omh2_planck = 0.1432
-Omh2_planck_sigma = 0.0013 * 2.0  # 2 sigma
+Omh2_planck = 0.1430
+Omh2_planck_sigma = 0.0011
 
 
 @njit
 def H_z(z, params):
-    h, Om, exp_w0, _ = params
+    h, Om, w0, _ = params
     OL = 1 - Om
     one_plus_z = 1 + z
     cubed = one_plus_z**3
-    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + np.log(exp_w0)))
+    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
     return 100 * h * np.sqrt(Om * cubed + OL * rho_de)
 
 
@@ -68,7 +68,7 @@ bounds = np.array(
     [
         (0.500, 0.800),  # h
         (0.100, 0.500),  # Ωm
-        (0.10, 0.90),  # e^w0
+        (-2.0, 0.0),  # w0
         (130.0, 160.0),  # rd
     ],
     dtype=np.float64,
@@ -100,7 +100,7 @@ def chi_squared(params):
 def log_prior(params):
     if not np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
         return -np.inf
-    return -np.log(params[2])
+    return 0.0
 
 
 @njit
@@ -152,14 +152,14 @@ def main():
     [
         [h_16, h_50, h_84],
         [Om_16, Om_50, Om_84],
-        [exp_w0_16, exp_w0_50, exp_w0_84],
+        [w0_16, w0_50, w0_84],
         [rd_16, rd_50, rd_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = np.array([h_50, Om_50, exp_w0_50, rd_50], dtype=np.float64)
+    best_fit = np.array([h_50, Om_50, w0_50, rd_50], dtype=np.float64)
 
-    w0_samples = np.log(samples[:, 2])
-    w0_16, w0_50, w0_84 = np.percentile(w0_samples, [15.9, 50, 84.1])
+    Omh2_samples = samples[:, 1] * samples[:, 0] ** 2
+    Omh2_16, Omh2_50, Omh2_84 = np.percentile(Omh2_samples, [15.9, 50, 84.1])
 
     residuals = data["value"] - bao_theory(data["z"], quantities, best_fit)
     SS_res = np.sum(residuals**2)
@@ -168,6 +168,9 @@ def main():
 
     print(f"h: {h_50:.3f} +{(h_84 - h_50):.3f} -{(h_50 - h_16):.3f}")
     print(f"Ωm: {Om_50:.3f} +{Om_84-Om_50:.3f} -{Om_50-Om_16:.3f}")
+    print(
+        f"Ωm h^2: {Omh2_50:.4f} +{(Omh2_84 - Omh2_50):.4f} -{(Omh2_50 - Omh2_16):.4f}"
+    )
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"rd: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
@@ -183,7 +186,7 @@ def main():
     )
     plot_bao_residuals(data, residuals, np.sqrt(np.diag(cov_matrix)))
 
-    labels = ["$h$", "$Ω_m$", "$e^{w_0}$", "$r_d$"]
+    labels = ["$h$", "$Ω_m$", "$w_0$", "$r_d$"]
     corner.corner(
         samples,
         labels=labels,
@@ -219,10 +222,11 @@ Dataset: DESI DR2 2024 + Ωm * h^2 Planck 2018
 *******************************
 
 Flat ΛCDM:
-h: 0.693 +0.012 -0.012
+h: 0.693 +0.010 -0.010
 Ωm: 0.298 +0.009 -0.008
+Ωm h^2: 0.1430 +0.0011 -0.0011
 w0: -1
-rd: 146.41 +1.81 -1.76
+rd: 146.48 +1.33 -1.31
 Chi squared: 10.27
 Degs of freedom: 11
 R^2: 0.9987
@@ -231,24 +235,25 @@ RMSD: 0.305
 ===============================
 
 Flat wCDM:
-h: 0.694 +0.012 -0.012
+h: 0.694 +0.011 -0.011
 Ωm: 0.297 +0.009 -0.009
-w0: -0.915 +0.076 -0.079
-rd: 143.96 +2.93 -3.17
-Chi squared: 9.11
+Ωm h^2: 0.1430 +0.0011 -0.0011
+w0: -0.914 +0.076 -0.080
+rd: 144.03 +2.67 -2.94
+Chi squared: 9.16
 Degs of freedom: 10
 R^2: 0.9989
-RMSD: 0.281
+RMSD: 0.282
 
 ===============================
 
 Flat alternative: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-h: 0.682 +0.015 -0.014
+h: 0.681 +0.014 -0.013
 Ωm: 0.308 +0.012 -0.012
-w0: -0.833 +0.120 -0.129
-rd: 144.63 +2.28 -2.25
-Chi squared: 8.45
+w0: -0.833 +0.122 -0.128
+rd: 144.70 +1.93 -1.95
+Chi squared: 8.44
 Degs of freedom: 10
 R^2: 0.9990
-RMSD: 0.267
+RMSD: 0.266
 """
