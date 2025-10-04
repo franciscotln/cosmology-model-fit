@@ -1,4 +1,3 @@
-from matplotlib.pylab import f
 from numba import njit
 import numpy as np
 import emcee
