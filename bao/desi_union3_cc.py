@@ -100,7 +100,7 @@ bounds = np.array(
         (55, 80),  # H0
         (125, 170),  # r_d
         (0.2, 0.7),  # Ωm
-        (0.01, 1.0),  # e^w0
+        (0.2, 0.7),  # e^w0
     ],
     dtype=np.float64,
 )
@@ -122,7 +122,7 @@ def chi_squared(params):
 @njit
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
-        return 0.0
+        return -np.log(params[5])
     return -np.inf
 
 
@@ -143,10 +143,10 @@ def main():
     ndim = len(bounds)
     nwalkers = 150
     burn_in = 200
-    nsteps = 2200 + burn_in
+    nsteps = 2000 + burn_in
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
 
-    with Pool(4) as pool:
+    with Pool(5) as pool:
         sampler = emcee.EnsembleSampler(
             nwalkers,
             ndim,
@@ -262,25 +262,25 @@ Degrees of freedom: 63
 ==============================
 
 Flat wCDM: w(z) = w0
-f_cc: 1.47 +0.18 -0.18
-ΔM: -0.159 +0.115 -0.115 mag
+f_cc: 1.46 +0.18 -0.18
+ΔM: -0.157 +0.113 -0.117 mag
 H0: 67.1 +2.3 -2.3 km/s/Mpc
-r_d: 147.3 +4.9 -4.6 Mpc
+r_d: 147.2 +4.9 -4.6 Mpc
 Ωm: 0.298 +0.009 -0.009
-w0: -0.869 +0.050 -0.051
-Chi squared: 64.56
+w0: -0.870 +0.050 -0.052
+Chi squared: 64.43
 Degrees of freedom: 62
 
 ==============================
 
 Flat alternative: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
 f_cc: 1.46 +0.18 -0.18
-ΔM: -0.165 +0.117 -0.116 mag
-H0: 66.7 +2.3 -2.3 km/s/Mpc
-r_d: 147.2 +5.0 -4.6 Mpc
+ΔM: -0.164 +0.116 -0.116 mag
+H0: 66.7 +2.4 -2.3 km/s/Mpc
+r_d: 147.2 +5.0 -4.7 Mpc
 Ωm: 0.310 +0.009 -0.008
-w0: -0.807 +0.065 -0.067
-Chi squared: 62.67
+w0: -0.811 +0.065 -0.067
+Chi squared: 62.75
 Degrees of freedom: 62
 
 ===============================
