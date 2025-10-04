@@ -6,10 +6,8 @@ import numpy as np
 
 
 def plot_predictions(legend: str, x, y, y_model, label: str, y_err, x_scale="linear"):
-    # real data
     plt.scatter(x=x, y=y, label=legend, marker=".", alpha=0.6)
 
-    # predicted values
     plt.ylim(y[0] - 1, y[-1] + 1)
     plt.plot(x, y_model, "r-", label=label)
     plt.xscale(value=x_scale)
@@ -73,3 +71,17 @@ def plot_residuals(z_values, residuals, y_err, bins):
 
 def print_color(key, value):
     print(f"\033[94m{key}: \033[00m\033[93m{value}\033[00m")
+
+
+def gelman_rubin(chains):
+    nwalkers, nsamples, ndim = chains.shape
+    n_samples = nwalkers * nsamples * ndim
+    rhat = np.zeros(ndim)
+    for i in range(ndim):
+        chain_means = np.mean(chains[:, :, i], axis=1)
+        chain_vars = np.var(chains[:, :, i], axis=1, ddof=1)
+        B = n_samples * np.var(chain_means, ddof=1)
+        W = np.mean(chain_vars)
+        var_hat = (1 - 1 / n_samples) * W + B / n_samples
+        rhat[i] = np.sqrt(var_hat / W)
+    return rhat

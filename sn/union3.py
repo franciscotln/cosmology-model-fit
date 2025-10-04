@@ -7,7 +7,7 @@ from scipy.stats import skew
 from scipy.linalg import cho_factor, cho_solve
 from scipy.integrate import cumulative_trapezoid
 from multiprocessing import Pool
-from .plotting import plot_predictions, print_color, plot_residuals
+from .plotting import plot_predictions, print_color, plot_residuals, gelman_rubin
 from y2023union3.data import get_data
 
 legend, z_values, mu_vals, cov_matrix = get_data()
@@ -49,7 +49,7 @@ def log_likelihood(params):
     return -0.5 * chi_squared(params)
 
 
-bounds = np.array([(-0.6, 0.6), (0, 1), (0.01, 1.0)])  # ΔM, Ωm, e^w0
+bounds = np.array([(-0.6, 0.6), (0, 1), (0.08, 1.0)])  # ΔM, Ωm, e^w0
 
 
 @njit
@@ -98,6 +98,8 @@ def main():
         print("Autocorrelation time could not be computed", e)
 
     samples = sampler.get_chain(discard=burn_in, flat=True)
+    chain_samples = sampler.get_chain(discard=burn_in, flat=False)
+    print("Gelman-Rubin R-hat:", gelman_rubin(np.transpose(chain_samples, (1, 0, 2))))
 
     [
         [dM_16, dM_50, dM_84],
@@ -153,7 +155,6 @@ def main():
     )
     plt.show()
 
-    chain_samples = sampler.get_chain(discard=burn_in, flat=False)
     plt.figure(figsize=(16, 1.5 * n_dim))
     for n in range(n_dim):
         plt.subplot2grid((n_dim, 1), (n, 0))

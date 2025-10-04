@@ -23,12 +23,12 @@ one_plus_z_hel = 1 + z_hel
 
 @njit
 def Ez(z, params):
-    H0, Om, w0 = params[0], params[1], params[3]
+    H0, Om, exp_w0 = params[0], params[1], params[3]
     h = H0 / 100
     Or = O_r_h2 / h**2
     Ode = 1 - Om - Or
     one_plus_z = 1 + z
-    rho_de = (2 * one_plus_z**3 / (1 + one_plus_z**3)) ** (2 * (1 + w0))
+    rho_de = (2 * one_plus_z**3 / (1 + one_plus_z**3)) ** (2 * (1 + np.log(exp_w0)))
 
     return np.sqrt(Or * one_plus_z**4 + Om * one_plus_z**3 + Ode * rho_de)
 
@@ -57,7 +57,7 @@ bounds = np.array(
         (60, 75),  # H0
         (0.1, 0.6),  # Ωm
         (0.019, 0.025),  # Ωb * h^2
-        (-2, 0),  # w0
+        (0.1, 0.8),  # e^w0
         (-0.7, 0.7),  # ΔM
     ],
     dtype=np.float64,
@@ -84,7 +84,7 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 180
+    nwalkers = 150
     burn_in = 200
     nsteps = 2000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
@@ -121,10 +121,13 @@ def main():
     H0_16, H0_50, H0_84 = pct[0]
     Om_16, Om_50, Om_84 = pct[1]
     Obh2_16, Obh2_50, Obh2_84 = pct[2]
-    w0_16, w0_50, w0_84 = pct[3]
+    exp_w0_16, exp_w0_50, exp_w0_84 = pct[3]
     dM_16, dM_50, dM_84 = pct[4]
 
-    best_fit = np.array([H0_50, Om_50, Obh2_50, w0_50, dM_50], dtype=np.float64)
+    best_fit = np.array([H0_50, Om_50, Obh2_50, exp_w0_50, dM_50], dtype=np.float64)
+
+    w0_samples = np.log(samples[:, 3])
+    w0_16, w0_50, w0_84 = np.percentile(w0_samples, [15.9, 50, 84.1])
 
     Omh2_50 = Om_50 * (H0_50 / 100) ** 2
     z_st = cmb.z_star(Obh2_50, Omh2_50)
@@ -152,7 +155,7 @@ def main():
         label=f"Model: $Ω_m$={Om_50:.3f}",
         x_scale="log",
     )
-    labels = ["$H_0$", "$Ω_m$", "$Ω_b h^2$", "$w_0$", "$Δ_M$"]
+    labels = ["$H_0$", "$Ω_m$", "$Ω_b h^2$", "$e^{w_0}$", "$Δ_M$"]
     corner.corner(
         samples,
         labels=labels,
@@ -213,16 +216,16 @@ Degrees of freedom: 1733
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-H0: 65.90 +0.67 -0.65 km/s/Mpc
+H0: 65.88 +0.66 -0.67 km/s/Mpc
 Ωm: 0.331 +0.008 -0.008
-Ωb h^2: 0.02237 +0.00014 -0.00014
-w0: -0.907 +0.040 -0.041
-ΔM: -0.102 +0.013 -0.013
+Ωb h^2: 0.02237 +0.00015 -0.00015
+w0: -0.906 +0.040 -0.040
+ΔM: -0.103 +0.014 -0.014
 z*: 1088.90
-z_drag: 1059.95
+z_drag: 1059.94
 r_s(z*) = 144.18 Mpc
-r_s(z_drag) = 146.75 Mpc
-Chi squared: 1638.69 (Δ chi2 5.0)
+r_s(z_drag) = 146.74 Mpc
+Chi squared: 1638.71 (Δ chi2 5.0)
 Degrees of freedom: 1733
 
 ===============================

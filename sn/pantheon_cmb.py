@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from y2022pantheonSHOES.data import get_data
 import cmb.data_chen_compression as cmb
-from .plotting import plot_predictions as plot_sn_predictions
+from .plotting import plot_predictions as plot_sn_predictions, gelman_rubin
 
 c = cmb.c  # Speed of light in km/s
 O_r_h2 = cmb.Omega_r_h2()
@@ -16,19 +16,19 @@ O_r_h2 = cmb.Omega_r_h2()
 sn_legend, z_cmb, z_hel, mb_values, cov_matrix_sn = get_data()
 cho_sn = cho_factor(cov_matrix_sn)
 
-sn_grid = np.linspace(0, np.max(z_cmb), num=1500)
+sn_grid = np.linspace(0, np.max(z_cmb), num=1000)
 one_plus_z_hel = 1 + z_hel
 
 
 @njit
 def Ez(z, params):
-    H0, Om, w0 = params[0], params[1], params[3]
+    H0, Om, exp_w0 = params[0], params[1], params[3]
     h = H0 / 100
     Or = O_r_h2 / h**2
     Ode = 1 - Om - Or
     one_plus_z = 1 + z
     cubed = one_plus_z**3
-    fz_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
+    fz_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + np.log(exp_w0)))
 
     return np.sqrt(Or * one_plus_z**4 + Om * cubed + Ode * fz_de)
 
@@ -56,9 +56,9 @@ def chi_squared(params):
 bounds = np.array(
     [
         (60, 75),  # H0
-        (0.15, 0.55),  # Ωm
+        (0.15, 0.40),  # Ωm
         (0.020, 0.025),  # Ωb * h^2
-        (-1.5, -0.5),  # w0
+        (0.1, 0.8),  # e^w0
         (-20, -19),  # M
     ],
     dtype=np.float64,
@@ -87,7 +87,7 @@ def main():
     ndim = len(bounds)
     nwalkers = 150
     burn_in = 200
-    nsteps = 2000 + burn_in
+    nsteps = 1500 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):
@@ -116,31 +116,22 @@ def main():
         print("Autocorrelation time could not be computed", e)
 
     samples = sampler.get_chain(discard=burn_in, flat=True)
-    chains = np.transpose(sampler.get_chain(discard=burn_in, flat=False), (1, 0, 2))
+    chains = sampler.get_chain(discard=burn_in, flat=False)
 
-    def gelman_rubin():
-        n_samples = ndim * nwalkers * (nsteps - burn_in)
-        rhat = np.zeros(ndim)
-        for i in range(ndim):
-            chain_means = np.mean(chains[:, :, i], axis=1)
-            chain_vars = np.var(chains[:, :, i], axis=1, ddof=1)
-            B = n_samples * np.var(chain_means, ddof=1)
-            W = np.mean(chain_vars)
-            var_hat = (1 - 1 / n_samples) * W + B / n_samples
-            rhat[i] = np.sqrt(var_hat / W)
-        return rhat
-
-    print("Gelman-Rubin statistic:", gelman_rubin())
+    print("Gelman-Rubin statistic:", gelman_rubin(np.transpose(chains, (1, 0, 2))))
 
     one_sigma_conf_int = [15.9, 50, 84.1]
     pct = np.percentile(samples, one_sigma_conf_int, axis=0).T
     H0_16, H0_50, H0_84 = pct[0]
     Om_16, Om_50, Om_84 = pct[1]
     Obh2_16, Obh2_50, Obh2_84 = pct[2]
-    w0_16, w0_50, w0_84 = pct[3]
+    exp_w0_16, exp_w0_50, exp_w0_84 = pct[3]
     M_16, M_50, M_84 = pct[4]
 
-    best_fit = np.array([H0_50, Om_50, Obh2_50, w0_50, M_50], dtype=np.float64)
+    best_fit = np.array([H0_50, Om_50, Obh2_50, exp_w0_50, M_50], dtype=np.float64)
+
+    w0_samples = np.log(samples[:, 3])
+    w0_16, w0_50, w0_84 = np.percentile(w0_samples, one_sigma_conf_int)
 
     Omh2_samples = samples[:, 1] * (samples[:, 0] / 100) ** 2
     z_star_samples = cmb.z_star(samples[:, 2], Omh2_samples)
@@ -181,7 +172,7 @@ def main():
         label=f"Model: $Ω_m$={Om_50:.3f}",
         x_scale="log",
     )
-    labels = ["$H_0$", "$Ω_m$", "$Ω_b h^2$", "$w_0$", "M"]
+    labels = ["$H_0$", "$Ω_m$", "$Ω_b h^2$", "$e^{w_0}$", "M"]
     corner.corner(
         samples,
         labels=labels,
@@ -244,11 +235,11 @@ Degrees of freedom: 1586
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-H0: 66.77 +0.72 -0.71 km/s/Mpc
+H0: 66.75 +0.72 -0.71 km/s/Mpc
 Ωm: 0.323 +0.008 -0.008
-Ωm h^2: 0.14384 +0.00124 -0.00126
+Ωm h^2: 0.14382 +0.00125 -0.00125
 Ωb h^2: 0.02236 +0.00015 -0.00015
-w0: -0.962 +0.042 -0.042
+w0: -0.960 +0.042 -0.042
 M: -19.452 +0.018 -0.018
 z*: 1088.91 +0.22 -0.21
 z_drag: 1059.93 +0.29 -0.29
