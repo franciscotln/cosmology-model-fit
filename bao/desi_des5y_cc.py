@@ -107,7 +107,7 @@ bounds = np.array(
         (50, 80),  # H0
         (110, 175),  # r_d
         (0.2, 0.7),  # Ωm
-        (0.01, 1.0),  # e^w0
+        (0.15, 0.75),  # e^w0
     ],
     dtype=np.float64,
 )
@@ -130,7 +130,7 @@ def chi_squared(params):
 @njit
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
-        return 0.0
+        return -np.log(params[5])  # flat prior in w0
     return -np.inf
 
 
@@ -151,7 +151,7 @@ def main():
     ndim = len(bounds)
     nwalkers = 150
     burn_in = 200
-    nsteps = 2200 + burn_in
+    nsteps = 2000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):
@@ -279,27 +279,27 @@ Degrees of freedom: 1776
 ===============================
 
 Flat wCDM: w(z) = w0
-f_cc: 1.47 +0.19 -0.18
-ΔM: -0.066 +0.071 -0.072 mag
-H0: 67.1 +2.3 -2.2 km/s/Mpc
-r_d: 147.3 +4.9 -4.7 Mpc
+f_cc: 1.46 +0.19 -0.18
+ΔM: -0.065 +0.070 -0.072 mag
+H0: 67.2 +2.2 -2.3 km/s/Mpc
+r_d: 147.2 +4.9 -4.6 Mpc
 Ωm: 0.299 +0.009 -0.009
-w0: -0.873 +0.038 -0.039
+w0: -0.875 +0.038 -0.039
 wa: 0
-Chi squared: 1680.46 (Δ chi2 10.79)
+Chi squared: 1680.36 (Δ chi2 10.90)
 Degrees of freedom: 1775
 
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-f_cc: 1.46 +0.18 -0.18
+f_cc: 1.46 +0.19 -0.18
 ΔM: -0.063 +0.070 -0.072 mag
-H0: 67.0 ± 2.2 km/s/Mpc
+H0: 67.0 +2.3 -2.2 km/s/Mpc
 r_d: 147.2 +4.9 -4.6 Mpc
 Ωm: 0.308 ± 0.008
-w0: -0.837 +0.045 -0.046
-wa: -(1 + w0) = -0.163 +0.045 -0.046
-Chi squared: 1678.79 (Δ chi2 12.47)
+w0: -0.839 +0.044 -0.046
+wa: -(1 + w0) = -0.161 +0.046 -0.044
+Chi squared: 1678.82 (Δ chi2 12.44)
 Degrees of freedom: 1775
 
 ===============================
