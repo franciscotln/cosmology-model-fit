@@ -115,7 +115,7 @@ bounds = np.array(
 @njit
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
-        return 0
+        return -np.log(params[3])
     return -np.inf
 
 
@@ -252,11 +252,11 @@ Correlation matrix:
 
 Flat wCDM
 r_d: 147.09 Mpc (fixed)
-ΔM: -0.157 +0.089 -0.090 mag
-H0: 67.10 +0.74 -0.74 km/s/Mpc
+ΔM: -0.156 +0.089 -0.088 mag
+H0: 67.12 +0.74 -0.73 km/s/Mpc
 Ωm: 0.298 +0.009 -0.009
-w0: -0.863 +0.050 -0.050
-Chi squared: 32.15 (Δ chi2 6.67)
+w0: -0.866 +0.051 -0.050
+Chi squared: 32.17 (Δ chi2 6.65)
 Degs of freedom: 31
 Correlation matrix:
 [[ 1.       0.2271  -0.06492 -0.17294]
@@ -268,10 +268,10 @@ Correlation matrix:
 
 Flat -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
 r_d: 147.09 Mpc (fixed)
-ΔM: -0.165 +0.090 -0.089 mag
-H0: 66.61 +0.82 -0.80 km/s/Mpc
-Ωm: 0.310 +0.009 -0.009
-w0: -0.797 +0.065 -0.066
+ΔM: -0.163 +0.089 -0.090 mag
+H0: 66.66 +0.82 -0.80 km/s/Mpc
+Ωm: 0.310 +0.009 -0.008
+w0: -0.803 +0.065 -0.066
 Chi squared: 30.37 (Δ chi2 8.45)
 Degs of freedom: 31
 Correlation matrix:
