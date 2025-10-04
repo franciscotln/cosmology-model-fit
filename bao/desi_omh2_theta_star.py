@@ -33,7 +33,7 @@ def Ez(z, params):
 
     one_plus_z = 1 + z
     cubed = one_plus_z**3
-    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
+    rho_de = 1#(2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
     return np.sqrt(Or * one_plus_z**4 + Om * cubed + Ode * rho_de)
 
 
@@ -243,12 +243,12 @@ Dataset: DESI DR2 2024 + θ∗ + Ωm x h2
 *******************************
 
 Flat ΛCDM w(z) = -1
-H0: 69.34 +1.03 -1.02 km/s/Mpc
+H0: 69.34 +1.03 -1.03 km/s/Mpc
 Ωm: 0.297 +0.009 -0.008
 Ωm h^2: 0.1430 +0.0011 -0.0011
-Ωb h^2: 0.02348 +0.00098 -0.00098
+Ωb h^2: 0.02348 +0.00099 -0.00099
 w0: -1
-rd: 146.43 +1.32 -1.31 Mpc
+rd: 146.43 +1.33 -1.32 Mpc
 z_drag: 1058.61
 r*: 143.59 Mpc
 z*: 1090.37 +1.31 -1.22
