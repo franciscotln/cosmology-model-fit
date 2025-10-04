@@ -2,7 +2,6 @@ from numba import njit
 import numpy as np
 import emcee
 import corner
-from scipy.constants import c as c0
 from scipy.linalg import cho_factor, cho_solve
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
@@ -246,6 +245,7 @@ H0: 69.35 +1.03 -1.02 km/s/Mpc
 w0: -1
 rd: 146.41 +1.33 -1.30 Mpc
 r*: 143.58 Mpc
+z_drag: 1058.68
 z*: 1090.42 +1.32 -1.20
 Chi squared: 10.28
 degs of freedom: 11
@@ -259,6 +259,7 @@ H0: 69.42 +1.08 -1.05 km/s/Mpc
 w0: -0.914 +0.077 -0.080
 rd: 143.96 +2.70 -3.00 Mpc
 r*: 142.40 Mpc
+z_drag: 1068.9
 z*: 1087.47 +3.05 -3.02
 Chi squared: 10.04
 degs of freedom: 10
@@ -272,6 +273,7 @@ H0: 68.16 +1.35 -1.28 km/s/Mpc
 w0: -0.831 +0.120 -0.127
 rd: 144.61 +1.93 -1.92 Mpc
 r*: 142.78 Mpc
+z_drag: 1066.92
 z*: 1088.38 +1.99 -1.80
 Chi squared: 8.44
 degs of freedom: 10
