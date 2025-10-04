@@ -18,7 +18,7 @@ cho_bao = cho_factor(bao_cov_matrix)
 
 @njit
 def Ez(z, params):
-    H0, Om, w0 = params[0], params[1], params[3]
+    H0, Om, w0 = params[1], params[2], params[4]
     h = H0 / 100
     Or = Or_h2 / h**2
     Ode = 1 - Om - Or
@@ -32,7 +32,7 @@ def Ez(z, params):
 
 @njit
 def H_z(z, params):
-    return params[0] * Ez(z, params)
+    return params[1] * Ez(z, params)
 
 
 @njit
@@ -69,10 +69,6 @@ quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int32
 
 @njit
 def bao_predictions(z, qty, params):
-    H0, Om, Obh2 = params[0], params[1], params[2]
-    Omh2 = Om * (H0 / 100) ** 2
-    rd = cmb.r_drag(wb=Obh2, wm=Omh2)
-
     results = np.empty(z.size, dtype=np.float64)
     DV_mask = qty == 0
     DM_mask = qty == 1
@@ -80,11 +76,11 @@ def bao_predictions(z, qty, params):
     results[DH_mask] = DH_z(z[DH_mask], params)
     results[DM_mask] = DM_z(z[DM_mask], params)
     results[DV_mask] = DV_z(z[DV_mask], params)
-    return results / rd
+    return results / params[0]
 
 
 def chi_squared(params):
-    H0, Om, Ob_h2 = params[0], params[1], params[2]
+    H0, Om, Ob_h2 = params[1], params[2], params[3]
 
     delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez, params, H0, Om, Ob_h2)
     chi2_cmb = np.dot(delta_cmb, np.dot(cmb.inv_cov_mat, delta_cmb))
@@ -97,6 +93,7 @@ def chi_squared(params):
 
 bounds = np.array(
     [
+        (120, 160),  # r_d
         (55, 75),  # H0
         (0.25, 0.45),  # Ωm
         (0.021, 0.023),  # Ωb * h^2
@@ -160,25 +157,22 @@ def main():
     samples = sampler.get_chain(discard=burn_in, flat=True)
 
     pct = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
-    H0_16, H0_50, H0_84 = pct[0]
-    Om_16, Om_50, Om_84 = pct[1]
-    Obh2_16, Obh2_50, Obh2_84 = pct[2]
-    w0_16, w0_50, w0_84 = pct[3]
+    r_d_16, r_d_50, r_d_84 = pct[0]
+    H0_16, H0_50, H0_84 = pct[1]
+    Om_16, Om_50, Om_84 = pct[2]
+    Obh2_16, Obh2_50, Obh2_84 = pct[3]
+    w0_16, w0_50, w0_84 = pct[4]
 
-    best_fit = np.array([H0_50, Om_50, Obh2_50, w0_50], dtype=np.float64)
+    best_fit = np.array([r_d_50, H0_50, Om_50, Obh2_50, w0_50], dtype=np.float64)
 
-    Om_h2_samples = samples[:, 1] * (samples[:, 0] / 100) ** 2
-    z_st_samples = cmb.z_star(samples[:, 2], Om_h2_samples)
-    z_dr_samples = cmb.z_drag(samples[:, 2], Om_h2_samples)
-    r_drag_samples = cmb.r_drag(samples[:, 2], Om_h2_samples)
-
+    Om_h2_samples = samples[:, 2] * (samples[:, 1] / 100) ** 2
+    z_st_samples = cmb.z_star(samples[:, 3], Om_h2_samples)
     Omh2_16, Omh2_50, Omh2_84 = np.percentile(Om_h2_samples, [15.9, 50, 84.1])
-    r_d_16, r_d_50, r_d_84 = np.percentile(r_drag_samples, [15.9, 50, 84.1])
     z_st_16, z_st_50, z_st_84 = np.percentile(z_st_samples, [15.9, 50, 84.1])
-    z_d_16, z_d_50, z_d_84 = np.percentile(z_dr_samples, [15.9, 50, 84.1])
 
+    print(f"r_d: {r_d_50:.2f} +{(r_d_84 - r_d_50):.2f} -{(r_d_50 - r_d_16):.2f} Mpc")
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
-    print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
+    print(f"Ωm: {Om_50:.4f} +{(Om_84 - Om_50):.4f} -{(Om_50 - Om_16):.4f}")
     print(
         f"Ωm h^2: {Omh2_50:.5f} +{(Omh2_84 - Omh2_50):.5f} -{(Omh2_50 - Omh2_16):.5f}"
     )
@@ -186,12 +180,8 @@ def main():
         f"Ωb h^2: {Obh2_50:.5f} +{(Obh2_84 - Obh2_50):.5f} -{(Obh2_50 - Obh2_16):.5f}"
     )
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
+    print(f"r*: {cmb.rs_z(Ez, z_st_50, best_fit, H0_50, Obh2_50):.2f} Mpc")
     print(f"z*: {z_st_50:.2f} +{(z_st_84 - z_st_50):.2f} -{(z_st_50 - z_st_16):.2f}")
-    print(f"z_drag: {z_d_50:.2f} +{(z_d_84 - z_d_50):.2f} -{(z_d_50 - z_d_16):.2f}")
-    print(f"r_s(z*) = {cmb.rs_z(Ez, z_st_50, best_fit, H0_50, Obh2_50):.2f} Mpc")
-    print(
-        f"r_s(z_drag) = {r_d_50:.2f} +{(r_d_84 - r_d_50):.2f} -{(r_d_50 - r_d_16):.2f} Mpc"
-    )
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
 
     plot_bao_predictions(
@@ -200,7 +190,7 @@ def main():
         errors=np.sqrt(np.diag(bao_cov_matrix)),
         title=bao_legend,
     )
-    labels = ["$H_0$", "$Ω_m$", "$Ω_b h^2$", "$w_0$"]
+    labels = ["$r_d$", "$H_0$", "$Ω_m$", "$Ω_b h^2$", "$w_0$"]
     corner.corner(
         samples,
         labels=labels,
@@ -235,117 +225,57 @@ Dataset: DESI DR2 2024 + (θ∗,ωb,ωbc)CMB
 *******************************
 
 Flat ΛCDM w(z) = -1
-H0: 68.45 ± 0.30 km/s/Mpc
-Ωm: 0.299 ± 0.004
-Ωm h^2: 0.14024 +0.00064 -0.00063
-Ωb h^2: 0.02238 ± 0.00012
+r_d: 147.79 +0.51 -0.50 Mpc
+H0: 68.45 +0.43 -0.43 km/s/Mpc
+Ωm: 0.3020 +0.0056 -0.0056
+Ωm h^2: 0.14153 +0.00090 -0.00091
+Ωb h^2: 0.02228 +0.00013 -0.00013
 w0: -1
-z*: 1088.65 ± 0.14
-z_drag: 1059.71 +0.26 -0.27
-r_s(z*) = 145.08 Mpc
-r_s(z_drag) = 147.74 +0.17 -0.18 Mpc
-Chi squared: 13.50
+r*: 144.54 Mpc
+z*: 1091.92 +0.23 -0.22
+Chi squared: 10.81
 Degs of freedom: 14
 
 ===============================
 
 Flat wCDM w(z) = w0
-H0: 68.88 +0.96 -0.92 km/s/Mpc
-Ωm: 0.296 +0.007 -0.007
-Ωm h^2: 0.14056 +0.00089 -0.00090
-Ωb h^2: 0.02235 +0.00013 -0.00013
-w0: -1.019 +0.038 -0.040
-z*: 1088.70 +0.18 -0.17
-z_drag: 1059.67 +0.27 -0.28
-r_s(z*) = 145.02 Mpc
-r_s(z_drag) = 147.69 +0.21 -0.20 Mpc
-Chi squared: 13.31 (Δ chi2 0.19)
+r_d: 147.79 +0.52 -0.52 Mpc
+H0: 68.58 +0.99 -0.97 km/s/Mpc
+Ωm: 0.3011 +0.0086 -0.0084
+Ωm h^2: 0.14163 +0.00114 -0.00114
+Ωb h^2: 0.02227 +0.00014 -0.00014
+w0: -1.005 +0.038 -0.040
+r*: 144.52 Mpc
+z*: 1091.94 +0.27 -0.27
+Chi squared: 10.81
 Degs of freedom: 13
 
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-H0: 68.20 +1.41 -1.35 km/s/Mpc
-Ωm: 0.301 +0.012 -0.011
-Ωm h^2: 0.14016 +0.00080 -0.00080
-Ωb h^2: 0.02238 +0.00013 -0.00013
-w0: -0.984 +0.088 -0.089
-z*: 1088.64 +0.16 -0.16
-z_drag: 1059.72 +0.27 -0.28
-r_s(z*) = 145.11 Mpc
-r_s(z_drag) = 147.76 +0.20 -0.19 Mpc
-Chi squared: 13.46 (Δ chi2 0.04)
+r_d: 147.80 +0.51 -0.52 Mpc
+H0: 68.00 +1.40 -1.35 km/s/Mpc
+Ωm: 0.3056 +0.0122 -0.0118
+Ωm h^2: 0.14134 +0.00108 -0.00108
+Ωb h^2: 0.02229 +0.00014 -0.00014
+w0: -0.969 +0.088 -0.091
+r*: 144.58 Mpc
+z*: 1091.88 +0.25 -0.26
+Chi squared: 10.67
 Degs of freedom: 13
 
 ===============================
 
 Flat w(z) = w0 + wa * z / (1 + z)
-H0: 63.69 +2.07 -2.09 km/s/Mpc
-Ωm: 0.351 +0.025 -0.023
-Ωm h^2: 0.14222 +0.00103 -0.00106
-Ωb h^2: 0.02222 +0.00014 -0.00014
-w0: -0.445 +0.253 -0.230
-wa: -1.628 +0.665 -0.760
-z*: 1088.96 +0.20 -0.20
-z_drag: 1059.49 +0.29 -0.28
-r_s(z*) = 144.66 Mpc
-r_s(z_drag) = 147.41 +0.22 -0.22 Mpc
-Chi squared: 7.07 (Δ chi2 6.50)
+r_d: 147.19 +0.56 -0.56 Mpc
+H0: 64.70 +2.04 -1.97 km/s/Mpc
+Ωm: 0.3403 +0.0229 -0.0214
+Ωm h^2: 0.14251 +0.00119 -0.00120
+Ωb h^2: 0.02219 +0.00015 -0.00014
+w0: -0.561 +0.232 -0.222
+wa: -1.242 +0.618 -0.671
+r*: 144.33 Mpc
+z*: 1092.12 +0.27 -0.28
+Chi squared: 7.09
 Degs of freedom: 12
-
-*******************************
-Dataset: SDSS DR16 2020 + Chen+2018 CMB compression
-*******************************
-
-Flat ΛCDM w(z) = -1
-H0: 67.76 ± 0.44 km/s/Mpc
-Ωm: 0.312 ± 0.006
-Ωb h^2: 0.02241 ± 0.00013
-w0: -1
-z*: 1088.81
-z_drag: 1060.00
-r_s(z*) = 144.30 Mpc
-r_s(z_drag) = 146.86 Mpc
-Chi squared: 11.35
-
-===============================
-
-Flat wCDM w(z) = w0
-H0: 68.16 +1.51 -1.42 km/s/Mpc
-Ωm: 0.309 ± 0.013
-Ωb h^2: 0.02240 ± 0.00014
-w0: -1.017 +0.056 -0.061
-z*: 1088.84
-z_drag: 1059.98
-r_s(z*) = 144.26 Mpc
-r_s(z_drag) = 146.82 Mpc
-Chi squared: 11.32 (Δ chi2 0.03)
-
-===============================
-
-Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-H0: 67.35 +2.14 -1.96 km/s/Mpc
-Ωm: 0.315 ± 0.018
-Ωb h^2: 0.02242 ± 0.00014
-w0: -0.973 +0.130 -0.136
-z*: 1088.79
-z_drag: 1060.01
-r_s(z*) = 144.33 Mpc
-r_s(z_drag) = 146.88 Mpc
-Chi squared: 11.29 (Δ chi2 0.06)
-
-===============================
-
-Flat w(z) = w0 + wa * z / (1 + z)
-H0: 63.67 +2.83 -2.59 km/s/Mpc
-Ωm: 0.355 +0.031 -0.030
-Ωm h^2: 0.14409 +0.00123 -0.00125
-Ωb h^2: 0.02234 +0.00015 -0.00014
-w0: -0.495 +0.313 -0.300
-wa: -1.436 +0.816 -0.916
-z*: 1088.95 ± 0.21
-z_drag: 1059.92 ± 0.29
-r_s(z*) = 144.13 Mpc
-r_s(z_drag) = 146.68 ± 0.28 Mpc
-Chi squared: 8.64
 """

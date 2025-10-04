@@ -34,14 +34,6 @@ def Omega_r_h2(Neff=N_EFF):
 
 
 @njit
-def z_star(wb, wm):
-    # arXiv:2106.00428v2 (A4)
-    return wm**-0.731631 + (
-        (391.672 * wm**-0.372296 + 937.422 * wb**-0.97966) * wm**0.0192951 * wb**0.93681
-    )
-
-
-@njit
 def z_drag(wb, wm):
     # arXiv:2106.00428v2 (A2)
     return (
@@ -78,3 +70,14 @@ def r_drag(wb, wm, n_eff=3.04):  # arXiv:2503.14738v2 (eq 2)
     return (
         147.05 * (0.02236 / wb) ** 0.13 * (0.1432 / wm) ** 0.23 * (3.04 / n_eff) ** 0.1
     )
+
+
+@njit
+def z_star(wb, wm):
+    # arXiv:astro-ph/9510117v2 (eq-1)
+    g1 = 0.0783 * wb**-0.238 / (1 + 39.5 * wb**0.763)
+    g2 = 0.560 / (1 + 21.1 * wb**1.81)
+    factor_1 = 1 + 0.00124 * wb**-0.738
+    factor_2 = 1 + g1 * wm**g2
+
+    return 1048 * factor_1 * factor_2
