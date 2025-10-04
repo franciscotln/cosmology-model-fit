@@ -25,9 +25,9 @@ c = 299792.458  # Speed of light in km/s
 
 @njit
 def Ez(z, params):
-    O_m, exp_w0 = params[3], params[4]
+    O_m, w0 = params[3], params[4]
     cubed = (1 + z) ** 3
-    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + np.log(exp_w0)))
+    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
     return np.sqrt(O_m * cubed + (1 - O_m) * rho_de)
 
 
@@ -49,7 +49,7 @@ bounds = np.array(
         (-0.6, 0.6),  # ΔM
         (55, 80),  # H0
         (0.1, 0.6),  # Ωm
-        (0.1, 0.8),  # w0
+        (-2.0, 0.0),  # w0
     ],
     dtype=np.float64,
 )
@@ -90,7 +90,7 @@ def main():
     ndim = len(bounds)
     nwalkers = 150
     burn_in = 200
-    nsteps = 2000 + burn_in
+    nsteps = 1500 + burn_in
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
 
     with Pool(6) as pool:
@@ -122,14 +122,11 @@ def main():
         [dM_16, dM_50, dM_84],
         [h0_16, h0_50, h0_84],
         [Om_16, Om_50, Om_84],
-        [exp_w0_16, exp_w0_50, exp_w0_84],
+        [w0_16, w0_50, w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = np.array([f_cc_50, dM_50, h0_50, Om_50, exp_w0_50], dtype=np.float64)
+    best_fit = np.array([f_cc_50, dM_50, h0_50, Om_50, w0_50], dtype=np.float64)
     deg_of_freedom = effective_sample_size + z_cc_vals.size - len(best_fit)
-
-    w0_samples = np.log(samples[:, 4])
-    w0_16, w0_50, w0_84 = np.percentile(w0_samples, [15.9, 50, 84.1])
 
     print(f"f_cc: {f_cc_50:.2f} +{(f_cc_84 - f_cc_50):.2f} -{(f_cc_50 - f_cc_16):.2f}")
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f}")
@@ -156,7 +153,7 @@ def main():
         x_scale="log",
     )
 
-    labels = ["$f_{CCH}$", "ΔM", "$H_0$", "Ωm", "$e^{w_0}$"]
+    labels = ["$f_{CCH}$", "ΔM", "$H_0$", "Ωm", "$w_0$"]
     corner.corner(
         samples,
         labels=labels,
@@ -201,21 +198,21 @@ Degrees of freedom: 1764
 
 Flat wCDM: w(z) = w0
 f_cc: 1.46 +0.18 -0.18
-ΔM: -0.073 +0.081 -0.083 mag
-H0: 66.8 +2.5 -2.5 km/s/Mpc
-Ωm: 0.306 +0.043 -0.048
-w0: -0.960 +0.033 -0.036
-Chi squared: 1670.57
+ΔM: -0.075 +0.082 -0.082 mag
+H0: 66.8 +2.6 -2.5 km/s/Mpc
+Ωm: 0.308 +0.041 -0.047
+w0: -0.885 +0.101 -0.108
+Chi squared: 1670.59
 Degrees of freedom: 1763
 
 ==============================
 
 Flat alternative: w(z) = -1 + 2 * (1 + w0) / ((1 + z)**3 + 1)
-f_cc: 1.46 +0.18 -0.18
-ΔM: -0.071 +0.080 -0.080 mag
-H0: 66.8 +2.5 -2.4 km/s/Mpc
-Ωm: 0.316 +0.030 -0.030
-w0: -0.860 +0.093 -0.103
-Chi squared: 1670.07
+f_cc: 1.46 +0.19 -0.18
+ΔM: -0.072 +0.078 -0.082
+H0: 66.8 +2.5 -2.5
+Ωm: 0.318 +0.030 -0.030
+w0: -0.870 +0.093 -0.105
+Chi squared: 1670.12
 Degrees of freedom: 1763
 """

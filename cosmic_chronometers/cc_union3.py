@@ -27,9 +27,9 @@ z_grid = np.linspace(0, np.max(z_sn_vals), num=1000)
 
 
 @njit
-def Ez(z, O_m, exp_w0):
+def Ez(z, O_m, w0):
     one_plus_z = 1 + z
-    rho_de = (2 * one_plus_z**3 / (1 + one_plus_z**3)) ** (2 * (1 + np.log(exp_w0)))
+    rho_de = (2 * one_plus_z**3 / (1 + one_plus_z**3)) ** (2 * (1 + w0))
     return np.sqrt(O_m * one_plus_z**3 + (1 - O_m) * rho_de)
 
 
@@ -53,7 +53,7 @@ bounds = np.array(
         (-0.7, 0.5),  # ΔM
         (55, 80),  # H0
         (0.1, 0.7),  # Ωm
-        (0.01, 0.8),  # exp(w0)
+        (-2.0, 0.0),  # w0
     ],
     dtype=np.float64,
 )
@@ -128,23 +128,17 @@ def main():
         [dM_16, dM_50, dM_84],
         [h0_16, h0_50, h0_84],
         [Om_16, Om_50, Om_84],
-        [exp_w0_16, exp_w0_50, exp_w0_84],
+        [w0_16, w0_50, w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = [f_cc_50, dM_50, h0_50, Om_50, exp_w0_50]
+    best_fit = [f_cc_50, dM_50, h0_50, Om_50, w0_50]
     deg_of_freedom = z_sn_vals.size + z_cc_vals.size - len(best_fit)
-
-    w0_samples = np.log(samples[:, 4])
-    w0_16, w0_50, w0_84 = np.percentile(w0_samples, [15.9, 50, 84.1])
 
     print(f"f_cc: {f_cc_50:.2f} +{(f_cc_84 - f_cc_50):.2f} -{(f_cc_50 - f_cc_16):.2f}")
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f}")
     print(f"H0: {h0_50:.1f} +{(h0_84 - h0_50):.1f} -{(h0_50 - h0_16):.1f}")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"w0: {w0_50:.2f} +{(w0_84 - w0_50):.2f} -{(w0_50 - w0_16):.2f}")
-    print(
-        f"exp(w0): {exp_w0_50:.2f} +{(exp_w0_84 - exp_w0_50):.2f} -{(exp_w0_50 - exp_w0_16):.2f}"
-    )
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Log likelihood: {log_likelihood(best_fit):.2f}")
     print(f"Degrees of freedom: {deg_of_freedom}")
@@ -165,7 +159,7 @@ def main():
         label=f"Best fit: $H_0$={h0_50:.2f} km/s/Mpc, $\Omega_m$={Om_50:.4f}",
         x_scale="log",
     )
-    labels = ["$f_{CCH}$", "ΔM", "$H_0$", "$Ωm$", "$e^{w_0}$"]
+    labels = ["$f_{CCH}$", "ΔM", "$H_0$", "$Ωm$", "$w_0$"]
     corner.corner(
         samples,
         labels=labels,
@@ -211,25 +205,23 @@ Degrees of freedom: 51
 
 Flat wCDM: w(z) = w0
 f_cc: 1.45 +0.18 -0.18
-ΔM: -0.176 +0.123 -0.123 mag
-H0: 66.4 +2.7 -2.6 km/s/Mpc
-Ωm: 0.300 +0.047 -0.055
-w0: -0.84 +0.12 -0.13
-exp(w0): 0.43 +0.06 -0.05
-Chi squared: 54.09
-Log likelihood: -142.07
+ΔM: -0.177 +0.122 -0.125 mag
+H0: 66.4 +2.6 -2.6 km/s/Mpc
+Ωm: 0.306 +0.047 -0.055
+w0: -0.85 +0.13 -0.13
+Chi squared: 54.24
+Log likelihood: -142.06
 Degrees of freedom: 50
 
 ==============================
 
 Flat alternative: w(z) = -1 + 2 * (1 + w0) / ((1 + z)**3 + 1)
 f_cc: 1.45 +0.18 -0.18
-ΔM: -0.177 +0.123 -0.123 mag
+ΔM: -0.181 +0.123 -0.124 mag
 H0: 66.3 +2.6 -2.6 km/s/Mpc
-Ωm: 0.318 +0.033 -0.033
-w0: -0.82 +0.12 -0.13
-exp(w0): 0.44 +0.06 -0.05
-Chi squared: 53.84
+Ωm: 0.322 +0.033 -0.034
+w0: -0.84 +0.12 -0.14
+Chi squared: 53.86
 Log likelihood: -141.87
 Degrees of freedom: 50
 """

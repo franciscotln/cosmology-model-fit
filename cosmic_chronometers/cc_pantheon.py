@@ -24,10 +24,10 @@ c = 299792.458  # Speed of light in km/s
 
 
 @njit
-def Ez(z, O_m, exp_w0):
+def Ez(z, Om, w0):
     one_plus_z = 1 + z
-    rho_de = (2 * one_plus_z**3 / (1 + one_plus_z**3)) ** (2 * (1 + np.log(exp_w0)))
-    return np.sqrt(O_m * one_plus_z**3 + (1 - O_m) * rho_de)
+    rho_de = (2 * one_plus_z**3 / (1 + one_plus_z**3)) ** (2 * (1 + w0))
+    return np.sqrt(Om * one_plus_z**3 + (1 - Om) * rho_de)
 
 
 def integral_Ez(params):
@@ -54,7 +54,7 @@ bounds = np.array(
         (55, 80),  # H0
         (-20, -19),  # M
         (0.15, 0.70),  # Ωm
-        (0.1, 0.8),  # w0
+        (-2.0, 0.0),  # w0
     ],
     dtype=np.float64,
 )
@@ -95,7 +95,7 @@ def main():
     ndim = len(bounds)
     nwalkers = 150
     burn_in = 200
-    nsteps = 2000 + burn_in
+    nsteps = 1500 + burn_in
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
 
     with Pool(5) as pool:
@@ -127,13 +127,10 @@ def main():
         [h0_16, h0_50, h0_84],
         [M_16, M_50, M_84],
         [Om_16, Om_50, Om_84],
-        [exp_w0_16, exp_w0_50, exp_w0_84],
+        [w0_16, w0_50, w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = [f_cc_50, h0_50, M_50, Om_50, exp_w0_50]
-
-    w0_samples = np.log(samples[:, 4])
-    w0_16, w0_50, w0_84 = np.percentile(w0_samples, [15.9, 50, 84.1])
+    best_fit = [f_cc_50, h0_50, M_50, Om_50, w0_50]
 
     deg_of_freedom = z_vals.size + z_cc_vals.size - len(best_fit)
 
@@ -162,7 +159,7 @@ def main():
         x_scale="log",
     )
 
-    labels = ["$f_{CCH}$", "$H_0$", "M", "$Ω_m$", "$e^{w_0}$"]
+    labels = ["$f_{CCH}$", "$H_0$", "M", "$Ω_m$", "$w_0$"]
     corner.corner(
         samples,
         labels=labels,
@@ -203,25 +200,25 @@ w0: -1
 Chi squared: 1435.18
 Degrees of freedom: 1619
 
-==============================
+===============================
 
 Flat wCDM: w(z) = w0
 f_cc: 1.46 +0.19 -0.18
-H0: 67.4 +2.6 -2.6 km/s/Mpc
-M: -19.431 +0.082 -0.085 mag
-Ωm: 0.314 +0.039 -0.042
-w0: -0.951 +0.100 -0.108
-Chi squared: 1434.39
+H0: 67.3 +2.6 -2.6 km/s/Mpc
+M: -19.434 +0.083 -0.084 mag
+Ωm: 0.317 +0.039 -0.042
+w0: -0.960 +0.100 -0.110
+Chi squared: 1434.50
 Degrees of freedom: 1618
 
-==============================
+===============================
 
 Flat alternative: w(z) = -1 + 2 * (1 + w0) / ((1 + z)**3 + 1)
 f_cc: 1.46 +0.18 -0.18
-H0: 67.3 +2.6 -2.5 km/s/Mpc
-M: -19.434 +0.082 -0.082 mag
-Ωm: 0.319 +0.030 -0.029
-w0: -0.952 +0.095 -0.106
-Chi squared: 1434.42
+H0: 67.3 +2.6 -2.5
+M: -19.436 +0.082 -0.083
+Ωm: 0.322 +0.030 -0.030
+w0: -0.963 +0.097 -0.108
+Chi squared: 1434.49
 Degrees of freedom: 1618
 """
