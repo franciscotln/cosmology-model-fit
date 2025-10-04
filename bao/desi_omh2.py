@@ -4,6 +4,7 @@ import emcee
 import corner
 from scipy.constants import c as c0
 import matplotlib.pyplot as plt
+from torch import exp_
 from y2025BAO.data import get_data
 from .plot_predictions import plot_bao_predictions, plot_bao_residuals
 
@@ -20,11 +21,11 @@ Omh2_planck_sigma = 0.0013 * 2.0  # 2 sigma
 
 @njit
 def H_z(z, params):
-    h, Om, w0, _ = params
+    h, Om, exp_w0, _ = params
     OL = 1 - Om
     one_plus_z = 1 + z
     cubed = one_plus_z**3
-    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
+    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + np.log(exp_w0)))
     return 100 * h * np.sqrt(Om * cubed + OL * rho_de)
 
 
@@ -67,7 +68,7 @@ bounds = np.array(
     [
         (0.500, 0.800),  # h
         (0.100, 0.500),  # Ωm
-        (-2.00, 0.00),  # w0
+        (0.10, 0.90),  # e^w0
         (130.0, 160.0),  # rd
     ],
     dtype=np.float64,
@@ -139,7 +140,9 @@ def main():
     try:
         tau = sampler.get_autocorr_time()
         print("Auto-correlation time:", tau)
-        print("Effective samples:", n_dim * n_walkers * nsteps / np.max(tau))
+        print(
+            "Effective samples:", n_dim * n_walkers * (nsteps - burn_in) / np.max(tau)
+        )
         print("Acceptance fraction:", np.mean(sampler.acceptance_fraction))
     except emcee.autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
@@ -149,11 +152,15 @@ def main():
     [
         [h_16, h_50, h_84],
         [Om_16, Om_50, Om_84],
-        [w0_16, w0_50, w0_84],
+        [exp_w0_16, exp_w0_50, exp_w0_84],
         [rd_16, rd_50, rd_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = np.array([h_50, Om_50, w0_50, rd_50], dtype=np.float64)
+    best_fit = np.array([h_50, Om_50, exp_w0_50, rd_50], dtype=np.float64)
+
+    w0_samples = np.log(samples[:, 2])
+    w0_16, w0_50, w0_84 = np.percentile(w0_samples, [15.9, 50, 84.1])
+
     residuals = data["value"] - bao_theory(data["z"], quantities, best_fit)
     SS_res = np.sum(residuals**2)
     SS_tot = np.sum((data["value"] - np.mean(data["value"])) ** 2)
@@ -176,7 +183,7 @@ def main():
     )
     plot_bao_residuals(data, residuals, np.sqrt(np.diag(cov_matrix)))
 
-    labels = ["$h$", "$Ω_m$", "$w_0$", "$r_d$"]
+    labels = ["$h$", "$Ω_m$", "$e^{w_0}$", "$r_d$"]
     corner.corner(
         samples,
         labels=labels,
@@ -226,22 +233,22 @@ RMSD: 0.305
 Flat wCDM:
 h: 0.694 +0.012 -0.012
 Ωm: 0.297 +0.009 -0.009
-w0: -0.915 +0.076 -0.079
-rd: 143.92 +2.97 -3.13
-Chi squared: 9.08
+w0: -0.909 +0.076 -0.079
+rd: 143.75 +2.94 -3.19
+Chi squared: 9.11
 Degs of freedom: 10
 R^2: 0.9989
-RMSD: 0.281
+RMSD: 0.280
 
 ===============================
 
 Flat alternative: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-h: 0.682 +0.014 -0.014
-Ωm: 0.308 +0.012 -0.012
-w0: -0.832 +0.120 -0.128
-rd: 144.61 +2.29 -2.24
+h: 0.681 +0.014 -0.014
+Ωm: 0.309 +0.012 -0.011
+w0: -0.815 +0.120 -0.127
+rd: 144.44 +2.27 -2.26
 Chi squared: 8.45
 Degs of freedom: 10
 R^2: 0.9990
-RMSD: 0.266
+RMSD: 0.264
 """

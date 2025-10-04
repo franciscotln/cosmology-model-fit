@@ -16,11 +16,11 @@ cho_T = cho.T
 
 @njit
 def H_z(z, params):
-    h, Om, exp_w0 = params
+    h, Om, w0 = params
     OL = 1 - Om
     one_plus_z = 1 + z
     cubed = one_plus_z**3
-    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + np.log(exp_w0)))
+    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
     return 100 * h * np.sqrt(Om * cubed + OL * rho_de)
 
 
@@ -62,8 +62,8 @@ def bao_theory(z, qty, params):
 bounds = np.array(
     [
         (0.500, 0.800),  # h
-        (0.150, 0.450),  # Ωm
-        (0.01, 1.0),  # w0
+        (0.1, 0.7),  # Ωm
+        (-2.0, 0.0),  # w0
     ],
     dtype=np.float64,
 )
@@ -142,13 +142,10 @@ def main():
     [
         [h_16, h_50, h_84],
         [Om_16, Om_50, Om_84],
-        [exp_w0_16, exp_w0_50, exp_w0_84],
+        [w0_16, w0_50, w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = np.array([h_50, Om_50, exp_w0_50], dtype=np.float64)
-
-    w0_samples = np.log(samples[:, 2])
-    w0_16, w0_50, w0_84 = np.percentile(w0_samples, [15.9, 50, 84.1])
+    best_fit = np.array([h_50, Om_50, w0_50], dtype=np.float64)
 
     residuals = data["value"] - bao_theory(data["z"], quantities, best_fit)
     SS_res = np.sum(residuals**2)
@@ -171,7 +168,7 @@ def main():
     )
     plot_bao_residuals(data, residuals, np.sqrt(np.diag(cov_matrix)))
 
-    labels = ["$h$", "$Ω_m$", "$e^{w_0}$"]
+    labels = ["$h$", "$Ω_m$", "$w_0$"]
     corner.corner(
         samples,
         labels=labels,
@@ -222,23 +219,23 @@ Flat wCDM:
 rd: 147.09 Mpc (fixed)
 h: 0.678 +0.012 -0.011
 Ωm: 0.297 +0.009 -0.009
-w0: -0.909 +0.076 -0.079
-Chi squared: 9.10
+w0: -0.915 +0.075 -0.079
+Chi squared: 9.12
 Degs of freedom: 10
 R^2: 0.9989
-RMSD: 0.277
+RMSD: 0.279
 
 ===============================
 
 Flat alternative: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
 rd: 147.09 Mpc (fixed)
-h: 0.668 +0.016 -0.015
-Ωm: 0.309 +0.012 -0.012
-w0: -0.816 +0.119 -0.126
-Chi squared: 8.43
+h: 0.670 +0.016 -0.015
+Ωm: 0.308 +0.012 -0.011
+w0: -0.832 +0.118 -0.125
+Chi squared: 8.44
 Degs of freedom: 10
-R^2: 0.9991
-RMSD: 0.262
+R^2: 0.9990
+RMSD: 0.265
 
 *******************************
 Dataset: SDSS 2020 compilation
