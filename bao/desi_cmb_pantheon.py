@@ -2,7 +2,7 @@ from numba import njit
 import numpy as np
 import emcee
 import corner
-from scipy.integrate import cumulative_trapezoid, quad
+from scipy.integrate import cumulative_trapezoid
 from scipy.linalg import cho_factor, cho_solve
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
@@ -27,7 +27,7 @@ one_plus_z_hel = 1 + z_hel
 
 @njit
 def Ez(z, params):
-    H0, Om, w0 = params[0], params[1], params[3]
+    H0, Om, w0 = params[1], params[2], params[4]
     h = H0 / 100
     Or = Or_h2 / h**2
     Ode = 1 - Om - Or
@@ -43,14 +43,14 @@ def integral_Ez(params):
 
 
 def apparent_mag(params):
-    H0, M = params[0], params[-1]
+    H0, M = params[1], params[-1]
     dL = one_plus_z_hel * (c / H0) * integral_Ez(params)
     return M + 25 + 5 * np.log10(dL)
 
 
 @njit
 def H_z(z, params):
-    return params[0] * Ez(z, params)
+    return params[1] * Ez(z, params)
 
 
 @njit
@@ -60,9 +60,13 @@ def DH_z(z, params):
 
 @njit
 def DM_z(z, params):
-    x = np.linspace(0, z, num=max(250, int(250 * z)))
-    y = DH_z(x, params)
-    return np.trapz(y=y, x=x)
+    result = np.empty(z.size, dtype=np.float64)
+    for i in range(z.size):
+        zp = z[i]
+        x = np.linspace(0, zp, num=max(250, int(250 * zp)))
+        y = DH_z(x, params)
+        result[i] = np.trapz(y=y, x=x)
+    return result
 
 
 @njit
@@ -82,24 +86,18 @@ quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int64
 
 @njit
 def bao_theory(z, qty, params):
-    H0_50, Om_50, Obh2_50 = params[0], params[1], params[2]
-    Omh2_50 = Om_50 * (H0_50 / 100) ** 2
-    rd = cmb.r_drag(wb=Obh2_50, wm=Omh2_50)
-
     results = np.empty(z.size, dtype=np.float64)
-    for i in range(z.size):
-        q = qty[i]
-        if q == 0:
-            results[i] = DV_z(z[i], params) / rd
-        elif q == 1:
-            results[i] = DM_z(z[i], params) / rd
-        elif q == 2:
-            results[i] = DH_z(z[i], params) / rd
-    return results
+    DV_mask = qty == 0
+    DM_mask = qty == 1
+    DH_mask = qty == 2
+    results[DH_mask] = DH_z(z[DH_mask], params)
+    results[DM_mask] = DM_z(z[DM_mask], params)
+    results[DV_mask] = DV_z(z[DV_mask], params)
+    return results / params[0]
 
 
 def chi_squared(params):
-    H0, Om, Obh2 = params[0], params[1], params[2]
+    H0, Om, Obh2 = params[1], params[2], params[3]
 
     delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez, params, H0, Om, Obh2)
     chi2_cmb = np.dot(delta, np.dot(cmb.inv_cov_mat, delta))
@@ -115,6 +113,7 @@ def chi_squared(params):
 
 bounds = np.array(
     [
+        (120, 160),  # rd
         (60, 75),  # H0
         (0.1, 0.6),  # Ωm
         (0.019, 0.025),  # Ωb * h^2
@@ -145,49 +144,52 @@ def log_probability(params):
 
 def main():
     ndim = len(bounds)
-    nwalkers = 500
-    burn_in = 100
-    nsteps = 1000 + burn_in
+    nwalkers = 150
+    burn_in = 200
+    nsteps = 2000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):
         initial_pos[:, dim] = np.random.uniform(lower, upper, nwalkers)
 
-    with Pool(10) as pool:
+    with Pool(6) as pool:
         sampler = emcee.EnsembleSampler(
             nwalkers,
             ndim,
             log_probability,
             pool=pool,
             moves=[
-                (emcee.moves.KDEMove(), 0.5),
-                (emcee.moves.DEMove(), 0.4),
-                (emcee.moves.DESnookerMove(), 0.1),
+                (emcee.moves.KDEMove(), 0.30),
+                (emcee.moves.DEMove(), 0.56),
+                (emcee.moves.DESnookerMove(), 0.14),
             ],
         )
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
 
     try:
         tau = sampler.get_autocorr_time()
-        print("auto-correlation time", tau)
+        print("Auto-correlation time", tau)
+        print("Mean acceptance fraction:", np.mean(sampler.acceptance_fraction))
+        print("Effective samples:", nwalkers * ndim * (nsteps - burn_in) / np.max(tau))
     except emcee.autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
 
     samples = sampler.get_chain(discard=burn_in, flat=True)
 
     pct = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
-    (H0_16, H0_50, H0_84) = pct[0]
-    (Om_16, Om_50, Om_84) = pct[1]
-    (Obh2_16, Obh2_50, Obh2_84) = pct[2]
-    (w0_16, w0_50, w0_84) = pct[3]
-    (M_16, M_50, M_84) = pct[4]
+    rd_16, rd_50, rd_84 = pct[0]
+    H0_16, H0_50, H0_84 = pct[1]
+    Om_16, Om_50, Om_84 = pct[2]
+    Obh2_16, Obh2_50, Obh2_84 = pct[3]
+    w0_16, w0_50, w0_84 = pct[4]
+    M_16, M_50, M_84 = pct[5]
 
-    best_fit = np.array([H0_50, Om_50, Obh2_50, w0_50, M_50], dtype=np.float64)
+    best_fit = np.array([rd_50, H0_50, Om_50, Obh2_50, w0_50, M_50], dtype=np.float64)
 
     Omh2_50 = Om_50 * (H0_50 / 100) ** 2
     z_st = cmb.z_star(Obh2_50, Omh2_50)
-    z_dr = cmb.z_drag(Obh2_50, Omh2_50)
 
+    print(f"rd: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(
@@ -196,9 +198,7 @@ def main():
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"M: {M_50:.3f} +{(M_84 - M_50):.3f} -{(M_50 - M_16):.3f}")
     print(f"z*: {z_st:.2f}")
-    print(f"z_drag: {z_dr:.2f}")
-    print(f"r_s(z*) = {cmb.rs_z(Ez, z_st, best_fit, H0_50, Obh2_50):.2f} Mpc")
-    print(f"r_s(z_drag) = {cmb.rs_z(Ez, z_dr, best_fit, H0_50, Obh2_50):.2f} Mpc")
+    print(f"r*: {cmb.rs_z(Ez, z_st, best_fit, H0_50, Obh2_50):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
 
     plot_bao_predictions(
@@ -216,7 +216,7 @@ def main():
         label=f"Model: $Ω_m$={Om_50:.3f}",
         x_scale="log",
     )
-    labels = ["$H_0$", "$Ω_m$", "$Ω_b h^2$", "$w_0$", "M"]
+    labels = ["$r_d$", "$H_0$", "$Ω_m$", "$Ω_b h^2$", "$w_0$", "M"]
     corner.corner(
         samples,
         labels=labels,
@@ -226,10 +226,20 @@ def main():
         bins=100,
         fill_contours=False,
         plot_datapoints=False,
-        smooth=1.5,
-        smooth1d=1.5,
+        smooth=2.0,
+        smooth1d=2.0,
         levels=(0.393, 0.864),
     )
+    plt.show()
+
+    chains_samples = sampler.get_chain(discard=burn_in, flat=False)
+    plt.figure(figsize=(16, 1.5 * ndim))
+    for n in range(ndim):
+        plt.subplot2grid((ndim, 1), (n, 0))
+        plt.plot(chains_samples[:, :, n], alpha=0.3)
+        plt.ylabel(labels[n])
+        plt.xlim(0, None)
+    plt.tight_layout()
     plt.show()
 
 
@@ -238,61 +248,57 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM w(z) = -1
-H0: 68.51 ± 0.30 km/s/Mpc
-Ωm: 0.302 ± 0.004
-Ωb h^2: 0.02252 ± 0.00012
-w0: -1
-M: -19.408 ± 0.009
-z*: 1088.58
-z_drag: 1060.14
-r_s(z*) = 144.64 Mpc
-r_s(z_drag) = 147.16 Mpc
-Chi squared: 1421.09
-Degrees of freedom: 1603
+rd: 148.11 +0.51 -0.50 Mpc
+H0: 67.88 +0.43 -0.41 km/s/Mpc
+Ωm: 0.310 +0.006 -0.006
+Ωb h^2: 0.02244 +0.00013 -0.00013
+w0: -0.998 +0.680 -0.676
+M: -19.425 +0.012 -0.012
+z*: 1088.76
+r*: 144.37 Mpc
+Chi squared: 1417.36
+Degrees of freedom: 1602
 
 ===============================
 
 Flat wCDM w(z) = w0
-H0: 68.04 +0.59 -0.58 km/s/Mpc
-Ωm: 0.305 ± 0.005
-Ωb h^2: 0.02256 ± 0.00013
-w0: -0.978 ± 0.024
-M: -19.418 ± 0.014
-z*: 1088.51
-z_drag: 1060.19
-r_s(z*) = 144.74 Mpc
-r_s(z_drag) = 147.26 Mpc
-Chi squared: 1420.21
-Degrees of freedom: 1602
+rd: 148.11 +0.52 -0.51 Mpc
+H0: 67.66 +0.61 -0.60 km/s/Mpc
+Ωm: 0.311 +0.006 -0.006
+Ωb h^2: 0.02246 +0.00014 -0.00014
+w0: -0.987 +0.024 -0.025
+M: -19.430 +0.015 -0.015
+z*: 1088.71
+r*: 144.44 Mpc
+Chi squared: 1417.09
+Degrees of freedom: 1601
 
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-H0: 67.66 ± 0.59 km/s/Mpc
-Ωm: 0.308 +0.006 -0.005
-Ωb h^2: 0.02257 ± 0.00013
-w0: -0.938 +0.038 -0.037
-M: -19.424 ± 0.013
-z*: 1088.50
-z_drag: 1060.20
-r_s(z*) = 144.74 Mpc
-r_s(z_drag) = 147.26 Mpc
-Chi squared: 1418.36
-Degrees of freedom: 1602
+rd: 148.03 +0.51 -0.51 Mpc
+H0: 67.37 +0.60 -0.60 km/s/Mpc
+Ωm: 0.314 +0.006 -0.006
+Ωb h^2: 0.02248 +0.00013 -0.00013
+w0: -0.954 +0.038 -0.039
+M: -19.434 +0.014 -0.014
+z*: 1088.67
+r*: 144.49 Mpc
+Chi squared: 1416.02
+Degrees of freedom: 1601
 
 ===============================
 
 Flat w(z) = w0 + wa * z / (1 + z)
-H0: 67.75 +0.61 -0.60 km/s/Mpc
-Ωm: 0.311 +0.006 -0.006
-Ωb h^2: 0.02244 +0.00014 -0.00014
-w0: -0.848 +0.057 -0.055
-wa: -0.545 +0.212 -0.231
-M: -19.412 +0.015 -0.015
-z*: 1088.74
-z_drag: 1060.04
-r_s(z*) = 144.41 Mpc
-r_s(z_drag) = 146.95 Mpc
-Chi squared: 1413.56
-Degrees of freedom: 1601
+rd: 147.63 +0.54 -0.53 Mpc
+H0: 67.51 +0.60 -0.60 km/s/Mpc
+Ωm: 0.315 +0.006 -0.006
+Ωb h^2: 0.02237 +0.00014 -0.00014
+w0: -0.866 +0.057 -0.056
+wa: -0.515 +0.217 -0.232
+M: -19.421 +0.015 -0.015
+z*: 1088.89
+r*: 144.20 Mpc
+Chi squared: 1411.91
+Degrees of freedom: 1600
 """
