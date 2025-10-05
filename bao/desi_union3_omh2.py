@@ -1,3 +1,4 @@
+from asyncio import wait_for
 from numba import njit
 import numpy as np
 import emcee
@@ -276,5 +277,11 @@ Degs of freedom: 31
 ===============================
 
 Flat w0waCDM
-
+rd: 148.08 +2.41 -3.04 Mpc
+H0: 65.78 +1.85 -1.53 km/s/Mpc
+Ωm: 0.331 +0.016 -0.018
+w0: -0.698 +0.115 -0.109
+wa: -1.006 +0.557 -0.559
+Chi squared: 28.8
+Degs of freedom: 30
 """
