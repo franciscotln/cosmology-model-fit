@@ -59,10 +59,21 @@ def cmb_distances(Ez_func, params, H0, Om, Ob_h2):
 
 @njit
 def r_drag(wb, wm):
-    # arXiv:2106.00428v2 (eq 6)
-    numerator = 45.5337 * np.log(7.20376 / wm)
-    denominator = np.sqrt(1 + 9.98592 * (wb**0.801347))
-    return numerator / denominator
+    # arXiv:2106.00428v2 (eq 8)
+    a1 = 0.00257366
+    a2 = 0.05032
+    a3 = 0.013
+    a4 = 0.7720642
+    a5 = 0.24346362
+    a6 = 0.00641072
+    a7 = 0.5350899
+    a8 = 32.7525
+    a9 = 0.315473
+
+    term_A_denominator = (a1 * (wb**a2)) + (a3 * (wb**a4) * (wm**a5)) + (a6 * (wm**a7))
+    term_A = 1.0 / term_A_denominator
+    term_B = a8 / (wm**a9)
+    return term_A - term_B
 
 
 @njit

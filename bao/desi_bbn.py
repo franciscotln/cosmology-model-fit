@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from y2025BAO.data import get_data
 import y2024BBN.prior_lcdm as bbn
-from cmb.data_desi_compression import r_drag, c
+from cmb.data_chen_compression import r_drag, c
 from .plot_predictions import plot_bao_predictions
 
 legend, data, cov_matrix = get_data()
@@ -18,7 +18,7 @@ cho = cho_factor(cov_matrix)
 def rd(H0, Om, Obh2):
     h = H0 / 100
     Omh2 = Om * h**2
-    return r_drag(wb=Obh2, wm=Omh2, n_eff=bbn.N_eff)
+    return r_drag(wb=Obh2, wm=Omh2)
 
 
 @njit
@@ -84,9 +84,9 @@ def theory_predictions(z, qty, params):
 
 bounds = np.array(
     [
-        (50, 80),  # H0
-        (0.15, 0.55),  # Ωm
-        (0.015, 0.030),  # Ωb h^2
+        (55, 75),  # H0
+        (0.17, 0.50),  # Ωm
+        (0.016, 0.030),  # Ωb h^2
         (-2.0, 0.0),  # w0
     ],
     dtype=np.float64,
@@ -229,40 +229,40 @@ Dataset: DESI DR2 2025
 *******************************
 
 Flat ΛCDM:
-H0: 68.64 +0.53 -0.54 km/s/Mpc
-Ωb h^2: 0.02218 +0.00055 -0.00054
-Ωm h^2: 0.14029 +0.00461 -0.00449
-Ωm: 0.2978 +0.0087 -0.0084
+H0: 68.72 +0.58 -0.58 km/s/Mpc
+Ωb h^2: 0.02219 +0.00054 -0.00054
+Ωm h^2: 0.14064 +0.00506 -0.00484
+Ωm: 0.2979 +0.0086 -0.0083
 w0: -1
-r_d: 147.90 +1.36 -1.34 Mpc
+r_d: 147.72 +1.54 -1.55 Mpc
 Chi squared: 10.27
-Degs of freedom: 11
+Degs of freedom: 10
 R^2: 0.9987
 RMSD: 0.305
 
 ===============================
 
 Flat wCDM:
-H0: 66.54 +2.05 -2.08 km/s/Mpc
-Ωb h^2: 0.02219 +0.00055 -0.00055
-Ωm h^2: 0.13187 +0.00925 -0.00957
-Ωm: 0.2971 +0.0089 -0.0088
-w0: -0.916 +0.075 -0.080
-r_d: 150.04 +2.73 -2.46 Mpc
+H0: 66.52 +2.22 -2.20 km/s/Mpc
+Ωb h^2: 0.02219 +0.00054 -0.00056
+Ωm h^2: 0.13191 +0.00988 -0.01012
+Ωm: 0.2972 +0.0090 -0.0087
+w0: -0.919 +0.076 -0.080
+r_d: 150.13 +3.08 -2.82 Mpc
 Chi squared: 9.05
 Degs of freedom: 10
 R^2: 0.9989
-RMSD: 0.280
+RMSD: 0.281
 
 ===============================
 
 Flat alternative: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-H0: 65.98 +2.13 -2.01 km/s/Mpc
+H0: 65.93 +2.25 -2.11 km/s/Mpc
 Ωb h^2: 0.02218 +0.00055 -0.00055
-Ωm h^2: 0.13414 +0.00660 -0.00650
-Ωm: 0.3078 +0.0117 -0.0116
-w0: -0.834 +0.121 -0.129
-r_d: 149.44 +1.90 -1.83 Mpc
+Ωm h^2: 0.13395 +0.00725 -0.00689
+Ωm: 0.3080 +0.0116 -0.0117
+w0: -0.835 +0.122 -0.130
+r_d: 149.56 +2.13 -2.13 Mpc
 Chi squared: 8.44
 Degs of freedom: 10
 R^2: 0.9990
