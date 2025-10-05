@@ -3,7 +3,7 @@ import numpy as np
 import emcee
 import corner
 from scipy.constants import c as c0
-from scipy.integrate import cumulative_trapezoid, quad
+from scipy.integrate import cumulative_trapezoid
 from scipy.linalg import cho_factor, cho_solve
 import matplotlib.pyplot as plt
 from multiprocessing import Pool

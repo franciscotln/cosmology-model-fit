@@ -4,7 +4,6 @@ import emcee
 import corner
 from scipy.constants import c as c0
 import matplotlib.pyplot as plt
-from torch import exp_
 from y2025BAO.data import get_data
 from .plot_predictions import plot_bao_predictions, plot_bao_residuals
 
@@ -248,10 +247,11 @@ RMSD: 0.282
 ===============================
 
 Flat alternative: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-h: 0.681 +0.014 -0.013
+h: 0.681 +0.013 -0.013
 Ωm: 0.308 +0.012 -0.012
-w0: -0.833 +0.122 -0.128
-rd: 144.70 +1.93 -1.95
+Ωm h^2: 0.1430 +0.0011 -0.0011
+w0: -0.832 +0.121 -0.128
+rd: 144.70 +1.94 -1.94
 Chi squared: 8.44
 Degs of freedom: 10
 R^2: 0.9990

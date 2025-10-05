@@ -1,4 +1,3 @@
-from asyncio import wait_for
 from numba import njit
 import numpy as np
 import emcee
