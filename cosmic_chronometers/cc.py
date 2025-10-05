@@ -5,9 +5,6 @@ import corner
 import matplotlib.pyplot as plt
 from scipy.linalg import cho_factor, cho_solve
 from multiprocessing import Pool
-
-from sklearn.feature_selection import chi2
-from sympy import O
 from .plot_predictions import plot_cc_predictions
 from y2005cc.data import get_data
 
@@ -18,8 +15,8 @@ cho = cho_factor(cov_matrix)
 logdet = np.linalg.slogdet(cov_matrix)[1]
 
 # Planck prior
-Omh2_planck = 0.1432
-Omh2_planck_sigma = 0.0013 * 2  # 2 sigma
+Omh2_planck = 0.1430
+Omh2_planck_sigma = 0.0011
 
 
 @njit
@@ -31,8 +28,8 @@ def H_z(z, h0, Om, w0):
 
 bounds = np.array(
     [
-        (30, 120),  # H0
-        (0, 0.7),  # Om
+        (50, 90),  # H0
+        (0.15, 0.55),  # Om
         (-2.5, 0.0),  # w0
         (0.4, 3),  # f
     ],
@@ -76,7 +73,7 @@ def main():
     ndim = len(bounds)
     nwalkers = 150
     burn_in = 200
-    nsteps = 2500 + burn_in
+    nsteps = 2000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
 
     for dim, (lower, upper) in enumerate(bounds):
@@ -173,20 +170,20 @@ https://arxiv.org/pdf/2506.03836
 Flat ΛCDM: w(z) = -1
 With f:
 H0: 67.2 +3.6 -3.7 km/s/Mpc
-Ωm: 0.318 +0.039 -0.032
-w0: -1.249 +0.856 -0.855
-f: 1.476 +0.184 -0.180
-Chi squared: 32.34
-Log likelihood: -130.56
+Ωm: 0.317 +0.038 -0.032
+w0: -1
+f: 1.478 +0.185 -0.180
+Chi squared: 32.42
+Log likelihood: -130.57
 Degs of freedom: 31
 
 Without f:
-H0: 66.7 +5.4 -5.5 km/s/Mpc
-Ωm: 0.322 +0.062 -0.047
+H0: 66.7 +5.5 -5.4 km/s/Mpc
+Ωm: 0.322 +0.059 -0.047
 w0: -1
 f: 1
-Chi squared: 14.86
-Log likelihood: -134.67
+Chi squared: 14.87
+Log likelihood: -134.68
 Degs of freedom: 32
 
 Log likelihood ratio test:
@@ -200,11 +197,11 @@ So the uncertainties in the H(z) dataset are overestimated by a factor of 1.47 �
 ===============================
 
 Flat wCDM: w(z) = w0
-H0: 67.4 +4.4 -4.3 km/s/Mpc
+H0: 67.3 +4.3 -4.2 km/s/Mpc
 Ωm: 0.316 +0.044 -0.037
-w0: -1.053 +0.184 -0.264
-f: 1.448 +0.187 -0.179
-Chi squared: 31.25
+w0: -1.043 +0.179 -0.256
+f: 1.449 +0.188 -0.178
+Chi squared: 31.28
 Log likelihood: -130.64
 Degs of freedom: 30
 
@@ -212,10 +209,10 @@ Degs of freedom: 30
 
 Flat w(z) = -1 + 2 * (1 + w0) / ((1 + z)**3 + 1)
 H0: 68.2 +5.5 -5.1 km/s/Mpc
-Ωm: 0.308 +0.052 -0.044
-w0: -1.139 +0.357 -0.439
-f: 1.453 +0.187 -0.177
-Chi squared: 31.35
-Log likelihood: -130.58
+Ωm: 0.308 +0.051 -0.044
+w0: -1.130 +0.351 -0.423
+f: 1.451 +0.186 -0.177
+Chi squared: 31.28
+Log likelihood: -130.60
 Degs of freedom: 30
 """
