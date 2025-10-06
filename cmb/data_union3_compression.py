@@ -96,14 +96,7 @@ def z_star(wb, wm):
 
 @njit
 def z_drag(wb, wm):
-    # arXiv:astro-ph/9510117v2 (eq-2)
-    factor_1 = 0.313 * wm**-0.419
-    factor_2 = 1 + 0.607 * wm**0.674
-    b1_val = factor_1 * factor_2
-    b2_val = 0.238 * wm**0.223
-
-    fraction_numerator = wm**0.251
-    fraction_denominator = 1 + 0.659 * wm**0.828
-    bracket_term = 1 + b1_val * wb**b2_val
-
-    return 1345 * (fraction_numerator / fraction_denominator) * bracket_term
+    # arXiv:2106.00428v2 (eq A2)
+    return (
+        1 + 428.169 * wb**0.256459 * wm**0.616388 + 925.56 * wm**0.751615
+    ) * wm**-0.714129
