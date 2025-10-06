@@ -9,7 +9,7 @@ c = c0 / 1000  # km/s
 DISTANCE_PRIORS = np.array(
     [
         1.7504,  # R
-        301.77,  # lA
+        301.77,  # lA = π / θ*
         0.022371,  # Ωb h^2
     ],
     dtype=np.float64,
