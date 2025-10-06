@@ -32,10 +32,10 @@ one_plus_z_hel = 1 + z_sn_hel_vals
 
 @njit
 def Ez(z, p):
-    Om, exp_w0 = p[4], p[5]
+    Om, w0 = p[4], p[5]
     one_plus_z = 1 + z
     cubed = one_plus_z**3
-    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + np.log(exp_w0)))
+    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
     return np.sqrt(Om * cubed + (1 - Om) * rho_de)
 
 
@@ -107,7 +107,7 @@ bounds = np.array(
         (50, 80),  # H0
         (110, 175),  # r_d
         (0.2, 0.7),  # Ωm
-        (0.15, 0.75),  # e^w0
+        (-2.0, 0.0),  # w0
     ],
     dtype=np.float64,
 )
@@ -130,7 +130,7 @@ def chi_squared(params):
 @njit
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
-        return -np.log(params[5])  # flat prior in w0
+        return 0.0
     return -np.inf
 
 
@@ -189,15 +189,10 @@ def main():
         [h0_16, h0_50, h0_84],
         [rd_16, rd_50, rd_84],
         [Om_16, Om_50, Om_84],
-        [exp_w0_16, exp_w0_50, exp_w0_84],
+        [w0_16, w0_50, w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = np.array(
-        [f_cc_50, dM_50, h0_50, rd_50, Om_50, exp_w0_50], dtype=np.float64
-    )
-
-    w0_samples = np.log(samples[:, 5])
-    w0_16, w0_50, w0_84 = np.percentile(w0_samples, [15.9, 50, 84.1])
+    best_fit = np.array([f_cc_50, dM_50, h0_50, rd_50, Om_50, w0_50], dtype=np.float64)
 
     deg_of_freedom = sn_sample + bao_data["value"].size + z_cc_vals.size - ndim
 
@@ -233,7 +228,7 @@ def main():
         x_scale="log",
     )
 
-    labels = ["$f_{CCH}$", "ΔM", "$H_0$", "$r_d$", "Ωm", "$e^{w_0}$"]
+    labels = ["$f_{CCH}$", "ΔM", "$H_0$", "$r_d$", "Ωm", "$w_0$"]
     corner.corner(
         samples,
         labels=labels,
