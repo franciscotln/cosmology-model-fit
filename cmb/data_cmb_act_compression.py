@@ -5,12 +5,12 @@ from scipy.constants import c as c0
 
 c = c0 / 1000  # km/s
 
-# --- PLANCK DISTANCE PRIORS (Prakhar Bansal+2025 arXiv:2502.07185v2) ---
+# Prakhar Bansal+2025 arXiv:2502.07185v2
 DISTANCE_PRIORS = np.array(
     [
         1.7504,  # R
         301.77,  # lA = π / θ*
-        0.022371,  # Ωb h^2
+        0.022371,  # ωb
     ],
     dtype=np.float64,
 )
@@ -23,13 +23,20 @@ cov_matrix = 10**-8 * np.array(
     dtype=np.float64,
 )
 inv_cov_mat = np.linalg.inv(cov_matrix)
-N_EFF = 3.046
+
+N_EFF = 3.044
 TCMB = 2.7255  # K
-O_GAMMA_H2 = 2.4728e-5 * (TCMB / 2.7255) ** 4
+O_GAMMA_H2 = (0.75 / 31500) * (TCMB / 2.7) ** 4
 
 
+@njit
 def Omega_r_h2(Neff=N_EFF):
     return O_GAMMA_H2 * (1 + 0.2271 * Neff)
+
+
+@njit
+def Or(h, Om):
+    return Omega_r_h2() / h**2
 
 
 def rs_z(Ez_func, z, params, H0, Ob_h2):
@@ -83,14 +90,7 @@ def z_star(wb, wm):
 
 @njit
 def z_drag(wb, wm):
-    # arXiv:astro-ph/9510117v2 (eq-2)
-    factor_1 = 0.313 * wm**-0.419
-    factor_2 = 1 + 0.607 * wm**0.674
-    b1_val = factor_1 * factor_2
-    b2_val = 0.238 * wm**0.223
-
-    fraction_numerator = wm**0.251
-    fraction_denominator = 1 + 0.659 * wm**0.828
-    bracket_term = 1 + b1_val * wb**b2_val
-
-    return 1345 * (fraction_numerator / fraction_denominator) * bracket_term
+    # arXiv:2106.00428v2 (eq A2)
+    return (
+        1 + 428.169 * wb**0.256459 * wm**0.616388 + 925.56 * wm**0.751615
+    ) * wm**-0.714129

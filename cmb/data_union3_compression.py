@@ -24,13 +24,20 @@ inv_cov_mat = np.array(
     ],
     dtype=np.float64,
 )
+
 N_EFF = 3.04
 TCMB = 2.72548  # K
 O_GAMMA_H2 = 2.4729e-5 * (TCMB / 2.72548) ** 4
 
 
+@njit
 def Omega_r_h2(Neff=N_EFF):
     return O_GAMMA_H2 * (1 + 0.2271 * Neff)
+
+
+@njit
+def Or(h, Om):
+    return Omega_r_h2() / h**2
 
 
 def rs_z(Ez_func, z, params, H0, Ob_h2):

@@ -10,8 +10,8 @@ c = c0 / 1000  # km/s
 DISTANCE_PRIORS = np.array(
     [
         0.01041,  # θ*
-        0.02223,  # Ωb h^2
-        0.14208,  # Ωm h^2
+        0.02223,  # ωb
+        0.14208,  # ωm
     ],
     dtype=np.float64,
 )
@@ -24,13 +24,23 @@ covariance = 10**-9 * np.array(
     dtype=np.float64,
 )
 inv_cov_mat = np.linalg.inv(covariance)
+
 N_EFF = 3.046
 TCMB = 2.7255  # K
-O_GAMMA_H2 = 2.4728e-5 * (TCMB / 2.7255) ** 4
+O_GAMMA_H2 = (0.75 / 31500) * (TCMB / 2.7) ** 4
 
 
 def Omega_r_h2(Neff=N_EFF):
     return O_GAMMA_H2 * (1 + 0.2271 * Neff)
+
+
+@njit
+def Or(h, Om):
+    # arXiv:astro-ph/9709112v1 (eq-2)
+    # z_eq = 2.5 x 10^4 x Ωm x h^2 x (2.7 / TCMB)^4
+    # Probably 2.482 x 10^4 is rounded
+    z_eq = 24077.44 * Om * h**2
+    return Om / (1 + z_eq)
 
 
 def rs_z(Ez_func, z, params, H0, Ob_h2):

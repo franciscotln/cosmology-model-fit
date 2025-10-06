@@ -5,12 +5,12 @@ from scipy.constants import c as c0
 
 c = c0 / 1000  # km/s
 
-# --- PLANCK DISTANCE PRIORS (Chen+2018 arXiv:1808.05724v1) ---
+# Chen+2018 arXiv:1808.05724v1
 DISTANCE_PRIORS = np.array(
     [
         1.750235,  # R
         301.4707,  # lA = π / θ*
-        0.02235976,  # Ωb h^2
+        0.02235976,  # ωb
     ],
     dtype=np.float64,
 )
@@ -22,9 +22,10 @@ inv_cov_mat = np.array(
     ],
     dtype=np.float64,
 )
+
 N_EFF = 3.046
 TCMB = 2.7255  # K
-O_GAMMA_H2 = 2.4728e-5 * (TCMB / 2.7255) ** 4
+O_GAMMA_H2 = (0.75 / 31500) * (TCMB / 2.7) ** 4
 
 
 def Omega_r_h2(Neff=N_EFF):
@@ -32,11 +33,22 @@ def Omega_r_h2(Neff=N_EFF):
 
 
 @njit
+def Or(h, Om):
+    # arXiv:astro-ph/9709112v1 (eq-2)
+    # z_eq = 2.5 x 10^4 x Ωm x h^2 x (2.7 / TCMB)^4
+    # Probably 2.482 x 10^4 is rounded
+    z_eq = 24077.44 * Om * h**2
+    return Om / (1 + z_eq)
+
+
+@njit
 def z_star(wb, wm):
-    # arXiv:2106.00428v2 (eq A4)
-    return wm**-0.731631 + (
-        (391.672 * wm**-0.372296 + 937.422 * wb**-0.97966) * wm**0.0192951 * wb**0.93681
-    )
+    # arXiv:astro-ph/9510117v2 (eq-1)
+    g1 = 0.0783 * wb**-0.238 / (1 + 39.5 * wb**0.763)
+    g2 = 0.560 / (1 + 21.1 * wb**1.81)
+    factor_1 = 1 + 0.00124 * wb**-0.738
+    factor_2 = 1 + g1 * wm**g2
+    return 1048 * factor_1 * factor_2
 
 
 @njit
