@@ -116,7 +116,9 @@ def main():
     chains_samples = sampler.get_chain(discard=burn_in, flat=False)
     samples = sampler.get_chain(discard=burn_in, flat=True)
 
-    pct = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
+    one_sigma_percentiles = [15.9, 50, 84.1]
+
+    pct = np.percentile(samples, one_sigma_percentiles, axis=0).T
     H0_16, H0_50, H0_84 = pct[0]
     Om_16, Om_50, Om_84 = pct[1]
     Obh2_16, Obh2_50, Obh2_84 = pct[2]
@@ -129,26 +131,20 @@ def main():
     z_star_samples = cmb.z_star(samples[:, 2], Omh2_samples)
     z_drag_samples = cmb.z_drag(samples[:, 2], Omh2_samples)
 
-    Omh2_16, Omh2_50, Omh2_84 = np.percentile(Omh2_samples, [15.9, 50, 84.1])
-    z_st_16, z_st_50, z_st_84 = np.percentile(z_star_samples, [15.9, 50, 84.1])
-    z_dr_16, z_dr_50, z_dr_84 = np.percentile(z_drag_samples, [15.9, 50, 84.1])
+    Omh2_16, Omh2_50, Omh2_84 = np.percentile(Omh2_samples, one_sigma_percentiles)
+    z_st_16, z_st_50, z_st_84 = np.percentile(z_star_samples, one_sigma_percentiles)
+    z_d_16, z_d_50, z_d_84 = np.percentile(z_drag_samples, one_sigma_percentiles)
 
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
-    print(
-        f"Ωm h^2: {Omh2_50:.5f} +{(Omh2_84 - Omh2_50):.5f} -{(Omh2_50 - Omh2_16):.5f}"
-    )
-    print(
-        f"Ωb h^2: {Obh2_50:.5f} +{(Obh2_84 - Obh2_50):.5f} -{(Obh2_50 - Obh2_16):.5f}"
-    )
+    print(f"ωm: {Omh2_50:.5f} +{(Omh2_84 - Omh2_50):.5f} -{(Omh2_50 - Omh2_16):.5f}")
+    print(f"ωb: {Obh2_50:.5f} +{(Obh2_84 - Obh2_50):.5f} -{(Obh2_50 - Obh2_16):.5f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f}")
     print(f"z*: {z_st_50:.2f} +{(z_st_84 - z_st_50):.2f} -{(z_st_50 - z_st_16):.2f}")
-    print(
-        f"z_drag: {z_dr_50:.2f} +{(z_dr_84 - z_dr_50):.2f} -{(z_dr_50 - z_dr_16):.2f}"
-    )
-    print(f"r_s(z*) = {cmb.rs_z(Ez, z_st_50, best_fit, H0_50, Obh2_50):.2f} Mpc")
-    print(f"r_s(z_drag) = {cmb.rs_z(Ez, z_dr_50, best_fit, H0_50, Obh2_50):.2f} Mpc")
+    print(f"z_drag: {z_d_50:.2f} +{(z_d_84 - z_d_50):.2f} -{(z_d_50 - z_d_16):.2f}")
+    print(f"r*: {cmb.rs_z(Ez, z_st_50, best_fit, H0_50, Obh2_50):.2f} Mpc")
+    print(f"r_d: {cmb.rs_z(Ez, z_d_50, best_fit, H0_50, Obh2_50):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
 
     plot_predictions(
@@ -160,7 +156,7 @@ def main():
         label=f"Best fit: $Ω_m$={Om_50:.3f}",
         x_scale="log",
     )
-    labels = ["$H_0$", "$Ω_m$", "$Ω_b h^2$", "$w_0$", "$Δ_M$"]
+    labels = ["$H_0$", "$Ω_m$", "$ω_m$", "$w_0$", "$Δ_M$"]
     corner.corner(
         samples,
         labels=labels,
@@ -197,16 +193,16 @@ Sample size: 22
 *******************************
 
 Flat ΛCDM w(z) = -1
-H0: 67.11 +0.57 -0.57 km/s/Mpc
+H0: 67.11 +0.57 -0.56 km/s/Mpc
 Ωm: 0.319 +0.008 -0.008
-Ωm h^2: 0.14359 +0.00122 -0.00121
-Ωb h^2: 0.02234 +0.00014 -0.00014
+ωm: 0.14358 +0.00120 -0.00120
+ωb: 0.02235 +0.00014 -0.00014
 w0: -1
-ΔM: -0.167 +0.089 -0.090
+ΔM: -0.167 +0.089 -0.088
 z*: 1091.99 +0.27 -0.27
-z_drag: 1063.40 +0.29 -0.30
-r_s(z*) = 144.00 Mpc
-r_s(z_drag) = 146.52 Mpc
+z_drag: 1059.88 +0.28 -0.29
+r*: 144.00 Mpc
+r_d: 146.84 Mpc
 Chi squared: 26.2
 Degrees of freedom: 21
 
@@ -214,48 +210,48 @@ Degrees of freedom: 21
 
 Flat wCDM w(z) = w0
 H0: 65.19 +1.22 -1.20 km/s/Mpc
-Ωm: 0.336 +0.014 -0.013
-Ωm h^2: 0.14293 +0.00126 -0.00125
-Ωb h^2: 0.02239 +0.00014 -0.00015
-w0: -0.924 +0.043 -0.043
-ΔM: -0.221 +0.095 -0.093
-z*: 1091.87 +0.28 -0.28
-z_drag: 1063.46 +0.29 -0.30
-r_s(z*) = 144.14 Mpc
-r_s(z_drag) = 146.65 Mpc
+Ωm: 0.336 +0.013 -0.013
+ωm: 0.14294 +0.00126 -0.00127
+ωb: 0.02240 +0.00014 -0.00015
+w0: -0.924 +0.042 -0.043
+ΔM: -0.220 +0.093 -0.095
+z*: 1091.86 +0.28 -0.28
+z_drag: 1059.95 +0.29 -0.29
+r*: 144.14 Mpc
+r_d: 146.97 Mpc
 Chi squared: 23.2 (Δ chi2 3.0)
 Degrees of freedom: 20
 
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)^3)
-H0: 65.32 +1.05 -1.06 km/s/Mpc
+H0: 65.30 +1.08 -1.06 km/s/Mpc
 Ωm: 0.335 +0.012 -0.012
-Ωm h^2: 0.14289 +0.00125 -0.00124
-Ωb h^2: 0.02240 +0.00015 -0.00015
-w0: -0.873 +0.066 -0.065
-ΔM: -0.212 +0.092 -0.092
-z*: 1091.86 +0.28 -0.28
-z_drag: 1063.47 +0.29 -0.30
-r_s(z*) = 144.15 Mpc
-r_s(z_drag) = 146.65 Mpc
-Chi squared: 22.55 (Δ chi2 3.7)
+ωm: 0.14288 +0.00125 -0.00124
+ωb: 0.02240 +0.00014 -0.00015
+w0: -0.872 +0.067 -0.066
+ΔM: -0.212 +0.092 -0.091
+z*: 1091.85 +0.28 -0.27
+z_drag: 1059.95 +0.29 -0.29
+r*: 144.15 Mpc
+r_d: 146.98 Mpc
+Chi squared: 22.5 (Δ chi2 3.7)
 Degrees of freedom: 20
 
 ===============================
 
 Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
-H0: 66.49 +1.32 -1.34 km/s/Mpc
+H0: 66.51 +1.30 -1.40 km/s/Mpc
 Ωm: 0.324 +0.014 -0.013
-Ωm h^2: 0.14307 +0.00127 -0.00124
-Ωb h^2: 0.02238 +0.00014 -0.00014
-w0: -0.685 +0.154 -0.158
-wa: -1.123 +0.731 -0.741
-ΔM: -0.158 +0.098 -0.100
-z*: 1091.89 +0.28 -0.27
-z_drag: 1063.45 +0.29 -0.29
-r_s(z*) = 144.11 Mpc
-r_s(z_drag) = 146.62 Mpc
-Chi squared: 21.80 (Δ chi2 4.4)
+ωm: 0.14306 +0.00127 -0.00128
+ωb: 0.02239 +0.00015 -0.00014
+w0: -0.689 +0.155 -0.160
+wa: -1.106 +0.734 -0.753
+ΔM: -0.160 +0.098 -0.101
+z*: 1091.89 +0.27 -0.28
+z_drag: 1059.94 +0.29 -0.29
+r*: 144.09 Mpc
+r_d: 146.92 Mpc
+Chi squared: 21.4 (Δ chi2 4.8)
 Degrees of freedom: 19
 """
