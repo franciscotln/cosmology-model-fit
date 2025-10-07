@@ -85,7 +85,10 @@ def r_drag(wb, wm):
 
 @njit
 def z_star(wb, wm):
-    return 1090.0  # fixed according to Prakhar Bansal+2025
+    # arXiv:2106.00428v2 (eq A4)
+    return (391.672 * wm ** (-0.372296) + 937.422 * wb ** (-0.97966)) / (
+        wm ** (-0.0192951) * wb ** (-0.93681)
+    ) + wm ** (-0.731631)
 
 
 @njit
