@@ -34,11 +34,6 @@ def Omega_r_h2(Neff=N_EFF):
     return O_GAMMA_H2 * (1 + 0.2271 * Neff)
 
 
-@njit
-def Or(h, Om):
-    return Omega_r_h2() / h**2
-
-
 def rs_z(Ez_func, z, params, H0, Ob_h2):
     Rb = 3 * Ob_h2 / (4 * O_GAMMA_H2)
 

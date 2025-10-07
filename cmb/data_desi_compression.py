@@ -34,15 +34,6 @@ def Omega_r_h2(Neff=N_EFF):
     return O_GAMMA_H2 * (1 + 0.2271 * Neff)
 
 
-@njit
-def Or(h, Om):
-    # arXiv:astro-ph/9709112v1 (eq-2)
-    # z_eq = 2.5 x 10^4 x Ωm x h^2 x (2.7 / TCMB)^4
-    # Probably 2.482 x 10^4 is rounded
-    z_eq = 24077.44 * Om * h**2
-    return Om / (1 + z_eq)
-
-
 def rs_z(Ez_func, z, params, H0, Ob_h2):
     Rb = 3 * Ob_h2 / (4 * O_GAMMA_H2)
 
