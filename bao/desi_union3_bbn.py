@@ -6,7 +6,7 @@ from scipy.integrate import cumulative_trapezoid
 from scipy.linalg import cho_factor, cho_solve
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
-import y2024BBN.prior_lcdm as bbn
+import y2024BBN.prior_lcdm_shonberg as bbn
 from cmb.data_chen_compression import r_drag
 from y2023union3.data import get_data
 from y2025BAO.data import get_data as get_bao_data

@@ -1,13 +1,12 @@
 from numba import njit
 import numpy as np
-import emcee
-import corner
+import emcee, corner
 from scipy.constants import c as c0
 from scipy.integrate import cumulative_trapezoid
 from scipy.linalg import cho_factor, cho_solve
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
-import y2024BBN.prior_lcdm as bbn
+import y2024BBN.prior_lcdm_shonberg as bbn
 from y2024DES.data import get_data, effective_sample_size as sn_size
 from y2025BAO.data import get_data as get_bao_data
 from sn.plotting import plot_predictions as plot_sn_predictions
@@ -63,9 +62,13 @@ def DH_z(z, params):
 
 @njit
 def DM_z(z, params):
-    x = np.linspace(0, z, num=max(250, int(250 * z)))
-    y = DH_z(x, params)
-    return np.trapz(y=y, x=x)
+    result = np.empty(z.size, dtype=np.float64)
+    for i in range(z.size):
+        zp = z[i]
+        x = np.linspace(0, zp, num=max(250, int(250 * zp)))
+        y = DH_z(x, params)
+        result[i] = np.trapz(y=y, x=x)
+    return result
 
 
 @njit
@@ -89,17 +92,14 @@ def bao_theory(z, qty, params):
     H0, Om, Obh2 = params[0], params[1], params[2]
     Omh2 = Om * (H0 / 100) ** 2
     rd = r_drag(wb=Obh2, wm=Omh2)
-
     results = np.empty(z.size, dtype=np.float64)
-    for i in range(z.size):
-        q = qty[i]
-        if q == 0:
-            results[i] = DV_z(z[i], params) / rd
-        elif q == 1:
-            results[i] = DM_z(z[i], params) / rd
-        elif q == 2:
-            results[i] = DH_z(z[i], params) / rd
-    return results
+    DV_mask = qty == 0
+    DM_mask = qty == 1
+    DH_mask = qty == 2
+    results[DH_mask] = DH_z(z[DH_mask], params)
+    results[DM_mask] = DM_z(z[DM_mask], params)
+    results[DV_mask] = DV_z(z[DV_mask], params)
+    return results / rd
 
 
 def chi_squared(params):
@@ -130,7 +130,7 @@ bounds = np.array(
 @njit
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
-        return 0
+        return 0.0
     return -np.inf
 
 
@@ -193,21 +193,15 @@ def main():
     r_drag_samples = r_drag(samples[:, 2], Omh2_samples)
 
     Omh2_16, Omh2_50, Omh2_84 = np.percentile(Omh2_samples, one_sigma_contours)
-    r_drag_16, r_drag_50, r_drag_84 = np.percentile(r_drag_samples, one_sigma_contours)
+    r_d_16, r_d_50, r_d_84 = np.percentile(r_drag_samples, one_sigma_contours)
 
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
     print(f"Ωm: {Om_50:.4f} +{(Om_84 - Om_50):.4f} -{(Om_50 - Om_16):.4f}")
-    print(
-        f"Ωb h^2: {Obh2_50:.5f} +{(Obh2_84 - Obh2_50):.5f} -{(Obh2_50 - Obh2_16):.5f}"
-    )
-    print(
-        f"Ωm h^2: {Omh2_50:.5f} +{(Omh2_84 - Omh2_50):.5f} -{(Omh2_50 - Omh2_16):.5f}"
-    )
+    print(f"ωb: {Obh2_50:.5f} +{(Obh2_84 - Obh2_50):.5f} -{(Obh2_50 - Obh2_16):.5f}")
+    print(f"ωm: {Omh2_50:.5f} +{(Omh2_84 - Omh2_50):.5f} -{(Omh2_50 - Omh2_16):.5f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f}")
-    print(
-        f"r_drag = {r_drag_50:.2f} +{(r_drag_84 - r_drag_50):.2f} -{(r_drag_50 - r_drag_16):.2f} Mpc"
-    )
+    print(f"r_d: {r_d_50:.2f} +{(r_d_84 - r_d_50):.2f} -{(r_d_50 - r_d_16):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Degrees of freedom: {1 + bao_data['z'].size + sn_size - len(best_fit)}")
 
@@ -226,7 +220,7 @@ def main():
         label=f"Model: $Ω_m$={Om_50:.3f}",
         x_scale="log",
     )
-    labels = ["$H_0$", "$Ω_m$", "$Ω_b h^2$", "$w_0$", "$Δ_M$"]
+    labels = ["$H_0$", "$Ω_m$", "$ω_b$", "$w_0$", "$Δ_M$"]
     corner.corner(
         samples,
         labels=labels,
@@ -260,11 +254,11 @@ if __name__ == "__main__":
 Flat ΛCDM w(z) = -1
 H0: 68.63 +0.53 -0.53 km/s/Mpc
 Ωm: 0.3105 +0.0079 -0.0077
-Ωb h^2: 0.02219 +0.00054 -0.00054
-Ωm h^2: 0.14622 +0.00435 -0.00424
+ωb: 0.02219 +0.00054 -0.00054
+ωm: 0.14622 +0.00435 -0.00424
 w0: -1
 ΔM: -0.047 +0.018 -0.018
-r_drag = 146.49 +1.27 -1.23 Mpc
+r_d: 146.49 +1.27 -1.23 Mpc
 Chi squared: 1658.97
 Degrees of freedom: 1745
 
@@ -273,11 +267,11 @@ Degrees of freedom: 1745
 Flat wCDM w(z) = w0
 H0: 65.37 +1.16 -1.18 km/s/Mpc
 Ωm: 0.2979 +0.0090 -0.0089
-Ωb h^2: 0.02218 +0.00055 -0.00055
-Ωm h^2: 0.12739 +0.00723 -0.00719
+ωb: 0.02218 +0.00055 -0.00055
+ωm: 0.12739 +0.00723 -0.00719
 w0: -0.871 +0.038 -0.038
 ΔM: -0.123 +0.031 -0.033
-r_drag = 151.22 +2.18 -2.07 Mpc
+r_d: 151.22 +2.18 -2.07 Mpc
 Chi squared: 1648.09 (delta chi2 10.88)
 Degrees of freedom: 1744
 
@@ -286,11 +280,11 @@ Degrees of freedom: 1744
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
 H0: 65.97 +0.91 -0.90 km/s/Mpc
 Ωm: 0.3075 +0.0079 -0.0077
-Ωb h^2: 0.02218 +0.00055 -0.00054
-Ωm h^2: 0.13386 +0.00533 -0.00519
+ωb: 0.02218 +0.00055 -0.00054
+ωm: 0.13386 +0.00533 -0.00519
 w0: -0.835 +0.045 -0.045
 ΔM: -0.096 +0.023 -0.023
-r_drag = 149.51 +1.58 -1.55 Mpc
+r_d: 149.51 +1.58 -1.55 Mpc
 Chi squared: 1646.49 (delta chi2 12.48)
 Degrees of freedom: 1744
 
@@ -299,12 +293,12 @@ Degrees of freedom: 1744
 Flat w(z) = w0 + wa * z / (1 + z)
 H0: 66.88 +1.17 -1.34 km/s/Mpc
 Ωm: 0.3215 +0.0127 -0.0150
-Ωb h^2: 0.02196 +0.00063 -0.00063
-Ωm h^2: 0.14403 +0.00927 -0.01115
+ωb: 0.02196 +0.00063 -0.00063
+ωm: 0.14403 +0.00927 -0.01115
 w0: -0.783 +0.072 -0.068
 wa: -0.728 +0.452 -0.453
 ΔM: -0.059 +0.038 -0.046
-r_drag = 147.25 +2.90 -2.30 Mpc
+r_d: 147.25 +2.90 -2.30 Mpc
 Chi squared: 1645.55 (delta chi2 13.42)
 Degrees of freedom: 1743
 """

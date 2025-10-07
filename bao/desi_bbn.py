@@ -6,7 +6,7 @@ from scipy.linalg import cho_factor, cho_solve
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from y2025BAO.data import get_data
-import y2024BBN.prior_lcdm as bbn
+import y2024BBN.prior_lcdm_cyril as bbn
 from cmb.data_chen_compression import r_drag, c
 from .plot_predictions import plot_bao_predictions
 
@@ -229,26 +229,26 @@ Dataset: DESI DR2 2025
 *******************************
 
 Flat ΛCDM:
-H0: 68.72 +0.58 -0.58 km/s/Mpc
-Ωb h^2: 0.02219 +0.00054 -0.00054
-Ωm h^2: 0.14064 +0.00506 -0.00484
-Ωm: 0.2979 +0.0086 -0.0083
+H0: 68.49 +0.44 -0.44 km/s/Mpc
+Ωb h^2: 0.02190 +0.00025 -0.00024
+Ωm h^2: 0.13969 +0.00475 -0.00458
+Ωm: 0.2978 +0.0086 -0.0083
 w0: -1
-r_d: 147.72 +1.54 -1.55 Mpc
+r_d: 148.23 +1.30 -1.32 Mpc
 Chi squared: 10.27
-Degs of freedom: 10
+Degs of freedom: 11
 R^2: 0.9987
 RMSD: 0.305
 
 ===============================
 
 Flat wCDM:
-H0: 66.52 +2.22 -2.20 km/s/Mpc
-Ωb h^2: 0.02219 +0.00054 -0.00056
-Ωm h^2: 0.13191 +0.00988 -0.01012
-Ωm: 0.2972 +0.0090 -0.0087
-w0: -0.919 +0.076 -0.080
-r_d: 150.13 +3.08 -2.82 Mpc
+H0: 66.29 +2.17 -2.16 km/s/Mpc
+Ωb h^2: 0.02190 +0.00025 -0.00025
+Ωm h^2: 0.13096 +0.00973 -0.00992
+Ωm: 0.2972 +0.0089 -0.0088
+w0: -0.918 +0.076 -0.079
+r_d: 150.65 +2.95 -2.72 Mpc
 Chi squared: 9.05
 Degs of freedom: 10
 R^2: 0.9989
@@ -257,12 +257,12 @@ RMSD: 0.281
 ===============================
 
 Flat alternative: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-H0: 65.93 +2.25 -2.11 km/s/Mpc
-Ωb h^2: 0.02218 +0.00055 -0.00055
-Ωm h^2: 0.13395 +0.00725 -0.00689
-Ωm: 0.3080 +0.0116 -0.0117
-w0: -0.835 +0.122 -0.130
-r_d: 149.56 +2.13 -2.13 Mpc
+H0: 65.72 +2.22 -2.04 km/s/Mpc
+Ωb h^2: 0.02190 +0.00025 -0.00024
+Ωm h^2: 0.13314 +0.00709 -0.00671
+Ωm: 0.3079 +0.0119 -0.0116
+w0: -0.835 +0.121 -0.130
+r_d: 150.03 +1.97 -1.99 Mpc
 Chi squared: 8.44
 Degs of freedom: 10
 R^2: 0.9990

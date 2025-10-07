@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from y2025BAO.data import get_data as get_bao_data
 import cmb.data_desi_compression as cmb
-import y2024BBN.prior_lcdm as bbn
+import y2024BBN.prior_lcdm_shonberg as bbn
 from .plot_predictions import plot_bao_predictions
 
 c = cmb.c  # speed of light in km/s
