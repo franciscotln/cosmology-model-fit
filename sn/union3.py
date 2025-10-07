@@ -1,9 +1,5 @@
 from numba import njit
-import emcee
-import matplotlib.pyplot as plt
 import numpy as np
-import corner
-from scipy.stats import skew
 from scipy.linalg import cho_factor, cho_solve
 from scipy.integrate import cumulative_trapezoid
 from multiprocessing import Pool
@@ -67,6 +63,10 @@ def log_probability(params):
 
 
 def main():
+    import corner, emcee
+    from scipy.stats import skew
+    import matplotlib.pyplot as plt
+
     n_dim = len(bounds)
     n_walkers = 150
     burn_in = 200
