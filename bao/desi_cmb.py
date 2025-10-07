@@ -6,7 +6,7 @@ from scipy.linalg import cho_factor, cho_solve
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 from y2025BAO.data import get_data as get_bao_data
-import cmb.data_desi_compression as cmb
+import cmb.data_chen_compression as cmb
 from .plot_predictions import plot_bao_predictions
 
 c = cmb.c  # speed of light in km/s
@@ -14,12 +14,14 @@ c = cmb.c  # speed of light in km/s
 bao_legend, bao_data, bao_cov_matrix = get_bao_data()
 cho_bao = cho_factor(bao_cov_matrix)
 
+Orh2 = cmb.Omega_r_h2()
+
 
 @njit
 def Ez(z, params):
     H0, Om, w0 = params[1], params[2], params[4]
     h = H0 / 100
-    Or = cmb.Or(h, Om)
+    Or = Orh2 / h**2
     Ode = 1 - Om - Or
 
     one_plus_z = 1 + z
@@ -185,7 +187,7 @@ def main():
         errors=np.sqrt(np.diag(bao_cov_matrix)),
         title=bao_legend,
     )
-    labels = ["$r_d$", "$H_0$", "$Ω_m$", "$Ω_b h^2$", "$w_0$", "$w_a$"]
+    labels = ["$r_d$", "$H_0$", "$Ω_m$", "$Ω_b h^2$", "$w_0$"]
     corner.corner(
         samples,
         labels=labels,
@@ -232,15 +234,15 @@ Chi squared: 11.76
 Degs of freedom: 14
 
 CHEN:
-r_d: 147.99 +0.52 -0.51 Mpc
-H0: 68.08 +0.44 -0.44 km/s/Mpc
-Ωm: 0.3075 +0.0059 -0.0057
-ωm: 0.14252 +0.00094 -0.00092
+r_d: 148.00 +0.52 -0.52 Mpc
+H0: 68.07 +0.44 -0.45 km/s/Mpc
+Ωm: 0.3076 +0.0060 -0.0058
+ωm: 0.14251 +0.00093 -0.00092
 ωb: 0.02246 +0.00013 -0.00013
 w0: -1
 r*: 144.46 Mpc
-z*: 1091.73 +0.23 -0.22
-Chi squared: 12.77
+z*: 1088.71 +0.17 -0.17
+Chi squared: 12.83
 
 ===============================
 
@@ -257,15 +259,15 @@ Chi squared: 11.51
 Degs of freedom: 13
 
 CHEN:
-r_d: 147.92 +0.52 -0.52 Mpc
-H0: 68.86 +1.01 -0.98 km/s/Mpc
-Ωm: 0.3019 +0.0086 -0.0084
-ωm: 0.14314 +0.00120 -0.00118
+r_d: 147.95 +0.53 -0.52 Mpc
+H0: 68.83 +1.02 -0.98 km/s/Mpc
+Ωm: 0.3021 +0.0087 -0.0086
+ωm: 0.14316 +0.00116 -0.00117
 ωb: 0.02241 +0.00014 -0.00014
 w0: -1.036 +0.040 -0.042
 r*: 144.33 Mpc
-z*: 1091.86 +0.27 -0.27
-Chi squared: 12.13
+z*: 1088.81 +0.20 -0.21
+Chi squared: 12.17
 
 ===============================
 
@@ -282,15 +284,15 @@ Chi squared: 11.77
 Degs of freedom: 13
 
 CHEN:
-r_d: 147.98 +0.53 -0.52 Mpc
+r_d: 148.00 +0.52 -0.53 Mpc
 H0: 68.45 +1.46 -1.38 km/s/Mpc
-Ωm: 0.3045 +0.0122 -0.0121
-ωm: 0.14268 +0.00114 -0.00112
+Ωm: 0.3045 +0.0123 -0.0122
+ωm: 0.14269 +0.00111 -0.00111
 ωb: 0.02245 +0.00014 -0.00014
-w0: -1.025 +0.091 -0.094
-r*: 144.43 Mpc
-z*: 1091.76 +0.27 -0.26
-Chi squared: 12.72
+w0: -1.027 +0.090 -0.095
+r*: 144.42 Mpc
+z*: 1088.73 +0.20 -0.20
+Chi squared: 12.77
 
 ===============================
 
@@ -308,14 +310,14 @@ Chi squared: 6.81
 Degs of freedom: 12
 
 CHEN:
-r_d: 147.24 +0.57 -0.54 Mpc
-H0: 63.78 +2.18 -2.14 km/s/Mpc
-Ωm: 0.3546 +0.0265 -0.0238
-ωm: 0.14431 +0.00124 -0.00125
-ωb: 0.02232 +0.00014 -0.00015
-w0: -0.44 +0.27 -0.25
-wa: -1.70 +0.72 -0.81
-r*: 144.09 Mpc
-z*: 1092.09 +0.28 -0.28
-Chi squared: 6.59
+r_d: 147.30 +0.55 -0.55 Mpc
+H0: 63.88 +2.11 -1.93 km/s/Mpc
+Ωm: 0.3535 +0.0235 -0.0233
+ωm: 0.14424 +0.00120 -0.00122
+ωb: 0.02233 +0.00014 -0.00014
+w0: -0.455 +0.240 -0.241
+wa: -1.658 +0.698 -0.714
+r*: 144.08 Mpc
+z*: 1088.97 +0.21 -0.21
+Chi squared: 6.45
 """
