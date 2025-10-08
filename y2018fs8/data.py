@@ -1,4 +1,7 @@
 # covariances from arXiv:1806.10822v2
+# data
+# arXiv:1803.01337v4
+# arXiv:2110.08498v2
 import numpy as np
 
 pathname = "y2018fs8/raw/"
