@@ -1,10 +1,6 @@
 from numba import njit
 import numpy as np
-import emcee
-import corner
 from scipy.linalg import cho_factor, cho_solve
-import matplotlib.pyplot as plt
-from multiprocessing import Pool
 import cmb.data_chen_compression as cmb
 from y2005cc.data import get_data
 from .plot_predictions import plot_cc_predictions
@@ -13,8 +9,6 @@ c = cmb.c  # Speed of light in km/s
 Or_h2 = cmb.Omega_r_h2()
 
 legend, z_values, H_values, cov_matrix_cc = get_data()
-cc_err_factor = 1.5  # Error reduction factor
-cov_matrix_cc = cov_matrix_cc / cc_err_factor**2
 cho_cc = cho_factor(cov_matrix_cc)
 logdet = np.linalg.slogdet(cov_matrix_cc)[1]
 
@@ -39,7 +33,7 @@ bounds = np.array(
         (50, 85),  # H0
         (0.1, 0.45),  # Om
         (0.0210, 0.0235),  # Ωb * h^2
-        (0.4, 3),  # f_cc
+        (0.1, 1.5),  # f_cc
     ],
     dtype=np.float64,
 )
@@ -48,7 +42,7 @@ bounds = np.array(
 def chi_squared(params):
     H0, Om, Ob_h2, f_cc = params
     delta_cc = H_values - H_z(z_values, params)
-    chi2_cc = f_cc**2 * np.dot(
+    chi2_cc = f_cc**-2 * np.dot(
         delta_cc, cho_solve(cho_cc, delta_cc, check_finite=False)
     )
 
@@ -59,7 +53,7 @@ def chi_squared(params):
 
 def log_likelihood(params):
     N = len(z_values)
-    normalization = N * np.log(2 * np.pi) + logdet - 2 * N * np.log(params[-1])
+    normalization = N * np.log(2 * np.pi) + logdet + 2 * N * np.log(params[-1])
     return -0.5 * (chi_squared(params) + normalization)
 
 
@@ -78,6 +72,10 @@ def log_probability(params):
 
 
 def main():
+    import emcee, corner
+    import matplotlib.pyplot as plt
+    from multiprocessing import Pool
+
     ndim = len(bounds)
     nwalkers = 150
     burn_in = 200
@@ -136,7 +134,7 @@ def main():
         H_z=lambda z: H_z(z, best_fit),
         z=z_values,
         H=H_values,
-        H_err=np.sqrt(np.diag(cov_matrix_cc)) / f_50,
+        H_err=np.sqrt(np.diag(cov_matrix_cc)) * f_50,
         label=f"{legend} $H_0$: {H0_50:.2f} ± {(H0_84 - H0_50):.2f} km/s/Mpc",
     )
     labels = ["$H_0$", "$Ω_m$", "$Ω_b h^2$", "f"]
@@ -178,17 +176,17 @@ https://arxiv.org/pdf/2506.03836
 *******************************
 
 Flat ΛCDM
-H0: 67.39 +0.60 -0.59 km/s/Mpc
-Ωm: 0.3169 +0.0082 -0.0081
-Ωb x h^2: 0.02236 +0.00015 -0.00015
-f_cc: 1.00 +0.12 -0.12
-Chi squared: 33.25
-Log likelihood: -130.54
+H0: 67.39 +0.59 -0.60 km/s/Mpc
+Ωm: 0.3168 +0.0084 -0.0080
+ωb: 0.02236 +0.00014 -0.00014
+f: 0.69 +0.09 -0.08
+Chi squared: 31.31
+Log likelihood: -130.56
 Degs of freedom: 32
 
 correlation matrix:
-[[ 1.      -0.99333  0.72252 -0.00748]
- [-0.99333  1.      -0.6542   0.00684]
- [ 0.72252 -0.6542   1.      -0.00841]
- [-0.00748  0.00684 -0.00841  1.     ]]
+[[ 1.      -0.99339  0.724    0.00941]
+ [-0.99339  1.      -0.65643 -0.00887]
+ [ 0.724   -0.65643  1.       0.00875]
+ [ 0.00941 -0.00887  0.00875  1.     ]]
 """
