@@ -1,13 +1,9 @@
 from numba import njit
 import numpy as np
-import emcee
-import corner
 from scipy.linalg import cho_factor, cho_solve
-import matplotlib.pyplot as plt
-from multiprocessing import Pool
 from y2025BAO.data import get_data
 import y2024BBN.prior_lcdm_cyril as bbn
-from cmb.data_chen_compression import r_drag, c
+from cmb.data_desi_compression import r_drag, c, N_EFF
 from .plot_predictions import plot_bao_predictions
 
 legend, data, cov_matrix = get_data()
@@ -18,7 +14,7 @@ cho = cho_factor(cov_matrix)
 def rd(H0, Om, Obh2):
     h = H0 / 100
     Omh2 = Om * h**2
-    return r_drag(wb=Obh2, wm=Omh2)
+    return r_drag(wb=Obh2, wm=Omh2, n_eff=N_EFF)
 
 
 @njit
@@ -95,8 +91,10 @@ bounds = np.array(
 
 def chi_squared(params):
     bbn_delta = (bbn.Obh2 - params[2]) / bbn.Obh2_sigma
+    bbn_chi2 = bbn_delta**2
     delta = data["value"] - theory_predictions(data["z"], quantities, params)
-    return delta.dot(cho_solve(cho, delta, check_finite=False)) + bbn_delta**2
+    bao_chi2 = delta.dot(cho_solve(cho, delta, check_finite=False))
+    return bao_chi2 + bbn_chi2
 
 
 @njit
@@ -118,11 +116,16 @@ def log_probability(params):
 
 
 def main():
+    import emcee, corner
+    from multiprocessing import Pool
+    import matplotlib.pyplot as plt
+
     ndim = len(bounds)
     nwalkers = 150
     burn_in = 200
     nsteps = 2000 + burn_in
     initial_pos = np.zeros((nwalkers, ndim))
+    np.random.seed(42)
 
     for dim, (lower, upper) in enumerate(bounds):
         initial_pos[:, dim] = np.random.uniform(lower, upper, nwalkers)
@@ -173,12 +176,8 @@ def main():
     r2 = 1 - SS_res / SS_tot
 
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
-    print(
-        f"Ωb h^2: {Obh2_50:.5f} +{(Obh2_84 - Obh2_50):.5f} -{(Obh2_50 - Obh2_16):.5f}"
-    )
-    print(
-        f"Ωm h^2: {Omh2_50:.5f} +{(Omh2_84 - Omh2_50):.5f} -{(Omh2_50 - Omh2_16):.5f}"
-    )
+    print(f"ωb: {Obh2_50:.5f} +{(Obh2_84 - Obh2_50):.5f} -{(Obh2_50 - Obh2_16):.5f}")
+    print(f"ωm: {Omh2_50:.5f} +{(Omh2_84 - Omh2_50):.5f} -{(Omh2_50 - Omh2_16):.5f}")
     print(f"Ωm: {Om_50:.4f} +{Om_84-Om_50:.4f} -{Om_50-Om_16:.4f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
@@ -191,9 +190,9 @@ def main():
         theory_predictions=lambda z, qty: theory_predictions(z, qty, best_fit),
         data=data,
         errors=np.sqrt(np.diag(cov_matrix)),
-        title=f"{legend}: $H_0$={H0_50:.2f} km/s/Mpc, $\\Omega_m$={Om_50:.4f}",
+        title=f"{legend}: $H_0$={H0_50:.2f} km/s/Mpc, $Ω_m$={Om_50:.4f}",
     )
-    labels = ["$H_0$", "$Ω_m$", "$Ω_b x h^2$", "$w_0$"]
+    labels = ["$H_0$", "$Ω_m$", "$ω_b$", "$w_0$"]
     corner.corner(
         samples,
         labels=labels,
@@ -229,12 +228,12 @@ Dataset: DESI DR2 2025
 *******************************
 
 Flat ΛCDM:
-H0: 68.49 +0.44 -0.44 km/s/Mpc
-Ωb h^2: 0.02190 +0.00025 -0.00024
-Ωm h^2: 0.13969 +0.00475 -0.00458
-Ωm: 0.2978 +0.0086 -0.0083
-w0: -1
-r_d: 148.23 +1.30 -1.32 Mpc
+H0: 68.44 +0.39 -0.39 km/s/Mpc
+Ωb h^2: 0.02190 +0.00024 -0.00024
+ωm: 0.13949 +0.00426 -0.00418
+Ωm: 0.2977 +0.0086 -0.0083
+w0: -1.002 +0.680 -0.672
+r_d: 148.32 +1.10 -1.08 Mpc
 Chi squared: 10.27
 Degs of freedom: 11
 R^2: 0.9987
@@ -243,27 +242,27 @@ RMSD: 0.305
 ===============================
 
 Flat wCDM:
-H0: 66.29 +2.17 -2.16 km/s/Mpc
-Ωb h^2: 0.02190 +0.00025 -0.00025
-Ωm h^2: 0.13096 +0.00973 -0.00992
-Ωm: 0.2972 +0.0089 -0.0088
-w0: -0.918 +0.076 -0.079
-r_d: 150.65 +2.95 -2.72 Mpc
+H0: 66.36 +2.03 -2.07 km/s/Mpc
+ωb: 0.02190 +0.00025 -0.00025
+ωm: 0.13125 +0.00907 -0.00963
+Ωm: 0.2971 +0.0091 -0.0087
+w0: -0.916 +0.077 -0.080
+r_d: 150.42 +2.68 -2.32 Mpc
 Chi squared: 9.05
 Degs of freedom: 10
 R^2: 0.9989
-RMSD: 0.281
+RMSD: 0.280
 
 ===============================
 
 Flat alternative: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-H0: 65.72 +2.22 -2.04 km/s/Mpc
-Ωb h^2: 0.02190 +0.00025 -0.00024
-Ωm h^2: 0.13314 +0.00709 -0.00671
-Ωm: 0.3079 +0.0119 -0.0116
-w0: -0.835 +0.121 -0.130
-r_d: 150.03 +1.97 -1.99 Mpc
-Chi squared: 8.44
+H0: 65.76 +2.10 -1.95 km/s/Mpc
+ωb: 0.02190 +0.00025 -0.00025
+ωm: 0.13329 +0.00648 -0.00627
+Ωm: 0.3079 +0.0117 -0.0116
+w0: -0.832 +0.119 -0.130
+r_d: 149.89 +1.70 -1.67 Mpc
+Chi squared: 8.43
 Degs of freedom: 10
 R^2: 0.9990
 RMSD: 0.266
