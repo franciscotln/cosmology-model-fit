@@ -1,11 +1,7 @@
 from numba import njit
 import numpy as np
-import emcee
-import corner
 from scipy.integrate import cumulative_trapezoid
 from scipy.linalg import cho_factor, cho_solve
-import matplotlib.pyplot as plt
-from multiprocessing import Pool
 from y2022pantheonSHOES.data import get_data
 from y2005cc.data import get_data as get_cc_data
 from sn.plotting import plot_predictions as plot_sn_predictions
@@ -50,7 +46,7 @@ def H_z(z, params):
 
 bounds = np.array(
     [
-        (0.4, 2.5),  # f_cc
+        (0.1, 1.5),  # f_cc
         (55, 80),  # H0
         (-20, -19),  # M
         (0.15, 0.70),  # Ωm
@@ -66,7 +62,7 @@ def chi_squared(params):
     chi_sn = np.dot(delta_sn, cho_solve(cov_sn_cho, delta_sn, check_finite=False))
 
     delta_cc = H_cc_vals - H_z(z_cc_vals, params)
-    chi_cc = np.dot(delta_cc, cho_solve(cho_cc, delta_cc, check_finite=False)) * f_cc**2
+    chi_cc = np.dot(delta_cc, cho_solve(cho_cc, delta_cc, check_finite=False)) * f_cc**-2
 
     return chi_sn + chi_cc
 
@@ -80,7 +76,7 @@ def log_prior(params):
 
 def log_likelihood(params):
     f_cc = params[0]
-    normalization_cc = N_cc * np.log(2 * np.pi) + logdet_cc - 2 * N_cc * np.log(f_cc)
+    normalization_cc = N_cc * np.log(2 * np.pi) + logdet_cc + 2 * N_cc * np.log(f_cc)
     return -0.5 * chi_squared(params) - 0.5 * normalization_cc
 
 
@@ -92,6 +88,10 @@ def log_probability(params):
 
 
 def main():
+    import emcee, corner
+    import matplotlib.pyplot as plt
+    from multiprocessing import Pool
+
     ndim = len(bounds)
     nwalkers = 150
     burn_in = 200
@@ -134,10 +134,14 @@ def main():
 
     deg_of_freedom = z_vals.size + z_cc_vals.size - len(best_fit)
 
+    Omh2_samples = samples[:, 3] * (samples[:, 1] / 100) ** 2
+    Omh2_16, Omh2_50, Omh2_84 = np.percentile(Omh2_samples, [15.9, 50, 84.1])
+
     print(f"f_cc: {f_cc_50:.2f} +{(f_cc_84 - f_cc_50):.2f} -{(f_cc_50 - f_cc_16):.2f}")
     print(f"H0: {h0_50:.1f} +{(h0_84 - h0_50):.1f} -{(h0_50 - h0_16):.1f}")
     print(f"M: {M_50:.3f} +{(M_84 - M_50):.3f} -{(M_50 - M_16):.3f}")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
+    print(f"ωm: {Omh2_50:.4f} +{(Omh2_84 - Omh2_50):.4f} -{(Omh2_50 - Omh2_16):.4f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Degrees of freedom: {deg_of_freedom}")
@@ -146,7 +150,7 @@ def main():
         H_z=lambda z: H_z(z, best_fit),
         z=z_cc_vals,
         H=H_cc_vals,
-        H_err=np.sqrt(np.diag(cov_matrix_cc)) / f_cc_50,
+        H_err=np.sqrt(np.diag(cov_matrix_cc)) * f_cc_50,
         label=f"{cc_legend}: $H_0$={h0_50:.1f} km/s/Mpc",
     )
     plot_sn_predictions(
@@ -155,11 +159,11 @@ def main():
         y=apparent_mag_values,
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=apparent_mag_theory(best_fit),
-        label=f"Best fit: $H_0$={h0_50:.1f} km/s/Mpc, $\Omega_m$={Om_50:.3f}",
+        label=f"Best fit: $H_0$={h0_50:.1f} km/s/Mpc, $Ω_m$={Om_50:.3f}",
         x_scale="log",
     )
 
-    labels = ["$f_{CCH}$", "$H_0$", "M", "$Ω_m$", "$w_0$"]
+    labels = ["$f_{CC}$", "$H_0$", "M", "$Ω_m$", "$w_0$"]
     corner.corner(
         samples,
         labels=labels,
@@ -192,33 +196,36 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM: w(z) = -1
-f_cc: 1.48 +0.19 -0.18
-H0: 67.1 +2.4 -2.4 km/s/Mpc
-M: -19.445 +0.074 -0.077 mag
-Ωm: 0.330 +0.017 -0.016
+f_cc: 0.70 +0.10 -0.08
+H0: 67.1 +2.5 -2.5 km/s/Mpc
+M: -19.445 +0.077 -0.079 mag
+Ωm: 0.331 +0.017 -0.017
+ωm: 0.1490
 w0: -1
-Chi squared: 1435.18
+Chi squared: 1433.17
 Degrees of freedom: 1619
 
 ===============================
 
 Flat wCDM: w(z) = w0
-f_cc: 1.46 +0.19 -0.18
-H0: 67.3 +2.6 -2.6 km/s/Mpc
-M: -19.434 +0.083 -0.084 mag
-Ωm: 0.317 +0.039 -0.042
-w0: -0.960 +0.100 -0.110
-Chi squared: 1434.50
+f_cc: 0.71 +0.10 -0.08
+H0: 67.4 +2.7 -2.6 km/s/Mpc
+M: -19.432 +0.085 -0.087 mag
+Ωm: 0.317 +0.040 -0.043
+ωm: 0.1432 +0.0159 -0.0173
+w0: -0.958 +0.102 -0.113
+Chi squared: 1432.42
 Degrees of freedom: 1618
 
 ===============================
 
 Flat alternative: w(z) = -1 + 2 * (1 + w0) / ((1 + z)**3 + 1)
-f_cc: 1.46 +0.18 -0.18
-H0: 67.3 +2.6 -2.5
-M: -19.436 +0.082 -0.083
+f_cc: 0.70 +0.10 -0.08
+H0: 67.3 +2.6 -2.6 km/s/Mpc
+M: -19.436 +0.084 -0.086 mag
 Ωm: 0.322 +0.030 -0.030
-w0: -0.963 +0.097 -0.108
-Chi squared: 1434.49
+ωm: 0.1455 +0.0130 -0.0128
+w0: -0.963 +0.097 -0.109
+Chi squared: 1432.58
 Degrees of freedom: 1618
 """
