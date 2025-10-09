@@ -6,8 +6,6 @@ from scipy.integrate import cumulative_trapezoid
 from scipy.linalg import cho_factor, cho_solve
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
-
-from torch import exp_
 from y2023union3.data import get_data as get_sn_data
 from y2005cc.data import get_data as get_cc_data
 from sn.plotting import plot_predictions as plot_sn_predictions
@@ -64,7 +62,9 @@ def chi_squared(params):
     chi_sn = np.dot(delta_sn, cho_solve(cho_sn, delta_sn, check_finite=False))
 
     cc_delta = H_cc_vals - H_z(z_cc_vals, params)
-    chi_cc = f_cc**2 * np.dot(cc_delta, cho_solve(cho_cc, cc_delta, check_finite=False))
+    chi_cc = f_cc**-2 * np.dot(
+        cc_delta, cho_solve(cho_cc, cc_delta, check_finite=False)
+    )
 
     return chi_sn + chi_cc
 
@@ -78,7 +78,7 @@ def log_prior(params):
 
 def log_likelihood(params):
     f_cc = params[0]
-    normalization_cc = N_cc * np.log(2 * np.pi) + logdet_cc - 2 * N_cc * np.log(f_cc)
+    normalization_cc = N_cc * np.log(2 * np.pi) + logdet_cc + 2 * N_cc * np.log(f_cc)
     return -0.5 * chi_squared(params) - 0.5 * normalization_cc
 
 
@@ -146,7 +146,7 @@ def main():
         H_z=lambda z: H_z(z, best_fit),
         z=z_cc_vals,
         H=H_cc_vals,
-        H_err=np.sqrt(np.diag(cov_matrix_cc)) / f_cc_50,
+        H_err=np.sqrt(np.diag(cov_matrix_cc)) * f_cc_50,
         label=f"{legend_cc}: $H_0$={h0_50:.1f} km/s/Mpc",
     )
     plot_sn_predictions(
@@ -191,36 +191,36 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM: w(z) = -1
-f_cc: 1.47 +0.18 -0.18
-ΔM: -0.203 +0.122 -0.122 mag
+f_cc: 0.70 +0.10 -0.08
+ΔM: -0.202 +0.121 -0.124 mag
 H0: 65.9 +2.6 -2.6 km/s/Mpc
-Ωm: 0.349 +0.024 -0.023
+Ωm: 0.349 +0.025 -0.023
 w0: -1
-Chi squared: 56.20
-Log likelihood: -142.67
+Chi squared: 54.25
+Log likelihood: -142.73
 Degrees of freedom: 51
 
 ==============================
 
 Flat wCDM: w(z) = w0
-f_cc: 1.45 +0.18 -0.18
-ΔM: -0.177 +0.122 -0.125 mag
-H0: 66.4 +2.6 -2.6 km/s/Mpc
-Ωm: 0.306 +0.047 -0.055
-w0: -0.85 +0.13 -0.13
-Chi squared: 54.24
-Log likelihood: -142.06
+f_cc: 0.71 +0.10 -0.08
+ΔM: -0.179 +0.124 -0.125
+H0: 66.4 +2.7 -2.7
+Ωm: 0.306 +0.048 -0.056
+w0: -0.85 +0.12 -0.14
+Chi squared: 52.28
+Log likelihood: -142.14
 Degrees of freedom: 50
 
 ==============================
 
 Flat alternative: w(z) = -1 + 2 * (1 + w0) / ((1 + z)**3 + 1)
-f_cc: 1.45 +0.18 -0.18
-ΔM: -0.181 +0.123 -0.124 mag
-H0: 66.3 +2.6 -2.6 km/s/Mpc
-Ωm: 0.322 +0.033 -0.034
+f_cc: 0.71 +0.10 -0.08
+ΔM: -0.180 +0.125 -0.124 mag
+H0: 66.3 +2.7 -2.7 km/s/Mpc
+Ωm: 0.321 +0.034 -0.034
 w0: -0.84 +0.12 -0.14
-Chi squared: 53.86
-Log likelihood: -141.87
+Chi squared: 51.97
+Log likelihood: -141.94
 Degrees of freedom: 50
 """
