@@ -26,11 +26,10 @@ one_plus_z_sn = 1 + z_sn_vals
 
 @njit
 def Ez(z, params):
-    O_m, w0, wa = params[4], params[5], params[6]
+    O_m, w0 = params[4], params[5]
     one_plus_z = 1 + z
     cubed = one_plus_z**3
-    # rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
-    rho_de = one_plus_z ** (3 * (1 + w0 + wa)) * np.exp(-3 * wa * z / one_plus_z)
+    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
     return np.sqrt(O_m * cubed + (1 - O_m) * rho_de)
 
 
@@ -99,7 +98,6 @@ bounds = np.array(
         (125, 170),  # r_d
         (0.2, 0.7),  # Ωm
         (-2.0, 1.0),  # w0
-        (-3.0, 2.0),
     ],
     dtype=np.float64,
 )
@@ -122,8 +120,6 @@ def chi_squared(params):
 
 @njit
 def log_prior(params):
-    if params[5] + params[6] > 0:
-        return -np.inf
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
         return 0.0
     return -np.inf
@@ -186,10 +182,11 @@ def main():
         [rd_16, rd_50, rd_84],
         [Om_16, Om_50, Om_84],
         [w0_16, w0_50, w0_84],
-        [wa_16, wa_50, wa_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = np.array([f_cc_50, dM_50, h0_50, rd_50, Om_50, w0_50, wa_50], dtype=np.float64)
+    best_fit = np.array(
+        [f_cc_50, dM_50, h0_50, rd_50, Om_50, w0_50], dtype=np.float64
+    )
 
     Omh2_samples = samples[:, 4] * samples[:, 2] ** 2 / 100**2
     Omh2_16, Omh2_50, Omh2_84 = np.percentile(Omh2_samples, [15.9, 50, 84.1])
@@ -205,7 +202,6 @@ def main():
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"ωm: {Omh2_50:.4f} +{(Omh2_84 - Omh2_50):.4f} -{(Omh2_50 - Omh2_16):.4f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
-    print(f"wa: {wa_50:.3f} +{(wa_84 - wa_50):.3f} -{(wa_50 - wa_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Degrees of freedom: {deg_of_freedom}")
 
@@ -232,7 +228,7 @@ def main():
         label=f"{cc_legend} $H_0$: {h0_50:.1f} km/s/Mpc",
     )
 
-    labels = ["$f_{CCH}$", "ΔM", "$H_0$", "$r_d$", "Ωm", "$w_0$", "$w_a$"]
+    labels = ["$f_{CCH}$", "ΔM", "$H_0$", "$r_d$", "Ωm", "$w_0$"]
     corner.corner(
         samples,
         labels=labels,

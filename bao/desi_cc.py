@@ -1,10 +1,6 @@
 from numba import njit
 import numpy as np
-import emcee
-import corner
 from scipy.linalg import cho_factor, cho_solve
-import matplotlib.pyplot as plt
-from multiprocessing import Pool
 from y2005cc.data import get_data as get_cc_data
 from y2025BAO.data import get_data as get_bao_data
 from .plot_predictions import plot_bao_predictions
@@ -80,11 +76,11 @@ def theory_bao(z, qty, params):
 
 bounds = np.array(
     [
-        (0.4, 2.5),  # f_cc
+        (0.1, 1.5),  # f_cc
         (45, 90),  # H0
         (120, 175),  # r_d
         (0.2, 0.7),  # Ωm
-        (-2.0, 0.0),  # w0
+        (-2.0, 1.0),  # w0
     ],
     dtype=np.float64,
 )
@@ -93,7 +89,9 @@ bounds = np.array(
 def chi_squared(params):
     f_cc = params[0]
     delta_cc = H_cc_vals - H_z(z_cc_vals, params)
-    chi_cc = f_cc**2 * np.dot(delta_cc, cho_solve(cho_cc, delta_cc, check_finite=False))
+    chi_cc = f_cc**-2 * np.dot(
+        delta_cc, cho_solve(cho_cc, delta_cc, check_finite=False)
+    )
 
     delta_bao = data["value"] - theory_bao(data["z"], quantities, params)
     chi_bao = np.dot(delta_bao, cho_solve(cho_bao, delta_bao, check_finite=False))
@@ -109,7 +107,7 @@ def log_prior(params):
 
 def log_likelihood(params):
     f_cc = params[0]
-    normalization_cc = N_cc * np.log(2 * np.pi) + logdet_cc - 2 * N_cc * np.log(f_cc)
+    normalization_cc = N_cc * np.log(2 * np.pi) + logdet_cc + 2 * N_cc * np.log(f_cc)
     return -0.5 * chi_squared(params) - 0.5 * normalization_cc
 
 
@@ -121,6 +119,10 @@ def log_probability(params):
 
 
 def main():
+    import emcee, corner
+    import matplotlib.pyplot as plt
+    from multiprocessing import Pool
+
     ndim = len(bounds)
     nwalkers = 150
     burn_in = 200
@@ -172,9 +174,7 @@ def main():
     print(f"H0: {h0_50:.1f} +{(h0_84 - h0_50):.1f} -{(h0_50 - h0_16):.1f}")
     print(f"r_d: {rd_50:.1f} +{(rd_84 - rd_50):.1f} -{(rd_50 - rd_16):.1f}")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
-    print(
-        f"Ωm h^2: {Omh2_50:.4f} +{(Omh2_84 - Omh2_50):.4f} -{(Omh2_50 - Omh2_16):.4f}"
-    )
+    print(f"ωm: {Omh2_50:.4f} +{(Omh2_84 - Omh2_50):.4f} -{(Omh2_50 - Omh2_16):.4f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"log likelihood: {log_likelihood(best_fit):.2f}")
@@ -190,7 +190,7 @@ def main():
         H_z=lambda z: H_z(z, best_fit),
         z=z_cc_vals,
         H=H_cc_vals,
-        H_err=np.sqrt(np.diag(cc_cov_matrix)) / f_cc_50,
+        H_err=np.sqrt(np.diag(cc_cov_matrix)) * f_cc_50,
         label=f"{cc_legend}: $H_0$={h0_50:.1f} km/s/Mpc",
     )
 
@@ -229,90 +229,53 @@ Dataset: DESI 2025
 *******************************
 
 Flat ΛCDM
-f_cc: 1.47 +0.19 -0.18
-H0: 69.1 +2.3 -2.3 km/s/Mpc
-r_d: 146.9 +4.9 -4.6 Mpc
+f_cc: 0.70 +0.10 -0.08
+H0: 69.1 +2.4 -2.4 km/s/Mpc
+r_d: 146.9 +5.1 -4.7 Mpc
 Ωm: 0.299 +0.009 -0.008
-Ωm h^2: 0.1425 +0.0094 -0.0092
+ωm: 0.1425 +0.0098 -0.0094
 w0: -1
-Chi squared: 42.59
-log likelihood: -135.81
+Chi squared: 40.55
+log likelihood: -135.86
 Degrees of freedom: 42
 
 ===============================
 
 Flat wCDM
-f_cc: 1.47 +0.18 -0.18
-H0: 67.9 +2.6 -2.5 km/s/Mpc
-r_d: 147.1 +5.0 -4.6 Mpc
+f_cc: 0.70 +0.10 -0.08
+H0: 67.9 +2.7 -2.6 km/s/Mpc
+r_d: 147.1 +5.2 -4.8 Mpc
 Ωm: 0.298 +0.009 -0.009
-Ωm h^2: 0.1375 +0.0106 -0.0104
-w0: -0.922 +0.075 -0.079
-Chi squared: 41.45
-log likelihood: -135.29
+ωm: 0.1375 +0.0109 -0.0106
+w0: -0.922 +0.074 -0.079
+Chi squared: 39.31
+log likelihood: -135.33
 Degrees of freedom: 41
 
 ===============================
 
 Flat -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-f_cc: 1.46 +0.19 -0.18
-H0: 67.3 +2.7 -2.7 km/s/Mpc
-r_d: 147.1 +5.0 -4.7 Mpc
+f_cc: 0.71 +0.10 -0.08
+H0: 67.2 +2.8 -2.8 km/s/Mpc
+r_d: 147.2 +5.1 -4.8 Mpc
 Ωm: 0.307 +0.011 -0.011
-Ωm h^2: 0.1390 +0.0099 -0.0097
-w0: -0.857 +0.118 -0.124
-Chi squared: 40.72
-log likelihood: -135.10
+ωm: 0.1389 +0.0102 -0.0098
+w0: -0.854 +0.117 -0.127
+Chi squared: 38.74
+log likelihood: -135.16
 Degrees of freedom: 41
 
 ===============================
 
 Flat w0waCDM
-f_cc: 1.43 +0.19 -0.18
-H0: 64.8 +3.8 -3.7
-r_d: 147.2 +5.1 -4.8
-Ωm: 0.348 +0.043 -0.049
-w0: -0.553 +0.394 -0.359
-wa: -1.458 +1.419 -1.405
-Chi squared: 38.55
-log likelihood: -134.57
+f_cc: 0.72 +0.10 -0.08
+H0: 65.2 +3.5 -3.3 km/s/Mpc
+r_d: 147.2 +5.3 -4.8 Mpc
+Ωm: 0.343 +0.033 -0.044
+ωm: 0.1439 +0.0118 -0.0127
+w0: -0.593 +0.294 -0.318
+wa: -1.309 +1.254 -1.055
+Chi squared: 37.03
+log likelihood: -134.79
 Degrees of freedom: 40
-
-*******************************
-Dataset: SDSS 2020 compilation
-*******************************
-
-Flat ΛCDM
-f_cc: 1.46 +0.19 -0.18
-H0: 69.1 +2.5 -2.5 km/s/Mpc
-r_d: 146.1 +5.1 -4.7 Mpc
-Ωm: 0.298 +0.015 -0.015
-w0: -1
-Chi squared: 43.04
-log likelihood: -132.16
-Degrees of freedom: 45
-
-===============================
-
-Flat wCDM
-f_cc: 1.45 +0.19 -0.18
-H0: 67.0 +3.0 -2.9 km/s/Mpc
-r_d: 146.7 +5.2 -4.8 Mpc
-Ωm: 0.289 +0.018 -0.019
-w0: -0.836 +0.122 -0.128
-Chi squared: 40.96
-log likelihood: -131.33
-Degrees of freedom: 44
-
-===============================
-
-Flat -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-f_cc: 1.44 +0.19 -0.18
-H0: 67.1 +3.2 -3.1 km/s/Mpc
-r_d: 146.3 +5.2 -4.8 Mpc
-Ωm: 0.305 +0.017 -0.016
-w0: -0.820 +0.165 -0.176
-Chi squared: 41.30
-log likelihood: -131.58
-Degrees of freedom: 44
 """
