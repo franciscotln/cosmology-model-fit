@@ -28,9 +28,7 @@ def DM(z, om, w0):
     return quad(integrand, 0, z)[0]
 
 
-def compute_q(z, om, om_fid, w0):
-    if om == om_fid:
-        return 1.0
+def compute_q(z, om, w0, om_fid):
     return (E(z, om, w0) * DM(z, om, w0)) / (E(z, om_fid, -1) * DM(z, om_fid, -1))
 
 
@@ -50,7 +48,7 @@ def growth_deriv(y, a, om, w0):
 a_vals = np.logspace(-3, 0, 1000)
 
 
-def compute_fs8(zs, om, sigma8, w0):
+def compute_fs8(zs, om, s8, w0):
     sol = solve_ivp(
         fun=lambda a, y: growth_deriv(y, a, om, w0),
         t_span=(a_vals[0], a_vals[-1]),
@@ -67,14 +65,14 @@ def compute_fs8(zs, om, sigma8, w0):
     fs8 = np.empty(zs.size, dtype=np.float64)
     for i, z in enumerate(zs):
         a_z = 1 / (1 + z)
-        fs8[i] = sigma8 * a_z * ddelta_func(a_z) / delta_func(1.0)
+        fs8[i] = s8 * a_z * ddelta_func(a_z) / delta_func(1.0)
     return fs8
 
 
 def chi_squared(theta):
-    Om, sigma8, w0, f_err = theta
-    fs8_th = compute_fs8(z_data, Om, sigma8, w0)
-    q = np.array([compute_q(zi, Om, Omfi, w0) for zi, Omfi in zip(z_data, Om_fid)])
+    Om, s8, w0, f_err = theta
+    fs8_th = compute_fs8(z_data, Om, s8, w0)
+    q = np.array([compute_q(zi, Om, w0, Omfi) for zi, Omfi in zip(z_data, Om_fid)])
     fs8_corr = fs8_data * q
     delta = fs8_corr - fs8_th
     return f_err**2 * delta.dot(cho_solve(cho_cov, delta))
@@ -158,10 +156,14 @@ def main():
     s8_16, s8_50, s8_84 = pct[1]
     w0_16, w0_50, w0_84 = pct[2]
     f_16, f_50, f_84 = pct[3]
+
+    S8_samples = samples[:, 1] * (samples[:, 0] / 0.3) ** 0.5
+    S8_16, S8_50, S8_84 = np.percentile(S8_samples, [15.9, 50, 84.1])
     best_fit = np.array([Om_50, s8_50, w0_50, f_50])
 
     print(f"Ωm = {Om_50:.3f} +{Om_84-Om_50:.3f} -{Om_50-Om_16:.3f}")
     print(f"σ8 = {s8_50:.3f} +{s8_84-s8_50:.3f} -{s8_50-s8_16:.3f}")
+    print(f"S8 = {S8_50:.3f} +{S8_84-S8_50:.3f} -{S8_50-S8_16:.3f}")
     print(f"w0 = {w0_50:.3f} +{w0_84-w0_50:.3f} -{w0_50-w0_16:.3f}")
     print(f"f = {f_50:.2f} +{f_84-f_50:.2f} -{f_50-f_16:.2f}")
     print(f"chi2 = {chi_squared(best_fit):.2f}")
@@ -195,7 +197,7 @@ def main():
     fs8_plot = compute_fs8(z_plot, *best_fit[0:-1])
 
     q_vals = np.array(
-        [compute_q(zi, Om_50, Omfi, w0_50) for zi, Omfi in zip(z_data, Om_fid)]
+        [compute_q(zi, Om_50, w0_50, Omfi) for zi, Omfi in zip(z_data, Om_fid)]
     )
     fs8_data_corrected = fs8_data * q_vals
     err_data_corrected = err_data * q_vals
@@ -220,30 +222,33 @@ if __name__ == "__main__":
 
 """
 flat ΛCDM
-Ωm = 0.287 +0.020 -0.020
-σ8 = 0.776 +0.014 -0.013
-w0 = -1
-f = 1.36 +0.12 -0.11
-chi2 = 63.50
-62 degs of freedom
+Ωm = 0.267 +0.020 -0.018
+σ8 = 0.789 +0.014 -0.014
+S8 = 0.745 +0.021 -0.019
+w0 = -1.252 +0.839 -0.835
+f = 1.30 +0.12 -0.11
+chi2 = 64.31
+63 degs of freedom
 
 ===============================
 
 flat wCDM
-Ωm = 0.287 +0.024 -0.024
-σ8 = 0.786 +0.059 -0.048
-w0 = -0.967 +0.166 -0.179
-f = 1.35 +0.12 -0.11
-chi2 = 62.62
-61 deg of freedom
+Ωm = 0.285 +0.021 -0.021
+σ8 = 0.861 +0.073 -0.056
+S8 = 0.843 +0.084 -0.072
+w0 = -0.793 +0.138 -0.143
+f = 1.31 +0.12 -0.11
+chi2 = 63.33
+62 deg of freedom
 
 ===============================
 
 flat wzCDM
-Ωm = 0.291 +0.033 -0.031
-σ8 = 0.781 +0.041 -0.037
-w0 = -0.956 +0.257 -0.276
-f = 1.34 +0.12 -0.12
-chi2 = 62.49
-61 deg of freedom
+Ωm = 0.300 +0.032 -0.032
+σ8 = 0.830 +0.037 -0.036
+S8 = 0.831 +0.070 -0.071
+w0 = -0.710 +0.212 -0.234
+f = 1.31 +0.11 -0.11
+chi2 = 63.68
+62 deg of freedom
 """
