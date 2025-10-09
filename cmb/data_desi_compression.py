@@ -25,7 +25,7 @@ covariance = 10**-9 * np.array(
 )
 inv_cov_mat = np.linalg.inv(covariance)
 
-N_EFF = 3.046
+N_EFF = 3.044
 TCMB = 2.7255  # K
 O_GAMMA_H2 = (0.75 / 31500) * (TCMB / 2.7) ** 4
 
