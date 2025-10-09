@@ -75,7 +75,7 @@ def chi_squared(theta):
     q = np.array([compute_q(zi, Om, w0, Omfi) for zi, Omfi in zip(z_data, Om_fid)])
     fs8_corr = fs8_data * q
     delta = fs8_corr - fs8_th
-    return f_err**2 * delta.dot(cho_solve(cho_cov, delta))
+    return f_err**-2 * delta.dot(cho_solve(cho_cov, delta))
 
 
 N = len(z_data)
@@ -83,7 +83,7 @@ N = len(z_data)
 
 def log_likelihood(theta):
     f_err = theta[-1]
-    return -0.5 * chi_squared(theta) + N * np.log(f_err)
+    return -0.5 * chi_squared(theta) - N * np.log(f_err)
 
 
 bounds = np.array(
@@ -91,7 +91,7 @@ bounds = np.array(
         [0.1, 0.6],  # Om
         [0.2, 1.2],  # sigma8
         [-2.5, 0.0],  # w0
-        [0.5, 2.0],  # f_err: overstimation factor of the errors
+        [0.1, 1.5],  # f_err: overstimation factor of the errors
     ],
     dtype=np.float64,
 )
@@ -205,7 +205,7 @@ def main():
     plt.errorbar(
         z_data,
         fs8_data_corrected,
-        yerr=err_data_corrected / f_50,
+        yerr=err_data_corrected * f_50,
         fmt=".",
         label="data",
     )
@@ -222,33 +222,33 @@ if __name__ == "__main__":
 
 """
 flat ΛCDM
-Ωm = 0.267 +0.020 -0.018
-σ8 = 0.789 +0.014 -0.014
-S8 = 0.745 +0.021 -0.019
+Ωm = 0.268 +0.020 -0.019
+σ8 = 0.789 +0.015 -0.014
+S8 = 0.746 +0.019 -0.021
 w0 = -1
-f = 1.30 +0.12 -0.11
-chi2 = 64.31
+f = 0.78 +0.07 -0.06
+chi2 = 62.21
 63 degs of freedom
 
 ===============================
 
 flat wCDM
-Ωm = 0.285 +0.021 -0.021
-σ8 = 0.861 +0.073 -0.056
-S8 = 0.843 +0.084 -0.072
-w0 = -0.793 +0.138 -0.143
-f = 1.31 +0.12 -0.11
-chi2 = 63.33
+Ωm = 0.284 +0.023 -0.022
+σ8 = 0.861 +0.071 -0.056
+S8 = 0.840 +0.084 -0.073
+w0 = -0.796 +0.136 -0.146
+f = 0.78 +0.07 -0.06
+chi2 = 61.53
 62 deg of freedom
 
 ===============================
 
 flat wzCDM
-Ωm = 0.300 +0.032 -0.032
-σ8 = 0.830 +0.037 -0.036
-S8 = 0.831 +0.070 -0.071
-w0 = -0.710 +0.212 -0.234
-f = 1.31 +0.11 -0.11
-chi2 = 63.68
+Ωm = 0.299 +0.033 -0.032
+σ8 = 0.830 +0.039 -0.037
+S8 = 0.830 +0.074 -0.072
+w0 = -0.713 +0.221 -0.232
+f = 0.78 +0.07 -0.06
+chi2 = 61.51
 62 deg of freedom
 """
