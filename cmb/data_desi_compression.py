@@ -59,7 +59,7 @@ def cmb_distances(Ez_func, params, H0, Om, Ob_h2):
 
 
 @njit
-def r_drag(wb, wm, n_eff=3.04):  # arXiv:2503.14738v2 (eq 2)
+def r_drag(wb, wm, n_eff=N_EFF):  # arXiv:2503.14738v2 (eq 2)
     return (
         147.05 * (0.02236 / wb) ** 0.13 * (0.1432 / wm) ** 0.23 * (3.04 / n_eff) ** 0.1
     )

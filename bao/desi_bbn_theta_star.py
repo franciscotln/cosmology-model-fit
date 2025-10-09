@@ -1,10 +1,6 @@
 from numba import njit
 import numpy as np
-import emcee
-import corner
 from scipy.linalg import cho_factor, cho_solve
-import matplotlib.pyplot as plt
-from multiprocessing import Pool
 from y2025BAO.data import get_data as get_bao_data
 import cmb.data_desi_compression as cmb
 import y2024BBN.prior_lcdm_shonberg as bbn
@@ -134,6 +130,11 @@ def log_probability(params):
 
 
 def main():
+    import emcee, corner
+    import matplotlib.pyplot as plt
+    from multiprocessing import Pool
+
+    np.random.seed(42)
     ndim = len(bounds)
     nwalkers = 150
     burn_in = 200
@@ -184,9 +185,7 @@ def main():
     print(f"rd: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
     print(f"Ωm: {Om_50:.4f} +{(Om_84 - Om_50):.4f} -{(Om_50 - Om_16):.4f}")
-    print(
-        f"Ωb h^2: {Obh2_50:.5f} +{(Obh2_84 - Obh2_50):.5f} -{(Obh2_50 - Obh2_16):.5f}"
-    )
+    print(f"ωb: {Obh2_50:.5f} +{(Obh2_84 - Obh2_50):.5f} -{(Obh2_50 - Obh2_16):.5f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"r*: {cmb.rs_z(Ez, z_star_50, best_fit, H0_50, Obh2_50):.2f} Mpc")
     print(
@@ -200,7 +199,7 @@ def main():
         errors=np.sqrt(np.diag(bao_cov_matrix)),
         title=bao_legend,
     )
-    labels = ["$r_d$", "$H_0$", "$Ω_m$", "$Ω_b h^2$", "$w_0$"]
+    labels = ["$r_d$", "$H_0$", "$Ω_m$", "$ω_b$", "$w_0$"]
     corner.corner(
         samples,
         labels=labels,
@@ -235,39 +234,39 @@ Dataset: DESI DR2 2024 + θ∗ + BBN
 *******************************
 
 Flat ΛCDM w(z) = -1
-H0: 68.72 +0.65 -0.64 km/s/Mpc
-Ωm: 0.297 +0.009 -0.008
-Ωb h^2: 0.02218 +0.00054 -0.00054
+rd: 148.33 +0.79 -0.79 Mpc
+H0: 68.45 +0.65 -0.64 km/s/Mpc
+Ωm: 0.2974 +0.0085 -0.0083
+ωb: 0.02219 +0.00054 -0.00054
 w0: -1
-rd: 147.72 +0.77 -0.76 Mpc
-r*: 144.86 Mpc
-z*: 1091.97 +0.73 -0.70
-Chi squared: 10.28
+r*: 145.43 Mpc
+z*: 1088.80 +0.55 -0.52
+Chi squared: 10.29
 Degs of freedom: 12
 
 ===============================
 
 Flat wCDM w(z) = w0
-H0: 67.57 +1.23 -1.20 km/s/Mpc
-Ωm: 0.297 +0.009 -0.009
-Ωb h^2: 0.02218 +0.00054 -0.00054
-w0: -0.915 +0.075 -0.078
-rd: 147.75 +0.75 -0.77 Mpc
-r*: 146.20 Mpc
-z*: 1091.54 +0.81 -0.82
-Chi squared: 9.72
+rd: 148.34 +0.80 -0.79 Mpc
+H0: 67.29 +1.25 -1.17 km/s/Mpc
+Ωm: 0.2968 +0.0088 -0.0087
+ωb: 0.02218 +0.00054 -0.00055
+w0: -0.916 +0.074 -0.078
+r*: 146.75 Mpc
+z*: 1088.49 +0.63 -0.62
+Chi squared: 10.03
 Degs of freedom: 11
 
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-H0: 66.79 +1.60 -1.50 km/s/Mpc
-Ωm: 0.308 +0.012 -0.011
-Ωb h^2: 0.02217 +0.00055 -0.00054
-w0: -0.832 +0.121 -0.127
-rd: 147.59 +0.77 -0.77 Mpc
-r*: 145.72 Mpc
-z*: 1091.69 +0.75 -0.73
+rd: 148.17 +0.82 -0.80 Mpc
+H0: 66.53 +1.61 -1.50 km/s/Mpc
+Ωm: 0.3076 +0.0117 -0.0117
+ωb: 0.02218 +0.00054 -0.00054
+w0: -0.832 +0.119 -0.129
+r*: 146.28 Mpc
+z*: 1088.59 +0.57 -0.55
 Chi squared: 8.44
 Degs of freedom: 11
 """
