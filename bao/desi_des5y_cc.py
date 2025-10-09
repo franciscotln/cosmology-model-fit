@@ -1,12 +1,8 @@
 from numba import njit
 import numpy as np
-import emcee
-import corner
 from scipy.constants import c as c0
 from scipy.integrate import cumulative_trapezoid
 from scipy.linalg import cho_factor, cho_solve
-import matplotlib.pyplot as plt
-from multiprocessing import Pool
 from y2024DES.data import effective_sample_size as sn_sample, get_data as get_sn_data
 from y2005cc.data import get_data as get_cc_data
 from y2025BAO.data import get_data as get_bao_data
@@ -102,7 +98,7 @@ def bao_theory(z, qty, params):
 
 bounds = np.array(
     [
-        (0.4, 2.5),  # f_cc
+        (0.1, 1.5),  # f_cc
         (-0.55, 0.55),  # ΔM
         (50, 80),  # H0
         (110, 175),  # r_d
@@ -120,10 +116,9 @@ def chi_squared(params):
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
     chi_bao = delta_bao.dot(cho_solve(cho_bao, delta_bao, check_finite=False))
 
+    f_cc = params[0]
     delta_cc = H_cc_vals - H_z(z_cc_vals, params)
-    chi_cc = params[0] ** 2 * delta_cc.dot(
-        cho_solve(cho_cc, delta_cc, check_finite=False)
-    )
+    chi_cc = f_cc**-2 * delta_cc.dot(cho_solve(cho_cc, delta_cc, check_finite=False))
     return chi_sn + chi_bao + chi_cc
 
 
@@ -136,7 +131,7 @@ def log_prior(params):
 
 def log_likelihood(params):
     f_cc = params[0]
-    normalization_cc = N_cc * np.log(2 * np.pi) + logdet_cc - 2 * N_cc * np.log(f_cc)
+    normalization_cc = N_cc * np.log(2 * np.pi) + logdet_cc + 2 * N_cc * np.log(f_cc)
     return -0.5 * chi_squared(params) - 0.5 * normalization_cc
 
 
@@ -148,6 +143,10 @@ def log_probability(params):
 
 
 def main():
+    import emcee, corner
+    import matplotlib.pyplot as plt
+    from multiprocessing import Pool
+
     ndim = len(bounds)
     nwalkers = 150
     burn_in = 200
@@ -215,7 +214,7 @@ def main():
         H_z=lambda z: H_z(z, best_fit),
         z=z_cc_vals,
         H=H_cc_vals,
-        H_err=np.sqrt(np.diag(cov_matrix_cc)) / f_cc_50,
+        H_err=np.sqrt(np.diag(cov_matrix_cc)) * f_cc_50,
         label=f"{cc_legend} $H_0$: {h0_50:.1f} km/s/Mpc",
     )
     plot_sn_predictions(
@@ -261,52 +260,52 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM: w(z) = -1
-f_cc: 1.48 +0.19 -0.18
-ΔM: -0.059 +0.069 -0.072 mag
-H0: 68.3 +2.2 -2.3 km/s/Mpc
-r_d: 147.3 +4.9 -4.6 Mpc
+f_cc: 0.70 +0.10 -0.08
+ΔM: -0.059 +0.073 -0.075 mag
+H0: 68.3 +2.4 -2.3 km/s/Mpc
+r_d: 147.2 +5.2 -4.8 Mpc
 Ωm: 0.311 +0.008 -0.008
 w0: -1
 wa: 0
-Chi squared: 1691.26
+Chi squared: 1689.22
 Degrees of freedom: 1776
 
 ===============================
 
 Flat wCDM: w(z) = w0
-f_cc: 1.46 +0.19 -0.18
-ΔM: -0.065 +0.070 -0.072 mag
-H0: 67.2 +2.2 -2.3 km/s/Mpc
-r_d: 147.2 +4.9 -4.6 Mpc
+f_cc: 0.71 +0.10 -0.08
+ΔM: -0.065 +0.072 -0.075 mag
+H0: 67.1 +2.3 -2.3 km/s/Mpc
+r_d: 147.2 +5.1 -4.7 Mpc
 Ωm: 0.299 +0.009 -0.009
-w0: -0.875 +0.038 -0.039
+w0: -0.874 +0.038 -0.039
 wa: 0
-Chi squared: 1680.36 (Δ chi2 10.90)
+Chi squared: 1678.37 (Δ chi2 10.85)
 Degrees of freedom: 1775
 
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-f_cc: 1.46 +0.19 -0.18
-ΔM: -0.063 +0.070 -0.072 mag
-H0: 67.0 +2.3 -2.2 km/s/Mpc
-r_d: 147.2 +4.9 -4.6 Mpc
-Ωm: 0.308 ± 0.008
-w0: -0.839 +0.044 -0.046
-wa: -(1 + w0) = -0.161 +0.046 -0.044
-Chi squared: 1678.82 (Δ chi2 12.44)
+f_cc: 0.71 +0.10 -0.08
+ΔM: -0.063 +0.073 -0.074 mag
+H0: 67.0 +2.4 -2.3 km/s/Mpc
+r_d: 147.1 +5.1 -4.8 Mpc
+Ωm: 0.308 +0.008 -0.008
+w0: -0.839 +0.045 -0.045
+wa: -(1 + w0) = -0.161 +0.045 -0.045
+Chi squared: 1676.78 (Δ chi2 12.44)
 Degrees of freedom: 1775
 
 ===============================
 
 Flat w0waCDM: w(z) = w0 + wa * z / (1 + z)
-f_cc: 1.458 +0.182 -0.176
-ΔM: -0.059 +0.071 -0.073 mag
-H0: 67.0 ± 2.3 km/s/Mpc
-r_d: 147.1 +5.0 -4.7 Mpc
-Ωm: 0.320 +0.013 -0.016
-w0: -0.796 +0.071 -0.067
-wa: -0.650 ± 0.459
-Chi squared: 1677.85 (Δ chi2 13.37)
+f_cc: 0.71 +0.10 -0.08
+ΔM: -0.058 +0.074 -0.075 mag
+H0: 67.0 +2.3 -2.3 km/s/Mpc
+r_d: 147.1 +5.1 -4.8 Mpc
+Ωm: 0.321 +0.013 -0.016
+w0: -0.79 +0.07 -0.07
+wa: -0.67 +0.46 -0.46
+Chi squared: 1675.81 (Δ chi2 13.41)
 Degrees of freedom: 1774
 """
