@@ -42,7 +42,7 @@ def growth_deriv(y, a, om, w0):
     Hprime = (1 / 2) * dHHda / H
     ddelta = y[1]
     ddeltada = -(3 / a + Hprime / H) * y[1] + (3 / 2) * (om / a**5) / HH * y[0]
-    return np.array([ddelta, ddeltada])
+    return [ddelta, ddeltada]
 
 
 a_vals = np.logspace(-3, 0, 1000)
@@ -82,8 +82,7 @@ N = len(z_data)
 
 
 def log_likelihood(theta):
-    f_err = theta[-1]
-    return -0.5 * chi_squared(theta) - N * np.log(f_err)
+    return -0.5 * chi_squared(theta) - N * np.log(theta[-1])
 
 
 bounds = np.array(
