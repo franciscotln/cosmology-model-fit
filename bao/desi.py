@@ -1,14 +1,11 @@
 from numba import njit
 import numpy as np
-import emcee
-import corner
 from scipy.constants import c as c0
-import matplotlib.pyplot as plt
 from y2025BAO.data import get_data
-from .plot_predictions import plot_bao_predictions, plot_bao_residuals
 
 c = c0 / 1000  # Speed of light in km/s
 rd = 147.09  # Mpc, fixed
+
 legend, data, cov_matrix = get_data()
 cho = np.linalg.cholesky(cov_matrix)
 cho_T = cho.T
@@ -34,7 +31,7 @@ def DM_z(z, params):
     result = np.empty(z.size, dtype=np.float64)
     for i in range(z.size):
         zp = z[i]
-        x = np.linspace(0, zp, num=max(250, int(250 * zp)))
+        x = np.linspace(0, zp, num=max(300, int(300 * zp)))
         y = DH_z(x, params)
         result[i] = np.trapz(y=y, x=x)
     return result
@@ -106,6 +103,10 @@ def log_probability(params):
 
 
 def main():
+    import emcee, corner
+    import matplotlib.pyplot as plt
+    from .plot_predictions import plot_bao_predictions, plot_bao_residuals
+
     n_dim = len(bounds)
     n_walkers = 150
     burn_in = 200
