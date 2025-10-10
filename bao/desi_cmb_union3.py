@@ -1,11 +1,8 @@
 from numba import njit
 import numpy as np
-import emcee
-import corner
 from scipy.integrate import cumulative_trapezoid
 from scipy.linalg import cho_factor, cho_solve
-import matplotlib.pyplot as plt
-from multiprocessing import Pool
+
 from y2023union3.data import get_data
 from y2025BAO.data import get_data as get_bao_data
 import cmb.data_desi_compression as cmb
@@ -32,7 +29,8 @@ def Ez(z, params):
     Or = Or_h2 / h**2
     Ode = 1 - Om - Or
     one_plus_z = 1 + z
-    rho_de = (2 * one_plus_z**3 / (1 + one_plus_z**3)) ** (2 * (1 + w0))
+    rho_de = one_plus_z**(3 * (1 + w0))
+    # rho_de = (2 * one_plus_z**3 / (1 + one_plus_z**3)) ** (2 * (1 + w0))
 
     return np.sqrt(Or * one_plus_z**4 + Om * one_plus_z**3 + Ode * rho_de)
 
@@ -114,7 +112,7 @@ bounds = np.array(
         (60, 75),  # H0
         (0.1, 0.6),  # Ωm
         (0.019, 0.025),  # Ωb * h^2
-        (-2, 0),  # w0
+        (-2, 0.5),  # w0
         (-0.7, 0.7),  # ΔM
     ],
     dtype=np.float64,
@@ -124,7 +122,7 @@ bounds = np.array(
 @njit
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
-        return 0
+        return 0.0
     return -np.inf
 
 
@@ -140,6 +138,11 @@ def log_probability(params):
 
 
 def main():
+    import emcee, corner
+    import matplotlib.pyplot as plt
+    from multiprocessing import Pool
+
+    np.random.seed(42)
     ndim = len(bounds)
     nwalkers = 150
     burn_in = 200
@@ -189,23 +192,17 @@ def main():
     Omh2_samples = samples[:, 2] * (samples[:, 1] / 100) ** 2
     z_star_samples = cmb.z_star(samples[:, 3], Omh2_samples)
     Omh2_16, Omh2_50, Omh2_84 = np.percentile(Omh2_samples, one_sigma_contours)
-    z_star_16, z_star_50, z_star_84 = np.percentile(z_star_samples, one_sigma_contours)
+    z_st_16, z_st_50, z_st_84 = np.percentile(z_star_samples, one_sigma_contours)
 
     print(f"rd: {rd_50:.1f} +{(rd_84 - rd_50):.1f} -{(rd_50 - rd_16):.1f} Mpc")
     print(f"H0: {H0_50:.1f} +{(H0_84 - H0_50):.1f} -{(H0_50 - H0_16):.1f} km/s/Mpc")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
-    print(
-        f"Ωb h^2: {Obh2_50:.5f} +{(Obh2_84 - Obh2_50):.5f} -{(Obh2_50 - Obh2_16):.5f}"
-    )
-    print(
-        f"Ωm h^2: {Omh2_50:.5f} +{(Omh2_84 - Omh2_50):.5f} -{(Omh2_50 - Omh2_16):.5f}"
-    )
+    print(f"ωb: {Obh2_50:.5f} +{(Obh2_84 - Obh2_50):.5f} -{(Obh2_50 - Obh2_16):.5f}")
+    print(f"ωm: {Omh2_50:.5f} +{(Omh2_84 - Omh2_50):.5f} -{(Omh2_50 - Omh2_16):.5f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
-    print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f}")
-    print(
-        f"z*: {z_star_50:.2f} +{(z_star_84 - z_star_50):.2f} -{(z_star_50 - z_star_16):.2f}"
-    )
-    print(f"r*: {cmb.rs_z(Ez, z_star_50, best_fit, H0_50, Obh2_50):.2f} Mpc")
+    print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
+    print(f"z*: {z_st_50:.2f} +{(z_st_84 - z_st_50):.2f} -{(z_st_50 - z_st_16):.2f}")
+    print(f"r*: {cmb.rs_z(Ez, z_st_50, best_fit, H0_50, Obh2_50):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
 
     plot_bao_predictions(
@@ -223,7 +220,7 @@ def main():
         label=f"Best fit: $Ω_m$={Om_50:.3f}",
         x_scale="log",
     )
-    labels = ["$r_d$", "$H_0$", "$Ω_m$", "$Ω_b h^2$", "$w_0$", "$Δ_M$"]
+    labels = ["$r_d$", "$H_0$", "$Ω_m$", "$ω_b$", "$w_0$", "$Δ_M$"]
     corner.corner(
         samples,
         labels=labels,
@@ -256,24 +253,24 @@ if __name__ == "__main__":
 Flat ΛCDM w(z) = -1
 
 (θ∗,ωb,ωbc)CMB
-rd: 147.9 +0.5 -0.5 Mpc
-H0: 68.3 +0.4 -0.4 km/s/Mpc
-Ωm: 0.305 +0.006 -0.005
-Ωb h^2: 0.02224 +0.00013 -0.00013
-Ωm h^2: 0.14194 +0.00088 -0.00088
-w0: -1
-ΔM: -0.132 +0.087 -0.088
-z*: 1092.00 +0.22 -0.22
-r*: 144.45 Mpc
-Chi squared: 38.89
+rd: 148.6 +0.5 -0.5 Mpc
+H0: 67.8 +0.4 -0.4 km/s/Mpc
+Ωm: 0.308 +0.006 -0.006
+ωb: 0.02228 +0.00013 -0.00012
+ωm: 0.14149 +0.00088 -0.00088
+w0: -1.001 +0.679 -0.672
+ΔM: -0.147 +0.087 -0.088 mag
+z*: 1088.84 +0.17 -0.17
+r*: 144.83 Mpc
+Chi squared: 39.40
 Degs of freedom: 34
 
 CHEN:
 rd: 148.1 +0.5 -0.5 Mpc
 H0: 67.9 +0.4 -0.4 km/s/Mpc
 Ωm: 0.310 +0.006 -0.006
-Ωb h^2: 0.02243 +0.00013 -0.00013
-Ωm h^2: 0.14290 +0.00091 -0.00090
+ωb: 0.02243 +0.00013 -0.00013
+ωm: 0.14290 +0.00091 -0.00090
 w0: -1.010 +0.678 -0.668
 ΔM: -0.144 +0.087 -0.086
 z*: 1088.77 +0.17 -0.17
@@ -285,24 +282,24 @@ Chi squared: 40.06
 Flat wCDM w(z) = w0
 
 (θ∗,ωb,ωbc)CMB
-rd: 148.0 +0.5 -0.5 Mpc
-H0: 67.5 +0.7 -0.7 km/s/Mpc
-Ωm: 0.310 +0.007 -0.007
-Ωb h^2: 0.02231 +0.00014 -0.00014
-Ωm h^2: 0.14113 +0.00108 -0.00110
-w0: -0.962 +0.028 -0.029
-ΔM: -0.152 +0.087 -0.089
-z*: 1091.83 +0.26 -0.25
-r*: 144.63 Mpc
-Chi squared: 37.16 (Δ chi2 1.73)
+rd: 148.6 +0.5 -0.5 Mpc
+H0: 67.3 +0.7 -0.7 km/s/Mpc
+Ωm: 0.312 +0.007 -0.007
+ωb: 0.02232 +0.00014 -0.00014
+ωm: 0.14094 +0.00109 -0.00110
+w0: -0.974 +0.029 -0.030
+ΔM: -0.160 +0.089 -0.089 mag
+z*: 1088.75 +0.20 -0.20
+r*: 144.94 Mpc
+Chi squared: 38.64 (Δ chi2 0.76)
 Degs of freedom: 33
 
 CHEN:
 rd: 148.1 +0.5 -0.5 Mpc
 H0: 67.5 +0.7 -0.7 km/s/Mpc
 Ωm: 0.313 +0.007 -0.007
-Ωb h^2: 0.02246 +0.00014 -0.00014
-Ωm h^2: 0.14253 +0.00111 -0.00113
+ωb: 0.02246 +0.00014 -0.00014
+ωm: 0.14253 +0.00111 -0.00113
 w0: -0.982 +0.029 -0.030
 ΔM: -0.153 +0.088 -0.089
 z*: 1088.71 +0.20 -0.20
@@ -314,24 +311,24 @@ Chi squared: 39.66
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
 
 (θ∗,ωb,ωbc)CMB
-rd: 147.9 +0.5 -0.5 Mpc
-H0: 66.7 +0.8 -0.8 km/s/Mpc
-Ωm: 0.317 +0.008 -0.008
-Ωb h^2: 0.02233 +0.00013 -0.00013
-Ωm h^2: 0.14084 +0.00103 -0.00102
-w0: -0.882 +0.053 -0.053
-ΔM: -0.169 +0.089 -0.089
-z*: 1091.78 +0.24 -0.24
-r*: 144.69 Mpc
-Chi squared: 34.27 (Δ chi2 4.62)
+rd: 148.5 +0.5 -0.5 Mpc
+H0: 66.5 +0.8 -0.8 km/s/Mpc
+Ωm: 0.318 +0.008 -0.008
+ωb: 0.02235 +0.00013 -0.00013
+ωm: 0.14060 +0.00100 -0.00103
+w0: -0.900 +0.053 -0.054
+ΔM: -0.178 +0.089 -0.088 mag
+z*: 1088.70 +0.19 -0.19
+r*: 145.02 Mpc
+Chi squared: 36.07 (Δ chi2 3.57)
 Degs of freedom: 33
 
 CHEN:
 rd: 148.1 +0.5 -0.5 Mpc
 H0: 66.7 +0.8 -0.8 km/s/Mpc
 Ωm: 0.319 +0.008 -0.008
-Ωb h^2: 0.02250 +0.00014 -0.00013
-Ωm h^2: 0.14208 +0.00105 -0.00105
+ωb: 0.02250 +0.00014 -0.00013
+ωm: 0.14208 +0.00105 -0.00105
 w0: -0.910 +0.054 -0.055
 ΔM: -0.170 +0.089 -0.089
 z*: 1088.64 +0.19 -0.19
@@ -343,25 +340,25 @@ Chi squared: 37.44
 Flat w(z) = w0 + wa * z / (1 + z)
 
 (θ∗,ωb,ωbc)CMB
-rd: 147.3 +0.5 -0.5 Mpc
-H0: 66.2 +0.8 -0.8 km/s/Mpc
-Ωm: 0.325 +0.009 -0.009
-Ωb h^2: 0.02221 +0.00014 -0.00014
-Ωm h^2: 0.14234 +0.00113 -0.00114
-w0: -0.718 +0.089 -0.087
-wa: -0.832 +0.289 -0.301
-ΔM: -0.170 +0.089 -0.088
-z*: 1092.08 +0.27 -0.26
-r*: 144.37 Mpc
-Chi squared: 29.20 (Δ chi2 9.96)
+rd: 147.9 +0.5 -0.5 Mpc
+H0: 65.9 +0.8 -0.8 km/s/Mpc
+Ωm: 0.328 +0.009 -0.009
+ωb: 0.02221 +0.00014 -0.00014
+ωm: 0.14227 +0.00112 -0.00114
+w0: -0.703 +0.091 -0.088
+wa: -0.933 +0.297 -0.317
+ΔM: -0.180 +0.089 -0.087 mag
+z*: 1088.97 +0.21 -0.21
+r*: 144.67 Mpc
+Chi squared: 28.85 (Δ chi2 10.55)
 Degs of freedom: 32
 
 CHEN:
 rd: 147.4 +0.5 -0.5 Mpc
 H0: 66.0 +0.8 -0.8 km/s/Mpc
 Ωm: 0.330 +0.009 -0.009
-Ωb h^2: 0.02235 +0.00014 -0.00014
-Ωm h^2: 0.14399 +0.00119 -0.00118
+ωb: 0.02235 +0.00014 -0.00014
+ωm: 0.14399 +0.00119 -0.00118
 w0: -0.692 +0.091 -0.091
 wa: -1.012 +0.310 -0.324
 ΔM: -0.173 +0.088 -0.088
