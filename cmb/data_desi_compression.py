@@ -84,7 +84,7 @@ def z_star_HU(wb, wm):
 
 
 @njit
-def z_drag(wb, wm):
+def z_drag_HU(wb, wm):
     # arXiv:astro-ph/9510117v2 (eq-2)
     b1 = 0.313 * (wm**-0.419) * (1 + 0.607 * (wm**0.674))
     b2 = 0.238 * (wm**0.223)
@@ -94,3 +94,11 @@ def z_drag(wb, wm):
     correction_factor = 1 + b1 * (wb**b2)
 
     return (numerator_factor / denominator) * correction_factor
+
+
+@njit
+def z_drag(wb, wm):
+    # arXiv:2106.00428v2 (eq A2)
+    return (
+        1 + 428.169 * wb**0.256459 * wm**0.616388 + 925.56 * wm**0.751615
+    ) * wm**-0.714129
