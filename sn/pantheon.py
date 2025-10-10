@@ -68,10 +68,10 @@ def log_probability(params):
 
 
 def main():
-    burn_in = 100
+    burn_in = 200
     n_dim = len(bounds)
-    n_walkers = 500
-    n_steps = burn_in + 1000
+    n_walkers = 150
+    n_steps = burn_in + 2000
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(n_walkers, n_dim))
 
     with Pool(5) as pool:
@@ -81,9 +81,9 @@ def main():
             log_probability,
             pool=pool,
             moves=[
-                (emcee.moves.KDEMove(), 0.5),
-                (emcee.moves.DEMove(), 0.4),
-                (emcee.moves.DESnookerMove(), 0.1),
+                (emcee.moves.KDEMove(), 0.30),
+                (emcee.moves.DEMove(), 0.56),
+                (emcee.moves.DESnookerMove(), 0.14),
             ],
         )
         sampler.run_mcmc(initial_pos, n_steps, progress=True)
@@ -95,6 +95,9 @@ def main():
         tau = sampler.get_autocorr_time()
         print_color("Autocorrelation time", tau)
         print_color("Acceptance fraction", np.mean(sampler.acceptance_fraction))
+        print_color(
+            "effective samples", n_walkers * (n_steps - burn_in) * n_dim / np.max(tau)
+        )
     except:
         print_color("Autocorrelation time", "Not available")
 
@@ -169,7 +172,7 @@ def main():
         y=apparent_mag_values - M0_50,
         y_err=np.sqrt(np.diag(cov_matrix)),
         y_model=predicted_apparent_mag - M0_50,
-        label=f"Best fit: $\Omega_m$={omega_50:.4f}, $M$={M0_50:.4f}",
+        label=f"Best fit: $Ω_m$={omega_50:.4f}, $M$={M0_50:.4f}",
         x_scale="log",
     )
 
