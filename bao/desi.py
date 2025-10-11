@@ -106,15 +106,15 @@ def main():
     import emcee, corner
     import matplotlib.pyplot as plt
     from .plot_predictions import plot_bao_predictions, plot_bao_residuals
+    from gelman_rubin import gelman_rubin
+    from log_evidence import log_evidence
 
+    np.random.seed(42)
     n_dim = len(bounds)
     n_walkers = 150
     burn_in = 200
     nsteps = 2000 + burn_in
-    initial_pos = np.zeros((n_walkers, n_dim))
-
-    for dim, (lower, upper) in enumerate(bounds):
-        initial_pos[:, dim] = np.random.uniform(lower, upper, n_walkers)
+    initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (n_walkers, n_dim))
 
     sampler = emcee.EnsembleSampler(
         n_walkers,
@@ -139,6 +139,9 @@ def main():
         print("Autocorrelation time could not be computed", e)
 
     samples = sampler.get_chain(discard=burn_in, flat=True)
+    chain_samples = sampler.get_chain(discard=burn_in, flat=False)
+    print("Gelman-Rubin:", gelman_rubin(chain_samples))
+    print(f"Log evidence: {log_evidence(samples, log_probability):.2f}")
 
     [
         [h_16, h_50, h_84],
@@ -188,7 +191,7 @@ def main():
     plt.figure(figsize=(16, 1.5 * n_dim))
     for n in range(n_dim):
         plt.subplot2grid((n_dim, 1), (n, 0))
-        plt.plot(sampler.get_chain(discard=burn_in)[:, :, n], alpha=0.3)
+        plt.plot(chain_samples[:, :, n], alpha=0.3)
         plt.ylabel(labels[n])
         plt.xlim(0, None)
     plt.tight_layout()
@@ -211,6 +214,7 @@ h: 0.690 +0.005 -0.005
 w0: -1
 Chi squared: 10.27
 Degs of freedom: 11
+Log evidence: -14.31
 R^2: 0.9987
 RMSD: 0.305
 
@@ -220,8 +224,9 @@ Flat wCDM:
 rd: 147.09 Mpc (fixed)
 h: 0.678 +0.012 -0.011
 Ωm: 0.297 +0.009 -0.009
-w0: -0.915 +0.075 -0.079
-Chi squared: 9.12
+w0: -0.915 +0.076 -0.078
+Chi squared: 9.13
+Log evidence: -15.28
 Degs of freedom: 10
 R^2: 0.9989
 RMSD: 0.279
@@ -232,8 +237,9 @@ Flat alternative: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
 rd: 147.09 Mpc (fixed)
 h: 0.670 +0.016 -0.015
 Ωm: 0.308 +0.012 -0.011
-w0: -0.832 +0.118 -0.125
+w0: -0.832 +0.119 -0.125
 Chi squared: 8.44
+Log evidence: -14.57
 Degs of freedom: 10
 R^2: 0.9990
 RMSD: 0.265
