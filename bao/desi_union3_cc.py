@@ -5,9 +5,6 @@ from scipy.linalg import cho_factor, cho_solve
 from y2023union3.data import get_data
 from y2005cc.data import get_data as get_cc_data
 from y2025BAO.data import get_data as get_bao_data
-from sn.plotting import plot_predictions as plot_sn_predictions
-from cosmic_chronometers.plot_predictions import plot_cc_predictions
-from .plot_predictions import plot_bao_predictions
 
 cc_legend, z_cc_vals, H_cc_vals, cov_matrix_cc = get_cc_data()
 sn_legend, z_sn_vals, sn_mu_vals, cov_matrix_sn = get_data()
@@ -142,6 +139,10 @@ def main():
     import emcee, corner
     import matplotlib.pyplot as plt
     from multiprocessing import Pool
+    from sn.plotting import plot_predictions as plot_sn_predictions
+    from cosmic_chronometers.plot_predictions import plot_cc_predictions
+    from .plot_predictions import plot_bao_predictions
+    from log_evidence import log_evidence
 
     ndim = len(bounds)
     nwalkers = 150
@@ -184,9 +185,7 @@ def main():
         [w0_16, w0_50, w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = np.array(
-        [f_cc_50, dM_50, h0_50, rd_50, Om_50, w0_50], dtype=np.float64
-    )
+    best_fit = np.array([f_cc_50, dM_50, h0_50, rd_50, Om_50, w0_50], dtype=np.float64)
 
     Omh2_samples = samples[:, 4] * samples[:, 2] ** 2 / 100**2
     Omh2_16, Omh2_50, Omh2_84 = np.percentile(Omh2_samples, [15.9, 50, 84.1])
@@ -203,6 +202,9 @@ def main():
     print(f"ωm: {Omh2_50:.4f} +{(Omh2_84 - Omh2_50):.4f} -{(Omh2_50 - Omh2_16):.4f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
+    print(
+        f"Laplace approx. log evidence (ln Z): {log_evidence(samples, log_probability):.2f}"
+    )
     print(f"Degrees of freedom: {deg_of_freedom}")
 
     plot_bao_predictions(
@@ -269,6 +271,7 @@ r_d: 147.0 +5.1 -4.7 Mpc
 ωm: 0.1436 +0.0097 -0.0096
 w0: -1
 Chi squared: 69.1
+Log evidence (ln Z): -154.92
 Degrees of freedom: 63
 
 ==============================
@@ -282,6 +285,7 @@ r_d: 147.3 +5.1 -4.9 Mpc
 ωm: 0.1342 +0.0103 -0.0097
 w0: -0.870 +0.051 -0.051
 Chi squared: 62.6 (Δ chi2 = 6.5 compared to ΛCDM)
+Log evidence (ln Z): -153.89
 Degrees of freedom: 62
 
 ==============================
@@ -295,6 +299,7 @@ r_d: 147.2 +5.2 -4.8 Mpc
 ωm: 0.1378 +0.0099 -0.0095
 w0: -0.811 +0.065 -0.066
 Chi squared: 60.7 (Δ chi2 = 8.4 compared to ΛCDM)
+Log evidence (ln Z): -152.79
 Degrees of freedom: 62
 
 ===============================
@@ -309,6 +314,7 @@ r_d: 147.1 +5.2 -4.8 Mpc
 w0: -0.722 +0.113 -0.106
 wa: -0.901 +0.554 -0.561
 Chi squared: 59.1 (Δ chi2 = 10.0 compared to ΛCDM)
+Log evidence (ln Z): -152.04
 Degrees of freedom: 61
 Correlation matrix:
 [[ 1.      -0.01544 -0.02956  0.03362  0.01976  0.04016 -0.03784]
