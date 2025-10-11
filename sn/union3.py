@@ -2,8 +2,6 @@ from numba import njit
 import numpy as np
 from scipy.linalg import cho_factor, cho_solve
 from scipy.integrate import cumulative_trapezoid
-from multiprocessing import Pool
-from .plotting import plot_predictions, print_color, plot_residuals, gelman_rubin
 from y2023union3.data import get_data
 
 legend, z_values, mu_vals, cov_matrix = get_data()
@@ -65,7 +63,10 @@ def log_probability(params):
 def main():
     import corner, emcee
     from scipy.stats import skew
+    from multiprocessing import Pool
     import matplotlib.pyplot as plt
+    from gelman_rubin import gelman_rubin
+    from .plotting import plot_predictions, print_color, plot_residuals
 
     n_dim = len(bounds)
     n_walkers = 150
@@ -99,7 +100,7 @@ def main():
 
     samples = sampler.get_chain(discard=burn_in, flat=True)
     chain_samples = sampler.get_chain(discard=burn_in, flat=False)
-    print("Gelman-Rubin R-hat:", gelman_rubin(np.transpose(chain_samples, (1, 0, 2))))
+    print_color("Gelman-Rubin R-hat:", gelman_rubin(chain_samples))
 
     [
         [dM_16, dM_50, dM_84],

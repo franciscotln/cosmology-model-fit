@@ -1,15 +1,9 @@
 from numba import njit
 import numpy as np
-import emcee
-import corner
 from scipy.integrate import cumulative_trapezoid
 from scipy.linalg import cho_factor, cho_solve
-import matplotlib.pyplot as plt
-from multiprocessing import Pool
 from y2023union3.data import get_data
 import cmb.data_union3_compression as cmb
-from .plotting import plot_predictions
-
 
 c = cmb.c  # km/s
 O_r_h2 = cmb.Omega_r_h2()
@@ -55,7 +49,7 @@ bounds = np.array(
     [
         (60, 75),  # H0
         (0.1, 0.45),  # Ωm
-        (0.019, 0.025),  # Ωb * h^2
+        (0.019, 0.025),  # ωb
         (-2.0, 0.0),  # w0
         (-0.7, 0.7),  # ΔM
     ],
@@ -82,6 +76,12 @@ def log_probability(params):
 
 
 def main():
+    import emcee, corner
+    import matplotlib.pyplot as plt
+    from multiprocessing import Pool
+    from .plotting import plot_predictions
+    from gelman_rubin import gelman_rubin
+
     ndim = len(bounds)
     nwalkers = 150
     burn_in = 200
@@ -115,6 +115,8 @@ def main():
 
     chains_samples = sampler.get_chain(discard=burn_in, flat=False)
     samples = sampler.get_chain(discard=burn_in, flat=True)
+
+    print("Gelman-Rubin:", gelman_rubin(chains_samples))
 
     one_sigma_percentiles = [15.9, 50, 84.1]
 

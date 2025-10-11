@@ -1,14 +1,9 @@
 from numba import njit
 import numpy as np
-import emcee
-import corner
 from scipy.integrate import cumulative_trapezoid
 from scipy.linalg import cho_factor, cho_solve
-import matplotlib.pyplot as plt
-from multiprocessing import Pool
 from y2022pantheonSHOES.data import get_data
 import cmb.data_chen_compression as cmb
-from .plotting import plot_predictions as plot_sn_predictions, gelman_rubin
 
 c = cmb.c  # Speed of light in km/s
 O_r_h2 = cmb.Omega_r_h2()
@@ -84,6 +79,12 @@ def log_probability(params):
 
 
 def main():
+    import emcee, corner
+    import matplotlib.pyplot as plt
+    from multiprocessing import Pool
+    from .plotting import plot_predictions as plot_sn_predictions
+    from gelman_rubin import gelman_rubin
+
     ndim = len(bounds)
     nwalkers = 150
     burn_in = 200
@@ -118,7 +119,7 @@ def main():
     samples = sampler.get_chain(discard=burn_in, flat=True)
     chains = sampler.get_chain(discard=burn_in, flat=False)
 
-    print("Gelman-Rubin statistic:", gelman_rubin(np.transpose(chains, (1, 0, 2))))
+    print("Gelman-Rubin statistic:", gelman_rubin(chains))
 
     one_sigma_conf_int = [15.9, 50, 84.1]
     pct = np.percentile(samples, one_sigma_conf_int, axis=0).T
