@@ -1,13 +1,8 @@
 from numba import njit
-import emcee
-import corner
-import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats as stats
 from scipy.linalg import cho_factor, cho_solve
 from scipy.integrate import cumulative_trapezoid
-from multiprocessing import Pool
-from .plotting import plot_predictions, print_color, plot_residuals
 from y2024DES.data import get_data, effective_sample_size
 
 legend, z_cmb_vals, z_hel_vals, observed_mu_vals, covmat = get_data()
@@ -50,9 +45,9 @@ bounds = np.array([(-0.2, 0.2), (0, 0.8), (-2.0, 0.0)], dtype=np.float64)  # ΔM
 
 @njit
 def log_prior(params):
-    if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
-        return 0.0
-    return -np.inf
+    if not np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
+        return -np.inf
+    return 0.0
 
 
 def log_probability(params):
@@ -63,6 +58,11 @@ def log_probability(params):
 
 
 def main():
+    import emcee, corner
+    import matplotlib.pyplot as plt
+    from multiprocessing import Pool
+    from .plotting import plot_predictions, print_color, plot_residuals
+
     burn_in = 200
     ndim = len(bounds)
     nwalkers = 150
@@ -130,7 +130,7 @@ def main():
     print_color("Chi squared", f"{chi_squared(best_fit):.2f}")
     print_color("Effective deg of freedom", effective_sample_size - ndim)
 
-    labels = ["ΔM", "$Ω_m$", "$w_0$"]
+    labels = ["$ΔM$", "$Ω_m$", "$w_0$"]
     corner.corner(
         samples,
         labels=labels,
