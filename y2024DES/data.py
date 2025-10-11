@@ -5,7 +5,7 @@ import pandas as pd
 import numpy as np
 
 path_to_data = os.path.dirname(os.path.abspath(__file__)) + "/raw-data/"
-data_frame = pd.read_csv(path_to_data + "distances.txt")
+data_frame = pd.read_csv(path_to_data + "distances.csv")
 covariance_file = pd.read_csv(path_to_data + "covariance_stat_sys.txt.zip")
 selected_columns = data_frame[
     ["zHD", "zHEL", "MU", "MUERR_FINAL", "PROB_SNNV19", "PROBCC_BEAMS", "IDSURVEY"]
