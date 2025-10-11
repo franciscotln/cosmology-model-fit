@@ -6,9 +6,6 @@ from scipy.linalg import cho_factor, cho_solve
 from y2024DES.data import effective_sample_size as sn_sample, get_data as get_sn_data
 from y2005cc.data import get_data as get_cc_data
 from y2025BAO.data import get_data as get_bao_data
-from sn.plotting import plot_predictions as plot_sn_predictions
-from cosmic_chronometers.plot_predictions import plot_cc_predictions
-from .plot_predictions import plot_bao_predictions
 
 cc_legend, z_cc_vals, H_cc_vals, cov_matrix_cc = get_cc_data()
 sn_legend, z_sn_vals, z_sn_hel_vals, mu_values, cov_matrix_sn = get_sn_data()
@@ -124,9 +121,9 @@ def chi_squared(params):
 
 @njit
 def log_prior(params):
-    if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
-        return 0.0
-    return -np.inf
+    if not np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
+        return -np.inf
+    return 0.0
 
 
 def log_likelihood(params):
@@ -146,6 +143,10 @@ def main():
     import emcee, corner
     import matplotlib.pyplot as plt
     from multiprocessing import Pool
+    from sn.plotting import plot_predictions as plot_sn_predictions
+    from cosmic_chronometers.plot_predictions import plot_cc_predictions
+    from .plot_predictions import plot_bao_predictions
+    from log_evidence import log_evidence
 
     ndim = len(bounds)
     nwalkers = 150
@@ -202,6 +203,9 @@ def main():
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
+    print(
+        f"Laplace approx. log evidence (ln Z): {log_evidence(samples, log_probability):.2f}"
+    )
     print(f"Degrees of freedom: {deg_of_freedom}")
 
     plot_bao_predictions(
@@ -268,6 +272,7 @@ r_d: 147.2 +5.2 -4.8 Mpc
 w0: -1
 wa: 0
 Chi squared: 1689.22
+Laplace approx. log evidence (ln Z): -967.98
 Degrees of freedom: 1776
 
 ===============================
@@ -281,6 +286,7 @@ r_d: 147.2 +5.1 -4.7 Mpc
 w0: -0.874 +0.038 -0.039
 wa: 0
 Chi squared: 1678.37 (Δ chi2 10.85)
+Laplace approx. log evidence (ln Z): -965.13
 Degrees of freedom: 1775
 
 ===============================
@@ -294,6 +300,7 @@ r_d: 147.1 +5.1 -4.8 Mpc
 w0: -0.839 +0.045 -0.045
 wa: -(1 + w0) = -0.161 +0.045 -0.045
 Chi squared: 1676.78 (Δ chi2 12.44)
+Laplace approx. log evidence (ln Z): -964.29
 Degrees of freedom: 1775
 
 ===============================
@@ -307,5 +314,6 @@ r_d: 147.1 +5.1 -4.8 Mpc
 w0: -0.79 +0.07 -0.07
 wa: -0.67 +0.46 -0.46
 Chi squared: 1675.81 (Δ chi2 13.41)
+Laplace approx. log evidence (ln Z): -963.79
 Degrees of freedom: 1774
 """
