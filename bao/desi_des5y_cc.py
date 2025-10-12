@@ -152,10 +152,8 @@ def main():
     nwalkers = 150
     burn_in = 200
     nsteps = 2000 + burn_in
-    initial_pos = np.zeros((nwalkers, ndim))
-
-    for dim, (lower, upper) in enumerate(bounds):
-        initial_pos[:, dim] = np.random.uniform(lower, upper, nwalkers)
+    np.random.seed(42)
+    initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
 
     with Pool(6) as pool:
         sampler = emcee.EnsembleSampler(
@@ -181,8 +179,6 @@ def main():
 
     samples = sampler.get_chain(discard=burn_in, flat=True)
     log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
-    print("correlation matrix:")
-    print(np.array2string(np.corrcoef(samples, rowvar=False), precision=5))
 
     [
         [f_cc_16, f_cc_50, f_cc_84],
@@ -198,9 +194,9 @@ def main():
     deg_of_freedom = sn_sample + bao_data["value"].size + z_cc_vals.size - ndim
 
     print(f"f_cc: {f_cc_50:.2f} +{(f_cc_84 - f_cc_50):.2f} -{(f_cc_50 - f_cc_16):.2f}")
-    print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f}")
-    print(f"H0: {h0_50:.1f} +{(h0_84 - h0_50):.1f} -{(h0_50 - h0_16):.1f}")
-    print(f"r_d: {rd_50:.1f} +{(rd_84 - rd_50):.1f} -{(rd_50 - rd_16):.1f}")
+    print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
+    print(f"H0: {h0_50:.1f} +{(h0_84 - h0_50):.1f} -{(h0_50 - h0_16):.1f} km/s/Mpc")
+    print(f"r_d: {rd_50:.1f} +{(rd_84 - rd_50):.1f} -{(rd_50 - rd_16):.1f} Mpc")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
@@ -232,7 +228,7 @@ def main():
         x_scale="log",
     )
 
-    labels = ["$f_{CCH}$", "ΔM", "$H_0$", "$r_d$", "Ωm", "$w_0$"]
+    labels = ["$f_{CCH}$", "ΔM", "$H_0$", "$r_d$", "$Ω_m$", "$w_0$"]
     corner.corner(
         samples,
         labels=labels,
@@ -266,55 +262,55 @@ if __name__ == "__main__":
 """
 Flat ΛCDM: w(z) = -1
 f_cc: 0.70 +0.10 -0.08
-ΔM: -0.059 +0.073 -0.075 mag
-H0: 68.3 +2.4 -2.3 km/s/Mpc
-r_d: 147.2 +5.2 -4.8 Mpc
+ΔM: -0.059 +0.071 -0.074 mag
+H0: 68.2 +2.3 -2.3 km/s/Mpc
+r_d: 147.3 +5.1 -4.7 Mpc
 Ωm: 0.311 +0.008 -0.008
 w0: -1
 wa: 0
-Chi squared: 1689.22
-Laplace approx. log evidence (ln Z): -967.98
+Chi squared: 1689.28
+Laplace log evidence (ln Z): -968.47
 Degrees of freedom: 1776
 
 ===============================
 
 Flat wCDM: w(z) = w0
-f_cc: 0.71 +0.10 -0.08
-ΔM: -0.065 +0.072 -0.075 mag
-H0: 67.1 +2.3 -2.3 km/s/Mpc
-r_d: 147.2 +5.1 -4.7 Mpc
+f_cc: 0.70 +0.10 -0.08
+ΔM: -0.065 +0.073 -0.075
+H0: 67.2 +2.3 -2.3
+r_d: 147.2 +5.1 -4.8
 Ωm: 0.299 +0.009 -0.009
-w0: -0.874 +0.038 -0.039
+w0: -0.875 +0.038 -0.038
 wa: 0
-Chi squared: 1678.37 (Δ chi2 10.85)
-Laplace approx. log evidence (ln Z): -965.13
+Chi squared: 1678.48 (Δ to ΛCDM: 10.80)
+Laplace log evidence (ln Z): -965.34 (Δ to ΛCDM: 3.13)
 Degrees of freedom: 1775
 
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
 f_cc: 0.71 +0.10 -0.08
-ΔM: -0.063 +0.073 -0.074 mag
+ΔM: -0.062 +0.073 -0.075 mag
 H0: 67.0 +2.4 -2.3 km/s/Mpc
 r_d: 147.1 +5.1 -4.8 Mpc
 Ωm: 0.308 +0.008 -0.008
 w0: -0.839 +0.045 -0.045
-wa: -(1 + w0) = -0.161 +0.045 -0.045
-Chi squared: 1676.78 (Δ chi2 12.44)
-Laplace approx. log evidence (ln Z): -964.29
+wa: -(1 + w0)
+Chi squared: 1676.83 (Δ to ΛCDM: 12.45)
+Laplace log evidence (ln Z): -964.78 (Δ to ΛCDM: 3.69)
 Degrees of freedom: 1775
 
 ===============================
 
 Flat w0waCDM: w(z) = w0 + wa * z / (1 + z)
 f_cc: 0.71 +0.10 -0.08
-ΔM: -0.058 +0.074 -0.075 mag
-H0: 67.0 +2.3 -2.3 km/s/Mpc
-r_d: 147.1 +5.1 -4.8 Mpc
+ΔM: -0.055 +0.071 -0.074 mag
+H0: 67.1 +2.3 -2.3 km/s/Mpc
+r_d: 146.9 +5.1 -4.7 Mpc
 Ωm: 0.321 +0.013 -0.016
-w0: -0.79 +0.07 -0.07
-wa: -0.67 +0.46 -0.46
-Chi squared: 1675.81 (Δ chi2 13.41)
-Laplace approx. log evidence (ln Z): -963.79
+w0: -0.795 +0.073 -0.067
+wa: -0.664 +0.458 -0.456
+Chi squared: 1675.94 (Δ to ΛCDM: 13.34)
+Laplace log evidence (ln Z): -964.38 (Δ to ΛCDM: 4.09)
 Degrees of freedom: 1774
 """
