@@ -1,15 +1,9 @@
 from numba import njit
 import numpy as np
-import emcee
-import corner
 from scipy.integrate import cumulative_trapezoid
 from scipy.linalg import cho_factor, cho_solve
-import matplotlib.pyplot as plt
-from multiprocessing import Pool
 from y2024DES.data import get_data, effective_sample_size as sn_size
 from y2025BAO.data import get_data as get_bao_data
-from sn.plotting import plot_predictions as plot_sn_predictions
-from .plot_predictions import plot_bao_predictions
 
 sn_legend, z_cmb, z_hel, mu_values, cov_matrix_sn = get_data()
 cho_sn = cho_factor(cov_matrix_sn)
@@ -98,10 +92,10 @@ def chi_squared(params):
 
 bounds = np.array(
     [
-        (-10, -8.5),  # ΔM
-        (90, 110),  # r_d * h
+        (-10.0, -8.5),  # ΔM
+        (90.0, 110.0),  # r_d * h
         (0.1, 0.7),  # Ωm
-        (-2, 0),  # w0
+        (-2.0, 0.0),  # w0
     ],
     dtype=np.float64,
 )
@@ -126,14 +120,19 @@ def log_probability(params):
 
 
 def main():
+    import emcee, corner
+    import matplotlib.pyplot as plt
+    from multiprocessing import Pool
+    from sn.plotting import plot_predictions as plot_sn_predictions
+    from .plot_predictions import plot_bao_predictions
+    from log_evidence import log_evidence
+
     ndim = len(bounds)
     nwalkers = 150
     burn_in = 200
     nsteps = 2000 + burn_in
-    initial_pos = np.zeros((nwalkers, ndim))
-
-    for dim, (lower, upper) in enumerate(bounds):
-        initial_pos[:, dim] = np.random.uniform(lower, upper, nwalkers)
+    np.random.seed(42)
+    initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
 
     with Pool(6) as pool:
         sampler = emcee.EnsembleSampler(
@@ -159,6 +158,7 @@ def main():
 
     chains_samples = sampler.get_chain(discard=burn_in, flat=False)
     samples = sampler.get_chain(discard=burn_in, flat=True)
+    log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
 
     [
         [dM_16, dM_50, dM_84],
@@ -174,6 +174,7 @@ def main():
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
+    print(f"Log Evidence: {log_evidence(samples, log_probs, log_probability):.2f}")
     print(f"Degrees of freedom: {bao_data['value'].size + sn_size - len(best_fit)}")
 
     plot_bao_predictions(
@@ -225,43 +226,47 @@ if __name__ == "__main__":
 """
 Flat ΛCDM
 ΔM: -9.230 +0.006 -0.006 mag
-r_d * h: 100.54 +0.66 -0.65 Mpc
+r_d * h: 100.54 +0.65 -0.65 Mpc
 Ωm: 0.310 +0.008 -0.008
 w0: -1
 wa: 0
 Chi squared: 1658.97
+Log Evidence: -838.34
 Degrees of freedom: 1755
 
 ===============================
 
 Flat wCDM
 ΔM: -9.200 +0.011 -0.011 mag
-r_d * h: 98.85 +0.82 -0.81 Mpc
+r_d * h: 98.85 +0.80 -0.80 Mpc
 Ωm: 0.298 +0.009 -0.009
-w0: -0.871 +0.038 -0.038
+w0: -0.871 +0.038 -0.037
 wa: 0
 Chi squared: 1648.10 (Δ chi2 10.87)
+Log Evidence: -835.26 (Δ logZ 3.08)
 Degrees of freedom: 1754
 
 ===============================
 
 Flat w0 - (1 + w0) * (((1 + z)**3 - 1) / ((1 + z)**3 + 1))
 ΔM: -9.193 +0.012 -0.012 mag
-r_d * h: 98.63 +0.83 -0.82 Mpc
-Ωm: 0.307 +0.008 -0.008
-w0: -0.834 +0.045 -0.046
+r_d * h: 98.63 +0.82 -0.82 Mpc
+Ωm: 0.308 +0.008 -0.008
+w0: -0.834 +0.045 -0.045
 wa: -(1 + w0)
 Chi squared: 1646.49 (Δ chi2 12.48)
+Log Evidence: -834.29 (Δ logZ 4.05)
 Degrees of freedom: 1754
 
 ===============================
 
 Flat w(z) = w0 + wa * z / (1 + z)
-ΔM: -9.187 +0.014 -0.014 mag
-r_d * h: 98.52 +0.85 -0.83 Mpc
-Ωm: 0.321 +0.013 -0.016
-w0: -0.784 +0.074 -0.069
-wa: -0.719 +0.467 -0.463
+ΔM: -9.187 +0.014 -0.013 mag
+r_d * h: 98.52 +0.83 -0.83 Mpc
+Ωm: 0.321 +0.013 -0.015
+w0: -0.783 +0.071 -0.068
+wa: -0.729 +0.448 -0.444
 Chi squared: 1645.46 (Δ chi2 13.51)
+Log Evidence: -833.91 (Δ logZ 4.43)
 Degrees of freedom: 1753
 """
