@@ -59,7 +59,7 @@ def bao_theory(z, qty, params):
 bounds = np.array(
     [
         (0.500, 0.800),  # h
-        (0.1, 0.7),  # Ωm
+        (0.0, 1.0),  # Ωm
         (-2.0, 0.0),  # w0
     ],
     dtype=np.float64,
@@ -114,6 +114,7 @@ def main():
     n_walkers = 150
     burn_in = 200
     nsteps = 2000 + burn_in
+    np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (n_walkers, n_dim))
 
     sampler = emcee.EnsembleSampler(
@@ -138,10 +139,11 @@ def main():
     except emcee.autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
 
+    log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
     samples = sampler.get_chain(discard=burn_in, flat=True)
     chain_samples = sampler.get_chain(discard=burn_in, flat=False)
     print("Gelman-Rubin:", gelman_rubin(chain_samples))
-    print(f"Log evidence: {log_evidence(samples, log_probability):.2f}")
+    print(f"Log evidence: {log_evidence(samples, log_probs, log_probability):.2f}")
 
     [
         [h_16, h_50, h_84],
@@ -214,7 +216,7 @@ h: 0.690 +0.005 -0.005
 w0: -1
 Chi squared: 10.27
 Degs of freedom: 11
-Log evidence: -14.31
+Log evidence: -14.16
 R^2: 0.9987
 RMSD: 0.305
 
@@ -225,8 +227,8 @@ rd: 147.09 Mpc (fixed)
 h: 0.678 +0.012 -0.011
 Ωm: 0.297 +0.009 -0.009
 w0: -0.915 +0.076 -0.078
-Chi squared: 9.13
-Log evidence: -15.28
+Chi squared: 9.12
+Log evidence: -14.52
 Degs of freedom: 10
 R^2: 0.9989
 RMSD: 0.279
@@ -236,46 +238,25 @@ RMSD: 0.279
 Flat alternative: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
 rd: 147.09 Mpc (fixed)
 h: 0.670 +0.016 -0.015
-Ωm: 0.308 +0.012 -0.011
-w0: -0.832 +0.119 -0.125
-Chi squared: 8.44
-Log evidence: -14.57
+Ωm: 0.308 +0.012 -0.012
+w0: -0.832 +0.120 -0.126
+Chi squared: 8.43
+Log evidence: -14.41
 Degs of freedom: 10
 R^2: 0.9990
 RMSD: 0.265
 
-*******************************
-Dataset: SDSS 2020 compilation
-*******************************
-
-Flat ΛCDM:
-h: 0.688 +0.007 -0.007
-Ωm: 0.294 +0.016 -0.015
-w0: -1
-Chi squared: 11.81
-Degs of freedom: 15
-R^2: 0.9955
-RMSD: 0.684
-
 ===============================
 
-Flat wCDM:
-h: 0.663 +0.017 -0.016
-Ωm: 0.283 +0.019 -0.022
-w0: -0.793 +0.128 -0.132
-Chi squared: 9.81
-Degs of freedom: 14
-R^2: 0.9956
-RMSD: 0.673
-
-===============================
-
-Flat alternative: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-h: 0.659 +0.021 -0.019
-Ωm: 0.305 +0.018 -0.017
-w0: -0.737 +0.166 -0.178
-Chi squared: 10.04
-Degs of freedom: 14
-R^2: 0.9956
-RMSD: 0.678
+Flat w0waCDM:
+rd: 147.09 Mpc (fixed)
+h: 0.621 +0.033 -0.030
+Ωm: 0.386 +0.047 -0.047
+w0: -0.184 +0.446 -0.427
+wa: -2.723 +1.503 -1.546
+Chi squared: 5.63
+Log evidence: -11.59
+Degs of freedom: 9
+R^2: 0.9994
+RMSD: 0.202
 """

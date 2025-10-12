@@ -173,6 +173,7 @@ def main():
         print("Autocorrelation time could not be computed", e)
 
     samples = sampler.get_chain(discard=burn_in, flat=True)
+    log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
     print("Correlation matrix:")
     print(np.array2string(np.corrcoef(samples, rowvar=False), precision=5))
 
@@ -203,7 +204,7 @@ def main():
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(
-        f"Laplace approx. log evidence (ln Z): {log_evidence(samples, log_probability):.2f}"
+        f"Laplace approx. log evidence (ln Z): {log_evidence(samples, log_probs, log_probability):.2f}"
     )
     print(f"Degrees of freedom: {deg_of_freedom}")
 

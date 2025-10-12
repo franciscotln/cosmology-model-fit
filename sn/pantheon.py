@@ -65,8 +65,7 @@ def log_probability(params):
 
 
 def main():
-    import emcee
-    from getdist import plots, MCSamples
+    import emcee, corner
     import matplotlib.pyplot as plt
     from multiprocessing import Pool
     from gelman_rubin import gelman_rubin
@@ -96,7 +95,7 @@ def main():
 
     chains_samples = sampler.get_chain(discard=burn_in, flat=False)
     samples = sampler.get_chain(discard=burn_in, flat=True)
-    np.savetxt("flat_chain.txt", samples)
+    log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
 
     print_color("Gelman-Rubin", gelman_rubin(chains_samples))
 
@@ -144,17 +143,29 @@ def main():
     print_color("Ωm", omega_label)
     print_color("w0", w0_label)
     print_color("R-squared (%)", f"{100 * r_squared:.2f}")
-    print_color("Log Evidence", f"{log_evidence(samples, log_probability):.1f}")
+    print_color(
+        "Log Evidence", f"{log_evidence(samples, log_probs, log_probability):.1f}"
+    )
     print_color("RMSD (mag)", f"{rmsd:.3f}")
     print_color("Skewness of residuals", f"{skewness:.3f}")
     print_color("kurtosis of residuals", f"{kurtosis:.3f}")
     print_color("Degs of freedom", len(z_values) - len(best_fit))
     print_color("Chi squared", f"{chi_squared(best_fit):.2f}")
 
-    labels = ["M_0", "Ω_m", "w_0"]
-    gdsamples = MCSamples(samples=samples, names=["M0", "Ωm", "w0"], labels=labels)
-    g = plots.get_subplot_plotter()
-    g.triangle_plot(gdsamples, filled_compare=False)
+    labels = ["$M_0$", "$Ω_m$", "$w_0$"]
+    corner.corner(
+        samples,
+        labels=labels,
+        quantiles=[0.159, 0.5, 0.841],
+        show_titles=True,
+        title_fmt=".3f",
+        smooth=2.0,
+        smooth1d=2.0,
+        bins=100,
+        levels=(0.393, 0.864),  # 1 and 2 sigmas in 2D
+        fill_contours=False,
+        plot_datapoints=False,
+    )
     plt.show()
 
     plt.figure(figsize=(16, 1.5 * n_dim))

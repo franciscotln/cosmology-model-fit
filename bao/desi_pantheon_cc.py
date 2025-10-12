@@ -1,16 +1,10 @@
 from numba import njit
 import numpy as np
-import emcee
-import corner
 from scipy.integrate import cumulative_trapezoid
 from scipy.linalg import cho_factor, cho_solve
-import matplotlib.pyplot as plt
-from multiprocessing import Pool
 from y2022pantheonSHOES.data import get_data
 from y2005cc.data import get_data as get_cc_data
 from y2025BAO.data import get_data as get_bao_data
-from sn.plotting import plot_predictions as plot_sn_predictions
-from .plot_predictions import plot_bao_predictions
 
 cc_legend, z_cc_vals, H_cc_vals, cov_matrix_cc = get_cc_data()
 legend, z_sn_vals, z_sn_hel_vals, apparent_mag_values, cov_matrix_sn = get_data()
@@ -96,11 +90,11 @@ def bao_theory(z, qty, params):
 
 bounds = np.array(
     [
-        (45, 85),  # H0
-        (-20, -19),  # M
-        (115, 170),  # r_d
-        (0.15, 0.7),  # Ωm
-        (-3, 0),  # w0
+        (40.0, 90.0),  # H0
+        (-20.0, -19.0),  # M
+        (115.0, 170.0),  # r_d
+        (0.0, 1.0),  # Ωm
+        (-2.0, 0.0),  # w0
         (0.4, 2.5),  # f_cc
     ],
     dtype=np.float64,
@@ -142,13 +136,20 @@ def log_probability(params):
 
 
 def main():
+    import emcee, corner
+    import matplotlib.pyplot as plt
+    from multiprocessing import Pool
+    from gelman_rubin import gelman_rubin
+    from log_evidence import log_evidence
+    from sn.plotting import plot_predictions as plot_sn_predictions
+    from .plot_predictions import plot_bao_predictions
+
     ndim = len(bounds)
-    nwalkers = 500
-    burn_in = 100
-    nsteps = 1400 + burn_in
-    initial_pos = np.random.default_rng().uniform(
-        bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim)
-    )
+    nwalkers = 150
+    burn_in = 200
+    nsteps = 2400 + burn_in
+    np.random.seed(42)
+    initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
 
     with Pool(6) as pool:
         sampler = emcee.EnsembleSampler(
@@ -157,9 +158,9 @@ def main():
             log_probability,
             pool=pool,
             moves=[
-                (emcee.moves.KDEMove(), 0.5),
-                (emcee.moves.DEMove(), 0.4),
-                (emcee.moves.DESnookerMove(), 0.1),
+                (emcee.moves.KDEMove(), 0.30),
+                (emcee.moves.DEMove(), 0.56),
+                (emcee.moves.DESnookerMove(), 0.14),
             ],
         )
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
@@ -167,21 +168,27 @@ def main():
     try:
         tau = sampler.get_autocorr_time()
         print("auto-correlation time", tau)
+        print("acceptance fraction", np.mean(sampler.acceptance_fraction))
+        print("effective samples", ndim * nwalkers * (nsteps - burn_in) / np.max(tau))
     except emcee.autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
 
     samples = sampler.get_chain(discard=burn_in, flat=True)
+    chains_samples = sampler.get_chain(discard=burn_in, flat=False)
+    log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
+
+    print("Gelman-Rubin R-hat:", gelman_rubin(chains_samples))
 
     [
         [h0_16, h0_50, h0_84],
         [M_16, M_50, M_84],
         [rd_16, rd_50, rd_84],
-        [omega_16, omega_50, omega_84],
+        [Om_16, Om_50, Om_84],
         [w0_16, w0_50, w0_84],
         [f_cc_16, f_cc_50, f_cc_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = [h0_50, M_50, rd_50, omega_50, w0_50, f_cc_50]
+    best_fit = [h0_50, M_50, rd_50, Om_50, w0_50, f_cc_50]
 
     deg_of_freedom = (
         z_sn_vals.size + bao_data["value"].size + z_cc_vals.size - len(best_fit)
@@ -191,11 +198,10 @@ def main():
     print(f"H0: {h0_50:.2f} +{(h0_84 - h0_50):.2f} -{(h0_50 - h0_16):.2f}")
     print(f"M: {M_50:.3f} +{(M_84 - M_50):.3f} -{(M_50 - M_16):.3f}")
     print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f}")
-    print(
-        f"Ωm: {omega_50:.3f} +{(omega_84 - omega_50):.3f} -{(omega_50 - omega_16):.3f}"
-    )
+    print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
+    print(f"Log Evidence: {log_evidence(samples, log_probs, log_probability):.1f}")
     print(f"Degrees of freedom: {deg_of_freedom}")
 
     plot_bao_predictions(
@@ -210,7 +216,7 @@ def main():
         y=apparent_mag_values,
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=sn_apparent_mag(best_fit),
-        label=f"Best fit: $\Omega_m$={omega_50:.3f}, $H_0$={h0_50:.2f} km/s/Mpc",
+        label=f"Best fit: $\Omega_m$={Om_50:.3f}, $H_0$={h0_50:.2f} km/s/Mpc",
         x_scale="log",
     )
 
@@ -230,14 +236,13 @@ def main():
     )
     plt.show()
 
-    _, axes = plt.subplots(ndim, figsize=(10, 7), sharex=True)
-    chains_samples = sampler.get_chain(discard=0, flat=False)
-    for i in range(ndim):
-        axes[i].plot(chains_samples[:, :, i], color="black", alpha=0.3)
-        axes[i].set_ylabel(labels[i])
-        axes[i].axvline(x=burn_in, color="red", linestyle="--", alpha=0.5)
-        axes[i].axhline(y=best_fit[i], color="white", linestyle="--", alpha=0.5)
-    axes[ndim - 1].set_xlabel("chain step")
+    plt.figure(figsize=(16, 1.5 * ndim))
+    for n in range(ndim):
+        plt.subplot2grid((ndim, 1), (n, 0))
+        plt.plot(chains_samples[:, :, n], alpha=0.3)
+        plt.ylabel(labels[n])
+        plt.xlim(0, None)
+    plt.tight_layout()
     plt.show()
 
 
@@ -247,36 +252,39 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM: w(z) = -1
-f_cc: 1.47 +0.19 -0.18
-H0: 68.6 +2.3 -2.3 km/s/Mpc
-M: -19.40 +0.07 -0.07 mag
+f_cc: 1.48 +0.18 -0.18
+H0: 68.64 +2.27 -2.27 km/s/Mpc
+M: -19.403 +0.070 -0.072 mag
 r_d: 147.1 +4.9 -4.6 Mpc
 Ωm: 0.305 +0.008 -0.008
 w0: -1
-Chi squared: 1448.49
+Chi squared: 1448.50
+Log Evidence: -846.1
 Degrees of freedom: 1631
 
 ===============================
 
 Flat wCDM: w(z) = w0
 f_cc: 1.47 +0.18 -0.18
-H0: 67.8 +2.3 -2.3 km/s/Mpc
-M: -19.417 +0.071 -0.074 mag
-r_d: 147.1 +5.0 -4.7 Mpc
-Ωm: 0.298 +0.009 -0.009
-w0: -0.917 +0.040 -0.040
-Chi squared: 1443.87 (Δ chi2 = 4.62 from ΛCDM)
+H0: 67.86 +2.30 -2.24 km/s/Mpc
+M: -19.416 +0.072 -0.072 mag
+r_d: 147.1 +4.8 -4.7 Mpc
+Ωm: 0.298 +0.009 -0.008
+w0: -0.917 +0.040 -0.039
+Chi squared: 1443.91 (Δ chi2 = 4.59 from ΛCDM)
+Log Evidence: -846.2
 Degrees of freedom: 1630
 
 ===============================
 
 Flat: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-f_cc: 1.47 +0.18 -0.18
-H0: 67.8 +2.3 -2.3 km/s/Mpc
-M: -19.42 +0.07 -0.07 mag
-r_d: 147.0 +5.0 -4.6 Mpc
+f_cc: 1.46 +0.18 -0.18
+H0: 67.85 +2.31 -2.29 km/s/Mpc
+M: -19.414 +0.072 -0.073 mag
+r_d: 147.0 +5.0 -4.7 Mpc
 Ωm: 0.304 +0.008 -0.008
-w0: -0.900 +0.047 -0.048
-Chi squared: 1443.62 (Δ chi2 = 4.87 from ΛCDM)
+w0: -0.899 +0.046 -0.047
+Chi squared: 1443.57 (Δ chi2 = 4.93 from ΛCDM)
+Log Evidence: -846.0
 Degrees of freedom: 1630
 """
