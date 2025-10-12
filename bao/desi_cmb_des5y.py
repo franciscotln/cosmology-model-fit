@@ -1,22 +1,15 @@
 from numba import njit
 import numpy as np
-import emcee
-import corner
 from scipy.integrate import cumulative_trapezoid
 from scipy.linalg import cho_factor, cho_solve
-import matplotlib.pyplot as plt
-from multiprocessing import Pool
-from y2024DES.data import get_data
+from y2024DES.data import get_data as get_sn_data
 from y2025BAO.data import get_data as get_bao_data
 import cmb.data_desi_compression as cmb
-from sn.plotting import plot_predictions as plot_sn_predictions
-from .plot_predictions import plot_bao_predictions
-
 
 c = cmb.c  # km/s
 Or_h2 = cmb.Omega_r_h2()
 
-sn_legend, z_cmb, z_hel, mu_values, cov_matrix_sn = get_data()
+sn_legend, z_cmb, z_hel, mu_values, cov_matrix_sn = get_sn_data()
 bao_legend, bao_data, bao_cov_matrix = get_bao_data()
 cho_sn = cho_factor(cov_matrix_sn)
 cho_bao = cho_factor(bao_cov_matrix)
@@ -111,11 +104,11 @@ def chi_squared(params):
 
 bounds = np.array(
     [
-        (120, 160),  # r_d
-        (60, 75),  # H0
+        (120.0, 160.0),  # r_d
+        (60.0, 75.0),  # H0
         (0.1, 0.6),  # Ωm
         (0.019, 0.025),  # Ωb * h^2
-        (-2, 0),  # w0
+        (-2.0, 0.0),  # w0
         (-0.7, 0.7),  # ΔM
     ],
     dtype=np.float64,
@@ -141,14 +134,19 @@ def log_probability(params):
 
 
 def main():
+    import emcee, corner
+    import matplotlib.pyplot as plt
+    from multiprocessing import Pool
+    from log_evidence import log_evidence
+    from sn.plotting import plot_predictions as plot_sn_predictions
+    from .plot_predictions import plot_bao_predictions
+
     ndim = len(bounds)
     nwalkers = 150
     burn_in = 200
     nsteps = 2000 + burn_in
-    initial_pos = np.zeros((nwalkers, ndim))
-
-    for dim, (lower, upper) in enumerate(bounds):
-        initial_pos[:, dim] = np.random.uniform(lower, upper, nwalkers)
+    np.random.seed(42)
+    initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
 
     with Pool(6) as pool:
         sampler = emcee.EnsembleSampler(
@@ -173,6 +171,7 @@ def main():
         print("Autocorrelation time could not be computed", e)
 
     samples = sampler.get_chain(discard=burn_in, flat=True)
+    log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
 
     pct = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
     rd_16, rd_50, rd_84 = pct[0]
@@ -189,23 +188,18 @@ def main():
     Omh2_samples = samples[:, 2] * (samples[:, 1] / 100) ** 2
     z_star_samples = cmb.z_star(samples[:, 3], Omh2_samples)
     Omh2_16, Omh2_50, Omh2_84 = np.percentile(Omh2_samples, one_sigma_contours)
-    z_star_16, z_star_50, z_star_84 = np.percentile(z_star_samples, one_sigma_contours)
+    z_st_16, z_st_50, z_st_84 = np.percentile(z_star_samples, one_sigma_contours)
 
     print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
     print(f"Ωm: {Om_50:.4f} +{(Om_84 - Om_50):.4f} -{(Om_50 - Om_16):.4f}")
-    print(
-        f"Ωb h^2: {Obh2_50:.5f} +{(Obh2_84 - Obh2_50):.5f} -{(Obh2_50 - Obh2_16):.5f}"
-    )
-    print(
-        f"Ωm h^2: {Omh2_50:.5f} +{(Omh2_84 - Omh2_50):.5f} -{(Omh2_50 - Omh2_16):.5f}"
-    )
+    print(f"ωb: {Obh2_50:.5f} +{(Obh2_84 - Obh2_50):.5f} -{(Obh2_50 - Obh2_16):.5f}")
+    print(f"ωm: {Omh2_50:.5f} +{(Omh2_84 - Omh2_50):.5f} -{(Omh2_50 - Omh2_16):.5f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
-    print(f"r*: {cmb.rs_z(Ez, z_star_50, best_fit, H0_50, Obh2_50):.2f} Mpc")
-    print(
-        f"z*: {z_star_50:.2f} +{(z_star_84 - z_star_50):.2f} -{(z_star_50 - z_star_16):.2f}"
-    )
+    print(f"r*: {cmb.rs_z(Ez, z_st_50, best_fit, H0_50, Obh2_50):.2f} Mpc")
+    print(f"z*: {z_st_50:.2f} +{(z_st_84 - z_st_50):.2f} -{(z_st_50 - z_st_16):.2f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
+    print(f"Log evidence: {log_evidence(samples, log_probs, log_probability):.1f}")
 
     plot_bao_predictions(
         theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
@@ -222,7 +216,7 @@ def main():
         label=f"Model: $Ω_m$={Om_50:.3f}",
         x_scale="log",
     )
-    labels = ["$r_d$", "$H_0$", "$Ω_m$", "$Ω_b h^2$", "$w_0$", "$Δ_M$"]
+    labels = ["$r_d$", "$H_0$", "$Ω_m$", "$ω_b$", "$w_0$", "$Δ_M$"]
     corner.corner(
         samples,
         labels=labels,
@@ -254,57 +248,60 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM w(z) = -1
-r_d: 148.08 +0.50 -0.49 Mpc
-H0: 68.01 +0.40 -0.40 km/s/Mpc
-Ωm: 0.3079 +0.0054 -0.0053
-Ωb h^2: 0.02220 +0.00012 -0.00012
-Ωm h^2: 0.14243 +0.00086 -0.00086
-w0: -1
-r*: 144.34 Mpc
-z*: 1092.10 +0.22 -0.21
-Chi squared: 1659.19
+r_d: 148.74 +0.51 -0.50 Mpc
+H0: 67.55 +0.41 -0.41 km/s/Mpc
+Ωm: 0.3111 +0.0055 -0.0055
+ωb: 0.02224 +0.00012 -0.00013
+ωm: 0.14194 +0.00084 -0.00085
+r*: 144.73 Mpc
+z*: 1088.92 +0.17 -0.17
+Chi squared: 1659.07
+Log evidence: -845.8
 Degrees of freedom: 1746
 
 ===============================
 
 Flat wCDM w(z) = w0
-r_d: 148.08 +0.50 -0.50 Mpc
-H0: 67.05 +0.57 -0.56 km/s/Mpc
-Ωm: 0.3135 +0.0060 -0.0060
-Ωb h^2: 0.02232 +0.00014 -0.00014
-Ωm h^2: 0.14092 +0.00108 -0.00107
-w0: -0.946 +0.023 -0.022
-r*: 144.67 Mpc
-z*: 1091.79 +0.26 -0.25
-Chi squared: 1653.89 (Δ chi2 5.30)
+r_d: 148.72 +0.51 -0.50 Mpc
+H0: 66.79 +0.57 -0.57 km/s/Mpc
+Ωm: 0.3155 +0.0062 -0.0060
+ωb: 0.02234 +0.00014 -0.00013
+ωm: 0.14074 +0.00107 -0.00107
+w0: -0.956 +0.023 -0.023
+r*: 144.99 Mpc
+z*: 1088.72 +0.20 -0.19
+Chi squared: 1655.56
+Log evidence: -846.9
 Degrees of freedom: 1745
 
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-r_d: 147.85 +0.50 -0.50 Mpc
-H0: 66.73 +0.57 -0.56 km/s/Mpc
-Ωm: 0.3163 +0.0063 -0.0061
-Ωb h^2: 0.02233 +0.00013 -0.00013
-Ωm h^2: 0.14086 +0.00100 -0.00100
-w0: -0.885 +0.037 -0.037
-r*: 144.69 Mpc
-z*: 1091.78 +0.24 -0.24
-Chi squared: 1650.00 (Δ chi2 9.19)
+r_d: 148.52 +0.51 -0.51 Mpc
+H0: 66.43 +0.56 -0.56 km/s/Mpc
+Ωm: 0.3185 +0.0064 -0.0061
+ωb: 0.02236 +0.00013 -0.00013
+ωm: 0.14057 +0.00098 -0.00099
+w0: -0.896 +0.036 -0.037
+r*: 145.03 Mpc
+z*: 1088.69 +0.18 -0.18
+Chi squared: 1651.80
+Log evidence: -844.6
 Degrees of freedom: 1745
 
 ===============================
 
 Flat w(z) = w0 + wa * z / (1 + z)
-r_d: 147.38 +0.53 -0.53 Mpc
-H0: 66.87 +0.57 -0.56 km/s/Mpc
-Ωm: 0.3182 +0.0063 -0.0062
-Ωb h^2: 0.02221 +0.00014 -0.00014
-Ωm h^2: 0.14226 +0.00113 -0.00115
-w0: -0.789 +0.057 -0.057
-wa: -0.640 +0.220 -0.231
-r*: 144.38 Mpc
-z*: 1092.07 +0.27 -0.27
-Chi squared: 1645.53 (Δ chi2 13.66)
+r_d: 147.99 +0.53 -0.53 Mpc
+H0: 66.57 +0.56 -0.56 km/s/Mpc
+Ωm: 0.3209 +0.0063 -0.0062
+ωb: 0.02222 +0.00014 -0.00014
+ωm: 0.14220 +0.00110 -0.00114
+w0: -0.781 +0.060 -0.057
+wa: -0.723 +0.229 -0.247
+r*: 144.68 Mpc
+z*: 1088.96 +0.20 -0.21
+Chi squared: 1645.46
+Log evidence: -842.3
 Degrees of freedom: 1744
 """
