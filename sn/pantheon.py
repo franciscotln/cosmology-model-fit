@@ -1,18 +1,14 @@
 from numba import njit
-import emcee
-import corner
-import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats as stats
 from scipy.linalg import cho_factor, cho_solve
 from scipy.integrate import cumulative_trapezoid
-from multiprocessing import Pool
-from .plotting import plot_predictions, print_color, plot_residuals
+from scipy.constants import c as c0
 from y2022pantheonSHOES.data import get_data
 
 legend, z_values, z_hel_values, apparent_mag_values, cov_matrix = get_data()
 
-C = 299792.458  # Speed of light (km/s)
+c = c0 / 1000  # Speed of light (km/s)
 H0 = 70.0  # Hubble constant (km/s/Mpc)
 
 cho = cho_factor(cov_matrix)
@@ -32,7 +28,7 @@ def Ez(params):
 def apparent_mag(params):
     integral_vals = cumulative_trapezoid(1 / Ez(params), z_grid, initial=0)
     I = np.interp(z_values, z_grid, integral_vals)
-    return params[0] + 25 + 5 * np.log10(one_plus_z_hel * (C / H0) * I)
+    return params[0] + 25 + 5 * np.log10(one_plus_z_hel * (c / H0) * I)
 
 
 def chi_squared(params):
@@ -46,18 +42,19 @@ def log_likelihood(params):
 
 bounds = np.array(
     [
-        (-20, -19),  # M
-        (0, 1),  # Ωm
-        (-2, 0),  # w0
-    ]
+        (-20.0, -19.0),  # M
+        (0.0, 1.0),  # Ωm
+        (-2.0, 0.0),  # w0
+    ],
+    dtype=np.float64,
 )
 
 
 @njit
 def log_prior(params):
-    if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
-        return 0.0
-    return -np.inf
+    if not np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
+        return -np.inf
+    return 0.0
 
 
 def log_probability(params):
@@ -68,10 +65,19 @@ def log_probability(params):
 
 
 def main():
+    import emcee
+    from getdist import plots, MCSamples
+    import matplotlib.pyplot as plt
+    from multiprocessing import Pool
+    from gelman_rubin import gelman_rubin
+    from log_evidence import log_evidence
+    from .plotting import plot_predictions, print_color, plot_residuals
+
     burn_in = 200
     n_dim = len(bounds)
     n_walkers = 150
     n_steps = burn_in + 2000
+    np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(n_walkers, n_dim))
 
     with Pool(5) as pool:
@@ -88,8 +94,11 @@ def main():
         )
         sampler.run_mcmc(initial_pos, n_steps, progress=True)
 
-    chains_samples = sampler.get_chain(discard=0, flat=False)
+    chains_samples = sampler.get_chain(discard=burn_in, flat=False)
     samples = sampler.get_chain(discard=burn_in, flat=True)
+    np.savetxt("flat_chain.txt", samples)
+
+    print_color("Gelman-Rubin", gelman_rubin(chains_samples))
 
     try:
         tau = sampler.get_autocorr_time()
@@ -135,35 +144,26 @@ def main():
     print_color("Ωm", omega_label)
     print_color("w0", w0_label)
     print_color("R-squared (%)", f"{100 * r_squared:.2f}")
+    print_color("Log Evidence", f"{log_evidence(samples, log_probability):.1f}")
     print_color("RMSD (mag)", f"{rmsd:.3f}")
     print_color("Skewness of residuals", f"{skewness:.3f}")
     print_color("kurtosis of residuals", f"{kurtosis:.3f}")
     print_color("Degs of freedom", len(z_values) - len(best_fit))
     print_color("Chi squared", f"{chi_squared(best_fit):.2f}")
 
-    labels = ["$M_0$", "$Ω_m$", "$w_0$"]
-    corner.corner(
-        samples,
-        labels=labels,
-        quantiles=[0.159, 0.5, 0.841],
-        show_titles=True,
-        title_fmt=".4f",
-        smooth=1.5,
-        smooth1d=1.5,
-        bins=100,
-        levels=(0.393, 0.864),  # 1 and 2 sigmas in 2D
-        fill_contours=False,
-        plot_datapoints=False,
-    )
+    labels = ["M_0", "Ω_m", "w_0"]
+    gdsamples = MCSamples(samples=samples, names=["M0", "Ωm", "w0"], labels=labels)
+    g = plots.get_subplot_plotter()
+    g.triangle_plot(gdsamples, filled_compare=False)
     plt.show()
 
-    _, axes = plt.subplots(n_dim, figsize=(10, 7), sharex=True)
-    for i in range(n_dim):
-        axes[i].plot(chains_samples[:, :, i], color="black", alpha=0.3)
-        axes[i].set_ylabel(labels[i])
-        axes[i].axvline(x=burn_in, color="red", linestyle="--", alpha=0.5)
-        axes[i].axhline(y=best_fit[i], color="white", linestyle="--", alpha=0.5)
-    axes[n_dim - 1].set_xlabel("walker step")
+    plt.figure(figsize=(16, 1.5 * n_dim))
+    for n in range(n_dim):
+        plt.subplot2grid((n_dim, 1), (n, 0))
+        plt.plot(chains_samples[:, :, n], alpha=0.3)
+        plt.ylabel(labels[n])
+        plt.xlim(0, None)
+    plt.tight_layout()
     plt.show()
 
     plot_predictions(
@@ -172,7 +172,7 @@ def main():
         y=apparent_mag_values - M0_50,
         y_err=np.sqrt(np.diag(cov_matrix)),
         y_model=predicted_apparent_mag - M0_50,
-        label=f"Best fit: $Ω_m$={omega_50:.4f}, $M$={M0_50:.4f}",
+        label=f"Best fit: $Ω_m$={omega_50:.3f}, $M$={M0_50:.3f}",
         x_scale="log",
     )
 
@@ -206,13 +206,14 @@ Skewness of residuals: 0.090
 kurtosis of residuals: 1.582
 Degs of freedom: 1588
 chi squared: 1402.92
+Log Evidence: -709.2
 
 =============================
 
 wCDM
 M: -19.347 +0.009/-0.009
-Ωm: 0.292 +0.064/-0.077
-w0: -0.900 +0.141/-0.159
+Ωm: 0.292 +0.062/-0.075
+w0: -0.901 +0.137/-0.154
 wa: 0
 R-squared: 99.74 %
 RMSD (mag): 0.154
@@ -220,20 +221,22 @@ Skewness of residuals: 0.079
 kurtosis of residuals: 1.589
 Degs of freedom: 1587
 chi squared: 1402.47
+Log Evidence: -709.4
 
 =============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
 M: -19.348 +0.009/-0.009
-Ωm: 0.311 +0.044/-0.045
-w0: -0.925 +0.123/-0.144
-wa: 0
+Ωm: 0.311 +0.043/-0.044
+w0: -0.926 +0.122/-0.140
+wa: -(1 + w0) = -0.074 -0.122/+0.140
 R-squared (%): 99.74
 RMSD (mag): 0.154
 Skewness of residuals: 0.081
 kurtosis of residuals: 1.589
 Degs of freedom: 1587
-Chi squared: 1402.53
+Chi squared: 1402.54
+Log Evidence: -710.0
 
 =============================
 
