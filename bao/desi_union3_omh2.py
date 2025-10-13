@@ -1,16 +1,10 @@
 from numba import njit
 import numpy as np
-import emcee
-import corner
 from scipy.integrate import cumulative_trapezoid
 from scipy.linalg import cho_factor, cho_solve
 from scipy.constants import c as c0
-import matplotlib.pyplot as plt
-from multiprocessing import Pool
 from y2023union3.data import get_data
 from y2025BAO.data import get_data as get_bao_data
-from sn.plotting import plot_predictions as plot_sn_predictions
-from .plot_predictions import plot_bao_predictions
 
 sn_legend, z_sn_vals, mu_vals, cov_matrix_sn = get_data()
 bao_legend, bao_data, bao_cov_matrix = get_bao_data()
@@ -36,7 +30,7 @@ def integral_Ez(params):
     return np.interp(z_sn_vals, grid, integral_values)
 
 
-def distance_modulus(params):
+def mu_theory(params):
     dL = (1 + z_sn_vals) * c * integral_Ez(params) / params[1]
     return params[-1] + 25 + 5 * np.log10(dL)
 
@@ -99,7 +93,7 @@ def chi_squared(params):
     Omh2 = params[2] * params[1] ** 2 / 100**2
     chi2_prior = ((Omh2_planck - Omh2) / Omh2_planck_sigma) ** 2
 
-    delta_sn = mu_vals - distance_modulus(params)
+    delta_sn = mu_vals - mu_theory(params)
     chi_sn = delta_sn.dot(cho_solve(cho_sn, delta_sn, check_finite=False))
 
     delta_bao = bao_data["value"] - theory_predictions(
@@ -123,9 +117,9 @@ bounds = np.array(
 
 @njit
 def log_prior(params):
-    if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
-        return 0.0
-    return -np.inf
+    if not np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
+        return -np.inf
+    return 0.0
 
 
 def log_likelihood(params):
@@ -140,14 +134,19 @@ def log_probability(params):
 
 
 def main():
+    import emcee, corner
+    import matplotlib.pyplot as plt
+    from multiprocessing import Pool
+    from log_evidence import log_evidence
+    from sn.plotting import plot_predictions as plot_sn_predictions
+    from .plot_predictions import plot_bao_predictions
+
     ndim = len(bounds)
     nwalkers = 150
     burn_in = 200
     nsteps = 2000 + burn_in
-    initial_pos = np.zeros((nwalkers, ndim))
-
-    for dim, (lower, upper) in enumerate(bounds):
-        initial_pos[:, dim] = np.random.uniform(lower, upper, nwalkers)
+    np.random.seed(42)
+    initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
 
     with Pool(5) as pool:
         sampler = emcee.EnsembleSampler(
@@ -173,7 +172,7 @@ def main():
 
     chains_samples = sampler.get_chain(discard=burn_in, flat=False)
     samples = sampler.get_chain(discard=burn_in, flat=True)
-    print(np.array2string(np.corrcoef(samples, rowvar=False), precision=5))
+    log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
 
     [
         [rd_16, rd_50, rd_84],
@@ -191,6 +190,7 @@ def main():
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.1f}")
+    print(f"Log evidence: {log_evidence(samples, log_probs, log_probability):.1f}")
     print(
         f"Degs of freedom: {1 + bao_data['value'].size + z_sn_vals.size - len(best_fit)}"
     )
@@ -206,7 +206,7 @@ def main():
         x=z_sn_vals,
         y=mu_vals,
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=distance_modulus(best_fit),
+        y_model=mu_theory(best_fit),
         label=f"Best fit: $Ω_m$={Om_50:.3f}",
         x_scale="log",
     )
@@ -217,7 +217,7 @@ def main():
         labels=labels,
         quantiles=[0.159, 0.5, 0.841],
         show_titles=True,
-        title_fmt=".4f",
+        title_fmt=".3f",
         bins=100,
         fill_contours=False,
         plot_datapoints=False,
@@ -246,41 +246,45 @@ DESI BAO DR2 2025
 *******************************
 
 Flat ΛCDM
-rd: 147.32 +1.27 -1.28 Mpc
-H0: 68.59 +0.98 -0.96 km/s/Mpc
+rd: 147.30 +1.27 -1.27 Mpc
+H0: 68.59 +0.97 -0.96 km/s/Mpc
 Ωm: 0.304 +0.008 -0.008
 w0: -1
 Chi squared: 38.8
+Log evidence: -25.2
 Degs of freedom: 32
 
 ===============================
 
 Flat wCDM
-rd: 142.55 +2.37 -2.56 Mpc
+rd: 142.54 +2.38 -2.55 Mpc
 H0: 69.31 +1.11 -1.07 km/s/Mpc
 Ωm: 0.298 +0.009 -0.009
-w0: -0.866 +0.051 -0.051
+w0: -0.865 +0.050 -0.052
 Chi squared: 32.2
+Log evidence: -23.9 (Δ ln(Z) = 1.3 over ΛCDM)
 Degs of freedom: 31
 
 ===============================
 
 Flat -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-rd: 144.33 +1.66 -1.65 Mpc
-H0: 67.95 +0.98 -0.99 km/s/Mpc
-Ωm: 0.310 +0.009 -0.009
-w0: -0.803 +0.066 -0.067
+rd: 144.32 +1.65 -1.64 Mpc
+H0: 67.94 +0.98 -0.97 km/s/Mpc
+Ωm: 0.310 +0.009 -0.008
+w0: -0.802 +0.066 -0.066
 Chi squared: 30.4
+Log evidence: -22.8 (Δ ln(Z) = 2.4 over ΛCDM)
 Degs of freedom: 31
 
 ===============================
 
 Flat w0waCDM
-rd: 148.08 +2.41 -3.04 Mpc
-H0: 65.78 +1.85 -1.53 km/s/Mpc
+rd: 148.12 +2.39 -3.03 Mpc
+H0: 65.75 +1.83 -1.51 km/s/Mpc
 Ωm: 0.331 +0.016 -0.018
-w0: -0.698 +0.115 -0.109
-wa: -1.006 +0.557 -0.559
+w0: -0.696 +0.113 -0.109
+wa: -1.014 +0.559 -0.549
 Chi squared: 28.8
+Log evidence: -22.0 (Δ ln(Z) = 3.2 over ΛCDM)
 Degs of freedom: 30
 """
