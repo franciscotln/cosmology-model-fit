@@ -66,3 +66,24 @@ def log_evidence(mc_samples, log_probs, log_probability, eps=1e-5):
         + 0.5 * n_params * np.log(2 * np.pi)
         - 0.5 * np.log(np.linalg.det(neg_H))
     )
+
+
+"""
+Scales describe in:
+https://ptfonseca.github.io/pcal/reference/bfactor_log_interpret.html
+
+Kass and Raftery (1995) suggest the following scale for interpreting the
+difference in log-evidence (ln Z) between two models:
+-inf < ln(Z) < 1: weak
+1 <= ln(Z) < 3: positive
+3 <= ln(Z) < 5: strong
+ln(Z) >= 5: very strong
+
+Jeffreys (1961) suggested the interpretation of Bayes factors
+in half-units on the base 10 logarithmic scale, as indicated in the following:
+0 < log10(z) < 0.5: weak
+0.5 < log10(z) < 1: substantial
+1 < log10(z) < 1.5: strong
+1.5 < log10(z) < 2.0: very strong
+log10(z) > 2.0: decisive
+"""
