@@ -273,7 +273,7 @@ r_d: 147.1 +5.1 -4.8
 ωm: 0.1436 +0.0098 -0.0096
 w0: -1
 Chi squared: 69.16
-Laplace approx. log evidence (ln Z): -155.22
+Log evidence (ln Z): -155.22
 Degrees of freedom: 63
 
 ==============================
@@ -287,7 +287,7 @@ r_d: 147.2 +5.1 -4.8
 ωm: 0.1343 +0.0103 -0.0098
 w0: -0.870 +0.051 -0.051
 Chi squared: 62.47
-Laplace approx. log evidence (ln Z): -154.15
+Log evidence (ln Z): -154.15 (Δ ln(Z) = 1.07 over ΛCDM)
 Degrees of freedom: 62
 
 ==============================
@@ -301,8 +301,20 @@ r_d: 147.2 +5.1 -4.8
 ωm: 0.1378 +0.0098 -0.0094
 w0: -0.811 +0.065 -0.067
 Chi squared: 60.57
-Laplace approx. log evidence (ln Z): -153.12
+Log evidence (ln Z): -153.12 (Δ ln(Z) = 2.10 over ΛCDM)
 Degrees of freedom: 62
+
+Flat alternative with fixed to w0 = -5/6 which
+ensures w(-1) = -2/3 and expansion with constant acceleration in the far future
+f_cc: 0.71 +0.10 -0.08
+ΔM: -0.158 +0.115 -0.117
+H0: 66.9 +2.3 -2.3
+r_d: 147.1 +5.1 -4.8
+Ωm: 0.309 +0.008 -0.008
+ωm: 0.1387 +0.0096 -0.0093
+Chi squared: 61.01
+Log evidence (ln Z): -151.43 (Δ ln(Z) = 3.79 over ΛCDM)
+Degrees of freedom: 63
 
 ===============================
 
@@ -316,6 +328,6 @@ r_d: 147.1 +5.1 -4.8
 w0: -0.723 +0.113 -0.106
 wa: -0.898 +0.561 -0.556
 Chi squared: 59.20
-Laplace approx. log evidence (ln Z): -152.53
+Log evidence (ln Z): -152.53 (Δ ln(Z) = 2.69 over ΛCDM)
 Degrees of freedom: 61
 """
