@@ -300,6 +300,19 @@ Chi squared: 1676.83 (Δ to ΛCDM: 12.45)
 Laplace log evidence (ln Z): -964.78 (Δ to ΛCDM: 3.69)
 Degrees of freedom: 1775
 
+Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3) with fixed to w0 = -5/6 which
+ensures w(-1) = -2/3 and expansion with constant acceleration in the far future
+f_cc: 0.71 +0.10 -0.08
+ΔM: -0.061 +0.073 -0.076 mag
+H0: 67.0 +2.3 -2.3 km/s/Mpc
+r_d: 147.1 +5.2 -4.8 Mpc
+Ωm: 0.308 +0.008 -0.008
+w0: -5/6 (fixed)
+wa: -(1 + w0) = -1/6 (fixed)
+Chi squared: 1676.89
+Laplace log evidence (ln Z): -962.43 (Δ to ΛCDM: 6.04)
+Degrees of freedom: 1776
+
 ===============================
 
 Flat w0waCDM: w(z) = w0 + wa * z / (1 + z)
