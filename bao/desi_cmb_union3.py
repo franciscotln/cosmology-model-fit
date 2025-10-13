@@ -2,13 +2,9 @@ from numba import njit
 import numpy as np
 from scipy.integrate import cumulative_trapezoid
 from scipy.linalg import cho_factor, cho_solve
-
 from y2023union3.data import get_data
 from y2025BAO.data import get_data as get_bao_data
 import cmb.data_desi_compression as cmb
-from sn.plotting import plot_predictions as plot_sn_predictions
-from .plot_predictions import plot_bao_predictions
-
 
 c = cmb.c  # km/s
 Or_h2 = cmb.Omega_r_h2()
@@ -111,7 +107,7 @@ bounds = np.array(
         (60, 75),  # H0
         (0.1, 0.6),  # Ωm
         (0.019, 0.025),  # Ωb * h^2
-        (-2, 0.5),  # w0
+        (-2.0, 0.0),  # w0
         (-0.7, 0.7),  # ΔM
     ],
     dtype=np.float64,
@@ -140,16 +136,17 @@ def main():
     import emcee, corner
     import matplotlib.pyplot as plt
     from multiprocessing import Pool
+    from log_evidence import log_evidence
+    from sn.plotting import plot_predictions as plot_sn_predictions
+    from .plot_predictions import plot_bao_predictions
 
     np.random.seed(42)
     ndim = len(bounds)
     nwalkers = 150
     burn_in = 200
     nsteps = 2200 + burn_in
-    initial_pos = np.zeros((nwalkers, ndim))
-
-    for dim, (lower, upper) in enumerate(bounds):
-        initial_pos[:, dim] = np.random.uniform(lower, upper, nwalkers)
+    np.random.seed(42)
+    initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
 
     with Pool(6) as pool:
         sampler = emcee.EnsembleSampler(
@@ -175,6 +172,7 @@ def main():
 
     samples = sampler.get_chain(discard=burn_in, flat=True)
     chains_samples = sampler.get_chain(discard=burn_in, flat=False)
+    log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
 
     pct = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
     rd_16, rd_50, rd_84 = pct[0]
@@ -203,6 +201,7 @@ def main():
     print(f"z*: {z_st_50:.2f} +{(z_st_84 - z_st_50):.2f} -{(z_st_50 - z_st_16):.2f}")
     print(f"r*: {cmb.rs_z(Ez, z_st_50, best_fit, H0_50, Obh2_50):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
+    print(f"Log evidence: {log_evidence(samples, log_probs, log_probability):.1f}")
 
     plot_bao_predictions(
         theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
@@ -225,7 +224,7 @@ def main():
         labels=labels,
         quantiles=[0.159, 0.5, 0.841],
         show_titles=True,
-        title_fmt=".4f",
+        title_fmt=".3f",
         bins=100,
         fill_contours=False,
         plot_datapoints=False,
@@ -255,13 +254,13 @@ Flat ΛCDM w(z) = -1
 rd: 148.6 +0.5 -0.5 Mpc
 H0: 67.8 +0.4 -0.4 km/s/Mpc
 Ωm: 0.308 +0.006 -0.006
-ωb: 0.02228 +0.00013 -0.00012
-ωm: 0.14149 +0.00088 -0.00088
-w0: -1.001 +0.679 -0.672
+ωb: 0.02228 +0.00013 -0.00013
+ωm: 0.14149 +0.00089 -0.00089
 ΔM: -0.147 +0.087 -0.088 mag
 z*: 1088.84 +0.17 -0.17
 r*: 144.83 Mpc
 Chi squared: 39.40
+Log evidence: -36.2
 Degs of freedom: 34
 
 CHEN:
@@ -282,15 +281,16 @@ Flat wCDM w(z) = w0
 
 (θ∗,ωb,ωbc)CMB
 rd: 148.6 +0.5 -0.5 Mpc
-H0: 67.3 +0.7 -0.7 km/s/Mpc
+H0: 67.2 +0.7 -0.7 km/s/Mpc
 Ωm: 0.312 +0.007 -0.007
-ωb: 0.02232 +0.00014 -0.00014
-ωm: 0.14094 +0.00109 -0.00110
-w0: -0.974 +0.029 -0.030
-ΔM: -0.160 +0.089 -0.089 mag
+ωb: 0.02233 +0.00013 -0.00014
+ωm: 0.14095 +0.00107 -0.00110
+w0: -0.973 +0.029 -0.030
+ΔM: -0.161 +0.088 -0.088 mag
 z*: 1088.75 +0.20 -0.20
-r*: 144.94 Mpc
-Chi squared: 38.64 (Δ chi2 0.76)
+r*: 144.95 Mpc
+Chi squared: 38.60
+Log evidence: -38.4
 Degs of freedom: 33
 
 CHEN:
@@ -314,12 +314,13 @@ rd: 148.5 +0.5 -0.5 Mpc
 H0: 66.5 +0.8 -0.8 km/s/Mpc
 Ωm: 0.318 +0.008 -0.008
 ωb: 0.02235 +0.00013 -0.00013
-ωm: 0.14060 +0.00100 -0.00103
-w0: -0.900 +0.053 -0.054
-ΔM: -0.178 +0.089 -0.088 mag
+ωm: 0.14059 +0.00100 -0.00102
+w0: -0.900 +0.053 -0.053
+ΔM: -0.178 +0.089 -0.089 mag
 z*: 1088.70 +0.19 -0.19
 r*: 145.02 Mpc
-Chi squared: 36.07 (Δ chi2 3.57)
+Chi squared: 36.08
+Log evidence: -36.5
 Degs of freedom: 33
 
 CHEN:
@@ -343,13 +344,14 @@ rd: 147.9 +0.5 -0.5 Mpc
 H0: 65.9 +0.8 -0.8 km/s/Mpc
 Ωm: 0.328 +0.009 -0.009
 ωb: 0.02221 +0.00014 -0.00014
-ωm: 0.14227 +0.00112 -0.00114
-w0: -0.703 +0.091 -0.088
-wa: -0.933 +0.297 -0.317
-ΔM: -0.180 +0.089 -0.087 mag
-z*: 1088.97 +0.21 -0.21
+ωm: 0.14226 +0.00111 -0.00114
+w0: -0.704 +0.091 -0.088
+wa: -0.933 +0.297 -0.316
+ΔM: -0.180 +0.088 -0.087 mag
+z*: 1088.97 +0.20 -0.20
 r*: 144.67 Mpc
-Chi squared: 28.85 (Δ chi2 10.55)
+Chi squared: 28.90
+Log evidence: -33.7
 Degs of freedom: 32
 
 CHEN:
