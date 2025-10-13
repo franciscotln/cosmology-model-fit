@@ -18,7 +18,7 @@ zhel_plus1 = 1 + z_hel
 
 @njit
 def Ez(z, params):
-    Om, w0 = params[2], params[3]
+    Om, w0 = params[2], -5 / 6  # params[3]
     z_plus_1 = 1 + z
     cubed = z_plus_1**3
     rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
@@ -95,7 +95,7 @@ bounds = np.array(
         (-10.0, -8.5),  # ΔM
         (90.0, 110.0),  # r_d * h
         (0.1, 0.7),  # Ωm
-        (-2.0, 0.0),  # w0
+        # (-2.0, 0.0),  # w0
     ],
     dtype=np.float64,
 )
@@ -164,15 +164,15 @@ def main():
         [dM_16, dM_50, dM_84],
         [rd_16, rd_50, rd_84],
         [Om_16, Om_50, Om_84],
-        [w0_16, w0_50, w0_84],
+        # [w0_16, w0_50, w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = np.array([dM_50, rd_50, Om_50, w0_50])
+    best_fit = np.array([dM_50, rd_50, Om_50])
 
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f}")
     print(f"r_d * h: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f}")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
-    print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
+    # print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Log Evidence: {log_evidence(samples, log_probs, log_probability):.2f}")
     print(f"Degrees of freedom: {bao_data['value'].size + sn_size - len(best_fit)}")
@@ -193,7 +193,7 @@ def main():
         x_scale="log",
     )
 
-    labels = ["$Δ_M$", "$r_d x h$", "$Ω_M$", "$w_0$"]
+    labels = ["$Δ_M$", "$r_d x h$", "$Ω_M$"]  # , "$w_0$"]
     corner.corner(
         samples,
         labels=labels,
@@ -257,6 +257,15 @@ wa: -(1 + w0)
 Chi squared: 1646.49 (Δ chi2 12.48)
 Log Evidence: -834.29 (Δ logZ 4.05)
 Degrees of freedom: 1744
+
+Flat w0 - (1 + w0) * (((1 + z)**3 - 1) / ((1 + z)**3 + 1)) with fixed w0 = -5/6
+Ensures w(-1) = -2/3 and expansion with constant acceleration in the far future
+ΔM: -9.193 +0.006 -0.006 mag
+r_d * h: 98.64 +0.59 -0.59 Mpc
+Ωm: 0.307 +0.008 -0.008
+Chi squared: 1646.49
+Log Evidence: -832.12 (Δ logZ 6.22) (wtf?!)
+Degrees of freedom: 1745
 
 ===============================
 
