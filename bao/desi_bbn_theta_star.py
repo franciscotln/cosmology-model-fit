@@ -4,7 +4,6 @@ from scipy.linalg import cho_factor, cho_solve
 from y2025BAO.data import get_data as get_bao_data
 import cmb.data_desi_compression as cmb
 import y2024BBN.prior_lcdm_shonberg as bbn
-from .plot_predictions import plot_bao_predictions
 
 c = cmb.c  # speed of light in km/s
 Or_h2 = cmb.Omega_r_h2()
@@ -113,9 +112,9 @@ bounds = np.array(
 
 @njit
 def log_prior(params):
-    if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
-        return 0.0
-    return -np.inf
+    if not np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
+        return -np.inf
+    return 0.0
 
 
 def log_likelihood(params):
@@ -133,16 +132,15 @@ def main():
     import emcee, corner
     import matplotlib.pyplot as plt
     from multiprocessing import Pool
+    from log_evidence import log_evidence
+    from .plot_predictions import plot_bao_predictions
 
     np.random.seed(42)
     ndim = len(bounds)
     nwalkers = 150
     burn_in = 200
     nsteps = 2000 + burn_in
-    initial_pos = np.zeros((nwalkers, ndim))
-
-    for dim, (lower, upper) in enumerate(bounds):
-        initial_pos[:, dim] = np.random.uniform(lower, upper, nwalkers)
+    initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
 
     with Pool(5) as pool:
         sampler = emcee.EnsembleSampler(
@@ -168,6 +166,7 @@ def main():
 
     chains_samples = sampler.get_chain(discard=burn_in, flat=False)
     samples = sampler.get_chain(discard=burn_in, flat=True)
+    log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
 
     pct = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
     rd_16, rd_50, rd_84 = pct[0]
@@ -180,18 +179,17 @@ def main():
 
     Omh2_samples = samples[:, 1] ** 2 * samples[:, 2] / 10000
     z_star_samples = cmb.z_star(wm=Omh2_samples, wb=samples[:, 3])
-    z_star_16, z_star_50, z_star_84 = np.percentile(z_star_samples, [15.9, 50, 84.1])
+    z_st_16, z_st_50, z_st_84 = np.percentile(z_star_samples, [15.9, 50, 84.1])
 
     print(f"rd: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
     print(f"Ωm: {Om_50:.4f} +{(Om_84 - Om_50):.4f} -{(Om_50 - Om_16):.4f}")
     print(f"ωb: {Obh2_50:.5f} +{(Obh2_84 - Obh2_50):.5f} -{(Obh2_50 - Obh2_16):.5f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
-    print(f"r*: {cmb.rs_z(Ez, z_star_50, best_fit, H0_50, Obh2_50):.2f} Mpc")
-    print(
-        f"z*: {z_star_50:.2f} +{(z_star_84 - z_star_50):.2f} -{(z_star_50 - z_star_16):.2f}"
-    )
+    print(f"r*: {cmb.rs_z(Ez, z_st_50, best_fit, H0_50, Obh2_50):.2f} Mpc")
+    print(f"z*: {z_st_50:.2f} +{(z_st_84 - z_st_50):.2f} -{(z_st_50 - z_st_16):.2f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
+    print(f"Log evidence: {log_evidence(samples, log_probs, log_probability):.1f}")
 
     plot_bao_predictions(
         theory_predictions=lambda z, qty: bao_predictions(z, qty, best_fit),
@@ -234,39 +232,60 @@ Dataset: DESI DR2 2024 + θ∗ + BBN
 *******************************
 
 Flat ΛCDM w(z) = -1
-rd: 148.33 +0.79 -0.79 Mpc
-H0: 68.45 +0.65 -0.64 km/s/Mpc
-Ωm: 0.2974 +0.0085 -0.0083
-ωb: 0.02219 +0.00054 -0.00054
+rd: 148.33 +0.80 -0.79 Mpc
+H0: 68.45 +0.65 -0.65 km/s/Mpc
+Ωm: 0.2974 +0.0086 -0.0084
 w0: -1
+wa: 0
+ωb: 0.02218 +0.00054 -0.00054
 r*: 145.43 Mpc
-z*: 1088.80 +0.55 -0.52
+z*: 1088.80 +0.55 -0.53
 Chi squared: 10.29
+Log evidence: -17.3
 Degs of freedom: 12
 
 ===============================
 
 Flat wCDM w(z) = w0
 rd: 148.34 +0.80 -0.79 Mpc
-H0: 67.29 +1.25 -1.17 km/s/Mpc
-Ωm: 0.2968 +0.0088 -0.0087
+H0: 67.29 +1.24 -1.20 km/s/Mpc
+Ωm: 0.2967 +0.0089 -0.0086
 ωb: 0.02218 +0.00054 -0.00055
-w0: -0.916 +0.074 -0.078
-r*: 146.75 Mpc
-z*: 1088.49 +0.63 -0.62
-Chi squared: 10.03
+w0: -0.915 +0.075 -0.077
+wa: 0
+r*: 146.77 Mpc
+z*: 1088.47 +0.63 -0.61
+Chi squared: 10.00
+Log evidence: -18.3
 Degs of freedom: 11
 
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-rd: 148.17 +0.82 -0.80 Mpc
-H0: 66.53 +1.61 -1.50 km/s/Mpc
-Ωm: 0.3076 +0.0117 -0.0117
+rd: 148.18 +0.81 -0.80 Mpc
+H0: 66.52 +1.56 -1.49 km/s/Mpc
+Ωm: 0.3076 +0.0117 -0.0114
 ωb: 0.02218 +0.00054 -0.00054
-w0: -0.832 +0.119 -0.129
-r*: 146.28 Mpc
+w0: -0.831 +0.119 -0.127
+wa: -(1 + w0)
+r*: 146.29 Mpc
 z*: 1088.59 +0.57 -0.55
-Chi squared: 8.44
+Chi squared: 8.43
+Log evidence: -17.5
 Degs of freedom: 11
+
+===============================
+
+Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
+rd: 147.86 +0.84 -0.81 Mpc
+H0: 61.82 +3.09 -2.85 km/s/Mpc
+Ωm: 0.3857 +0.0441 -0.0455
+ωb: 0.02218 +0.00054 -0.00054
+w0: -0.185 +0.426 -0.413
+wa: -2.720 +1.457 -1.467
+r*: 143.38 Mpc
+z*: 1089.30 +0.62 -0.61
+Chi squared: 5.66
+Log evidence: -15.4
+Degs of freedom: 10
 """
