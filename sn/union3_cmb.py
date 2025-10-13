@@ -81,15 +81,14 @@ def main():
     from multiprocessing import Pool
     from .plotting import plot_predictions
     from gelman_rubin import gelman_rubin
+    from log_evidence import log_evidence
 
     ndim = len(bounds)
     nwalkers = 150
     burn_in = 200
     nsteps = 2000 + burn_in
-    initial_pos = np.zeros((nwalkers, ndim))
-
-    for dim, (lower, upper) in enumerate(bounds):
-        initial_pos[:, dim] = np.random.uniform(lower, upper, nwalkers)
+    np.random.seed(42)
+    initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
 
     with Pool(5) as pool:
         sampler = emcee.EnsembleSampler(
@@ -115,6 +114,7 @@ def main():
 
     chains_samples = sampler.get_chain(discard=burn_in, flat=False)
     samples = sampler.get_chain(discard=burn_in, flat=True)
+    log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
 
     print("Gelman-Rubin:", gelman_rubin(chains_samples))
 
@@ -147,7 +147,8 @@ def main():
     print(f"z_drag: {z_d_50:.2f} +{(z_d_84 - z_d_50):.2f} -{(z_d_50 - z_d_16):.2f}")
     print(f"r*: {cmb.rs_z(Ez, z_st_50, best_fit, H0_50, Obh2_50):.2f} Mpc")
     print(f"r_d: {cmb.rs_z(Ez, z_d_50, best_fit, H0_50, Obh2_50):.2f} Mpc")
-    print(f"Chi squared: {chi_squared(best_fit):.2f}")
+    print(f"Chi squared: {chi_squared(best_fit):.1f}")
+    print(f"Log Evidence: {log_evidence(samples, log_probs, log_probability):.1f}")
 
     plot_predictions(
         legend=sn_legend,
@@ -195,65 +196,72 @@ Sample size: 22
 *******************************
 
 Flat ΛCDM w(z) = -1
-H0: 67.11 +0.57 -0.56 km/s/Mpc
+H0: 67.11 +0.56 -0.56 km/s/Mpc
 Ωm: 0.319 +0.008 -0.008
-ωm: 0.14358 +0.00120 -0.00120
-ωb: 0.02235 +0.00014 -0.00014
+ωm: 0.14359 +0.00119 -0.00120
+ωb: 0.02234 +0.00014 -0.00014
 w0: -1
-ΔM: -0.167 +0.089 -0.088
-z*: 1091.99 +0.27 -0.27
-z_drag: 1059.88 +0.28 -0.29
+wa: 0
+ΔM: -0.167 +0.088 -0.088
+z*: 1092.00 +0.27 -0.27
+z_drag: 1059.88 +0.29 -0.29
 r*: 144.00 Mpc
 r_d: 146.84 Mpc
 Chi squared: 26.2
+Log Evidence: -29.1
 Degrees of freedom: 21
 
 ===============================
 
 Flat wCDM w(z) = w0
-H0: 65.19 +1.22 -1.20 km/s/Mpc
-Ωm: 0.336 +0.013 -0.013
-ωm: 0.14294 +0.00126 -0.00127
-ωb: 0.02240 +0.00014 -0.00015
-w0: -0.924 +0.042 -0.043
-ΔM: -0.220 +0.093 -0.095
+H0: 65.20 +1.22 -1.21 km/s/Mpc
+Ωm: 0.336 +0.014 -0.013
+ωm: 0.14293 +0.00127 -0.00124
+ωb: 0.02240 +0.00015 -0.00014
+w0: -0.925 +0.043 -0.043
+wa: 0
+ΔM: -0.219 +0.093 -0.095
 z*: 1091.86 +0.28 -0.28
 z_drag: 1059.95 +0.29 -0.29
 r*: 144.14 Mpc
 r_d: 146.97 Mpc
 Chi squared: 23.2 (Δ chi2 3.0)
+Log Evidence: -29.8 (Δ ln(z) = -0.7)
 Degrees of freedom: 20
 
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)^3)
-H0: 65.30 +1.08 -1.06 km/s/Mpc
+H0: 65.30 +1.08 -1.05 km/s/Mpc
 Ωm: 0.335 +0.012 -0.012
-ωm: 0.14288 +0.00125 -0.00124
-ωb: 0.02240 +0.00014 -0.00015
-w0: -0.872 +0.067 -0.066
-ΔM: -0.212 +0.092 -0.091
-z*: 1091.85 +0.28 -0.27
+ωm: 0.14289 +0.00125 -0.00125
+ωb: 0.02240 +0.00014 -0.00014
+w0: -0.873 +0.066 -0.066
+wa: -(1 + w0)
+ΔM: -0.213 +0.091 -0.092
+z*: 1091.86 +0.28 -0.28
 z_drag: 1059.95 +0.29 -0.29
-r*: 144.15 Mpc
+r*: 144.16 Mpc
 r_d: 146.98 Mpc
 Chi squared: 22.5 (Δ chi2 3.7)
+Log Evidence: -29.1 (Δ ln(z) = 0.0)
 Degrees of freedom: 20
 
 ===============================
 
 Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
-H0: 66.51 +1.30 -1.40 km/s/Mpc
-Ωm: 0.324 +0.014 -0.013
-ωm: 0.14306 +0.00127 -0.00128
-ωb: 0.02239 +0.00015 -0.00014
-w0: -0.689 +0.155 -0.160
-wa: -1.106 +0.734 -0.753
-ΔM: -0.160 +0.098 -0.101
-z*: 1091.89 +0.27 -0.28
+H0: 66.48 +1.31 -1.39 km/s/Mpc
+Ωm: 0.324 +0.015 -0.013
+ωm: 0.14305 +0.00128 -0.00123
+ωb: 0.02239 +0.00014 -0.00014
+w0: -0.690 +0.153 -0.158
+wa: -1.099 +0.730 -0.737
+ΔM: -0.160 +0.101 -0.100
+z*: 1091.89 +0.28 -0.28
 z_drag: 1059.94 +0.29 -0.29
-r*: 144.09 Mpc
-r_d: 146.92 Mpc
-Chi squared: 21.4 (Δ chi2 4.8)
+r*: 144.11 Mpc
+r_d: 146.94 Mpc
+Chi squared: 21.8 (Δ chi2 4.4)
+Log Evidence: -27.6 (Δ ln(z) = 1.5)
 Degrees of freedom: 19
 """
