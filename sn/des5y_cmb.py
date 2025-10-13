@@ -1,15 +1,9 @@
 from numba import njit
 import numpy as np
-import emcee
-import corner
 from scipy.integrate import cumulative_trapezoid
 from scipy.linalg import cho_factor, cho_solve
-import matplotlib.pyplot as plt
-from multiprocessing import Pool
 from y2024DES.data import get_data
 import cmb.data_chen_compression as cmb
-from .plotting import plot_predictions as plot_sn_predictions
-
 
 c = cmb.c  # km/s
 O_r_h2 = cmb.Omega_r_h2()
@@ -83,14 +77,18 @@ def log_probability(params):
 
 
 def main():
+    import emcee, corner
+    import matplotlib.pyplot as plt
+    from multiprocessing import Pool
+    from log_evidence import log_evidence
+    from .plotting import plot_predictions as plot_sn_predictions
+
     ndim = len(bounds)
     nwalkers = 150
     burn_in = 200
     nsteps = 1500 + burn_in
-    initial_pos = np.zeros((nwalkers, ndim))
-
-    for dim, (lower, upper) in enumerate(bounds):
-        initial_pos[:, dim] = np.random.uniform(lower, upper, nwalkers)
+    np.random.seed(42)
+    initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
 
     with Pool(5) as pool:
         sampler = emcee.EnsembleSampler(
@@ -116,6 +114,7 @@ def main():
 
     samples = sampler.get_chain(discard=burn_in, flat=True)
     chains_samples = sampler.get_chain(discard=burn_in, flat=False)
+    log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
 
     pct = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
     H0_16, H0_50, H0_84 = pct[0]
@@ -132,9 +131,7 @@ def main():
 
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
-    print(
-        f"Ωb h^2: {Obh2_50:.5f} +{(Obh2_84 - Obh2_50):.5f} -{(Obh2_50 - Obh2_16):.5f}"
-    )
+    print(f"ωb: {Obh2_50:.5f} +{(Obh2_84 - Obh2_50):.5f} -{(Obh2_50 - Obh2_16):.5f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f}")
     print(f"z*: {z_st:.2f}")
@@ -142,6 +139,7 @@ def main():
     print(f"r_s(z*) = {cmb.rs_z(Ez, z_st, best_fit, H0_50, Obh2_50):.2f} Mpc")
     print(f"r_s(z_drag) = {cmb.rs_z(Ez, z_dr, best_fit, H0_50, Obh2_50):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
+    print(f"Log evidence: {log_evidence(samples, log_probs, log_probability):.1f}")
 
     plot_sn_predictions(
         legend=sn_legend,
@@ -158,7 +156,7 @@ def main():
         labels=labels,
         quantiles=[0.159, 0.5, 0.841],
         show_titles=True,
-        title_fmt=".4f",
+        title_fmt=".3f",
         bins=100,
         fill_contours=False,
         plot_datapoints=False,
@@ -183,31 +181,33 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM w(z) = -1
-H0: 66.86 +0.52 -0.53 km/s/Mpc
+H0: 66.86 +0.53 -0.53 km/s/Mpc
 Ωm: 0.324 +0.008 -0.007
 Ωb h^2: 0.02227 +0.00014 -0.00014
 w0: -1
 ΔM: -0.095 +0.013 -0.013
 z*: 1089.09
 z_drag: 1059.81
-r_s(z*) = 143.92 Mpc
-r_s(z_drag) = 146.51 Mpc
+r_s(z*) = 143.93 Mpc
+r_s(z_drag) = 146.52 Mpc
 Chi squared: 1643.67
+Log evidence: -840.9
 Degrees of freedom: 1734
 
 ===============================
 
 Flat wCDM w(z) = w0
-H0: 65.72 +0.76 -0.75 km/s/Mpc
+H0: 65.71 +0.77 -0.75 km/s/Mpc
 Ωm: 0.333 +0.009 -0.009
-Ωb h^2: 0.02237 +0.00015 -0.00015
-w0: -0.942 +0.027 -0.027
-ΔM: -0.112 +0.015 -0.015
+ωb: 0.02236 +0.00015 -0.00014
+w0: -0.941 +0.027 -0.028
+ΔM: -0.112 +0.016 -0.016
 z*: 1088.90
 z_drag: 1059.94
 r_s(z*) = 144.18 Mpc
-r_s(z_drag) = 146.74 Mpc
-Chi squared: 1639.36 (Δ chi2 4.2)
+r_s(z_drag) = 146.75 Mpc
+Chi squared: 1639.34 (Δ chi2 4.3 from ΛCDM)
+Log evidence: -841.5
 Degrees of freedom: 1733
 
 ===============================
@@ -215,29 +215,31 @@ Degrees of freedom: 1733
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
 H0: 65.89 +0.67 -0.66 km/s/Mpc
 Ωm: 0.331 +0.008 -0.008
-Ωb h^2: 0.02237 +0.00015 -0.00014
+ωb: 0.02237 +0.00015 -0.00015
 w0: -0.907 +0.041 -0.041
-ΔM: -0.102 +0.014 -0.014
+ΔM: -0.103 +0.014 -0.013
 z*: 1088.90
 z_drag: 1059.94
-r_s(z*) = 144.19 Mpc
-r_s(z_drag) = 146.75 Mpc
-Chi squared: 1638.70 (Δ chi2 5.1)
+r_s(z*) = 144.20 Mpc
+r_s(z_drag) = 146.76 Mpc
+Chi squared: 1638.70 (Δ chi2 5.0 from ΛCDM)
+Log evidence: -840.7
 Degrees of freedom: 1733
 
 ===============================
 
 Flat w(z) = w0 + wa * z / (1 + z)
-H0: 67.09 +1.03 -1.11 km/s/Mpc
-Ωm: 0.320 +0.011 -0.011
-Ωb h^2: 0.02235 +0.00015 -0.00015
-w0: -0.766 +0.110 -0.117
-wa: -0.886 +0.583 -0.568
-ΔM: -0.054 +0.034 -0.039
+H0: 67.11 +1.00 -1.09 km/s/Mpc
+Ωm: 0.320 +0.011 -0.010
+ωb: 0.02235 +0.00015 -0.00015
+w0: -0.765 +0.108 -0.115
+wa: -0.888 +0.575 -0.555
+ΔM: -0.054 +0.034 -0.038
 z*: 1088.94
 z_drag: 1059.92
-r_s(z*) = 144.11 Mpc
-r_s(z_drag) = 146.67 Mpc
-Chi squared: 1637.49 (Δ chi2 6.2)
+r_s(z*) = 144.13 Mpc
+r_s(z_drag) = 146.69 Mpc
+Chi squared: 1637.39 (Δ chi2 6.3 from ΛCDM)
+Log evidence: -840.2
 Degrees of freedom: 1732
 """
