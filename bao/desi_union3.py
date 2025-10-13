@@ -268,6 +268,15 @@ Chi squared: 30.37
 Log Evidence: -23.11 (Bayes factor 2.42 over ΛCDM)
 Degs of freedom: 31
 
+Flat alternative with fixed to w0 = -5/6 which
+ensures w(-1) = -2/3 and expansion with constant acceleration in the far future
+ΔM: -0.157 +0.089 -0.088 mag
+H0: 67.00 +0.42 -0.42 km/s/Mpc
+Ωm: 0.309 +0.008 -0.008
+Chi squared: 30.60
+Log Evidence: -21.43 (Bayes factor 4.10 over ΛCDM)
+Degs of freedom: 32
+
 ===============================
 
 Flat w0waCDM
