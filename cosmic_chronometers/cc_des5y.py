@@ -1,15 +1,9 @@
 from numba import njit
 import numpy as np
-import emcee
-import corner
 from scipy.integrate import cumulative_trapezoid
 from scipy.linalg import cho_factor, cho_solve
-import matplotlib.pyplot as plt
-from multiprocessing import Pool
 from y2024DES.data import get_data, effective_sample_size
 from y2005cc.data import get_data as get_cc_data
-from sn.plotting import plot_predictions as plot_sn_predictions
-from .plot_predictions import plot_cc_predictions
 
 cc_legend, z_cc_vals, H_cc_vals, cov_matrix_cc = get_cc_data()
 sn_legend, z_cmb, z_hel, observed_mu_vals, cov_matrix_sn = get_data()
@@ -87,10 +81,18 @@ def log_probability(params):
 
 
 def main():
+    import emcee, corner
+    import matplotlib.pyplot as plt
+    from multiprocessing import Pool
+    from log_evidence import log_evidence
+    from sn.plotting import plot_predictions as plot_sn_predictions
+    from .plot_predictions import plot_cc_predictions
+
     ndim = len(bounds)
     nwalkers = 150
     burn_in = 200
-    nsteps = 1500 + burn_in
+    nsteps = 2000 + burn_in
+    np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
 
     with Pool(6) as pool:
@@ -116,6 +118,8 @@ def main():
         print("Autocorrelation time could not be computed", e)
 
     samples = sampler.get_chain(discard=burn_in, flat=True)
+    log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
+    chains_samples = sampler.get_chain(discard=burn_in, flat=False)
 
     [
         [f_cc_16, f_cc_50, f_cc_84],
@@ -134,6 +138,7 @@ def main():
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
+    print(f"Log evidence: {log_evidence(samples, log_probs, log_probability):.1f}")
     print(f"Degrees of freedom: {deg_of_freedom}")
 
     plot_cc_predictions(
@@ -153,7 +158,7 @@ def main():
         x_scale="log",
     )
 
-    labels = ["$f_{CCH}$", "ΔM", "$H_0$", "Ωm", "$w_0$"]
+    labels = ["$f_{CCH}$", "$Δ_M$", "$H_0$", "$Ω_m$", "$w_0$"]
     corner.corner(
         samples,
         labels=labels,
@@ -169,7 +174,6 @@ def main():
     )
     plt.show()
 
-    chains_samples = sampler.get_chain(discard=burn_in, flat=False)
     plt.figure(figsize=(16, 1.5 * ndim))
     for n in range(ndim):
         plt.subplot2grid((ndim, 1), (n, 0))
@@ -187,32 +191,48 @@ if __name__ == "__main__":
 """
 Flat ΛCDM: w(z) = -1
 f_cc: 1.47 +0.19 -0.18
-ΔM: -0.113 +0.073 -0.074
-H0: 65.9 +2.4 -2.3
+ΔM: -0.112 +0.072 -0.075 mag
+H0: 65.9 +2.3 -2.3 km/s/Mpc
 Ωm: 0.349 +0.016 -0.016
 w0: -1
-Chi squared: 1672.14
+Chi squared: 1672.35
+Log evidence: -957.7
 Degrees of freedom: 1764
 
 ==============================
 
 Flat wCDM: w(z) = w0
 f_cc: 1.46 +0.18 -0.18
-ΔM: -0.075 +0.082 -0.082 mag
+ΔM: -0.075 +0.082 -0.083 mag
 H0: 66.8 +2.6 -2.5 km/s/Mpc
-Ωm: 0.308 +0.041 -0.047
-w0: -0.885 +0.101 -0.108
-Chi squared: 1670.59
+Ωm: 0.308 +0.042 -0.047
+w0: -0.884 +0.100 -0.109
+Chi squared: 1670.64
+Log evidence: -958.4
 Degrees of freedom: 1763
 
 ==============================
 
 Flat alternative: w(z) = -1 + 2 * (1 + w0) / ((1 + z)**3 + 1)
-f_cc: 1.46 +0.19 -0.18
-ΔM: -0.072 +0.078 -0.082
-H0: 66.8 +2.5 -2.5
+f_cc: 1.46 +0.18 -0.18
+ΔM: -0.073 +0.081 -0.082 mag
+H0: 66.8 +2.5 -2.5 km/s/Mpc
 Ωm: 0.318 +0.030 -0.030
-w0: -0.870 +0.093 -0.105
-Chi squared: 1670.12
+w0: -0.869 +0.093 -0.102
+Chi squared: 1670.08
+Log evidence: -958.1
 Degrees of freedom: 1763
+
+==============================
+
+Flat w0waCDM: w(z) = w0 + wa * z / (1 + z)
+f_cc: 1.45 +0.18 -0.18
+ΔM: -0.177 +0.087 -0.087 mag
+H0: 63.0 +2.7 -2.6 km/s/Mpc
+Ωm: 0.452 +0.030 -0.041
+w0: -0.544 +0.215 -0.208
+wa: -5.585 +2.465 -2.489
+Chi squared: 1664.59
+Log evidence: -953.4
+Degrees of freedom: 1762
 """
