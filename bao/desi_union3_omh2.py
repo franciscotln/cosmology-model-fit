@@ -276,6 +276,18 @@ Chi squared: 30.4
 Log evidence: -22.8 (Δ ln(Z) = 2.4 over ΛCDM)
 Degs of freedom: 31
 
+Flat -1 + 2 * (1 + w0) / (1 + (1 + z)**3) with fixed w0 = -5/6
+Ensures w(-1) = -2/3 and expansion with constant acceleration in the far future
+ΔM: -0.121 +0.093 -0.092 mag
+rd: 144.78 +1.32 -1.30 Mpc
+H0: 68.06 +0.97 -0.95 km/s/Mpc
+Ωm: 0.309 +0.009 -0.008
+w0: -5/6 (fixed)
+wa: -(1 + w0) = -1/6 (fixed)
+Chi squared: 30.6
+Log evidence: -21.1 (Δ ln(Z) = 4.1 over ΛCDM)
+Degs of freedom: 32
+
 ===============================
 
 Flat w0waCDM
