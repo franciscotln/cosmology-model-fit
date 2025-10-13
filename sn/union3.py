@@ -2,18 +2,15 @@ from numba import njit
 import numpy as np
 from scipy.linalg import cho_factor, cho_solve
 from scipy.integrate import cumulative_trapezoid
+from scipy.constants import c as c0
 from y2023union3.data import get_data
 
 legend, z_values, mu_vals, cov_matrix = get_data()
 
 cho = cho_factor(cov_matrix)
 
-C = 299792.458  # Speed of light (km/s)
+C = c0 / 1000  # Speed of light (km/s)
 H0 = 70  # Hubble constant (km/s/Mpc)
-
-
-z = np.linspace(0, np.max(z_values), num=1000)
-cubed = (1 + z) ** 3
 
 # params indices
 D_M = 0
@@ -22,23 +19,22 @@ W0 = 2
 
 bounds = np.array([(-0.6, 0.6), (0.0, 1.0), (-2.0, 0.0)])  # ΔM, Ωm, w0
 
+z_grid = np.linspace(0, np.max(z_values), num=1000)
+
 
 @njit
-def Ez(params):
+def Ez(z, params):
     Om, w0 = params[OM], params[W0]
+    cubed = (1 + z) ** 3
     rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
     return np.sqrt(Om * cubed + (1 - Om) * rho_de)
 
 
-def integral_Ez(params):
-    integral_values = cumulative_trapezoid(1 / Ez(params), z, initial=0)
-    return np.interp(z_values, z, integral_values)
-
-
 def mu_theory(params):
     a0_over_ae = 1 + z_values
-    comoving_distance = (C / H0) * integral_Ez(params)
-    return params[D_M] + 25 + 5 * np.log10(a0_over_ae * comoving_distance)
+    integral_values = cumulative_trapezoid(1 / Ez(z_grid, params), z_grid, initial=0)
+    I = np.interp(z_values, z_grid, integral_values)
+    return params[D_M] + 25 + 5 * np.log10(a0_over_ae * (C / H0) * I)
 
 
 def chi_squared(params):
@@ -52,9 +48,9 @@ def log_likelihood(params):
 
 @njit
 def log_prior(params):
-    if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
-        return 0.0
-    return -np.inf
+    if not np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
+        return -np.inf
+    return 0.0
 
 
 def log_probability(params):
