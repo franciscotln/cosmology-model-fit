@@ -232,7 +232,7 @@ w0: -1
 wa: 0
 Chi squared: 1658.97
 Log Evidence: -838.34
-Degrees of freedom: 1755
+Degrees of freedom: 1745
 
 ===============================
 
@@ -244,7 +244,7 @@ w0: -0.871 +0.038 -0.037
 wa: 0
 Chi squared: 1648.10 (Δ chi2 10.87)
 Log Evidence: -835.26 (Δ logZ 3.08)
-Degrees of freedom: 1754
+Degrees of freedom: 1744
 
 ===============================
 
@@ -256,7 +256,7 @@ w0: -0.834 +0.045 -0.045
 wa: -(1 + w0)
 Chi squared: 1646.49 (Δ chi2 12.48)
 Log Evidence: -834.29 (Δ logZ 4.05)
-Degrees of freedom: 1754
+Degrees of freedom: 1744
 
 ===============================
 
@@ -268,5 +268,5 @@ w0: -0.783 +0.071 -0.068
 wa: -0.729 +0.448 -0.444
 Chi squared: 1645.46 (Δ chi2 13.51)
 Log Evidence: -833.91 (Δ logZ 4.43)
-Degrees of freedom: 1753
+Degrees of freedom: 1743
 """

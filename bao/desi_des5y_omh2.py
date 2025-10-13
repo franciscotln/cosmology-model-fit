@@ -101,8 +101,8 @@ bounds = np.array(
     [
         (-0.6, 0.6),  # ΔM
         (120.0, 160.0),  # r_d
-        (60.0, 80.0),  # H0
-        (0.1, 0.7),  # Ωm
+        (50.0, 90.0),  # H0
+        (0.0, 1.0),  # Ωm
         (-2.0, 0.0),  # w0
     ],
     dtype=np.float64,
@@ -131,6 +131,7 @@ def main():
     import emcee, corner
     import matplotlib.pyplot as plt
     from multiprocessing import Pool
+    from log_evidence import log_evidence
     from sn.plotting import plot_predictions as plot_sn_predictions
     from .plot_predictions import plot_bao_predictions
 
@@ -139,6 +140,7 @@ def main():
     nwalkers = 150
     burn_in = 200
     nsteps = 2000 + burn_in
+    np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
 
     with Pool(6) as pool:
@@ -165,23 +167,24 @@ def main():
 
     chains_samples = sampler.get_chain(discard=burn_in, flat=False)
     samples = sampler.get_chain(discard=burn_in, flat=True)
+    log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
 
-    [
-        [dM_16, dM_50, dM_84],
-        [rd_16, rd_50, rd_84],
-        [H0_16, H0_50, H0_84],
-        [Om_16, Om_50, Om_84],
-        [w0_16, w0_50, w0_84],
-    ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
+    pct = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
+    dM_16, dM_50, dM_84 = pct[0]
+    rd_16, rd_50, rd_84 = pct[1]
+    H0_16, H0_50, H0_84 = pct[2]
+    Om_16, Om_50, Om_84 = pct[3]
+    w0_16, w0_50, w0_84 = pct[4]
 
-    best_fit = np.array([dM_50, rd_50, H0_50, Om_50, w0_50])
+    best_fit = np.array([dM_50, rd_50, H0_50, Om_50, w0_50], dtype=np.float64)
 
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
     print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
-    print(f"Chi squared: {chi_squared(best_fit):.2f}")
+    print(f"Chi squared: {chi_squared(best_fit):.1f}")
+    print(f"Log evidence: {log_evidence(samples, log_probs, log_probability):.1f}")
     print(f"Degrees of freedom: {1 + bao_data['value'].size + sn_size - len(best_fit)}")
 
     plot_bao_predictions(
@@ -232,45 +235,61 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM
-ΔM: -0.071 +0.024 -0.024 mag
-r_d: 148.13 +1.22 -1.21 Mpc
-H0: 67.87 +0.89 -0.89 km/s/Mpc
+ΔM: -0.071 +0.025 -0.024 mag
+r_d: 148.13 +1.23 -1.21 Mpc
+H0: 67.87 +0.91 -0.89 km/s/Mpc
 Ωm: 0.310 +0.008 -0.008
 w0: -1
-Chi squared: 1658.97
+wa: 0
+Chi squared: 1659.0
+Log evidence: -838.4
 Degrees of freedom: 1745
 
 ===============================
 
 Flat wCDM
-ΔM: 0.002 +0.036 -0.034 mag
-r_d: 142.75 +2.12 -2.26 Mpc
-H0: 69.27 +1.09 -1.04 km/s/Mpc
+ΔM: 0.003 +0.037 -0.035 mag
+r_d: 142.71 +2.16 -2.25 Mpc
+H0: 69.29 +1.11 -1.05 km/s/Mpc
 Ωm: 0.298 +0.009 -0.009
 w0: -0.871 +0.038 -0.038
-Chi squared: 1648.10 (Δ chi2 10.87)
+Chi squared: 1648.1 (Δ chi2 10.9)
+Log evidence: -835.3 (Δ logZ 3.1)
 Degrees of freedom: 1744
 
 ===============================
 
 Flat w0 - (1 + w0) * (((1 + z)**3 - 1) / ((1 + z)**3 + 1))
 ΔM: -0.025 +0.028 -0.028 mag
-r_d: 144.64 +1.59 -1.57 Mpc
-H0: 68.19 +0.92 -0.90 km/s/Mpc
+r_d: 144.66 +1.57 -1.58 Mpc
+H0: 68.19 +0.92 -0.89 km/s/Mpc
 Ωm: 0.308 +0.008 -0.008
-w0: -0.834 +0.045 -0.046
-Chi squared: 1646.49 (Δ chi2 12.48)
+w0: -0.835 +0.045 -0.046
+Chi squared: 1646.5 (Δ chi2 12.5)
+Log evidence: -834.4 (Δ logZ 4.0)
 Degrees of freedom: 1744
+
+Flat w0 + wa * (((1 + z)**3 - 1) / ((1 + z)**3 + 1))
+ΔM: -0.060 +0.046 -0.038 mag
+r_d: 147.35 +2.57 -3.18 Mpc
+H0: 66.88 +1.63 -1.33 km/s/Mpc
+Ωm: 0.320 +0.013 -0.015
+w0: -0.784 +0.071 -0.067
+wa: -0.432 +0.274 -0.278
+Chi squared: 1645.5 (Δ chi2 13.5)
+Log evidence: -834.5 (Δ logZ 3.9)
+Degrees of freedom: 1743
 
 ===============================
 
 Flat w(z) = w0 + wa * z / (1 + z)
 ΔM: -0.065 +0.046 -0.038 mag
-r_d: 147.68 +2.54 -3.20 Mpc
-H0: 66.73 +1.64 -1.33 km/s/Mpc
+r_d: 147.69 +2.53 -3.20 Mpc
+H0: 66.73 +1.67 -1.32 km/s/Mpc
 Ωm: 0.321 +0.013 -0.015
-w0: -0.784 +0.073 -0.067
-wa: -0.718 +0.450 -0.460
-Chi squared: 1645.45 (Δ chi2 13.52)
+w0: -0.783 +0.072 -0.068
+wa: -0.726 +0.456 -0.456
+Chi squared: 1645.5 (Δ chi2 13.5)
+Log evidence: -834.0 (Δ logZ 4.4)
 Degrees of freedom: 1743
 """
