@@ -269,17 +269,6 @@ Chi squared: 1646.5 (Δ chi2 12.5)
 Log evidence: -834.4 (Δ logZ 4.0)
 Degrees of freedom: 1744
 
-Flat w0 + wa * (((1 + z)**3 - 1) / ((1 + z)**3 + 1))
-ΔM: -0.060 +0.046 -0.038 mag
-r_d: 147.35 +2.57 -3.18 Mpc
-H0: 66.88 +1.63 -1.33 km/s/Mpc
-Ωm: 0.320 +0.013 -0.015
-w0: -0.784 +0.071 -0.067
-wa: -0.432 +0.274 -0.278
-Chi squared: 1645.5 (Δ chi2 13.5)
-Log evidence: -834.5 (Δ logZ 3.9)
-Degrees of freedom: 1743
-
 ===============================
 
 Flat w(z) = w0 + wa * z / (1 + z)
