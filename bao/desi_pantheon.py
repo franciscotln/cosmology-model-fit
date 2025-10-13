@@ -1,15 +1,9 @@
 from numba import njit
 import numpy as np
-import emcee
-import corner
 from scipy.integrate import cumulative_trapezoid
 from scipy.linalg import cho_factor, cho_solve
-import matplotlib.pyplot as plt
-from multiprocessing import Pool
 from y2025BAO.data import get_data as get_bao_data
 from y2022pantheonSHOES.data import get_data
-from sn.plotting import plot_predictions as plot_sn_predictions
-from .plot_predictions import plot_bao_predictions
 
 legend, z_cmb, z_hel, mb_vals, cov_matrix_sn = get_data()
 bao_legend, data, bao_cov_matrix = get_bao_data()
@@ -24,16 +18,16 @@ one_plus_z_hel = 1 + z_hel
 
 
 @njit
-def Ez(z, O_m, exp_w0):
+def Ez(z, Om, w0):
     one_plus_z = 1 + z
     cubed = one_plus_z**3
-    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + np.log(exp_w0)))
-    return np.sqrt(O_m * cubed + (1 - O_m) * rho_de)
+    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
+    return np.sqrt(Om * cubed + (1 - Om) * rho_de)
 
 
 def integral_Ez(params):
     x = grid
-    y = 1 / Ez(grid, *params[2:])
+    y = 1 / Ez(grid, Om=params[2], w0=params[3])
     return np.interp(z_cmb, x, cumulative_trapezoid(y=y, x=x, initial=0))
 
 
@@ -46,7 +40,7 @@ def apparent_mag(params):
 @njit
 def H_z(z, params):
     H0, Om, w0 = params[1], params[2], params[3]
-    return H0 * Ez(z, Om, w0)
+    return H0 * Ez(z=z, Om=Om, w0=w0)
 
 
 @njit
@@ -95,10 +89,10 @@ def bao_theory(z, qty, params):
 
 bounds = np.array(
     [
-        (-20, -19),  # M
-        (50, 80),  # H0
+        (-20.0, -19.0),  # M
+        (50.0, 100.0),  # H0
         (0.2, 0.7),  # Ωm
-        (0.2, 0.7),  # e^w0
+        (-2.0, 0.0),  # w0
     ],
     dtype=np.float64,
 )
@@ -115,9 +109,9 @@ def chi_squared(params):
 
 @njit
 def log_prior(params):
-    if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
-        return -np.log(params[3])  # flat prior in w0
-    return -np.inf
+    if not np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
+        return -np.inf
+    return 0.0
 
 
 def log_likelihood(params):
@@ -132,14 +126,19 @@ def log_probability(params):
 
 
 def main():
+    import emcee, corner
+    import matplotlib.pyplot as plt
+    from multiprocessing import Pool
+    from log_evidence import log_evidence
+    from sn.plotting import plot_predictions as plot_sn_predictions
+    from .plot_predictions import plot_bao_predictions
+
     ndim = len(bounds)
     nwalkers = 150
     burn_in = 200
     nsteps = 1500 + burn_in
-    initial_pos = np.zeros((nwalkers, ndim))
-
-    for dim, (lower, upper) in enumerate(bounds):
-        initial_pos[:, dim] = np.random.uniform(lower, upper, nwalkers)
+    np.random.seed(42)
+    initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
 
     with Pool(6) as pool:
         sampler = emcee.EnsembleSampler(
@@ -165,24 +164,23 @@ def main():
 
     chains_samples = sampler.get_chain(discard=burn_in, flat=False)
     samples = sampler.get_chain(discard=burn_in, flat=True)
+    log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
 
     [
         [M_16, M_50, M_84],
         [H0_16, H0_50, H0_84],
         [Om_16, Om_50, Om_84],
-        [exp_w0_16, exp_w0_50, exp_w0_84],
+        [w0_16, w0_50, w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = np.array([M_50, H0_50, Om_50, exp_w0_50], dtype=np.float64)
+    best_fit = np.array([M_50, H0_50, Om_50, w0_50], dtype=np.float64)
 
-    w0_samples = np.log(samples[:, 3])
-    w0_16, w0_50, w0_84 = np.percentile(w0_samples, [15.9, 50, 84.1])
-
-    print(f"M0: {M_50:.3f} +{(M_84 - M_50):.3f} -{(M_50 - M_16):.3f}")
-    print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f}")
+    print(f"M0: {M_50:.3f} +{(M_84 - M_50):.3f} -{(M_50 - M_16):.3f} mag")
+    print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
+    print(f"Log evidence: {log_evidence(samples, log_probs, log_probability):.2f}")
     print(f"Degrees of freedom: {data['z'].size + z_cmb.size - len(best_fit)}")
 
     plot_bao_predictions(
@@ -197,17 +195,17 @@ def main():
         y=mb_vals,
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=apparent_mag(best_fit),
-        label=f"Best fit: $\Omega_m$={Om_50:.3f}",
+        label=f"Best fit: $Ω_m$={Om_50:.3f}",
         x_scale="log",
     )
 
-    labels = ["$M_0$", "$H_0$", "$Ω_m$", "$e^{w_0}$"]
+    labels = ["$M_0$", "$H_0$", "$Ω_m$", "$w_0$"]
     corner.corner(
         samples,
         labels=labels,
         quantiles=[0.159, 0.5, 0.841],
         show_titles=True,
-        title_fmt=".4f",
+        title_fmt=".3f",
         smooth=2.0,
         smooth1d=2.0,
         bins=100,
@@ -233,11 +231,11 @@ if __name__ == "__main__":
 """
 Flat ΛCDM
 r_d: 147.09 Mpc (fixed)
-M0: -19.402 +0.013 -0.013 mag
-H0: 68.67 +0.46 -0.45 km/s/Mpc
+M0: -19.402 +0.012 -0.012 mag
+H0: 68.67 +0.45 -0.45 km/s/Mpc
 Ωm: 0.304 +0.008 -0.008
-w0: -1
 Chi squared: 1416.14
+Log evidence: -717.40
 Degrees of freedom: 1600
 
 ===============================
@@ -245,10 +243,11 @@ Degrees of freedom: 1600
 Flat wCDM
 r_d: 147.09 Mpc (fixed)
 M0: -19.416 +0.014 -0.014 mag
-H0: 67.83 +0.58 -0.58 km/s/Mpc
+H0: 67.84 +0.58 -0.58 km/s/Mpc
 Ωm: 0.298 +0.009 -0.009
-w0: -0.913 +0.039 -0.040
+w0: -0.914 +0.039 -0.039
 Chi squared: 1411.53 (Δ chi2 4.59)
+Log evidence: -717.40
 Degrees of freedom: 1599
 
 ===============================
@@ -256,9 +255,23 @@ Degrees of freedom: 1599
 Flat w0 - (1 + w0) * ((1 + z)**3 - 1) / ((1 + z)**3 + 1)
 r_d: 147.09 Mpc (fixed)
 M0: -19.415 +0.014 -0.014 mag
-H0: 67.79 +0.59 -0.59 km/s/Mpc
+H0: 67.78 +0.59 -0.57 km/s/Mpc
 Ωm: 0.304 +0.008 -0.008
 w0: -0.895 +0.046 -0.047
 Chi squared: 1411.31 (Δ chi2 4.83)
+Log evidence: -717.13
 Degrees of freedom: 1599
+
+===============================
+
+Flat w0waCDM
+r_d: 147.09 Mpc (fixed)
+M0: -19.415 +0.014 -0.014 mag
+H0: 67.79 +0.59 -0.58 km/s/Mpc
+Ωm: 0.303 +0.015 -0.022
+w0: -0.890 +0.060 -0.056
+wa: -0.178 +0.463 -0.432
+Chi squared: 1411.36 (Δ chi2 4.78)
+Log evidence: -717.26
+Degrees of freedom: 1598
 """
