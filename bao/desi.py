@@ -246,6 +246,19 @@ Degs of freedom: 10
 R^2: 0.9990
 RMSD: 0.265
 
+Flat alternative with fixed to w0 = -5/6 which
+ensures w(-1) = -2/3 and expansion with constant acceleration in the far future
+rd: 147.09 Mpc (fixed)
+h: 0.670 +0.004 -0.005
+Ωm: 0.308 +0.009 -0.009
+w0: -5/6 (fixed)
+wa: -1/6 (fixed)
+Chi squared: 8.44
+Log evidence: -13.40
+Degs of freedom: 11
+R^2: 0.9990
+RMSD: 0.266
+
 ===============================
 
 Flat w0waCDM:
