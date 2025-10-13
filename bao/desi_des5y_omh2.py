@@ -269,6 +269,18 @@ Chi squared: 1646.5 (Δ chi2 12.5)
 Log evidence: -834.4 (Δ logZ 4.0)
 Degrees of freedom: 1744
 
+Flat w0 - (1 + w0) * (((1 + z)**3 - 1) / ((1 + z)**3 + 1)) with fixed w0 = -5/6
+Ensures w(-1) = -2/3 and expansion with constant acceleration in the far future
+ΔM: -0.024 +0.025 -0.025 mag
+r_d: 144.60 +1.24 -1.24 Mpc
+H0: 68.21 +0.91 -0.89 km/s/Mpc
+Ωm: 0.307 +0.008 -0.008
+w0: -5/6 (fixed)
+wa: -(1 + w0) = -1/6 (fixed)
+Chi squared: 1646.5 (Δ chi2 12.5)
+Log evidence: -832.2 (Δ logZ 6.2)
+Degrees of freedom: 1745
+
 ===============================
 
 Flat w(z) = w0 + wa * z / (1 + z)
