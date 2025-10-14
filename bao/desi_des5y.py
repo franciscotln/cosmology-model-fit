@@ -95,7 +95,7 @@ bounds = np.array(
         (-10.0, -8.5),  # ΔM
         (90.0, 110.0),  # r_d * h
         (0.1, 0.7),  # Ωm
-        (-1.5, -0.5),  # w0
+        (-1.5, 0.0),  # w0
     ],
     dtype=np.float64,
 )
@@ -242,22 +242,22 @@ Flat wCDM
 ΔM: -9.200 +0.011 -0.011 mag
 r_d * h: 98.86 +0.81 -0.81 Mpc
 Ωm: 0.298 +0.009 -0.009
-w0: -0.871 +0.038 -0.038 (prior width 1.0: -1.5 to -0.5)
+w0: -0.871 +0.038 -0.038 (prior width 1.5: -1.5 to -0.5)
 wa: 0
 Chi squared: 1648.10 (Δ chi2 10.87)
-Log Evidence: -838.15 (Δ logZ 3.08)
+Log Evidence: -838.56 (Δ logZ 2.67)
 Degrees of freedom: 1744
 
 ===============================
 
 Flat w0 - (1 + w0) * (((1 + z)**3 - 1) / ((1 + z)**3 + 1))
 ΔM: -9.193 +0.012 -0.012 mag
-r_d * h: 98.64 +0.83 -0.82 Mpc
-Ωm: 0.307 +0.008 -0.008
-w0: -0.834 +0.045 -0.045 (prior width 1.0: -1.5 to -0.5)
+r_d * h: 98.63 +0.82 -0.82 Mpc
+Ωm: 0.308 +0.008 -0.008
+w0: -0.834 +0.045 -0.045 (prior width 1.5: -1.5 to 0.0)
 wa: -(1 + w0)
 Chi squared: 1646.49 (Δ chi2 12.48)
-Log Evidence: -837.18 (Δ logZ 4.05)
+Log Evidence: -837.59 (Δ logZ 3.64)
 Degrees of freedom: 1744
 
 ===============================
@@ -266,9 +266,9 @@ Flat w(z) = w0 + wa * z / (1 + z)
 ΔM: -9.187 +0.013 -0.014 mag
 r_d * h: 98.52 +0.82 -0.82 Mpc
 Ωm: 0.321 +0.013 -0.015
-w0: -0.783 +0.071 -0.068 (prior width 1.0: -1.5 to -0.5)
+w0: -0.783 +0.071 -0.068 (prior width 1.5: -1.5 to 0.0)
 wa: -0.726 +0.445 -0.449 (prior width 3.2: -2.6 to 0.6 to encompass the posterior distribution)
 Chi squared: 1645.45 (Δ chi2 13.52)
-Log Evidence: -838.01 (Δ logZ 3.22)
+Log Evidence: -838.42 (Δ logZ 2.81)
 Degrees of freedom: 1743
 """
