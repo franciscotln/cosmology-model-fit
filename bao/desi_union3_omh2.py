@@ -108,18 +108,20 @@ bounds = np.array(
         (120, 160),  # rd
         (60, 75),  # H0
         (0.1, 0.6),  # Ωm
-        (-2.0, 0.0),  # w0
+        (-1.5, -0.5),  # w0
         (-0.7, 0.7),  # ΔM
     ],
     dtype=np.float64,
 )
+
+normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
 
 
 @njit
 def log_prior(params):
     if not np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
         return -np.inf
-    return 0.0
+    return normalization
 
 
 def log_likelihood(params):
@@ -183,6 +185,7 @@ def main():
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
     best_fit = np.array([rd_50, H0_50, Om_50, w0_50, dM_50], dtype=np.float64)
+    degs_of_freedom = 1 + bao_data["value"].size + z_sn_vals.size - len(best_fit)
 
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
     print(f"rd: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
@@ -191,9 +194,7 @@ def main():
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.1f}")
     print(f"Log evidence: {log_evidence(samples, log_probs, log_probability):.1f}")
-    print(
-        f"Degs of freedom: {1 + bao_data['value'].size + z_sn_vals.size - len(best_fit)}"
-    )
+    print(f"Degs of freedom: {degs_of_freedom}")
 
     plot_bao_predictions(
         theory_predictions=lambda z, qty: theory_predictions(z, qty, best_fit),
@@ -251,52 +252,40 @@ H0: 68.59 +0.97 -0.96 km/s/Mpc
 Ωm: 0.304 +0.008 -0.008
 w0: -1
 Chi squared: 38.8
-Log evidence: -25.2
+Log evidence: -31.2
 Degs of freedom: 32
 
 ===============================
 
 Flat wCDM
-rd: 142.54 +2.38 -2.55 Mpc
-H0: 69.31 +1.11 -1.07 km/s/Mpc
+rd: 142.52 +2.39 -2.55 Mpc
+H0: 69.31 +1.10 -1.05 km/s/Mpc
 Ωm: 0.298 +0.009 -0.009
-w0: -0.865 +0.050 -0.052
-Chi squared: 32.2
-Log evidence: -23.9 (Δ ln(Z) = 1.3 over ΛCDM)
+w0: -0.866 +0.051 -0.051 (prior width 1.0: -1.5 to -0.5)
+Chi squared: 32.1
+Log evidence: -30.0 (Δ ln(Z) = 1.2 over ΛCDM)
 Degs of freedom: 31
 
 ===============================
 
 Flat -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-rd: 144.32 +1.65 -1.64 Mpc
-H0: 67.94 +0.98 -0.97 km/s/Mpc
+rd: 144.33 +1.65 -1.65 Mpc
+H0: 67.94 +0.99 -0.97 km/s/Mpc
 Ωm: 0.310 +0.009 -0.008
-w0: -0.802 +0.066 -0.066
+w0: -0.802 +0.065 -0.067 (prior width 1.0: -1.5 to -0.5)
 Chi squared: 30.4
-Log evidence: -22.8 (Δ ln(Z) = 2.4 over ΛCDM)
+Log evidence: -28.8 (Δ ln(Z) = 2.4 over ΛCDM)
 Degs of freedom: 31
-
-Flat -1 + 2 * (1 + w0) / (1 + (1 + z)**3) with fixed w0 = -5/6
-Ensures w(-1) = -2/3 and expansion with constant acceleration in the far future
-ΔM: -0.121 +0.093 -0.092 mag
-rd: 144.78 +1.32 -1.30 Mpc
-H0: 68.06 +0.97 -0.95 km/s/Mpc
-Ωm: 0.309 +0.009 -0.008
-w0: -5/6 (fixed)
-wa: -(1 + w0) = -1/6 (fixed)
-Chi squared: 30.6
-Log evidence: -21.1 (Δ ln(Z) = 4.1 over ΛCDM)
-Degs of freedom: 32
 
 ===============================
 
 Flat w0waCDM
-rd: 148.12 +2.39 -3.03 Mpc
-H0: 65.75 +1.83 -1.51 km/s/Mpc
+rd: 148.10 +2.37 -3.02 Mpc
+H0: 65.76 +1.86 -1.52 km/s/Mpc
 Ωm: 0.331 +0.016 -0.018
-w0: -0.696 +0.113 -0.109
-wa: -1.014 +0.559 -0.549
+w0: -0.696 +0.115 -0.108 (prior width 1.0: -1.1 to -0.1)
+wa: -1.007 +0.556 -0.549 (prior width 3.2: -2.6 to 0.6 to encompass the posterior distribution)
 Chi squared: 28.8
-Log evidence: -22.0 (Δ ln(Z) = 3.2 over ΛCDM)
+Log evidence: -29.3 (Δ ln(Z) = 1.9 over ΛCDM)
 Degs of freedom: 30
 """
