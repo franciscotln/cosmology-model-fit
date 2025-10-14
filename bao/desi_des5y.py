@@ -263,12 +263,12 @@ Degrees of freedom: 1744
 ===============================
 
 Flat w(z) = w0 + wa * z / (1 + z)
-ΔM: -9.187 +0.014 -0.013 mag
-r_d * h: 98.52 +0.83 -0.82 Mpc
+ΔM: -9.187 +0.013 -0.013 mag
+r_d * h: 98.52 +0.82 -0.83 Mpc
 Ωm: 0.321 +0.013 -0.015
-w0: -0.783 +0.073 -0.067 (prior width 1.5: -1.5 to 0.0)
-wa: -0.720 +0.447 -0.458 (prior width 4.0: -3.0 to 1.0)
+w0: -0.783 +0.071 -0.067 (prior width 1.5: -1.5 to 0.0)
+wa: -0.723 +0.441 -0.446 (prior width 4.5: -3.0 to 1.5)
 Chi squared: 1645.45 (Δ chi2 13.52)
-Log Evidence: -838.56 (Δ logZ 2.67)
+Log Evidence: -838.65 (Δ logZ 2.58)
 Degrees of freedom: 1743
 """
