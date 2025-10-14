@@ -203,7 +203,7 @@ def main():
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(
-        f"Laplace approx. log evidence (ln Z): {log_evidence(samples, log_probs, log_probability):.2f}"
+        f"Log evidence (ln Z): {log_evidence(samples, log_probs, log_probability):.2f}"
     )
     print(f"Degrees of freedom: {deg_of_freedom}")
 
@@ -271,7 +271,7 @@ r_d: 147.3 +5.1 -4.7 Mpc
 w0: -1
 wa: 0
 Chi squared: 1689.28
-Laplace log evidence (ln Z): -968.47
+Log evidence (ln Z): -975.78
 Degrees of freedom: 1776
 
 ===============================
@@ -282,10 +282,10 @@ f_cc: 0.70 +0.10 -0.08
 H0: 67.2 +2.3 -2.3
 r_d: 147.2 +5.1 -4.8
 Ωm: 0.299 +0.009 -0.009
-w0: -0.875 +0.038 -0.038
+w0: -0.875 +0.038 -0.038 (prior width 2.0: -2.0 to 0.0)
 wa: 0
 Chi squared: 1678.48 (Δ to ΛCDM: 10.80)
-Laplace log evidence (ln Z): -965.34 (Δ to ΛCDM: 3.13)
+Log evidence (ln Z): -973.35 (Δ to ΛCDM: 2.43)
 Degrees of freedom: 1775
 
 ===============================
@@ -296,36 +296,23 @@ f_cc: 0.71 +0.10 -0.08
 H0: 67.0 +2.4 -2.3 km/s/Mpc
 r_d: 147.1 +5.1 -4.8 Mpc
 Ωm: 0.308 +0.008 -0.008
-w0: -0.839 +0.045 -0.045
+w0: -0.839 +0.045 -0.045 (prior width 2.0: -2.0 to 0.0)
 wa: -(1 + w0)
 Chi squared: 1676.83 (Δ to ΛCDM: 12.45)
-Laplace log evidence (ln Z): -964.78 (Δ to ΛCDM: 3.69)
+Log evidence (ln Z): -972.79 (Δ to ΛCDM: 2.99)
 Degrees of freedom: 1775
-
-Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3) with fixed to w0 = -5/6 which
-ensures w(-1) = -2/3 and expansion with constant acceleration in the far future
-f_cc: 0.71 +0.10 -0.08
-ΔM: -0.061 +0.073 -0.076 mag
-H0: 67.0 +2.3 -2.3 km/s/Mpc
-r_d: 147.1 +5.2 -4.8 Mpc
-Ωm: 0.308 +0.008 -0.008
-w0: -5/6 (fixed)
-wa: -(1 + w0) = -1/6 (fixed)
-Chi squared: 1676.89
-Laplace log evidence (ln Z): -962.43 (Δ to ΛCDM: 6.04)
-Degrees of freedom: 1776
 
 ===============================
 
 Flat w0waCDM: w(z) = w0 + wa * z / (1 + z)
 f_cc: 0.71 +0.10 -0.08
-ΔM: -0.055 +0.071 -0.074 mag
-H0: 67.1 +2.3 -2.3 km/s/Mpc
-r_d: 146.9 +5.1 -4.7 Mpc
-Ωm: 0.321 +0.013 -0.016
-w0: -0.795 +0.073 -0.067
-wa: -0.664 +0.458 -0.456
-Chi squared: 1675.94 (Δ to ΛCDM: 13.34)
-Laplace log evidence (ln Z): -964.38 (Δ to ΛCDM: 4.09)
+ΔM: -0.057 +0.073 -0.075 mag
+H0: 67.0 +2.4 -2.3 km/s/Mpc
+r_d: 147.0 +5.1 -4.8 Mpc
+Ωm: 0.320 +0.013 -0.016
+w0: -0.796 +0.071 -0.066 (prior width 2.0: -2.0 to 0.0)
+wa: -0.656 +0.459 -0.446 (prior width 4.0: -2.5 to 1.5 to encompass the posterior)
+Chi squared: 1675.84
+Log evidence (ln Z): -973.87 (Δ to ΛCDM: 1.91)
 Degrees of freedom: 1774
 """
