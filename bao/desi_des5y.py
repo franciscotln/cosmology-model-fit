@@ -95,16 +95,18 @@ bounds = np.array(
         (-10.0, -8.5),  # ΔM
         (90.0, 110.0),  # r_d * h
         (0.1, 0.7),  # Ωm
-        (-2.0, 0.0),  # w0
+        (-1.5, -0.5),  # w0
     ],
     dtype=np.float64,
 )
+
+normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
 
 
 @njit
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
-        return 0.0
+        return normalization
     return -np.inf
 
 
@@ -231,51 +233,42 @@ r_d * h: 100.54 +0.65 -0.65 Mpc
 w0: -1
 wa: 0
 Chi squared: 1658.97
-Log Evidence: -838.34
+Log Evidence: -841.23
 Degrees of freedom: 1745
 
 ===============================
 
 Flat wCDM
 ΔM: -9.200 +0.011 -0.011 mag
-r_d * h: 98.85 +0.80 -0.80 Mpc
+r_d * h: 98.86 +0.81 -0.81 Mpc
 Ωm: 0.298 +0.009 -0.009
-w0: -0.871 +0.038 -0.037
+w0: -0.871 +0.038 -0.038 (prior width 1.0: -1.5 to -0.5)
 wa: 0
 Chi squared: 1648.10 (Δ chi2 10.87)
-Log Evidence: -835.26 (Δ logZ 3.08)
+Log Evidence: -838.15 (Δ logZ 3.08)
 Degrees of freedom: 1744
 
 ===============================
 
 Flat w0 - (1 + w0) * (((1 + z)**3 - 1) / ((1 + z)**3 + 1))
 ΔM: -9.193 +0.012 -0.012 mag
-r_d * h: 98.63 +0.82 -0.82 Mpc
-Ωm: 0.308 +0.008 -0.008
-w0: -0.834 +0.045 -0.045
+r_d * h: 98.64 +0.83 -0.82 Mpc
+Ωm: 0.307 +0.008 -0.008
+w0: -0.834 +0.045 -0.045 (prior width 1.0: -1.5 to -0.5)
 wa: -(1 + w0)
 Chi squared: 1646.49 (Δ chi2 12.48)
-Log Evidence: -834.29 (Δ logZ 4.05)
+Log Evidence: -837.18 (Δ logZ 4.05)
 Degrees of freedom: 1744
-
-Flat w0 - (1 + w0) * (((1 + z)**3 - 1) / ((1 + z)**3 + 1)) with fixed w0 = -5/6
-Ensures w(-1) = -2/3 and expansion with constant acceleration in the far future
-ΔM: -9.193 +0.006 -0.006 mag
-r_d * h: 98.64 +0.59 -0.59 Mpc
-Ωm: 0.307 +0.008 -0.008
-Chi squared: 1646.49
-Log Evidence: -832.12 (Δ logZ 6.22) (wtf?!)
-Degrees of freedom: 1745
 
 ===============================
 
 Flat w(z) = w0 + wa * z / (1 + z)
-ΔM: -9.187 +0.014 -0.013 mag
-r_d * h: 98.52 +0.83 -0.83 Mpc
+ΔM: -9.187 +0.013 -0.014 mag
+r_d * h: 98.52 +0.82 -0.82 Mpc
 Ωm: 0.321 +0.013 -0.015
-w0: -0.783 +0.071 -0.068
-wa: -0.729 +0.448 -0.444
-Chi squared: 1645.46 (Δ chi2 13.51)
-Log Evidence: -833.91 (Δ logZ 4.43)
+w0: -0.783 +0.071 -0.068 (prior width 1.0: -1.5 to -0.5)
+wa: -0.726 +0.445 -0.449 (prior width 3.2: -2.6 to 0.6 to encompass the posterior distribution)
+Chi squared: 1645.45 (Δ chi2 13.52)
+Log Evidence: -838.01 (Δ logZ 3.22)
 Degrees of freedom: 1743
 """
