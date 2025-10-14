@@ -58,10 +58,13 @@ bounds = np.array(
 )
 
 
+normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
+
+
 @njit
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
-        return 0
+        return normalization
     return -np.inf
 
 
@@ -191,7 +194,6 @@ z_drag: 1059.81
 r_s(z*) = 143.93 Mpc
 r_s(z_drag) = 146.52 Mpc
 Chi squared: 1643.67
-Log evidence: -840.9
 Degrees of freedom: 1734
 
 ===============================
@@ -207,7 +209,6 @@ z_drag: 1059.94
 r_s(z*) = 144.18 Mpc
 r_s(z_drag) = 146.75 Mpc
 Chi squared: 1639.34 (Δ chi2 4.3 from ΛCDM)
-Log evidence: -841.5
 Degrees of freedom: 1733
 
 ===============================
@@ -223,7 +224,6 @@ z_drag: 1059.94
 r_s(z*) = 144.20 Mpc
 r_s(z_drag) = 146.76 Mpc
 Chi squared: 1638.70 (Δ chi2 5.0 from ΛCDM)
-Log evidence: -840.7
 Degrees of freedom: 1733
 
 ===============================
@@ -240,6 +240,5 @@ z_drag: 1059.92
 r_s(z*) = 144.13 Mpc
 r_s(z_drag) = 146.69 Mpc
 Chi squared: 1637.39 (Δ chi2 6.3 from ΛCDM)
-Log evidence: -840.2
 Degrees of freedom: 1732
 """

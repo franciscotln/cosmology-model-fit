@@ -59,11 +59,13 @@ bounds = np.array(
     dtype=np.float64,
 )
 
+normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
+
 
 @njit
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
-        return 0
+        return normalization
     return -np.inf
 
 

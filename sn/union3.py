@@ -46,11 +46,14 @@ def log_likelihood(params):
     return -0.5 * chi_squared(params)
 
 
+normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
+
+
 @njit
 def log_prior(params):
     if not np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
         return -np.inf
-    return 0.0
+    return normalization
 
 
 def log_probability(params):
@@ -202,7 +205,6 @@ R-squared (%): 99.95
 RMSD (mag): 0.050
 Skewness of residuals: 0.590
 Chi squared: 24.0
-Log Evidence: -16.2
 Degs of freedom: 20
 
 ===============================
@@ -217,7 +219,6 @@ R-squared (%): 99.94
 RMSD (mag): 0.055
 Skewness of residuals: -1.272
 Chi squared: 22.1
-Log Evidence: -15.9
 degrees of freedom: 19
 
 ===============================
@@ -232,7 +233,6 @@ R-squared (%): 99.94
 RMSD (mag): 0.053
 Skewness of residuals: -1.072
 Chi squared: 21.7
-Log Evidence: -15.9
 Degs of freedom: 19
 
 ===============================
@@ -247,6 +247,5 @@ R-squared (%): 99.96
 RMSD (mag): 0.043
 Skewness of residuals: 0.669
 Chi squared: 20.6
-Log Evidence: -13.4
 Degs of freedom: 18
 """

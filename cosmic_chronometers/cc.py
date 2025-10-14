@@ -1,11 +1,6 @@
 from numba import njit
 import numpy as np
-import emcee
-import corner
-import matplotlib.pyplot as plt
 from scipy.linalg import cho_factor, cho_solve
-from multiprocessing import Pool
-from .plot_predictions import plot_cc_predictions
 from y2005cc.data import get_data
 
 c = 299792.458  # Speed of light in km/s
@@ -29,9 +24,9 @@ def H_z(z, h0, Om, w0):
 bounds = np.array(
     [
         (50, 90),  # H0
-        (0.15, 0.50),  # Om
+        (0.10, 0.60),  # Om
         (-2.5, 0.0),  # w0
-        (0.1, 1.5),  # f
+        (0.4, 1.4),  # f
     ],
     dtype=np.float64,
 )
@@ -55,10 +50,13 @@ def log_likelihood(params):
     return -0.5 * (chi_squared(params) + normalization)
 
 
+normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
+
+
 @njit
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
-        return 0.0
+        return normalization
     return -np.inf
 
 
@@ -70,14 +68,18 @@ def log_probability(params):
 
 
 def main():
+    import emcee, corner
+    import matplotlib.pyplot as plt
+    from multiprocessing import Pool
+    from log_evidence import log_evidence
+    from .plot_predictions import plot_cc_predictions
+
     ndim = len(bounds)
     nwalkers = 150
     burn_in = 200
     nsteps = 2000 + burn_in
-    initial_pos = np.zeros((nwalkers, ndim))
-
-    for dim, (lower, upper) in enumerate(bounds):
-        initial_pos[:, dim] = np.random.uniform(lower, upper, nwalkers)
+    np.random.seed(42)
+    initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
 
     with Pool(5) as pool:
         sampler = emcee.EnsembleSampler(
@@ -102,8 +104,7 @@ def main():
         print("Autocorrelation time could not be computed", e)
 
     samples = sampler.get_chain(discard=burn_in, flat=True)
-    print("correlation matrix:")
-    print(np.array2string(np.corrcoef(samples, rowvar=False), precision=5))
+    log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
 
     [
         [H0_16, H0_50, H0_84],
@@ -120,6 +121,7 @@ def main():
     print(f"f: {f_50:.3f} +{(f_84 - f_50):.3f} -{(f_50 - f_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Log likelihood: {log_likelihood(best_fit):.2f}")
+    print(f"Log evidence: {log_evidence(samples, log_probs, log_probability):.2f}")
     print(f"Degs of freedom: {1 + z_values.size - len(best_fit)}")
 
     plot_cc_predictions(
@@ -169,30 +171,33 @@ https://arxiv.org/pdf/2506.03836
 
 Flat ΛCDM: w(z) = -1
 With f:
-H0: 67.1 +3.8 -3.8 km/s/Mpc
-Ωm: 0.317 +0.039 -0.033
+H0: 67.1 +3.9 -3.9 km/s/Mpc
+Ωm: 0.328 +0.053 -0.045
 w0: -1
-f: 0.70 +0.10 -0.08
-Chi squared: 30.39
+f: 0.71 +0.10 -0.08
+Chi squared: 29.31
 Log likelihood: -130.62
+Log evidence: -135.58 (Bayes factor with f: 1.76)
 Degs of freedom: 31
 
 Without f:
-H0: 66.8 +5.3 -5.3
-Ωm: 0.321 +0.058 -0.046
+H0: 66.7 +5.4 -5.5
+Ωm: 0.334 +0.078 -0.062
 w0: -1
 f: 1
-Chi squared: 14.87
-Log likelihood: -134.68
+Chi squared: 14.82
+Log likelihood: -134.65
+Log evidence: -137.34
 Degs of freedom: 32
 
 Log likelihood ratio test:
 -2 * log(L0/L1) = -2 * log(L0) + 2 * log(L1)
--2 * (-134.68) + 2 * (-130.62) = 8.12
+-2 * (-134.65) + 2 * (-130.62) = 8.06
+Degrees of freedom = 1
 p-value = 0.0044
 We are 99.84% confident that the model with f is better than the one without f.
-So the uncertainties in the H(z) dataset are overestimated by a factor of 1.47 ± 0.18.
-3.00 - 3.75 sigma between f=1 and f=0.70.
+So the uncertainties in the H(z) dataset are overestimated and should be scaled down by 29%
+3.00 - 3.75 sigma between f=1 and f=0.71.
 
 ===============================
 

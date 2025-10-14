@@ -56,11 +56,13 @@ bounds = np.array(
     dtype=np.float64,
 )
 
+normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
+
 
 @njit
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
-        return 0
+        return normalization
     return -np.inf
 
 
@@ -208,7 +210,6 @@ z_drag: 1059.88 +0.29 -0.29
 r*: 144.00 Mpc
 r_d: 146.84 Mpc
 Chi squared: 26.2
-Log Evidence: -29.1
 Degrees of freedom: 21
 
 ===============================
@@ -226,7 +227,6 @@ z_drag: 1059.95 +0.29 -0.29
 r*: 144.14 Mpc
 r_d: 146.97 Mpc
 Chi squared: 23.2 (Δ chi2 3.0)
-Log Evidence: -29.8 (Δ ln(z) = -0.7)
 Degrees of freedom: 20
 
 ===============================
@@ -244,7 +244,6 @@ z_drag: 1059.95 +0.29 -0.29
 r*: 144.16 Mpc
 r_d: 146.98 Mpc
 Chi squared: 22.5 (Δ chi2 3.7)
-Log Evidence: -29.1 (Δ ln(z) = 0.0)
 Degrees of freedom: 20
 
 ===============================
@@ -262,6 +261,5 @@ z_drag: 1059.94 +0.29 -0.29
 r*: 144.11 Mpc
 r_d: 146.94 Mpc
 Chi squared: 21.8 (Δ chi2 4.4)
-Log Evidence: -27.6 (Δ ln(z) = 1.5)
 Degrees of freedom: 19
 """

@@ -49,12 +49,14 @@ bounds = np.array(
     dtype=np.float64,
 )
 
+normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
+
 
 @njit
 def log_prior(params):
     if not np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
         return -np.inf
-    return 0.0
+    return normalization
 
 
 def log_probability(params):
@@ -217,7 +219,6 @@ Skewness of residuals: 0.090
 kurtosis of residuals: 1.582
 Degs of freedom: 1588
 chi squared: 1402.92
-Log Evidence: -709.2
 
 =============================
 
@@ -232,7 +233,6 @@ Skewness of residuals: 0.079
 kurtosis of residuals: 1.589
 Degs of freedom: 1587
 chi squared: 1402.47
-Log Evidence: -709.4
 
 =============================
 
@@ -247,7 +247,6 @@ Skewness of residuals: 0.081
 kurtosis of residuals: 1.589
 Degs of freedom: 1587
 Chi squared: 1402.54
-Log Evidence: -710.0
 
 =============================
 
