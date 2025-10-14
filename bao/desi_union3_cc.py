@@ -87,19 +87,6 @@ def bao_theory(z, qty, params):
     return results / params[3]
 
 
-bounds = np.array(
-    [
-        (0.1, 1.5),  # f_cc
-        (-0.7, 0.7),  # ΔM
-        (55, 80),  # H0
-        (125, 170),  # r_d
-        (0.2, 0.7),  # Ωm
-        (-2.0, 1.0),  # w0
-    ],
-    dtype=np.float64,
-)
-
-
 def chi_squared(params):
     f_cc = params[0]
     delta_sn = sn_mu_vals - mu_theory(params)
@@ -115,11 +102,26 @@ def chi_squared(params):
     return chi_sn + chi_bao + chi_cc
 
 
+bounds = np.array(
+    [
+        (0.1, 1.5),  # f_cc
+        (-0.7, 0.7),  # ΔM
+        (55, 80),  # H0
+        (125, 170),  # r_d
+        (0.2, 0.7),  # Ωm
+        (-1.5, -0.5),  # w0
+    ],
+    dtype=np.float64,
+)
+
+normalization = -np.log(np.prod(bounds[:, 1] - bounds[:, 0]))
+
+
 @njit
 def log_prior(params):
-    if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
-        return 0.0
-    return -np.inf
+    if not np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
+        return -np.inf
+    return normalization
 
 
 def log_likelihood(params):
@@ -175,8 +177,6 @@ def main():
 
     samples = sampler.get_chain(discard=burn_in, flat=True)
     log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
-    print("Correlation matrix:")
-    print(np.array2string(np.corrcoef(samples, rowvar=False), precision=5))
 
     [
         [f_cc_16, f_cc_50, f_cc_84],
@@ -197,15 +197,15 @@ def main():
     )
 
     print(f"f_cc: {f_cc_50:.2f} +{(f_cc_84 - f_cc_50):.2f} -{(f_cc_50 - f_cc_16):.2f}")
-    print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f}")
-    print(f"H0: {h0_50:.1f} +{(h0_84 - h0_50):.1f} -{(h0_50 - h0_16):.1f}")
-    print(f"r_d: {rd_50:.1f} +{(rd_84 - rd_50):.1f} -{(rd_50 - rd_16):.1f}")
+    print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
+    print(f"H0: {h0_50:.1f} +{(h0_84 - h0_50):.1f} -{(h0_50 - h0_16):.1f} km/s/Mpc")
+    print(f"r_d: {rd_50:.1f} +{(rd_84 - rd_50):.1f} -{(rd_50 - rd_16):.1f} Mpc")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"ωm: {Omh2_50:.4f} +{(Omh2_84 - Omh2_50):.4f} -{(Omh2_50 - Omh2_16):.4f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(
-        f"Laplace approx. log evidence (ln Z): {log_evidence(samples, log_probs, log_probability):.2f}"
+        f"Log evidence (ln Z): {log_evidence(samples, log_probs, log_probability):.2f}"
     )
     print(f"Degrees of freedom: {deg_of_freedom}")
 
@@ -266,68 +266,56 @@ if __name__ == "__main__":
 """
 Flat ΛCDM: w(z) = -1
 f_cc: 0.70 +0.10 -0.08
-ΔM: -0.120 +0.116 -0.117
-H0: 68.6 +2.4 -2.3
-r_d: 147.1 +5.1 -4.8
+ΔM: -0.120 +0.116 -0.117 mag
+H0: 68.6 +2.4 -2.3 km/s/Mpc
+r_d: 147.1 +5.1 -4.8 Mpc
 Ωm: 0.305 +0.008 -0.008
 ωm: 0.1436 +0.0098 -0.0096
 w0: -1
 Chi squared: 69.16
-Log evidence (ln Z): -155.22
+Log evidence (ln Z): -162.23
 Degrees of freedom: 63
 
-==============================
+===============================
 
 Flat wCDM: w(z) = w0
 f_cc: 0.70 +0.10 -0.08
-ΔM: -0.159 +0.117 -0.116
-H0: 67.1 +2.4 -2.4
-r_d: 147.2 +5.1 -4.8
-Ωm: 0.299 +0.009 -0.009
-ωm: 0.1343 +0.0103 -0.0098
-w0: -0.870 +0.051 -0.051
-Chi squared: 62.47
-Log evidence (ln Z): -154.15 (Δ ln(Z) = 1.07 over ΛCDM)
+ΔM: -0.158 +0.114 -0.118 mag
+H0: 67.1 +2.4 -2.4 km/s/Mpc
+r_d: 147.2 +5.1 -4.8 Mpc
+Ωm: 0.298 +0.009 -0.009
+ωm: 0.1344 +0.0102 -0.0099
+w0: -0.871 +0.051 -0.051 (prior width 1.0: -1.5 to -0.5)
+Chi squared: 62.52
+Log evidence (ln Z): -161.26 (Bayes factor 0.97 over ΛCDM)
 Degrees of freedom: 62
 
-==============================
+===============================
 
 Flat alternative: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
 f_cc: 0.71 +0.10 -0.08
-ΔM: -0.165 +0.117 -0.118
-H0: 66.7 +2.4 -2.4
-r_d: 147.2 +5.1 -4.8
-Ωm: 0.310 +0.009 -0.008
-ωm: 0.1378 +0.0098 -0.0094
-w0: -0.811 +0.065 -0.067
-Chi squared: 60.57
-Log evidence (ln Z): -153.12 (Δ ln(Z) = 2.10 over ΛCDM)
+ΔM: -0.164 +0.117 -0.118 mag
+H0: 66.7 +2.4 -2.4 km/s/Mpc
+r_d: 147.1 +5.2 -4.8 Mpc
+Ωm: 0.310 +0.009 -0.009
+ωm: 0.1380 +0.0098 -0.0095
+w0: -0.810 +0.065 -0.067 (prior width: 1.0: -1.5 to -0.5)
+Chi squared: 60.74
+Log evidence (ln Z): -160.06 (Bayes factor 2.17 over ΛCDM)
 Degrees of freedom: 62
-
-Flat alternative with fixed to w0 = -5/6 which
-ensures w(-1) = -2/3 and expansion with constant acceleration in the far future
-f_cc: 0.71 +0.10 -0.08
-ΔM: -0.158 +0.115 -0.117
-H0: 66.9 +2.3 -2.3
-r_d: 147.1 +5.1 -4.8
-Ωm: 0.309 +0.008 -0.008
-ωm: 0.1387 +0.0096 -0.0093
-Chi squared: 61.01
-Log evidence (ln Z): -151.43 (Δ ln(Z) = 3.79 over ΛCDM)
-Degrees of freedom: 63
 
 ===============================
 
 Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
 f_cc: 0.71 +0.10 -0.08
-ΔM: -0.168 +0.119 -0.117
-H0: 66.3 +2.4 -2.4
-r_d: 147.1 +5.1 -4.8
+ΔM: -0.167 +0.118 -0.116 mag
+H0: 66.4 +2.4 -2.4 km/s/Mpc
+r_d: 147.0 +5.1 -4.8 Mpc
 Ωm: 0.329 +0.016 -0.019
-ωm: 0.1441 +0.0113 -0.0114
-w0: -0.723 +0.113 -0.106
-wa: -0.898 +0.561 -0.556
-Chi squared: 59.20
-Log evidence (ln Z): -152.53 (Δ ln(Z) = 2.69 over ΛCDM)
+ωm: 0.1441 +0.0114 -0.0114
+w0: -0.722 +0.114 -0.107 (prior width 1.0: -1.1 to -0.1)
+wa: -0.899 +0.552 -0.561 (prior width 3.4: -2.7 to 0.7 to encompass the posterior distribution)
+Chi squared: 59.18
+Log evidence (ln Z): -160.78 (Bayes factor 1.45 over ΛCDM)
 Degrees of freedom: 61
 """
