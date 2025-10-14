@@ -281,12 +281,12 @@ Degs of freedom: 32
 
 Flat w0waCDM
 r_d: 147.09 Mpc (fixed)
-ΔM: -0.168 +0.089 -0.090 mag
-H0: 66.21 +0.89 -0.88 km/s/Mpc
-Ωm: 0.331 +0.015 -0.017
-w0: -0.698 +0.113 -0.107
-wa: -1.006 +0.548 -0.554
-Chi squared: 28.80
-Log Evidence: -22.33 (Bayes factor 3.20 over ΛCDM)
+ΔM: -0.168 +0.090 -0.090 mag
+H0: 66.20 +0.89 -0.87 km/s/Mpc
+Ωm: 0.331 +0.016 -0.017
+w0: -0.697 +0.113 -0.108
+wa: -1.010 +0.549 -0.545
+Chi squared: 28.81
+Log Evidence: -22.37 (Bayes factor 3.16 over ΛCDM)
 Degs of freedom: 30
 """
