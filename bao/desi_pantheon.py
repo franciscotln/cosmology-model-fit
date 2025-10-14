@@ -107,11 +107,14 @@ def chi_squared(params):
     return chi_sn + chi_bao
 
 
+normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
+
+
 @njit
 def log_prior(params):
     if not np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
         return -np.inf
-    return 0.0
+    return normalization
 
 
 def log_likelihood(params):
@@ -235,7 +238,6 @@ M0: -19.402 +0.012 -0.012 mag
 H0: 68.67 +0.45 -0.45 km/s/Mpc
 Ωm: 0.304 +0.008 -0.008
 Chi squared: 1416.14
-Log evidence: -717.40
 Degrees of freedom: 1600
 
 ===============================
@@ -247,7 +249,6 @@ H0: 67.84 +0.58 -0.58 km/s/Mpc
 Ωm: 0.298 +0.009 -0.009
 w0: -0.914 +0.039 -0.039
 Chi squared: 1411.53 (Δ chi2 4.59)
-Log evidence: -717.40
 Degrees of freedom: 1599
 
 ===============================
@@ -259,7 +260,6 @@ H0: 67.78 +0.59 -0.57 km/s/Mpc
 Ωm: 0.304 +0.008 -0.008
 w0: -0.895 +0.046 -0.047
 Chi squared: 1411.31 (Δ chi2 4.83)
-Log evidence: -717.13
 Degrees of freedom: 1599
 
 ===============================
@@ -272,6 +272,5 @@ H0: 67.79 +0.59 -0.58 km/s/Mpc
 w0: -0.890 +0.060 -0.056
 wa: -0.178 +0.463 -0.432
 Chi squared: 1411.36 (Δ chi2 4.78)
-Log evidence: -717.26
 Degrees of freedom: 1598
 """

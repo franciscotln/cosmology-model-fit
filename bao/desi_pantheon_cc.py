@@ -115,10 +115,13 @@ def chi_squared(params):
     return chi_sn + chi_bao + chi_cc
 
 
+normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
+
+
 @njit
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
-        return 0.0
+        return normalization
     return -np.inf
 
 
@@ -259,7 +262,6 @@ r_d: 147.1 +4.9 -4.6 Mpc
 Ωm: 0.305 +0.008 -0.008
 w0: -1
 Chi squared: 1448.50
-Log Evidence: -846.1
 Degrees of freedom: 1631
 
 ===============================
@@ -272,7 +274,6 @@ r_d: 147.1 +4.8 -4.7 Mpc
 Ωm: 0.298 +0.009 -0.008
 w0: -0.917 +0.040 -0.039
 Chi squared: 1443.91 (Δ chi2 = 4.59 from ΛCDM)
-Log Evidence: -846.2
 Degrees of freedom: 1630
 
 ===============================
@@ -285,6 +286,5 @@ r_d: 147.0 +5.0 -4.7 Mpc
 Ωm: 0.304 +0.008 -0.008
 w0: -0.899 +0.046 -0.047
 Chi squared: 1443.57 (Δ chi2 = 4.93 from ΛCDM)
-Log Evidence: -846.0
 Degrees of freedom: 1630
 """

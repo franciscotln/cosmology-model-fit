@@ -93,19 +93,6 @@ def bao_theory(z, qty, params):
     return results / params[3]
 
 
-bounds = np.array(
-    [
-        (0.1, 1.5),  # f_cc
-        (-0.55, 0.55),  # ΔM
-        (50, 80),  # H0
-        (110, 175),  # r_d
-        (0.2, 0.7),  # Ωm
-        (-2.0, 0.0),  # w0
-    ],
-    dtype=np.float64,
-)
-
-
 def chi_squared(params):
     delta_sn = mu_values - mu_theory(params)
     chi_sn = delta_sn.dot(cho_solve(cho_sn, delta_sn, check_finite=False))
@@ -119,11 +106,26 @@ def chi_squared(params):
     return chi_sn + chi_bao + chi_cc
 
 
+bounds = np.array(
+    [
+        (0.1, 1.5),  # f_cc
+        (-0.55, 0.55),  # ΔM
+        (50, 80),  # H0
+        (110, 175),  # r_d
+        (0.2, 0.7),  # Ωm
+        (-2.0, 0.0),  # w0
+    ],
+    dtype=np.float64,
+)
+
+normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
+
+
 @njit
 def log_prior(params):
     if not np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
         return -np.inf
-    return 0.0
+    return normalization
 
 
 def log_likelihood(params):

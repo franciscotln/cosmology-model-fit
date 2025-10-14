@@ -56,16 +56,6 @@ def bao_theory(z, qty, params):
     return results / rd
 
 
-bounds = np.array(
-    [
-        (0.500, 0.800),  # h
-        (0.0, 1.0),  # Ωm
-        (-2.0, 0.0),  # w0
-    ],
-    dtype=np.float64,
-)
-
-
 qty_map = {
     "DV_over_rs": 0,
     "DM_over_rs": 1,
@@ -83,11 +73,19 @@ def chi_squared(params):
     return np.dot(delta, x)
 
 
+bounds = np.array(
+    [(0.50, 0.80), (0.0, 1.0), (-1.5, 0.0)],  # h  # Ωm  # w0
+    dtype=np.float64,
+)
+
+normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
+
+
 @njit
 def log_prior(params):
     if not np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
         return -np.inf
-    return 0.0
+    return normalization
 
 
 @njit
@@ -216,7 +214,7 @@ h: 0.690 +0.005 -0.005
 w0: -1
 Chi squared: 10.27
 Degs of freedom: 11
-Log evidence: -14.16
+Log evidence: -13.11
 R^2: 0.9987
 RMSD: 0.305
 
@@ -224,12 +222,12 @@ RMSD: 0.305
 
 Flat wCDM:
 rd: 147.09 Mpc (fixed)
-h: 0.678 +0.012 -0.011
+h: 0.679 +0.012 -0.011
 Ωm: 0.297 +0.009 -0.009
-w0: -0.915 +0.076 -0.078
-Chi squared: 9.12
-Log evidence: -14.52
+w0: -0.916 +0.076 -0.078 (prior width 1.5: from -1.5 to 0.0)
+Chi squared: 9.14
 Degs of freedom: 10
+Log evidence: -14.54
 R^2: 0.9989
 RMSD: 0.279
 
@@ -238,37 +236,24 @@ RMSD: 0.279
 Flat alternative: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
 rd: 147.09 Mpc (fixed)
 h: 0.670 +0.016 -0.015
-Ωm: 0.308 +0.012 -0.012
-w0: -0.832 +0.120 -0.126
-Chi squared: 8.43
-Log evidence: -14.41
+Ωm: 0.308 +0.012 -0.011
+w0: -0.832 +0.119 -0.126 (prior width 1.5: from -1.5 to 0.0)
+Chi squared: 8.44
 Degs of freedom: 10
+Log evidence: -13.76
 R^2: 0.9990
 RMSD: 0.265
-
-Flat alternative with fixed to w0 = -5/6 which
-ensures w(-1) = -2/3 and expansion with constant acceleration in the far future
-rd: 147.09 Mpc (fixed)
-h: 0.670 +0.004 -0.005
-Ωm: 0.308 +0.009 -0.009
-w0: -5/6 (fixed)
-wa: -1/6 (fixed)
-Chi squared: 8.44
-Log evidence: -13.40
-Degs of freedom: 11
-R^2: 0.9990
-RMSD: 0.266
 
 ===============================
 
 Flat w0waCDM:
 rd: 147.09 Mpc (fixed)
-h: 0.621 +0.033 -0.030
-Ωm: 0.386 +0.047 -0.047
-w0: -0.184 +0.446 -0.427
-wa: -2.723 +1.503 -1.546
+h: 0.621 +0.032 -0.029
+Ωm: 0.386 +0.046 -0.046
+w0: -0.184 +0.443 -0.422 (prior width 2.5: -1.5 to 1.0)
+wa: -2.721 +1.492 -1.535 (prior width 10.0: -8.0 to 2.0)
 Chi squared: 5.63
-Log evidence: -11.59
+Log evidence: -14.50
 Degs of freedom: 9
 R^2: 0.9994
 RMSD: 0.202

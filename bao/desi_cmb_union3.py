@@ -106,18 +106,20 @@ bounds = np.array(
         (120, 160),  # rd
         (60, 75),  # H0
         (0.1, 0.6),  # Ωm
-        (0.019, 0.025),  # Ωb * h^2
-        (-2.0, 0.0),  # w0
+        (0.019, 0.025),  # ωb = Ωb * h^2
+        (-1.5, -0.5),  # w0
         (-0.7, 0.7),  # ΔM
     ],
     dtype=np.float64,
 )
 
+normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
+
 
 @njit
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
-        return 0.0
+        return normalization
     return -np.inf
 
 
@@ -260,7 +262,7 @@ H0: 67.8 +0.4 -0.4 km/s/Mpc
 z*: 1088.84 +0.17 -0.17
 r*: 144.83 Mpc
 Chi squared: 39.40
-Log evidence: -36.2
+Log evidence: -37.2
 Degs of freedom: 34
 
 CHEN:
@@ -283,14 +285,14 @@ Flat wCDM w(z) = w0
 rd: 148.6 +0.5 -0.5 Mpc
 H0: 67.2 +0.7 -0.7 km/s/Mpc
 Ωm: 0.312 +0.007 -0.007
-ωb: 0.02233 +0.00013 -0.00014
-ωm: 0.14095 +0.00107 -0.00110
-w0: -0.973 +0.029 -0.030
-ΔM: -0.161 +0.088 -0.088 mag
-z*: 1088.75 +0.20 -0.20
-r*: 144.95 Mpc
+ωb: 0.02233 +0.00014 -0.00014
+ωm: 0.14093 +0.00109 -0.00108
+w0: -0.973 +0.029 -0.029 (prior width 1.0: -1.5 to -0.5)
+ΔM: -0.161 +0.088 -0.089 mag
+z*: 1088.75 +0.20 -0.19
+r*: 144.94 Mpc
 Chi squared: 38.60
-Log evidence: -38.4
+Log evidence: -39.3
 Degs of freedom: 33
 
 CHEN:
@@ -314,13 +316,13 @@ rd: 148.5 +0.5 -0.5 Mpc
 H0: 66.5 +0.8 -0.8 km/s/Mpc
 Ωm: 0.318 +0.008 -0.008
 ωb: 0.02235 +0.00013 -0.00013
-ωm: 0.14059 +0.00100 -0.00102
-w0: -0.900 +0.053 -0.053
-ΔM: -0.178 +0.089 -0.089 mag
+ωm: 0.14058 +0.00102 -0.00101
+w0: -0.899 +0.053 -0.053 (prior width 1.0: -1.5 to -0.5)
+ΔM: -0.179 +0.089 -0.090 mag
 z*: 1088.70 +0.19 -0.19
 r*: 145.02 Mpc
 Chi squared: 36.08
-Log evidence: -36.5
+Log evidence: -37.4
 Degs of freedom: 33
 
 CHEN:
@@ -344,14 +346,14 @@ rd: 147.9 +0.5 -0.5 Mpc
 H0: 65.9 +0.8 -0.8 km/s/Mpc
 Ωm: 0.328 +0.009 -0.009
 ωb: 0.02221 +0.00014 -0.00014
-ωm: 0.14226 +0.00111 -0.00114
-w0: -0.704 +0.091 -0.088
-wa: -0.933 +0.297 -0.316
-ΔM: -0.180 +0.088 -0.087 mag
-z*: 1088.97 +0.20 -0.20
-r*: 144.67 Mpc
-Chi squared: 28.90
-Log evidence: -33.7
+ωm: 0.14225 +0.00115 -0.00113
+w0: -0.703 +0.090 -0.090 (prior width 1.0: -1.1 to -0.1)
+wa: -0.931 +0.299 -0.316 (prior width 3.0: -2.5 to 0.5 to encompass the posterior)
+ΔM: -0.179 +0.088 -0.088 mag
+z*: 1088.97 +0.21 -0.21
+r*: 144.66 Mpc
+Chi squared: 28.86
+Log evidence: -35.8 (Bayes factor 1.4 over ΛCDM)
 Degs of freedom: 32
 
 CHEN:
