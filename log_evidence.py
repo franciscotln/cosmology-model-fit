@@ -6,12 +6,12 @@ def log_evidence(mc_samples, log_probs, log_probability, eps=1e-5):
     """
     Laplace approximation for Bayesian evidence (ln Z) using Hessian at MAP.
     """
-    # 1. Find MAP estimate
+    # Find MAP estimate
     map_idx = np.argmax(log_probs)
     theta_map = mc_samples[map_idx]
     n_params = theta_map.shape[0]
 
-    # 2. Compute Hessian of log_probability at MAP numerically
+    # Compute Hessian of log_probability at MAP numerically
     def hessian(f, x, eps):
         x = np.asarray(x)
         n = x.size
@@ -57,10 +57,10 @@ def log_evidence(mc_samples, log_probs, log_probability, eps=1e-5):
     # Add jitter for numerical stability
     neg_H += 1e-6 * np.eye(n_params)
 
-    # 3. Log-posterior at MAP
+    # Log-posterior at MAP
     log_post_map = log_probability(theta_map)
 
-    # 4. Laplace approximation ln(Z)
+    # Laplace approximation ln(Z)
     return (
         log_post_map
         + 0.5 * n_params * np.log(2 * np.pi)
