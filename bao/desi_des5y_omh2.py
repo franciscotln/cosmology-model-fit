@@ -242,7 +242,6 @@ H0: 67.87 +0.91 -0.89 km/s/Mpc
 w0: -1
 wa: 0
 Chi squared: 1659.0
-Log evidence: -838.4
 Degrees of freedom: 1745
 
 ===============================
@@ -254,7 +253,6 @@ H0: 69.29 +1.11 -1.05 km/s/Mpc
 Ωm: 0.298 +0.009 -0.009
 w0: -0.871 +0.038 -0.038
 Chi squared: 1648.1 (Δ chi2 10.9)
-Log evidence: -835.3 (Δ logZ 3.1)
 Degrees of freedom: 1744
 
 ===============================
@@ -266,20 +264,7 @@ H0: 68.19 +0.92 -0.89 km/s/Mpc
 Ωm: 0.308 +0.008 -0.008
 w0: -0.835 +0.045 -0.046
 Chi squared: 1646.5 (Δ chi2 12.5)
-Log evidence: -834.4 (Δ logZ 4.0)
 Degrees of freedom: 1744
-
-Flat w0 - (1 + w0) * (((1 + z)**3 - 1) / ((1 + z)**3 + 1)) with fixed w0 = -5/6
-Ensures w(-1) = -2/3 and expansion with constant acceleration in the far future
-ΔM: -0.024 +0.025 -0.025 mag
-r_d: 144.60 +1.24 -1.24 Mpc
-H0: 68.21 +0.91 -0.89 km/s/Mpc
-Ωm: 0.307 +0.008 -0.008
-w0: -5/6 (fixed)
-wa: -(1 + w0) = -1/6 (fixed)
-Chi squared: 1646.5 (Δ chi2 12.5)
-Log evidence: -832.2 (Δ logZ 6.2)
-Degrees of freedom: 1745
 
 ===============================
 
@@ -291,6 +276,5 @@ H0: 66.73 +1.67 -1.32 km/s/Mpc
 w0: -0.783 +0.072 -0.068
 wa: -0.726 +0.456 -0.456
 Chi squared: 1645.5 (Δ chi2 13.5)
-Log evidence: -834.0 (Δ logZ 4.4)
 Degrees of freedom: 1743
 """
