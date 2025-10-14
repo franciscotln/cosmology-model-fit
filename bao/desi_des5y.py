@@ -267,8 +267,8 @@ Flat w(z) = w0 + wa * z / (1 + z)
 r_d * h: 98.52 +0.82 -0.82 Mpc
 Ωm: 0.321 +0.013 -0.015
 w0: -0.783 +0.071 -0.068 (prior width 1.5: -1.5 to 0.0)
-wa: -0.726 +0.445 -0.449 (prior width 3.2: -2.6 to 0.6 to encompass the posterior distribution)
+wa: -0.726 +0.445 -0.449 (prior width 3.6: -3.0 to 0.6 to encompass the posterior distribution)
 Chi squared: 1645.45 (Δ chi2 13.52)
-Log Evidence: -838.42 (Δ logZ 2.81)
+Log Evidence: -838.54 (Δ logZ 2.69)
 Degrees of freedom: 1743
 """
