@@ -284,6 +284,6 @@ H0: 65.74 +1.82 -1.51 km/s/Mpc
 w0: -0.696 +0.113 -0.108 (prior width 1.5: -1.5 to 0.0)
 wa: -1.011 +0.546 -0.559 (prior width 4.0: -3.0 to 1.0)
 Chi squared: 28.8
-Log evidence: -29.4 (Bayesian evidence 1.8 over ΛCDM)
+Log evidence: -29.8 (Bayesian evidence 1.4 over ΛCDM)
 Degs of freedom: 30
 """

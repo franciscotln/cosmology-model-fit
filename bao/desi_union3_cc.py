@@ -109,7 +109,7 @@ bounds = np.array(
         (55, 80),  # H0
         (125, 170),  # r_d
         (0.2, 0.7),  # Ωm
-        (-1.5, -0.5),  # w0
+        (-1.5, 0.0),  # w0
     ],
     dtype=np.float64,
 )
@@ -266,7 +266,6 @@ if __name__ == "__main__":
 """
 Flat ΛCDM: w(z) = -1
 f_cc: 0.70 +0.10 -0.08
-ΔM: -0.120 +0.116 -0.117 mag
 H0: 68.6 +2.4 -2.3 km/s/Mpc
 r_d: 147.1 +5.1 -4.8 Mpc
 Ωm: 0.305 +0.008 -0.008
@@ -280,42 +279,39 @@ Degrees of freedom: 63
 
 Flat wCDM: w(z) = w0
 f_cc: 0.70 +0.10 -0.08
-ΔM: -0.158 +0.114 -0.118 mag
 H0: 67.1 +2.4 -2.4 km/s/Mpc
-r_d: 147.2 +5.1 -4.8 Mpc
+r_d: 147.2 +5.2 -4.8 Mpc
 Ωm: 0.298 +0.009 -0.009
-ωm: 0.1344 +0.0102 -0.0099
-w0: -0.871 +0.051 -0.051 (prior width 1.0: -1.5 to -0.5)
-Chi squared: 62.52
-Log evidence (ln Z): -161.26 (Bayes factor 0.97 over ΛCDM)
+ωm: 0.1344 +0.0103 -0.0100
+w0: -0.870 +0.050 -0.051 (prior width 1.5: -1.5 to 0.0)
+Chi squared: 62.46
+Log evidence (ln Z): -161.63 (Bayes factor 0.60 over ΛCDM)
 Degrees of freedom: 62
 
 ===============================
 
 Flat alternative: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
 f_cc: 0.71 +0.10 -0.08
-ΔM: -0.164 +0.117 -0.118 mag
 H0: 66.7 +2.4 -2.4 km/s/Mpc
-r_d: 147.1 +5.2 -4.8 Mpc
-Ωm: 0.310 +0.009 -0.009
-ωm: 0.1380 +0.0098 -0.0095
-w0: -0.810 +0.065 -0.067 (prior width: 1.0: -1.5 to -0.5)
+r_d: 147.1 +5.1 -4.7 Mpc
+Ωm: 0.310 +0.009 -0.008
+ωm: 0.1380 +0.0097 -0.0094
+w0: -0.811 +0.065 -0.067 (prior width 1.5: -1.5 to 0.0)
 Chi squared: 60.74
-Log evidence (ln Z): -160.06 (Bayes factor 2.17 over ΛCDM)
+Log evidence (ln Z): -160.60 (Bayes factor 1.63 over ΛCDM)
 Degrees of freedom: 62
 
 ===============================
 
 Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
 f_cc: 0.71 +0.10 -0.08
-ΔM: -0.167 +0.118 -0.116 mag
 H0: 66.4 +2.4 -2.4 km/s/Mpc
-r_d: 147.0 +5.1 -4.8 Mpc
+r_d: 147.0 +5.2 -4.8 Mpc
 Ωm: 0.329 +0.016 -0.019
-ωm: 0.1441 +0.0114 -0.0114
-w0: -0.722 +0.114 -0.107 (prior width 1.0: -1.1 to -0.1)
-wa: -0.899 +0.552 -0.561 (prior width 3.4: -2.7 to 0.7 to encompass the posterior distribution)
-Chi squared: 59.18
-Log evidence (ln Z): -160.78 (Bayes factor 1.45 over ΛCDM)
+ωm: 0.1441 +0.0113 -0.0113
+w0: -0.721 +0.113 -0.109 (prior width 1.5: -1.5 to 0.0)
+wa: -0.903 +0.563 -0.563 (prior width 4.0: -3.0 to 1.0)
+Chi squared: 59.16
+Log evidence (ln Z): -161.47 (Bayes factor 0.76 over ΛCDM)
 Degrees of freedom: 61
 """
