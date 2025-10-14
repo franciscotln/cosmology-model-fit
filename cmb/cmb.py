@@ -1,9 +1,5 @@
 from numba import njit
 import numpy as np
-import emcee
-import corner
-import matplotlib.pyplot as plt
-from multiprocessing import Pool
 import cmb.data_chen_compression as cmb
 
 Or_h2 = cmb.Omega_r_h2()
@@ -34,11 +30,13 @@ bounds = np.array(
     dtype=np.float64,
 )
 
+normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
+
 
 @njit
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
-        return 0
+        return normalization
     return -np.inf
 
 
@@ -54,14 +52,16 @@ def log_probability(params):
 
 
 def main():
+    import emcee, corner
+    import matplotlib.pyplot as plt
+    from multiprocessing import Pool
+
     ndim = len(bounds)
     nwalkers = 200
     burn_in = 200
     nsteps = 2000 + burn_in
-    initial_pos = np.zeros((nwalkers, ndim))
-
-    for dim, (lower, upper) in enumerate(bounds):
-        initial_pos[:, dim] = np.random.uniform(lower, upper, nwalkers)
+    np.random.seed(42)
+    initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
 
     with Pool(5) as pool:
         sampler = emcee.EnsembleSampler(
@@ -86,6 +86,7 @@ def main():
         print("Autocorrelation time could not be computed", e)
 
     samples = sampler.get_chain(discard=burn_in, flat=True)
+    chains_samples = sampler.get_chain(discard=burn_in, flat=False)
 
     one_sigma_percentiles = [15.9, 50, 84.1]
     pct = np.percentile(samples, one_sigma_percentiles, axis=0).T
@@ -116,7 +117,7 @@ def main():
     print(f"r_d: {cmb.rs_z(Ez, z_d_50, best_fit, H0_50, Obh2_50):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.4f}")
 
-    labels = ["$H_0$", "$Ω_m$", "$Ω_b h^2$"]
+    labels = ["$H_0$", "$Ω_m$", "$ω_b$"]
     corner.corner(
         samples,
         labels=labels,
@@ -132,7 +133,6 @@ def main():
     )
     plt.show()
 
-    chains_samples = sampler.get_chain(discard=burn_in, flat=False)
     plt.figure(figsize=(16, 1.5 * ndim))
     for n in range(ndim):
         plt.subplot2grid((ndim, 1), (n, 0))
@@ -152,16 +152,16 @@ Flat ΛCDM w(z) = -1
 ===============================
 
 Chen+2018 compression
-H0: 67.40 +0.61 -0.61 km/s/Mpc
+H0: 67.40 +0.61 -0.60 km/s/Mpc
 Ωm: 0.3167 +0.0085 -0.0082
 ωm: 0.1439 +0.0013 -0.0013
 ωb: 0.02236 +0.00015 -0.00015
-z_eq: 3438.7 +30.4 -30.0
-z*: 1088.91 +0.22 -0.22
+z_eq: 3438.8 +30.3 -30.0
+z*: 1088.92 +0.22 -0.22
 z_drag: 1059.93 +0.29 -0.30
 r*: 144.17 Mpc
 r_d: 146.73 Mpc
-Chi squared: 0.0005
+Chi squared: 0.0007
 
 ===============================
 
