@@ -1,15 +1,9 @@
 from numba import njit
 import numpy as np
-import emcee
-import corner
 from scipy.integrate import cumulative_trapezoid
 from scipy.linalg import cho_factor, cho_solve
-import matplotlib.pyplot as plt
-from multiprocessing import Pool
 from y2023union3.data import get_data as get_sn_data
 from y2005cc.data import get_data as get_cc_data
-from sn.plotting import plot_predictions as plot_sn_predictions
-from .plot_predictions import plot_cc_predictions
 
 legend_sn, z_sn_vals, mu_vals, cov_matrix_sn = get_sn_data()
 legend_cc, z_cc_vals, H_cc_vals, cov_matrix_cc = get_cc_data()
@@ -24,15 +18,16 @@ z_grid = np.linspace(0, np.max(z_sn_vals), num=1000)
 
 
 @njit
-def Ez(z, O_m, w0):
+def Ez(z, params):
+    Om, w0 = params[3], params[4]
     one_plus_z = 1 + z
     rho_de = (2 * one_plus_z**3 / (1 + one_plus_z**3)) ** (2 * (1 + w0))
-    return np.sqrt(O_m * one_plus_z**3 + (1 - O_m) * rho_de)
+    return np.sqrt(Om * one_plus_z**3 + (1 - Om) * rho_de)
 
 
 def mu_theory(params):
     dM, h0 = params[1], params[2]
-    y = 1 / Ez(z_grid, *params[3:])
+    y = 1 / Ez(z_grid, params)
     integral_values = cumulative_trapezoid(y=y, x=z_grid, initial=0)
     I = np.interp(z_sn_vals, z_grid, integral_values)
     return dM + 25 + 5 * np.log10((1 + z_sn_vals) * (c / h0) * I)
@@ -40,8 +35,7 @@ def mu_theory(params):
 
 @njit
 def H_z(z, params):
-    H0, Om, w0 = params[2], params[3], params[4]
-    return H0 * Ez(z, Om, w0)
+    return params[2] * Ez(z, params)
 
 
 bounds = np.array(
@@ -71,9 +65,9 @@ def chi_squared(params):
 
 @njit
 def log_prior(params):
-    if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
-        return 0.0
-    return -np.inf
+    if not np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
+        return -np.inf
+    return 0.0
 
 
 def log_likelihood(params):
@@ -90,10 +84,18 @@ def log_probability(params):
 
 
 def main():
+    import emcee, corner
+    import matplotlib.pyplot as plt
+    from multiprocessing import Pool
+    from log_evidence import log_evidence
+    from sn.plotting import plot_predictions as plot_sn_predictions
+    from .plot_predictions import plot_cc_predictions
+
     ndim = len(bounds)
     nwalkers = 150
     burn_in = 200
     nsteps = 2000 + burn_in
+    np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
 
     with Pool(5) as pool:
@@ -118,9 +120,9 @@ def main():
     except emcee.autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
 
+    chains_samples = sampler.get_chain(discard=burn_in, flat=False)
     samples = sampler.get_chain(discard=burn_in, flat=True)
-    print("correlation matrix:")
-    print(np.corrcoef(samples, rowvar=False))
+    log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
 
     [
         [f_cc_16, f_cc_50, f_cc_84],
@@ -130,16 +132,16 @@ def main():
         [w0_16, w0_50, w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = [f_cc_50, dM_50, h0_50, Om_50, w0_50]
+    best_fit = np.array([f_cc_50, dM_50, h0_50, Om_50, w0_50])
     deg_of_freedom = z_sn_vals.size + z_cc_vals.size - len(best_fit)
 
     print(f"f_cc: {f_cc_50:.2f} +{(f_cc_84 - f_cc_50):.2f} -{(f_cc_50 - f_cc_16):.2f}")
-    print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f}")
-    print(f"H0: {h0_50:.1f} +{(h0_84 - h0_50):.1f} -{(h0_50 - h0_16):.1f}")
+    print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
+    print(f"H0: {h0_50:.1f} +{(h0_84 - h0_50):.1f} -{(h0_50 - h0_16):.1f} km/s/Mpc")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"w0: {w0_50:.2f} +{(w0_84 - w0_50):.2f} -{(w0_50 - w0_16):.2f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
-    print(f"Log likelihood: {log_likelihood(best_fit):.2f}")
+    print(f"Log evidence: {log_evidence(samples, log_probs, log_probability):.1f}")
     print(f"Degrees of freedom: {deg_of_freedom}")
 
     plot_cc_predictions(
@@ -158,7 +160,7 @@ def main():
         label=f"Best fit: $H_0$={h0_50:.2f} km/s/Mpc, $\Omega_m$={Om_50:.4f}",
         x_scale="log",
     )
-    labels = ["$f_{CCH}$", "ΔM", "$H_0$", "$Ωm$", "$w_0$"]
+    labels = ["$f_{CCH}$", "$Δ_M$", "$H_0$", "$Ω_m$", "$w_0$"]
     corner.corner(
         samples,
         labels=labels,
@@ -174,7 +176,6 @@ def main():
     )
     plt.show()
 
-    chains_samples = sampler.get_chain(discard=burn_in, flat=False)
     plt.figure(figsize=(16, 1.5 * ndim))
     for n in range(ndim):
         plt.subplot2grid((ndim, 1), (n, 0))
@@ -192,35 +193,59 @@ if __name__ == "__main__":
 """
 Flat ΛCDM: w(z) = -1
 f_cc: 0.70 +0.10 -0.08
-ΔM: -0.202 +0.121 -0.124 mag
-H0: 65.9 +2.6 -2.6 km/s/Mpc
-Ωm: 0.349 +0.025 -0.023
+ΔM: -0.204 +0.122 -0.123 mag
+H0: 65.9 +2.6 -2.7 km/s/Mpc
+Ωm: 0.349 +0.024 -0.023
 w0: -1
-Chi squared: 54.25
-Log likelihood: -142.73
+Chi squared: 54.26
+Log evidence: -146.8
 Degrees of freedom: 51
 
 ==============================
 
 Flat wCDM: w(z) = w0
 f_cc: 0.71 +0.10 -0.08
-ΔM: -0.179 +0.124 -0.125
+ΔM: -0.178 +0.125 -0.126
 H0: 66.4 +2.7 -2.7
-Ωm: 0.306 +0.048 -0.056
+Ωm: 0.305 +0.048 -0.055
 w0: -0.85 +0.12 -0.14
-Chi squared: 52.28
-Log likelihood: -142.14
+Chi squared: 52.27
+Log evidence: -147.4
 Degrees of freedom: 50
 
 ==============================
 
 Flat alternative: w(z) = -1 + 2 * (1 + w0) / ((1 + z)**3 + 1)
 f_cc: 0.71 +0.10 -0.08
-ΔM: -0.180 +0.125 -0.124 mag
+ΔM: -0.178 +0.124 -0.125 mag
 H0: 66.3 +2.7 -2.7 km/s/Mpc
-Ωm: 0.321 +0.034 -0.034
+Ωm: 0.320 +0.035 -0.034
 w0: -0.84 +0.12 -0.14
-Chi squared: 51.97
-Log likelihood: -141.94
+Chi squared: 51.87
+Log evidence: -147.2
 Degrees of freedom: 50
+
+
+f_cc: 0.71 +0.10 -0.08
+ΔM: -0.176 +0.123 -0.123 mag
+H0: 66.4 +2.7 -2.6 km/s/Mpc
+Ωm: 0.319 +0.025 -0.024
+w0: -5/6 (fixed)
+wa: -(1 + w0) = -1/6
+Chi squared: 52.19
+Log evidence: -146.0
+Degrees of freedom: 51
+
+==============================
+
+Flat CPL: w(z) = w0 + wa * z / (1 + z)
+f_cc: 0.71 +0.10 -0.08
+ΔM: -0.241 +0.130 -0.130 mag
+H0: 63.6 +3.0 -3.0 km/s/Mpc
+Ωm: 0.426 +0.047 -0.058
+w0: -0.56 +0.29 -0.24
+wa: -3.87 +2.40 -2.83
+Chi squared: 50.24
+Log evidence: -144.3
+Degrees of freedom: 49
 """
