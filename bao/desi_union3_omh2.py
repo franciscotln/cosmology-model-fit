@@ -73,7 +73,7 @@ quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int32
 
 
 @njit
-def theory_predictions(z, qty, params):
+def bao_theory(z, qty, params):
     DV_mask = qty == 0
     DM_mask = qty == 1
     DH_mask = qty == 2
@@ -96,9 +96,7 @@ def chi_squared(params):
     delta_sn = mu_vals - mu_theory(params)
     chi_sn = delta_sn.dot(cho_solve(cho_sn, delta_sn, check_finite=False))
 
-    delta_bao = bao_data["value"] - theory_predictions(
-        bao_data["z"], quantities, params
-    )
+    delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
     chi_bao = delta_bao.dot(cho_solve(cho_bao, delta_bao, check_finite=False))
     return chi_sn + chi_bao + chi2_prior
 
@@ -108,7 +106,7 @@ bounds = np.array(
         (120, 160),  # rd
         (60, 75),  # H0
         (0.1, 0.6),  # Ωm
-        (-1.5, -0.5),  # w0
+        (-1.5, 0.0),  # w0
         (-0.7, 0.7),  # ΔM
     ],
     dtype=np.float64,
@@ -197,7 +195,7 @@ def main():
     print(f"Degs of freedom: {degs_of_freedom}")
 
     plot_bao_predictions(
-        theory_predictions=lambda z, qty: theory_predictions(z, qty, best_fit),
+        theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
         data=bao_data,
         errors=np.sqrt(np.diag(bao_cov_matrix)),
         title=bao_legend,
@@ -258,34 +256,34 @@ Degs of freedom: 32
 ===============================
 
 Flat wCDM
-rd: 142.52 +2.39 -2.55 Mpc
-H0: 69.31 +1.10 -1.05 km/s/Mpc
+rd: 142.59 +2.38 -2.55 Mpc
+H0: 69.29 +1.10 -1.05 km/s/Mpc
 Ωm: 0.298 +0.009 -0.009
-w0: -0.866 +0.051 -0.051 (prior width 1.0: -1.5 to -0.5)
-Chi squared: 32.1
-Log evidence: -30.0 (Δ ln(Z) = 1.2 over ΛCDM)
+w0: -0.866 +0.050 -0.052 (prior width 1.5: -1.5 to 0.0)
+Chi squared: 32.2
+Log evidence: -30.3 (Bayesian evidence 0.91 over ΛCDM)
 Degs of freedom: 31
 
 ===============================
 
 Flat -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-rd: 144.33 +1.65 -1.65 Mpc
-H0: 67.94 +0.99 -0.97 km/s/Mpc
-Ωm: 0.310 +0.009 -0.008
-w0: -0.802 +0.065 -0.067 (prior width 1.0: -1.5 to -0.5)
+rd: 144.32 +1.64 -1.66 Mpc
+H0: 67.94 +1.00 -0.97 km/s/Mpc
+Ωm: 0.310 +0.009 -0.009
+w0: -0.802 +0.065 -0.067 (prior width 1.5: -1.5 to 0.0)
 Chi squared: 30.4
-Log evidence: -28.8 (Δ ln(Z) = 2.4 over ΛCDM)
+Log evidence: -29.2 (Bayesian evidence 2.0 over ΛCDM)
 Degs of freedom: 31
 
 ===============================
 
 Flat w0waCDM
-rd: 148.10 +2.37 -3.02 Mpc
-H0: 65.76 +1.86 -1.52 km/s/Mpc
-Ωm: 0.331 +0.016 -0.018
-w0: -0.696 +0.115 -0.108 (prior width 1.0: -1.1 to -0.1)
-wa: -1.007 +0.556 -0.549 (prior width 3.2: -2.6 to 0.6 to encompass the posterior distribution)
+rd: 148.14 +2.38 -3.00 Mpc
+H0: 65.74 +1.82 -1.51 km/s/Mpc
+Ωm: 0.331 +0.015 -0.017
+w0: -0.696 +0.113 -0.108 (prior width 1.5: -1.5 to 0.0)
+wa: -1.011 +0.546 -0.559 (prior width 4.0: -3.0 to 1.0)
 Chi squared: 28.8
-Log evidence: -29.3 (Δ ln(Z) = 1.9 over ΛCDM)
+Log evidence: -29.4 (Bayesian evidence 1.8 over ΛCDM)
 Degs of freedom: 30
 """

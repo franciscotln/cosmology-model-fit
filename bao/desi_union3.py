@@ -100,7 +100,7 @@ bounds = np.array(
         (-0.7, 0.7),  # ΔM
         (60, 75),  # H0
         (0.1, 0.6),  # Ωm
-        (-1.5, -0.5),  # w0
+        (-1.5, 0.0),  # w0
     ],
     dtype=np.float64,
 )
@@ -169,7 +169,6 @@ def main():
     log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
 
     print("Gelman-Rubin:", gelman_rubin(chains_samples))
-    print(f"Log Evidence: {log_evidence(samples, log_probs, log_probability):.2f}")
 
     [
         [dM_16, dM_50, dM_84],
@@ -185,6 +184,7 @@ def main():
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
+    print(f"Log Evidence: {log_evidence(samples, log_probs, log_probability):.2f}")
     print(f"Degs of freedom: {bao_data['value'].size + z_sn_vals.size - len(best_fit)}")
 
     plot_bao_predictions(
@@ -238,8 +238,6 @@ DESI BAO DR2 2025
 *******************************
 
 Flat ΛCDM
-r_d: 147.09 Mpc (fixed)
-ΔM: -0.119 +0.089 -0.088 mag
 H0: 68.69 +0.47 -0.47 km/s/Mpc
 Ωm: 0.304 +0.008 -0.008
 Chi squared: 38.82
@@ -249,37 +247,31 @@ Degs of freedom: 32
 ===============================
 
 Flat wCDM
-r_d: 147.09 Mpc (fixed)
-ΔM: -0.156 +0.089 -0.089 mag
-H0: 67.13 +0.74 -0.73 km/s/Mpc
+H0: 67.12 +0.74 -0.73 km/s/Mpc
 Ωm: 0.298 +0.009 -0.009
-w0: -0.866 +0.050 -0.051
+w0: -0.866 +0.051 -0.051 (prior width 1.5: -1.5 to 0.0)
 Chi squared: 32.15
-Log Evidence: -26.36 (Bayes factor 1.52 over ΛCDM)
+Log Evidence: -27.00 (Bayesian evidence 0.88 over ΛCDM)
 Degs of freedom: 31
 
 ===============================
 
 Flat -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-r_d: 147.09 Mpc (fixed)
-ΔM: -0.164 +0.090 -0.089 mag
-H0: 66.67 +0.81 -0.81 km/s/Mpc
+H0: 66.66 +0.81 -0.81 km/s/Mpc
 Ωm: 0.310 +0.009 -0.008
-w0: -0.803 +0.066 -0.066 (prior -1.5 to -0.5)
+w0: -0.802 +0.065 -0.066 (prior width 1.5: -1.5 to 0.0)
 Chi squared: 30.37
-Log Evidence: -25.24 (Bayes factor 2.64 over ΛCDM)
+Log Evidence: -25.87 (Bayesian evidence 2.01 over ΛCDM)
 Degs of freedom: 31
 
 ===============================
 
 Flat w0waCDM
-r_d: 147.09 Mpc (fixed)
-ΔM: -0.167 +0.089 -0.089 mag
-H0: 66.20 +0.90 -0.87 km/s/Mpc
-Ωm: 0.331 +0.015 -0.017
-w0: -0.697 +0.113 -0.108 (prior -1.1 to -0.1)
-wa: -1.011 +0.552 -0.548 (prior -2.6 to 0.6 to fully encompass the posterior distribution)
+H0: 66.21 +0.90 -0.88 km/s/Mpc
+Ωm: 0.331 +0.016 -0.017
+w0: -0.697 +0.112 -0.108 (prior width 1.5: -1.5 to 0.0)
+wa: -1.008 +0.549 -0.551 (prior width 4.0: -3.0 to 1.0)
 Chi squared: 28.79
-Log Evidence: -25.82 (Bayes factor 2.06 over ΛCDM)
+Log Evidence: -26.40 (Bayesian evidence 1.48 over ΛCDM)
 Degs of freedom: 30
 """
