@@ -100,17 +100,19 @@ bounds = np.array(
         (-0.7, 0.7),  # ΔM
         (60, 75),  # H0
         (0.1, 0.6),  # Ωm
-        (-2.0, 0.0),  # w0
+        (-1.5, -0.5),  # w0
     ],
     dtype=np.float64,
 )
+
+normalization = -np.log(np.prod(bounds[:, 1] - bounds[:, 0]))
 
 
 @njit
 def log_prior(params):
     if not np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
         return -np.inf
-    return 0.0
+    return normalization
 
 
 def log_likelihood(params):
@@ -241,7 +243,7 @@ r_d: 147.09 Mpc (fixed)
 H0: 68.69 +0.47 -0.47 km/s/Mpc
 Ωm: 0.304 +0.008 -0.008
 Chi squared: 38.82
-Log Evidence: -25.53
+Log Evidence: -27.88
 Degs of freedom: 32
 
 ===============================
@@ -249,44 +251,35 @@ Degs of freedom: 32
 Flat wCDM
 r_d: 147.09 Mpc (fixed)
 ΔM: -0.156 +0.089 -0.089 mag
-H0: 67.12 +0.75 -0.73 km/s/Mpc
+H0: 67.13 +0.74 -0.73 km/s/Mpc
 Ωm: 0.298 +0.009 -0.009
 w0: -0.866 +0.050 -0.051
-Chi squared: 32.16
-Log Evidence: -24.24 (Bayes factor 1.29 over ΛCDM)
+Chi squared: 32.15
+Log Evidence: -26.36 (Bayes factor 1.52 over ΛCDM)
 Degs of freedom: 31
 
 ===============================
 
 Flat -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
 r_d: 147.09 Mpc (fixed)
-ΔM: -0.164 +0.088 -0.090 mag
-H0: 66.66 +0.81 -0.81 km/s/Mpc
+ΔM: -0.164 +0.090 -0.089 mag
+H0: 66.67 +0.81 -0.81 km/s/Mpc
 Ωm: 0.310 +0.009 -0.008
-w0: -0.803 +0.066 -0.065
+w0: -0.803 +0.066 -0.066 (prior -1.5 to -0.5)
 Chi squared: 30.37
-Log Evidence: -23.11 (Bayes factor 2.42 over ΛCDM)
+Log Evidence: -25.24 (Bayes factor 2.64 over ΛCDM)
 Degs of freedom: 31
-
-Flat alternative with fixed to w0 = -5/6 which
-ensures w(-1) = -2/3 and expansion with constant acceleration in the far future
-ΔM: -0.157 +0.089 -0.088 mag
-H0: 67.00 +0.42 -0.42 km/s/Mpc
-Ωm: 0.309 +0.008 -0.008
-Chi squared: 30.60
-Log Evidence: -21.43 (Bayes factor 4.10 over ΛCDM)
-Degs of freedom: 32
 
 ===============================
 
 Flat w0waCDM
 r_d: 147.09 Mpc (fixed)
-ΔM: -0.168 +0.090 -0.090 mag
-H0: 66.20 +0.89 -0.87 km/s/Mpc
-Ωm: 0.331 +0.016 -0.017
-w0: -0.697 +0.113 -0.108
-wa: -1.010 +0.549 -0.545
-Chi squared: 28.81
-Log Evidence: -22.37 (Bayes factor 3.16 over ΛCDM)
+ΔM: -0.167 +0.089 -0.089 mag
+H0: 66.20 +0.90 -0.87 km/s/Mpc
+Ωm: 0.331 +0.015 -0.017
+w0: -0.697 +0.113 -0.108 (prior -1.1 to -0.1)
+wa: -1.011 +0.552 -0.548 (prior -2.6 to 0.6 to fully encompass the posterior distribution)
+Chi squared: 28.79
+Log Evidence: -25.82 (Bayes factor 2.06 over ΛCDM)
 Degs of freedom: 30
 """
