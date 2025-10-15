@@ -1,6 +1,5 @@
 from numba import njit
 import numpy as np
-from scipy.integrate import cumulative_trapezoid
 from scipy.linalg import cho_factor, cho_solve
 from y2024DES.data import get_data as get_sn_data
 from y2025BAO.data import get_data as get_bao_data
@@ -17,25 +16,33 @@ cho_bao = cho_factor(bao_cov_matrix)
 sn_grid = np.linspace(0, np.max(z_cmb), num=1000)
 one_plus_z_hel = 1 + z_hel
 
+bao_z_grid = np.linspace(0, np.max(bao_data["z"]), num=1000)
+
 
 @njit
 def Ez(z, params):
-    H0, Om, w0 = params[1], params[2], params[4]
-    h = H0 / 100
+    h, Om, w0 = params[1] / 100, params[2], params[4]
     Or = Or_h2 / h**2
     Ode = 1 - Om - Or
     one_plus_z = 1 + z
     rho_de = (2 * one_plus_z**3 / (1 + one_plus_z**3)) ** (2 * (1 + w0))
 
-    return np.sqrt(Or * one_plus_z**4 + Om * one_plus_z**3 + Ode * rho_de)
+    return (Or * one_plus_z**4 + Om * one_plus_z**3 + Ode * rho_de) ** 0.5
 
 
+@njit
 def theory_mu(params):
-    H0, offset_mag = params[1], params[-1]
-    integral_vals = cumulative_trapezoid(1 / Ez(sn_grid, params), sn_grid, initial=0)
-    I = np.interp(z_cmb, sn_grid, integral_vals)
-    dL = one_plus_z_hel * I * c / H0
-    return offset_mag + 25 + 5 * np.log10(dL)
+    DH_vals = DH_z(sn_grid, params)
+    cumul_DM = np.empty(sn_grid.size, dtype=np.float64)
+    cumul_DM[0] = 0.0
+
+    for i in range(1, sn_grid.size):
+        height = sn_grid[i] - sn_grid[i - 1]
+        cumul_DM[i] = cumul_DM[i - 1] + 0.5 * (DH_vals[i - 1] + DH_vals[i]) * height
+
+    I = np.interp(z_cmb, sn_grid, cumul_DM)
+
+    return params[-1] + 25 + 5 * np.log10(one_plus_z_hel * I)
 
 
 @njit
@@ -50,13 +57,15 @@ def DH_z(z, params):
 
 @njit
 def DM_z(z, params):
-    result = np.empty(z.size, dtype=np.float64)
-    for i in range(z.size):
-        zp = z[i]
-        x = np.linspace(0, zp, num=max(250, int(250 * zp)))
-        y = DH_z(x, params)
-        result[i] = np.trapz(y=y, x=x)
-    return result
+    DH_vals = DH_z(bao_z_grid, params)
+    cumul_dm = np.empty(bao_z_grid.size, dtype=np.float64)
+    cumul_dm[0] = 0.0
+
+    for i in range(1, bao_z_grid.size):
+        height = bao_z_grid[i] - bao_z_grid[i - 1]
+        cumul_dm[i] = cumul_dm[i - 1] + 0.5 * (DH_vals[i - 1] + DH_vals[i]) * height
+
+    return np.interp(z, bao_z_grid, cumul_dm)
 
 
 @njit
@@ -108,7 +117,7 @@ bounds = np.array(
         (60.0, 75.0),  # H0
         (0.1, 0.6),  # Ωm
         (0.019, 0.025),  # ωb
-        (-1.5, -0.5),  # w0
+        (-1.5, 0.0),  # w0
         (-0.7, 0.7),  # ΔM
     ],
     dtype=np.float64,
@@ -150,7 +159,7 @@ def main():
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
 
-    with Pool(6) as pool:
+    with Pool(8) as pool:
         sampler = emcee.EnsembleSampler(
             nwalkers,
             ndim,
@@ -173,9 +182,12 @@ def main():
         print("Autocorrelation time could not be computed", e)
 
     samples = sampler.get_chain(discard=burn_in, flat=True)
+    chains_samples = sampler.get_chain(discard=burn_in, flat=False)
     log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
 
-    pct = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
+    one_sigma_contours = [15.9, 50, 84.1]
+
+    pct = np.percentile(samples, one_sigma_contours, axis=0).T
     rd_16, rd_50, rd_84 = pct[0]
     H0_16, H0_50, H0_84 = pct[1]
     Om_16, Om_50, Om_84 = pct[2]
@@ -183,15 +195,14 @@ def main():
     w0_16, w0_50, w0_84 = pct[4]
     dM_16, dM_50, dM_84 = pct[5]
 
-    best_fit = np.array([rd_50, H0_50, Om_50, Obh2_50, w0_50, dM_50], dtype=np.float64)
-
-    one_sigma_contours = [15.9, 50, 84.1]
+    best_fit = np.percentile(samples, 50, axis=0)
 
     Omh2_samples = samples[:, 2] * (samples[:, 1] / 100) ** 2
     z_star_samples = cmb.z_star(samples[:, 3], Omh2_samples)
     Omh2_16, Omh2_50, Omh2_84 = np.percentile(Omh2_samples, one_sigma_contours)
     z_st_16, z_st_50, z_st_84 = np.percentile(z_star_samples, one_sigma_contours)
 
+    print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f}")
     print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
     print(f"Ωm: {Om_50:.4f} +{(Om_84 - Om_50):.4f} -{(Om_50 - Om_16):.4f}")
@@ -234,7 +245,6 @@ def main():
     )
     plt.show()
 
-    chains_samples = sampler.get_chain(discard=burn_in, flat=False)
     plt.figure(figsize=(16, 1.5 * ndim))
     for n in range(ndim):
         plt.subplot2grid((ndim, 1), (n, 0))
@@ -253,8 +263,8 @@ Flat ΛCDM w(z) = -1
 r_d: 148.74 +0.51 -0.50 Mpc
 H0: 67.55 +0.41 -0.41 km/s/Mpc
 Ωm: 0.3111 +0.0055 -0.0055
-ωb: 0.02224 +0.00012 -0.00013
-ωm: 0.14194 +0.00084 -0.00085
+ωb: 0.02224 +0.00012 -0.00012
+ωm: 0.14194 +0.00085 -0.00085
 r*: 144.73 Mpc
 z*: 1088.92 +0.17 -0.17
 Chi squared: 1659.07
@@ -264,46 +274,46 @@ Degrees of freedom: 1746
 ===============================
 
 Flat wCDM w(z) = w0
-r_d: 148.72 +0.50 -0.50 Mpc
-H0: 66.78 +0.56 -0.56 km/s/Mpc
-Ωm: 0.3155 +0.0061 -0.0060
-ωb: 0.02234 +0.00013 -0.00014
-ωm: 0.14072 +0.00107 -0.00106
-w0: -0.955 +0.023 -0.023 (prior width 1: -1.5 to -0.5)
+r_d: 148.72 +0.51 -0.50 Mpc
+H0: 66.78 +0.57 -0.57 km/s/Mpc
+Ωm: 0.3155 +0.0062 -0.0060
+ωb: 0.02234 +0.00014 -0.00013
+ωm: 0.14073 +0.00107 -0.00106
+w0: -0.955 +0.023 -0.023 (prior width 1.5: -1.5 to 0.0)
 r*: 145.00 Mpc
 z*: 1088.72 +0.19 -0.19
 Chi squared: 1655.57
-Log evidence: -851.2 (Bayes factor -1.1 in favour of ΛCDM)
+Log evidence: -851.6 (Bayes factor -1.5 in favour of ΛCDM)
 Degrees of freedom: 1745
 
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
 r_d: 148.52 +0.51 -0.51 Mpc
-H0: 66.43 +0.57 -0.57 km/s/Mpc
-Ωm: 0.3185 +0.0063 -0.0062
+H0: 66.44 +0.56 -0.58 km/s/Mpc
+Ωm: 0.3184 +0.0064 -0.0061
 ωb: 0.02236 +0.00013 -0.00013
-ωm: 0.14056 +0.00098 -0.00098
-w0: -0.896 +0.037 -0.037 (prior width 1: -1.5 to -0.5)
+ωm: 0.14055 +0.00098 -0.00098
+w0: -0.897 +0.037 -0.037 (prior width 1.5: -1.5 to 0.0)
 r*: 145.03 Mpc
 z*: 1088.69 +0.18 -0.18
 Chi squared: 1651.80
-Log evidence: -848.8 (Bayes factor 1.3 over ΛCDM)
+Log evidence: -849.2 (Bayes factor 0.9 over ΛCDM)
 Degrees of freedom: 1745
 
 ===============================
 
 Flat w(z) = w0 + wa * z / (1 + z)
-r_d: 147.99 +0.54 -0.54 Mpc
-H0: 66.57 +0.56 -0.56 km/s/Mpc
-Ωm: 0.3208 +0.0064 -0.0062
+r_d: 147.99 +0.53 -0.52 Mpc
+H0: 66.57 +0.57 -0.55 km/s/Mpc
+Ωm: 0.3208 +0.0063 -0.0062
 ωb: 0.02222 +0.00014 -0.00014
-ωm: 0.14219 +0.00110 -0.00111
-w0: -0.780 +0.058 -0.057  (prior width 1.0: -1.5 to -0.5)
-wa: -0.726 +0.226 -0.239 (prior width 2.5: -2.0 to 0.5 to encompass posterior)
-r*: 144.68 Mpc
-z*: 1088.96 +0.20 -0.20
-Chi squared: 1645.46
-Log evidence: -847.4 (Bayes factor 2.7 over ΛCDM)
+ωm: 0.14218 +0.00111 -0.00113
+w0: -0.781 +0.058 -0.058 (prior width 1.0: -1.5 to -0.5)
+wa: -0.726 +0.228 -0.239 (prior width 3.0: -2.0 to 1.0)
+r*: 144.69 Mpc
+z*: 1088.95 +0.20 -0.20
+Chi squared: 1645.56
+Log evidence: -847.9 (Bayes factor 2.2 over ΛCDM)
 Degrees of freedom: 1744
 """
