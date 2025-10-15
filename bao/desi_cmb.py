@@ -1,13 +1,8 @@
 from numba import njit
 import numpy as np
-import emcee
-import corner
 from scipy.linalg import cho_factor, cho_solve
-import matplotlib.pyplot as plt
-from multiprocessing import Pool
 from y2025BAO.data import get_data as get_bao_data
-import cmb.data_chen_compression as cmb
-from .plot_predictions import plot_bao_predictions
+import cmb.data_desi_compression as cmb
 
 c = cmb.c  # speed of light in km/s
 
@@ -19,8 +14,7 @@ Orh2 = cmb.Omega_r_h2()
 
 @njit
 def Ez(z, params):
-    H0, Om, w0 = params[1], params[2], params[4]
-    h = H0 / 100
+    h, Om, w0 = params[0] / 100, params[1], params[3]
     Or = Orh2 / h**2
     Ode = 1 - Om - Or
 
@@ -33,7 +27,7 @@ def Ez(z, params):
 
 @njit
 def H_z(z, params):
-    return params[1] * Ez(z, params)
+    return params[0] * Ez(z, params)
 
 
 @njit
@@ -68,8 +62,11 @@ qty_map = {
 quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int32)
 
 
-@njit
 def bao_predictions(z, qty, params):
+    H0, Om, Obh2 = params[0], params[1], params[2]
+    z_drag = cmb.z_drag(wb=Obh2, wm=Om * (H0 / 100) ** 2)
+    rd = cmb.rs_z(Ez, z_drag, params, H0, Obh2)
+
     results = np.empty(z.size, dtype=np.float64)
     DV_mask = qty == 0
     DM_mask = qty == 1
@@ -77,11 +74,11 @@ def bao_predictions(z, qty, params):
     results[DH_mask] = DH_z(z[DH_mask], params)
     results[DM_mask] = DM_z(z[DM_mask], params)
     results[DV_mask] = DV_z(z[DV_mask], params)
-    return results / params[0]
+    return results / rd
 
 
 def chi_squared(params):
-    H0, Om, Ob_h2 = params[1], params[2], params[3]
+    H0, Om, Ob_h2 = params[0], params[1], params[2]
 
     delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez, params, H0, Om, Ob_h2)
     chi2_cmb = np.dot(delta_cmb, np.dot(cmb.inv_cov_mat, delta_cmb))
@@ -94,11 +91,10 @@ def chi_squared(params):
 
 bounds = np.array(
     [
-        (120, 160),  # r_d
         (55, 75),  # H0
-        (0.25, 0.45),  # Ωm
+        (0.15, 0.50),  # Ωm
         (0.021, 0.023),  # Ωb * h^2
-        (-1.5, 0),  # w0
+        (-1.5, 0.0),  # w0
     ],
     dtype=np.float64,
 )
@@ -123,14 +119,17 @@ def log_probability(params):
 
 
 def main():
+    import emcee, corner
+    import matplotlib.pyplot as plt
+    from multiprocessing import Pool
+    from .plot_predictions import plot_bao_predictions
+
     ndim = len(bounds)
     nwalkers = 150
     burn_in = 200
     nsteps = 2200 + burn_in
-    initial_pos = np.zeros((nwalkers, ndim))
-
-    for dim, (lower, upper) in enumerate(bounds):
-        initial_pos[:, dim] = np.random.uniform(lower, upper, nwalkers)
+    np.random.seed(42)
+    initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
 
     with Pool(5) as pool:
         sampler = emcee.EnsembleSampler(
@@ -150,7 +149,7 @@ def main():
         tau = sampler.get_autocorr_time()
         print("auto-correlation time", tau)
         print("acceptance fraction", np.mean(sampler.acceptance_fraction))
-        print("effective samples", ndim * nwalkers * nsteps / np.max(tau))
+        print("effective samples", ndim * nwalkers * (nsteps - burn_in) / np.max(tau))
     except emcee.autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
 
@@ -158,20 +157,20 @@ def main():
     samples = sampler.get_chain(discard=burn_in, flat=True)
 
     pct = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
-    r_d_16, r_d_50, r_d_84 = pct[0]
-    H0_16, H0_50, H0_84 = pct[1]
-    Om_16, Om_50, Om_84 = pct[2]
-    Obh2_16, Obh2_50, Obh2_84 = pct[3]
-    w0_16, w0_50, w0_84 = pct[4]
+    H0_16, H0_50, H0_84 = pct[0]
+    Om_16, Om_50, Om_84 = pct[1]
+    Obh2_16, Obh2_50, Obh2_84 = pct[2]
+    w0_16, w0_50, w0_84 = pct[3]
 
-    best_fit = np.array([r_d_50, H0_50, Om_50, Obh2_50, w0_50], dtype=np.float64)
+    best_fit = np.percentile(samples, 50, axis=0)
 
-    Om_h2_samples = samples[:, 2] * (samples[:, 1] / 100) ** 2
-    z_st_samples = cmb.z_star(samples[:, 3], Om_h2_samples)
+    Om_h2_samples = samples[:, 1] * (samples[:, 0] / 100) ** 2
+    z_st_samples = cmb.z_star(samples[:, 2], Om_h2_samples)
+    z_drag_samples = cmb.z_drag(samples[:, 2], Om_h2_samples)
     Omh2_16, Omh2_50, Omh2_84 = np.percentile(Om_h2_samples, [15.9, 50, 84.1])
     z_st_16, z_st_50, z_st_84 = np.percentile(z_st_samples, [15.9, 50, 84.1])
+    z_dr_16, z_dr_50, z_dr_84 = np.percentile(z_drag_samples, [15.9, 50, 84.1])
 
-    print(f"r_d: {r_d_50:.2f} +{(r_d_84 - r_d_50):.2f} -{(r_d_50 - r_d_16):.2f} Mpc")
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
     print(f"Ωm: {Om_50:.4f} +{(Om_84 - Om_50):.4f} -{(Om_50 - Om_16):.4f}")
     print(f"ωm: {Omh2_50:.5f} +{(Omh2_84 - Omh2_50):.5f} -{(Omh2_50 - Omh2_16):.5f}")
@@ -179,6 +178,8 @@ def main():
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"r*: {cmb.rs_z(Ez, z_st_50, best_fit, H0_50, Obh2_50):.2f} Mpc")
     print(f"z*: {z_st_50:.2f} +{(z_st_84 - z_st_50):.2f} -{(z_st_50 - z_st_16):.2f}")
+    print(f"r_d: {cmb.rs_z(Ez, z_dr_50, best_fit, H0_50, Obh2_50):.2f} Mpc")
+    print(f"z_d: {z_dr_50:.2f} +{(z_dr_84 - z_dr_50):.2f} -{(z_dr_50 - z_dr_16):.2f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
 
     plot_bao_predictions(
@@ -187,7 +188,7 @@ def main():
         errors=np.sqrt(np.diag(bao_cov_matrix)),
         title=bao_legend,
     )
-    labels = ["$r_d$", "$H_0$", "$Ω_m$", "$Ω_b h^2$", "$w_0$"]
+    labels = ["$H_0$", "$Ω_m$", "$Ω_b h^2$", "$w_0$"]
     corner.corner(
         samples,
         labels=labels,
@@ -222,102 +223,61 @@ Dataset: DESI DR2 2024 + (θ∗,ωb,ωbc)CMB
 *******************************
 
 Flat ΛCDM w(z) = -1
-r_d: 148.41 +0.51 -0.52 Mpc
-H0: 68.01 +0.43 -0.44 km/s/Mpc
-Ωm: 0.3051 +0.0058 -0.0057
-ωm: 0.14112 +0.00092 -0.00090
-ωb: 0.02231 +0.00013 -0.00013
+H0: 68.48 +0.29 -0.29 km/s/Mpc
+Ωm: 0.2987 +0.0037 -0.0037
+ωm: 0.14009 +0.00061 -0.00061
+ωb: 0.02239 +0.00012 -0.00012
 w0: -1
-r*: 144.90 Mpc
-z*: 1091.83 +0.23 -0.23
-Chi squared: 11.76
-Degs of freedom: 14
-
-CHEN:
-r_d: 148.00 +0.52 -0.52 Mpc
-H0: 68.07 +0.44 -0.45 km/s/Mpc
-Ωm: 0.3076 +0.0060 -0.0058
-ωm: 0.14251 +0.00093 -0.00092
-ωb: 0.02246 +0.00013 -0.00013
-w0: -1
-r*: 144.46 Mpc
-z*: 1088.71 +0.17 -0.17
-Chi squared: 12.83
+r*: 145.13 Mpc
+z*: 1088.63 +0.14 -0.14
+r_d: 147.72 Mpc
+z_d: 1059.72 +0.26 -0.26
+Chi squared: 14.03
+Degs of freedom: 15
 
 ===============================
 
 Flat wCDM w(z) = w0
-r_d: 148.36 +0.52 -0.51 Mpc
-H0: 68.50 +1.00 -0.96 km/s/Mpc
-Ωm: 0.3016 +0.0085 -0.0084
-ωm: 0.14153 +0.00112 -0.00113
-ωb: 0.02228 +0.00014 -0.00014
-w0: -1.023 +0.038 -0.041
-r*: 144.82 Mpc
-z*: 1091.92 +0.27 -0.26
-Chi squared: 11.51
-Degs of freedom: 13
-
-CHEN:
-r_d: 147.95 +0.53 -0.52 Mpc
-H0: 68.83 +1.02 -0.98 km/s/Mpc
-Ωm: 0.3021 +0.0087 -0.0086
-ωm: 0.14316 +0.00116 -0.00117
-ωb: 0.02241 +0.00014 -0.00014
-w0: -1.036 +0.040 -0.042
-r*: 144.33 Mpc
-z*: 1088.81 +0.20 -0.21
-Chi squared: 12.17
+H0: 68.91 +0.96 -0.92 km/s/Mpc
+Ωm: 0.2956 +0.0074 -0.0073
+ωm: 0.14038 +0.00087 -0.00088
+ωb: 0.02236 +0.00013 -0.00013
+w0: -1.019 +0.038 -0.040
+r*: 145.07 Mpc
+z*: 1088.67 +0.17 -0.17
+r_d: 147.66 Mpc
+z_d: 1059.69 +0.27 -0.27
+Chi squared: 13.85
+Degs of freedom: 14
 
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-r_d: 148.42 +0.51 -0.52 Mpc
-H0: 68.03 +1.42 -1.35 km/s/Mpc
-Ωm: 0.3050 +0.0121 -0.0120
-ωm: 0.14116 +0.00108 -0.00108
-ωb: 0.02231 +0.00014 -0.00014
-w0: -1.002 +0.089 -0.091
-r*: 144.89 Mpc
-z*: 1091.84 +0.26 -0.25
-Chi squared: 11.77
-Degs of freedom: 13
-
-CHEN:
-r_d: 148.00 +0.52 -0.53 Mpc
-H0: 68.45 +1.46 -1.38 km/s/Mpc
-Ωm: 0.3045 +0.0123 -0.0122
-ωm: 0.14269 +0.00111 -0.00111
-ωb: 0.02245 +0.00014 -0.00014
-w0: -1.027 +0.090 -0.095
-r*: 144.42 Mpc
-z*: 1088.73 +0.20 -0.20
-Chi squared: 12.77
+H0: 68.21 +1.38 -1.34 km/s/Mpc
+Ωm: 0.3009 +0.0115 -0.0112
+ωm: 0.14000 +0.00077 -0.00078
+ωb: 0.02239 +0.00012 -0.00013
+w0: -0.983 +0.086 -0.087
+r*: 145.15 Mpc
+z*: 1088.61 +0.16 -0.16
+r_d: 147.74 Mpc
+z_d: 1059.73 +0.27 -0.27
+Chi squared: 13.98
+Degs of freedom: 14
 
 ===============================
 
 Flat w(z) = w0 + wa * z / (1 + z)
-r_d: 147.71 +0.57 -0.55 Mpc
-H0: 63.97 +2.11 -2.08 km/s/Mpc
-Ωm: 0.3482 +0.0250 -0.0227
-ωm: 0.14252 +0.00116 -0.00117
-ωb: 0.02219 +0.00014 -0.00014
-w0: -0.50 +0.26 -0.23
-wa: -1.49 +0.67 -0.75
-r*: 144.60 Mpc
-z*: 1092.12 +0.27 -0.28
-Chi squared: 6.81
-Degs of freedom: 12
-
-CHEN:
-r_d: 147.30 +0.55 -0.55 Mpc
-H0: 63.88 +2.11 -1.93 km/s/Mpc
-Ωm: 0.3535 +0.0235 -0.0233
-ωm: 0.14424 +0.00120 -0.00122
-ωb: 0.02233 +0.00014 -0.00014
-w0: -0.455 +0.240 -0.241
-wa: -1.658 +0.698 -0.714
-r*: 144.08 Mpc
-z*: 1088.97 +0.21 -0.21
-Chi squared: 6.45
+H0: 63.78 +2.02 -1.90 km/s/Mpc
+Ωm: 0.3489 +0.0231 -0.0220
+ωm: 0.14198 +0.00092 -0.00099
+ωb: 0.02223 +0.00013 -0.00013
+w0: -0.453 +0.228 -0.223
+wa: -1.594 +0.635 -0.682 (unconstrained)
+r*: 144.74 Mpc
+z*: 1088.93 +0.18 -0.19
+r_d: 147.35 Mpc
+z_d: 1059.52 +0.28 -0.28
+Chi squared: 7.29
+Degs of freedom: 13
 """
