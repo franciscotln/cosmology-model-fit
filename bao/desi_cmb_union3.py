@@ -14,8 +14,12 @@ bao_legend, bao_data, bao_cov_matrix = get_bao_data()
 cho_sn = cho_factor(cov_matrix_sn)
 cho_bao = cho_factor(bao_cov_matrix)
 
-sn_grid = np.linspace(0, np.max(z_sn_vals), num=1000)
+sn_grid = np.linspace(0, z_sn_vals.max(), num=1000)
+dx_sn = np.diff(sn_grid)
 one_plus_z = 1 + z_sn_vals
+
+bao_grid = np.linspace(0, bao_data["z"].max(), num=1000)
+dx_bao = np.diff(bao_grid)
 
 
 @njit
@@ -29,11 +33,20 @@ def Ez(z, params):
     return np.sqrt(Or * one_plus_z**4 + Om * one_plus_z**3 + Ode * rho_de)
 
 
+@njit
+def DM(grid, zs, dx, params):
+    dh_grid = DH_z(grid, params)
+    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    cum_dm = np.zeros(grid.size)
+    cum_dm[1:] = np.cumsum(dx * dy)
+    dms = np.interp(zs, grid, cum_dm)
+    return dms
+
+
+@njit
 def mu_theory(params):
-    H0, mag_offset = params[0], params[-1]
-    integral_vals = cumulative_trapezoid(1 / Ez(sn_grid, params), sn_grid, initial=0)
-    I = np.interp(z_sn_vals, sn_grid, integral_vals)
-    return mag_offset + 25 + 5 * np.log10(one_plus_z * I * c / H0)
+    dL = one_plus_z * DM(sn_grid, z_sn_vals, dx_sn, params)
+    return params[-1] + 25 + 5 * np.log10(dL)
 
 
 @njit
@@ -48,13 +61,7 @@ def DH_z(z, params):
 
 @njit
 def DM_z(z, params):
-    result = np.empty(z.size, dtype=np.float64)
-    for i in range(z.size):
-        zp = z[i]
-        x = np.linspace(0, zp, num=max(250, int(250 * zp)))
-        y = DH_z(x, params)
-        result[i] = np.trapz(y=y, x=x)
-    return result
+    return DM(bao_grid, z, dx_bao, params)
 
 
 @njit

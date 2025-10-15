@@ -14,9 +14,11 @@ cho_sn = cho_factor(cov_matrix_sn)
 cho_bao = cho_factor(bao_cov_matrix)
 
 sn_grid = np.linspace(0, np.max(z_cmb), num=1000)
+dx_sn = np.diff(sn_grid)
 one_plus_z_hel = 1 + z_hel
 
-bao_z_grid = np.linspace(0, np.max(bao_data["z"]), num=1000)
+bao_grid = np.linspace(0, np.max(bao_data["z"]), num=1000)
+dx_bao = np.diff(bao_grid)
 
 
 @njit
@@ -31,18 +33,19 @@ def Ez(z, params):
 
 
 @njit
+def DM(grid, zs, dx, params):
+    dh_grid = DH_z(grid, params)
+    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    cum_dm = np.zeros(grid.size)
+    cum_dm[1:] = np.cumsum(dx * dy)
+    dms = np.interp(zs, grid, cum_dm)
+    return dms
+
+
+@njit
 def theory_mu(params):
-    DH_vals = DH_z(sn_grid, params)
-    cumul_DM = np.empty(sn_grid.size, dtype=np.float64)
-    cumul_DM[0] = 0.0
-
-    for i in range(1, sn_grid.size):
-        height = sn_grid[i] - sn_grid[i - 1]
-        cumul_DM[i] = cumul_DM[i - 1] + 0.5 * (DH_vals[i - 1] + DH_vals[i]) * height
-
-    I = np.interp(z_cmb, sn_grid, cumul_DM)
-
-    return params[-1] + 25 + 5 * np.log10(one_plus_z_hel * I)
+    dL = one_plus_z_hel * DM(sn_grid, z_cmb, dx_sn, params)
+    return params[-1] + 25 + 5 * np.log10(dL)
 
 
 @njit
@@ -57,15 +60,7 @@ def DH_z(z, params):
 
 @njit
 def DM_z(z, params):
-    DH_vals = DH_z(bao_z_grid, params)
-    cumul_dm = np.empty(bao_z_grid.size, dtype=np.float64)
-    cumul_dm[0] = 0.0
-
-    for i in range(1, bao_z_grid.size):
-        height = bao_z_grid[i] - bao_z_grid[i - 1]
-        cumul_dm[i] = cumul_dm[i - 1] + 0.5 * (DH_vals[i - 1] + DH_vals[i]) * height
-
-    return np.interp(z, bao_z_grid, cumul_dm)
+    return DM(bao_grid, z, dx_bao, params)
 
 
 @njit
