@@ -13,11 +13,11 @@ C = c0 / 1000  # Speed of light (km/s)
 H0 = 70  # Hubble constant (km/s/Mpc)
 
 # params indices
-D_M = 0
+OFFSET = 0
 OM = 1
 W0 = 2
 
-bounds = np.array([(-0.6, 0.6), (0.0, 1.0), (-2.0, 0.0)])  # ΔM, Ωm, w0
+bounds = np.array([(-0.6, 0.6), (0.0, 1.0), (-1.5, 0.0)])  # ΔM, Ωm, w0
 
 z_grid = np.linspace(0, np.max(z_values), num=1000)
 
@@ -34,7 +34,7 @@ def mu_theory(params):
     a0_over_ae = 1 + z_values
     integral_values = cumulative_trapezoid(1 / Ez(z_grid, params), z_grid, initial=0)
     I = np.interp(z_values, z_grid, integral_values)
-    return params[D_M] + 25 + 5 * np.log10(a0_over_ae * (C / H0) * I)
+    return params[OFFSET] + 25 + 5 * np.log10(a0_over_ae * (C / H0) * I)
 
 
 def chi_squared(params):
@@ -109,7 +109,7 @@ def main():
     print_color("Gelman-Rubin R-hat:", gelman_rubin(chain_samples))
 
     one_sigma_ci = [15.9, 50, 84.1]
-    dM_16, dM_50, dM_84 = np.percentile(samples[:, D_M], one_sigma_ci)
+    dM_16, dM_50, dM_84 = np.percentile(samples[:, OFFSET], one_sigma_ci)
     Om_16, Om_50, Om_84 = np.percentile(samples[:, OM], one_sigma_ci)
     w0_16, w0_50, w0_84 = np.percentile(samples[:, W0], one_sigma_ci)
 
@@ -123,12 +123,11 @@ def main():
     ss_tot = np.sum((mu_vals - np.mean(mu_vals)) ** 2)
     r2 = 1 - (ss_res / ss_tot)
 
-    # Calculate root mean square deviation
     rmsd = np.sqrt(np.mean(residuals**2))
 
-    dM_label = f"{dM_50:.4f} +{dM_84-dM_50:.4f}/-{dM_50-dM_16:.4f}"
-    Om_label = f"{Om_50:.4f} +{Om_84-Om_50:.4f}/-{Om_50-Om_16:.4f}"
-    w0_label = f"{w0_50:.4f} +{w0_84-w0_50:.4f}/-{w0_50-w0_16:.4f}"
+    dM_label = f"{dM_50:.3f} +{dM_84-dM_50:.3f}/-{dM_50-dM_16:.3f}"
+    Om_label = f"{Om_50:.3f} +{Om_84-Om_50:.3f}/-{Om_50-Om_16:.3f}"
+    w0_label = f"{w0_50:.3f} +{w0_84-w0_50:.3f}/-{w0_50-w0_16:.3f}"
 
     print_color("Dataset", legend)
     print_color("z range", f"{z_values[0]:.3f} - {z_values[-1]:.3f}")
@@ -141,7 +140,7 @@ def main():
     print_color("Skewness of residuals", f"{skew(residuals):.3f}")
     print_color("Chi squared", f"{chi_squared(best_fit_params):.1f}")
     print_color(
-        "Log Evidence", f"{log_evidence(samples, log_probs, log_probability):.1f}"
+        "Log evidence", f"{log_evidence(samples, log_probs, log_probability):.1f}"
     )
     print_color("Degs of freedom", len(z_values) - len(best_fit_params))
 
@@ -197,42 +196,40 @@ Sample size: 22
 
 Flat ΛCDM: w(z) = -1
 
-ΔM: -0.0698 +0.0868/-0.0876
-Ωm: 0.3572 +0.0273/-0.0261
+Ωm: 0.357 +0.027/-0.026
 w0: -1
 wa: 0
 R-squared (%): 99.95
 RMSD (mag): 0.050
 Skewness of residuals: 0.590
 Chi squared: 24.0
+Log evidence: -16.4
 Degs of freedom: 20
 
 ===============================
 
 Flat wCDM: w(z) = w0
 
-ΔM: -0.0579 +0.0868/-0.0874
-Ωm: 0.2518 +0.0868/-0.1085
-w0: -0.7463 +0.1521/-0.1835
-wa: 0
+Ωm: 0.252 +0.086/-0.108
+w0: -0.748 +0.153/-0.183
 R-squared (%): 99.94
 RMSD (mag): 0.055
-Skewness of residuals: -1.272
+Skewness of residuals: -1.266
 Chi squared: 22.1
-degrees of freedom: 19
+Log evidence: -16.5
+Degs of freedom: 19
 
 ===============================
 
 Flat alternative: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
 
-ΔM: -0.0541 +0.0873/-0.0860
-Ωm: 0.2955 +0.0526/-0.0540
-w0: -0.7517 +0.1441/-0.1702
-wa: -(1 + w0) = 0.2483 +0.1702/-0.1441
+Ωm: 0.295 +0.052/-0.053
+w0: -0.751 +0.142/-0.169
 R-squared (%): 99.94
 RMSD (mag): 0.053
-Skewness of residuals: -1.072
+Skewness of residuals: -1.077
 Chi squared: 21.7
+Log evidence: -16.5
 Degs of freedom: 19
 
 ===============================
