@@ -135,18 +135,15 @@ def main():
     nsteps = 2000 + burn_in
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
+    moves = [
+        (emcee.moves.KDEMove(), 0.30),
+        (emcee.moves.DEMove(), 0.56),
+        (emcee.moves.DESnookerMove(), 0.14),
+    ]
 
     with Pool(6) as pool:
         sampler = emcee.EnsembleSampler(
-            nwalkers,
-            ndim,
-            log_probability,
-            pool=pool,
-            moves=[
-                (emcee.moves.KDEMove(), 0.30),
-                (emcee.moves.DEMove(), 0.56),
-                (emcee.moves.DESnookerMove(), 0.14),
-            ],
+            nwalkers, ndim, log_probability, pool=pool, moves=moves
         )
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
 
@@ -169,7 +166,7 @@ def main():
         [w0_16, w0_50, w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = np.array([dM_50, rd_50, Om_50, w0_50])
+    best_fit = np.percentile(samples, 50, axis=0)
 
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f}")
     print(f"r_d * h: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f}")

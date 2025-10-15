@@ -102,18 +102,18 @@ def chi_squared(params):
 
     f_cc = params[0]
     delta_cc = H_cc_vals - H_z(z_cc_vals, params)
-    chi_cc = f_cc**-2 * delta_cc.dot(cho_solve(cho_cc, delta_cc, check_finite=False))
+    chi_cc = f_cc**2 * delta_cc.dot(cho_solve(cho_cc, delta_cc, check_finite=False))
     return chi_sn + chi_bao + chi_cc
 
 
 bounds = np.array(
     [
-        (0.1, 1.5),  # f_cc
-        (-0.55, 0.55),  # ΔM
-        (50, 80),  # H0
-        (110, 175),  # r_d
-        (0.2, 0.7),  # Ωm
-        (-2.0, 0.0),  # w0
+        (0.5, 2.5),  # f_cc: CC error rescaling (overestimated)
+        (-0.55, 0.55),  # ΔM: magnitude offset
+        (50, 80),  # H0: Hubble constant at present
+        (110, 175),  # r_d: sound horizon at drag epoch
+        (0.2, 0.7),  # Ωm: matter density parameter at present
+        (-1.5, 0.0),  # w0: dark energy equation of state at present
     ],
     dtype=np.float64,
 )
@@ -130,7 +130,7 @@ def log_prior(params):
 
 def log_likelihood(params):
     f_cc = params[0]
-    normalization_cc = N_cc * np.log(2 * np.pi) + logdet_cc + 2 * N_cc * np.log(f_cc)
+    normalization_cc = N_cc * np.log(2 * np.pi) + logdet_cc - 2 * N_cc * np.log(f_cc)
     return -0.5 * chi_squared(params) - 0.5 * normalization_cc
 
 
@@ -156,18 +156,15 @@ def main():
     nsteps = 2000 + burn_in
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
+    moves = [
+        (emcee.moves.KDEMove(), 0.30),
+        (emcee.moves.DEMove(), 0.56),
+        (emcee.moves.DESnookerMove(), 0.14),
+    ]
 
-    with Pool(6) as pool:
+    with Pool(10) as pool:
         sampler = emcee.EnsembleSampler(
-            nwalkers,
-            ndim,
-            log_probability,
-            pool=pool,
-            moves=[
-                (emcee.moves.KDEMove(), 0.30),
-                (emcee.moves.DEMove(), 0.56),
-                (emcee.moves.DESnookerMove(), 0.14),
-            ],
+            nwalkers, ndim, log_probability, pool=pool, moves=moves
         )
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
 
@@ -180,6 +177,7 @@ def main():
         print("Autocorrelation time could not be computed", e)
 
     samples = sampler.get_chain(discard=burn_in, flat=True)
+    chains_samples = sampler.get_chain(discard=burn_in, flat=False)
     log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
 
     [
@@ -191,7 +189,7 @@ def main():
         [w0_16, w0_50, w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = np.array([f_cc_50, dM_50, h0_50, rd_50, Om_50, w0_50], dtype=np.float64)
+    best_fit = np.percentile(samples, 50, axis=0)
 
     deg_of_freedom = sn_sample + bao_data["value"].size + z_cc_vals.size - ndim
 
@@ -202,9 +200,7 @@ def main():
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
-    print(
-        f"Log evidence (ln Z): {log_evidence(samples, log_probs, log_probability):.2f}"
-    )
+    print(f"Log evidence: {log_evidence(samples, log_probs, log_probability):.2f}")
     print(f"Degrees of freedom: {deg_of_freedom}")
 
     plot_bao_predictions(
@@ -217,7 +213,7 @@ def main():
         H_z=lambda z: H_z(z, best_fit),
         z=z_cc_vals,
         H=H_cc_vals,
-        H_err=np.sqrt(np.diag(cov_matrix_cc)) * f_cc_50,
+        H_err=np.sqrt(np.diag(cov_matrix_cc)) / f_cc_50,
         label=f"{cc_legend} $H_0$: {h0_50:.1f} km/s/Mpc",
     )
     plot_sn_predictions(
@@ -246,7 +242,6 @@ def main():
     )
     plt.show()
 
-    chains_samples = sampler.get_chain(discard=burn_in, flat=False)
     plt.figure(figsize=(16, 1.5 * ndim))
     for n in range(ndim):
         plt.subplot2grid((ndim, 1), (n, 0))
@@ -263,56 +258,48 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM: w(z) = -1
-f_cc: 0.70 +0.10 -0.08
-ΔM: -0.059 +0.071 -0.074 mag
-H0: 68.2 +2.3 -2.3 km/s/Mpc
-r_d: 147.3 +5.1 -4.7 Mpc
+f_cc: 1.48 +0.19 -0.18
+H0: 68.3 +2.3 -2.3 km/s/Mpc
+r_d: 147.2 +4.9 -4.6 Mpc
 Ωm: 0.311 +0.008 -0.008
-w0: -1
-wa: 0
-Chi squared: 1689.28
-Log evidence (ln Z): -975.78
+Chi squared: 1691.30
+Log evidence: -975.19
 Degrees of freedom: 1776
 
 ===============================
 
 Flat wCDM: w(z) = w0
-f_cc: 0.70 +0.10 -0.08
-ΔM: -0.065 +0.073 -0.075
-H0: 67.2 +2.3 -2.3
-r_d: 147.2 +5.1 -4.8
+f_cc: 1.46 +0.18 -0.18
+H0: 67.1 +2.2 -2.3 km/s/Mpc
+r_d: 147.2 +5.0 -4.6 Mpc
 Ωm: 0.299 +0.009 -0.009
-w0: -0.875 +0.038 -0.038 (prior width 2.0: -2.0 to 0.0)
-wa: 0
-Chi squared: 1678.48 (Δ to ΛCDM: 10.80)
-Log evidence (ln Z): -973.35 (Δ to ΛCDM: 2.43)
+w0: -0.874 +0.038 -0.039 (prior width 1.5: -1.5 to 0.0)
+Chi squared: 1680.34
+Log evidence: -972.95 (Bayes factor 2.24 over ΛCDM)
 Degrees of freedom: 1775
 
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-f_cc: 0.71 +0.10 -0.08
-ΔM: -0.062 +0.073 -0.075 mag
-H0: 67.0 +2.4 -2.3 km/s/Mpc
-r_d: 147.1 +5.1 -4.8 Mpc
+f_cc: 1.46 +0.18 -0.18
+H0: 67.1 +2.3 -2.3 km/s/Mpc
+r_d: 147.1 +5.0 -4.6 Mpc
 Ωm: 0.308 +0.008 -0.008
-w0: -0.839 +0.045 -0.045 (prior width 2.0: -2.0 to 0.0)
-wa: -(1 + w0)
-Chi squared: 1676.83 (Δ to ΛCDM: 12.45)
-Log evidence (ln Z): -972.79 (Δ to ΛCDM: 2.99)
+w0: -0.839 +0.045 -0.046 (prior width 1.5: -1.5 to 0.0)
+Chi squared: 1678.88
+Log evidence: -971.81 (Bayes factor 3.38 over ΛCDM)
 Degrees of freedom: 1775
 
 ===============================
 
 Flat w0waCDM: w(z) = w0 + wa * z / (1 + z)
-f_cc: 0.71 +0.10 -0.08
-ΔM: -0.057 +0.073 -0.075 mag
-H0: 67.0 +2.4 -2.3 km/s/Mpc
-r_d: 147.0 +5.1 -4.8 Mpc
-Ωm: 0.320 +0.013 -0.016
-w0: -0.796 +0.071 -0.066 (prior width 2.0: -2.0 to 0.0)
-wa: -0.656 +0.459 -0.446 (prior width 4.0: -2.5 to 1.5 to encompass the posterior)
-Chi squared: 1675.84
-Log evidence (ln Z): -973.87 (Δ to ΛCDM: 1.91)
+f_cc: 1.46 +0.18 -0.17
+H0: 67.0 +2.3 -2.3 km/s/Mpc
+r_d: 147.0 +5.0 -4.7 Mpc
+Ωm: 0.321 +0.013 -0.016
+w0: -0.794 +0.071 -0.067 (prior width 1.5: -1.5 to 0.0)
+wa: -0.665 +0.459 -0.451 (prior width 4.5: -3.0 to 1.5)
+Chi squared: 1677.82
+Log evidence: -972.99 (Bayes factor 2.20 over ΛCDM)
 Degrees of freedom: 1774
 """
