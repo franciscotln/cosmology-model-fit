@@ -14,11 +14,11 @@ bao_legend, bao_data, bao_cov_matrix = get_bao_data()
 cho_sn = cho_factor(cov_matrix_sn)
 cho_bao = cho_factor(bao_cov_matrix)
 
-sn_grid = np.linspace(0, z_sn_vals.max(), num=1000)
+sn_grid = np.linspace(0, z_sn_vals.max() + 0.1, num=1000)
 dx_sn = np.diff(sn_grid)
 one_plus_z = 1 + z_sn_vals
 
-bao_grid = np.linspace(0, bao_data["z"].max(), num=1000)
+bao_grid = np.linspace(0, bao_data["z"].max() + 0.1, num=1000)
 dx_bao = np.diff(bao_grid)
 
 
@@ -270,7 +270,7 @@ H0: 68.4 +0.3 -0.3 km/s/Mpc
 ωm: 0.14027 +0.00060 -0.00060
 z*: 1088.66 +0.14 -0.14
 r*: 145.10 Mpc
-z_d: 1059.69 +0.26 -0.26
+z_d: 1059.70 +0.26 -0.26
 r_d: 147.68 Mpc
 Chi squared: 42.78
 Log evidence: -35.6
@@ -284,13 +284,13 @@ Flat wCDM w(z) = w0
 H0: 67.7 +0.7 -0.7 km/s/Mpc
 Ωm: 0.305 +0.006 -0.006
 ωb: 0.02242 +0.00013 -0.00013
-ωm: 0.13966 +0.00081 -0.00082
+ωm: 0.13966 +0.00081 -0.00081
 w0: -0.967 +0.028 -0.028 (prior width 1.5: -1.5 to 0.0)
 z*: 1088.56 +0.16 -0.16
 r*: 145.23 Mpc
-z_d: 1059.76 +0.28 -0.27
+z_d: 1059.77 +0.27 -0.27
 r_d: 147.81 Mpc
-Chi squared: 41.46
+Chi squared: 41.47
 Log evidence: -38.0 (Bayes factor: -2.4 in favour of ΛCDM)
 Degs of freedom: 34
 
@@ -301,15 +301,15 @@ Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
 (θ∗,ωb,ωbc)CMB
 H0: 66.7 +0.8 -0.8 km/s/Mpc
 Ωm: 0.314 +0.007 -0.007
-ωb: 0.02244 +0.00012 -0.00012
-ωm: 0.13951 +0.00071 -0.00069
-w0: -0.884 +0.052 -0.052 (prior width 1.5: -1.5 to 0.0)
+ωb: 0.02243 +0.00012 -0.00012
+ωm: 0.13952 +0.00069 -0.00070
+w0: -0.885 +0.051 -0.051 (prior width 1.5: -1.5 to 0.0)
 z*: 1088.54 +0.15 -0.15
-r*: 145.26 Mpc
+r*: 145.25 Mpc
 z_d: 1059.79 +0.27 -0.27
 r_d: 147.83 Mpc
-Chi squared: 38.01
-Log evidence: -35.6 (Bayes factor: 0.0 equal to ΛCDM)
+Chi squared: 38.02
+Log evidence: -35.7 (Bayes factor: -0.1 equal to ΛCDM)
 Degs of freedom: 34
 
 ===============================
