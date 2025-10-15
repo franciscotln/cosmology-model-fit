@@ -96,15 +96,13 @@ def chi_squared(params):
     chi_bao = np.dot(delta_bao, cho_solve(cho_bao, delta_bao, check_finite=False))
 
     delta_cc = H_cc_vals - H_z(z_cc_vals, params)
-    chi_cc = f_cc**-2 * np.dot(
-        delta_cc, cho_solve(cho_cc, delta_cc, check_finite=False)
-    )
+    chi_cc = f_cc**2 * delta_cc.dot(cho_solve(cho_cc, delta_cc, check_finite=False))
     return chi_sn + chi_bao + chi_cc
 
 
 bounds = np.array(
     [
-        (0.1, 1.5),  # f_cc
+        (0.5, 2.5),  # f_cc: overestimation of CC errors we divide the cov by f^2
         (-0.7, 0.7),  # ΔM
         (55, 80),  # H0
         (125, 170),  # r_d
@@ -126,7 +124,7 @@ def log_prior(params):
 
 def log_likelihood(params):
     f_cc = params[0]
-    normalization_cc = N_cc * np.log(2 * np.pi) + logdet_cc + 2 * N_cc * np.log(f_cc)
+    normalization_cc = N_cc * np.log(2 * np.pi) + logdet_cc - 2 * N_cc * np.log(f_cc)
     return -0.5 * chi_squared(params) - 0.5 * normalization_cc
 
 
@@ -176,6 +174,7 @@ def main():
         print("Autocorrelation time could not be computed", e)
 
     samples = sampler.get_chain(discard=burn_in, flat=True)
+    chains_samples = sampler.get_chain(discard=burn_in, flat=False)
     log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
 
     [
@@ -187,13 +186,13 @@ def main():
         [w0_16, w0_50, w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = np.array([f_cc_50, dM_50, h0_50, rd_50, Om_50, w0_50], dtype=np.float64)
+    best_fit = np.percentile(samples, 50, axis=0)
 
     Omh2_samples = samples[:, 4] * samples[:, 2] ** 2 / 100**2
     Omh2_16, Omh2_50, Omh2_84 = np.percentile(Omh2_samples, [15.9, 50, 84.1])
 
     deg_of_freedom = (
-        z_sn_vals.size + bao_data["value"].size + z_cc_vals.size - len(best_fit)
+        len(z_sn_vals) + len(bao_data["value"]) + len(z_cc_vals) - len(best_fit)
     )
 
     print(f"f_cc: {f_cc_50:.2f} +{(f_cc_84 - f_cc_50):.2f} -{(f_cc_50 - f_cc_16):.2f}")
@@ -228,7 +227,7 @@ def main():
         H_z=lambda z: H_z(z, best_fit),
         z=z_cc_vals,
         H=H_cc_vals,
-        H_err=np.sqrt(np.diag(cov_matrix_cc)) * f_cc_50,
+        H_err=np.sqrt(np.diag(cov_matrix_cc)) / f_cc_50,
         label=f"{cc_legend} $H_0$: {h0_50:.1f} km/s/Mpc",
     )
 
@@ -248,7 +247,6 @@ def main():
     )
     plt.show()
 
-    chains_samples = sampler.get_chain(discard=burn_in, flat=False)
     plt.figure(figsize=(16, 1.5 * ndim))
     for n in range(ndim):
         plt.subplot2grid((ndim, 1), (n, 0))
@@ -265,53 +263,52 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM: w(z) = -1
-f_cc: 0.70 +0.10 -0.08
-H0: 68.6 +2.4 -2.3 km/s/Mpc
-r_d: 147.1 +5.1 -4.8 Mpc
+f_cc: 1.47 +0.18 -0.18
+H0: 68.7 +2.3 -2.3 km/s/Mpc
+r_d: 147.1 +5.0 -4.6 Mpc
 Ωm: 0.305 +0.008 -0.008
-ωm: 0.1436 +0.0098 -0.0096
-w0: -1
-Chi squared: 69.16
-Log evidence (ln Z): -162.23
+ωm: 0.1436 +0.0095 -0.0093
+Chi squared: 71.14
+Log evidence (ln Z): -161.80
 Degrees of freedom: 63
 
 ===============================
 
 Flat wCDM: w(z) = w0
-f_cc: 0.70 +0.10 -0.08
-H0: 67.1 +2.4 -2.4 km/s/Mpc
-r_d: 147.2 +5.2 -4.8 Mpc
+f_cc: 1.46 +0.18 -0.18
+H0: 67.1 +2.3 -2.3 km/s/Mpc
+r_d: 147.2 +5.0 -4.6 Mpc
 Ωm: 0.298 +0.009 -0.009
-ωm: 0.1344 +0.0103 -0.0100
-w0: -0.870 +0.050 -0.051 (prior width 1.5: -1.5 to 0.0)
-Chi squared: 62.46
-Log evidence (ln Z): -161.63 (Bayes factor 0.60 over ΛCDM)
+ωm: 0.1343 +0.0099 -0.0096
+w0: -0.871 +0.051 -0.051 (prior width 1.5: -1.5 to 0.0)
+Chi squared: 64.49
+Log evidence (ln Z): -161.10 (Bayes factor 0.7 over ΛCDM)
 Degrees of freedom: 62
 
 ===============================
 
 Flat alternative: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-f_cc: 0.71 +0.10 -0.08
-H0: 66.7 +2.4 -2.4 km/s/Mpc
-r_d: 147.1 +5.1 -4.7 Mpc
+f_cc: 1.46 +0.18 -0.18
+H0: 66.7 +2.3 -2.4 km/s/Mpc
+r_d: 147.2 +5.0 -4.6 Mpc
 Ωm: 0.310 +0.009 -0.008
-ωm: 0.1380 +0.0097 -0.0094
-w0: -0.811 +0.065 -0.067 (prior width 1.5: -1.5 to 0.0)
-Chi squared: 60.74
-Log evidence (ln Z): -160.60 (Bayes factor 1.63 over ΛCDM)
+ωm: 0.1379 +0.0095 -0.0092
+w0: -0.812 +0.065 -0.068 (prior width 1.5: -1.5 to 0.0)
+Chi squared: 62.79
+Log evidence (ln Z): -160.26 (Bayes factor 1.54 over ΛCDM)
 Degrees of freedom: 62
 
 ===============================
 
 Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
-f_cc: 0.71 +0.10 -0.08
-H0: 66.4 +2.4 -2.4 km/s/Mpc
-r_d: 147.0 +5.2 -4.8 Mpc
-Ωm: 0.329 +0.016 -0.019
-ωm: 0.1441 +0.0113 -0.0113
-w0: -0.721 +0.113 -0.109 (prior width 1.5: -1.5 to 0.0)
-wa: -0.903 +0.563 -0.563 (prior width 4.0: -3.0 to 1.0)
-Chi squared: 59.16
-Log evidence (ln Z): -161.47 (Bayes factor 0.76 over ΛCDM)
+f_cc: 1.45 +0.18 -0.17
+H0: 66.3 +2.4 -2.4 km/s/Mpc
+r_d: 147.1 +5.0 -4.7 Mpc
+Ωm: 0.328 +0.016 -0.018
+ωm: 0.1440 +0.0112 -0.0112
+w0: -0.724 +0.116 -0.107 (prior width 1.5: -1.5 to 0.0)
+wa: -0.891 +0.560 -0.564 (prior width 5.0: -3.0 to 2.0)
+Chi squared: 61.25
+Log evidence (ln Z): -161.06 (Bayes factor 0.74 over ΛCDM)
 Degrees of freedom: 61
 """
