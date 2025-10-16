@@ -1,5 +1,6 @@
 from numba import njit
 import numpy as np
+from scipy.constants import c as c0
 from scipy.linalg import cho_factor, solve_triangular
 from y2023union3.data import get_data
 from y2025BAO.data import get_data as get_bao_data
@@ -9,17 +10,12 @@ bao_legend, bao_data, bao_cov_matrix = get_bao_data()
 cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
 cho_bao = cho_factor(bao_cov_matrix, lower=True)[0]
 
-cho_sn_T = cho_sn.T
-cho_bao_T = cho_bao.T
-
-c = 299792.458  # Speed of light in km/s
+c = c0 / 1000  # Speed of light in km/s
 rd = 147.09  # Mpc, fixed
 
-sn_grid = np.linspace(0, np.max(z_sn_vals), num=1000)
-dx_sn = np.diff(sn_grid)
-
-bao_grid = np.linspace(0, np.max(bao_data["z"]), num=1000)
-dx_bao = np.diff(bao_grid)
+z_max = max(np.max(z_sn_vals), np.max(bao_data["z"])) + 0.1
+z_grid = np.linspace(0, z_max, num=1200)
+dx = np.diff(z_grid)
 
 
 @njit
@@ -32,18 +28,8 @@ def Ez(z, params):
 
 
 @njit
-def DM(grid, zs, dx, params):
-    dh_grid = DH_z(grid, params)
-    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
-    cum_dm = np.zeros(grid.size)
-    cum_dm[1:] = np.cumsum(dx * dy)
-    dms = np.interp(zs, grid, cum_dm)
-    return dms
-
-
-@njit
 def mu_theory(params):
-    dL = (1 + z_sn_vals) * DM(sn_grid, z_sn_vals, dx_sn, params)
+    dL = (1 + z_sn_vals) * DM_z(z_sn_vals, params)
     return params[0] + 25 + 5 * np.log10(dL)
 
 
@@ -59,7 +45,11 @@ def DH_z(z, params):
 
 @njit
 def DM_z(z, params):
-    return DM(bao_grid, z, dx_bao, params)
+    dh_grid = DH_z(z_grid, params)
+    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    cum_dm = np.zeros(z_grid.size)
+    cum_dm[1:] = np.cumsum(dx * dy)
+    return np.interp(z, z_grid, cum_dm)
 
 
 @njit
@@ -90,18 +80,17 @@ def bao_theory(z, qty, params):
     return results / rd
 
 
-def solve_triang(cho_L, cho_L_T, delta):
+def solve_triang(cho_L, delta):
     y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
-    z = solve_triangular(cho_L_T, y, lower=False, check_finite=False)
-    return delta @ z
+    return np.dot(y, y)
 
 
 def chi_squared(params):
     delta_sn = mu_vals - mu_theory(params)
-    chi_sn = solve_triang(cho_sn, cho_sn_T, delta_sn)
+    chi_sn = solve_triang(cho_sn, delta_sn)
 
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
-    chi_bao = solve_triang(cho_bao, cho_bao_T, delta_bao)
+    chi_bao = solve_triang(cho_bao, delta_bao)
 
     return chi_sn + chi_bao
 
@@ -254,10 +243,10 @@ Degs of freedom: 32
 ===============================
 
 Flat wCDM
-H0: 67.12 +0.74 -0.73 km/s/Mpc
+H0: 67.12 +0.75 -0.73 km/s/Mpc
 Ωm: 0.298 +0.009 -0.009
-w0: -0.865 +0.050 -0.051 (prior width 1.5: -1.5 to 0.0)
-Chi squared: 32.15
+w0: -0.866 +0.051 -0.051 (prior width 1.5: -1.5 to 0.0)
+Chi squared: 32.16
 Log Evidence: -27.01 (Bayesian evidence 0.87 over ΛCDM)
 Degs of freedom: 31
 
@@ -266,9 +255,9 @@ Degs of freedom: 31
 Flat -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
 H0: 66.66 +0.82 -0.80 km/s/Mpc
 Ωm: 0.310 +0.009 -0.008
-w0: -0.802 +0.065 -0.066 (prior width 1.5: -1.5 to 0.0)
+w0: -0.802 +0.066 -0.066 (prior width 1.5: -1.5 to 0.0)
 Chi squared: 30.37
-Log Evidence: -25.87 (Bayesian evidence 2.01 over ΛCDM)
+Log Evidence: -25.86 (Bayesian evidence 2.02 over ΛCDM)
 Degs of freedom: 31
 
 ===============================
