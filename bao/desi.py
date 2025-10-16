@@ -1,5 +1,6 @@
 from numba import njit
 import numpy as np
+from scipy.linalg import cho_factor, solve_triangular
 from scipy.constants import c as c0
 from y2025BAO.data import get_data
 
@@ -7,8 +8,11 @@ c = c0 / 1000  # Speed of light in km/s
 rd = 147.09  # Mpc, fixed
 
 legend, data, cov_matrix = get_data()
-cho = np.linalg.cholesky(cov_matrix)
-cho_T = cho.T
+cho = cho_factor(cov_matrix, lower=True)[0]
+
+z_max = np.max(data["z"]) + 0.1
+z_grid = np.linspace(0, z_max, num=1200)
+dx = np.diff(z_grid)
 
 
 @njit
@@ -17,42 +21,41 @@ def H_z(z, params):
     OL = 1 - Om
     one_plus_z = 1 + z
     cubed = one_plus_z**3
-    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
+    # rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
+    rho_de = one_plus_z ** (3 * (1 + w0))
     return 100 * h * np.sqrt(Om * cubed + OL * rho_de)
 
 
 @njit
-def DH_z(z, params):
-    return c / H_z(z, params)
+def DH_z(z, theta):
+    return c / H_z(z, theta)
 
 
 @njit
-def DM_z(z, params):
-    result = np.empty(z.size, dtype=np.float64)
-    for i in range(z.size):
-        zp = z[i]
-        x = np.linspace(0, zp, num=max(300, int(300 * zp)))
-        y = DH_z(x, params)
-        result[i] = np.trapz(y=y, x=x)
-    return result
+def DM_z(z, theta):
+    dh_grid = DH_z(z_grid, theta)
+    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    cum_dm = np.zeros(z_grid.size)
+    cum_dm[1:] = np.cumsum(dx * dy)
+    return np.interp(z, z_grid, cum_dm)
 
 
 @njit
-def DV_z(z, params):
-    DH = DH_z(z, params)
-    DM = DM_z(z, params)
+def DV_z(z, theta):
+    DH = DH_z(z, theta)
+    DM = DM_z(z, theta)
     return (z * DH * DM**2) ** (1 / 3)
 
 
 @njit
-def bao_theory(z, qty, params):
+def bao_theory(z, qty, theta):
     DV_mask = qty == 0
     DM_mask = qty == 1
     DH_mask = qty == 2
     results = np.empty(z.size, dtype=np.float64)
-    results[DH_mask] = DH_z(z[DH_mask], params)
-    results[DM_mask] = DM_z(z[DM_mask], params)
-    results[DV_mask] = DV_z(z[DV_mask], params)
+    results[DH_mask] = DH_z(z[DH_mask], theta)
+    results[DM_mask] = DM_z(z[DM_mask], theta)
+    results[DV_mask] = DV_z(z[DV_mask], theta)
     return results / rd
 
 
@@ -65,12 +68,15 @@ qty_map = {
 quantities = np.array([qty_map[q] for q in data["quantity"]], dtype=np.int32)
 
 
-@njit
-def chi_squared(params):
-    delta = data["value"] - bao_theory(data["z"], quantities, params)
-    y = np.linalg.solve(cho, delta)
-    x = np.linalg.solve(cho_T, y)
-    return np.dot(delta, x)
+def solve_triang(cho_L, delta):
+    y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
+    return np.dot(y, y)
+
+
+def chi_squared(theta):
+    delta_bao = data["value"] - bao_theory(data["z"], quantities, theta)
+    chi_bao = solve_triang(cho, delta_bao)
+    return chi_bao
 
 
 bounds = np.array(
@@ -88,7 +94,6 @@ def log_prior(params):
     return normalization
 
 
-@njit
 def log_likelihood(params):
     return -0.5 * chi_squared(params)
 
@@ -225,7 +230,7 @@ rd: 147.09 Mpc (fixed)
 h: 0.679 +0.012 -0.011
 Ωm: 0.297 +0.009 -0.009
 w0: -0.916 +0.076 -0.078 (prior width 1.5: from -1.5 to 0.0)
-Chi squared: 9.14
+Chi squared: 9.13
 Degs of freedom: 10
 Log evidence: -14.54
 R^2: 0.9989
@@ -237,10 +242,10 @@ Flat alternative: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
 rd: 147.09 Mpc (fixed)
 h: 0.670 +0.016 -0.015
 Ωm: 0.308 +0.012 -0.011
-w0: -0.832 +0.119 -0.126 (prior width 1.5: from -1.5 to 0.0)
+w0: -0.832 +0.118 -0.127 (prior width 1.5: from -1.5 to 0.0)
 Chi squared: 8.44
 Degs of freedom: 10
-Log evidence: -13.76
+Log evidence: -13.77
 R^2: 0.9990
 RMSD: 0.265
 
