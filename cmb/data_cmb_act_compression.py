@@ -26,7 +26,7 @@ inv_cov_mat = np.linalg.inv(cov_matrix)
 
 N_EFF = 3.044
 TCMB = 2.7255  # K
-O_GAMMA_H2 = (0.75 / 31500) * (TCMB / 2.7) ** 4
+O_GAMMA_H2 = 2.4729e-5
 
 
 @njit

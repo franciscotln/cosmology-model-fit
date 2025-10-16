@@ -27,7 +27,7 @@ inv_cov_mat = np.array(
 
 N_EFF = 3.04
 TCMB = 2.72548  # K
-O_GAMMA_H2 = 2.4729e-5 * (TCMB / 2.72548) ** 4
+O_GAMMA_H2 = 2.4729e-5
 
 
 @njit

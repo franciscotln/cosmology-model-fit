@@ -25,7 +25,7 @@ inv_cov_mat = np.array(
 
 N_EFF = 3.046
 TCMB = 2.7255  # K
-O_GAMMA_H2 = (0.75 / 31500) * (TCMB / 2.7) ** 4
+O_GAMMA_H2 = 2.4729e-5
 
 
 def Omega_r_h2(Neff=N_EFF):
