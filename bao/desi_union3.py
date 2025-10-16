@@ -1,19 +1,25 @@
 from numba import njit
 import numpy as np
-from scipy.integrate import cumulative_trapezoid
-from scipy.linalg import cho_factor, cho_solve
+from scipy.linalg import cho_factor, solve_triangular
 from y2023union3.data import get_data
 from y2025BAO.data import get_data as get_bao_data
 
 sn_legend, z_sn_vals, mu_vals, cov_matrix_sn = get_data()
 bao_legend, bao_data, bao_cov_matrix = get_bao_data()
-cho_sn = cho_factor(cov_matrix_sn)
-cho_bao = cho_factor(bao_cov_matrix)
+cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
+cho_bao = cho_factor(bao_cov_matrix, lower=True)[0]
+
+cho_sn_T = cho_sn.T
+cho_bao_T = cho_bao.T
 
 c = 299792.458  # Speed of light in km/s
 rd = 147.09  # Mpc, fixed
 
-grid = np.linspace(0, np.max(z_sn_vals), num=1000)
+sn_grid = np.linspace(0, np.max(z_sn_vals), num=1000)
+dx_sn = np.diff(sn_grid)
+
+bao_grid = np.linspace(0, np.max(bao_data["z"]), num=1000)
+dx_bao = np.diff(bao_grid)
 
 
 @njit
@@ -25,13 +31,19 @@ def Ez(z, params):
     return np.sqrt(O_m * cubic + (1 - O_m) * rho_de)
 
 
-def integral_Ez(params):
-    integral_values = cumulative_trapezoid(1 / Ez(grid, params), grid, initial=0)
-    return np.interp(z_sn_vals, grid, integral_values)
+@njit
+def DM(grid, zs, dx, params):
+    dh_grid = DH_z(grid, params)
+    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    cum_dm = np.zeros(grid.size)
+    cum_dm[1:] = np.cumsum(dx * dy)
+    dms = np.interp(zs, grid, cum_dm)
+    return dms
 
 
-def distance_modulus(params):
-    dL = (1 + z_sn_vals) * c * integral_Ez(params) / params[1]
+@njit
+def mu_theory(params):
+    dL = (1 + z_sn_vals) * DM(sn_grid, z_sn_vals, dx_sn, params)
     return params[0] + 25 + 5 * np.log10(dL)
 
 
@@ -47,13 +59,7 @@ def DH_z(z, params):
 
 @njit
 def DM_z(z, params):
-    result = np.empty(z.size, dtype=np.float64)
-    for i in range(z.size):
-        zp = z[i]
-        x = np.linspace(0, zp, num=max(250, int(250 * zp)))
-        y = DH_z(x, params)
-        result[i] = np.trapz(y=y, x=x)
-    return result
+    return DM(bao_grid, z, dx_bao, params)
 
 
 @njit
@@ -73,7 +79,7 @@ quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int32
 
 
 @njit
-def theory_predictions(z, qty, params):
+def bao_theory(z, qty, params):
     DV_mask = qty == 0
     DM_mask = qty == 1
     DH_mask = qty == 2
@@ -84,14 +90,19 @@ def theory_predictions(z, qty, params):
     return results / rd
 
 
-def chi_squared(params):
-    delta_sn = mu_vals - distance_modulus(params)
-    chi_sn = delta_sn.dot(cho_solve(cho_sn, delta_sn, check_finite=False))
+def solve_triang(cho_L, cho_L_T, delta):
+    y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
+    z = solve_triangular(cho_L_T, y, lower=False, check_finite=False)
+    return delta @ z
 
-    delta_bao = bao_data["value"] - theory_predictions(
-        bao_data["z"], quantities, params
-    )
-    chi_bao = delta_bao.dot(cho_solve(cho_bao, delta_bao, check_finite=False))
+
+def chi_squared(params):
+    delta_sn = mu_vals - mu_theory(params)
+    chi_sn = solve_triang(cho_sn, cho_sn_T, delta_sn)
+
+    delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
+    chi_bao = solve_triang(cho_bao, cho_bao_T, delta_bao)
+
     return chi_sn + chi_bao
 
 
@@ -141,18 +152,14 @@ def main():
     burn_in = 200
     nsteps = 2000 + burn_in
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
-
+    moves = [
+        (emcee.moves.KDEMove(), 0.30),
+        (emcee.moves.DEMove(), 0.56),
+        (emcee.moves.DESnookerMove(), 0.14),
+    ]
     with Pool(5) as pool:
         sampler = emcee.EnsembleSampler(
-            nwalkers,
-            ndim,
-            log_probability,
-            pool=pool,
-            moves=[
-                (emcee.moves.KDEMove(), 0.30),
-                (emcee.moves.DEMove(), 0.56),
-                (emcee.moves.DESnookerMove(), 0.14),
-            ],
+            nwalkers, ndim, log_probability, pool=pool, moves=moves
         )
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
 
@@ -188,7 +195,7 @@ def main():
     print(f"Degs of freedom: {bao_data['value'].size + z_sn_vals.size - len(best_fit)}")
 
     plot_bao_predictions(
-        theory_predictions=lambda z, qty: theory_predictions(z, qty, best_fit),
+        theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
         data=bao_data,
         errors=np.sqrt(np.diag(bao_cov_matrix)),
         title=bao_legend,
@@ -198,7 +205,7 @@ def main():
         x=z_sn_vals,
         y=mu_vals,
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=distance_modulus(best_fit),
+        y_model=mu_theory(best_fit),
         label=f"Best fit: $Ω_m$={Om_50:.3f}",
         x_scale="log",
     )
@@ -249,15 +256,15 @@ Degs of freedom: 32
 Flat wCDM
 H0: 67.12 +0.74 -0.73 km/s/Mpc
 Ωm: 0.298 +0.009 -0.009
-w0: -0.866 +0.051 -0.051 (prior width 1.5: -1.5 to 0.0)
+w0: -0.865 +0.050 -0.051 (prior width 1.5: -1.5 to 0.0)
 Chi squared: 32.15
-Log Evidence: -27.00 (Bayesian evidence 0.88 over ΛCDM)
+Log Evidence: -27.01 (Bayesian evidence 0.87 over ΛCDM)
 Degs of freedom: 31
 
 ===============================
 
 Flat -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-H0: 66.66 +0.81 -0.81 km/s/Mpc
+H0: 66.66 +0.82 -0.80 km/s/Mpc
 Ωm: 0.310 +0.009 -0.008
 w0: -0.802 +0.065 -0.066 (prior width 1.5: -1.5 to 0.0)
 Chi squared: 30.37
