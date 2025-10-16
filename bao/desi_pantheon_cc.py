@@ -18,15 +18,9 @@ cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
 logdet_cc = np.linalg.slogdet(cov_matrix_cc)[1]
 N_cc = len(z_cc_vals)
 
-cho_sn_T = cho_sn.T
-cho_bao_T = cho_bao.T
-cho_cc_T = cho_cc.T
-
-sn_grid = np.linspace(0, np.max(z_sn_vals), num=1000)
-dx_sn = np.diff(sn_grid)
-
-bao_grid = np.linspace(0, np.max(bao_data["z"]), num=1000)
-dx_bao = np.diff(bao_grid)
+z_max = max(np.max(z_sn_vals), np.max(bao_data["z"])) + 0.1
+z_grid = np.linspace(0, z_max, num=1200)
+dx = np.diff(z_grid)
 
 
 @njit
@@ -39,18 +33,18 @@ def Ez(z, params):
 
 
 @njit
-def DM(grid, zs, dx, params):
-    dh_grid = DH_z(grid, params)
+def DM(params):
+    dh_grid = DH_z(z_grid, params)
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
-    cum_dm = np.zeros(grid.size, dtype=np.float64)
+    cum_dm = np.zeros(z_grid.size, dtype=np.float64)
     cum_dm[1:] = np.cumsum(dx * dy)
-    return np.interp(zs, grid, cum_dm)
+    return cum_dm
 
 
 @njit
 def sn_apparent_mag(params):
-    comoving_distance = DM(sn_grid, z_sn_vals, dx_sn, params)
-    return params[1] + 25 + 5 * np.log10((1 + z_sn_hel_vals) * comoving_distance)
+    dL = (1 + z_sn_hel_vals) * np.interp(z_sn_vals, z_grid, DM(params))
+    return params[1] + 25 + 5 * np.log10(dL)
 
 
 @njit
@@ -65,7 +59,7 @@ def DH_z(z, params):
 
 @njit
 def DM_z(z, params):
-    return DM(bao_grid, z, dx_bao, params)
+    return np.interp(z, z_grid, DM(params))
 
 
 @njit
@@ -109,22 +103,21 @@ bounds = np.array(
 )
 
 
-def solve_triang(cho_L, cho_L_T, delta):
+def solve_triang(cho_L, delta):
     y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
-    z = solve_triangular(cho_L_T, y, lower=False, check_finite=False)
-    return delta @ z
+    return np.dot(y, y)
 
 
 def chi_squared(params):
     delta_sn = apparent_mag_values - sn_apparent_mag(params)
-    chi_sn = solve_triang(cho_sn, cho_sn_T, delta_sn)
+    chi_sn = solve_triang(cho_sn, delta_sn)
 
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
-    chi_bao = solve_triang(cho_bao, cho_bao_T, delta_bao)
+    chi_bao = solve_triang(cho_bao, delta_bao)
 
     f_cc = params[-1]
     delta_cc = H_cc_vals - H_z(z_cc_vals, params)
-    chi_cc = solve_triang(cho_cc, cho_cc_T, delta_cc) * f_cc**2
+    chi_cc = solve_triang(cho_cc, delta_cc) * f_cc**2
 
     return chi_sn + chi_bao + chi_cc
 
@@ -212,9 +205,9 @@ def main():
     )
 
     print(f"f_cc: {f_cc_50:.2f} +{(f_cc_84 - f_cc_50):.2f} -{(f_cc_50 - f_cc_16):.2f}")
-    print(f"H0: {h0_50:.2f} +{(h0_84 - h0_50):.2f} -{(h0_50 - h0_16):.2f}")
-    print(f"M: {M_50:.3f} +{(M_84 - M_50):.3f} -{(M_50 - M_16):.3f}")
-    print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f}")
+    print(f"H0: {h0_50:.2f} +{(h0_84 - h0_50):.2f} -{(h0_50 - h0_16):.2f} km/s/Mpc")
+    print(f"M: {M_50:.3f} +{(M_84 - M_50):.3f} -{(M_50 - M_16):.3f} mag")
+    print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
@@ -270,38 +263,38 @@ if __name__ == "__main__":
 """
 Flat ΛCDM: w(z) = -1
 f_cc: 1.47 +0.19 -0.18
-H0: 68.62 +2.28 -2.24 km/s/Mpc
-M: -19.403 +0.071 -0.072 mag
-r_d: 147.1 +4.9 -4.7 Mpc
+H0: 68.61 +2.28 -2.26 km/s/Mpc
+M: -19.404 +0.071 -0.072 mag
+r_d: 147.15 +4.90 -4.63 Mpc
 Ωm: 0.305 +0.008 -0.008
 w0: -1
-Chi squared: 1448.42
-Log Evidence: -854.9
+Chi squared: 1448.45
+Log Evidence: -855.0
 Degrees of freedom: 1631
 
 ===============================
 
 Flat wCDM: w(z) = w0
 f_cc: 1.47 +0.18 -0.18
-H0: 67.85 +2.28 -2.29
-M: -19.414 +0.071 -0.073
-r_d: 146.98 +4.95 -4.62
-Ωm: 0.304 +0.008 -0.008
-w0: -0.899 +0.046 -0.048
-Chi squared: 1443.69
-Log Evidence: -855.4
+H0: 67.82 +2.31 -2.27 km/s/Mpc
+M: -19.417 +0.072 -0.073 mag
+r_d: 147.10 +4.90 -4.66 Mpc
+Ωm: 0.298 +0.009 -0.008
+w0: -0.917 +0.040 -0.040
+Chi squared: 1443.93
+Log Evidence: -855.6
 Degrees of freedom: 1630
 
 ===============================
 
 Flat: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-f_cc: 1.46 +0.18 -0.18
-H0: 67.82 +2.32 -2.27 km/s/Mpc
-M: -19.415 +0.072 -0.073 mag
-r_d: 147.0 +4.9 -4.7 Mpc
+f_cc: 1.47 +0.18 -0.18
+H0: 67.81 +2.31 -2.24 km/s/Mpc
+M: -19.415 +0.071 -0.071 mag
+r_d: 147.04 +4.88 -4.63 Mpc
 Ωm: 0.304 +0.008 -0.008
-w0: -0.899 +0.047 -0.048
-Chi squared: 1443.55
-Log Evidence: -855.6
+w0: -0.900 +0.047 -0.047
+Chi squared: 1443.68
+Log Evidence: -855.3
 Degrees of freedom: 1630
 """
