@@ -28,17 +28,8 @@ def Ez(z, theta):
 
 
 @njit
-def DM(theta):
-    dh_grid = DH_z(z_grid, theta)
-    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
-    cum_dm = np.zeros(z_grid.size)
-    cum_dm[1:] = np.cumsum(dx * dy)
-    return cum_dm
-
-
-@njit
 def theory_mu(theta):
-    dL = (1 + z_hel) * np.interp(z_cmb, z_grid, DM(theta))
+    dL = (1 + z_hel) * DM_z(z_cmb, theta)
     return theta[0] + 25 + 5 * np.log10(dL)
 
 
@@ -54,7 +45,11 @@ def DH_z(z, params):
 
 @njit
 def DM_z(z, theta):
-    return np.interp(z, z_grid, DM(theta))
+    dh_grid = DH_z(z_grid, theta)
+    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    cum_dm = np.zeros(z_grid.size)
+    cum_dm[1:] = np.cumsum(dx * dy)
+    return np.interp(z, z_grid, cum_dm)
 
 
 @njit
