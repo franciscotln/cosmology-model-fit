@@ -1,7 +1,6 @@
 from numba import njit
 import numpy as np
-from scipy.integrate import cumulative_trapezoid
-from scipy.linalg import cho_factor, cho_solve
+from scipy.linalg import cho_factor, solve_triangular
 from y2023union3.data import get_data
 from y2005cc.data import get_data as get_cc_data
 from y2025BAO.data import get_data as get_bao_data
@@ -9,16 +8,25 @@ from y2025BAO.data import get_data as get_bao_data
 cc_legend, z_cc_vals, H_cc_vals, cov_matrix_cc = get_cc_data()
 sn_legend, z_sn_vals, sn_mu_vals, cov_matrix_sn = get_data()
 bao_legend, bao_data, cov_matrix_bao = get_bao_data()
-cho_sn = cho_factor(cov_matrix_sn)
-cho_bao = cho_factor(cov_matrix_bao)
-cho_cc = cho_factor(cov_matrix_cc)
+
+cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
+cho_bao = cho_factor(cov_matrix_bao, lower=True)[0]
+cho_cc = cho_factor(cov_matrix_cc, lower=True)[0]
+
 logdet_cc = np.linalg.slogdet(cov_matrix_cc)[1]
 N_cc = len(z_cc_vals)
 
+cho_sn_T = cho_sn.T
+cho_bao_T = cho_bao.T
+cho_cc_T = cho_cc.T
+
 c = 299792.458  # Speed of light in km/s
 
-z_grid = np.linspace(0, np.max(z_sn_vals), num=1000)
-one_plus_z_sn = 1 + z_sn_vals
+sn_grid = np.linspace(0, np.max(z_sn_vals), num=1000)
+dx_sn = np.diff(sn_grid)
+
+bao_grid = np.linspace(0, np.max(bao_data["z"]), num=1000)
+dx_bao = np.diff(bao_grid)
 
 
 @njit
@@ -30,12 +38,20 @@ def Ez(z, params):
     return np.sqrt(O_m * cubed + (1 - O_m) * rho_de)
 
 
+@njit
+def DM(grid, zs, dx, params):
+    dh_grid = DH_z(grid, params)
+    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    cum_dm = np.zeros(grid.size)
+    cum_dm[1:] = np.cumsum(dx * dy)
+    dms = np.interp(zs, grid, cum_dm)
+    return dms
+
+
+@njit
 def mu_theory(params):
-    dM, h0 = params[1], params[2]
-    y = 1 / Ez(z_grid, params)
-    integral_values = cumulative_trapezoid(y=y, x=z_grid, initial=0)
-    I = np.interp(z_sn_vals, z_grid, integral_values)
-    return dM + 25 + 5 * np.log10(one_plus_z_sn * (c / h0) * I)
+    dL = (1 + z_sn_vals) * DM(sn_grid, z_sn_vals, dx_sn, params)
+    return params[1] + 25 + 5 * np.log10(dL)
 
 
 @njit
@@ -50,13 +66,7 @@ def H_z(z, params):
 
 @njit
 def DM_z(z, params):
-    result = np.empty(z.size, dtype=np.float64)
-    for i in range(z.size):
-        zp = z[i]
-        x = np.linspace(0, zp, num=max(250, int(250 * zp)))
-        y = DH_z(x, params)
-        result[i] = np.trapz(y=y, x=x)
-    return result
+    return DM(bao_grid, z, dx_bao, params)
 
 
 @njit
@@ -87,16 +97,23 @@ def bao_theory(z, qty, params):
     return results / params[3]
 
 
+def solve_triang(cho_L, cho_L_T, delta):
+    y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
+    z = solve_triangular(cho_L_T, y, lower=False, check_finite=False)
+    return delta @ z
+
+
 def chi_squared(params):
-    f_cc = params[0]
     delta_sn = sn_mu_vals - mu_theory(params)
-    chi_sn = np.dot(delta_sn, cho_solve(cho_sn, delta_sn, check_finite=False))
+    chi_sn = solve_triang(cho_sn, cho_sn_T, delta_sn)
 
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
-    chi_bao = np.dot(delta_bao, cho_solve(cho_bao, delta_bao, check_finite=False))
+    chi_bao = solve_triang(cho_bao, cho_bao_T, delta_bao)
 
+    f_cc = params[0]
     delta_cc = H_cc_vals - H_z(z_cc_vals, params)
-    chi_cc = f_cc**2 * delta_cc.dot(cho_solve(cho_cc, delta_cc, check_finite=False))
+    chi_cc = solve_triang(cho_cc, cho_cc_T, delta_cc) * f_cc**2
+
     return chi_sn + chi_bao + chi_cc
 
 
@@ -150,18 +167,15 @@ def main():
     nsteps = 2000 + burn_in
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
+    moves = [
+        (emcee.moves.KDEMove(), 0.30),
+        (emcee.moves.DEMove(), 0.56),
+        (emcee.moves.DESnookerMove(), 0.14),
+    ]
 
     with Pool(5) as pool:
         sampler = emcee.EnsembleSampler(
-            nwalkers,
-            ndim,
-            log_probability,
-            pool=pool,
-            moves=[
-                (emcee.moves.KDEMove(), 0.30),
-                (emcee.moves.DEMove(), 0.56),
-                (emcee.moves.DESnookerMove(), 0.14),
-            ],
+            nwalkers, ndim, log_probability, pool=pool, moves=moves
         )
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
 
@@ -203,9 +217,7 @@ def main():
     print(f"ωm: {Omh2_50:.4f} +{(Omh2_84 - Omh2_50):.4f} -{(Omh2_50 - Omh2_16):.4f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
-    print(
-        f"Log evidence (ln Z): {log_evidence(samples, log_probs, log_probability):.2f}"
-    )
+    print(f"Log evidence: {log_evidence(samples, log_probs, log_probability):.2f}")
     print(f"Degrees of freedom: {deg_of_freedom}")
 
     plot_bao_predictions(
@@ -263,52 +275,53 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM: w(z) = -1
-f_cc: 1.47 +0.18 -0.18
+f_cc: 1.48 +0.19 -0.18
+ΔM: -0.119 +0.113 -0.116 mag
 H0: 68.7 +2.3 -2.3 km/s/Mpc
-r_d: 147.1 +5.0 -4.6 Mpc
+r_d: 147.1 +4.9 -4.6 Mpc
 Ωm: 0.305 +0.008 -0.008
-ωm: 0.1436 +0.0095 -0.0093
-Chi squared: 71.14
-Log evidence (ln Z): -161.80
+ωm: 0.1436 +0.0095 -0.0092
+Chi squared: 71.19
+Log evidence: -161.89
 Degrees of freedom: 63
 
 ===============================
 
 Flat wCDM: w(z) = w0
-f_cc: 1.46 +0.18 -0.18
-H0: 67.1 +2.3 -2.3 km/s/Mpc
-r_d: 147.2 +5.0 -4.6 Mpc
+f_cc: 1.46 +0.19 -0.18
+H0: 67.1 +2.4 -2.3 km/s/Mpc
+r_d: 147.3 +4.9 -4.7 Mpc
 Ωm: 0.298 +0.009 -0.009
-ωm: 0.1343 +0.0099 -0.0096
+ωm: 0.1343 +0.0101 -0.0096
 w0: -0.871 +0.051 -0.051 (prior width 1.5: -1.5 to 0.0)
-Chi squared: 64.49
-Log evidence (ln Z): -161.10 (Bayes factor 0.7 over ΛCDM)
+Chi squared: 64.45
+Log evidence: -161.15 (Bayes factor 0.74 over ΛCDM)
 Degrees of freedom: 62
 
 ===============================
 
 Flat alternative: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
 f_cc: 1.46 +0.18 -0.18
-H0: 66.7 +2.3 -2.4 km/s/Mpc
-r_d: 147.2 +5.0 -4.6 Mpc
+H0: 66.7 +2.4 -2.4 km/s/Mpc
+r_d: 147.2 +5.0 -4.7 Mpc
 Ωm: 0.310 +0.009 -0.008
-ωm: 0.1379 +0.0095 -0.0092
-w0: -0.812 +0.065 -0.068 (prior width 1.5: -1.5 to 0.0)
-Chi squared: 62.79
-Log evidence (ln Z): -160.26 (Bayes factor 1.54 over ΛCDM)
+ωm: 0.1379 +0.0096 -0.0093
+w0: -0.812 +0.065 -0.067 (prior width 1.5: -1.5 to 0.0)
+Chi squared: 62.62
+Log evidence: -160.24 (Bayes factor 1.65 over ΛCDM)
 Degrees of freedom: 62
 
 ===============================
 
 Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
 f_cc: 1.45 +0.18 -0.17
-H0: 66.3 +2.4 -2.4 km/s/Mpc
+H0: 66.3 +2.3 -2.4 km/s/Mpc
 r_d: 147.1 +5.0 -4.7 Mpc
-Ωm: 0.328 +0.016 -0.018
-ωm: 0.1440 +0.0112 -0.0112
-w0: -0.724 +0.116 -0.107 (prior width 1.5: -1.5 to 0.0)
-wa: -0.891 +0.560 -0.564 (prior width 5.0: -3.0 to 2.0)
-Chi squared: 61.25
-Log evidence (ln Z): -161.06 (Bayes factor 0.74 over ΛCDM)
+Ωm: 0.329 +0.016 -0.018
+ωm: 0.1440 +0.0111 -0.0113
+w0: -0.723 +0.114 -0.108 (prior width 1.5: -1.5 to 0.0)
+wa: -0.897 +0.564 -0.562 (prior width 5.0: -3.0 to 2.0)
+Chi squared: 61.12
+Log evidence: -161.00 (Bayes factor 0.89 over ΛCDM)
 Degrees of freedom: 61
 """
