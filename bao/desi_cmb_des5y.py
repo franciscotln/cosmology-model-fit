@@ -13,15 +13,10 @@ bao_legend, bao_data, bao_cov_matrix = get_bao_data()
 
 cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
 cho_bao = cho_factor(bao_cov_matrix, lower=True)[0]
-cho_sn_T = cho_sn.T
-cho_bao_T = cho_bao.T
 
-sn_grid = np.linspace(0, np.max(z_cmb), num=1000)
-dx_sn = np.diff(sn_grid)
-one_plus_z_hel = 1 + z_hel
-
-bao_grid = np.linspace(0, np.max(bao_data["z"]), num=1000)
-dx_bao = np.diff(bao_grid)
+z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
+z_grid = np.linspace(0, z_max, num=1200)
+dx = np.diff(z_grid)
 
 
 @njit
@@ -36,18 +31,8 @@ def Ez(z, params):
 
 
 @njit
-def DM(grid, zs, dx, params):
-    dh_grid = DH_z(grid, params)
-    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
-    cum_dm = np.zeros(grid.size)
-    cum_dm[1:] = np.cumsum(dx * dy)
-    dms = np.interp(zs, grid, cum_dm)
-    return dms
-
-
-@njit
 def theory_mu(params):
-    dL = one_plus_z_hel * DM(sn_grid, z_cmb, dx_sn, params)
+    dL = (1 + z_hel) * DM_z(z_cmb, params)
     return params[-1] + 25 + 5 * np.log10(dL)
 
 
@@ -63,7 +48,11 @@ def DH_z(z, params):
 
 @njit
 def DM_z(z, params):
-    return DM(bao_grid, z, dx_bao, params)
+    dh_grid = DH_z(z_grid, params)
+    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    cum_dm = np.zeros(z_grid.size)
+    cum_dm[1:] = np.cumsum(dx * dy)
+    return np.interp(z, z_grid, cum_dm)
 
 
 @njit
@@ -98,10 +87,9 @@ def bao_theory(z, qty, params):
     return results / rd
 
 
-def solve_triang(cho_L, cho_L_T, delta):
+def solve_triang(cho_L, delta):
     y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
-    z = solve_triangular(cho_L_T, y, lower=False, check_finite=False)
-    return delta @ z
+    return np.dot(y, y)
 
 
 def chi_squared(params):
@@ -111,10 +99,10 @@ def chi_squared(params):
     chi2_cmb = np.dot(delta, np.dot(cmb.inv_cov_mat, delta))
 
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
-    chi_bao = solve_triang(cho_bao, cho_bao_T, delta_bao)
+    chi_bao = solve_triang(cho_bao, delta_bao)
 
     delta_sn = mu_values - theory_mu(params)
-    chi_sn = solve_triang(cho_sn, cho_sn_T, delta_sn)
+    chi_sn = solve_triang(cho_sn, delta_sn)
 
     return chi2_cmb + chi_bao + chi_sn
 
@@ -304,11 +292,11 @@ H0: 66.67 +0.55 -0.54 km/s/Mpc
 Ωm: 0.3139 +0.0053 -0.0053
 ωb: 0.02244 +0.00012 -0.00012
 ωm: 0.13950 +0.00068 -0.00067
-w0: -0.882 +0.035 -0.036
+w0: -0.882 +0.036 -0.035
 r*: 145.26 Mpc
 z*: 1088.53 +0.15 -0.15
-r_d: 147.84 Mpc
-z_d: 1059.79 +0.26 -0.27
+r_d: 147.83 Mpc
+z_d: 1059.79 +0.27 -0.26
 Chi squared: 1653.72
 Log evidence: -847.0 (Bayes factor: 2.4 over ΛCDM)
 Degrees of freedom: 1746
