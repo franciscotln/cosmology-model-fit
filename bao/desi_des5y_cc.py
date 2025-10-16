@@ -17,23 +17,16 @@ cho_cc = cho_factor(cov_matrix_cc, lower=True)[0]
 logdet_cc = np.linalg.slogdet(cov_matrix_cc)[1]
 N_cc = len(z_cc_vals)
 
-cho_sn_T = cho_sn.T
-cho_bao_T = cho_bao.T
-cho_cc_T = cho_cc.T
-
 c = c0 / 1000  # km/s
 
-sn_grid = np.linspace(0, np.max(z_sn_vals), num=1000)
-dx_sn = np.diff(sn_grid)
-one_plus_z_hel = 1 + z_sn_hel_vals
-
-bao_grid = np.linspace(0, np.max(bao_data["z"]), num=1000)
-dx_bao = np.diff(bao_grid)
+z_max = max(np.max(z_sn_vals), np.max(bao_data["z"])) + 0.1
+z_grid = np.linspace(0, z_max, num=1200)
+dx = np.diff(z_grid)
 
 
 @njit
-def Ez(z, p):
-    Om, w0 = p[4], p[5]
+def Ez(z, theta):
+    Om, w0 = theta[4], theta[5]
     one_plus_z = 1 + z
     cubed = one_plus_z**3
     rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
@@ -41,40 +34,39 @@ def Ez(z, p):
 
 
 @njit
-def DM(grid, zs, dx, params):
-    dh_grid = DH_z(grid, params)
+def DM(theta):
+    dh_grid = DH_z(z_grid, theta)
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
-    cum_dm = np.zeros(grid.size)
+    cum_dm = np.zeros(z_grid.size)
     cum_dm[1:] = np.cumsum(dx * dy)
-    dms = np.interp(zs, grid, cum_dm)
-    return dms
+    return cum_dm
 
 
 @njit
-def mu_theory(params):
-    dL = one_plus_z_hel * DM(sn_grid, z_sn_vals, dx_sn, params)
-    return params[1] + 25 + 5 * np.log10(dL)
+def mu_theory(theta):
+    dL = (1 + z_sn_hel_vals) * np.interp(z_sn_vals, z_grid, DM(theta))
+    return theta[1] + 25 + 5 * np.log10(dL)
 
 
 @njit
-def H_z(z, p):
-    return p[2] * Ez(z, p)
+def H_z(z, theta):
+    return theta[2] * Ez(z, theta)
 
 
 @njit
-def DH_z(z, params):
-    return c / H_z(z, params)
+def DH_z(z, theta):
+    return c / H_z(z, theta)
 
 
 @njit
-def DM_z(z, params):
-    return DM(bao_grid, z, dx_bao, params)
+def DM_z(z, theta):
+    return np.interp(z, z_grid, DM(theta))
 
 
 @njit
-def DV_z(z, params):
-    DH = DH_z(z, params)
-    DM = DM_z(z, params)
+def DV_z(z, theta):
+    DH = DH_z(z, theta)
+    DM = DM_z(z, theta)
     return (z * DH * DM**2) ** (1 / 3)
 
 
@@ -88,32 +80,31 @@ quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int32
 
 
 @njit
-def bao_theory(z, qty, params):
+def bao_theory(z, qty, theta):
     DV_mask = qty == 0
     DM_mask = qty == 1
     DH_mask = qty == 2
     results = np.empty(z.size, dtype=np.float64)
-    results[DH_mask] = DH_z(z[DH_mask], params)
-    results[DM_mask] = DM_z(z[DM_mask], params)
-    results[DV_mask] = DV_z(z[DV_mask], params)
-    return results / params[3]
+    results[DH_mask] = DH_z(z[DH_mask], theta)
+    results[DM_mask] = DM_z(z[DM_mask], theta)
+    results[DV_mask] = DV_z(z[DV_mask], theta)
+    return results / theta[3]
 
 
-def solve_triang(cho_L, cho_L_T, delta):
+def solve_triang(cho_L, delta):
     y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
-    z = solve_triangular(cho_L_T, y, lower=False, check_finite=False)
-    return delta @ z
+    return np.dot(y, y)
 
 
-def chi_squared(params):
-    delta_sn = mu_values - mu_theory(params)
-    chi_sn = solve_triang(cho_sn, cho_sn_T, delta_sn)
+def chi_squared(theta):
+    delta_sn = mu_values - mu_theory(theta)
+    chi_sn = solve_triang(cho_sn, delta_sn)
 
-    delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
-    chi_bao = solve_triang(cho_bao, cho_bao_T, delta_bao)
+    delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, theta)
+    chi_bao = solve_triang(cho_bao, delta_bao)
 
-    delta_cc = H_cc_vals - H_z(z_cc_vals, params)
-    chi_cc = solve_triang(cho_cc, cho_cc_T, delta_cc) * params[0] ** 2
+    delta_cc = H_cc_vals - H_z(z_cc_vals, theta)
+    chi_cc = solve_triang(cho_cc, delta_cc) * theta[0] ** 2
 
     return chi_sn + chi_bao + chi_cc
 
@@ -134,23 +125,23 @@ normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
 
 
 @njit
-def log_prior(params):
-    if not np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
+def log_prior(theta):
+    if not np.all((bounds[:, 0] < theta) & (theta < bounds[:, 1])):
         return -np.inf
     return normalization
 
 
-def log_likelihood(params):
-    f_cc = params[0]
+def log_likelihood(theta):
+    f_cc = theta[0]
     normalization_cc = N_cc * np.log(2 * np.pi) + logdet_cc - 2 * N_cc * np.log(f_cc)
-    return -0.5 * chi_squared(params) - 0.5 * normalization_cc
+    return -0.5 * chi_squared(theta) - 0.5 * normalization_cc
 
 
-def log_probability(params):
-    lp = log_prior(params)
+def log_probability(theta):
+    lp = log_prior(theta)
     if not np.isfinite(lp):
         return -np.inf
-    return lp + log_likelihood(params)
+    return lp + log_likelihood(theta)
 
 
 def main():
@@ -174,7 +165,7 @@ def main():
         (emcee.moves.DESnookerMove(), 0.14),
     ]
 
-    with Pool(10) as pool:
+    with Pool(8) as pool:
         sampler = emcee.EnsembleSampler(
             nwalkers, ndim, log_probability, pool=pool, moves=moves
         )
@@ -271,51 +262,51 @@ if __name__ == "__main__":
 """
 Flat ΛCDM: w(z) = -1
 f_cc: 1.48 +0.19 -0.18
-H0: 68.3 +2.3 -2.3 km/s/Mpc
-r_d: 147.2 +4.9 -4.6 Mpc
+H0: 68.2 +2.3 -2.3 km/s/Mpc
+r_d: 147.3 +4.9 -4.7 Mpc
 Ωm: 0.311 +0.008 -0.008
 w0: -1
 wa: 0
-Chi squared: 1691.36
-Log evidence: -975.17
+Chi squared: 1691.25
+Log evidence: -975.31
 Degrees of freedom: 1776
 
 ===============================
 
 Flat wCDM: w(z) = w0
-f_cc: 1.47 +0.19 -0.18
-H0: 67.1 +2.2 -2.3 km/s/Mpc
-r_d: 147.2 +5.0 -4.7 Mpc
+f_cc: 1.47 +0.18 -0.18
+H0: 67.2 +2.2 -2.3 km/s/Mpc
+r_d: 147.2 +4.9 -4.7 Mpc
 Ωm: 0.299 +0.009 -0.009
-w0: -0.874 +0.037 -0.039 (prior width 1.5: -1.5 to 0.0)
+w0: -0.875 +0.038 -0.038 (prior width 1.5: -1.5 to 0.0)
 wa: 0
-Chi squared: 1680.48
-Log evidence: -972.68 (Bayes factor 2.49 against ΛCDM)
+Chi squared: 1680.50
+Log evidence: -972.90 (Bayes factor 2.41 against ΛCDM)
 Degrees of freedom: 1775
 
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-f_cc: 1.46 +0.19 -0.18
+f_cc: 1.46 +0.18 -0.18
 H0: 67.1 +2.3 -2.3 km/s/Mpc
-r_d: 147.1 +4.9 -4.6 Mpc
+r_d: 147.1 +5.0 -4.7 Mpc
 Ωm: 0.308 +0.008 -0.008
-w0: -0.839 +0.045 -0.046 (prior width 1.5: -1.5 to 0.0)
+w0: -0.840 +0.046 -0.046 (prior width 1.5: -1.5 to 0.0)
 wa: -(1 + w0)
-Chi squared: 1678.93
-Log evidence: -972.02 (Bayes factor 3.15 against ΛCDM)
+Chi squared: 1678.86
+Log evidence: -972.07 (Bayes factor 3.24 against ΛCDM)
 Degrees of freedom: 1775
 
 ===============================
 
 Flat w0waCDM: w(z) = w0 + wa * z / (1 + z)
 f_cc: 1.46 +0.18 -0.18
-H0: 67.0 +2.3 -2.3 km/s/Mpc
-r_d: 147.0 +5.0 -4.7 Mpc
+H0: 67.1 +2.2 -2.3 km/s/Mpc
+r_d: 147.0 +5.0 -4.6 Mpc
 Ωm: 0.321 +0.013 -0.016
-w0: -0.795 +0.072 -0.067 (prior width 1.5: -1.5 to 0.0)
-wa: -0.663 +0.456 -0.452 (prior width 4.5: -3.0 to 1.5)
-Chi squared: 1677.90
-Log evidence: -973.15 (Bayes factor 2.02 against ΛCDM)
+w0: -0.796 +0.073 -0.068 (prior width 1.5: -1.5 to 0.0)
+wa: -0.658 +0.466 -0.458 (prior width 4.5: -3.0 to 1.5)
+Chi squared: 1677.92
+Log evidence: -972.95 (Bayes factor 2.36 against ΛCDM)
 Degrees of freedom: 1774
 """
