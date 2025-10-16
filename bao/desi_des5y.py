@@ -1,39 +1,50 @@
 from numba import njit
 import numpy as np
-from scipy.integrate import cumulative_trapezoid
-from scipy.linalg import cho_factor, cho_solve
+from scipy.constants import c as c0
+from scipy.linalg import cho_factor, solve_triangular
 from y2024DES.data import get_data, effective_sample_size as sn_size
 from y2025BAO.data import get_data as get_bao_data
 
+c = c0 / 1000  # Speed of light in km/s
+
 sn_legend, z_cmb, z_hel, mu_values, cov_matrix_sn = get_data()
-cho_sn = cho_factor(cov_matrix_sn)
 bao_legend, bao_data, cov_matrix_bao = get_bao_data()
-cho_bao = cho_factor(cov_matrix_bao)
 
-c = 299792.458  # Speed of light in km/s
+cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
+cho_bao = cho_factor(cov_matrix_bao, lower=True)[0]
 
-grid = np.linspace(0, np.max(z_cmb), num=1000)
-zhel_plus1 = 1 + z_hel
+z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
+z_grid = np.linspace(0, z_max, num=1200)
+dx = np.diff(z_grid)
 
 
 @njit
-def Ez(z, params):
-    Om, w0 = params[2], params[3]
+def Ez(z, theta):
+    Om, w0 = theta[2], theta[3]
     z_plus_1 = 1 + z
     cubed = z_plus_1**3
     rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
     return np.sqrt(Om * cubed + (1 - Om) * rho_de)
 
 
-def theory_mu(params):
-    y = 1 / Ez(grid, params)
-    I = np.interp(z_cmb, grid, cumulative_trapezoid(y=y, x=grid, initial=0))
-    return params[0] + 25 + 5 * np.log10(zhel_plus1 * c * I)
+@njit
+def DM(theta):
+    dh_grid = DH_z(z_grid, theta)
+    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    cum_dm = np.zeros(z_grid.size)
+    cum_dm[1:] = np.cumsum(dx * dy)
+    return cum_dm
 
 
 @njit
-def H_z(z, params):
-    return Ez(z, params)
+def theory_mu(theta):
+    dL = (1 + z_hel) * np.interp(z_cmb, z_grid, DM(theta))
+    return theta[0] + 25 + 5 * np.log10(dL)
+
+
+@njit
+def H_z(z, theta):
+    return Ez(z, theta)
 
 
 @njit
@@ -42,20 +53,14 @@ def DH_z(z, params):
 
 
 @njit
-def DM_z(z, params):
-    result = np.empty(z.size, dtype=np.float64)
-    for i in range(z.size):
-        zp = z[i]
-        x = np.linspace(0, zp, num=max(250, int(250 * zp)))
-        y = DH_z(x, params)
-        result[i] = np.trapz(y=y, x=x)
-    return result
+def DM_z(z, theta):
+    return np.interp(z, z_grid, DM(theta))
 
 
 @njit
-def DV_z(z, params):
-    DH = DH_z(z, params)
-    DM = DM_z(z, params)
+def DV_z(z, theta):
+    DH = DH_z(z, theta)
+    DM = DM_z(z, theta)
     return (z * DH * DM**2) ** (1 / 3)
 
 
@@ -69,24 +74,29 @@ quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int64
 
 
 @njit
-def bao_theory(z, qty, params):
-    rd_h = params[1] * 100
+def bao_theory(z, qty, theta):
+    rd_h = theta[1] * 100
     DV_mask = qty == 0
     DM_mask = qty == 1
     DH_mask = qty == 2
     results = np.empty(z.size, dtype=np.float64)
-    results[DH_mask] = DH_z(z[DH_mask], params)
-    results[DM_mask] = DM_z(z[DM_mask], params)
-    results[DV_mask] = DV_z(z[DV_mask], params)
+    results[DH_mask] = DH_z(z[DH_mask], theta)
+    results[DM_mask] = DM_z(z[DM_mask], theta)
+    results[DV_mask] = DV_z(z[DV_mask], theta)
     return results / rd_h
 
 
-def chi_squared(params):
-    delta_sn = mu_values - theory_mu(params)
-    chi_sn = delta_sn.dot(cho_solve(cho_sn, delta_sn, check_finite=False))
+def solve_triang(cho_L, delta):
+    y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
+    return np.dot(y, y)
 
-    delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
-    chi_bao = delta_bao.dot(cho_solve(cho_bao, delta_bao, check_finite=False))
+
+def chi_squared(theta):
+    delta_sn = mu_values - theory_mu(theta)
+    chi_sn = solve_triang(cho_sn, delta_sn)
+
+    delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, theta)
+    chi_bao = solve_triang(cho_bao, delta_bao)
     return chi_sn + chi_bao
 
 
@@ -104,21 +114,21 @@ normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
 
 
 @njit
-def log_prior(params):
-    if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
+def log_prior(theta):
+    if np.all((bounds[:, 0] < theta) & (theta < bounds[:, 1])):
         return normalization
     return -np.inf
 
 
-def log_likelihood(params):
-    return -0.5 * chi_squared(params)
+def log_likelihood(theta):
+    return -0.5 * chi_squared(theta)
 
 
-def log_probability(params):
-    lp = log_prior(params)
+def log_probability(theta):
+    lp = log_prior(theta)
     if np.isinf(lp):
         return -np.inf
-    return lp + log_likelihood(params)
+    return lp + log_likelihood(theta)
 
 
 def main():
@@ -141,7 +151,7 @@ def main():
         (emcee.moves.DESnookerMove(), 0.14),
     ]
 
-    with Pool(6) as pool:
+    with Pool(8) as pool:
         sampler = emcee.EnsembleSampler(
             nwalkers, ndim, log_probability, pool=pool, moves=moves
         )
@@ -224,8 +234,8 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM
-ΔM: -9.230 +0.006 -0.006 mag
-r_d * h: 100.54 +0.65 -0.65 Mpc
+ΔM: -9.229 +0.006 -0.006 mag
+r_d * h: 100.54 +0.66 -0.65 Mpc
 Ωm: 0.310 +0.008 -0.008
 w0: -1
 wa: 0
@@ -239,22 +249,22 @@ Flat wCDM
 ΔM: -9.200 +0.011 -0.011 mag
 r_d * h: 98.86 +0.81 -0.81 Mpc
 Ωm: 0.298 +0.009 -0.009
-w0: -0.871 +0.038 -0.038 (prior width 1.5: -1.5 to -0.5)
+w0: -0.871 +0.037 -0.038 (prior width 1.5: -1.5 to -0.5)
 wa: 0
-Chi squared: 1648.10 (Δ chi2 10.87)
-Log Evidence: -838.56 (Δ logZ 2.67)
+Chi squared: 1648.09 (Δ chi2 10.88)
+Log Evidence: -838.56 (Δ logZ 2.67 against ΛCDM)
 Degrees of freedom: 1744
 
 ===============================
 
 Flat w0 - (1 + w0) * (((1 + z)**3 - 1) / ((1 + z)**3 + 1))
 ΔM: -9.193 +0.012 -0.012 mag
-r_d * h: 98.63 +0.82 -0.82 Mpc
-Ωm: 0.308 +0.008 -0.008
+r_d * h: 98.64 +0.82 -0.83 Mpc
+Ωm: 0.307 +0.008 -0.008
 w0: -0.834 +0.045 -0.045 (prior width 1.5: -1.5 to 0.0)
 wa: -(1 + w0)
 Chi squared: 1646.49 (Δ chi2 12.48)
-Log Evidence: -837.59 (Δ logZ 3.64)
+Log Evidence: -837.59 (Δ logZ 3.64 against ΛCDM)
 Degrees of freedom: 1744
 
 ===============================
@@ -266,6 +276,6 @@ r_d * h: 98.52 +0.82 -0.83 Mpc
 w0: -0.783 +0.071 -0.067 (prior width 1.5: -1.5 to 0.0)
 wa: -0.723 +0.441 -0.446 (prior width 4.5: -3.0 to 1.5)
 Chi squared: 1645.45 (Δ chi2 13.52)
-Log Evidence: -838.65 (Δ logZ 2.58)
+Log Evidence: -838.65 (Δ logZ 2.58 against ΛCDM)
 Degrees of freedom: 1743
 """
