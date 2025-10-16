@@ -1,6 +1,6 @@
 from numba import njit
 import numpy as np
-from scipy.linalg import cho_factor, cho_solve
+from scipy.linalg import cho_factor, solve_triangular
 from y2024DES.data import get_data as get_sn_data
 from y2025BAO.data import get_data as get_bao_data
 import cmb.data_desi_compression as cmb
@@ -10,8 +10,11 @@ Or_h2 = cmb.Omega_r_h2()
 
 sn_legend, z_cmb, z_hel, mu_values, cov_matrix_sn = get_sn_data()
 bao_legend, bao_data, bao_cov_matrix = get_bao_data()
-cho_sn = cho_factor(cov_matrix_sn)
-cho_bao = cho_factor(bao_cov_matrix)
+
+cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
+cho_bao = cho_factor(bao_cov_matrix, lower=True)[0]
+cho_sn_T = cho_sn.T
+cho_bao_T = cho_bao.T
 
 sn_grid = np.linspace(0, np.max(z_cmb), num=1000)
 dx_sn = np.diff(sn_grid)
@@ -95,6 +98,12 @@ def bao_theory(z, qty, params):
     return results / rd
 
 
+def solve_triang(cho_L, cho_L_T, delta):
+    y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
+    z = solve_triangular(cho_L_T, y, lower=False, check_finite=False)
+    return delta @ z
+
+
 def chi_squared(params):
     H0, Om, Obh2 = params[0], params[1], params[2]
 
@@ -102,10 +111,10 @@ def chi_squared(params):
     chi2_cmb = np.dot(delta, np.dot(cmb.inv_cov_mat, delta))
 
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
-    chi_bao = np.dot(delta_bao, cho_solve(cho_bao, delta_bao, check_finite=False))
+    chi_bao = solve_triang(cho_bao, cho_bao_T, delta_bao)
 
     delta_sn = mu_values - theory_mu(params)
-    chi_sn = np.dot(delta_sn, cho_solve(cho_sn, delta_sn, check_finite=False))
+    chi_sn = solve_triang(cho_sn, cho_sn_T, delta_sn)
 
     return chi2_cmb + chi_bao + chi_sn
 
