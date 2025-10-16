@@ -16,17 +16,11 @@ cho_cc = cho_factor(cov_matrix_cc, lower=True)[0]
 logdet_cc = np.linalg.slogdet(cov_matrix_cc)[1]
 N_cc = len(z_cc_vals)
 
-cho_sn_T = cho_sn.T
-cho_bao_T = cho_bao.T
-cho_cc_T = cho_cc.T
-
 c = 299792.458  # Speed of light in km/s
 
-sn_grid = np.linspace(0, np.max(z_sn_vals), num=1000)
-dx_sn = np.diff(sn_grid)
-
-bao_grid = np.linspace(0, np.max(bao_data["z"]), num=1000)
-dx_bao = np.diff(bao_grid)
+z_max = max(np.max(z_sn_vals), np.max(bao_data["z"])) + 0.1
+z_grid = np.linspace(0, z_max, num=1200)
+dx = np.diff(z_grid)
 
 
 @njit
@@ -39,18 +33,17 @@ def Ez(z, params):
 
 
 @njit
-def DM(grid, zs, dx, params):
-    dh_grid = DH_z(grid, params)
+def DM(params):
+    dh_grid = DH_z(z_grid, params)
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
-    cum_dm = np.zeros(grid.size)
+    cum_dm = np.zeros(z_grid.size)
     cum_dm[1:] = np.cumsum(dx * dy)
-    dms = np.interp(zs, grid, cum_dm)
-    return dms
+    return cum_dm
 
 
 @njit
 def mu_theory(params):
-    dL = (1 + z_sn_vals) * DM(sn_grid, z_sn_vals, dx_sn, params)
+    dL = (1 + z_sn_vals) * np.interp(z_sn_vals, z_grid, DM(params))
     return params[1] + 25 + 5 * np.log10(dL)
 
 
@@ -66,7 +59,7 @@ def H_z(z, params):
 
 @njit
 def DM_z(z, params):
-    return DM(bao_grid, z, dx_bao, params)
+    return np.interp(z, z_grid, DM(params))
 
 
 @njit
@@ -97,22 +90,21 @@ def bao_theory(z, qty, params):
     return results / params[3]
 
 
-def solve_triang(cho_L, cho_L_T, delta):
+def solve_triang(cho_L, delta):
     y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
-    z = solve_triangular(cho_L_T, y, lower=False, check_finite=False)
-    return delta @ z
+    return np.dot(y, y)
 
 
 def chi_squared(params):
     delta_sn = sn_mu_vals - mu_theory(params)
-    chi_sn = solve_triang(cho_sn, cho_sn_T, delta_sn)
+    chi_sn = solve_triang(cho_sn, delta_sn)
 
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
-    chi_bao = solve_triang(cho_bao, cho_bao_T, delta_bao)
+    chi_bao = solve_triang(cho_bao, delta_bao)
 
     f_cc = params[0]
     delta_cc = H_cc_vals - H_z(z_cc_vals, params)
-    chi_cc = solve_triang(cho_cc, cho_cc_T, delta_cc) * f_cc**2
+    chi_cc = solve_triang(cho_cc, delta_cc) * f_cc**2
 
     return chi_sn + chi_bao + chi_cc
 
@@ -232,7 +224,7 @@ def main():
         y=sn_mu_vals,
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=mu_theory(best_fit),
-        label=f"Best fit: $H_0$={h0_50:.2f}, $\Omega_m$={Om_50:.3f}",
+        label=f"Best fit: $H_0$={h0_50:.2f}, $Ω_m$={Om_50:.3f}",
         x_scale="log",
     )
     plot_cc_predictions(
@@ -276,39 +268,38 @@ if __name__ == "__main__":
 """
 Flat ΛCDM: w(z) = -1
 f_cc: 1.48 +0.19 -0.18
-ΔM: -0.119 +0.113 -0.116 mag
-H0: 68.7 +2.3 -2.3 km/s/Mpc
+H0: 68.6 +2.3 -2.3 km/s/Mpc
 r_d: 147.1 +4.9 -4.6 Mpc
-Ωm: 0.305 +0.008 -0.008
-ωm: 0.1436 +0.0095 -0.0092
-Chi squared: 71.19
-Log evidence: -161.89
+Ωm: 0.304 +0.008 -0.008
+ωm: 0.1435 +0.0095 -0.0093
+Chi squared: 71.17
+Log evidence: -161.76
 Degrees of freedom: 63
 
 ===============================
 
 Flat wCDM: w(z) = w0
-f_cc: 1.46 +0.19 -0.18
-H0: 67.1 +2.4 -2.3 km/s/Mpc
-r_d: 147.3 +4.9 -4.7 Mpc
+f_cc: 1.46 +0.18 -0.18
+H0: 67.1 +2.3 -2.3 km/s/Mpc
+r_d: 147.2 +5.0 -4.6 Mpc
 Ωm: 0.298 +0.009 -0.009
-ωm: 0.1343 +0.0101 -0.0096
+ωm: 0.1344 +0.0099 -0.0096
 w0: -0.871 +0.051 -0.051 (prior width 1.5: -1.5 to 0.0)
-Chi squared: 64.45
-Log evidence: -161.15 (Bayes factor 0.74 over ΛCDM)
+Chi squared: 64.49
+Log evidence: -161.11 (Bayes factor 0.65 over ΛCDM)
 Degrees of freedom: 62
 
 ===============================
 
 Flat alternative: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
 f_cc: 1.46 +0.18 -0.18
-H0: 66.7 +2.4 -2.4 km/s/Mpc
+H0: 66.7 +2.4 -2.3 km/s/Mpc
 r_d: 147.2 +5.0 -4.7 Mpc
-Ωm: 0.310 +0.009 -0.008
-ωm: 0.1379 +0.0096 -0.0093
-w0: -0.812 +0.065 -0.067 (prior width 1.5: -1.5 to 0.0)
-Chi squared: 62.62
-Log evidence: -160.24 (Bayes factor 1.65 over ΛCDM)
+Ωm: 0.310 +0.009 -0.009
+ωm: 0.1378 +0.0097 -0.0091
+w0: -0.812 +0.066 -0.067 (prior width 1.5: -1.5 to 0.0)
+Chi squared: 62.78
+Log evidence: -160.17 (Bayes factor 1.59 over ΛCDM)
 Degrees of freedom: 62
 
 ===============================
@@ -322,6 +313,6 @@ r_d: 147.1 +5.0 -4.7 Mpc
 w0: -0.723 +0.114 -0.108 (prior width 1.5: -1.5 to 0.0)
 wa: -0.897 +0.564 -0.562 (prior width 5.0: -3.0 to 2.0)
 Chi squared: 61.12
-Log evidence: -161.00 (Bayes factor 0.89 over ΛCDM)
+Log evidence: -161.00 (Bayes factor 0.76 over ΛCDM)
 Degrees of freedom: 61
 """
