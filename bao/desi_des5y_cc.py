@@ -1,8 +1,7 @@
 from numba import njit
 import numpy as np
 from scipy.constants import c as c0
-from scipy.integrate import cumulative_trapezoid
-from scipy.linalg import cho_factor, cho_solve
+from scipy.linalg import cho_factor, solve_triangular
 from y2024DES.data import effective_sample_size as sn_sample, get_data as get_sn_data
 from y2005cc.data import get_data as get_cc_data
 from y2025BAO.data import get_data as get_bao_data
@@ -11,16 +10,25 @@ cc_legend, z_cc_vals, H_cc_vals, cov_matrix_cc = get_cc_data()
 sn_legend, z_sn_vals, z_sn_hel_vals, mu_values, cov_matrix_sn = get_sn_data()
 bao_legend, bao_data, cov_matrix_bao = get_bao_data()
 
-cho_sn = cho_factor(cov_matrix_sn)
-cho_bao = cho_factor(cov_matrix_bao)
-cho_cc = cho_factor(cov_matrix_cc)
+cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
+cho_bao = cho_factor(cov_matrix_bao, lower=True)[0]
+cho_cc = cho_factor(cov_matrix_cc, lower=True)[0]
+
 logdet_cc = np.linalg.slogdet(cov_matrix_cc)[1]
 N_cc = len(z_cc_vals)
 
+cho_sn_T = cho_sn.T
+cho_bao_T = cho_bao.T
+cho_cc_T = cho_cc.T
+
 c = c0 / 1000  # km/s
 
-z_grid_sn = np.linspace(0, np.max(z_sn_vals), num=1000)
+sn_grid = np.linspace(0, np.max(z_sn_vals), num=1000)
+dx_sn = np.diff(sn_grid)
 one_plus_z_hel = 1 + z_sn_hel_vals
+
+bao_grid = np.linspace(0, np.max(bao_data["z"]), num=1000)
+dx_bao = np.diff(bao_grid)
 
 
 @njit
@@ -32,16 +40,20 @@ def Ez(z, p):
     return np.sqrt(Om * cubed + (1 - Om) * rho_de)
 
 
-def integral_Ez(params):
-    y = 1 / Ez(z_grid_sn, params)
-    integral_values = cumulative_trapezoid(y=y, x=z_grid_sn, initial=0)
-    return np.interp(z_sn_vals, z_grid_sn, integral_values)
+@njit
+def DM(grid, zs, dx, params):
+    dh_grid = DH_z(grid, params)
+    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    cum_dm = np.zeros(grid.size)
+    cum_dm[1:] = np.cumsum(dx * dy)
+    dms = np.interp(zs, grid, cum_dm)
+    return dms
 
 
+@njit
 def mu_theory(params):
-    mag_offset, H0 = params[1], params[2]
-    dL = one_plus_z_hel * (c / H0) * integral_Ez(params)
-    return mag_offset + 25 + 5 * np.log10(dL)
+    dL = one_plus_z_hel * DM(sn_grid, z_sn_vals, dx_sn, params)
+    return params[1] + 25 + 5 * np.log10(dL)
 
 
 @njit
@@ -56,13 +68,7 @@ def DH_z(z, params):
 
 @njit
 def DM_z(z, params):
-    result = np.empty(z.size, dtype=np.float64)
-    for i in range(z.size):
-        zp = z[i]
-        x = np.linspace(0, zp, num=max(250, int(250 * zp)))
-        y = DH_z(x, params)
-        result[i] = np.trapz(y=y, x=x)
-    return result
+    return DM(bao_grid, z, dx_bao, params)
 
 
 @njit
@@ -93,16 +99,22 @@ def bao_theory(z, qty, params):
     return results / params[3]
 
 
+def solve_triang(cho_L, cho_L_T, delta):
+    y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
+    z = solve_triangular(cho_L_T, y, lower=False, check_finite=False)
+    return delta @ z
+
+
 def chi_squared(params):
     delta_sn = mu_values - mu_theory(params)
-    chi_sn = delta_sn.dot(cho_solve(cho_sn, delta_sn, check_finite=False))
+    chi_sn = solve_triang(cho_sn, cho_sn_T, delta_sn)
 
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
-    chi_bao = delta_bao.dot(cho_solve(cho_bao, delta_bao, check_finite=False))
+    chi_bao = solve_triang(cho_bao, cho_bao_T, delta_bao)
 
-    f_cc = params[0]
     delta_cc = H_cc_vals - H_z(z_cc_vals, params)
-    chi_cc = f_cc**2 * delta_cc.dot(cho_solve(cho_cc, delta_cc, check_finite=False))
+    chi_cc = solve_triang(cho_cc, cho_cc_T, delta_cc) * params[0] ** 2
+
     return chi_sn + chi_bao + chi_cc
 
 
@@ -110,8 +122,8 @@ bounds = np.array(
     [
         (0.5, 2.5),  # f_cc: CC error rescaling (overestimated)
         (-0.55, 0.55),  # ΔM: magnitude offset
-        (50, 80),  # H0: Hubble constant at present
-        (110, 175),  # r_d: sound horizon at drag epoch
+        (50.0, 80.0),  # H0: Hubble constant at present
+        (110.0, 175.0),  # r_d: sound horizon at drag epoch
         (0.2, 0.7),  # Ωm: matter density parameter at present
         (-1.5, 0.0),  # w0: dark energy equation of state at present
     ],
@@ -262,44 +274,48 @@ f_cc: 1.48 +0.19 -0.18
 H0: 68.3 +2.3 -2.3 km/s/Mpc
 r_d: 147.2 +4.9 -4.6 Mpc
 Ωm: 0.311 +0.008 -0.008
-Chi squared: 1691.30
-Log evidence: -975.19
+w0: -1
+wa: 0
+Chi squared: 1691.36
+Log evidence: -975.17
 Degrees of freedom: 1776
 
 ===============================
 
 Flat wCDM: w(z) = w0
-f_cc: 1.46 +0.18 -0.18
+f_cc: 1.47 +0.19 -0.18
 H0: 67.1 +2.2 -2.3 km/s/Mpc
-r_d: 147.2 +5.0 -4.6 Mpc
+r_d: 147.2 +5.0 -4.7 Mpc
 Ωm: 0.299 +0.009 -0.009
-w0: -0.874 +0.038 -0.039 (prior width 1.5: -1.5 to 0.0)
-Chi squared: 1680.34
-Log evidence: -972.95 (Bayes factor 2.24 over ΛCDM)
+w0: -0.874 +0.037 -0.039 (prior width 1.5: -1.5 to 0.0)
+wa: 0
+Chi squared: 1680.48
+Log evidence: -972.68 (Bayes factor 2.49 against ΛCDM)
 Degrees of freedom: 1775
 
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-f_cc: 1.46 +0.18 -0.18
+f_cc: 1.46 +0.19 -0.18
 H0: 67.1 +2.3 -2.3 km/s/Mpc
-r_d: 147.1 +5.0 -4.6 Mpc
+r_d: 147.1 +4.9 -4.6 Mpc
 Ωm: 0.308 +0.008 -0.008
 w0: -0.839 +0.045 -0.046 (prior width 1.5: -1.5 to 0.0)
-Chi squared: 1678.88
-Log evidence: -971.81 (Bayes factor 3.38 over ΛCDM)
+wa: -(1 + w0)
+Chi squared: 1678.93
+Log evidence: -972.02 (Bayes factor 3.15 against ΛCDM)
 Degrees of freedom: 1775
 
 ===============================
 
 Flat w0waCDM: w(z) = w0 + wa * z / (1 + z)
-f_cc: 1.46 +0.18 -0.17
+f_cc: 1.46 +0.18 -0.18
 H0: 67.0 +2.3 -2.3 km/s/Mpc
 r_d: 147.0 +5.0 -4.7 Mpc
 Ωm: 0.321 +0.013 -0.016
-w0: -0.794 +0.071 -0.067 (prior width 1.5: -1.5 to 0.0)
-wa: -0.665 +0.459 -0.451 (prior width 4.5: -3.0 to 1.5)
-Chi squared: 1677.82
-Log evidence: -972.99 (Bayes factor 2.20 over ΛCDM)
+w0: -0.795 +0.072 -0.067 (prior width 1.5: -1.5 to 0.0)
+wa: -0.663 +0.456 -0.452 (prior width 4.5: -3.0 to 1.5)
+Chi squared: 1677.90
+Log evidence: -973.15 (Bayes factor 2.02 against ΛCDM)
 Degrees of freedom: 1774
 """
