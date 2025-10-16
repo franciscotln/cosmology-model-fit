@@ -21,8 +21,7 @@ def H_z(z, params):
     OL = 1 - Om
     one_plus_z = 1 + z
     cubed = one_plus_z**3
-    # rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
-    rho_de = one_plus_z ** (3 * (1 + w0))
+    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
     return 100 * h * np.sqrt(Om * cubed + OL * rho_de)
 
 
