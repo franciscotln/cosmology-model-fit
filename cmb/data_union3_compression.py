@@ -24,6 +24,7 @@ inv_cov_mat = np.array(
     ],
     dtype=np.float64,
 )
+covariance = np.linalg.inv(inv_cov_mat)
 
 N_EFF = 3.04
 TCMB = 2.72548  # K
