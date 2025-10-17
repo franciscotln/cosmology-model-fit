@@ -5,6 +5,10 @@ import numpy as np
 def log_evidence(mc_samples, log_probs, log_probability, eps=1e-5):
     """
     Laplace approximation for Bayesian evidence (ln Z) using Hessian at MAP.
+    -inf < ln(Z) < 1: weak
+    1 <= ln(Z) < 3: positive
+    3 <= ln(Z) < 5: strong
+    ln(Z) >= 5: very strong
     """
     # Find MAP estimate
     map_idx = np.argmax(log_probs)
