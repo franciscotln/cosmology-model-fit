@@ -17,9 +17,8 @@ cho_bao = cho_factor(cov_matrix_bao, lower=True)[0]
 Planck compressed priors without ωm = Ωm * h^2 (arXiv:2503.14738v2)
 This way we allow for the ratio ωb / ωm to vary freely independently from Planck.
 """
-cmb_compressed_priors = np.array([0.01041, 0.02223])  # θ*, ωb
-cmb_cov = 10**-9 * np.array([[0.006621, 0.12444], [0.12444, 21.344]])
-cho_cmb = cho_factor(cmb_cov, lower=True)[0]
+cmb_compressed_priors = cmb.DISTANCE_PRIORS[:2]  # θ*, ωb
+cho_cmb = cho_factor(cmb.covariance[:2, :2], lower=True)[0]
 
 z_max = max(np.max(z_sn_vals), np.max(bao_data["z"])) + 0.1
 z_grid = np.linspace(0, z_max, num=1200)
