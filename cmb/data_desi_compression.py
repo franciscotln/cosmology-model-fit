@@ -74,6 +74,25 @@ def z_star(wb, wm):
 
 
 @njit
+def r_drag1(wb, wm):
+    # arXiv:2106.00428v2 (eq 8)
+    a1 = 0.00257366
+    a2 = 0.05032
+    a3 = 0.013
+    a4 = 0.7720642
+    a5 = 0.24346362
+    a6 = 0.00641072
+    a7 = 0.5350899
+    a8 = 32.7525
+    a9 = 0.315473
+
+    term_A_denominator = (a1 * (wb**a2)) + (a3 * (wb**a4) * (wm**a5)) + (a6 * (wm**a7))
+    term_A = 1.0 / term_A_denominator
+    term_B = a8 / (wm**a9)
+    return term_A - term_B
+
+
+@njit
 def z_star_HU(wb, wm):
     # arXiv:astro-ph/9510117v2 (eq-1)
     g1 = 0.0783 * wb**-0.238 / (1 + 39.5 * wb**0.763)
