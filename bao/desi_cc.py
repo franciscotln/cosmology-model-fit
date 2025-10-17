@@ -1,19 +1,24 @@
 from numba import njit
 import numpy as np
-from scipy.linalg import cho_factor, cho_solve
+from scipy.constants import c as c0
+from scipy.linalg import cho_factor, solve_triangular
 from y2005cc.data import get_data as get_cc_data
 from y2025BAO.data import get_data as get_bao_data
-from .plot_predictions import plot_bao_predictions
-from cosmic_chronometers.plot_predictions import plot_cc_predictions
 
 cc_legend, z_cc_vals, H_cc_vals, cc_cov_matrix = get_cc_data()
 bao_legend, data, bao_cov_matrix = get_bao_data()
-cho_bao = cho_factor(bao_cov_matrix)
-cho_cc = cho_factor(cc_cov_matrix)
+
+cho_bao = cho_factor(bao_cov_matrix, lower=True)[0]
+cho_cc = cho_factor(cc_cov_matrix, lower=True)[0]
+
 logdet_cc = np.linalg.slogdet(cc_cov_matrix)[1]
 N_cc = len(z_cc_vals)
 
-c = 299792.458  # Speed of light in km/s
+c = c0 / 1000  # Speed of light in km/s
+
+z_max = np.max(data["z"]) + 0.1
+z_grid = np.linspace(0, z_max, num=1200)
+dx = np.diff(z_grid)
 
 
 @njit
@@ -36,14 +41,12 @@ def DH_z(z, params):
 
 
 @njit
-def DM_z(z, params):
-    result = np.empty(z.size, dtype=np.float64)
-    for i in range(z.size):
-        zp = z[i]
-        x = np.linspace(0, zp, num=max(250, int(250 * zp)))
-        y = DH_z(x, params)
-        result[i] = np.trapz(y=y, x=x)
-    return result
+def DM_z(z, theta):
+    dh_grid = DH_z(z_grid, theta)
+    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    cum_dm = np.zeros(z_grid.size)
+    cum_dm[1:] = np.cumsum(dx * dy)
+    return np.interp(z, z_grid, cum_dm)
 
 
 @njit
@@ -74,40 +77,45 @@ def theory_bao(z, qty, params):
     return results / params[2]
 
 
-bounds = np.array(
-    [
-        (0.1, 1.5),  # f_cc
-        (45, 90),  # H0
-        (120, 175),  # r_d
-        (0.2, 0.7),  # Ωm
-        (-2.0, 1.0),  # w0
-    ],
-    dtype=np.float64,
-)
+def solve_triang(cho_L, delta):
+    y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
+    return np.dot(y, y)
 
 
 def chi_squared(params):
     f_cc = params[0]
     delta_cc = H_cc_vals - H_z(z_cc_vals, params)
-    chi_cc = f_cc**-2 * np.dot(
-        delta_cc, cho_solve(cho_cc, delta_cc, check_finite=False)
-    )
+    chi_cc = f_cc**2 * solve_triang(cho_cc, delta_cc)
 
     delta_bao = data["value"] - theory_bao(data["z"], quantities, params)
-    chi_bao = np.dot(delta_bao, cho_solve(cho_bao, delta_bao, check_finite=False))
+    chi_bao = solve_triang(cho_bao, delta_bao)
     return chi_cc + chi_bao
+
+
+bounds = np.array(
+    [
+        (0.5, 2.5),  # f_cc
+        (45, 90),  # H0
+        (120, 175),  # r_d
+        (0.1, 0.7),  # Ωm
+        (-2.0, 0.0),  # w0
+    ],
+    dtype=np.float64,
+)
+
+normalization = -np.log(np.prod(bounds[:, 1] - bounds[:, 0]))
 
 
 @njit
 def log_prior(params):
-    if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
-        return 0.0
-    return -np.inf
+    if not np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
+        return -np.inf
+    return normalization
 
 
 def log_likelihood(params):
     f_cc = params[0]
-    normalization_cc = N_cc * np.log(2 * np.pi) + logdet_cc + 2 * N_cc * np.log(f_cc)
+    normalization_cc = N_cc * np.log(2 * np.pi) + logdet_cc - 2 * N_cc * np.log(f_cc)
     return -0.5 * chi_squared(params) - 0.5 * normalization_cc
 
 
@@ -119,30 +127,27 @@ def log_probability(params):
 
 
 def main():
-    import emcee, corner
-    import matplotlib.pyplot as plt
+    import emcee
+    from corner_plot import plot_corner_and_chains
     from multiprocessing import Pool
+    from cosmic_chronometers.plot_predictions import plot_cc_predictions
+    from .plot_predictions import plot_bao_predictions
 
     ndim = len(bounds)
     nwalkers = 150
     burn_in = 200
     nsteps = 2000 + burn_in
-    initial_pos = np.zeros((nwalkers, ndim))
-
-    for dim, (lower, upper) in enumerate(bounds):
-        initial_pos[:, dim] = np.random.uniform(lower, upper, nwalkers)
+    np.random.seed(42)
+    initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
+    moves = [
+        (emcee.moves.KDEMove(), 0.30),
+        (emcee.moves.DEMove(), 0.56),
+        (emcee.moves.DESnookerMove(), 0.14),
+    ]
 
     with Pool(5) as pool:
         sampler = emcee.EnsembleSampler(
-            nwalkers,
-            ndim,
-            log_probability,
-            pool=pool,
-            moves=[
-                (emcee.moves.KDEMove(), 0.30),
-                (emcee.moves.DEMove(), 0.56),
-                (emcee.moves.DESnookerMove(), 0.14),
-            ],
+            nwalkers, ndim, log_probability, pool=pool, moves=moves
         )
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
 
@@ -165,7 +170,7 @@ def main():
         [w0_16, w0_50, w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = np.array([f_cc_50, h0_50, rd_50, Om_50, w0_50], dtype=np.float64)
+    best_fit = np.percentile(samples, 50, axis=0)
 
     Omh2_samples = samples[:, 1] ** 2 * samples[:, 3] / 100**2
     Omh2_16, Omh2_50, Omh2_84 = np.percentile(Omh2_samples, [15.9, 50, 84.1])
@@ -190,34 +195,14 @@ def main():
         H_z=lambda z: H_z(z, best_fit),
         z=z_cc_vals,
         H=H_cc_vals,
-        H_err=np.sqrt(np.diag(cc_cov_matrix)) * f_cc_50,
+        H_err=np.sqrt(np.diag(cc_cov_matrix)) / f_cc_50,
         label=f"{cc_legend}: $H_0$={h0_50:.1f} km/s/Mpc",
     )
-
-    labels = ["$f_{CCH}$", "$H_0$", "$r_d$", "$Ω_m$", "$w_0$"]
-    corner.corner(
-        samples,
-        labels=labels,
-        quantiles=[0.159, 0.5, 0.841],
-        show_titles=True,
-        title_fmt=".3f",
-        smooth=2.0,
-        smooth1d=2.0,
-        bins=100,
-        levels=(0.393, 0.864),  # 1 and 2 sigmas in 2D
-        fill_contours=False,
-        plot_datapoints=False,
+    plot_corner_and_chains(
+        labels=["$f_{CCH}$", "$H_0$", "$r_d$", "$Ω_m$", "$w_0$"],
+        flat_samples=samples,
+        samples=chains_samples,
     )
-    plt.show()
-
-    plt.figure(figsize=(16, 1.5 * ndim))
-    for n in range(ndim):
-        plt.subplot2grid((ndim, 1), (n, 0))
-        plt.plot(chains_samples[:, :, n], alpha=0.3)
-        plt.ylabel(labels[n])
-        plt.xlim(0, None)
-    plt.tight_layout()
-    plt.show()
 
 
 if __name__ == "__main__":
@@ -229,53 +214,44 @@ Dataset: DESI 2025
 *******************************
 
 Flat ΛCDM
-f_cc: 0.70 +0.10 -0.08
-H0: 69.1 +2.4 -2.4 km/s/Mpc
-r_d: 146.9 +5.1 -4.7 Mpc
+f_cc: 1.47 +0.19 -0.18
+H0: 69.1 +2.3 -2.3
+r_d: 146.9 +4.9 -4.6
 Ωm: 0.299 +0.009 -0.008
-ωm: 0.1425 +0.0098 -0.0094
+ωm: 0.1424 +0.0095 -0.0091
 w0: -1
-Chi squared: 40.55
-log likelihood: -135.86
+Chi squared: 42.58
+log likelihood: -135.81
 Degrees of freedom: 42
 
 ===============================
 
 Flat wCDM
-f_cc: 0.70 +0.10 -0.08
-H0: 67.9 +2.7 -2.6 km/s/Mpc
-r_d: 147.1 +5.2 -4.8 Mpc
+f_cc: 1.47 +0.18 -0.17
+H0: 67.9 +2.6 -2.5
+r_d: 147.1 +5.0 -4.6
 Ωm: 0.298 +0.009 -0.009
-ωm: 0.1375 +0.0109 -0.0106
-w0: -0.922 +0.074 -0.079
-Chi squared: 39.31
-log likelihood: -135.33
+ωm: 0.1375 +0.0105 -0.0103
+w0: -0.923 +0.075 -0.077
+Chi squared: 41.34
+log likelihood: -135.28
 Degrees of freedom: 41
 
 ===============================
 
 Flat -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-f_cc: 0.71 +0.10 -0.08
-H0: 67.2 +2.8 -2.8 km/s/Mpc
-r_d: 147.2 +5.1 -4.8 Mpc
+f_cc: 1.46 +0.18 -0.18
+H0: 67.3 +2.8 -2.7
+r_d: 147.1 +5.1 -4.6
 Ωm: 0.307 +0.011 -0.011
-ωm: 0.1389 +0.0102 -0.0098
-w0: -0.854 +0.117 -0.127
-Chi squared: 38.74
-log likelihood: -135.16
+ωm: 0.1390 +0.0100 -0.0096
+w0: -0.857 +0.118 -0.126
+Chi squared: 40.81
+log likelihood: -135.09
 Degrees of freedom: 41
 
 ===============================
 
 Flat w0waCDM
-f_cc: 0.72 +0.10 -0.08
-H0: 65.2 +3.5 -3.3 km/s/Mpc
-r_d: 147.2 +5.3 -4.8 Mpc
-Ωm: 0.343 +0.033 -0.044
-ωm: 0.1439 +0.0118 -0.0127
-w0: -0.593 +0.294 -0.318
-wa: -1.309 +1.254 -1.055
-Chi squared: 37.03
-log likelihood: -134.79
-Degrees of freedom: 40
+TODO
 """
