@@ -12,7 +12,10 @@ cho_T = cho.T
 z_grid = np.linspace(0, np.max(data["z"]) + 0.1, num=1200)
 dx = np.diff(z_grid)
 
-# Planck prior
+"""
+Planck prior on Ωm * h^2
+Fit rs(drag) directly as a free parameter without early universe constraints
+"""
 Omh2_planck = 0.1430
 Omh2_planck_sigma = 0.0011
 
@@ -202,6 +205,7 @@ Flat ΛCDM:
 h: 0.693 +0.010 -0.010
 Ωm: 0.298 +0.009 -0.008
 Ωm h^2: 0.1430 +0.0011 -0.0011
+Ωb h^2 (inferred): 0.02292
 w0: -1
 rd: 146.48 +1.33 -1.31
 Chi squared: 10.27
@@ -215,6 +219,7 @@ Flat wCDM:
 h: 0.694 +0.011 -0.011
 Ωm: 0.297 +0.009 -0.009
 Ωm h^2: 0.1430 +0.0011 -0.0011
+Ωb h^2 (inferred): 0.02597
 w0: -0.914 +0.076 -0.080
 rd: 144.03 +2.67 -2.94
 Chi squared: 9.16
@@ -228,6 +233,7 @@ Flat alternative: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
 h: 0.681 +0.013 -0.013
 Ωm: 0.308 +0.012 -0.012
 Ωm h^2: 0.1430 +0.0011 -0.0011
+Ωb h^2 (inferred): 0.02512
 w0: -0.832 +0.121 -0.128
 rd: 144.70 +1.94 -1.94
 Chi squared: 8.44
