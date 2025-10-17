@@ -14,7 +14,7 @@ DISTANCE_PRIORS = np.array(
     ],
     dtype=np.float64,
 )
-cov_matrix = 10**-8 * np.array(
+covariance = 10**-8 * np.array(
     [
         [1559.83, -1325.41, -36.45],
         [-1325.41, 714691.80, 269.77],
@@ -22,7 +22,7 @@ cov_matrix = 10**-8 * np.array(
     ],
     dtype=np.float64,
 )
-inv_cov_mat = np.linalg.inv(cov_matrix)
+inv_cov_mat = np.linalg.inv(covariance)
 
 N_EFF = 3.044
 TCMB = 2.7255  # K
