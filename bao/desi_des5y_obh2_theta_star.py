@@ -99,7 +99,10 @@ def solve_triang(cho_L, delta):
     return np.dot(y, y)
 
 
-# Planck compressed priors without ωm = Ωm * h^2 (arXiv:2503.14738v2)
+"""
+Planck compressed priors without ωm = Ωm * h^2 (arXiv:2503.14738v2)
+This way we allow for the ratio ωb / ωm to vary freely independently from Planck.
+"""
 cmb_compressed_priors = np.array([0.01041, 0.02223])  # θ*, ωb
 cmb_cov = 10**-9 * np.array([[0.006621, 0.12444], [0.12444, 21.344]])
 cho_cmb = cho_factor(cmb_cov, lower=True)[0]
@@ -270,6 +273,7 @@ H0: 68.36 +0.29 -0.29 km/s/Mpc
 ωb: 0.02222 +0.00014 -0.00014
 z_d: 1059.31 +0.35 -0.35
 r_d: 147.97 Mpc
+r*: 145.31 Mpc (1.0183 x r_d)
 Chi squared: 1661.96
 Log Evidence: -847.99
 Degrees of freedom: 1746
@@ -284,6 +288,7 @@ H0: 66.60 +0.58 -0.57 km/s/Mpc
 w0: -0.910 +0.025 -0.026 (prior width 1.5: -1.5 to 0.0)
 z_d: 1059.12 +0.36 -0.35
 r_d: 148.81 Mpc
+r*: 146.12 Mpc (1.0184 x r_d)
 Chi squared: 1649.95
 Log Evidence: -845.16 (Bayes factor 2.83 against ΛCDM)
 Degrees of freedom: 1745
@@ -298,6 +303,7 @@ H0: 66.46 +0.56 -0.55 km/s/Mpc
 w0: -0.855 +0.037 -0.037 (prior width 1.5: -1.5 to 0.0)
 z_d: 1059.21 +0.34 -0.35
 r_d: 148.48 Mpc
+r*: 145.81 Mpc (1.0183 x r_d)
 Chi squared: 1647.17
 Log Evidence: -843.38 (Bayes factor 4.61 against ΛCDM)
 Degrees of freedom: 1745
@@ -313,6 +319,7 @@ w0: -0.793 +0.061 -0.059 (prior width 1.5: -1.5 to 0.0)
 wa: -0.585 +0.270 -0.280 (prior width 3.5: -2.5 to 1.0)
 z_d: 1059.36 +0.35 -0.36
 r_d: 147.85 Mpc
+r*: 145.26 Mpc (1.0178 x r_d)
 Chi squared: 1646.07
 Log Evidence: -844.53 (Bayes factor 3.46 against ΛCDM)
 Degrees of freedom: 1744
