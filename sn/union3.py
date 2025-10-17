@@ -1,13 +1,12 @@
 from numba import njit
 import numpy as np
-from scipy.linalg import cho_factor, cho_solve
-from scipy.integrate import cumulative_trapezoid
+from scipy.linalg import cho_factor, solve_triangular
 from scipy.constants import c as c0
 from y2023union3.data import get_data
 
 legend, z_values, mu_vals, cov_matrix = get_data()
 
-cho = cho_factor(cov_matrix)
+cho = cho_factor(cov_matrix, lower=True)[0]
 
 C = c0 / 1000  # Speed of light (km/s)
 H0 = 70  # Hubble constant (km/s/Mpc)
@@ -20,6 +19,7 @@ W0 = 2
 bounds = np.array([(-0.6, 0.6), (0.0, 1.0), (-1.5, 0.0)])  # ΔM, Ωm, w0
 
 z_grid = np.linspace(0, np.max(z_values), num=1000)
+dx = np.diff(z_grid)
 
 
 @njit
@@ -30,16 +30,28 @@ def Ez(z, params):
     return np.sqrt(Om * cubed + (1 - Om) * rho_de)
 
 
+@njit
+def DM_z(z, params):
+    dh_grid = (C / H0) / Ez(z_grid, params)
+    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    cum_dm = np.zeros(z_grid.size)
+    cum_dm[1:] = np.cumsum(dx * dy)
+    return np.interp(z, z_grid, cum_dm)
+
+
+@njit
 def mu_theory(params):
-    a0_over_ae = 1 + z_values
-    integral_values = cumulative_trapezoid(1 / Ez(z_grid, params), z_grid, initial=0)
-    I = np.interp(z_values, z_grid, integral_values)
-    return params[OFFSET] + 25 + 5 * np.log10(a0_over_ae * (C / H0) * I)
+    dL = (1 + z_values) * DM_z(z_values, params)
+    return params[OFFSET] + 25 + 5 * np.log10(dL)
+
+
+def solve_triang(cho_L, delta):
+    y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
+    return np.dot(y, y)
 
 
 def chi_squared(params):
-    delta = mu_vals - mu_theory(params)
-    return delta.dot(cho_solve(cho, delta, check_finite=False))
+    return solve_triang(cho, mu_vals - mu_theory(params))
 
 
 def log_likelihood(params):
