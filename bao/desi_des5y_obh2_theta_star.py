@@ -27,7 +27,7 @@ def Ez(z, theta):
     Or = Orh2 / h**2
     cubed = z_plus_1**3
     rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
-    return np.sqrt(Or * (1 + z) ** 4 + Om * cubed + (1 - Om) * rho_de)
+    return np.sqrt(Or * z_plus_1**4 + Om * cubed + (1 - Om) * rho_de)
 
 
 @njit
