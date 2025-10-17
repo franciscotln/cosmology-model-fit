@@ -84,7 +84,10 @@ def bao_theory(z, qty, params):
     return results / params[0]
 
 
-# Planck prior
+"""
+Planck prior on Ωm * h^2
+Fit rs(drag) directly as a free parameter without early universe constraints
+"""
 Omh2_planck = 0.1430
 Omh2_planck_sigma = 0.0011
 
