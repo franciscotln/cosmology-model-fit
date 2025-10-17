@@ -1,6 +1,6 @@
 from numba import njit
 import numpy as np
-from scipy.linalg import cho_factor, cho_solve
+from scipy.linalg import cho_factor, solve_triangular
 from y2023union3.data import get_data
 from y2025BAO.data import get_data as get_bao_data
 import cmb.data_desi_compression as cmb
@@ -10,8 +10,10 @@ Or_h2 = cmb.Omega_r_h2()
 
 sn_legend, z_sn_vals, mu_vals, cov_matrix_sn = get_data()
 bao_legend, bao_data, bao_cov_matrix = get_bao_data()
-cho_sn = cho_factor(cov_matrix_sn)
-cho_bao = cho_factor(bao_cov_matrix)
+
+cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
+cho_bao = cho_factor(bao_cov_matrix, lower=True)[0]
+cho_cmb = cho_factor(cmb.covariance, lower=True)[0]
 
 sn_grid = np.linspace(0, z_sn_vals.max() + 0.1, num=1000)
 dx_sn = np.diff(sn_grid)
@@ -95,17 +97,22 @@ def bao_theory(z, qty, params):
     return results / rd
 
 
+def solve_triang(cho_L, delta):
+    y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
+    return np.dot(y, y)
+
+
 def chi_squared(params):
     H0, Om, Ob_h2 = params[0], params[1], params[2]
 
-    delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez, params, H0, Om, Ob_h2)
-    chi2_cmb = np.dot(delta, np.dot(cmb.inv_cov_mat, delta))
+    delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez, params, H0, Om, Ob_h2)
+    chi2_cmb = solve_triang(cho_cmb, delta_cmb)
 
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
-    chi_bao = np.dot(delta_bao, cho_solve(cho_bao, delta_bao, check_finite=False))
+    chi_bao = solve_triang(cho_bao, delta_bao)
 
     delta_sn = mu_vals - mu_theory(params)
-    chi_sn = np.dot(delta_sn, cho_solve(cho_sn, delta_sn, check_finite=False))
+    chi_sn = solve_triang(cho_sn, delta_sn)
 
     return chi2_cmb + chi_bao + chi_sn
 
@@ -283,14 +290,14 @@ Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
 H0: 66.7 +0.8 -0.8 km/s/Mpc
 Ωm: 0.314 +0.007 -0.007
 ωb: 0.02243 +0.00012 -0.00012
-ωm: 0.13952 +0.00069 -0.00070
-w0: -0.885 +0.051 -0.051 (prior width 1.5: -1.5 to 0.0)
+ωm: 0.13953 +0.00070 -0.00070
+w0: -0.884 +0.052 -0.052 (prior width 1.5: -1.5 to 0.0)
 z*: 1088.54 +0.15 -0.15
 r*: 145.25 Mpc
-z_d: 1059.79 +0.27 -0.27
-r_d: 147.83 Mpc
-Chi squared: 38.02
-Log evidence: -35.7 (Bayes factor: -0.1 equal to ΛCDM)
+z_d: 1059.78 +0.27 -0.27
+r_d: 147.82 Mpc
+Chi squared: 37.93
+Log evidence: -35.6 (Bayes factor: 0.0 equal to ΛCDM)
 Degs of freedom: 34
 
 ===============================
