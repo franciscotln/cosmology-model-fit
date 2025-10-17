@@ -1,17 +1,16 @@
 from numba import njit
 import numpy as np
-import emcee
-import corner
 from scipy.constants import c as c0
-import matplotlib.pyplot as plt
 from y2025BAO.data import get_data
-from .plot_predictions import plot_bao_predictions, plot_bao_residuals
 
 c = c0 / 1000  # Speed of light in km/s
 
 legend, data, cov_matrix = get_data()
 cho = np.linalg.cholesky(cov_matrix)
 cho_T = cho.T
+
+z_grid = np.linspace(0, np.max(data["z"]) + 0.1, num=1200)
+dx = np.diff(z_grid)
 
 # Planck prior
 Omh2_planck = 0.1430
@@ -35,13 +34,11 @@ def DH_z(z, params):
 
 @njit
 def DM_z(z, params):
-    result = np.empty(z.size, dtype=np.float64)
-    for i in range(z.size):
-        zp = z[i]
-        x = np.linspace(0, zp, num=max(250, int(250 * zp)))
-        y = DH_z(x, params)
-        result[i] = np.trapz(y=y, x=x)
-    return result
+    dh_grid = DH_z(z_grid, params)
+    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    cum_dm = np.zeros(z_grid.size)
+    cum_dm[1:] = np.cumsum(dx * dy)
+    return np.interp(z, z_grid, cum_dm)
 
 
 @njit
@@ -61,17 +58,6 @@ def bao_theory(z, qty, params):
     results[DM_mask] = DM_z(z[DM_mask], params)
     results[DV_mask] = DV_z(z[DV_mask], params)
     return results / params[3]
-
-
-bounds = np.array(
-    [
-        (0.500, 0.800),  # h
-        (0.100, 0.500),  # Ωm
-        (-2.0, 0.0),  # w0
-        (130.0, 160.0),  # rd
-    ],
-    dtype=np.float64,
-)
 
 
 qty_map = {
@@ -95,11 +81,24 @@ def chi_squared(params):
     return np.dot(delta, x) + chi2_prior
 
 
+bounds = np.array(
+    [
+        (0.500, 0.800),  # h
+        (0.100, 0.500),  # Ωm
+        (-2.0, 0.0),  # w0
+        (130.0, 160.0),  # rd
+    ],
+    dtype=np.float64,
+)
+
+normalization = -np.log(np.prod(bounds[:, 1] - bounds[:, 0]))
+
+
 @njit
 def log_prior(params):
     if not np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
         return -np.inf
-    return 0.0
+    return normalization
 
 
 @njit
@@ -115,14 +114,16 @@ def log_probability(params):
 
 
 def main():
+    import emcee
+    from corner_plot import plot_corner_and_chains
+    from .plot_predictions import plot_bao_predictions, plot_bao_residuals
+
     n_dim = len(bounds)
     n_walkers = 160
-    burn_in = 200
-    nsteps = 2000 + burn_in
-    initial_pos = np.zeros((n_walkers, n_dim))
-
-    for dim, (lower, upper) in enumerate(bounds):
-        initial_pos[:, dim] = np.random.uniform(lower, upper, n_walkers)
+    burnin = 200
+    nsteps = 2000 + burnin
+    np.random.seed(42)
+    initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (n_walkers, n_dim))
 
     sampler = emcee.EnsembleSampler(
         n_walkers,
@@ -139,14 +140,13 @@ def main():
     try:
         tau = sampler.get_autocorr_time()
         print("Auto-correlation time:", tau)
-        print(
-            "Effective samples:", n_dim * n_walkers * (nsteps - burn_in) / np.max(tau)
-        )
+        print("Effective samples:", n_dim * n_walkers * (nsteps - burnin) / np.max(tau))
         print("Acceptance fraction:", np.mean(sampler.acceptance_fraction))
     except emcee.autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
 
-    samples = sampler.get_chain(discard=burn_in, flat=True)
+    samples = sampler.get_chain(discard=burnin, flat=True)
+    chains_samples = sampler.get_chain(discard=burnin, flat=False)
 
     [
         [h_16, h_50, h_84],
@@ -155,7 +155,7 @@ def main():
         [rd_16, rd_50, rd_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = np.array([h_50, Om_50, w0_50, rd_50], dtype=np.float64)
+    best_fit = np.percentile(samples, 50, axis=0)
 
     Omh2_samples = samples[:, 1] * samples[:, 0] ** 2
     Omh2_16, Omh2_50, Omh2_84 = np.percentile(Omh2_samples, [15.9, 50, 84.1])
@@ -167,9 +167,7 @@ def main():
 
     print(f"h: {h_50:.3f} +{(h_84 - h_50):.3f} -{(h_50 - h_16):.3f}")
     print(f"Ωm: {Om_50:.3f} +{Om_84-Om_50:.3f} -{Om_50-Om_16:.3f}")
-    print(
-        f"Ωm h^2: {Omh2_50:.4f} +{(Omh2_84 - Omh2_50):.4f} -{(Omh2_50 - Omh2_16):.4f}"
-    )
+    print(f"ωm: {Omh2_50:.4f} +{(Omh2_84 - Omh2_50):.4f} -{(Omh2_50 - Omh2_16):.4f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"rd: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
@@ -184,31 +182,11 @@ def main():
         title=f"{legend}: $H_0$={100 * h_50:.1f} km/s/Mpc, $Ω_m$={Om_50:.3f}",
     )
     plot_bao_residuals(data, residuals, np.sqrt(np.diag(cov_matrix)))
-
-    labels = ["$h$", "$Ω_m$", "$w_0$", "$r_d$"]
-    corner.corner(
-        samples,
-        labels=labels,
-        quantiles=[0.159, 0.5, 0.841],
-        show_titles=True,
-        title_fmt=".3f",
-        bins=100,
-        fill_contours=False,
-        plot_datapoints=False,
-        smooth=2.0,
-        smooth1d=2.0,
-        levels=(0.393, 0.864),  # 1 and 2 sigmas in 2D
+    plot_corner_and_chains(
+        labels=["$h$", "$Ω_m$", "$w_0$", "$r_d$"],
+        flat_samples=samples,
+        samples=chains_samples,
     )
-    plt.show()
-
-    plt.figure(figsize=(16, 1.5 * n_dim))
-    for n in range(n_dim):
-        plt.subplot2grid((n_dim, 1), (n, 0))
-        plt.plot(sampler.get_chain(discard=burn_in)[:, :, n], alpha=0.3)
-        plt.ylabel(labels[n])
-        plt.xlim(0, None)
-    plt.tight_layout()
-    plt.show()
 
 
 if __name__ == "__main__":
