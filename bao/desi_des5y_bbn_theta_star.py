@@ -100,14 +100,14 @@ def solve_triang(cho_L, delta):
     return np.dot(y, y)
 
 
-# arXiv:2503.14738v2
-theta_100 = 1.04110
-theta_100_err = 2 * 0.00053  # 2-sigma error to account for variations in the models
+# arXiv:1807.06209v4 (Planck 2018 final)
+theta_stx100 = 1.04110
+theta_stx100_err = 2 * 0.00031  # 2-sigma error to account for variations in the models
 
 
 def chi_squared(theta):
-    delta_theta_100 = theta_100 - theta_100_theory(theta)
-    chi2_theta_100 = (delta_theta_100 / theta_100_err) ** 2
+    delta_theta_100 = theta_stx100 - theta_100_theory(theta)
+    chi2_theta_100 = (delta_theta_100 / theta_stx100_err) ** 2
 
     delta_bbn = bbn.Obh2 - theta[2]
     chi2_bbn = (delta_bbn / bbn.Obh2_sigma) ** 2
@@ -265,56 +265,56 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM  w(z) = -1
-H0: 68.22 +0.46 -0.46 km/s/Mpc
+H0: 68.21 +0.46 -0.46 km/s/Mpc
 Ωm: 0.300 +0.004 -0.004
-ωm: 0.1396 +0.0014 -0.0014
+ωm: 0.1395 +0.0012 -0.0012
 ωb: 0.02199 +0.00052 -0.00053
-z_d: 1058.78 +1.25 -1.27
-r_d: 148.18 Mpc
-Chi squared: 1661.60
-Log Evidence: -845.04
+z_d: 1058.77 +1.25 -1.27
+r_d: 148.22 Mpc
+Chi squared: 1661.67
+Log Evidence: -845.60
 Degrees of freedom: 1746
 
 ===============================
 
 Flat wCDM w(z) = w0
-H0: 66.61 +0.64 -0.64 km/s/Mpc
+H0: 66.62 +0.64 -0.63 km/s/Mpc
 Ωm: 0.308 +0.005 -0.005
-ωm: 0.1365 +0.0017 -0.0017
+ωm: 0.1366 +0.0015 -0.0015
 ωb: 0.02229 +0.00053 -0.00053
-w0: -0.909 +0.026 -0.026 (prior width 1.5: -1.5 to 0.0)
-z_d: 1059.23 +1.24 -1.26
-r_d: 148.77 Mpc
-Chi squared: 1649.95
-Log Evidence: -842.37 (Bayes factor 2.67 against ΛCDM)
+w0: -0.910 +0.025 -0.026 (prior width 1.5: -1.5 to 0.0)
+z_d: 1059.24 +1.24 -1.27
+r_d: 148.74 Mpc
+Chi squared: 1649.97
+Log Evidence: -842.94 (Bayes factor 2.66 against ΛCDM)
 Degrees of freedom: 1745
 
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-H0: 66.48 +0.62 -0.63 km/s/Mpc
+H0: 66.49 +0.62 -0.62 km/s/Mpc
 Ωm: 0.312 +0.006 -0.005
-ωm: 0.1378 +0.0015 -0.0014
-ωb: 0.02226 +0.00053 -0.00053
+ωm: 0.1378 +0.0013 -0.0013
+ωb: 0.02225 +0.00053 -0.00052
 w0: -0.855 +0.037 -0.037 (prior width 1.5: -1.5 to 0.0)
-zd: 1059.27 +1.24 -1.27
-rd: 148.45 Mpc
-Chi squared: 1647.18
-Log Evidence: -840.62 (Bayes factor 4.42 against ΛCDM)
+zd: 1059.26 +1.24 -1.25
+rd: 148.44 Mpc
+Chi squared: 1647.19
+Log Evidence: -841.16 (Bayes factor 4.44 against ΛCDM) 
 Degrees of freedom: 1745
 
 ===============================
 
 Flat w(z) = w0 + wa * z / (1 + z)
-H0: 66.62 +0.63 -0.63 km/s/Mpc
+H0: 66.61 +0.62 -0.61 km/s/Mpc
 Ωm: 0.316 +0.006 -0.006
-ωm: 0.1402 +0.0020 -0.0022
-ωb: 0.02215 +0.00053 -0.00054
-w0: -0.791 +0.061 -0.060 (prior width 1.5: -1.5 to 0.0)
-wa: -0.598 +0.277 -0.294 (prior width 3.5: -2.5 to 1.0)
-z_d: 1059.18 +1.24 -1.28
+ωm: 0.1402 +0.0018 -0.0020
+ωb: 0.02215 +0.00053 -0.00053
+w0: -0.792 +0.062 -0.061 (prior width 1.5: -1.5 to 0.0)
+wa: -0.597 +0.280 -0.288 (prior width 3.5: -2.5 to 1.0)
+z_d: 1059.18 +1.23 -1.25
 r_d: 147.91 Mpc
-Chi squared: 1645.68
-Log Evidence: -841.50 (Bayes factor 3.54 against ΛCDM)
+Chi squared: 1645.75
+Log Evidence: -842.20 (Bayes factor 3.40 against ΛCDM)
 Degrees of freedom: 1744
 """
