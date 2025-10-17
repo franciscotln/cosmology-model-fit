@@ -1,19 +1,20 @@
 from numba import njit
 import numpy as np
-from scipy.integrate import cumulative_trapezoid
-from scipy.linalg import cho_factor, cho_solve
+from scipy.constants import c as c0
+from scipy.linalg import cho_factor, solve_triangular
 from y2024DES.data import get_data, effective_sample_size as sn_size
 from y2025BAO.data import get_data as get_bao_data
 
 sn_legend, z_cmb, z_hel, mu_values, cov_matrix_sn = get_data()
-cho_sn = cho_factor(cov_matrix_sn)
 bao_legend, bao_data, cov_matrix_bao = get_bao_data()
-cho_bao = cho_factor(cov_matrix_bao)
+cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
+cho_bao = cho_factor(cov_matrix_bao, lower=True)[0]
 
-c = 299792.458  # Speed of light in km/s
+c = c0 / 1000  # Speed of light in km/s
 
-grid = np.linspace(0, np.max(z_cmb), num=1000)
-zhel_plus1 = 1 + z_hel
+z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
+z_grid = np.linspace(0, z_max, num=1000)
+dx = np.diff(z_grid)
 
 
 @njit
@@ -25,10 +26,10 @@ def Ez(z, params):
     return np.sqrt(Om * cubed + (1 - Om) * rho_de)
 
 
+@njit
 def theory_mu(params):
-    y = 1 / Ez(grid, params)
-    I = np.interp(z_cmb, grid, cumulative_trapezoid(y=y, x=grid, initial=0))
-    return params[0] + 25 + 5 * np.log10(zhel_plus1 * c * I / params[2])
+    dL = (1 + z_hel) * DM_z(z_cmb, params)
+    return params[0] + 25 + 5 * np.log10(dL)
 
 
 @njit
@@ -42,14 +43,12 @@ def DH_z(z, params):
 
 
 @njit
-def DM_z(z, params):
-    result = np.empty(z.size, dtype=np.float64)
-    for i in range(z.size):
-        zp = z[i]
-        x = np.linspace(0, zp, num=max(250, int(250 * zp)))
-        y = DH_z(x, params)
-        result[i] = np.trapz(y=y, x=x)
-    return result
+def DM_z(z, theta):
+    dh_grid = DH_z(z_grid, theta)
+    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    cum_dm = np.zeros(z_grid.size)
+    cum_dm[1:] = np.cumsum(dx * dy)
+    return np.interp(z, z_grid, cum_dm)
 
 
 @njit
@@ -80,9 +79,17 @@ def bao_theory(z, qty, params):
     return results / params[1]
 
 
-# Planck prior
+"""
+Planck prior on Ωm * h^2
+Fit rs(drag) directly as a free parameter without early universe constraints
+"""
 Omh2_planck = 0.1430
 Omh2_planck_sigma = 0.0011
+
+
+def solve_triang(cho_L, delta):
+    y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
+    return np.dot(y, y)
 
 
 def chi_squared(params):
@@ -90,20 +97,20 @@ def chi_squared(params):
     chi2_prior = ((Omh2_planck - Omh2) / Omh2_planck_sigma) ** 2
 
     delta_sn = mu_values - theory_mu(params)
-    chi_sn = delta_sn.dot(cho_solve(cho_sn, delta_sn, check_finite=False))
+    chi_sn = solve_triang(cho_sn, delta_sn)
 
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
-    chi_bao = delta_bao.dot(cho_solve(cho_bao, delta_bao, check_finite=False))
+    chi_bao = solve_triang(cho_bao, delta_bao)
     return chi_sn + chi_bao + chi2_prior
 
 
 bounds = np.array(
     [
-        (-0.6, 0.6),  # ΔM
+        (-0.4, 0.4),  # ΔM
         (120.0, 160.0),  # r_d
         (50.0, 90.0),  # H0
-        (0.0, 1.0),  # Ωm
-        (-2.0, 0.0),  # w0
+        (0.1, 0.8),  # Ωm
+        (-1.5, 0.0),  # w0
     ],
     dtype=np.float64,
 )
@@ -113,9 +120,9 @@ normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
 
 @njit
 def log_prior(params):
-    if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
-        return normalization
-    return -np.inf
+    if not np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
+        return -np.inf
+    return normalization
 
 
 def log_likelihood(params):
@@ -178,7 +185,7 @@ def main():
     Om_16, Om_50, Om_84 = pct[3]
     w0_16, w0_50, w0_84 = pct[4]
 
-    best_fit = np.array([dM_50, rd_50, H0_50, Om_50, w0_50], dtype=np.float64)
+    best_fit = np.percentile(samples, 50, axis=0)
 
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
     print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
@@ -211,7 +218,7 @@ def main():
         labels=labels,
         quantiles=[0.159, 0.5, 0.841],
         show_titles=True,
-        title_fmt=".4f",
+        title_fmt=".3f",
         smooth=1.5,
         smooth1d=1.5,
         bins=100,
@@ -236,47 +243,49 @@ if __name__ == "__main__":
 
 
 """
-Flat ΛCDM
-ΔM: -0.071 +0.025 -0.024 mag
-r_d: 148.13 +1.23 -1.21 Mpc
-H0: 67.87 +0.91 -0.89 km/s/Mpc
+Flat ΛCDM w(z) = -1
+r_d: 148.14 +1.22 -1.23 Mpc
+H0: 67.86 +0.92 -0.89 km/s/Mpc
 Ωm: 0.310 +0.008 -0.008
 w0: -1
 wa: 0
 Chi squared: 1659.0
+Log evidence: -845.2
 Degrees of freedom: 1745
 
 ===============================
 
-Flat wCDM
-ΔM: 0.003 +0.037 -0.035 mag
-r_d: 142.71 +2.16 -2.25 Mpc
-H0: 69.29 +1.11 -1.05 km/s/Mpc
+Flat wCDM w(z) = w0
+r_d: 142.73 +2.15 -2.27 Mpc
+H0: 69.28 +1.11 -1.05 km/s/Mpc
 Ωm: 0.298 +0.009 -0.009
-w0: -0.871 +0.038 -0.038
-Chi squared: 1648.1 (Δ chi2 10.9)
+w0: -0.871 +0.038 -0.038 (prior width 1.5: -1.5 to 0.0)
+wa: 0
+Chi squared: 1648.1
+Log evidence: -842.5 (Bayes factor 2.7 against ΛCDM)
 Degrees of freedom: 1744
 
 ===============================
 
-Flat w0 - (1 + w0) * (((1 + z)**3 - 1) / ((1 + z)**3 + 1))
-ΔM: -0.025 +0.028 -0.028 mag
-r_d: 144.66 +1.57 -1.58 Mpc
+Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
+r_d: 144.63 +1.56 -1.55 Mpc
 H0: 68.19 +0.92 -0.89 km/s/Mpc
 Ωm: 0.308 +0.008 -0.008
-w0: -0.835 +0.045 -0.046
-Chi squared: 1646.5 (Δ chi2 12.5)
+w0: -0.834 +0.045 -0.046 (prior width 1.5: -1.5 to 0.0)
+wa: -(1 + w0)
+Chi squared: 1646.5
+Log evidence: -841.5 (Bayes factor 3.7 against ΛCDM)
 Degrees of freedom: 1744
 
 ===============================
 
-Flat w(z) = w0 + wa * z / (1 + z)
-ΔM: -0.065 +0.046 -0.038 mag
-r_d: 147.69 +2.53 -3.20 Mpc
-H0: 66.73 +1.67 -1.32 km/s/Mpc
+Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
+r_d: 147.72 +2.50 -3.24 Mpc
+H0: 66.71 +1.66 -1.31 km/s/Mpc
 Ωm: 0.321 +0.013 -0.015
-w0: -0.783 +0.072 -0.068
-wa: -0.726 +0.456 -0.456
-Chi squared: 1645.5 (Δ chi2 13.5)
+w0: -0.783 +0.073 -0.068 (prior width 1.5: -1.5 to 0.0)
+wa: -0.719 +0.449 -0.459 (prior width 5.0: -3.0 to 2.0)
+Chi squared: 1645.5
+Log evidence: -842.3 (Bayes factor 2.9 against ΛCDM)
 Degrees of freedom: 1743
 """
