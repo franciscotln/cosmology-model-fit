@@ -1,6 +1,5 @@
 from numba import njit
 import numpy as np
-from scipy.integrate import cumulative_trapezoid
 from scipy.linalg import cho_factor, cho_solve
 from y2023union3.data import get_data
 from y2025BAO.data import get_data as get_bao_data
