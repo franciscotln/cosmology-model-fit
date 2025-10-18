@@ -2,7 +2,7 @@ from numba import njit
 import numpy as np
 from scipy.linalg import cho_factor, solve_triangular
 import cmb.data_desi_compression as cmb
-import y2024BBN.prior_lcdm_shonberg as bbn
+import y2024BBN.prior_lcdm_chen as bbn
 from y2024DES.data import get_data, effective_sample_size as sn_size
 from y2025BAO.data import get_data as get_bao_data
 
@@ -202,8 +202,10 @@ def main():
 
     Omh2_samples = samples[:, 1] * (samples[:, 0] / 100) ** 2
     zd_samples = cmb.z_drag(wb=samples[:, 2], wm=Omh2_samples)
+    z_st_samples = cmb.z_star(wb=samples[:, 2], wm=Omh2_samples)
     Omh2_16, Omh2_50, Omh2_84 = np.percentile(Omh2_samples, [15.9, 50, 84.1])
     zd_16, zd_50, zd_84 = np.percentile(zd_samples, [15.9, 50, 84.1])
+    z_st_16, z_st_50, z_st_84 = np.percentile(z_st_samples, [15.9, 50, 84.1])
 
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
@@ -213,6 +215,8 @@ def main():
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"z_d: {zd_50:.2f} +{(zd_84 - zd_50):.2f} -{(zd_50 - zd_16):.2f}")
     print(f"r_d: {cmb.rs_z(Ez, zd_50, best_fit, H0_50, Obh2_50):.2f} Mpc")
+    print(f"z*: {z_st_50:.2f} +{(z_st_84 - z_st_50):.2f} -{(z_st_50 - z_st_16):.2f}")
+    print(f"r*: {cmb.rs_z(Ez, z_st_50, best_fit, H0_50, Obh2_50):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Log Evidence: {log_evidence(samples, log_probs, log_probability):.2f}")
     print(f"Degrees of freedom: {2 + bao_data['value'].size + sn_size - len(best_fit)}")
@@ -245,56 +249,64 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM  w(z) = -1
-H0: 68.21 +0.46 -0.46 km/s/Mpc
-Ωm: 0.300 +0.004 -0.004
-ωm: 0.1395 +0.0012 -0.0012
-ωb: 0.02199 +0.00052 -0.00053
-z_d: 1058.77 +1.25 -1.27
-r_d: 148.22 Mpc
-Chi squared: 1661.67
-Log Evidence: -845.60
+H0: 68.39 +0.35 -0.35 km/s/Mpc
+Ωm: 0.299 +0.004 -0.004
+ωm: 0.1399 +0.0010 -0.0010
+ωb: 0.02225 +0.00032 -0.00032
+z_d: 1059.39 +0.75 -0.76
+r_d: 147.89 Mpc
+z*: 1088.77 +0.33 -0.32
+r*: 145.26 Mpc
+Chi squared: 1661.95
+Log Evidence: -846.24
 Degrees of freedom: 1746
 
 ===============================
 
 Flat wCDM w(z) = w0
-H0: 66.62 +0.64 -0.63 km/s/Mpc
+H0: 66.66 +0.60 -0.60 km/s/Mpc
 Ωm: 0.308 +0.005 -0.005
-ωm: 0.1366 +0.0015 -0.0015
-ωb: 0.02229 +0.00053 -0.00053
-w0: -0.910 +0.025 -0.026 (prior width 1.5: -1.5 to 0.0)
-z_d: 1059.24 +1.24 -1.27
-r_d: 148.74 Mpc
-Chi squared: 1649.97
-Log Evidence: -842.94 (Bayes factor 2.66 against ΛCDM)
+ωm: 0.1367 +0.0014 -0.0014
+ωb: 0.02236 +0.00032 -0.00032
+w0: -0.909 +0.025 -0.025 (prior width 1.5: -1.5 to 0.0)
+z_d: 1059.41 +0.75 -0.76
+r_d: 148.65 Mpc
+z*: 1088.43 +0.34 -0.33
+r*: 146.03 Mpc
+Chi squared: 1649.89
+Log Evidence: -843.39 (Bayes factor 2.85 against ΛCDM)
 Degrees of freedom: 1745
 
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-H0: 66.49 +0.62 -0.62 km/s/Mpc
-Ωm: 0.312 +0.006 -0.005
-ωm: 0.1378 +0.0013 -0.0013
-ωb: 0.02225 +0.00053 -0.00052
-w0: -0.855 +0.037 -0.037 (prior width 1.5: -1.5 to 0.0)
-zd: 1059.26 +1.24 -1.25
-rd: 148.44 Mpc
-Chi squared: 1647.19
-Log Evidence: -841.16 (Bayes factor 4.44 against ΛCDM) 
+H0: 66.53 +0.58 -0.57 km/s/Mpc
+Ωm: 0.312 +0.005 -0.005
+ωm: 0.1379 +0.0011 -0.0011
+ωb: 0.02235 +0.00032 -0.00032
+w0: -0.854 +0.037 -0.036 (prior width 1.5: -1.5 to 0.0)
+z_d: 1059.48 +0.75 -0.76
+r_d: 148.32 +0.58 - 0.57 Mpc
+z*: 1088.52 +0.33 -0.32
+r*: 145.71 Mpc
+Chi squared: 1647.13
+Log Evidence: -841.61 (Bayes factor 4.63 against ΛCDM)
 Degrees of freedom: 1745
 
 ===============================
 
 Flat w(z) = w0 + wa * z / (1 + z)
-H0: 66.61 +0.62 -0.61 km/s/Mpc
-Ωm: 0.316 +0.006 -0.006
-ωm: 0.1402 +0.0018 -0.0020
-ωb: 0.02215 +0.00053 -0.00053
-w0: -0.792 +0.062 -0.061 (prior width 1.5: -1.5 to 0.0)
-wa: -0.597 +0.280 -0.288 (prior width 3.5: -2.5 to 1.0)
-z_d: 1059.18 +1.23 -1.25
-r_d: 147.91 Mpc
-Chi squared: 1645.75
-Log Evidence: -842.20 (Bayes factor 3.40 against ΛCDM)
+H0: 66.69 +0.58 -0.57 km/s/Mpc
+Ωm: 0.315 +0.006 -0.006
+ωm: 0.1404 +0.0018 -0.0020
+ωb: 0.02230 +0.00032 -0.00032
+w0: -0.792 +0.062 -0.060 (prior width 1.5: -1.5 to 0.0)
+wa: -0.587 +0.271 -0.288 (prior width 3.5: -2.5 to 1.0)
+z_d: 1059.54 +0.76 -0.76
+r_d: 147.73 Mpc
+z*: 1088.74 +0.35 -0.35
+r*: 145.12 Mpc
+Chi squared: 1645.71
+Log Evidence: -842.75 (Bayes factor 3.49 against ΛCDM)
 Degrees of freedom: 1744
 """
