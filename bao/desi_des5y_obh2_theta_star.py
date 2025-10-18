@@ -14,7 +14,7 @@ cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
 cho_bao = cho_factor(cov_matrix_bao, lower=True)[0]
 
 """
-Planck compressed priors without ωm = Ωm * h^2 (arXiv:2503.14738v2)
+Planck compressed priors for θ* and ωb, without ωm = Ωm * h^2 (arXiv:2503.14738v2)
 This way we allow for the ratio ωb / ωm to vary freely independently from Planck.
 """
 cmb_compressed_priors = cmb.DISTANCE_PRIORS[:2]  # θ*, ωb
