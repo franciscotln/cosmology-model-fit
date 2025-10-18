@@ -32,9 +32,10 @@ def Ez(z, theta):
     h, Om, w0 = theta[0] / 100, theta[1], theta[3]
     z_plus_1 = 1 + z
     Or = Orh2 / h**2
+    Ode = 1 - Om - Or
     cubed = z_plus_1**3
     rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
-    return np.sqrt(Or * z_plus_1**4 + Om * cubed + (1 - Om) * rho_de)
+    return np.sqrt(Or * z_plus_1**4 + Om * cubed + Ode * rho_de)
 
 
 @njit
