@@ -84,12 +84,13 @@ def DA_z(Ez_func, z, params, H0):
 
 
 def cmb_distances(Ez_func, params, H0, Om, Ob_h2):
-    zstar = z_star(wb=Ob_h2, wm=Om * (H0 / 100) ** 2)
+    Om_h2 = Om * (H0 / 100) ** 2
+    zstar = z_star(wb=Ob_h2, wm=Om_h2)
     rs_star = rs_z(Ez_func, zstar, params, H0, Ob_h2)
     DA_star = DA_z(Ez_func, zstar, params, H0)
     DM_star = (1 + zstar) * DA_star
 
-    R = np.sqrt(Om) * H0 * DM_star / c
+    R = 100 * np.sqrt(Om_h2) * DM_star / c
     lA = np.pi * DM_star / rs_star
     return np.array([R, lA, Ob_h2])
 
