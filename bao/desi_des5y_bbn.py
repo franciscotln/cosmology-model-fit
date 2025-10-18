@@ -1,27 +1,22 @@
 from numba import njit
 import numpy as np
-import emcee, corner
 from scipy.constants import c as c0
-from scipy.integrate import cumulative_trapezoid
-from scipy.linalg import cho_factor, cho_solve
-import matplotlib.pyplot as plt
-from multiprocessing import Pool
+from scipy.linalg import cho_factor, solve_triangular
 import y2024BBN.prior_lcdm_shonberg as bbn
 from y2024DES.data import get_data, effective_sample_size as sn_size
 from y2025BAO.data import get_data as get_bao_data
-from sn.plotting import plot_predictions as plot_sn_predictions
-from .plot_predictions import plot_bao_predictions
 
 
 c = c0 / 1000  # km/s
 
 sn_legend, z_cmb, z_hel, mu_values, cov_matrix_sn = get_data()
 bao_legend, bao_data, bao_cov_matrix = get_bao_data()
-cho_sn = cho_factor(cov_matrix_sn)
-cho_bao = cho_factor(bao_cov_matrix)
+cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
+cho_bao = cho_factor(bao_cov_matrix, lower=True)[0]
 
-sn_grid = np.linspace(0, np.max(z_cmb), num=1000)
-one_plus_z_hel = 1 + z_hel
+z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
+z_grid = np.linspace(0, z_max, num=1200)
+dx = np.diff(z_grid)
 
 
 @njit
@@ -43,11 +38,8 @@ def Ez(z, params):
 
 
 def theory_mu(params):
-    H0, offset_mag = params[0], params[-1]
-    integral_vals = cumulative_trapezoid(1 / Ez(sn_grid, params), sn_grid, initial=0)
-    I = np.interp(z_cmb, sn_grid, integral_vals)
-    dL = one_plus_z_hel * I * c / H0
-    return offset_mag + 25 + 5 * np.log10(dL)
+    dL = (1 + z_hel) * DM_z(z_cmb, params)
+    return params[-1] + 25 + 5 * np.log10(dL)
 
 
 @njit
@@ -61,14 +53,12 @@ def DH_z(z, params):
 
 
 @njit
-def DM_z(z, params):
-    result = np.empty(z.size, dtype=np.float64)
-    for i in range(z.size):
-        zp = z[i]
-        x = np.linspace(0, zp, num=max(250, int(250 * zp)))
-        y = DH_z(x, params)
-        result[i] = np.trapz(y=y, x=x)
-    return result
+def DM_z(z, theta):
+    dh_grid = DH_z(z_grid, theta)
+    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    cum_dm = np.zeros(z_grid.size)
+    cum_dm[1:] = np.cumsum(dx * dy)
+    return np.interp(z, z_grid, cum_dm)
 
 
 @njit
@@ -102,15 +92,20 @@ def bao_theory(z, qty, params):
     return results / rd
 
 
+def solve_triang(cho_L, delta):
+    y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
+    return np.dot(y, y)
+
+
 def chi_squared(params):
     delta_bbn = bbn.Obh2 - params[2]
     chi2_bbn = (delta_bbn / bbn.Obh2_sigma) ** 2
 
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
-    chi_bao = np.dot(delta_bao, cho_solve(cho_bao, delta_bao, check_finite=False))
+    chi_bao = solve_triang(cho_bao, delta_bao)
 
     delta_sn = mu_values - theory_mu(params)
-    chi_sn = np.dot(delta_sn, cho_solve(cho_sn, delta_sn, check_finite=False))
+    chi_sn = solve_triang(cho_sn, delta_sn)
 
     return chi2_bbn + chi_bao + chi_sn
 
@@ -120,18 +115,20 @@ bounds = np.array(
         (60, 75),  # H0
         (0.1, 0.6),  # Ωm
         (0.019, 0.025),  # Ωb * h^2
-        (-2, 0),  # w0
+        (-1.5, 0.0),  # w0
         (-0.7, 0.7),  # ΔM
     ],
     dtype=np.float64,
 )
 
+normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
+
 
 @njit
 def log_prior(params):
-    if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
-        return 0.0
-    return -np.inf
+    if not np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
+        return -np.inf
+    return normalization
 
 
 def log_likelihood(params):
@@ -146,14 +143,19 @@ def log_probability(params):
 
 
 def main():
+    import emcee
+    from multiprocessing import Pool
+    from corner_plot import plot_corner_and_chains
+    from log_evidence import log_evidence
+    from sn.plotting import plot_predictions as plot_sn_predictions
+    from .plot_predictions import plot_bao_predictions
+
     ndim = len(bounds)
     nwalkers = 150
     burn_in = 200
     nsteps = 2000 + burn_in
-    initial_pos = np.zeros((nwalkers, ndim))
-
-    for dim, (lower, upper) in enumerate(bounds):
-        initial_pos[:, dim] = np.random.uniform(lower, upper, nwalkers)
+    np.random.seed(42)
+    initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
 
     with Pool(6) as pool:
         sampler = emcee.EnsembleSampler(
@@ -178,6 +180,9 @@ def main():
         print("Autocorrelation time could not be computed", e)
 
     samples = sampler.get_chain(discard=burn_in, flat=True)
+    chains_samples = sampler.get_chain(discard=burn_in, flat=False)
+    log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
+
     one_sigma_contours = [15.9, 50, 84.1]
 
     pct = np.percentile(samples, one_sigma_contours, axis=0).T
@@ -187,22 +192,23 @@ def main():
     w0_16, w0_50, w0_84 = pct[3]
     dM_16, dM_50, dM_84 = pct[4]
 
-    best_fit = np.array([H0_50, Om_50, Obh2_50, w0_50, dM_50], dtype=np.float64)
+    best_fit = np.percentile(samples, 50, axis=0)
 
     Omh2_samples = samples[:, 1] * (samples[:, 0] / 100) ** 2
-    r_drag_samples = r_drag(samples[:, 2], Omh2_samples)
+    rd_samples = r_drag(samples[:, 2], Omh2_samples)
 
     Omh2_16, Omh2_50, Omh2_84 = np.percentile(Omh2_samples, one_sigma_contours)
-    r_d_16, r_d_50, r_d_84 = np.percentile(r_drag_samples, one_sigma_contours)
+    rd_16, rd_50, rd_84 = np.percentile(rd_samples, one_sigma_contours)
 
-    print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
+    print(f"H0: {H0_50:.1f} +{(H0_84 - H0_50):.1f} -{(H0_50 - H0_16):.1f} km/s/Mpc")
     print(f"Ωm: {Om_50:.4f} +{(Om_84 - Om_50):.4f} -{(Om_50 - Om_16):.4f}")
     print(f"ωb: {Obh2_50:.5f} +{(Obh2_84 - Obh2_50):.5f} -{(Obh2_50 - Obh2_16):.5f}")
     print(f"ωm: {Omh2_50:.5f} +{(Omh2_84 - Omh2_50):.5f} -{(Omh2_50 - Omh2_16):.5f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f}")
-    print(f"r_d: {r_d_50:.2f} +{(r_d_84 - r_d_50):.2f} -{(r_d_50 - r_d_16):.2f} Mpc")
+    print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
+    print(f"Log Evidence: {log_evidence(samples, log_probs, log_probability):.2f}")
     print(f"Degrees of freedom: {1 + bao_data['z'].size + sn_size - len(best_fit)}")
 
     plot_bao_predictions(
@@ -220,31 +226,11 @@ def main():
         label=f"Model: $Ω_m$={Om_50:.3f}",
         x_scale="log",
     )
-    labels = ["$H_0$", "$Ω_m$", "$ω_b$", "$w_0$", "$Δ_M$"]
-    corner.corner(
-        samples,
-        labels=labels,
-        quantiles=[0.159, 0.5, 0.841],
-        show_titles=True,
-        title_fmt=".4f",
-        bins=100,
-        fill_contours=False,
-        plot_datapoints=False,
-        smooth=2.0,
-        smooth1d=2.0,
-        levels=(0.393, 0.864),
+    plot_corner_and_chains(
+        labels=["$H_0$", "$Ω_m$", "$ω_b$", "$w_0$", "$Δ_M$"],
+        flat_samples=samples,
+        samples=chains_samples,
     )
-    plt.show()
-
-    chains_samples = sampler.get_chain(discard=burn_in, flat=False)
-    plt.figure(figsize=(16, 1.5 * ndim))
-    for n in range(ndim):
-        plt.subplot2grid((ndim, 1), (n, 0))
-        plt.plot(chains_samples[:, :, n], alpha=0.3)
-        plt.ylabel(labels[n])
-        plt.xlim(0, None)
-    plt.tight_layout()
-    plt.show()
 
 
 if __name__ == "__main__":
@@ -252,53 +238,57 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM w(z) = -1
-H0: 68.63 +0.53 -0.53 km/s/Mpc
+H0: 68.6 +0.5 -0.5 km/s/Mpc
 Ωm: 0.3105 +0.0079 -0.0077
-ωb: 0.02219 +0.00054 -0.00054
-ωm: 0.14622 +0.00435 -0.00424
+ωb: 0.02219 +0.00053 -0.00053
+ωm: 0.14621 +0.00430 -0.00417
 w0: -1
-ΔM: -0.047 +0.018 -0.018
-r_d: 146.49 +1.27 -1.23 Mpc
+ΔM: -0.047 +0.017 -0.018 mag
+r_d: 146.50 +1.24 -1.23 Mpc
 Chi squared: 1658.97
+Log Evidence: -841.93
 Degrees of freedom: 1745
 
 ===============================
 
 Flat wCDM w(z) = w0
-H0: 65.37 +1.16 -1.18 km/s/Mpc
-Ωm: 0.2979 +0.0090 -0.0089
-ωb: 0.02218 +0.00055 -0.00055
-ωm: 0.12739 +0.00723 -0.00719
-w0: -0.871 +0.038 -0.038
-ΔM: -0.123 +0.031 -0.033
-r_d: 151.22 +2.18 -2.07 Mpc
-Chi squared: 1648.09 (delta chi2 10.88)
+H0: 65.4 +1.1 -1.2 km/s/Mpc
+Ωm: 0.2980 +0.0088 -0.0089
+ωb: 0.02219 +0.00054 -0.00054
+ωm: 0.12741 +0.00715 -0.00708
+w0: -0.872 +0.037 -0.038 (prior width 1.5: -1.5 to 0.0)
+ΔM: -0.123 +0.031 -0.032 mag
+r_d: 151.22 +2.15 -2.05 Mpc
+Chi squared: 1648.09
+Log Evidence: -839.26 (Bayes factor 2.67 against ΛCDM)
 Degrees of freedom: 1744
 
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-H0: 65.97 +0.91 -0.90 km/s/Mpc
-Ωm: 0.3075 +0.0079 -0.0077
+H0: 66.0 +0.9 -0.9 km/s/Mpc
+Ωm: 0.3075 +0.0080 -0.0076
 ωb: 0.02218 +0.00055 -0.00054
-ωm: 0.13386 +0.00533 -0.00519
-w0: -0.835 +0.045 -0.045
-ΔM: -0.096 +0.023 -0.023
-r_d: 149.51 +1.58 -1.55 Mpc
-Chi squared: 1646.49 (delta chi2 12.48)
+ωm: 0.13385 +0.00531 -0.00520
+w0: -0.834 +0.045 -0.045 (prior width 1.5: -1.5 to 0.0)
+ΔM: -0.097 +0.023 -0.023 mag
+r_d: 149.51 +1.59 -1.53 Mpc
+Chi squared: 1646.49
+Log Evidence: -838.33 (Bayes factor 3.60 against ΛCDM)
 Degrees of freedom: 1744
 
 ===============================
 
 Flat w(z) = w0 + wa * z / (1 + z)
-H0: 66.88 +1.17 -1.34 km/s/Mpc
-Ωm: 0.3215 +0.0127 -0.0150
-ωb: 0.02196 +0.00063 -0.00063
-ωm: 0.14403 +0.00927 -0.01115
-w0: -0.783 +0.072 -0.068
-wa: -0.728 +0.452 -0.453
-ΔM: -0.059 +0.038 -0.046
-r_d: 147.25 +2.90 -2.30 Mpc
-Chi squared: 1645.55 (delta chi2 13.42)
+H0: 67.1 +1.1 -1.3 km/s/Mpc
+Ωm: 0.3217 +0.0126 -0.0149
+ωb: 0.02218 +0.00053 -0.00054
+ωm: 0.14495 +0.00912 -0.01106
+w0: -0.782 +0.072 -0.068 (prior width 1.5: -1.5 to 0.0)
+wa: -0.735 +0.452 -0.451 (prior width 4.5: -3.0 to 1.5)
+ΔM: -0.053 +0.036 -0.045
+r_d: 146.83 +2.81 -2.22 Mpc
+Chi squared: 1645.56
+Log Evidence: -839.24 (Bayes factor 2.69 against ΛCDM)
 Degrees of freedom: 1743
 """
