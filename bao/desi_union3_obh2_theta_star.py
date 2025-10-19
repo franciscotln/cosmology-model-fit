@@ -125,7 +125,7 @@ bounds = np.array(
         (0.1, 0.7),  # Ωm
         (0.020, 0.024),  # ωb = Ωb * h^2
         (-1.5, 0.0),  # w0
-        (-0.8, 0.8),  # ΔM
+        (-0.8, 0.8),  # ΔM nuisance magnitude offset
     ],
     dtype=np.float64,
 )
