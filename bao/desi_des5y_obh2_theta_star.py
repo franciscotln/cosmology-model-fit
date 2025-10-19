@@ -270,7 +270,7 @@ r_d: 148.81 Mpc
 z*: 1088.54 (1.0278 x z_d)
 r*: 146.12 Mpc (1.018 x r_d)
 Chi squared: 1649.95
-Log Evidence: -845.16 (Bayes factor 2.83 against ΛCDM)
+Log Evidence: -845.16 (Δ logZ = 2.83 against ΛCDM)
 Degrees of freedom: 1745
 
 ===============================
@@ -286,7 +286,7 @@ r_d: 148.48 Mpc
 z*: 1088.64 (1.0278 x z_d)
 r*: 145.81 Mpc (1.018 x r_d)
 Chi squared: 1647.17
-Log Evidence: -843.38 (Bayes factor 4.61 against ΛCDM)
+Log Evidence: -843.38 (Δ logZ = 4.61 against ΛCDM)
 Degrees of freedom: 1745
 
 ===============================
@@ -303,6 +303,6 @@ r_d: 147.85 Mpc
 z*: 1088.80 (1.0278 x z_d)
 r*: 145.26 Mpc (1.018 x r_d)
 Chi squared: 1646.07
-Log Evidence: -844.53 (Bayes factor 3.46 against ΛCDM)
+Log Evidence: -844.53 (Δ logZ = 3.46 against ΛCDM)
 Degrees of freedom: 1744
 """

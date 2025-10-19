@@ -247,7 +247,7 @@ H0: 67.12 +0.75 -0.73 km/s/Mpc
 Ωm: 0.298 +0.009 -0.009
 w0: -0.866 +0.051 -0.051 (prior width 1.5: -1.5 to 0.0)
 Chi squared: 32.16
-Log Evidence: -27.01 (Bayesian evidence 0.87 over ΛCDM)
+Log Evidence: -27.01 (Δ logZ = 0.87 over ΛCDM)
 Degs of freedom: 31
 
 ===============================
@@ -257,7 +257,7 @@ H0: 66.66 +0.82 -0.80 km/s/Mpc
 Ωm: 0.310 +0.009 -0.008
 w0: -0.802 +0.066 -0.066 (prior width 1.5: -1.5 to 0.0)
 Chi squared: 30.37
-Log Evidence: -25.86 (Bayesian evidence 2.02 over ΛCDM)
+Log Evidence: -25.86 (Δ logZ = 2.02 over ΛCDM)
 Degs of freedom: 31
 
 ===============================
@@ -268,6 +268,6 @@ H0: 66.21 +0.90 -0.88 km/s/Mpc
 w0: -0.697 +0.112 -0.108 (prior width 1.5: -1.5 to 0.0)
 wa: -1.008 +0.549 -0.551 (prior width 4.0: -3.0 to 1.0)
 Chi squared: 28.79
-Log Evidence: -26.40 (Bayesian evidence 1.48 over ΛCDM)
+Log Evidence: -26.40 (Δ logZ = 1.48 over ΛCDM)
 Degs of freedom: 30
 """
