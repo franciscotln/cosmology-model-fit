@@ -1,26 +1,23 @@
 from numba import njit
 import numpy as np
-import emcee
-import corner
-from scipy.integrate import cumulative_trapezoid
-from scipy.linalg import cho_factor, cho_solve
-import matplotlib.pyplot as plt
-from multiprocessing import Pool
-import y2024BBN.prior_lcdm_shonberg as bbn
+from scipy.constants import c as c0
+from scipy.linalg import cho_factor, solve_triangular
+import y2024BBN.prior_lcdm_chen as bbn
 from cmb.data_chen_compression import r_drag
-from y2023union3.data import get_data
+from y2023union3.data import get_data as get_sn_data
 from y2025BAO.data import get_data as get_bao_data
-from sn.plotting import plot_predictions as plot_sn_predictions
-from .plot_predictions import plot_bao_predictions
 
-sn_legend, z_sn_vals, mu_vals, cov_matrix_sn = get_data()
+sn_legend, z_sn_vals, mu_vals, cov_matrix_sn = get_sn_data()
 bao_legend, bao_data, bao_cov_matrix = get_bao_data()
-cho_sn = cho_factor(cov_matrix_sn)
-cho_bao = cho_factor(bao_cov_matrix)
 
-c = 299792.458  # Speed of light in km/s
+cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
+cho_bao = cho_factor(bao_cov_matrix, lower=True)[0]
 
-grid = np.linspace(0, np.max(z_sn_vals), num=1000)
+c = c0 / 1000  # Speed of light in km/s
+
+z_max = max(np.max(z_sn_vals), np.max(bao_data["z"])) + 0.1
+z_grid = np.linspace(0, z_max, num=1000)
+dx = np.diff(z_grid)
 
 
 @njit
@@ -32,15 +29,10 @@ def Ez(z, params):
     return np.sqrt(Om * cubic + (1 - Om) * rho_de)
 
 
-def integral_Ez(params):
-    integral_values = cumulative_trapezoid(1 / Ez(grid, params), grid, initial=0)
-    return np.interp(z_sn_vals, grid, integral_values)
-
-
+@njit
 def mu_theory(params):
-    H0, mag_offset = params[0], params[-1]
-    dL = (1 + z_sn_vals) * c * integral_Ez(params) / H0
-    return mag_offset + 25 + 5 * np.log10(dL)
+    dL = (1 + z_sn_vals) * DM_z(z_sn_vals, params)
+    return params[-1] + 25 + 5 * np.log10(dL)
 
 
 @njit
@@ -54,14 +46,12 @@ def DH_z(z, params):
 
 
 @njit
-def DM_z(z, params):
-    result = np.empty(z.size, dtype=np.float64)
-    for i in range(z.size):
-        zp = z[i]
-        x = np.linspace(0, zp, num=max(250, int(250 * zp)))
-        y = DH_z(x, params)
-        result[i] = np.trapz(y=y, x=x)
-    return result
+def DM_z(z, theta):
+    dh_grid = DH_z(z_grid, theta)
+    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    cum_dm = np.zeros(z_grid.size)
+    cum_dm[1:] = np.cumsum(dx * dy)
+    return np.interp(z, z_grid, cum_dm)
 
 
 @njit
@@ -93,12 +83,17 @@ def bao_theory(z, qty, params):
     return results / rd
 
 
+def solve_triang(cho_L, delta):
+    y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
+    return np.dot(y, y)
+
+
 def chi_squared(params):
     delta_sn = mu_vals - mu_theory(params)
-    chi_sn = np.dot(delta_sn, cho_solve(cho_sn, delta_sn, check_finite=False))
+    chi_sn = solve_triang(cho_sn, delta_sn)
 
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
-    chi_bao = np.dot(delta_bao, cho_solve(cho_bao, delta_bao, check_finite=False))
+    chi_bao = solve_triang(cho_bao, delta_bao)
 
     delta_bbn = bbn.Obh2 - params[2]
     chi_bbn = (delta_bbn / bbn.Obh2_sigma) ** 2
@@ -108,20 +103,22 @@ def chi_squared(params):
 
 bounds = np.array(
     [
-        (55, 75),  # H0
+        (50, 80),  # H0
         (0.1, 0.6),  # Ωm
         (0.019, 0.025),  # Ωb * h^2
-        (-2, 0),  # w0
-        (-0.7, 0.7),  # ΔM
+        (-1.5, 0),  # w0
+        (-0.8, 0.8),  # ΔM
     ]
 )
+
+normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
 
 
 @njit
 def log_prior(params):
-    if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
-        return 0.0
-    return -np.inf
+    if not np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
+        return -np.inf
+    return normalization
 
 
 def log_likelihood(params):
@@ -136,14 +133,18 @@ def log_probability(params):
 
 
 def main():
+    import emcee
+    from multiprocessing import Pool
+    from corner_plot import plot_corner_and_chains
+    from sn.plotting import plot_predictions as plot_sn_predictions
+    from .plot_predictions import plot_bao_predictions
+
     ndim = len(bounds)
     nwalkers = 150
     burn_in = 200
     nsteps = 2000 + burn_in
-    initial_pos = np.zeros((nwalkers, ndim))
-
-    for dim, (lower, upper) in enumerate(bounds):
-        initial_pos[:, dim] = np.random.uniform(lower, upper, nwalkers)
+    np.random.seed(42)
+    initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
 
     with Pool(5) as pool:
         sampler = emcee.EnsembleSampler(
@@ -184,7 +185,8 @@ def main():
         [dM_16, dM_50, dM_84],
     ] = np.percentile(samples, one_sigma_percentiles, axis=0).T
 
-    best_fit = np.array([H0_50, Om_50, Obh2_50, w0_50, dM_50], dtype=np.float64)
+    best_fit = np.percentile(samples, 50, axis=0)
+    degrees_of_freedom = 1 + len(bao_data["value"]) + len(z_sn_vals) - len(best_fit)
 
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
@@ -194,9 +196,7 @@ def main():
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"r_d: {r_d_50:.2f} +{(r_d_84 - r_d_50):.2f} -{(r_d_50 - r_d_16):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
-    print(
-        f"Degs of freedom: {1 + bao_data['value'].size + z_sn_vals.size - len(best_fit)}"
-    )
+    print(f"Degs of freedom: {degrees_of_freedom}")
 
     plot_bao_predictions(
         theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
@@ -213,31 +213,11 @@ def main():
         label=f"Best fit: $Ω_m$={Om_50:.3f}",
         x_scale="log",
     )
-
-    labels = ["$H_0$", "$Ω_m$", "$ω_b$", "$w_0$", "$Δ_M$"]
-    corner.corner(
-        samples,
-        labels=labels,
-        quantiles=[0.159, 0.5, 0.841],
-        show_titles=True,
-        title_fmt=".4f",
-        bins=100,
-        fill_contours=False,
-        plot_datapoints=False,
-        smooth=2.0,
-        smooth1d=2.0,
-        levels=(0.393, 0.864),  # 1 and 2 sigmas in 2D
+    plot_corner_and_chains(
+        labels=["$H_0$", "$Ω_m$", "$ω_b$", "$w_0$", "$Δ_M$"],
+        flat_samples=samples,
+        samples=chains_samples,
     )
-    plt.show()
-
-    plt.figure(figsize=(16, 1.5 * ndim))
-    for n in range(ndim):
-        plt.subplot2grid((ndim, 1), (n, 0))
-        plt.plot(chains_samples[:, :, n], alpha=0.3)
-        plt.ylabel(labels[n])
-        plt.xlim(0, None)
-    plt.tight_layout()
-    plt.show()
 
 
 if __name__ == "__main__":
@@ -245,43 +225,39 @@ if __name__ == "__main__":
 
 """
 *******************************
-DESI BAO DR2 2024 + BBN 2024 + Union3
+DESI BAO DR2 2024 + BBN 2025 (Chen+) + Union3
 *******************************
 
 Flat ΛCDM
-ΔM: -0.116 +0.089 -0.088 mag
-H0: 68.79 +0.60 -0.59 km/s/Mpc
+H0: 68.89 +0.48 -0.47 km/s/Mpc
 Ωm: 0.304 +0.008 -0.008
-ωm: 0.1438 +0.0050 -0.0048
-ωb: 0.02218 +0.00053 -0.00054
-w0: -0.994 +0.667 -0.676
-r_d: 146.89 +1.50 -1.52 Mpc
-Chi squared: 38.8
+ωm: 0.1443 +0.0047 -0.0046
+ωb: 0.02232 +0.00032 -0.00032
+r_d: 146.64 +1.30 -1.31 Mpc
+Chi squared: 38.82
 Degs of freedom: 32
 
 ===============================
 
 Flat wCDM
-ΔM: -0.223 +0.100 -0.101 mag
-H0: 65.12 +1.55 -1.58 km/s/Mpc
+H0: 65.19 +1.54 -1.54 km/s/Mpc
 Ωm: 0.298 +0.009 -0.009
-ωm: 0.1265 +0.0084 -0.0084
-ωb: 0.02218 +0.00054 -0.00055
-w0: -0.868 +0.050 -0.051
-r_d: 151.69 +2.68 -2.50 Mpc
-Chi squared: 32.2
+ωm: 0.1268 +0.0083 -0.0084
+ωb: 0.02232 +0.00033 -0.00033
+w0: -0.867 +0.050 -0.051
+r_d: 151.49 +2.57 -2.43 Mpc
+Chi squared: 32.14
 Degs of freedom: 31
 
 ===============================
 
 Flat -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-ΔM: -0.205 +0.094 -0.095 mag
-H0: 65.40 +1.29 -1.25 km/s/Mpc
-Ωm: 0.310 +0.009 -0.009
-ωm: 0.1326 +0.0061 -0.0058
-ωb: 0.02219 +0.00054 -0.00055
-w0: -0.803 +0.065 -0.067
-r_d: 149.94 +1.85 -1.87 Mpc
-Chi squared: 30.4
+H0: 65.50 +1.24 -1.22 km/s/Mpc
+Ωm: 0.310 +0.009 -0.008
+ωm: 0.1330 +0.0059 -0.0056
+ωb: 0.02232 +0.00032 -0.00033
+w0: -0.803 +0.066 -0.066
+r_d: 149.71 +1.69 -1.69 Mpc
+Chi squared: 30.37
 Degs of freedom: 31
 """

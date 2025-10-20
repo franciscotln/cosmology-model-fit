@@ -127,9 +127,10 @@ def log_probability(theta):
 
 
 def main():
-    import emcee, corner
+    import emcee
     import matplotlib.pyplot as plt
     from multiprocessing import Pool
+    from corner_plot import plot_corner_and_chains
     from sn.plotting import plot_predictions as plot_sn_predictions
     from .plot_predictions import plot_bao_predictions
     from log_evidence import log_evidence
@@ -196,31 +197,11 @@ def main():
         label=f"Model: $Ω_m$={Om_50:.3f}",
         x_scale="log",
     )
-
-    labels = ["$Δ_M$", "$r_d x h$", "$Ω_M$", "$w_0$"]
-    corner.corner(
-        samples,
-        labels=labels,
-        quantiles=[0.159, 0.5, 0.841],
-        show_titles=True,
-        title_fmt=".4f",
-        smooth=1.5,
-        smooth1d=1.5,
-        bins=100,
-        levels=(0.393, 0.864),  # 1 and 2 sigmas in 2D
-        fill_contours=False,
-        plot_datapoints=False,
+    plot_corner_and_chains(
+        labels=["$Δ_M$", "$r_d x h$", "$Ω_M$", "$w_0$"],
+        flat_samples=samples,
+        samples=chains_samples,
     )
-    plt.show()
-
-    plt.figure(figsize=(16, 1.5 * ndim))
-    for n in range(ndim):
-        plt.subplot2grid((ndim, 1), (n, 0))
-        plt.plot(chains_samples[:, :, n], alpha=0.3)
-        plt.ylabel(labels[n])
-        plt.xlim(0, None)
-    plt.tight_layout()
-    plt.show()
 
 
 if __name__ == "__main__":

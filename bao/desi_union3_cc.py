@@ -145,13 +145,13 @@ def log_probability(params):
 
 
 def main():
-    import emcee, corner
-    import matplotlib.pyplot as plt
+    import emcee
     from multiprocessing import Pool
     from sn.plotting import plot_predictions as plot_sn_predictions
     from cosmic_chronometers.plot_predictions import plot_cc_predictions
     from .plot_predictions import plot_bao_predictions
     from log_evidence import log_evidence
+    from corner_plot import plot_corner_and_chains
 
     ndim = len(bounds)
     nwalkers = 150
@@ -234,31 +234,11 @@ def main():
         H_err=np.sqrt(np.diag(cov_matrix_cc)) / f_cc_50,
         label=f"{cc_legend} $H_0$: {h0_50:.1f} km/s/Mpc",
     )
-
-    labels = ["$f_{CCH}$", "ΔM", "$H_0$", "$r_d$", "Ωm", "$w_0$"]
-    corner.corner(
-        samples,
-        labels=labels,
-        quantiles=[0.159, 0.5, 0.841],
-        show_titles=True,
-        title_fmt=".3f",
-        bins=100,
-        fill_contours=False,
-        plot_datapoints=False,
-        smooth=2.0,
-        smooth1d=2.0,
-        levels=(0.393, 0.864),  # 1 and 2 sigmas in 2D
+    plot_corner_and_chains(
+        labels=["$f_{CCH}$", "ΔM", "$H_0$", "$r_d$", "Ωm", "$w_0$"],
+        flat_samples=samples,
+        samples=chains_samples,
     )
-    plt.show()
-
-    plt.figure(figsize=(16, 1.5 * ndim))
-    for n in range(ndim):
-        plt.subplot2grid((ndim, 1), (n, 0))
-        plt.plot(chains_samples[:, :, n], alpha=0.3)
-        plt.ylabel(labels[n])
-        plt.xlim(0, None)
-    plt.tight_layout()
-    plt.show()
 
 
 if __name__ == "__main__":

@@ -105,11 +105,11 @@ def log_probability(params):
 
 
 def main():
-    import emcee, corner
-    import matplotlib.pyplot as plt
+    import emcee
     from .plot_predictions import plot_bao_predictions, plot_bao_residuals
     from gelman_rubin import gelman_rubin
     from log_evidence import log_evidence
+    from corner_plot import plot_corner_and_chains
 
     np.random.seed(42)
     n_dim = len(bounds)
@@ -167,7 +167,6 @@ def main():
     print(f"Degs of freedom: {data['value'].size  - len(best_fit)}")
     print(f"R^2: {r2:.4f}")
     print(f"RMSD: {np.sqrt(np.mean(residuals**2)):.3f}")
-
     plot_bao_predictions(
         theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
         data=data,
@@ -175,31 +174,11 @@ def main():
         title=f"{legend}: $H_0$={100 * h_50:.1f} km/s/Mpc, $Ω_m$={Om_50:.3f}",
     )
     plot_bao_residuals(data, residuals, np.sqrt(np.diag(cov_matrix)))
-
-    labels = ["$h$", "$Ω_m$", "$w_0$"]
-    corner.corner(
-        samples,
-        labels=labels,
-        quantiles=[0.159, 0.5, 0.841],
-        show_titles=True,
-        title_fmt=".3f",
-        bins=100,
-        fill_contours=False,
-        plot_datapoints=False,
-        smooth=2.0,
-        smooth1d=2.0,
-        levels=(0.393, 0.864),  # 1 and 2 sigmas in 2D
+    plot_corner_and_chains(
+        labels=["$h$", "$Ω_m$", "$w_0$"],
+        flat_samples=samples,
+        samples=chain_samples,
     )
-    plt.show()
-
-    plt.figure(figsize=(16, 1.5 * n_dim))
-    for n in range(n_dim):
-        plt.subplot2grid((n_dim, 1), (n, 0))
-        plt.plot(chain_samples[:, :, n], alpha=0.3)
-        plt.ylabel(labels[n])
-        plt.xlim(0, None)
-    plt.tight_layout()
-    plt.show()
 
 
 if __name__ == "__main__":
