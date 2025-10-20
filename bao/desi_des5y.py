@@ -128,7 +128,6 @@ def log_probability(theta):
 
 def main():
     import emcee
-    import matplotlib.pyplot as plt
     from multiprocessing import Pool
     from corner_plot import plot_corner_and_chains
     from sn.plotting import plot_predictions as plot_sn_predictions
