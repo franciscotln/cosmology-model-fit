@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.integrate import quad, solve_ivp
-from scipy.linalg import cho_solve, cho_factor
+from scipy.linalg import cho_factor, solve_triangular
 from scipy.interpolate import interp1d
 import y2018fs8.data as fs8_data
 from numba import njit
@@ -13,7 +13,7 @@ fs8_data = data["fs8"]
 err_data = data["fs8_err"]
 Om_fid = data["omega_fid"]
 
-cho_cov = cho_factor(covariance)
+cho_cov = cho_factor(covariance, lower=True)[0]
 
 
 @njit
@@ -69,20 +69,25 @@ def compute_fs8(zs, om, s8, w0):
     return fs8
 
 
+def solve_triang(cho_L, delta):
+    y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
+    return np.dot(y, y)
+
+
 def chi_squared(theta):
     Om, s8, w0, f_err = theta
     fs8_th = compute_fs8(z_data, Om, s8, w0)
     q = np.array([compute_q(zi, Om, w0, Omfi) for zi, Omfi in zip(z_data, Om_fid)])
     fs8_corr = fs8_data * q
     delta = fs8_corr - fs8_th
-    return f_err**-2 * delta.dot(cho_solve(cho_cov, delta))
+    return f_err**2 * solve_triang(cho_cov, delta)
 
 
 N = len(z_data)
 
 
 def log_likelihood(theta):
-    return -0.5 * chi_squared(theta) - N * np.log(theta[-1])
+    return -0.5 * chi_squared(theta) + N * np.log(theta[-1])
 
 
 bounds = np.array(
@@ -90,17 +95,19 @@ bounds = np.array(
         [0.1, 0.6],  # Om
         [0.2, 1.2],  # sigma8
         [-2.5, 0.0],  # w0
-        [0.1, 1.5],  # f_err: overstimation factor of the errors
+        [0.4, 2.4],  # f_err: overstimation factor of the errors
     ],
     dtype=np.float64,
 )
 
+normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
+
 
 @njit
 def log_prior(theta):
-    if np.all((bounds[:, 0] < theta) & (theta < bounds[:, 1])):
-        return 0.0
-    return -np.inf
+    if not np.all((bounds[:, 0] < theta) & (theta < bounds[:, 1])):
+        return -np.inf
+    return normalization
 
 
 def log_probability(theta):
@@ -112,30 +119,25 @@ def log_probability(theta):
 
 def main():
     from multiprocessing import Pool
-    import emcee, corner
+    import emcee
     import matplotlib.pyplot as plt
+    from corner_plot import plot_corner_and_chains
 
     np.random.seed(42)
     ndim = len(bounds)
-    nwalkers = 50
+    nwalkers = 100
     burn_in = 100
     nsteps = 1000 + burn_in
-
-    initial_pos = np.zeros((nwalkers, ndim))
-    for dim, (low, high) in enumerate(bounds):
-        initial_pos[:, dim] = np.random.uniform(low, high, nwalkers)
+    initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
+    moves = [
+        (emcee.moves.KDEMove(), 0.30),
+        (emcee.moves.DEMove(), 0.56),
+        (emcee.moves.DESnookerMove(), 0.14),
+    ]
 
     with Pool(8) as pool:
         sampler = emcee.EnsembleSampler(
-            nwalkers,
-            ndim,
-            log_probability,
-            pool=pool,
-            moves=[
-                (emcee.moves.KDEMove(), 0.30),
-                (emcee.moves.DEMove(), 0.56),
-                (emcee.moves.DESnookerMove(), 0.14),
-            ],
+            nwalkers, ndim, log_probability, pool=pool, moves=moves
         )
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
 
@@ -158,7 +160,7 @@ def main():
 
     S8_samples = samples[:, 1] * (samples[:, 0] / 0.3) ** 0.5
     S8_16, S8_50, S8_84 = np.percentile(S8_samples, [15.9, 50, 84.1])
-    best_fit = np.array([Om_50, s8_50, w0_50, f_50])
+    best_fit = np.percentile(samples, 50, axis=0)
 
     print(f"Ωm = {Om_50:.3f} +{Om_84-Om_50:.3f} -{Om_50-Om_16:.3f}")
     print(f"σ8 = {s8_50:.3f} +{s8_84-s8_50:.3f} -{s8_50-s8_16:.3f}")
@@ -168,35 +170,13 @@ def main():
     print(f"chi2 = {chi_squared(best_fit):.2f}")
 
     labels = ["$Ω_m$", "$\sigma_8$", "$w_0$", "$f_{err}$"]
-    corner.corner(
-        samples,
-        labels=labels,
-        quantiles=[0.159, 0.5, 0.841],
-        show_titles=True,
-        title_fmt=".3f",
-        smooth=2.0,
-        smooth1d=2.0,
-        bins=50,
-        levels=(0.393, 0.864),  # 1 and 2 sigmas in 2D
-        fill_contours=False,
-        plot_datapoints=False,
-    )
-    plt.show()
-
-    plt.figure(figsize=(16, 1.5 * ndim))
-    for n in range(ndim):
-        plt.subplot2grid((ndim, 1), (n, 0))
-        plt.plot(chains_samples[:, :, n], alpha=0.3)
-        plt.ylabel(labels[n])
-        plt.xlim(0, None)
-    plt.tight_layout()
-    plt.show()
+    plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
 
     z_plot = np.linspace(0, np.max(z_data), 200)
     fs8_plot = compute_fs8(z_plot, *best_fit[0:-1])
 
     q_vals = np.array(
-        [compute_q(zi, Om_50, w0_50, Omfi) for zi, Omfi in zip(z_data, Om_fid)]
+        [compute_q(zi, Om_50, -1, Omfi) for zi, Omfi in zip(z_data, Om_fid)]
     )
     fs8_data_corrected = fs8_data * q_vals
     err_data_corrected = err_data * q_vals
@@ -204,7 +184,7 @@ def main():
     plt.errorbar(
         z_data,
         fs8_data_corrected,
-        yerr=err_data_corrected * f_50,
+        yerr=err_data_corrected / f_50,
         fmt=".",
         label="data",
     )
@@ -221,33 +201,33 @@ if __name__ == "__main__":
 
 """
 flat ΛCDM
-Ωm = 0.268 +0.020 -0.019
-σ8 = 0.789 +0.015 -0.014
-S8 = 0.745 +0.021 -0.020
+Ωm = 0.268 +0.019 -0.019
+σ8 = 0.789 +0.014 -0.014
+S8 = 0.746 +0.020 -0.020
 w0 = -1
-f = 0.78 +0.07 -0.06
-chi2 = 62.73
+f = 1.30 +0.11 -0.11
+chi2 = 64.30
 63 degs of freedom
 
 ===============================
 
 flat wCDM
-Ωm = 0.285 +0.023 -0.022
-σ8 = 0.860 +0.070 -0.057
-S8 = 0.840 +0.082 -0.073
-w0 = -0.799 +0.137 -0.146
-f = 0.78 +0.07 -0.06
-chi2 = 61.64
+Ωm = 0.285 +0.022 -0.022
+σ8 = 0.861 +0.071 -0.056
+S8 = 0.843 +0.081 -0.072
+w0 = -0.793 +0.133 -0.146
+f = 1.31 +0.11 -0.11
+chi2 = 63.37
 62 deg of freedom
 
 ===============================
 
 flat wzCDM
-Ωm = 0.300 +0.033 -0.032
-σ8 = 0.830 +0.039 -0.038
-S8 = 0.831 +0.074 -0.072
-w0 = -0.711 +0.223 -0.234
-f = 0.78 +0.07 -0.06
-chi2 = 61.26
+Ωm = 0.299 +0.032 -0.031
+σ8 = 0.830 +0.038 -0.036
+S8 = 0.829 +0.073 -0.069
+w0 = -0.713 +0.216 -0.229
+f = 1.31 +0.11 -0.11
+chi2 = 63.57
 62 deg of freedom
 """
