@@ -269,9 +269,9 @@ if __name__ == "__main__":
 Flat ΛCDM: w(z) = -1
 f_cc: 1.48 +0.18 -0.17
 H0: 66.6 +1.5 -1.3 km/s/Mpc
-Ωm h^2: 0.01979 +0.00210 -0.00168 Mpc
+Ωm h^2: 0.0198 +0.0021 -0.0017 Mpc
 Ωm: 0.307 +0.008 -0.007
-r_d: 151.12 +2.34 -2.75 Mpc
+r_d: 151.1 +2.3 -2.8 Mpc
 Chi squared: 1692.55
 Log evidence: -978.57
 Degrees of freedom: 1777
@@ -281,10 +281,10 @@ Degrees of freedom: 1777
 Flat wCDM: w(z) = w0
 f_cc: 1.47 +0.18 -0.18
 H0: 68.4 +1.9 -1.6 km/s/Mpc
-Ωm h^2: 0.02575 +0.00340 -0.00299 Mpc
+Ωm h^2: 0.0258 +0.0034 -0.0030 Mpc
 Ωm: 0.303 +0.006 -0.005
 w0: -0.894 +0.028 -0.028 (prior width 1.5: -1.5 to 0.0)
-r_d: 144.71 +3.44 -3.73 Mpc
+r_d: 144.7 +3.4 -3.7 Mpc
 Chi squared: 1681.36
 Log evidence: -975.69 (Δ logZ = 2.88 over ΛCDM)
 Degrees of freedom: 1776
@@ -294,10 +294,10 @@ Degrees of freedom: 1776
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
 f_cc: 1.47 +0.18 -0.18
 H0: 67.9 +1.9 -1.6 km/s/Mpc
-Ωm h^2: 0.02477 +0.00332 -0.00276 Mpc
+Ωm h^2: 0.0248 +0.0033 -0.0028 Mpc
 Ωm: 0.309 +0.007 -0.006
 w0: -0.843 +0.040 -0.041 (prior width 1.5: -1.5 to 0.0)
-r_d: 145.38 +3.34 -3.75 Mpc
+r_d: 145.4 +3.3 -3.8 Mpc
 Chi squared: 1679.53
 Log evidence: -974.24 (Δ logZ = 4.33 over ΛCDM)
 Degrees of freedom: 1776
@@ -308,11 +308,11 @@ Flat w0waCDM: w(z) = w0 + wa * z / (1 + z)
 f_cc: 1.47 +0.18 -0.18
 ΔM: -0.065 +0.063 -0.053 mag
 H0: 66.8 +2.1 -1.7 km/s/Mpc
-Ωm h^2: 0.02255 +0.00386 -0.00312 Mpc
+Ωm h^2: 0.0226 +0.0039 -0.0031 Mpc
 Ωm: 0.315 +0.010 -0.009
 w0: -0.802 +0.066 -0.061 (prior width 1.5: -1.5 to 0.0)
 wa: -0.546 +0.328 -0.368 (prior width 5.0: -3.0 to 2.0)
-r_d: 147.50 +3.68 -4.23 Mpc
+r_d: 147.5 +3.7 -4.2 Mpc
 Chi squared: 1678.85
 Log evidence: -975.91 (Δ logZ = 2.66 over ΛCDM)
 Degrees of freedom: 1775
