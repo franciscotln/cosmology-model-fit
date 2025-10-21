@@ -6,6 +6,7 @@ from y2024DES.data import get_data, effective_sample_size as sn_size
 from y2025BAO.data import get_data as get_bao_data
 
 c = cmb.c  # Speed of light in km/s
+Orh2 = cmb.Omega_r_h2()
 
 sn_legend, z_cmb, z_hel, mu_values, cov_matrix_sn = get_data()
 bao_legend, bao_data, cov_matrix_bao = get_bao_data()
@@ -16,15 +17,13 @@ cho_bao = cho_factor(cov_matrix_bao, lower=True)[0]
 """
 Planck compressed priors for θ* and ωb, without ωm = Ωm * h^2 (arXiv:2503.14738v2)
 This way we allow for the ratio ωb / ωm to vary freely independently from Planck.
+Still the geometry is constrained by θ* and the sound horizon by ωb.
 """
-cmb_compressed_priors = cmb.DISTANCE_PRIORS[:2]  # θ*, ωb
 cho_cmb = cho_factor(cmb.covariance[:2, :2], lower=True)[0]
 
 z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
 z_grid = np.linspace(0, z_max, num=1200)
 dx = np.diff(z_grid)
-
-Orh2 = cmb.Omega_r_h2()
 
 
 @njit
@@ -94,22 +93,14 @@ def bao_theory(z, qty, theta):
     return results / rd
 
 
-def theta_star_theory(params):
-    H0, Om, Obh2 = params[0], params[1], params[2]
-    z_star = cmb.z_star(wb=Obh2, wm=Om * (H0 / 100) ** 2)
-    rs_star = cmb.rs_z(Ez, z_star, params, H0, Obh2)
-    DA_star = cmb.DA_z(Ez, z_star, params, H0)
-    return rs_star / ((1 + z_star) * DA_star)
-
-
 def solve_triang(cho_L, delta):
     y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
     return np.dot(y, y)
 
 
 def chi_squared(theta):
-    cmb_observables = np.array([theta_star_theory(theta), theta[2]])
-    delta_cmb = cmb_compressed_priors - cmb_observables
+    H0, Om, Obh2 = theta[0], theta[1], theta[2]
+    delta_cmb = cmb.DISTANCE_PRIORS[:2] - cmb.cmb_distances(Ez, theta, H0, Om, Obh2)[:2]
     chi2_cmb = solve_triang(cho_cmb, delta_cmb)
 
     delta_sn = mu_values - theory_mu(theta)
