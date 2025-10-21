@@ -1,39 +1,53 @@
 from numba import njit
 import numpy as np
+from scipy.constants import c as c0
 import scipy.stats as stats
-from scipy.linalg import cho_factor, cho_solve
-from scipy.integrate import cumulative_trapezoid
+from scipy.linalg import cho_factor, solve_triangular
 from y2024DES.data import get_data, effective_sample_size
 
 legend, z_cmb_vals, z_hel_vals, observed_mu_vals, covmat = get_data()
-cho = cho_factor(covmat)
+cho = cho_factor(covmat, lower=True)[0]
 
-C = 299792.458  # Speed of light (km/s)
-H0 = 70  # Hubble constant km/s/Mpc
+c = c0 / 1000  # Speed of light (km/s)
+H0 = 70  # Hubble constant (km/s/Mpc)
 
-grid = np.linspace(0, np.max(z_cmb_vals), num=1000)
-one_plus_z = 1 + grid
-one_plus_z_hel = 1 + z_hel_vals
+z_grid = np.linspace(0, np.max(z_cmb_vals) + 0.1, num=1200)
+dx = np.diff(z_grid)
+
+inv_a = 1 + z_grid
 
 
 @njit
 def Ez(params):
     Om, w0 = params[1], params[2]
     Ode = 1 - Om
-    Rho_de = (2 * one_plus_z**3 / (1 + one_plus_z**3)) ** (2 * (1 + w0))
-    return np.sqrt(Om * one_plus_z**3 + Ode * Rho_de)
+    Rho_de = (2 * inv_a**3 / (1 + inv_a**3)) ** (2 * (1 + w0))
+    return np.sqrt(Om * inv_a**3 + Ode * Rho_de)
 
 
+@njit
+def DM_z(z, params):
+    dh_grid = (c / H0) / Ez(params)
+    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    cum_dm = np.zeros(z_grid.size)
+    cum_dm[1:] = np.cumsum(dx * dy)
+    return np.interp(z, z_grid, cum_dm)
+
+
+@njit
 def theory_mu(params):
-    integral_vals = cumulative_trapezoid(1 / Ez(params), grid, initial=0)
-    I = np.interp(z_cmb_vals, grid, integral_vals)
-    dL = one_plus_z_hel * (C / H0) * I
+    dL = (1 + z_hel_vals) * DM_z(z_cmb_vals, params)
     return params[0] + 25 + 5 * np.log10(dL)
+
+
+def solve_triang(cho_L, delta):
+    y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
+    return np.dot(y, y)
 
 
 def chi_squared(params):
     delta = observed_mu_vals - theory_mu(params)
-    return np.dot(delta, cho_solve(cho, delta, check_finite=False))
+    return solve_triang(cho, delta)
 
 
 def log_likelihood(params):
@@ -42,12 +56,14 @@ def log_likelihood(params):
 
 bounds = np.array([(-0.2, 0.2), (0, 0.8), (-2.0, 0.0)], dtype=np.float64)  # ΔM, Ωm, w0
 
+normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
+
 
 @njit
 def log_prior(params):
     if not np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
         return -np.inf
-    return 0.0
+    return normalization
 
 
 def log_probability(params):
@@ -58,15 +74,15 @@ def log_probability(params):
 
 
 def main():
-    import emcee, corner
-    import matplotlib.pyplot as plt
+    import emcee
     from multiprocessing import Pool
+    from corner_plot import plot_corner_and_chains
     from .plotting import plot_predictions, print_color, plot_residuals
 
-    burn_in = 200
     ndim = len(bounds)
     nwalkers = 150
-    nsteps = burn_in + 1500
+    burn_in = 200
+    nsteps = burn_in + 2000
     initial_state = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
 
     with Pool(6) as pool:
@@ -84,6 +100,7 @@ def main():
         sampler.run_mcmc(initial_state, nsteps, progress=True)
 
     samples = sampler.get_chain(discard=burn_in, flat=True)
+    chains_samples = sampler.get_chain(discard=burn_in, flat=False)
 
     try:
         tau = sampler.get_autocorr_time()
@@ -101,7 +118,7 @@ def main():
         [w0_16, w0_50, w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = np.array([dM_50, Om_50, w0_50], dtype=np.float64)
+    best_fit = np.percentile(samples, 50, axis=0)
 
     theory_mu_vals = theory_mu(best_fit)
     residuals = observed_mu_vals - theory_mu_vals
@@ -114,7 +131,7 @@ def main():
     # Calculate root mean square deviation
     rmsd = np.sqrt(np.mean(residuals**2))
 
-    dM_label = f"{dM_50:.3f} +{dM_84-dM_50:.3f} -{dM_50-dM_16:.3f}"
+    dM_label = f"{dM_50:.3f} +{dM_84-dM_50:.3f} -{dM_50-dM_16:.3f} mag"
     Om_label = f"{Om_50:.3f} +{Om_84-Om_50:.3f} -{Om_50-Om_16:.3f}"
     w0_label = f"{w0_50:.2f} +{w0_84-w0_50:.2f} -{w0_50-w0_16:.2f}"
 
@@ -130,23 +147,13 @@ def main():
     print_color("Chi squared", f"{chi_squared(best_fit):.2f}")
     print_color("Effective deg of freedom", effective_sample_size - ndim)
 
-    labels = ["$ΔM$", "$Ω_m$", "$w_0$"]
-    corner.corner(
-        samples,
-        labels=labels,
-        quantiles=[0.159, 0.5, 0.841],
-        show_titles=True,
-        title_fmt=".4f",
-        smooth=2.0,
-        smooth1d=2.0,
-        bins=100,
-        levels=(0.393, 0.864),  # 1 and 2 sigmas in 2D
-        fill_contours=False,
-        plot_datapoints=False,
-    )
-    plt.show()
-
     y_err = np.sqrt(covmat.diagonal())
+
+    plot_corner_and_chains(
+        labels=["$ΔM$", "$Ω_m$", "$w_0$"],
+        flat_samples=samples,
+        samples=chains_samples,
+    )
     plot_predictions(
         legend=legend,
         x=z_cmb_vals,
@@ -157,16 +164,6 @@ def main():
         x_scale="log",
     )
     plot_residuals(z_values=z_cmb_vals, residuals=residuals, y_err=y_err, bins=40)
-
-    chains_samples = sampler.get_chain(discard=burn_in, flat=False)
-    plt.figure(figsize=(16, 1.5 * ndim))
-    for n in range(ndim):
-        plt.subplot2grid((ndim, 1), (n, 0))
-        plt.plot(chains_samples[:, :, n], alpha=0.3)
-        plt.ylabel(labels[n])
-        plt.xlim(0, None)
-    plt.tight_layout()
-    plt.show()
 
 
 if __name__ == "__main__":
@@ -179,7 +176,7 @@ z range: 0.025 - 1.121
 Sample size: 1829
 ********************************
 
-Flat ΛCDM
+Flat ΛCDM w(z) = -1
 ΔM: 0.022 +0.011 -0.011
 Ωm: 0.352 +0.017 -0.016
 w0: -1
@@ -188,10 +185,11 @@ R-squared (%): 98.41
 RMSD (mag): 0.263
 Skewness of residuals: 3.407
 Chi squared: 1640.08
+Effective deg of freedom: 1733
 
 ==============================
 
-Flat wCDM
+Flat wCDM w(z) = w0
 ΔM: 0.031 +0.012 -0.013
 Ωm: 0.265 +0.072 -0.094
 w0: -0.80 +0.14 -0.15
@@ -200,22 +198,24 @@ R-squared (%): 98.40
 RMSD (mag): 0.264
 Skewness of residuals: 3.415
 Chi squared: 1638.53
+Effective deg of freedom: 1732
 
 ==============================
 
-Flat w0 - (1 + w0) * ((1 + z)**3 - 1) / ((1 + z)**3 + 1)
+Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)^3)
 ΔM: 0.033 +0.013 -0.013 mag
-Ωm: 0.298 +0.043 -0.045
-w0: -0.81 +0.12 -0.13
+Ωm: 0.298 +0.043 -0.044
+w0: -0.81 +0.11 -0.13
 wa = d w(z=0)/dz = -1.5*(1 + w0)
 R-squared (%): 98.40
 RMSD (mag): 0.264
 Skewness of residuals: 3.417
 Chi squared: 1637.97
+Effective deg of freedom: 1732
 
 ==============================
 
-Flat w0waCDM
+Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
 ΔM: 0.0580 +0.0173 -0.0170
 Ωm: 0.4933 +0.0313 -0.0446
 w0: -0.4021 +0.3529 -0.2997 (1.83 sigma)
@@ -224,4 +224,5 @@ R-squared (%): 98.40
 RMSD (mag): 0.264
 Skewness of residuals: 3.453
 Chi squared: 1632.74
+Effective deg of freedom: 1731
 """
