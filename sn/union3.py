@@ -76,12 +76,12 @@ def log_probability(params):
 
 
 def main():
-    import corner, emcee
+    import emcee
     from scipy.stats import skew
     from multiprocessing import Pool
-    import matplotlib.pyplot as plt
     from gelman_rubin import gelman_rubin
     from log_evidence import log_evidence
+    from corner_plot import plot_corner_and_chains
     from .plotting import plot_predictions, print_color, plot_residuals
 
     n_dim = len(bounds)
@@ -156,33 +156,13 @@ def main():
     )
     print_color("Degs of freedom", len(z_values) - len(best_fit_params))
 
-    labels = ["$Δ_M$", "$Ω_m$", "$w_0$"]
-    corner.corner(
-        samples,
-        labels=labels,
-        quantiles=[0.159, 0.5, 0.841],
-        show_titles=True,
-        title_fmt=".4f",
-        smooth=2.0,
-        smooth1d=2.0,
-        bins=100,
-        levels=(0.393, 0.864),  # 1 and 2 sigmas in 2D
-        fill_contours=False,
-        plot_datapoints=False,
-    )
-    plt.show()
-
-    plt.figure(figsize=(16, 1.5 * n_dim))
-    for n in range(n_dim):
-        plt.subplot2grid((n_dim, 1), (n, 0))
-        plt.plot(chain_samples[:, :, n], alpha=0.3)
-        plt.ylabel(labels[n])
-        plt.xlim(0, None)
-    plt.tight_layout()
-    plt.show()
-
     sigma_mu = np.sqrt(np.diag(cov_matrix))
 
+    plot_corner_and_chains(
+        labels=["$Δ_M$", "$Ω_m$", "$w_0$"],
+        flat_samples=samples,
+        samples=chain_samples,
+    )
     plot_predictions(
         legend=legend,
         x=z_values,
@@ -192,7 +172,6 @@ def main():
         label=f"Best fit: $Ω_m$={Om_50:.4f}",
         x_scale="log",
     )
-
     plot_residuals(z_values=z_values, residuals=residuals, y_err=sigma_mu, bins=40)
 
 
