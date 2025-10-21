@@ -252,7 +252,7 @@ r_d: 144.63 +1.56 -1.55 Mpc
 H0: 68.19 +0.92 -0.89 km/s/Mpc
 Ωm: 0.308 +0.008 -0.008
 w0: -0.834 +0.045 -0.046 (prior width 1.5: -1.5 to 0.0)
-wa: -(1 + w0)
+wa = d w(z=0)/dz = -1.5*(1 + w0)
 Chi squared: 1646.5
 Log evidence: -841.5 (Δ logZ = 3.7 against ΛCDM)
 Degrees of freedom: 1744

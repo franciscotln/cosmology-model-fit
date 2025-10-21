@@ -237,7 +237,7 @@ Flat w0 - (1 + w0) * (((1 + z)**3 - 1) / ((1 + z)**3 + 1))
 r_d * h: 98.64 +0.82 -0.83 Mpc
 Ωm: 0.307 +0.008 -0.008
 w0: -0.834 +0.045 -0.045 (prior width 1.5: -1.5 to 0.0)
-wa: -(1 + w0)
+wa = d w(z=0)/dz = -1.5*(1 + w0)
 Chi squared: 1646.49 (Δ chi2 12.48)
 Log Evidence: -837.59 (Δ logZ 3.64 against ΛCDM)
 Degrees of freedom: 1744

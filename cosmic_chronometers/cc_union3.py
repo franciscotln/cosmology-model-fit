@@ -230,7 +230,7 @@ f_cc: 0.71 +0.10 -0.08
 H0: 66.4 +2.7 -2.6 km/s/Mpc
 Ωm: 0.319 +0.025 -0.024
 w0: -5/6 (fixed)
-wa: -(1 + w0) = -1/6
+wa = d w(z=0)/dz = -1.5*(1 + w0)
 Chi squared: 52.19
 Degrees of freedom: 51
 
