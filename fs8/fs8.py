@@ -38,7 +38,21 @@ def growth_deriv(y, a, om, w0):
     z = 1 / a - 1
     H = E(z, om, w0)
     HH = H**2
-    dHHda = -3 * om / a**4
+
+    # Compute d(H^2)/da including both matter and dark energy contributions
+    inv_a = 1 + z
+    inv_a2 = inv_a**2
+    inv_a3 = inv_a**3
+
+    drho_de_da = (
+        2
+        * (1 + w0)
+        * (2 * inv_a3 / (1 + inv_a3)) ** (2 * (1 + w0) - 1)
+        * (6 * inv_a2 / (1 + inv_a3) - 2 * inv_a3 * 3 * inv_a2 / (1 + inv_a3) ** 2)
+        * (-1 / a**2)
+    )
+    dHHda = -3 * om / a**4 + (1 - om) * drho_de_da
+
     Hprime = (1 / 2) * dHHda / H
     ddelta = y[1]
     ddeltada = -(3 / a + Hprime / H) * y[1] + (3 / 2) * (om / a**5) / HH * y[0]
@@ -49,6 +63,8 @@ a_vals = np.logspace(-3, 0, 1000)
 
 
 def compute_fs8(zs, om, s8, w0):
+    # Initial conditions consistent with matter-dominated era: delta ~ a, d(delta)/da ~ 1
+    # delta(a_0) = a_0, d(delta)/da = a_0 (for delta ~ a initially)
     sol = solve_ivp(
         fun=lambda a, y: growth_deriv(y, a, om, w0),
         t_span=(a_vals[0], a_vals[-1]),
@@ -65,7 +81,11 @@ def compute_fs8(zs, om, s8, w0):
     fs8 = np.empty(zs.size, dtype=np.float64)
     for i, z in enumerate(zs):
         a_z = 1 / (1 + z)
-        fs8[i] = s8 * a_z * ddelta_func(a_z) / delta_func(1.0)
+        # f = d(ln delta)/d(ln a) = a * d(delta)/da / delta
+        f = a_z * ddelta_func(a_z) / delta_func(a_z)
+        # sigma8(z) = sigma8 * delta(z) / delta(z=0)
+        sigma8_z = s8 * delta_func(a_z) / delta_func(1.0)
+        fs8[i] = f * sigma8_z
     return fs8
 
 
@@ -176,7 +196,7 @@ def main():
     fs8_plot = compute_fs8(z_plot, *best_fit[0:-1])
 
     q_vals = np.array(
-        [compute_q(zi, Om_50, -1, Omfi) for zi, Omfi in zip(z_data, Om_fid)]
+        [compute_q(zi, Om_50, w0_50, Omfi) for zi, Omfi in zip(z_data, Om_fid)]
     )
     fs8_data_corrected = fs8_data * q_vals
     err_data_corrected = err_data * q_vals
@@ -212,22 +232,22 @@ chi2 = 64.30
 ===============================
 
 flat wCDM
-Ωm = 0.285 +0.022 -0.022
-σ8 = 0.861 +0.071 -0.056
-S8 = 0.843 +0.081 -0.072
-w0 = -0.793 +0.133 -0.146
-f = 1.31 +0.11 -0.11
-chi2 = 63.37
+Ωm = 0.252 +0.022 -0.022
+σ8 = 0.864 +0.062 -0.047
+S8 = 0.796 +0.034 -0.033
+w0 = -0.771 +0.114 -0.120
+f = 1.32 +0.11 -0.11
+chi2 = 63.32
 62 deg of freedom
 
 ===============================
 
 flat wzCDM
-Ωm = 0.299 +0.032 -0.031
-σ8 = 0.830 +0.038 -0.036
-S8 = 0.829 +0.073 -0.069
-w0 = -0.713 +0.216 -0.229
-f = 1.31 +0.11 -0.11
-chi2 = 63.57
+Ωm = 0.271 +0.019 -0.018
+σ8 = 0.833 +0.032 -0.030
+S8 = 0.793 +0.033 -0.033
+w0 = -0.727 +0.142 -0.150
+f = 1.32 +0.11 -0.11
+chi2 = 63.53
 62 deg of freedom
 """
