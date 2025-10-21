@@ -15,12 +15,9 @@ cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
 cho_bao = cho_factor(bao_cov_matrix, lower=True)[0]
 cho_cmb = cho_factor(cmb.covariance, lower=True)[0]
 
-sn_grid = np.linspace(0, z_sn_vals.max() + 0.1, num=1000)
-dx_sn = np.diff(sn_grid)
-one_plus_z = 1 + z_sn_vals
-
-bao_grid = np.linspace(0, bao_data["z"].max() + 0.1, num=1000)
-dx_bao = np.diff(bao_grid)
+z_max = max(np.max(z_sn_vals), np.max(bao_data["z"])) + 0.1
+z_grid = np.linspace(0, z_max, num=1200)
+dx = np.diff(z_grid)
 
 
 @njit
@@ -35,18 +32,8 @@ def Ez(z, params):
 
 
 @njit
-def DM(grid, zs, dx, params):
-    dh_grid = DH_z(grid, params)
-    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
-    cum_dm = np.zeros(grid.size)
-    cum_dm[1:] = np.cumsum(dx * dy)
-    dms = np.interp(zs, grid, cum_dm)
-    return dms
-
-
-@njit
 def mu_theory(params):
-    dL = one_plus_z * DM(sn_grid, z_sn_vals, dx_sn, params)
+    dL = (1 + z_sn_vals) * DM_z(z_sn_vals, params)
     return params[-1] + 25 + 5 * np.log10(dL)
 
 
@@ -62,7 +49,12 @@ def DH_z(z, params):
 
 @njit
 def DM_z(z, params):
-    return DM(bao_grid, z, dx_bao, params)
+    dh_grid = DH_z(z_grid, params)
+    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    cum_dm = np.zeros(z_grid.size)
+    cum_dm[1:] = np.cumsum(dx * dy)
+    dms = np.interp(z, z_grid, cum_dm)
+    return dms
 
 
 @njit
@@ -192,14 +184,18 @@ def main():
     chains_samples = sampler.get_chain(discard=burn_in, flat=False)
     log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
 
-    pct = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
-    H0_16, H0_50, H0_84 = pct[0]
-    Om_16, Om_50, Om_84 = pct[1]
-    Obh2_16, Obh2_50, Obh2_84 = pct[2]
-    w0_16, w0_50, w0_84 = pct[3]
-    dM_16, dM_50, dM_84 = pct[4]
+    [
+        (H0_16, H0_50, H0_84),
+        (Om_16, Om_50, Om_84),
+        (Obh2_16, Obh2_50, Obh2_84),
+        (w0_16, w0_50, w0_84),
+        (dM_16, dM_50, dM_84),
+    ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
     best_fit = np.percentile(samples, 50, axis=0)
+    degs_of_freedom = (
+        len(z_sn_vals) + len(bao_data["z"]) + len(cmb.DISTANCE_PRIORS) - len(bounds)
+    )
 
     one_sigma_contours = [15.9, 50, 84.1]
 
@@ -222,6 +218,7 @@ def main():
     print(f"r_d: {cmb.rs_z(Ez, z_dr_50, best_fit, H0_50, Obh2_50):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Log evidence: {log_evidence(samples, log_probs, log_probability):.1f}")
+    print(f"Degs of freedom: {degs_of_freedom}")
 
     plot_bao_predictions(
         theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
@@ -235,7 +232,7 @@ def main():
         y=mu_vals,
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=mu_theory(best_fit),
-        label=f"Best fit: $Ω_m$={Om_50:.3f}",
+        label=f"$Ω_m$={Om_50:.3f}",
         x_scale="log",
     )
     plot_corner_and_chains(
@@ -255,14 +252,14 @@ Flat ΛCDM w(z) = -1
 H0: 68.4 +0.3 -0.3 km/s/Mpc
 Ωm: 0.300 +0.004 -0.004
 ωb: 0.02237 +0.00012 -0.00012
-ωm: 0.14027 +0.00060 -0.00060
+ωm: 0.14029 +0.00060 -0.00060
 z*: 1088.66 +0.14 -0.14
-r*: 145.10 Mpc
-z_d: 1059.70 +0.26 -0.26
-r_d: 147.68 Mpc
-Chi squared: 42.78
+r*: 145.09 Mpc
+z_d: 1059.69 +0.26 -0.26
+r_d: 147.67 Mpc
+Chi squared: 42.73
 Log evidence: -35.6
-Degs of freedom: 35
+Degs of freedom: 34
 
 ===============================
 
@@ -271,16 +268,16 @@ Flat wCDM w(z) = w0
 (θ∗,ωb,ωbc)CMB
 H0: 67.7 +0.7 -0.7 km/s/Mpc
 Ωm: 0.305 +0.006 -0.006
-ωb: 0.02242 +0.00013 -0.00013
-ωm: 0.13966 +0.00081 -0.00081
-w0: -0.967 +0.028 -0.028 (prior width 1.5: -1.5 to 0.0)
+ωb: 0.02242 +0.00013 -0.00012
+ωm: 0.13967 +0.00081 -0.00082
+w0: -0.967 +0.028 -0.029 (prior width 1.5: -1.5 to 0.0)
 z*: 1088.56 +0.16 -0.16
-r*: 145.23 Mpc
+r*: 145.22 Mpc
 z_d: 1059.77 +0.27 -0.27
-r_d: 147.81 Mpc
-Chi squared: 41.47
+r_d: 147.79 Mpc
+Chi squared: 41.39
 Log evidence: -38.0 (Δ logZ = -2.4 in favour of ΛCDM)
-Degs of freedom: 34
+Degs of freedom: 33
 
 ===============================
 
@@ -290,15 +287,15 @@ Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
 H0: 66.7 +0.8 -0.8 km/s/Mpc
 Ωm: 0.314 +0.007 -0.007
 ωb: 0.02243 +0.00012 -0.00012
-ωm: 0.13953 +0.00070 -0.00070
-w0: -0.884 +0.052 -0.052 (prior width 1.5: -1.5 to 0.0)
+ωm: 0.13953 +0.00071 -0.00071
+w0: -0.883 +0.051 -0.052 (prior width 1.5: -1.5 to 0.0)
 z*: 1088.54 +0.15 -0.15
 r*: 145.25 Mpc
-z_d: 1059.78 +0.27 -0.27
+z_d: 1059.79 +0.27 -0.27
 r_d: 147.82 Mpc
-Chi squared: 37.93
+Chi squared: 37.94
 Log evidence: -35.6 (Δ logZ = 0.0 equal to ΛCDM)
-Degs of freedom: 34
+Degs of freedom: 33
 
 ===============================
 
@@ -317,5 +314,5 @@ z_d: 1059.56 +0.27 -0.27
 r_d: 147.43 Mpc
 Chi squared: 29.77
 Log evidence: -33.4 (Δ logZ = 2.2 against ΛCDM)
-Degs of freedom: 33
+Degs of freedom: 32
 """
