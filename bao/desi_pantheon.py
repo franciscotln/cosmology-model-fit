@@ -194,9 +194,9 @@ def main():
     plot_sn_predictions(
         legend=legend,
         x=z_cmb,
-        y=mb_vals,
+        y=mb_vals - M_50,
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=apparent_mag(best_fit),
+        y_model=apparent_mag(best_fit) - M_50,
         label=f"Best fit: $Ω_m$={Om_50:.3f}",
         x_scale="log",
     )
