@@ -2,11 +2,12 @@ from numba import njit
 import numpy as np
 from scipy.constants import c as c0
 from scipy.linalg import cho_factor, solve_triangular
-from y2023union3.data import get_data
+from y2023union3.data import get_data as get_sn_data
 from y2025BAO.data import get_data as get_bao_data
 
-sn_legend, z_sn_vals, mu_vals, cov_matrix_sn = get_data()
+sn_legend, z_sn_vals, mu_vals, cov_matrix_sn = get_sn_data()
 bao_legend, bao_data, bao_cov_matrix = get_bao_data()
+
 cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
 cho_bao = cho_factor(bao_cov_matrix, lower=True)[0]
 
@@ -20,11 +21,11 @@ dx = np.diff(z_grid)
 
 @njit
 def Ez(z, params):
-    O_m, w0 = params[2], params[3]
-    one_plus_z = 1 + z
-    cubic = one_plus_z**3
+    Om, w0 = params[2], params[3]
+    inv_a = 1 + z
+    cubic = inv_a**3
     rho_de = (2 * cubic / (1 + cubic)) ** (2 * (1 + w0))
-    return np.sqrt(O_m * cubic + (1 - O_m) * rho_de)
+    return np.sqrt(Om * cubic + (1 - Om) * rho_de)
 
 
 @njit
@@ -59,12 +60,7 @@ def DV_z(z, params):
     return (z * DH * DM**2) ** (1 / 3)
 
 
-qty_map = {
-    "DV_over_rs": 0,
-    "DM_over_rs": 1,
-    "DH_over_rs": 2,
-}
-
+qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
 quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int32)
 
 
@@ -105,7 +101,7 @@ bounds = np.array(
     dtype=np.float64,
 )
 
-normalization = -np.log(np.prod(bounds[:, 1] - bounds[:, 0]))
+normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
 
 
 @njit
@@ -166,22 +162,23 @@ def main():
 
     print("Gelman-Rubin:", gelman_rubin(chains_samples))
 
-    [
-        [dM_16, dM_50, dM_84],
-        [H0_16, H0_50, H0_84],
-        [Om_16, Om_50, Om_84],
-        [w0_16, w0_50, w0_84],
-    ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
-
     best_fit = np.percentile(samples, 50, axis=0)
+    pct = np.percentile(samples, [15.9, 50, 84.1], axis=0)
 
-    print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
-    print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
-    print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
-    print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
+    [
+        dM_err,
+        H0_err,
+        Om_err,
+        w0_err,
+    ] = np.diff(pct, axis=0).T
+
+    print(f"ΔM: {best_fit[0]:.3f} +{dM_err[1]:.3f} -{dM_err[0]:.3f} mag")
+    print(f"H0: {best_fit[1]:.2f} +{H0_err[1]:.2f} -{H0_err[0]:.2f} km/s/Mpc")
+    print(f"Ωm: {best_fit[2]:.3f} +{Om_err[1]:.3f} -{Om_err[0]:.3f}")
+    print(f"w0: {best_fit[3]:.3f} +{w0_err[1]:.3f} -{w0_err[0]:.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Log Evidence: {log_evidence(samples, log_probs, log_probability):.2f}")
-    print(f"Degs of freedom: {bao_data['value'].size + z_sn_vals.size - len(best_fit)}")
+    print(f"Degs of freedom: {len(bao_data['value']) + len(z_sn_vals) - len(best_fit)}")
 
     plot_bao_predictions(
         theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
@@ -195,7 +192,7 @@ def main():
         y=mu_vals,
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=mu_theory(best_fit),
-        label=f"Best fit: $Ω_m$={Om_50:.3f}",
+        label=f"$Ω_m$={best_fit[2]:.3f}",
         x_scale="log",
     )
     plot_corner_and_chains(
