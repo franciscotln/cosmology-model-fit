@@ -7,6 +7,11 @@ from y2024DES.data import get_data, effective_sample_size as sn_size
 from y2025BAO.data import get_data as get_bao_data
 
 c = cmb.c  # Speed of light in km/s
+Orh2 = cmb.Omega_r_h2()
+
+# arXiv:1807.06209v4 (Planck 2018)
+theta_stx100 = 1.04110
+theta_stx100_err = 0.00031
 
 sn_legend, z_cmb, z_hel, mu_values, cov_matrix_sn = get_data()
 bao_legend, bao_data, cov_matrix_bao = get_bao_data()
@@ -17,8 +22,6 @@ cho_bao = cho_factor(cov_matrix_bao, lower=True)[0]
 z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
 z_grid = np.linspace(0, z_max, num=1200)
 dx = np.diff(z_grid)
-
-Orh2 = cmb.Omega_r_h2()
 
 
 @njit
@@ -64,12 +67,7 @@ def DV_z(z, theta):
     return (z * DH * DM**2) ** (1 / 3)
 
 
-qty_map = {
-    "DV_over_rs": 0,
-    "DM_over_rs": 1,
-    "DH_over_rs": 2,
-}
-
+qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
 quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int64)
 
 
@@ -88,7 +86,7 @@ def bao_theory(z, qty, theta):
     return results / rd
 
 
-def theta_100_theory(params):
+def theta_starx100_theory(params):
     H0, Om, Obh2 = params[0], params[1], params[2]
     z_star = cmb.z_star(wb=Obh2, wm=Om * (H0 / 100) ** 2)
     rs_star = cmb.rs_z(Ez, z_star, params, H0, Obh2)
@@ -101,13 +99,8 @@ def solve_triang(cho_L, delta):
     return np.dot(y, y)
 
 
-# arXiv:1807.06209v4 (Planck 2018 final)
-theta_stx100 = 1.04110
-theta_stx100_err = 2 * 0.00031  # 2-sigma error to account for variations in the models
-
-
 def chi_squared(theta):
-    delta_theta_100 = theta_stx100 - theta_100_theory(theta)
+    delta_theta_100 = theta_stx100 - theta_starx100_theory(theta)
     chi2_theta_100 = (delta_theta_100 / theta_stx100_err) ** 2
 
     delta_bbn = bbn.Obh2 - theta[2]
@@ -218,6 +211,7 @@ def main():
     print(f"r_d: {cmb.rs_z(Ez, zd_50, best_fit, H0_50, Obh2_50):.2f} Mpc")
     print(f"z*: {z_st_50:.2f} +{(z_st_84 - z_st_50):.2f} -{(z_st_50 - z_st_16):.2f}")
     print(f"r*: {cmb.rs_z(Ez, z_st_50, best_fit, H0_50, Obh2_50):.2f} Mpc")
+    print(f"100 θ*: {theta_starx100_theory(best_fit):.5f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Log Evidence: {log_evidence(samples, log_probs, log_probability):.2f}")
     print(f"Degrees of freedom: {2 + bao_data['value'].size + sn_size - len(best_fit)}")
@@ -252,32 +246,32 @@ if __name__ == "__main__":
 Flat ΛCDM  w(z) = -1
 H0: 68.39 +0.35 -0.35 km/s/Mpc
 Ωm: 0.299 +0.004 -0.004
-ωm: 0.1399 +0.0010 -0.0010
-ωb: 0.02225 +0.00032 -0.00032
-z_d: 1059.39 +0.75 -0.76
-r_d: 147.89 Mpc
+ωm: 0.1398 +0.0009 -0.0009
+ωb: 0.02224 +0.00032 -0.00032
+z_d: 1059.37 +0.75 -0.76
+r_d: 147.92 Mpc
 z*: 1088.77 +0.33 -0.32
-r*: 145.26 Mpc
-100 θ*: 1.04118
-Chi squared: 1661.95
-Log Evidence: -846.24
+r*: 145.28 Mpc
+100 θ*: 1.04112
+Chi squared: 1661.97
+Log Evidence: -846.94
 Degrees of freedom: 1746
 
 ===============================
 
 Flat wCDM w(z) = w0
-H0: 66.66 +0.60 -0.60 km/s/Mpc
+H0: 66.67 +0.59 -0.59 km/s/Mpc
 Ωm: 0.308 +0.005 -0.005
-ωm: 0.1367 +0.0014 -0.0014
+ωm: 0.1367 +0.0013 -0.0013
 ωb: 0.02236 +0.00032 -0.00032
 w0: -0.909 +0.025 -0.025 (prior width 1.5: -1.5 to 0.0)
-z_d: 1059.41 +0.75 -0.76
-r_d: 148.65 Mpc
+z_d: 1059.41 +0.76 -0.76
+r_d: 148.64 Mpc
 z*: 1088.43 +0.34 -0.33
-r*: 146.03 Mpc
-100 θ*: 1.04119
-Chi squared: 1649.89
-Log Evidence: -843.39 (Δ logZ = 2.85 against ΛCDM)
+r*: 146.02 Mpc
+100 θ*: 1.04106
+Chi squared: 1649.91
+Log Evidence: -844.08 (Δ logZ = 2.86 against ΛCDM)
 Degrees of freedom: 1745
 
 ===============================
@@ -285,33 +279,33 @@ Degrees of freedom: 1745
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
 H0: 66.54 +0.58 -0.58 km/s/Mpc
 Ωm: 0.312 +0.005 -0.005
-ωm: 0.1379 +0.0011 -0.0011
-ωb: 0.02235 +0.00032 -0.00032
-w0: -0.854 +0.037 -0.037 (prior width 1.5: -1.5 to 0.0)
-z_d: 1059.47 +0.76 -0.75
-r_d: 148.32 +0.58 - 0.57 Mpc
+ωm: 0.1380 +0.0010 -0.0010
+ωb: 0.02235 +0.00032 -0.00031
+w0: -0.855 +0.037 -0.037 (prior width 1.5: -1.5 to 0.0)
+z_d: 1059.48 +0.75 -0.75
+r_d: 148.31 Mpc
 z*: 1088.53 +0.33 -0.32
-r*: 145.71 Mpc
-100 θ*: 1.04128
+r*: 145.70 Mpc
+100 θ*: 1.04111
 Chi squared: 1647.13
-Log Evidence: -841.62 (Δ logZ = 4.62 against ΛCDM)
+Log Evidence: -842.32 (Δ logZ = 4.62 against ΛCDM)
 Degrees of freedom: 1745
 
 ===============================
 
 Flat w(z) = w0 + wa * z / (1 + z)
-H0: 66.69 +0.58 -0.57 km/s/Mpc
+H0: 66.70 +0.58 -0.57 km/s/Mpc
 Ωm: 0.315 +0.006 -0.006
-ωm: 0.1404 +0.0018 -0.0020
-ωb: 0.02230 +0.00032 -0.00032
-w0: -0.792 +0.062 -0.060 (prior width 1.5: -1.5 to 0.0)
-wa: -0.587 +0.271 -0.288 (prior width 3.5: -2.5 to 1.0)
-z_d: 1059.54 +0.76 -0.76
-r_d: 147.73 Mpc
-z*: 1088.74 +0.35 -0.35
-r*: 145.12 Mpc
-100 θ*: 1.04079
-Chi squared: 1645.71
-Log Evidence: -842.75 (Δ logZ = 3.49 against ΛCDM)
+ωm: 0.1403 +0.0017 -0.0019
+ωb: 0.02231 +0.00032 -0.00032
+w0: -0.793 +0.062 -0.061 (prior width 1.5: -1.5 to 0.0)
+wa: -0.582 +0.273 -0.288 (prior width 3.5: -2.5 to 1.0)
+z_d: 1059.55 +0.75 -0.75
+r_d: 147.74 Mpc
+z*: 1088.73 +0.35 -0.35
+r*: 145.14 Mpc
+100 θ*: 1.04098
+Chi squared: 1645.85
+Log Evidence: -843.51 (Δ logZ = 3.43 against ΛCDM)
 Degrees of freedom: 1744
 """
