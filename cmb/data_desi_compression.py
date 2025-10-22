@@ -5,11 +5,10 @@ from scipy.constants import c as c0
 
 c = c0 / 1000  # km/s
 
-# --- PLANCK DISTANCE PRIORS (arXiv:2503.14738v2 Abdul Karim+) ---
-# θ* ≡ rs(z*) / DM(z*)
+# --- PLANCK PRIORS (arXiv:2503.14738v2 Abdul Karim+) ---
 DISTANCE_PRIORS = np.array(
     [
-        0.01041,  # θ*
+        0.01041,  # θ* ≡ rs(z*) / DM(z*)
         0.02223,  # ωb
         0.14208,  # ωm
     ],
@@ -35,6 +34,7 @@ def Omega_r_h2(Neff=N_EFF):
 
 
 def rs_z(Ez_func, z, params, H0, Ob_h2):
+    """Sound horizon at redshift z."""
     Rb = 3 * Ob_h2 / (4 * O_GAMMA_H2)
 
     def integrand(a):
@@ -59,7 +59,8 @@ def cmb_distances(Ez_func, params, H0, Om, Ob_h2):
 
 
 @njit
-def r_drag(wb, wm, n_eff=N_EFF):  # arXiv:2503.14738v2 (eq 2)
+def r_drag(wb, wm, n_eff=N_EFF):
+    """arXiv:2503.14738v2 (eq 2)"""
     return (
         147.05 * (0.02236 / wb) ** 0.13 * (0.1432 / wm) ** 0.23 * (3.04 / n_eff) ** 0.1
     )
@@ -67,7 +68,7 @@ def r_drag(wb, wm, n_eff=N_EFF):  # arXiv:2503.14738v2 (eq 2)
 
 @njit
 def z_star(wb, wm):
-    # arXiv:2106.00428v2 (eq A4)
+    """arXiv:2106.00428v2 (eq A4)"""
     return (391.672 * wm ** (-0.372296) + 937.422 * wb ** (-0.97966)) / (
         wm ** (-0.0192951) * wb ** (-0.93681)
     ) + wm ** (-0.731631)
@@ -75,7 +76,7 @@ def z_star(wb, wm):
 
 @njit
 def r_drag1(wb, wm):
-    # arXiv:2106.00428v2 (eq 8)
+    """arXiv:2106.00428v2 (eq 8)"""
     a1 = 0.00257366
     a2 = 0.05032
     a3 = 0.013
@@ -94,7 +95,7 @@ def r_drag1(wb, wm):
 
 @njit
 def z_star_HU(wb, wm):
-    # arXiv:astro-ph/9510117v2 (eq-1)
+    """arXiv:astro-ph/9510117v2 (eq-1)"""
     g1 = 0.0783 * wb**-0.238 / (1 + 39.5 * wb**0.763)
     g2 = 0.560 / (1 + 21.1 * wb**1.81)
     factor_1 = 1 + 0.00124 * wb**-0.738
@@ -104,7 +105,7 @@ def z_star_HU(wb, wm):
 
 @njit
 def z_drag_HU(wb, wm):
-    # arXiv:astro-ph/9510117v2 (eq-2)
+    """arXiv:astro-ph/9510117v2 (eq-2)"""
     b1 = 0.313 * (wm**-0.419) * (1 + 0.607 * (wm**0.674))
     b2 = 0.238 * (wm**0.223)
 
@@ -117,7 +118,7 @@ def z_drag_HU(wb, wm):
 
 @njit
 def z_drag(wb, wm):
-    # arXiv:2106.00428v2 (eq A2)
+    """arXiv:2106.00428v2 (eq A2)"""
     return (
         1 + 428.169 * wb**0.256459 * wm**0.616388 + 925.56 * wm**0.751615
     ) * wm**-0.714129

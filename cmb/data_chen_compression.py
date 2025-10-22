@@ -35,7 +35,7 @@ def Omega_r_h2(Neff=N_EFF):
 
 @njit
 def Or(h, Om):
-    # arXiv:astro-ph/9709112v1 (eq-2)
+    """arXiv:astro-ph/9709112v1 (eq-2)"""
     # z_eq = 2.5 x 10^4 x Ωm x h^2 x (2.7 / TCMB)^4
     # Probably 2.482 x 10^4 is rounded
     z_eq = 24077.44 * Om * h**2
@@ -44,7 +44,7 @@ def Or(h, Om):
 
 @njit
 def z_star(wb, wm):
-    # arXiv:2106.00428v2 (eq A4)
+    """arXiv:2106.00428v2 (eq A4)"""
     return (391.672 * wm ** (-0.372296) + 937.422 * wb ** (-0.97966)) / (
         wm ** (-0.0192951) * wb ** (-0.93681)
     ) + wm ** (-0.731631)
@@ -52,7 +52,7 @@ def z_star(wb, wm):
 
 @njit
 def z_star_HU(wb, wm):
-    # arXiv:astro-ph/9510117v2 (eq-1)
+    """arXiv:astro-ph/9510117v2 (eq-1)"""
     g1 = 0.0783 * wb**-0.238 / (1 + 39.5 * wb**0.763)
     g2 = 0.560 / (1 + 21.1 * wb**1.81)
     factor_1 = 1 + 0.00124 * wb**-0.738
@@ -62,13 +62,14 @@ def z_star_HU(wb, wm):
 
 @njit
 def z_drag(wb, wm):
-    # arXiv:2106.00428v2 (eq A2)
+    """arXiv:2106.00428v2 (eq A2)"""
     return (
         1 + 428.169 * wb**0.256459 * wm**0.616388 + 925.56 * wm**0.751615
     ) * wm**-0.714129
 
 
 def rs_z(Ez_func, z, params, H0, Ob_h2):
+    """Sound horizon at redshift z."""
     Rb = 3 * Ob_h2 / (4 * O_GAMMA_H2)
 
     def integrand(a):
@@ -97,7 +98,7 @@ def cmb_distances(Ez_func, params, H0, Om, Ob_h2):
 
 @njit
 def r_drag(wb, wm):
-    # arXiv:2106.00428v2 (eq 8)
+    """arXiv:2106.00428v2 (eq 8)"""
     a1 = 0.00257366
     a2 = 0.05032
     a3 = 0.013
