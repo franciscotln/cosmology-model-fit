@@ -59,12 +59,7 @@ def DV_z(z, theta):
     return (z * DH * DM**2) ** (1 / 3)
 
 
-qty_map = {
-    "DV_over_rs": 0,
-    "DM_over_rs": 1,
-    "DH_over_rs": 2,
-}
-
+qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
 quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int64)
 
 
@@ -163,6 +158,7 @@ def main():
     chains_samples = sampler.get_chain(discard=burn_in, flat=False)
     samples = sampler.get_chain(discard=burn_in, flat=True)
     log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
+    log_evd = log_evidence(samples, log_probs, log_probability, bounds)
 
     [
         [dM_16, dM_50, dM_84],
@@ -178,7 +174,7 @@ def main():
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
-    print(f"Log Evidence: {log_evidence(samples, log_probs, log_probability, bounds):.2f}")
+    print(f"Log Evidence: {log_evd:.2f}")
     print(f"Degrees of freedom: {bao_data['value'].size + sn_size - len(best_fit)}")
 
     plot_bao_predictions(
@@ -227,7 +223,7 @@ r_d * h: 98.86 +0.81 -0.81 Mpc
 w0: -0.871 +0.037 -0.038 (prior width 1.5: -1.5 to -0.5)
 wa: 0
 Chi squared: 1648.09 (Δ chi2 10.88)
-Log Evidence: -838.56 (Δ logZ 2.67 against ΛCDM)
+Log Evidence: -838.55 (Δ logZ 2.68 against ΛCDM)
 Degrees of freedom: 1744
 
 ===============================
