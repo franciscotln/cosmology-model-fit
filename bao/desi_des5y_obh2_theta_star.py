@@ -69,12 +69,7 @@ def DV_z(z, theta):
     return (z * DH * DM**2) ** (1 / 3)
 
 
-qty_map = {
-    "DV_over_rs": 0,
-    "DM_over_rs": 1,
-    "DH_over_rs": 2,
-}
-
+qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
 quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int64)
 
 
@@ -245,7 +240,7 @@ r_d: 147.97 Mpc
 z*: 1088.79 (1.0278 x z_d)
 r*: 145.31 Mpc (1.018 x r_d)
 Chi squared: 1661.96
-Log Evidence: -847.99
+Log Evidence: -848.03
 Degrees of freedom: 1746
 
 ===============================
@@ -261,7 +256,7 @@ r_d: 148.81 Mpc
 z*: 1088.54 (1.0278 x z_d)
 r*: 146.12 Mpc (1.018 x r_d)
 Chi squared: 1649.95
-Log Evidence: -845.16 (Δ logZ = 2.83 against ΛCDM)
+Log Evidence: -845.27 (Δ logZ = 2.76 against ΛCDM)
 Degrees of freedom: 1745
 
 ===============================
@@ -277,7 +272,7 @@ r_d: 148.48 Mpc
 z*: 1088.64 (1.0278 x z_d)
 r*: 145.81 Mpc (1.018 x r_d)
 Chi squared: 1647.17
-Log Evidence: -843.38 (Δ logZ = 4.61 against ΛCDM)
+Log Evidence: -843.48 (Δ logZ = 4.55 against ΛCDM)
 Degrees of freedom: 1745
 
 ===============================
@@ -294,6 +289,6 @@ r_d: 147.85 Mpc
 z*: 1088.80 (1.0278 x z_d)
 r*: 145.26 Mpc (1.018 x r_d)
 Chi squared: 1646.07
-Log Evidence: -844.53 (Δ logZ = 3.46 against ΛCDM)
+Log Evidence: -844.45 (Δ logZ = 3.58 against ΛCDM)
 Degrees of freedom: 1744
 """
