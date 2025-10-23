@@ -78,12 +78,7 @@ def DV_z(z, theta):
     return (z * DH * DM**2) ** (1 / 3)
 
 
-qty_map = {
-    "DV_over_rs": 0,
-    "DM_over_rs": 1,
-    "DH_over_rs": 2,
-}
-
+qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
 quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int32)
 
 
@@ -224,7 +219,7 @@ def main():
     print(f"f_cc: {f_cc_50:.2f} +{(f_cc_84 - f_cc_50):.2f} -{(f_cc_50 - f_cc_16):.2f}")
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
     print(f"H0: {h0_50:.1f} +{(h0_84 - h0_50):.1f} -{(h0_50 - h0_16):.1f} km/s/Mpc")
-    print(f"Ωm h^2: {wb_50:.5f} +{(wb_84 - wb_50):.5f} -{(wb_50 - wb_16):.5f} Mpc")
+    print(f"Ωm h^2: {wb_50:.4f} +{(wb_84 - wb_50):.4f} -{(wb_50 - wb_16):.4f} Mpc")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"r_d: {r_d_50:.2f} +{(r_d_84 - r_d_50):.2f} -{(r_d_50 - r_d_16):.2f} Mpc")
@@ -273,7 +268,7 @@ H0: 66.6 +1.5 -1.3 km/s/Mpc
 Ωm: 0.307 +0.008 -0.007
 r_d: 151.1 +2.3 -2.8 Mpc
 Chi squared: 1692.55
-Log evidence: -978.57
+Log evidence: -978.76
 Degrees of freedom: 1777
 
 ===============================
@@ -286,7 +281,7 @@ H0: 68.4 +1.9 -1.6 km/s/Mpc
 w0: -0.894 +0.028 -0.028 (prior width 1.5: -1.5 to 0.0)
 r_d: 144.7 +3.4 -3.7 Mpc
 Chi squared: 1681.36
-Log evidence: -975.69 (Δ logZ = 2.88 over ΛCDM)
+Log evidence: -975.91 (Δ logZ = 2.85 over ΛCDM)
 Degrees of freedom: 1776
 
 ===============================
@@ -299,7 +294,7 @@ H0: 67.9 +1.9 -1.6 km/s/Mpc
 w0: -0.843 +0.040 -0.041 (prior width 1.5: -1.5 to 0.0)
 r_d: 145.4 +3.3 -3.8 Mpc
 Chi squared: 1679.53
-Log evidence: -974.24 (Δ logZ = 4.33 over ΛCDM)
+Log evidence: -974.61 (Δ logZ = 4.15 over ΛCDM)
 Degrees of freedom: 1776
 
 ===============================
@@ -313,6 +308,6 @@ w0: -0.802 +0.066 -0.061 (prior width 1.5: -1.5 to 0.0)
 wa: -0.546 +0.328 -0.368 (prior width 5.0: -3.0 to 2.0)
 r_d: 147.5 +3.7 -4.2 Mpc
 Chi squared: 1678.85
-Log evidence: -975.91 (Δ logZ = 2.66 over ΛCDM)
+Log evidence: -976.10 (Δ logZ = 2.66 over ΛCDM)
 Degrees of freedom: 1775
 """
