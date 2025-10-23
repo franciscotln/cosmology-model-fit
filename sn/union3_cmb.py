@@ -209,7 +209,7 @@ z_drag: 1059.88 +0.29 -0.29
 r*: 144.00 Mpc
 r_d: 146.84 Mpc
 Chi squared: 26.2
-Log Evidence: -25.9
+Log Evidence: -26.1
 Degrees of freedom: 21
 
 ===============================
@@ -227,7 +227,7 @@ z_drag: 1059.94 +0.29 -0.29
 r*: 144.14 Mpc
 r_d: 146.96 Mpc
 Chi squared: 23.2
-Log Evidence: -27.1
+Log Evidence: -27.4
 Degrees of freedom: 20
 
 ===============================
@@ -245,7 +245,7 @@ z_drag: 1059.95 +0.29 -0.29
 r*: 144.15 Mpc
 r_d: 146.97 Mpc
 Chi squared: 22.5
-Log Evidence: -26.3
+Log Evidence: -26.6
 Degrees of freedom: 20
 
 ===============================
@@ -263,6 +263,6 @@ z_drag: 1059.93 +0.29 -0.29
 r*: 144.12 Mpc
 r_d: 146.94 Mpc
 Chi squared: 22.2
-Log Evidence: -27.2
+Log Evidence: -27.6
 Degrees of freedom: 19
 """

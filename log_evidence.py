@@ -1,8 +1,10 @@
 import numpy as np
+import numdifftools as nd
+import scipy.optimize
 
 
 # Laplace approximation for Bayesian evidence (ln Z) using Hessian
-def log_evidence(mc_samples, log_probs, log_probability, eps=1e-5):
+def log_evidence(mc_samples, log_probs, log_probability):
     """
     Laplace approximation for Bayesian evidence (ln Z) using Hessian at MAP.
     -inf < ln(Z) < 1: weak
@@ -10,66 +12,73 @@ def log_evidence(mc_samples, log_probs, log_probability, eps=1e-5):
     3 <= ln(Z) < 5: strong
     ln(Z) >= 5: very strong
     """
-    # Find MAP estimate
-    map_idx = np.argmax(log_probs)
-    theta_map = mc_samples[map_idx]
-    n_params = theta_map.shape[0]
+    # Find best MCMC sample as starting point
+    best_sample_idx = np.argmax(log_probs)
+    initial_guess = mc_samples[best_sample_idx]
+    n_params = initial_guess.shape[0]
 
-    # Compute Hessian of log_probability at MAP numerically
-    def hessian(f, x, eps):
-        x = np.asarray(x)
-        n = x.size
-        hess = np.zeros((n, n))
-        fx = f(x)
-        for i in range(n):
-            x_i1 = x.copy()
-            x_i1[i] += eps
-            fxi1 = f(x_i1)
-            x_i2 = x.copy()
-            x_i2[i] -= eps
-            fxi2 = f(x_i2)
-            hess[i, i] = (fxi1 - 2 * fx + fxi2) / eps**2
-            for j in range(i + 1, n):
-                x_ij1 = x.copy()
-                x_ij1[i] += eps
-                x_ij1[j] += eps
-                f_ij1 = f(x_ij1)
+    def objective_function(theta):
+        """Negative log probability for minimization, handling infinities."""
+        lp = log_probability(theta)
+        if np.isinf(lp) or np.isnan(lp):
+            return 1e10
+        return -lp
 
-                x_ij2 = x.copy()
-                x_ij2[i] += eps
-                x_ij2[j] -= eps
-                f_ij2 = f(x_ij2)
-
-                x_ij3 = x.copy()
-                x_ij3[i] -= eps
-                x_ij3[j] += eps
-                f_ij3 = f(x_ij3)
-
-                x_ij4 = x.copy()
-                x_ij4[i] -= eps
-                x_ij4[j] -= eps
-                f_ij4 = f(x_ij4)
-
-                hess_ij = (f_ij1 - f_ij2 - f_ij3 + f_ij4) / (4 * eps**2)
-                hess[i, j] = hess_ij
-                hess[j, i] = hess_ij
-        return hess
-
-    H = hessian(log_probability, theta_map, eps)
-    # Use negative Hessian (since log-prob is maximized at MAP)
-    neg_H = -H
-    # Add jitter for numerical stability
-    neg_H += 1e-6 * np.eye(n_params)
-
-    # Log-posterior at MAP
-    log_post_map = log_probability(theta_map)
-
-    # Laplace approximation ln(Z)
-    return (
-        log_post_map
-        + 0.5 * n_params * np.log(2 * np.pi)
-        - 0.5 * np.log(np.linalg.det(neg_H))
+    best_result = scipy.optimize.minimize(
+        objective_function,
+        x0=initial_guess,
     )
+    best_log_prob = -best_result.fun
+
+    initial_log_prob = log_probs[best_sample_idx]
+    improvement = best_log_prob - initial_log_prob
+
+    # If optimization didn't improve much, just use the best MCMC sample
+    if improvement < 0.01 or best_result is None:
+        theta_map = initial_guess
+        log_post_map = initial_log_prob
+    else:
+        theta_map = best_result.x
+        log_post_map = best_log_prob
+
+    # Wrap log_probability to handle infinities (for numerical derivatives)
+    def log_prob_for_hessian(theta):
+        lp = log_probability(theta)
+        # Replace -inf with large negative number for numerical stability
+        if np.isinf(lp):
+            return -1e10
+        return lp
+
+    try:
+        hessian_calculator = nd.Hessian(log_prob_for_hessian, step=1e-5)
+        H = hessian_calculator(theta_map)
+        neg_H = -H
+
+        # Check and fix positive definiteness
+        eigenvalues = np.linalg.eigvalsh(neg_H)
+        min_eig = np.min(eigenvalues)
+
+        if min_eig <= 0:
+            jitter = abs(min_eig) + 1e-6 * np.max(np.abs(eigenvalues))
+            neg_H += jitter * np.eye(n_params)
+        else:
+            # Add small jitter for numerical stability
+            neg_H += 1e-8 * np.trace(neg_H) / n_params * np.eye(n_params)
+
+        sign, logdet = np.linalg.slogdet(neg_H)
+
+        if sign <= 0:
+            print("Warning: Hessian is still not positive definite after jitter!")
+            return np.nan
+
+        # Laplace approximation ln(Z)
+        ln_z = log_post_map + 0.5 * n_params * np.log(2 * np.pi) - 0.5 * logdet
+
+        return ln_z
+
+    except Exception as e:
+        print(f"Error computing Hessian: {e}")
+        return np.nan
 
 
 """
