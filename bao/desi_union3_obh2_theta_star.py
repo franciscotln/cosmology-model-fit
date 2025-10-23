@@ -69,12 +69,7 @@ def DV_z(z, theta):
     return (z * DH * DM**2) ** (1 / 3)
 
 
-qty_map = {
-    "DV_over_rs": 0,
-    "DM_over_rs": 1,
-    "DH_over_rs": 2,
-}
-
+qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
 quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int64)
 
 
@@ -252,7 +247,7 @@ H0: 68.51 +0.29 -0.29 km/s/Mpc
 z_d: 1059.30 +0.34 -0.35
 r_d: 148.07 Mpc
 Chi squared: 39.76
-Log Evidence: -34.50
+Log Evidence: -34.55
 Degs of freedom: 33
 
 ===============================
@@ -266,7 +261,7 @@ w0: -0.917 +0.033 -0.033 (prior width 1.5: -1.5 to 0.0)
 z_d: 1059.13 +0.35 -0.35
 r_d: 148.75 Mpc
 Chi squared: 33.93
-Log Evidence: -34.47 (Δ logZ = 0.03 against ΛCDM)
+Log Evidence: -34.66 (Δ logZ = -0.11 in favour of ΛCDM)
 Degs of freedom: 32
 
 ===============================
@@ -280,7 +275,7 @@ w0: -0.837 +0.055 -0.054 (prior width 1.5: -1.5 to 0.0)
 z_d: 1059.20 +0.35 -0.35
 r_d: 148.51 Mpc
 Chi squared: 31.29
-Log Evidence: -32.63 (Δ logZ = 1.87 against ΛCDM)
+Log Evidence: -32.86 (Δ logZ = 1.69 against ΛCDM)
 Degs of freedom: 32
 
 ===============================
@@ -295,6 +290,6 @@ w_a: -0.800 +0.348 -0.366 (prior width 4.0: -3.0 to 1.0)
 z_d: 1059.39 +0.36 -0.36
 r_d: 147.74 Mpc
 Chi squared: 29.41
-Log Evidence: -33.37 (Δ logZ = 1.13 against ΛCDM)
+Log Evidence: -33.60 (Δ logZ = 0.95 against ΛCDM)
 Degs of freedom: 31
 """
