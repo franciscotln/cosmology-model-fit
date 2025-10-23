@@ -152,7 +152,8 @@ def main():
     print_color("Skewness of residuals", f"{skew(residuals):.3f}")
     print_color("Chi squared", f"{chi_squared(best_fit_params):.1f}")
     print_color(
-        "Log evidence", f"{log_evidence(samples, log_probs, log_probability):.1f}"
+        "Log evidence",
+        f"{log_evidence(samples, log_probs, log_probability, bounds):.1f}",
     )
     print_color("Degs of freedom", len(z_values) - len(best_fit_params))
 

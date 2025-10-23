@@ -208,7 +208,7 @@ def main():
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f}")
     print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
-    print(f"Log Evidence: {log_evidence(samples, log_probs, log_probability):.2f}")
+    print(f"Log Evidence: {log_evidence(samples, log_probs, log_probability, bounds):.2f}")
     print(f"Degrees of freedom: {1 + bao_data['z'].size + sn_size - len(best_fit)}")
 
     plot_bao_predictions(

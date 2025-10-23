@@ -121,7 +121,7 @@ def main():
     print(f"f: {f_50:.3f} +{(f_84 - f_50):.3f} -{(f_50 - f_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Log likelihood: {log_likelihood(best_fit):.2f}")
-    print(f"Log evidence: {log_evidence(samples, log_probs, log_probability):.2f}")
+    print(f"Log evidence: {log_evidence(samples, log_probs, log_probability, bounds):.2f}")
     print(f"Degs of freedom: {1 + z_values.size - len(best_fit)}")
 
     plot_cc_predictions(

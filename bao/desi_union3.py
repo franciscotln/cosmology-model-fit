@@ -177,7 +177,7 @@ def main():
     print(f"Ωm: {best_fit[2]:.3f} +{Om_err[1]:.3f} -{Om_err[0]:.3f}")
     print(f"w0: {best_fit[3]:.3f} +{w0_err[1]:.3f} -{w0_err[0]:.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
-    print(f"Log Evidence: {log_evidence(samples, log_probs, log_probability):.2f}")
+    print(f"Log Evidence: {log_evidence(samples, log_probs, log_probability, bounds):.2f}")
     print(f"Degs of freedom: {len(bao_data['value']) + len(z_sn_vals) - len(best_fit)}")
 
     plot_bao_predictions(

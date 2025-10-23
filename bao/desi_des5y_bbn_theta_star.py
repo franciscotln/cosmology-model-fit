@@ -213,7 +213,9 @@ def main():
     print(f"r*: {cmb.rs_z(Ez, z_st_50, best_fit, H0_50, Obh2_50):.2f} Mpc")
     print(f"100 θ*: {theta_starx100_theory(best_fit):.5f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
-    print(f"Log Evidence: {log_evidence(samples, log_probs, log_probability):.2f}")
+    print(
+        f"Log Evidence: {log_evidence(samples, log_probs, log_probability, bounds):.2f}"
+    )
     print(f"Degrees of freedom: {2 + bao_data['value'].size + sn_size - len(best_fit)}")
 
     plot_bao_predictions(
@@ -254,7 +256,7 @@ z*: 1088.77 +0.33 -0.32
 r*: 145.28 Mpc
 100 θ*: 1.04112
 Chi squared: 1661.97
-Log Evidence: -846.96
+Log Evidence: -846.94
 Degrees of freedom: 1746
 
 ===============================
@@ -271,7 +273,7 @@ z*: 1088.43 +0.34 -0.33
 r*: 146.02 Mpc
 100 θ*: 1.04106
 Chi squared: 1649.91
-Log Evidence: -844.13 (Δ logZ = 2.83 against ΛCDM)
+Log Evidence: -844.08 (Δ logZ = 2.86 against ΛCDM)
 Degrees of freedom: 1745
 
 ===============================
@@ -288,7 +290,7 @@ z*: 1088.53 +0.33 -0.32
 r*: 145.70 Mpc
 100 θ*: 1.04111
 Chi squared: 1647.13
-Log Evidence: -842.37 (Δ logZ = 4.59 against ΛCDM)
+Log Evidence: -842.31 (Δ logZ = 4.63 against ΛCDM)
 Degrees of freedom: 1745
 
 ===============================
@@ -306,6 +308,6 @@ z*: 1088.73 +0.35 -0.35
 r*: 145.14 Mpc
 100 θ*: 1.04098
 Chi squared: 1645.85
-Log Evidence: -843.44 (Δ logZ = 3.52 against ΛCDM)
+Log Evidence: -843.38 (Δ logZ = 3.56 against ΛCDM)
 Degrees of freedom: 1744
 """

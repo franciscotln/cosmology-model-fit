@@ -4,7 +4,7 @@ import scipy.optimize
 
 
 # Laplace approximation for Bayesian evidence (ln Z) using Hessian
-def log_evidence(mc_samples, log_probs, log_probability):
+def log_evidence(mc_samples, log_probs, log_probability, bounds):
     """
     Laplace approximation for Bayesian evidence (ln Z) using Hessian at MAP.
     -inf < ln(Z) < 1: weak
@@ -27,14 +27,14 @@ def log_evidence(mc_samples, log_probs, log_probability):
     best_result = scipy.optimize.minimize(
         objective_function,
         x0=initial_guess,
+        bounds=bounds,
     )
     best_log_prob = -best_result.fun
-
     initial_log_prob = log_probs[best_sample_idx]
-    improvement = best_log_prob - initial_log_prob
 
-    # If optimization didn't improve much, just use the best MCMC sample
-    if improvement < 0.01 or best_result is None:
+    # If optimization didn't converge, just use the best MCMC sample
+    if not best_result.success:
+        print("Optimization did not converge, using best MCMC sample for Hessian.")
         theta_map = initial_guess
         log_post_map = initial_log_prob
     else:
@@ -61,9 +61,6 @@ def log_evidence(mc_samples, log_probs, log_probability):
         if min_eig <= 0:
             jitter = abs(min_eig) + 1e-6 * np.max(np.abs(eigenvalues))
             neg_H += jitter * np.eye(n_params)
-        else:
-            # Add small jitter for numerical stability
-            neg_H += 1e-8 * np.trace(neg_H) / n_params * np.eye(n_params)
 
         sign, logdet = np.linalg.slogdet(neg_H)
 

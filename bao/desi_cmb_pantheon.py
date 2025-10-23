@@ -213,7 +213,7 @@ def main():
     print(f"z_d: {z_d:.2f}")
     print(f"rd: {cmb.rs_z(Ez, z_d, best_fit, H0_50, Obh2_50):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
-    print(f"Log evidence: {log_evidence(samples, log_probs, log_probability):.2f}")
+    print(f"Log evidence: {log_evidence(samples, log_probs, log_probability, bounds):.2f}")
 
     plot_bao_predictions(
         theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),

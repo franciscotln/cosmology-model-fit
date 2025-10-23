@@ -184,20 +184,21 @@ def main():
     chains_samples = sampler.get_chain(discard=burn_in, flat=False)
     log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
 
+    one_sigma_contours = [15.9, 50, 84.1]
     [
         (H0_16, H0_50, H0_84),
         (Om_16, Om_50, Om_84),
         (Obh2_16, Obh2_50, Obh2_84),
         (w0_16, w0_50, w0_84),
         (dM_16, dM_50, dM_84),
-    ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
+    ] = np.percentile(samples, one_sigma_contours, axis=0).T
 
     best_fit = np.percentile(samples, 50, axis=0)
+
     degs_of_freedom = (
         len(z_sn_vals) + len(bao_data["z"]) + len(cmb.DISTANCE_PRIORS) - len(bounds)
     )
-
-    one_sigma_contours = [15.9, 50, 84.1]
+    log_evd = log_evidence(samples, log_probs, log_probability, bounds)
 
     Omh2_samples = samples[:, 1] * (samples[:, 0] / 100) ** 2
     z_star_samples = cmb.z_star(samples[:, 2], Omh2_samples)
@@ -217,7 +218,7 @@ def main():
     print(f"z_d: {z_dr_50:.2f} +{(z_dr_84 - z_dr_50):.2f} -{(z_dr_50 - z_dr_16):.2f}")
     print(f"r_d: {cmb.rs_z(Ez, z_dr_50, best_fit, H0_50, Obh2_50):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
-    print(f"Log evidence: {log_evidence(samples, log_probs, log_probability):.1f}")
+    print(f"Log evidence: {log_evd:.1f}")
     print(f"Degs of freedom: {degs_of_freedom}")
 
     plot_bao_predictions(

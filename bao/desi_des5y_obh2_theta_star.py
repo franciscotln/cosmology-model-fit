@@ -200,7 +200,9 @@ def main():
     print(f"z_d: {zd_50:.2f} +{(zd_84 - zd_50):.2f} -{(zd_50 - zd_16):.2f}")
     print(f"r_d: {cmb.rs_z(Ez, zd_50, best_fit, H0_50, Obh2_50):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
-    print(f"Log Evidence: {log_evidence(samples, log_probs, log_probability):.2f}")
+    print(
+        f"Log Evidence: {log_evidence(samples, log_probs, log_probability, bounds):.2f}"
+    )
     print(f"Degrees of freedom: {2 + bao_data['value'].size + sn_size - len(best_fit)}")
 
     plot_bao_predictions(
@@ -240,7 +242,7 @@ r_d: 147.97 Mpc
 z*: 1088.79 (1.0278 x z_d)
 r*: 145.31 Mpc (1.018 x r_d)
 Chi squared: 1661.96
-Log Evidence: -848.03
+Log Evidence: -847.99
 Degrees of freedom: 1746
 
 ===============================
@@ -256,7 +258,7 @@ r_d: 148.81 Mpc
 z*: 1088.54 (1.0278 x z_d)
 r*: 146.12 Mpc (1.018 x r_d)
 Chi squared: 1649.95
-Log Evidence: -845.27 (Δ logZ = 2.76 against ΛCDM)
+Log Evidence: -845.16 (Δ logZ = 2.83 against ΛCDM)
 Degrees of freedom: 1745
 
 ===============================
@@ -272,7 +274,7 @@ r_d: 148.48 Mpc
 z*: 1088.64 (1.0278 x z_d)
 r*: 145.81 Mpc (1.018 x r_d)
 Chi squared: 1647.17
-Log Evidence: -843.48 (Δ logZ = 4.55 against ΛCDM)
+Log Evidence: -843.38 (Δ logZ = 4.61 against ΛCDM)
 Degrees of freedom: 1745
 
 ===============================
@@ -289,6 +291,6 @@ r_d: 147.85 Mpc
 z*: 1088.80 (1.0278 x z_d)
 r*: 145.26 Mpc (1.018 x r_d)
 Chi squared: 1646.07
-Log Evidence: -844.45 (Δ logZ = 3.58 against ΛCDM)
+Log Evidence: -844.47 (Δ logZ = 3.52 against ΛCDM)
 Degrees of freedom: 1744
 """

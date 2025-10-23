@@ -146,7 +146,8 @@ def main():
     print_color("w0", w0_label)
     print_color("R-squared (%)", f"{100 * r_squared:.2f}")
     print_color(
-        "Log Evidence", f"{log_evidence(samples, log_probs, log_probability):.1f}"
+        "Log Evidence",
+        f"{log_evidence(samples, log_probs, log_probability, bounds):.1f}",
     )
     print_color("RMSD (mag)", f"{rmsd:.3f}")
     print_color("Skewness of residuals", f"{skewness:.3f}")

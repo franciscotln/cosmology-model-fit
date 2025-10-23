@@ -198,7 +198,9 @@ def main():
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
-    print(f"Log evidence: {log_evidence(samples, log_probs, log_probability):.2f}")
+    print(
+        f"Log evidence: {log_evidence(samples, log_probs, log_probability, bounds):.2f}"
+    )
     print(f"Degrees of freedom: {deg_of_freedom}")
 
     plot_bao_predictions(
@@ -243,7 +245,7 @@ r_d: 147.3 +4.9 -4.7 Mpc
 w0: -1
 wa: 0
 Chi squared: 1691.25
-Log evidence: -975.29
+Log evidence: -975.24
 Degrees of freedom: 1776
 
 ===============================
@@ -256,7 +258,7 @@ r_d: 147.2 +4.9 -4.7 Mpc
 w0: -0.875 +0.038 -0.038 (prior width 1.5: -1.5 to 0.0)
 wa: 0
 Chi squared: 1680.50
-Log evidence: -972.86 (Δ logZ = 2.43 against ΛCDM)
+Log evidence: -972.85 (Δ logZ = 2.39 against ΛCDM)
 Degrees of freedom: 1775
 
 ===============================
@@ -269,7 +271,7 @@ r_d: 147.1 +5.0 -4.7 Mpc
 w0: -0.840 +0.046 -0.046 (prior width 1.5: -1.5 to 0.0)
 wa = d w(z=0)/dz = -1.5*(1 + w0)
 Chi squared: 1678.86
-Log evidence: -971.97 (Δ logZ = 3.32 against ΛCDM)
+Log evidence: -971.99 (Δ logZ = 3.25 against ΛCDM)
 Degrees of freedom: 1775
 
 ===============================
@@ -282,6 +284,6 @@ r_d: 147.0 +5.0 -4.6 Mpc
 w0: -0.796 +0.073 -0.068 (prior width 1.5: -1.5 to 0.0)
 wa: -0.658 +0.466 -0.458 (prior width 4.5: -3.0 to 1.5)
 Chi squared: 1677.92
-Log evidence: -972.99 (Δ logZ = 2.30 against ΛCDM)
+Log evidence: -972.99 (Δ logZ = 2.25 against ΛCDM)
 Degrees of freedom: 1774
 """

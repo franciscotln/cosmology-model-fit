@@ -167,7 +167,7 @@ def main():
     print(f"r*: {cmb.rs_z(Ez, z_st_50, best_fit, H0_50, Obh2_50):.2f} Mpc")
     print(f"r_d: {cmb.rs_z(Ez, z_d_50, best_fit, H0_50, Obh2_50):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.1f}")
-    print(f"Log Evidence: {log_evidence(samples, log_probs, log_probability):.1f}")
+    print(f"Log Evidence: {log_evidence(samples, log_probs, log_probability, bounds):.1f}")
     print(f"Degrees of freedom: {degrees_of_freedom}")
 
     plot_predictions(

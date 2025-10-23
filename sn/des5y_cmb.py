@@ -152,7 +152,7 @@ def main():
     print(f"r_s(z*) = {cmb.rs_z(Ez, z_st, best_fit, H0_50, Obh2_50):.2f} Mpc")
     print(f"r_s(z_drag) = {cmb.rs_z(Ez, z_dr, best_fit, H0_50, Obh2_50):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
-    print(f"Log evidence: {log_evidence(samples, log_probs, log_probability):.1f}")
+    print(f"Log evidence: {log_evidence(samples, log_probs, log_probability, bounds):.1f}")
 
     plot_sn_predictions(
         legend=sn_legend,

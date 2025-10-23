@@ -209,7 +209,9 @@ def main():
     print(f"z_d: {zd_50:.2f} +{(zd_84 - zd_50):.2f} -{(zd_50 - zd_16):.2f}")
     print(f"r_d: {cmb.rs_z(Ez, zd_50, best_fit, H0_50, Obh2_50):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
-    print(f"Log Evidence: {log_evidence(samples, log_probs, log_probability):.2f}")
+    print(
+        f"Log Evidence: {log_evidence(samples, log_probs, log_probability, bounds):.2f}"
+    )
     print(f"Degs of freedom: {degrees_of_freedom}")
 
     plot_bao_predictions(
@@ -247,7 +249,7 @@ H0: 68.51 +0.29 -0.29 km/s/Mpc
 z_d: 1059.30 +0.34 -0.35
 r_d: 148.07 Mpc
 Chi squared: 39.76
-Log Evidence: -34.55
+Log Evidence: -34.50
 Degs of freedom: 33
 
 ===============================
@@ -261,7 +263,7 @@ w0: -0.917 +0.033 -0.033 (prior width 1.5: -1.5 to 0.0)
 z_d: 1059.13 +0.35 -0.35
 r_d: 148.75 Mpc
 Chi squared: 33.93
-Log Evidence: -34.66 (Δ logZ = -0.11 in favour of ΛCDM)
+Log Evidence: -34.48 (Δ logZ = 0.02 against ΛCDM)
 Degs of freedom: 32
 
 ===============================
@@ -275,7 +277,7 @@ w0: -0.837 +0.055 -0.054 (prior width 1.5: -1.5 to 0.0)
 z_d: 1059.20 +0.35 -0.35
 r_d: 148.51 Mpc
 Chi squared: 31.29
-Log Evidence: -32.86 (Δ logZ = 1.69 against ΛCDM)
+Log Evidence: -32.66 (Δ logZ = 1.84 against ΛCDM)
 Degs of freedom: 32
 
 ===============================
@@ -290,6 +292,6 @@ w_a: -0.800 +0.348 -0.366 (prior width 4.0: -3.0 to 1.0)
 z_d: 1059.39 +0.36 -0.36
 r_d: 147.74 Mpc
 Chi squared: 29.41
-Log Evidence: -33.60 (Δ logZ = 0.95 against ΛCDM)
+Log Evidence: -33.40 (Δ logZ = 1.10 against ΛCDM)
 Degs of freedom: 31
 """

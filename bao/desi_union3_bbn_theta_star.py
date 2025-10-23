@@ -221,7 +221,7 @@ def main():
     print(f"z*: {z_st_50:.2f} +{(z_st_84 - z_st_50):.2f} -{(z_st_50 - z_st_16):.2f}")
     print(f"r*: {cmb.rs_z(Ez, z_st_50, best_fit, H0_50, Obh2_50):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
-    print(f"Log Evidence: {log_evidence(samples, log_probs, log_probability):.2f}")
+    print(f"Log Evidence: {log_evidence(samples, log_probs, log_probability, bounds):.2f}")
     print(f"Degrees of freedom: {degrees_of_freedom}")
 
     plot_bao_predictions(

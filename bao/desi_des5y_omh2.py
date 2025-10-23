@@ -193,7 +193,7 @@ def main():
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.1f}")
-    print(f"Log evidence: {log_evidence(samples, log_probs, log_probability):.1f}")
+    print(f"Log evidence: {log_evidence(samples, log_probs, log_probability, bounds):.1f}")
     print(f"Degrees of freedom: {1 + bao_data['value'].size + sn_size - len(best_fit)}")
 
     plot_bao_predictions(

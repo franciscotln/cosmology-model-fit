@@ -140,7 +140,7 @@ def main():
     samples = sampler.get_chain(discard=burn_in, flat=True)
     chain_samples = sampler.get_chain(discard=burn_in, flat=False)
     print("Gelman-Rubin:", gelman_rubin(chain_samples))
-    print(f"Log evidence: {log_evidence(samples, log_probs, log_probability):.2f}")
+    print(f"Log evidence: {log_evidence(samples, log_probs, log_probability, bounds):.2f}")
 
     [
         [h_16, h_50, h_84],
