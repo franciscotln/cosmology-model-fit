@@ -128,15 +128,18 @@ def main():
     samples = sampler.get_chain(discard=burn_in, flat=True)
     chains_samples = sampler.get_chain(discard=burn_in, flat=False)
     log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
+    log_evd = log_evidence(samples, log_probs, log_probability, bounds)
 
     pct = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
-    H0_16, H0_50, H0_84 = pct[0]
-    Om_16, Om_50, Om_84 = pct[1]
-    Obh2_16, Obh2_50, Obh2_84 = pct[2]
-    w0_16, w0_50, w0_84 = pct[3]
-    dM_16, dM_50, dM_84 = pct[4]
+    [
+        (H0_16, H0_50, H0_84),
+        (Om_16, Om_50, Om_84),
+        (Obh2_16, Obh2_50, Obh2_84),
+        (w0_16, w0_50, w0_84),
+        (dM_16, dM_50, dM_84),
+    ] = pct
 
-    best_fit = np.array([H0_50, Om_50, Obh2_50, w0_50, dM_50], dtype=np.float64)
+    best_fit = np.percentile(samples, 50, axis=0)
 
     Omh2_50 = Om_50 * (H0_50 / 100) ** 2
     z_st = cmb.z_star(Obh2_50, Omh2_50)
@@ -152,7 +155,7 @@ def main():
     print(f"r_s(z*) = {cmb.rs_z(Ez, z_st, best_fit, H0_50, Obh2_50):.2f} Mpc")
     print(f"r_s(z_drag) = {cmb.rs_z(Ez, z_dr, best_fit, H0_50, Obh2_50):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
-    print(f"Log evidence: {log_evidence(samples, log_probs, log_probability, bounds):.1f}")
+    print(f"Log evidence: {log_evd:.1f}")
 
     plot_sn_predictions(
         legend=sn_legend,
@@ -175,8 +178,8 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM w(z) = -1
-H0: 66.86 +0.53 -0.53 km/s/Mpc
-Ωm: 0.324 +0.008 -0.007
+H0: 66.85 +0.54 -0.53 km/s/Mpc
+Ωm: 0.324 +0.008 -0.008
 Ωb h^2: 0.02227 +0.00014 -0.00014
 w0: -1
 ΔM: -0.095 +0.013 -0.013
@@ -185,21 +188,23 @@ z_drag: 1059.81
 r_s(z*) = 143.93 Mpc
 r_s(z_drag) = 146.52 Mpc
 Chi squared: 1643.67
+Log evidence: -838.5
 Degrees of freedom: 1734
 
 ===============================
 
 Flat wCDM w(z) = w0
-H0: 65.71 +0.77 -0.75 km/s/Mpc
+H0: 65.72 +0.75 -0.75 km/s/Mpc
 Ωm: 0.333 +0.009 -0.009
-ωb: 0.02236 +0.00015 -0.00014
-w0: -0.941 +0.027 -0.028
-ΔM: -0.112 +0.016 -0.016
-z*: 1088.90
+ωb: 0.02236 +0.00015 -0.00015
+w0: -0.942 +0.027 -0.028
+ΔM: -0.112 +0.015 -0.016
+z*: 1088.91
 z_drag: 1059.94
-r_s(z*) = 144.18 Mpc
-r_s(z_drag) = 146.75 Mpc
-Chi squared: 1639.34 (Δ chi2 4.3 from ΛCDM)
+r_s(z*) = 144.17 Mpc
+r_s(z_drag) = 146.73 Mpc
+Chi squared: 1639.35 (Δ chi2 4.3 from ΛCDM)
+Log evidence: -839.4
 Degrees of freedom: 1733
 
 ===============================
@@ -216,6 +221,7 @@ r_s(z*) = 144.18 Mpc
 r_s(z_drag) = 146.74 Mpc
 Chi squared: 1638.69 (Δ chi2 5.0 from ΛCDM)
 Log evidence: -838.7
+Degrees of freedom: 1733
 
 ===============================
 
