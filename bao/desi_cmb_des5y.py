@@ -174,6 +174,7 @@ def main():
     samples = sampler.get_chain(discard=burn_in, flat=True)
     chains_samples = sampler.get_chain(discard=burn_in, flat=False)
     log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
+    log_evd = log_evidence(samples, log_probs, log_probability, bounds)
 
     one_sigma_contours = [15.9, 50, 84.1]
 
@@ -206,7 +207,7 @@ def main():
     print(f"r_d: {cmb.rs_z(Ez, z_dr_50, best_fit, H0_50, Obh2_50):.2f} Mpc")
     print(f"z_d: {z_dr_50:.2f} +{(z_dr_84 - z_dr_50):.2f} -{(z_dr_50 - z_dr_16):.2f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
-    print(f"Log evidence: {log_evidence(samples, log_probs, log_probability, bounds):.1f}")
+    print(f"Log evidence: {log_evd:.1f}")
 
     plot_bao_predictions(
         theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
@@ -262,7 +263,7 @@ z*: 1088.45 +0.16 -0.16
 r_d: 147.33 Mpc
 z_d: 1060.24 +0.28 -0.28
 Chi squared: 1660.35
-Log evidence: -850.6 (Δ logZ = -1.1 in favour of ΛCDM)
+Log evidence: -850.5 (Δ logZ = -1.0 in favour of ΛCDM)
 Degrees of freedom: 1746
 
 ===============================
