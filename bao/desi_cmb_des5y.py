@@ -3,7 +3,7 @@ import numpy as np
 from scipy.linalg import cho_factor, solve_triangular
 from y2024DES.data import get_data as get_sn_data
 from y2025BAO.data import get_data as get_bao_data
-import cmb.data_desi_compression as cmb
+import cmb.data_chen_compression as cmb
 
 c = cmb.c  # km/s
 Or_h2 = cmb.Omega_r_h2()
@@ -62,12 +62,7 @@ def DV_z(z, params):
     return (z * DH * DM**2) ** (1 / 3)
 
 
-qty_map = {
-    "DV_over_rs": 0,
-    "DM_over_rs": 1,
-    "DH_over_rs": 2,
-}
-
+qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
 quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int64)
 
 
@@ -183,11 +178,13 @@ def main():
     one_sigma_contours = [15.9, 50, 84.1]
 
     pct = np.percentile(samples, one_sigma_contours, axis=0).T
-    H0_16, H0_50, H0_84 = pct[0]
-    Om_16, Om_50, Om_84 = pct[1]
-    Obh2_16, Obh2_50, Obh2_84 = pct[2]
-    w0_16, w0_50, w0_84 = pct[3]
-    dM_16, dM_50, dM_84 = pct[4]
+    [
+        (H0_16, H0_50, H0_84),
+        (Om_16, Om_50, Om_84),
+        (Obh2_16, Obh2_50, Obh2_84),
+        (w0_16, w0_50, w0_84),
+        (dM_16, dM_50, dM_84),
+    ] = pct
 
     best_fit = np.percentile(samples, 50, axis=0)
 
@@ -238,64 +235,68 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM w(z) = -1
-H0: 68.26 +0.28 -0.28 km/s/Mpc
-Ωm: 0.302 +0.004 -0.004
-ωb: 0.02235 +0.00012 -0.00012
-ωm: 0.14052 +0.00059 -0.00059
-r*: 145.04 Mpc
-z*: 1088.70 +0.14 -0.14
-r_d: 147.64 Mpc
-z_d: 1059.66 +0.26 -0.26
-Chi squared: 1664.26
-Log evidence: -849.4
+ΔM: -0.059 +0.008 -0.008
+H0: 68.40 +0.28 -0.28 km/s/Mpc
+Ωm: 0.3032 +0.0036 -0.0036
+ωb: 0.02250 +0.00012 -0.00012
+ωm: 0.14186 +0.00061 -0.00061
+r*: 144.60 Mpc
+z*: 1088.62 +0.14 -0.14
+r_d: 147.13 Mpc
+z_d: 1060.11 +0.27 -0.27
+Chi squared: 1664.85
+Log evidence: -849.5
 Degrees of freedom: 1747
 
 ===============================
 
 Flat wCDM w(z) = w0
-H0: 67.16 +0.54 -0.53 km/s/Mpc
-Ωm: 0.309 +0.005 -0.005
-ωb: 0.02244 +0.00013 -0.00012
-ωm: 0.13936 +0.00078 -0.00078
-w0: -0.947 +0.022 -0.022
-r*: 145.29 Mpc
-z*: 1088.52 +0.16 -0.16
-r_d: 147.86 Mpc
-z_d: 1059.80 +0.27 -0.27
-Chi squared: 1658.76
-Log evidence: -850.0 (Δ logZ = -0.60 in favour of ΛCDM)
+ΔM: -0.073 +0.010 -0.010
+H0: 67.41 +0.53 -0.53 km/s/Mpc
+Ωm: 0.3099 +0.0048 -0.0048
+ωb: 0.02259 +0.00013 -0.00013
+ωm: 0.14081 +0.00079 -0.00079
+w0: -0.952 +0.022 -0.022 (prior width 1.5: -1.5 to 0.0)
+r*: 144.82 Mpc
+z*: 1088.45 +0.16 -0.16
+r_d: 147.33 Mpc
+z_d: 1060.24 +0.28 -0.28
+Chi squared: 1660.35
+Log evidence: -850.6 (Δ logZ = -1.1 in favour of ΛCDM)
 Degrees of freedom: 1746
 
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-H0: 66.67 +0.55 -0.54 km/s/Mpc
-Ωm: 0.314 +0.005 -0.005
-ωb: 0.02244 +0.00012 -0.00012
-ωm: 0.13950 +0.00068 -0.00067
-w0: -0.882 +0.036 -0.035
-r*: 145.26 Mpc
-z*: 1088.53 +0.15 -0.15
-r_d: 147.83 Mpc
-z_d: 1059.79 +0.27 -0.26
-Chi squared: 1653.72
-Log evidence: -847.0 (Δ logZ = 2.4 against ΛCDM)
+ΔM: -0.075 +0.010 -0.010
+H0: 66.90 +0.55 -0.55 km/s/Mpc
+Ωm: 0.3148 +0.0054 -0.0053
+ωb: 0.02259 +0.00012 -0.00012
+ωm: 0.14089 +0.00070 -0.00069
+w0: -0.889 +0.036 -0.035 (prior width 1.5: -1.5 to 0.0)
+r*: 144.80 Mpc
+z*: 1088.46 +0.15 -0.15
+r_d: 147.32 Mpc
+z_d: 1060.23 +0.27 -0.28
+Chi squared: 1655.39
+Log evidence: -847.6 (Δ logZ = 1.9 against ΛCDM)
 Degrees of freedom: 1746
 
 ===============================
 
 Flat w(z) = w0 + wa * z / (1 + z)
-H0: 66.74 +0.54 -0.54 km/s/Mpc
-Ωm: 0.318 +0.006 -0.006
-ωb: 0.02228 +0.00013 -0.00013
-ωm: 0.14144 +0.00088 -0.00091
-w0: -0.767 +0.056 -0.055 (prior width 1.0: -1.5 to -0.5)
-wa: -0.748 +0.219 -0.236 (prior width 3.0: -2.0 to 1.0)
-r*: 144.84 Mpc
-z*: 1088.84 +0.17 -0.18
-r_d: 147.45 Mpc
-z_d: 1059.57 +0.27 -0.27
-Chi squared: 1646.54
-Log evidence: -845.3 (Δ logZ = 4.1 against ΛCDM)
+ΔM: -0.055 +0.011 -0.011
+H0: 66.98 +0.55 -0.55 km/s/Mpc
+Ωm: 0.3187 +0.0056 -0.0055
+ωb: 0.02242 +0.00013 -0.00013
+ωm: 0.14300 +0.00091 -0.00092
+w0: -0.761 +0.057 -0.056 (prior width 1.5: -1.5 to 0.0)
+wa: -0.802 +0.221 -0.237 (prior width 3.5: -2.5 to 1.0)
+r*: 144.35 Mpc
+z*: 1088.79 +0.17 -0.17
+r_d: 146.90 Mpc
+z_d: 1060.01 +0.28 -0.28
+Chi squared: 1646.86
+Log evidence: -845.4 (Δ logZ = 4.1 against ΛCDM)
 Degrees of freedom: 1745
 """
