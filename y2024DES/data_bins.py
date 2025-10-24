@@ -4,7 +4,7 @@ import numpy as np
 
 path_to_data = os.path.dirname(os.path.abspath(__file__)) + "/raw-data/"
 data_frame = pd.read_csv(path_to_data + "distances.csv")
-covariance_file = pd.read_csv(path_to_data + "covariance_stat_sys.txt")
+covariance_file = pd.read_csv(path_to_data + "covariance_stat_sys.txt.zip")
 
 selected_columns = data_frame[["zHD", "MU", "MUERR_FINAL"]]
 n = selected_columns["zHD"].size
@@ -48,7 +48,7 @@ for i, indices in enumerate(bin_indices):
     weights /= np.sum(weights)  # Normalize weights
 
     # Store results
-    z_bins.append(np.mean(z_bin))
+    z_bins.append(np.sum(weights * z_bin))
     mu_bins.append(np.sum(weights * mu_bin))
     weights_list.append(weights)
 
