@@ -1,19 +1,21 @@
 from numba import njit
 import numpy as np
-from scipy.integrate import cumulative_trapezoid
-from scipy.linalg import cho_factor, cho_solve
+from scipy.linalg import cho_factor, solve_triangular
 from scipy.constants import c as c0
-from y2023union3.data import get_data
+from y2023union3.data import get_data as get_sn_data
 from y2025BAO.data import get_data as get_bao_data
 
-sn_legend, z_sn_vals, mu_vals, cov_matrix_sn = get_data()
+sn_legend, z_sn_vals, mu_vals, cov_matrix_sn = get_sn_data()
 bao_legend, bao_data, bao_cov_matrix = get_bao_data()
-cho_sn = cho_factor(cov_matrix_sn)
-cho_bao = cho_factor(bao_cov_matrix)
+
+cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
+cho_bao = cho_factor(bao_cov_matrix, lower=True)[0]
 
 c = c0 / 1000  # Speed of light in km/s
 
-grid = np.linspace(0, np.max(z_sn_vals), num=1000)
+z_max = max(np.max(z_sn_vals), np.max(bao_data["z"])) + 0.1
+z_grid = np.linspace(0, z_max, num=1200)
+dx = np.diff(z_grid)
 
 
 @njit
@@ -25,13 +27,9 @@ def Ez(z, params):
     return np.sqrt(Om * cubic + (1 - Om) * rho_de)
 
 
-def integral_Ez(params):
-    integral_values = cumulative_trapezoid(1 / Ez(grid, params), grid, initial=0)
-    return np.interp(z_sn_vals, grid, integral_values)
-
-
+@njit
 def mu_theory(params):
-    dL = (1 + z_sn_vals) * c * integral_Ez(params) / params[1]
+    dL = (1 + z_sn_vals) * DM_z(z_sn_vals, params)
     return params[-1] + 25 + 5 * np.log10(dL)
 
 
@@ -47,13 +45,11 @@ def DH_z(z, params):
 
 @njit
 def DM_z(z, params):
-    result = np.empty(z.size, dtype=np.float64)
-    for i in range(z.size):
-        zp = z[i]
-        x = np.linspace(0, zp, num=max(250, int(250 * zp)))
-        y = DH_z(x, params)
-        result[i] = np.trapz(y=y, x=x)
-    return result
+    dh_grid = DH_z(z_grid, params)
+    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    cum_dm = np.zeros(z_grid.size)
+    cum_dm[1:] = np.cumsum(dx * dy)
+    return np.interp(z, z_grid, cum_dm)
 
 
 @njit
@@ -63,12 +59,7 @@ def DV_z(z, params):
     return (z * DH * DM**2) ** (1 / 3)
 
 
-qty_map = {
-    "DV_over_rs": 0,
-    "DM_over_rs": 1,
-    "DH_over_rs": 2,
-}
-
+qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
 quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int32)
 
 
@@ -92,15 +83,20 @@ Omh2_planck = 0.1430
 Omh2_planck_sigma = 0.0011
 
 
+def solve_triang(cho_L, delta):
+    y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
+    return np.dot(y, y)
+
+
 def chi_squared(params):
     Omh2 = params[2] * params[1] ** 2 / 100**2
     chi2_prior = ((Omh2_planck - Omh2) / Omh2_planck_sigma) ** 2
 
     delta_sn = mu_vals - mu_theory(params)
-    chi_sn = delta_sn.dot(cho_solve(cho_sn, delta_sn, check_finite=False))
+    chi_sn = solve_triang(cho_sn, delta_sn)
 
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
-    chi_bao = delta_bao.dot(cho_solve(cho_bao, delta_bao, check_finite=False))
+    chi_bao = solve_triang(cho_bao, delta_bao)
     return chi_sn + chi_bao + chi2_prior
 
 
@@ -176,16 +172,17 @@ def main():
     chains_samples = sampler.get_chain(discard=burn_in, flat=False)
     samples = sampler.get_chain(discard=burn_in, flat=True)
     log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
+    log_evd = log_evidence(samples, log_probs, log_probability, bounds)
 
     [
-        [rd_16, rd_50, rd_84],
-        [H0_16, H0_50, H0_84],
-        [Om_16, Om_50, Om_84],
-        [w0_16, w0_50, w0_84],
-        [dM_16, dM_50, dM_84],
+        (rd_16, rd_50, rd_84),
+        (H0_16, H0_50, H0_84),
+        (Om_16, Om_50, Om_84),
+        (w0_16, w0_50, w0_84),
+        (dM_16, dM_50, dM_84),
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = np.array([rd_50, H0_50, Om_50, w0_50, dM_50], dtype=np.float64)
+    best_fit = np.percentile(samples, 50, axis=0)
     degs_of_freedom = 1 + bao_data["value"].size + z_sn_vals.size - len(best_fit)
 
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
@@ -194,7 +191,7 @@ def main():
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.1f}")
-    print(f"Log evidence: {log_evidence(samples, log_probs, log_probability, bounds):.1f}")
+    print(f"Log evidence: {log_evd:.1f}")
     print(f"Degs of freedom: {degs_of_freedom}")
 
     plot_bao_predictions(
@@ -209,7 +206,7 @@ def main():
         y=mu_vals,
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=mu_theory(best_fit),
-        label=f"Best fit: $Ω_m$={Om_50:.3f}",
+        label=f"$Ω_m$={Om_50:.3f}",
         x_scale="log",
     )
     plot_corner_and_chains(
@@ -228,8 +225,8 @@ DESI BAO DR2 2025
 *******************************
 
 Flat ΛCDM
-rd: 147.30 +1.27 -1.27 Mpc
-H0: 68.59 +0.97 -0.96 km/s/Mpc
+rd: 147.30 +1.28 -1.27 Mpc
+H0: 68.59 +0.97 -0.97 km/s/Mpc
 Ωm: 0.304 +0.008 -0.008
 w0: -1
 Chi squared: 38.8
@@ -239,10 +236,10 @@ Degs of freedom: 32
 ===============================
 
 Flat wCDM
-rd: 142.59 +2.38 -2.55 Mpc
-H0: 69.29 +1.10 -1.05 km/s/Mpc
+rd: 142.52 +2.40 -2.59 Mpc
+H0: 69.32 +1.11 -1.07 km/s/Mpc
 Ωm: 0.298 +0.009 -0.009
-w0: -0.866 +0.050 -0.052 (prior width 1.5: -1.5 to 0.0)
+w0: -0.865 +0.051 -0.051 (prior width 1.5: -1.5 to 0.0)
 Chi squared: 32.2
 Log evidence: -30.3 (Δ logZ = 0.91 over ΛCDM)
 Degs of freedom: 31
@@ -250,10 +247,10 @@ Degs of freedom: 31
 ===============================
 
 Flat -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-rd: 144.32 +1.64 -1.66 Mpc
-H0: 67.94 +1.00 -0.97 km/s/Mpc
+rd: 144.32 +1.64 -1.64 Mpc
+H0: 67.95 +0.99 -0.98 km/s/Mpc
 Ωm: 0.310 +0.009 -0.009
-w0: -0.802 +0.065 -0.067 (prior width 1.5: -1.5 to 0.0)
+w0: -0.802 +0.066 -0.066 (prior width 1.5: -1.5 to 0.0)
 Chi squared: 30.4
 Log evidence: -29.2 (Δ logZ = 2.0 over ΛCDM)
 Degs of freedom: 31
