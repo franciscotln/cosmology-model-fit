@@ -3,7 +3,7 @@ import numpy as np
 from scipy.linalg import cho_factor, solve_triangular
 from y2023union3.data import get_data
 from y2025BAO.data import get_data as get_bao_data
-import cmb.data_desi_compression as cmb
+import cmb.data_union3_compression as cmb
 
 c = cmb.c  # km/s
 Or_h2 = cmb.Omega_r_h2()
@@ -64,12 +64,7 @@ def DV_z(z, params):
     return (z * DH * DM**2) ** (1 / 3)
 
 
-qty_map = {
-    "DV_over_rs": 0,
-    "DM_over_rs": 1,
-    "DH_over_rs": 2,
-}
-
+qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
 quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int32)
 
 
@@ -247,73 +242,75 @@ if __name__ == "__main__":
     main()
 
 """
+**************************************
+Planck compressed priors (R, θ∗, ωb)CMB
+**************************************
+
 Flat ΛCDM w(z) = -1
 
-(θ∗,ωb,ωbc)CMB
-H0: 68.4 +0.3 -0.3 km/s/Mpc
+(R, θ∗,ωb)CMB
+H0: 68.5 +0.3 -0.3 km/s/Mpc
 Ωm: 0.300 +0.004 -0.004
-ωb: 0.02237 +0.00012 -0.00012
-ωm: 0.14029 +0.00060 -0.00060
-z*: 1088.66 +0.14 -0.14
-r*: 145.09 Mpc
-z_d: 1059.69 +0.26 -0.26
-r_d: 147.67 Mpc
-Chi squared: 42.73
-Log evidence: -35.6
+ωb: 0.02255 +0.00012 -0.00012
+ωm: 0.14078 +0.00062 -0.00062
+w0: -1
+z*: 1091.46 +0.18 -0.18
+r*: 144.62 Mpc
+z_d: 1060.14 +0.26 -0.27
+r_d: 147.41 Mpc
+Chi squared: 43.92
+Log evidence: -35.9
 Degs of freedom: 34
 
 ===============================
 
 Flat wCDM w(z) = w0
 
-(θ∗,ωb,ωbc)CMB
-H0: 67.7 +0.7 -0.7 km/s/Mpc
+(R, θ∗,ωb)CMB
+H0: 67.8 +0.7 -0.7 km/s/Mpc
 Ωm: 0.305 +0.006 -0.006
-ωb: 0.02242 +0.00013 -0.00012
-ωm: 0.13967 +0.00081 -0.00082
-w0: -0.967 +0.028 -0.029 (prior width 1.5: -1.5 to 0.0)
-z*: 1088.56 +0.16 -0.16
-r*: 145.22 Mpc
-z_d: 1059.77 +0.27 -0.27
-r_d: 147.79 Mpc
-Chi squared: 41.39
-Log evidence: -38.0 (Δ logZ = -2.4 in favour of ΛCDM)
+ωb: 0.02259 +0.00013 -0.00013
+ωm: 0.14022 +0.00083 -0.00084
+w0: -0.971 +0.028 -0.028
+z*: 1091.35 +0.21 -0.21
+r*: 144.75 Mpc
+z_d: 1060.20 +0.28 -0.28
+r_d: 147.52 Mpc
+Chi squared: 42.85
+Log evidence: -38.4 (Δ logZ = -2.5 in favour of ΛCDM)
 Degs of freedom: 33
 
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
 
-(θ∗,ωb,ωbc)CMB
-H0: 66.7 +0.8 -0.8 km/s/Mpc
-Ωm: 0.314 +0.007 -0.007
-ωb: 0.02243 +0.00012 -0.00012
-ωm: 0.13953 +0.00071 -0.00071
-w0: -0.883 +0.051 -0.052 (prior width 1.5: -1.5 to 0.0)
-z*: 1088.54 +0.15 -0.15
-r*: 145.25 Mpc
-z_d: 1059.79 +0.27 -0.27
-r_d: 147.82 Mpc
-Chi squared: 37.94
-Log evidence: -35.6 (Δ logZ = 0.0 equal to ΛCDM)
+H0: 66.8 +0.8 -0.8 km/s/Mpc
+Ωm: 0.313 +0.007 -0.007
+ωb: 0.02261 +0.00012 -0.00012
+ωm: 0.14003 +0.00072 -0.00072
+w0: -0.888 +0.052 -0.052
+z*: 1091.30 +0.19 -0.19
+r*: 144.79 Mpc
+z_d: 1060.22 +0.27 -0.28
+r_d: 147.55 Mpc
+Chi squared: 39.44
+Log evidence: -36.1 (Δ logZ = -0.2 in favour of ΛCDM)
 Degs of freedom: 33
 
 ===============================
 
 Flat w(z) = w0 + wa * z / (1 + z)
 
-(θ∗,ωb,ωbc)CMB
-H0: 66.0 +0.8 -0.8 km/s/Mpc
-Ωm: 0.325 +0.009 -0.008
-ωb: 0.02227 +0.00013 -0.00013
-ωm: 0.14158 +0.00089 -0.00091
-w0: -0.687 +0.088 -0.086 (prior width 1.5: -1.5 to 0.0)
-wa: -0.967 +0.290 -0.303 (prior width 3.5: -2.5 to 1.0)
-z*: 1088.86 +0.18 -0.18
-r*: 144.81 Mpc
-z_d: 1059.56 +0.27 -0.27
-r_d: 147.43 Mpc
-Chi squared: 29.77
-Log evidence: -33.4 (Δ logZ = 2.2 against ΛCDM)
+H0: 66.1 +0.8 -0.8 km/s/Mpc
+Ωm: 0.326 +0.009 -0.008
+ωb: 0.02244 +0.00013 -0.00013
+ωm: 0.14223 +0.00092 -0.00096
+w0: -0.680 +0.088 -0.085
+z*: 1091.73 +0.23 -0.23
+r*: 144.31 Mpc
+z_d: 1060.00 +0.28 -0.28
+r_d: 147.12 Mpc
+Chi squared: 30.19
+Log evidence: -33.6 (Δ logZ = 2.3 against ΛCDM)
 Degs of freedom: 32
 """
