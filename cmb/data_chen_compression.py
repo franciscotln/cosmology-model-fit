@@ -113,3 +113,16 @@ def r_drag(wb, wm):
     term_A = 1.0 / term_A_denominator
     term_B = a8 / (wm**a9)
     return term_A - term_B
+
+
+# R, lA = π / θ*, Ωb h^2
+DISTANCE_PRIORS_WCDM = np.array([1.7493, 301.462, 0.02239], dtype=np.float64)
+covariance_wcdm = np.array(
+    [
+        [2.1622500e-05, 1.9560225e-04, -4.6035000e-07],
+        [1.9560225e-04, 8.0102500e-03, -4.5645000e-06],
+        [-4.6035000e-07, -4.5645000e-06, 2.2500000e-08],
+    ],
+    dtype=np.float64,
+)
+inv_cov_mat_wcdm = np.linalg.inv(covariance_wcdm)
