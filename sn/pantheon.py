@@ -1,39 +1,53 @@
 from numba import njit
 import numpy as np
 import scipy.stats as stats
-from scipy.linalg import cho_factor, cho_solve
-from scipy.integrate import cumulative_trapezoid
+from scipy.linalg import cho_factor, solve_triangular
 from scipy.constants import c as c0
 from y2022pantheonSHOES.data import get_data
 
-legend, z_values, z_hel_values, apparent_mag_values, cov_matrix = get_data()
+legend, z_cmb_vals, z_hel_vals, apparent_mag_values, cov_matrix = get_data()
 
 c = c0 / 1000  # Speed of light (km/s)
 H0 = 70.0  # Hubble constant (km/s/Mpc)
 
-cho = cho_factor(cov_matrix)
-z_grid = np.linspace(0, np.max(z_values), num=1000)
+cho = cho_factor(cov_matrix, lower=True)[0]
+
+z_grid = np.linspace(0, np.max(z_cmb_vals) + 0.1, num=1000)
+dx = np.diff(z_grid)
+
 cubed = (1 + z_grid) ** 3
-one_plus_z_hel = 1 + z_hel_values
 
 
 @njit
 def Ez(params):
-    O_m, w0 = params[1], params[2]
-    O_de = 1 - O_m
+    Om, w0 = params[1], params[2]
     rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
-    return np.sqrt(O_m * cubed + O_de * rho_de)
+    return np.sqrt(Om * cubed + (1 - Om) * rho_de)
 
 
+@njit
+def DM_z(params):
+    dh_grid = (c / H0) / Ez(params)
+    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    cum_dm = np.zeros(z_grid.size, dtype=np.float64)
+    cum_dm[1:] = np.cumsum(dx * dy)
+    return np.interp(z_cmb_vals, z_grid, cum_dm)
+
+
+@njit
 def apparent_mag(params):
-    integral_vals = cumulative_trapezoid(1 / Ez(params), z_grid, initial=0)
-    I = np.interp(z_values, z_grid, integral_vals)
-    return params[0] + 25 + 5 * np.log10(one_plus_z_hel * (c / H0) * I)
+    dL = (1 + z_hel_vals) * DM_z(params)
+    return params[0] + 25 + 5 * np.log10(dL)
+
+
+def solve_triang(cho_L, delta):
+    y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
+    return np.dot(y, y)
 
 
 def chi_squared(params):
     delta = apparent_mag_values - apparent_mag(params)
-    return np.dot(delta, cho_solve(cho, delta, check_finite=False))
+    return solve_triang(cho, delta)
 
 
 def log_likelihood(params):
@@ -67,11 +81,11 @@ def log_probability(params):
 
 
 def main():
-    import emcee, corner
-    import matplotlib.pyplot as plt
+    import emcee
     from multiprocessing import Pool
     from gelman_rubin import gelman_rubin
     from log_evidence import log_evidence
+    from corner_plot import plot_corner_and_chains
     from .plotting import plot_predictions, print_color, plot_residuals
 
     burn_in = 200
@@ -80,26 +94,23 @@ def main():
     n_steps = burn_in + 2000
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(n_walkers, n_dim))
+    moves = [
+        (emcee.moves.KDEMove(), 0.30),
+        (emcee.moves.DEMove(), 0.56),
+        (emcee.moves.DESnookerMove(), 0.14),
+    ]
 
     with Pool(5) as pool:
         sampler = emcee.EnsembleSampler(
-            n_walkers,
-            n_dim,
-            log_probability,
-            pool=pool,
-            moves=[
-                (emcee.moves.KDEMove(), 0.30),
-                (emcee.moves.DEMove(), 0.56),
-                (emcee.moves.DESnookerMove(), 0.14),
-            ],
+            n_walkers, n_dim, log_probability, pool=pool, moves=moves
         )
         sampler.run_mcmc(initial_pos, n_steps, progress=True)
 
     chains_samples = sampler.get_chain(discard=burn_in, flat=False)
     samples = sampler.get_chain(discard=burn_in, flat=True)
     log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
-
     print_color("Gelman-Rubin", gelman_rubin(chains_samples))
+    log_evd = log_evidence(samples, log_probs, log_probability, bounds)
 
     try:
         tau = sampler.get_autocorr_time()
@@ -113,13 +124,12 @@ def main():
 
     [
         [M0_16, M0_50, M0_84],
-        [omega_16, omega_50, omega_84],
+        [Om_16, Om_50, Om_84],
         [w0_16, w0_50, w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = np.array([M0_50, omega_50, w0_50], dtype=np.float64)
+    best_fit = np.percentile(samples, 50, axis=0)
 
-    # Calculate residuals
     predicted_apparent_mag = apparent_mag(best_fit)
     residuals = apparent_mag_values - predicted_apparent_mag
 
@@ -136,62 +146,38 @@ def main():
     rmsd = np.sqrt(np.mean(residuals**2))
 
     M_label = f"{M0_50:.3f} +{M0_84-M0_50:.3f}/-{M0_50-M0_16:.3f}"
-    omega_label = f"{omega_50:.3f} +{omega_84-omega_50:.3f}/-{omega_50-omega_16:.3f}"
+    omega_label = f"{Om_50:.3f} +{Om_84-Om_50:.3f}/-{Om_50-Om_16:.3f}"
     w0_label = f"{w0_50:.3f} +{w0_84-w0_50:.3f}/-{w0_50-w0_16:.3f}"
 
     print_color("Dataset", legend)
-    print_color("z range", f"{z_values[0]:.4f} - {z_values[-1]:.4f}")
+    print_color("z range", f"{z_cmb_vals[0]:.4f} - {z_cmb_vals[-1]:.4f}")
     print_color("M", M_label)
     print_color("Ωm", omega_label)
     print_color("w0", w0_label)
     print_color("R-squared (%)", f"{100 * r_squared:.2f}")
-    print_color(
-        "Log Evidence",
-        f"{log_evidence(samples, log_probs, log_probability, bounds):.1f}",
-    )
     print_color("RMSD (mag)", f"{rmsd:.3f}")
     print_color("Skewness of residuals", f"{skewness:.3f}")
     print_color("kurtosis of residuals", f"{kurtosis:.3f}")
-    print_color("Degs of freedom", len(z_values) - len(best_fit))
+    print_color("Degs of freedom", len(z_cmb_vals) - len(best_fit))
     print_color("Chi squared", f"{chi_squared(best_fit):.2f}")
+    print_color("Log Evidence", f"{log_evd:.1f}")
 
-    labels = ["$M_0$", "$Ω_m$", "$w_0$"]
-    corner.corner(
-        samples,
-        labels=labels,
-        quantiles=[0.159, 0.5, 0.841],
-        show_titles=True,
-        title_fmt=".3f",
-        smooth=2.0,
-        smooth1d=2.0,
-        bins=100,
-        levels=(0.393, 0.864),  # 1 and 2 sigmas in 2D
-        fill_contours=False,
-        plot_datapoints=False,
+    plot_corner_and_chains(
+        labels=["$M_0$", "$Ω_m$", "$w_0$"],
+        flat_samples=samples,
+        samples=chains_samples,
     )
-    plt.show()
-
-    plt.figure(figsize=(16, 1.5 * n_dim))
-    for n in range(n_dim):
-        plt.subplot2grid((n_dim, 1), (n, 0))
-        plt.plot(chains_samples[:, :, n], alpha=0.3)
-        plt.ylabel(labels[n])
-        plt.xlim(0, None)
-    plt.tight_layout()
-    plt.show()
-
     plot_predictions(
         legend=legend,
-        x=z_values,
+        x=z_cmb_vals,
         y=apparent_mag_values - M0_50,
         y_err=np.sqrt(np.diag(cov_matrix)),
         y_model=predicted_apparent_mag - M0_50,
-        label=f"Best fit: $Ω_m$={omega_50:.3f}, $M$={M0_50:.3f}",
+        label=f"Best fit: $Ω_m$={Om_50:.3f}, $M$={M0_50:.3f}",
         x_scale="log",
     )
-
     plot_residuals(
-        z_values=z_values,
+        z_values=z_cmb_vals,
         residuals=residuals,
         y_err=np.sqrt(np.diag(cov_matrix)),
         bins=40,
@@ -220,34 +206,37 @@ Skewness of residuals: 0.090
 kurtosis of residuals: 1.582
 Degs of freedom: 1588
 chi squared: 1402.92
+Log Evidence: -709.2
 
 =============================
 
 wCDM
 M: -19.347 +0.009/-0.009
-Ωm: 0.292 +0.062/-0.075
-w0: -0.901 +0.137/-0.154
+Ωm: 0.292 +0.063/-0.074
+w0: -0.901 +0.137/-0.156
 wa: 0
 R-squared: 99.74 %
 RMSD (mag): 0.154
 Skewness of residuals: 0.079
 kurtosis of residuals: 1.589
 Degs of freedom: 1587
-chi squared: 1402.47
+chi squared: 1402.48
+Log Evidence: -710.6
 
 =============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
 M: -19.348 +0.009/-0.009
-Ωm: 0.311 +0.043/-0.044
-w0: -0.926 +0.122/-0.140
+Ωm: 0.310 +0.043/-0.044
+w0: -0.924 +0.122/-0.141
 wa = d w(z=0)/dz = -1.5*(1 + w0)
 R-squared (%): 99.74
 RMSD (mag): 0.154
 Skewness of residuals: 0.081
 kurtosis of residuals: 1.589
 Degs of freedom: 1587
-Chi squared: 1402.54
+Chi squared: 1402.53
+Log Evidence: -710.8
 
 =============================
 
