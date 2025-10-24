@@ -175,6 +175,7 @@ def main():
     chains_samples = sampler.get_chain(discard=burn_in, flat=False)
     samples = sampler.get_chain(discard=burn_in, flat=True)
     log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
+    log_evd = log_evidence(samples, log_probs, log_probability, bounds)
 
     [
         [H0_16, H0_50, H0_84],
@@ -200,9 +201,7 @@ def main():
     print(f"z_d: {zd_50:.2f} +{(zd_84 - zd_50):.2f} -{(zd_50 - zd_16):.2f}")
     print(f"r_d: {cmb.rs_z(Ez, zd_50, best_fit, H0_50, Obh2_50):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
-    print(
-        f"Log Evidence: {log_evidence(samples, log_probs, log_probability, bounds):.2f}"
-    )
+    print(f"Log Evidence: {log_evd:.2f}")
     print(f"Degrees of freedom: {2 + bao_data['value'].size + sn_size - len(best_fit)}")
 
     plot_bao_predictions(
@@ -241,11 +240,13 @@ z_d: 1059.31 +0.35 -0.35
 r_d: 147.97 Mpc
 z*: 1088.79 (1.0278 x z_d)
 r*: 145.31 Mpc (1.018 x r_d)
+R: 1.7403
 Chi squared: 1661.96
 Log Evidence: -847.99
 Degrees of freedom: 1746
 
 ===============================
+1.750235 +0.004621
 
 Flat wCDM w(z) = w0
 H0: 66.60 +0.58 -0.57 km/s/Mpc
@@ -257,6 +258,7 @@ z_d: 1059.12 +0.36 -0.35
 r_d: 148.81 Mpc
 z*: 1088.54 (1.0278 x z_d)
 r*: 146.12 Mpc (1.018 x r_d)
+R: 1.7304
 Chi squared: 1649.95
 Log Evidence: -845.16 (Δ logZ = 2.83 against ΛCDM)
 Degrees of freedom: 1745
@@ -273,6 +275,7 @@ z_d: 1059.21 +0.34 -0.35
 r_d: 148.48 Mpc
 z*: 1088.64 (1.0278 x z_d)
 r*: 145.81 Mpc (1.018 x r_d)
+R: 1.7343
 Chi squared: 1647.17
 Log Evidence: -843.38 (Δ logZ = 4.61 against ΛCDM)
 Degrees of freedom: 1745
@@ -290,6 +293,7 @@ z_d: 1059.36 +0.35 -0.36
 r_d: 147.85 Mpc
 z*: 1088.80 (1.0278 x z_d)
 r*: 145.26 Mpc (1.018 x r_d)
+R: 1.7415
 Chi squared: 1646.07
 Log Evidence: -844.47 (Δ logZ = 3.52 against ΛCDM)
 Degrees of freedom: 1744
