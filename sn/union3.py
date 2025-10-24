@@ -223,6 +223,7 @@ Skewness of residuals: -1.077
 Chi squared: 21.7
 Log evidence: -16.5
 Degs of freedom: 19
+QH(0.17507) = -0.318 +0.056 - 0.053 with correlation 1.5864e-05
 
 ===============================
 

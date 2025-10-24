@@ -212,6 +212,7 @@ RMSD (mag): 0.264
 Skewness of residuals: 3.417
 Chi squared: 1637.97
 Effective deg of freedom: 1732
+QH(0.1663) = -0.353 +0.032 - 0.031 with correlation: -1.6889e-06
 
 ==============================
 
