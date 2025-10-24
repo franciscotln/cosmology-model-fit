@@ -246,7 +246,6 @@ Log Evidence: -847.99
 Degrees of freedom: 1746
 
 ===============================
-1.750235 +0.004621
 
 Flat wCDM w(z) = w0
 H0: 66.60 +0.58 -0.57 km/s/Mpc
