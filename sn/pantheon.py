@@ -237,6 +237,7 @@ kurtosis of residuals: 1.589
 Degs of freedom: 1587
 Chi squared: 1402.53
 Log Evidence: -710.8
+QH(0.1436) = -0.410 + 0.034 -0.034 with correlation 1.107e-4
 
 =============================
 
