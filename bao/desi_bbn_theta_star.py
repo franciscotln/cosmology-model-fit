@@ -13,7 +13,7 @@ cho_bao = cho_factor(bao_cov_matrix, lower=True)[0]
 
 # arXiv:2503.14738v2 (increased error 75%)
 theta_100 = 1.04110
-theta_100_err = 1.75 * 0.00053
+theta_100_err = 1.75 * 0.00031
 
 z_max = np.max(bao_data["z"]) + 0.1
 z_grid = np.linspace(0, z_max, num=1200)
@@ -58,12 +58,7 @@ def DV_z(z, params):
     return (z * DH * DM**2) ** (1 / 3)
 
 
-qty_map = {
-    "DV_over_rs": 0,
-    "DM_over_rs": 1,
-    "DH_over_rs": 2,
-}
-
+qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
 quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int32)
 
 
@@ -174,6 +169,7 @@ def main():
     chains_samples = sampler.get_chain(discard=burn_in, flat=False)
     samples = sampler.get_chain(discard=burn_in, flat=True)
     log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
+    log_evd = log_evidence(samples, log_probs, log_probability, bounds)
 
     pct = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
     H0_16, H0_50, H0_84 = pct[0]
@@ -197,7 +193,7 @@ def main():
     print(f"r*: {cmb.rs_z(Ez, z_st_50, best_fit, H0_50, Obh2_50):.2f} Mpc")
     print(f"z*: {z_st_50:.2f} +{(z_st_84 - z_st_50):.2f} -{(z_st_50 - z_st_16):.2f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
-    print(f"Log evidence: {log_evidence(samples, log_probs, log_probability, bounds):.1f}")
+    print(f"Log evidence: {log_evd:.1f}")
 
     plot_bao_predictions(
         theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
@@ -221,56 +217,56 @@ Dataset: DESI DR2 2024 + θ∗ + BBN
 *******************************
 
 Flat ΛCDM w(z) = -1
-rd: 148.22 +0.73 -0.72 Mpc
-H0: 68.57 +0.47 -0.47 km/s/Mpc
-Ωm: 0.2956 +0.0047 -0.0046
+rd: 148.22 +0.71 -0.70 Mpc
+H0: 68.57 +0.46 -0.47 km/s/Mpc
+Ωm: 0.2956 +0.0046 -0.0045
 ωb: 0.02216 +0.00053 -0.00053
-r*: 145.54 Mpc
-z*: 1088.80 +0.54 -0.52
+r*: 145.53 Mpc
+z*: 1088.81 +0.55 -0.53
 Chi squared: 10.34
-Log evidence: -14.0
+Log evidence: -14.5
 Degs of freedom: 12
 
 ===============================
 
 Flat wCDM w(z) = w0
-rd: 148.48 +0.78 -0.78 Mpc
-H0: 67.69 +1.13 -1.08 km/s/Mpc
-Ωm: 0.3007 +0.0074 -0.0076
-ωb: 0.02222 +0.00055 -0.00054
-w0: -0.957 +0.047 -0.050 (prior width 1.5: -1.5 to 0.0)
-r*: 145.84 Mpc
-z*: 1088.65 +0.58 -0.56
-Chi squared: 9.56
-Log evidence: -16.1
+rd: 148.46 +0.76 -0.76 Mpc
+H0: 67.71 +1.13 -1.08 km/s/Mpc
+Ωm: 0.3007 +0.0075 -0.0076
+ωb: 0.02222 +0.00054 -0.00054
+w0: -0.958 +0.048 -0.050 (prior width 1.5: -1.5 to 0.0)
+r*: 145.81 Mpc
+z*: 1088.66 +0.57 -0.56
+Chi squared: 9.57
+Log evidence: -16.6
 Degs of freedom: 11
 
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-rd: 148.41 +0.75 -0.75 Mpc
-H0: 66.91 +1.50 -1.42 km/s/Mpc
-Ωm: 0.3081 +0.0120 -0.0118
-ωb: 0.02223 +0.00054 -0.00053
+rd: 148.39 +0.73 -0.72 Mpc
+H0: 66.92 +1.51 -1.42 km/s/Mpc
+Ωm: 0.3082 +0.0120 -0.0120
+ωb: 0.02223 +0.00054 -0.00054
 w0: -0.885 +0.096 -0.100 (prior width 1.5: -1.5 to 0.0)
-r*: 145.78 Mpc
-z*: 1088.65 +0.56 -0.54
-Chi squared: 8.92
-Log evidence: -15.1
+r*: 145.75 Mpc
+z*: 1088.66 +0.56 -0.54
+Chi squared: 8.94
+Log evidence: -15.6
 Degs of freedom: 11
 
 ===============================
 
 Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
-rd: 147.57 +0.86 -0.82 Mpc
-H0: 63.75 +2.48 -2.48 km/s/Mpc
-Ωm: 0.3492 +0.0327 -0.0291
-ωb: 0.02211 +0.00055 -0.00054
-w0: -0.463 +0.332 -0.292 (prior width 3.5: -2.0 to 1.5)
-wa: -1.580 +0.923 -1.062 (prior width 10: -7.0 to 3.0)
-r*: 144.81 Mpc
-z*: 1089.06 +0.61 -0.60
-Chi squared: 7.23
-Log evidence: -17.0
+rd: 147.62 +0.84 -0.80 Mpc
+H0: 64.03 +2.35 -2.10 km/s/Mpc
+Ωm: 0.3459 +0.0269 -0.0275
+ωb: 0.02211 +0.00054 -0.00054
+w0: -0.495 +0.271 -0.275 (prior width 1.5: -1.5 to 0.0)
+wa: -1.48 +0.86 -0.87 (prior width 10.0: -7.0 to 3.0)
+r*: 144.83 Mpc
+z*: 1089.04 +0.60 -0.58
+Chi squared: 7.03
+Log evidence: -16.4
 Degs of freedom: 10
 """
