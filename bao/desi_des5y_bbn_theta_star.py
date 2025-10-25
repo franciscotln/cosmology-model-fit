@@ -5,6 +5,7 @@ import cmb.data_desi_compression as cmb
 import y2024BBN.prior_lcdm_chen as bbn
 from y2024DES.data import get_data, effective_sample_size as sn_size
 from y2025BAO.data import get_data as get_bao_data
+from y2024DESBAO.data import get_data as get_des_bao_data
 
 c = cmb.c  # Speed of light in km/s
 Orh2 = cmb.Omega_r_h2()
@@ -15,6 +16,7 @@ theta_stx100_err = 0.00031
 
 sn_legend, z_cmb, z_hel, mu_values, cov_matrix_sn = get_data()
 bao_legend, bao_data, cov_matrix_bao = get_bao_data()
+des_bao_legend, des_bao_data = get_des_bao_data()
 
 cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
 cho_bao = cho_factor(cov_matrix_bao, lower=True)[0]
@@ -69,6 +71,7 @@ def DV_z(z, theta):
 
 qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
 quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int64)
+bao_des_qty = np.array([qty_map[q] for q in des_bao_data["quantity"]], dtype=np.int64)
 
 
 def bao_theory(z, qty, theta):
@@ -111,7 +114,12 @@ def chi_squared(theta):
 
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, theta)
     chi_bao = solve_triang(cho_bao, delta_bao)
-    return chi_sn + chi_bao + chi2_theta_100 + chi2_bbn
+
+    delta_bao_DES = des_bao_data["value"] - bao_theory(
+        des_bao_data["z"], bao_des_qty, theta
+    )
+    chi2_bao_DES = np.sum((delta_bao_DES / des_bao_data["error"]) ** 2)
+    return chi_sn + chi_bao + chi2_theta_100 + chi2_bbn + chi2_bao_DES
 
 
 bounds = np.array(
@@ -183,16 +191,20 @@ def main():
     chains_samples = sampler.get_chain(discard=burn_in, flat=False)
     samples = sampler.get_chain(discard=burn_in, flat=True)
     log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
+    log_evd = log_evidence(samples, log_probs, log_probability, bounds)
 
     [
-        [H0_16, H0_50, H0_84],
-        [Om_16, Om_50, Om_84],
-        [Obh2_16, Obh2_50, Obh2_84],
-        [w0_16, w0_50, w0_84],
-        [dM_16, dM_50, dM_84],
+        (H0_16, H0_50, H0_84),
+        (Om_16, Om_50, Om_84),
+        (Obh2_16, Obh2_50, Obh2_84),
+        (w0_16, w0_50, w0_84),
+        (dM_16, dM_50, dM_84),
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
     best_fit = np.percentile(samples, 50, axis=0)
+    degs_of_freedom = (
+        2 + len(des_bao_data["z"]) + len(bao_data["z"]) + sn_size - len(best_fit)
+    )
 
     Omh2_samples = samples[:, 1] * (samples[:, 0] / 100) ** 2
     zd_samples = cmb.z_drag(wb=samples[:, 2], wm=Omh2_samples)
@@ -213,16 +225,20 @@ def main():
     print(f"r*: {cmb.rs_z(Ez, z_st_50, best_fit, H0_50, Obh2_50):.2f} Mpc")
     print(f"100 θ*: {theta_starx100_theory(best_fit):.5f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
-    print(
-        f"Log Evidence: {log_evidence(samples, log_probs, log_probability, bounds):.2f}"
-    )
-    print(f"Degrees of freedom: {2 + bao_data['value'].size + sn_size - len(best_fit)}")
+    print(f"Log Evidence: {log_evd:.2f}")
+    print(f"Degrees of freedom: {degs_of_freedom}")
 
     plot_bao_predictions(
         theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
         data=bao_data,
         errors=np.sqrt(np.diag(cov_matrix_bao)),
         title=bao_legend,
+    )
+    plot_bao_predictions(
+        theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
+        data=des_bao_data,
+        errors=des_bao_data["error"],
+        title=des_bao_legend,
     )
     plot_sn_predictions(
         legend=sn_legend,
@@ -259,6 +275,20 @@ Chi squared: 1661.97
 Log Evidence: -846.94
 Degrees of freedom: 1746
 
+With DESY6 BAO:
+H0: 68.46 +0.35 -0.35 km/s/Mpc
+Ωm: 0.298 +0.004 -0.004
+ωm: 0.1396 +0.0009 -0.0009
+ωb: 0.02224 +0.00032 -0.00032
+z_d: 1059.35 +0.75 -0.76
+r_d: 147.97 Mpc
+z*: 1088.75 +0.33 -0.32
+r*: 145.34 Mpc
+100 θ*: 1.04114
+Chi squared: 1665.00
+Log Evidence: -848.48
+Degrees of freedom: 1747
+
 ===============================
 
 Flat wCDM w(z) = w0
@@ -275,6 +305,21 @@ r*: 146.02 Mpc
 Chi squared: 1649.91
 Log Evidence: -844.08 (Δ logZ = 2.86 against ΛCDM)
 Degrees of freedom: 1745
+
+With DESY6 BAO:
+H0: 66.72 +0.60 -0.59 km/s/Mpc
+Ωm: 0.307 +0.005 -0.005
+ωm: 0.1365 +0.0013 -0.0013
+ωb: 0.02236 +0.00032 -0.00032
+w0: -0.909 +0.025 -0.025
+z_d: 1059.40 +0.76 -0.76
+r_d: 148.71 Mpc
+z*: 1088.41 +0.34 -0.33
+r*: 146.09 Mpc
+100 θ*: 1.04105
+Chi squared: 1652.67
+Log Evidence: -845.47 (Δ logZ = 3.01 against ΛCDM)
+Degrees of freedom: 1746
 
 ===============================
 
@@ -294,6 +339,21 @@ Chi squared: 1647.13
 Log Evidence: -842.31 (Δ logZ = 4.63 against ΛCDM)
 Degrees of freedom: 1745
 
+With DESY6 BAO:
+H0: 66.58 +0.58 -0.57 km/s/Mpc
+Ωm: 0.311 +0.005 -0.005
+ωm: 0.1378 +0.0010 -0.0010
+ωb: 0.02235 +0.00032 -0.00032
+w0: -0.853 +0.036 -0.037
+z_d: 1059.46 +0.76 -0.76
+r_d: 148.38 Mpc
+z*: 1088.51 +0.33 -0.32
+r*: 145.76 Mpc
+100 θ*: 1.04108
+Chi squared: 1649.74
+Log Evidence: -843.63 (Δ logZ = 4.85 against ΛCDM)
+Degrees of freedom: 1746
+
 ===============================
 
 Flat w(z) = w0 + wa * z / (1 + z)
@@ -312,19 +372,19 @@ Chi squared: 1645.85
 Log Evidence: -843.38 (Δ logZ = 3.56 against ΛCDM)
 Degrees of freedom: 1744
 
-Flat w(z) = w0 + wa * ((1 + z)^2 - 1) / ((1 + z)^2 + 1) (reduces to w0waCDM at low z)
-H0: 66.72 +0.58 -0.57 km/s/Mpc
+With DESY6 BAO:
+H0: 66.75 +0.58 -0.56 km/s/Mpc
 Ωm: 0.315 +0.006 -0.006
-ωm: 0.1404 +0.0017 -0.0019
+ωm: 0.1402 +0.0017 -0.0018
 ωb: 0.02231 +0.00032 -0.00032
-w0: -0.802 +0.058 -0.055 (prior width 1.5: -1.5 to 0.0)
-wa: -0.477 +0.219 -0.237 (prior width 3.5: -2.5 to 1.0)
-z_d: 1059.55 +0.75 -0.75
-r_d: 147.73 Mpc
-z*: 1088.73 +0.36 -0.34
-r*: 145.12 Mpc
-100 θ*: 1.04099
-Chi squared: 1645.88
-Log Evidence: -843.76 (Δ logZ = 3.18 against ΛCDM)
-Degrees of freedom: 1744
+w0: -0.787 +0.061 -0.060
+wa: -0.606 +0.273 -0.281
+z_d: 1059.54 +0.74 -0.76
+r_d: 147.77 Mpc
+z*: 1088.72 +0.35 -0.34
+r*: 145.16 Mpc
+100 θ*: 1.04096
+Chi squared: 1648.35
+Log Evidence: -844.66 (Δ logZ = 3.82 against ΛCDM)
+Degrees of freedom: 1745
 """

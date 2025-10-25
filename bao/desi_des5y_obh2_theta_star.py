@@ -4,12 +4,14 @@ from scipy.linalg import cho_factor, solve_triangular
 import cmb.data_desi_compression as cmb
 from y2024DES.data import get_data, effective_sample_size as sn_size
 from y2025BAO.data import get_data as get_bao_data
+from y2024DESBAO.data import get_data as get_des_bao_data
 
 c = cmb.c  # Speed of light in km/s
 Orh2 = cmb.Omega_r_h2()
 
 sn_legend, z_cmb, z_hel, mu_values, cov_matrix_sn = get_data()
 bao_legend, bao_data, cov_matrix_bao = get_bao_data()
+des_bao_legend, des_bao_data = get_des_bao_data()
 
 cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
 cho_bao = cho_factor(cov_matrix_bao, lower=True)[0]
@@ -93,12 +95,6 @@ def solve_triang(cho_L, delta):
     return np.dot(y, y)
 
 
-# DESY6 BAO (arXiv:2402.10696v1)
-z_eff = np.array([0.85])
-dm_over_rs = np.array([19.51])
-dm_err = np.array([0.41])
-
-
 def chi_squared(theta):
     H0, Om, Obh2 = theta[0], theta[1], theta[2]
 
@@ -111,8 +107,10 @@ def chi_squared(theta):
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, theta)
     chi_bao = solve_triang(cho_bao, delta_bao)
 
-    delta_bao_DES = dm_over_rs - bao_theory(z_eff, np.array([1]), theta)
-    chi2_bao_DES = np.sum((delta_bao_DES / dm_err) ** 2)
+    delta_bao_DES = des_bao_data["value"] - bao_theory(
+        des_bao_data["z"], np.array([1]), theta
+    )
+    chi2_bao_DES = np.sum((delta_bao_DES / des_bao_data["error"]) ** 2)
 
     return chi_sn + chi_bao + chi2_cmb + chi2_bao_DES
 
@@ -220,6 +218,12 @@ def main():
         data=bao_data,
         errors=np.sqrt(np.diag(cov_matrix_bao)),
         title=bao_legend,
+    )
+    plot_bao_predictions(
+        theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
+        data=des_bao_data,
+        errors=des_bao_data["error"],
+        title=des_bao_legend,
     )
     plot_sn_predictions(
         legend=sn_legend,
