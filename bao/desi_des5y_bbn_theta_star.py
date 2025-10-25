@@ -5,7 +5,6 @@ import cmb.data_desi_compression as cmb
 import y2024BBN.prior_lcdm_chen as bbn
 from y2024DES.data import get_data, effective_sample_size as sn_size
 from y2025BAO.data import get_data as get_bao_data
-from y2024DESBAO.data import get_data as get_des_bao_data
 
 c = cmb.c  # Speed of light in km/s
 Orh2 = cmb.Omega_r_h2()
@@ -16,7 +15,6 @@ theta_stx100_err = 0.00031
 
 sn_legend, z_cmb, z_hel, mu_values, cov_matrix_sn = get_data()
 bao_legend, bao_data, cov_matrix_bao = get_bao_data()
-des_bao_legend, des_bao_data = get_des_bao_data()
 
 cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
 cho_bao = cho_factor(cov_matrix_bao, lower=True)[0]
@@ -71,7 +69,6 @@ def DV_z(z, theta):
 
 qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
 quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int64)
-bao_des_qty = np.array([qty_map[q] for q in des_bao_data["quantity"]], dtype=np.int64)
 
 
 def bao_theory(z, qty, theta):
@@ -115,11 +112,7 @@ def chi_squared(theta):
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, theta)
     chi_bao = solve_triang(cho_bao, delta_bao)
 
-    delta_bao_DES = des_bao_data["value"] - bao_theory(
-        des_bao_data["z"], bao_des_qty, theta
-    )
-    chi2_bao_DES = np.sum((delta_bao_DES / des_bao_data["error"]) ** 2)
-    return chi_sn + chi_bao + chi2_theta_100 + chi2_bbn + chi2_bao_DES
+    return chi_sn + chi_bao + chi2_theta_100 + chi2_bbn
 
 
 bounds = np.array(
@@ -202,9 +195,7 @@ def main():
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
     best_fit = np.percentile(samples, 50, axis=0)
-    degs_of_freedom = (
-        2 + len(des_bao_data["z"]) + len(bao_data["z"]) + sn_size - len(best_fit)
-    )
+    degs_of_freedom = 2 + len(bao_data["z"]) + sn_size - len(best_fit)
 
     Omh2_samples = samples[:, 1] * (samples[:, 0] / 100) ** 2
     zd_samples = cmb.z_drag(wb=samples[:, 2], wm=Omh2_samples)
@@ -233,12 +224,6 @@ def main():
         data=bao_data,
         errors=np.sqrt(np.diag(cov_matrix_bao)),
         title=bao_legend,
-    )
-    plot_bao_predictions(
-        theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
-        data=des_bao_data,
-        errors=des_bao_data["error"],
-        title=des_bao_legend,
     )
     plot_sn_predictions(
         legend=sn_legend,
