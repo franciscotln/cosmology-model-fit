@@ -93,8 +93,15 @@ def solve_triang(cho_L, delta):
     return np.dot(y, y)
 
 
+# DESY6 BAO (arXiv:2402.10696v1)
+z_eff = np.array([0.85])
+dm_over_rs = np.array([19.51])
+dm_err = np.array([0.41])
+
+
 def chi_squared(theta):
     H0, Om, Obh2 = theta[0], theta[1], theta[2]
+
     delta_cmb = cmb.DISTANCE_PRIORS[:2] - cmb.cmb_distances(Ez, theta, H0, Om, Obh2)[:2]
     chi2_cmb = solve_triang(cho_cmb, delta_cmb)
 
@@ -103,7 +110,11 @@ def chi_squared(theta):
 
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, theta)
     chi_bao = solve_triang(cho_bao, delta_bao)
-    return chi_sn + chi_bao + chi2_cmb
+
+    delta_bao_DES = dm_over_rs - bao_theory(z_eff, np.array([1]), theta)
+    chi2_bao_DES = np.sum((delta_bao_DES / dm_err) ** 2)
+
+    return chi_sn + chi_bao + chi2_cmb + chi2_bao_DES
 
 
 bounds = np.array(
@@ -178,11 +189,11 @@ def main():
     log_evd = log_evidence(samples, log_probs, log_probability, bounds)
 
     [
-        [H0_16, H0_50, H0_84],
-        [Om_16, Om_50, Om_84],
-        [Obh2_16, Obh2_50, Obh2_84],
-        [w0_16, w0_50, w0_84],
-        [dM_16, dM_50, dM_84],
+        (H0_16, H0_50, H0_84),
+        (Om_16, Om_50, Om_84),
+        (Obh2_16, Obh2_50, Obh2_84),
+        (w0_16, w0_50, w0_84),
+        (dM_16, dM_50, dM_84),
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
     best_fit = np.percentile(samples, 50, axis=0)
@@ -245,6 +256,17 @@ Chi squared: 1661.96
 Log Evidence: -847.99
 Degrees of freedom: 1746
 
+With DESY6 BAO added:
+H0: 68.44 +0.29 -0.29 km/s/Mpc
+Ωm: 0.298 +0.004 -0.004
+ωm: 0.1394 +0.0008 -0.0008
+ωb: 0.02222 +0.00014 -0.00014
+z_d: 1059.30 +0.35 -0.35
+r_d: 148.03 Mpc
+Chi squared: 1664.99
+Log Evidence: -849.52
+Degrees of freedom: 1747
+
 ===============================
 
 Flat wCDM w(z) = w0
@@ -261,6 +283,18 @@ R: 1.7304
 Chi squared: 1649.95
 Log Evidence: -845.16 (Δ logZ = 2.83 against ΛCDM)
 Degrees of freedom: 1745
+
+With DESY6 BAO added:
+H0: 66.66 +0.57 -0.57 km/s/Mpc
+Ωm: 0.307 +0.005 -0.005
+ωm: 0.1363 +0.0012 -0.0013
+ωb: 0.02224 +0.00014 -0.00014
+w0: -0.910 +0.025 -0.025
+z_d: 1059.11 +0.35 -0.35
+r_d: 148.87 Mpc
+Chi squared: 1652.73
+Log Evidence: -846.55 (Δ logZ = 2.97 against ΛCDM)
+Degrees of freedom: 1746
 
 ===============================
 
@@ -279,6 +313,18 @@ Chi squared: 1647.17
 Log Evidence: -843.38 (Δ logZ = 4.61 against ΛCDM)
 Degrees of freedom: 1745
 
+With DESY6 BAO added:
+H0: 66.52 +0.55 -0.55 km/s/Mpc
+Ωm: 0.311 +0.005 -0.005
+ωm: 0.1375 +0.0009 -0.0009
+ωb: 0.02223 +0.00014 -0.00014
+w0: -0.854 +0.037 -0.037
+z_d: 1059.19 +0.35 -0.35
+r_d: 148.54 Mpc
+Chi squared: 1649.77
+Log Evidence: -844.71 (Δ logZ = 4.81 against ΛCDM)
+Degrees of freedom: 1746
+
 ===============================
 
 Flat w(z) = w0 + wa * z / (1 + z)
@@ -296,4 +342,17 @@ R: 1.7415
 Chi squared: 1646.07
 Log Evidence: -844.47 (Δ logZ = 3.52 against ΛCDM)
 Degrees of freedom: 1744
+
+With DESY6 BAO added:
+H0: 66.70 +0.56 -0.55 km/s/Mpc
+Ωm: 0.315 +0.006 -0.006
+ωm: 0.1400 +0.0016 -0.0018
+ωb: 0.02223 +0.00014 -0.00014
+w0: -0.788 +0.060 -0.059
+wa: -0.605 +0.266 -0.280
+z_d: 1059.36 +0.36 -0.35
+r_d: 147.89 Mpc
+Chi squared: 1648.35
+Log Evidence: -845.68 (Δ logZ = 3.84 against ΛCDM)
+Degrees of freedom: 1745
 """
