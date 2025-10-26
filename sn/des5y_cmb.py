@@ -76,9 +76,9 @@ normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
 
 @njit
 def log_prior(params):
-    if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
-        return normalization
-    return -np.inf
+    if not np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
+        return -np.inf
+    return normalization
 
 
 def log_likelihood(params):
@@ -237,5 +237,21 @@ z_drag: 1059.92
 r_s(z*) = 144.13 Mpc
 r_s(z_drag) = 146.69 Mpc
 Chi squared: 1637.39 (Δ chi2 6.3 from ΛCDM)
+Degrees of freedom: 1732
+
+Flat w(z) = w0 + wa * ((1 + z)^2 - 1) / ((1 + z)^2 + 1) (reduces to w0waCDM at low z)
+ρ_de = ρ_de_0 * (1 + z)^(3 * (1 + w0)) * {2 * (1 + z) / [1 + (1 + z)^2]}^(-3 * wa)
+H0: 67.13 +1.04 -1.13 km/s/Mpc
+Ωm: 0.320 +0.012 -0.011
+ωb: 0.02235 +0.00014 -0.00015
+w0: -0.779 +0.104 -0.110
+wa: -0.724 +0.480 -0.480
+ΔM: -0.053 +0.034 -0.039
+z*: 1088.94
+z_drag: 1059.93
+r_s(z*) = 144.11 Mpc
+r_s(z_drag) = 146.68 Mpc
+Chi squared: 1637.48 (Δ chi2 6.2 from ΛCDM)
+Log evidence: -839.6
 Degrees of freedom: 1732
 """
