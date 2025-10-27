@@ -5,7 +5,7 @@ import scipy.stats as stats
 from scipy.linalg import cho_factor, solve_triangular
 from y2024DES.data import get_data, effective_sample_size
 
-legend, z_cmb_vals, z_hel_vals, observed_mu_vals, covmat = get_data()
+legend, z_cmb_vals, z_hel_vals, app_mag_vals, covmat = get_data(False)
 cho = cho_factor(covmat, lower=True)[0]
 
 c = c0 / 1000  # Speed of light (km/s)
@@ -35,7 +35,7 @@ def DM_z(z, params):
 
 
 @njit
-def theory_mu(params):
+def theory_app_mag(params):
     dL = (1 + z_hel_vals) * DM_z(z_cmb_vals, params)
     return params[0] + 25 + 5 * np.log10(dL)
 
@@ -46,7 +46,7 @@ def solve_triang(cho_L, delta):
 
 
 def chi_squared(params):
-    delta = observed_mu_vals - theory_mu(params)
+    delta = app_mag_vals - theory_app_mag(params)
     return solve_triang(cho, delta)
 
 
@@ -54,7 +54,7 @@ def log_likelihood(params):
     return -0.5 * chi_squared(params)
 
 
-bounds = np.array([(-0.2, 0.2), (0, 0.8), (-2.0, 0.0)], dtype=np.float64)  # ΔM, Ωm, w0
+bounds = np.array([(-20, -19), (0, 0.8), (-2.0, 0.0)], dtype=np.float64)  # M, Ωm, w0
 
 normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
 
@@ -84,19 +84,14 @@ def main():
     burn_in = 200
     nsteps = burn_in + 2000
     initial_state = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
+    moves = [
+        (emcee.moves.KDEMove(), 0.3),
+        (emcee.moves.DEMove(), 0.56),
+        (emcee.moves.DESnookerMove(), 0.14),
+    ]
 
     with Pool(6) as pool:
-        sampler = emcee.EnsembleSampler(
-            nwalkers=nwalkers,
-            ndim=ndim,
-            log_prob_fn=log_probability,
-            pool=pool,
-            moves=[
-                (emcee.moves.KDEMove(), 0.3),
-                (emcee.moves.DEMove(), 0.56),
-                (emcee.moves.DESnookerMove(), 0.14),
-            ],
-        )
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
         sampler.run_mcmc(initial_state, nsteps, progress=True)
 
     samples = sampler.get_chain(discard=burn_in, flat=True)
@@ -113,32 +108,32 @@ def main():
         print("Autocorrelation time could not be computed")
 
     [
-        [dM_16, dM_50, dM_84],
-        [Om_16, Om_50, Om_84],
-        [w0_16, w0_50, w0_84],
+        (M_16, M_50, M_84),
+        (Om_16, Om_50, Om_84),
+        (w0_16, w0_50, w0_84),
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
     best_fit = np.percentile(samples, 50, axis=0)
 
-    theory_mu_vals = theory_mu(best_fit)
-    residuals = observed_mu_vals - theory_mu_vals
+    theory_mu_vals = theory_app_mag(best_fit)
+    residuals = app_mag_vals - theory_mu_vals
 
     # Calculate R-squared
     ss_res = np.sum(residuals**2)
-    ss_tot = np.sum((observed_mu_vals - np.mean(observed_mu_vals)) ** 2)
+    ss_tot = np.sum((app_mag_vals - np.mean(app_mag_vals)) ** 2)
     r_squared = 1 - (ss_res / ss_tot)
 
     # Calculate root mean square deviation
     rmsd = np.sqrt(np.mean(residuals**2))
 
-    dM_label = f"{dM_50:.3f} +{dM_84-dM_50:.3f} -{dM_50-dM_16:.3f} mag"
+    M_label = f"{M_50:.3f} +{M_84-M_50:.3f} -{M_50-M_16:.3f} mag"
     Om_label = f"{Om_50:.3f} +{Om_84-Om_50:.3f} -{Om_50-Om_16:.3f}"
     w0_label = f"{w0_50:.2f} +{w0_84-w0_50:.2f} -{w0_50-w0_16:.2f}"
 
     print_color("Dataset", legend)
     print_color("z range", f"{z_cmb_vals[0]:.3f} - {z_cmb_vals[-1]:.3f}")
     print_color("Sample size", len(z_cmb_vals))
-    print_color("ΔM", dM_label)
+    print_color("M", M_label)
     print_color("Ωm", Om_label)
     print_color("w0", w0_label)
     print_color("R-squared (%)", f"{100 * r_squared:.2f}")
@@ -150,17 +145,17 @@ def main():
     y_err = np.sqrt(covmat.diagonal())
 
     plot_corner_and_chains(
-        labels=["$ΔM$", "$Ω_m$", "$w_0$"],
+        labels=["$M$", "$Ω_m$", "$w_0$"],
         flat_samples=samples,
         samples=chains_samples,
     )
     plot_predictions(
         legend=legend,
         x=z_cmb_vals,
-        y=observed_mu_vals,
+        y=app_mag_vals,
         y_err=y_err,
         y_model=theory_mu_vals,
-        label=f"Model: $Ω_m$={Om_label}",
+        label=f"$Ω_m$={Om_label}",
         x_scale="log",
     )
     plot_residuals(z_values=z_cmb_vals, residuals=residuals, y_err=y_err, bins=40)
@@ -177,53 +172,65 @@ Sample size: 1829
 ********************************
 
 Flat ΛCDM w(z) = -1
-ΔM: 0.022 +0.011 -0.011
-Ωm: 0.352 +0.017 -0.016
+M: -19.302 +0.011 -0.011 mag
+Ωm: 0.352 +0.017 -0.017
 w0: -1
 wa: 0
 R-squared (%): 98.41
 RMSD (mag): 0.263
 Skewness of residuals: 3.407
-Chi squared: 1640.08
+Chi squared: 1640.07
 Effective deg of freedom: 1733
 
 ==============================
 
 Flat wCDM w(z) = w0
-ΔM: 0.031 +0.012 -0.013
-Ωm: 0.265 +0.072 -0.094
+M: -19.292 +0.013 -0.013 mag
+Ωm: 0.266 +0.071 -0.092
 w0: -0.80 +0.14 -0.15
 wa: 0
 R-squared (%): 98.40
 RMSD (mag): 0.264
 Skewness of residuals: 3.415
-Chi squared: 1638.53
+Chi squared: 1638.52
 Effective deg of freedom: 1732
 
 ==============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)^3)
-ΔM: 0.033 +0.013 -0.013 mag
-Ωm: 0.298 +0.043 -0.044
+M: -19.290 +0.013 -0.013 mag
+Ωm: 0.298 +0.043 -0.045
 w0: -0.81 +0.11 -0.13
 wa = d w(z=0)/dz = -1.5*(1 + w0)
 R-squared (%): 98.40
 RMSD (mag): 0.264
 Skewness of residuals: 3.417
-Chi squared: 1637.97
+Chi squared: 1637.96
 Effective deg of freedom: 1732
 QH(0.1663) = -0.353 +0.032 - 0.031 with correlation: -1.6889e-06
 
 ==============================
 
 Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
-ΔM: 0.0580 +0.0173 -0.0170
-Ωm: 0.4933 +0.0313 -0.0446
-w0: -0.4021 +0.3529 -0.2997 (1.83 sigma)
-wa: -8.5853 +3.8321 -4.3735 (2.09 sigma)
+M: -19.262 +0.018 -0.018 mag
+Ωm: 0.497 +0.033 -0.043
+w0: -0.35 +0.39 -0.31 (prior width 4.5: -2.5 to 2.0)
+wa: -9.08 +3.90 -4.81 (prior width 40: -30 to 10)
+R-squared (%): 98.40
+RMSD (mag): 0.264
+Skewness of residuals: 3.454
+Chi squared: 1631.98
+Effective deg of freedom: 1731
+
+Flat w(z) = w0 + wa * ((1 + z)^2 - 1) / ((1 + z)^2 + 1) (reduces to w0waCDM at low z)
+ρ_de = ρ_de_0 * (1 + z)^(3 * (1 + w0)) * {2 * (1 + z) / [1 + (1 + z)^2]}^(-3 * wa)
+M: -19.263 +0.018 -0.018 mag
+Ωm: 0.498 +0.033 -0.040
+w0: -0.39 +0.36 -0.29 (prior width 4.5: -2.5 to 2.0)
+wa: -8.12 +3.39 -4.31 (prior width 40: -30 to 10)
 R-squared (%): 98.40
 RMSD (mag): 0.264
 Skewness of residuals: 3.453
-Chi squared: 1632.74
+Chi squared: 1631.95
 Effective deg of freedom: 1731
 """

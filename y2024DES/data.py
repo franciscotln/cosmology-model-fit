@@ -8,7 +8,16 @@ path_to_data = os.path.dirname(os.path.abspath(__file__)) + "/raw-data/"
 data_frame = pd.read_csv(path_to_data + "distances.csv")
 covariance_file = pd.read_csv(path_to_data + "covariance_stat_sys.txt.zip")
 selected_columns = data_frame[
-    ["zHD", "zHEL", "MU", "MUERR_FINAL", "PROB_SNNV19", "PROBCC_BEAMS", "IDSURVEY"]
+    [
+        "zHD",
+        "zHEL",
+        "MU",
+        "MUERR_FINAL",
+        "mB_corr",
+        "PROB_SNNV19",
+        "PROBCC_BEAMS",
+        "IDSURVEY",
+    ]
 ]
 
 n = selected_columns["zHD"].size
@@ -34,11 +43,12 @@ effective_sample_size = np.round((1 - selected_columns["PROBCC_BEAMS"]).sum()).a
 )
 
 
-def get_data():
+def get_data(mu=True):
+    distance = selected_columns["MU"] if mu else selected_columns["mB_corr"]
     return (
         f"DES-SN5YR - effective: {effective_sample_size} SNe",
         z_values[sort_indices],
         z_hel_values[sort_indices],
-        selected_columns["MU"].to_numpy(dtype=np.float64)[sort_indices],
+        distance.to_numpy(dtype=np.float64)[sort_indices],
         covariance_matrix[sort_indices, :][:, sort_indices],
     )
