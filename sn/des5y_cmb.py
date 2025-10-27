@@ -7,7 +7,7 @@ import cmb.data_chen_compression as cmb
 c = cmb.c  # km/s
 Or_h2 = cmb.Omega_r_h2()
 
-sn_legend, z_cmb, z_hel, mu_values, cov_matrix_sn = get_data()
+sn_legend, z_cmb, z_hel, app_mag_vals, cov_matrix_sn = get_data(False)
 
 cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
 cho_cmb = cho_factor(cmb.covariance, lower=True)[0]
@@ -37,7 +37,7 @@ def DM_z(z, theta):
 
 
 @njit
-def theory_mu(params):
+def theory_app_mag(params):
     dL = (1 + z_hel) * DM_z(z_cmb, params)
     return params[-1] + 25 + 5 * np.log10(dL)
 
@@ -53,7 +53,7 @@ def chi_squared(params):
     delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez, params, H0, Om, Ob_h2)
     chi2_cmb = solve_triang(cho_cmb, delta)
 
-    delta_sn = mu_values - theory_mu(params)
+    delta_sn = app_mag_vals - theory_app_mag(params)
     chi_sn = solve_triang(cho_sn, delta_sn)
 
     return chi2_cmb + chi_sn
@@ -65,7 +65,7 @@ bounds = np.array(
         (0.1, 0.6),  # Ωm
         (0.019, 0.025),  # Ωb * h^2
         (-1.5, 0.0),  # w0
-        (-0.7, 0.7),  # ΔM
+        (-20.0, -19.0),  # M
     ],
     dtype=np.float64,
 )
@@ -136,7 +136,7 @@ def main():
         (Om_16, Om_50, Om_84),
         (Obh2_16, Obh2_50, Obh2_84),
         (w0_16, w0_50, w0_84),
-        (dM_16, dM_50, dM_84),
+        (M_16, M_50, M_84),
     ] = pct
 
     best_fit = np.percentile(samples, 50, axis=0)
@@ -149,7 +149,7 @@ def main():
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"ωb: {Obh2_50:.5f} +{(Obh2_84 - Obh2_50):.5f} -{(Obh2_50 - Obh2_16):.5f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
-    print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f}")
+    print(f"M: {M_50:.3f} +{(M_84 - M_50):.3f} -{(M_50 - M_16):.3f}")
     print(f"z*: {z_st:.2f}")
     print(f"z_drag: {z_dr:.2f}")
     print(f"r_s(z*) = {cmb.rs_z(Ez, z_st, best_fit, H0_50, Obh2_50):.2f} Mpc")
@@ -160,14 +160,14 @@ def main():
     plot_sn_predictions(
         legend=sn_legend,
         x=z_cmb,
-        y=mu_values,
+        y=app_mag_vals - M_50,
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=theory_mu(best_fit),
+        y_model=theory_app_mag(best_fit) - M_50,
         label=f"$Ω_m$={Om_50:.3f}",
         x_scale="log",
     )
     plot_corner_and_chains(
-        labels=["$H_0$", "$Ω_m$", "$Ω_b h^2$", "$w_0$", "$Δ_M$"],
+        labels=["$H_0$", "$Ω_m$", "$ω_b$", "$w_0$", "$M$"],
         flat_samples=samples,
         samples=chains_samples,
     )
@@ -178,80 +178,81 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM w(z) = -1
-H0: 66.85 +0.54 -0.53 km/s/Mpc
-Ωm: 0.324 +0.008 -0.008
-Ωb h^2: 0.02227 +0.00014 -0.00014
+H0: 66.86 +0.53 -0.53 km/s/Mpc
+Ωm: 0.324 +0.008 -0.007
+ωb: 0.02227 +0.00014 -0.00014
 w0: -1
-ΔM: -0.095 +0.013 -0.013
+M: -19.418 +0.013 -0.013
 z*: 1089.09
-z_drag: 1059.81
-r_s(z*) = 143.93 Mpc
-r_s(z_drag) = 146.52 Mpc
-Chi squared: 1643.67
-Log evidence: -838.5
+z_drag: 1059.82
+r_s(z*) = 143.92 Mpc
+r_s(z_drag) = 146.50 Mpc
+Chi squared: 1643.66
+Log evidence: -838.1
 Degrees of freedom: 1734
 
 ===============================
 
 Flat wCDM w(z) = w0
-H0: 65.72 +0.75 -0.75 km/s/Mpc
+H0: 65.72 +0.75 -0.74 km/s/Mpc
 Ωm: 0.333 +0.009 -0.009
-ωb: 0.02236 +0.00015 -0.00015
-w0: -0.942 +0.027 -0.028
-ΔM: -0.112 +0.015 -0.016
-z*: 1088.91
+ωb: 0.02237 +0.00014 -0.00015
+w0: -0.942 +0.027 -0.027 (prior width 1.5: -1.5 to 0.0)
+M: -19.435 +0.015 -0.015
+z*: 1088.90
 z_drag: 1059.94
 r_s(z*) = 144.17 Mpc
 r_s(z_drag) = 146.73 Mpc
-Chi squared: 1639.35 (Δ chi2 4.3 from ΛCDM)
-Log evidence: -839.4
+Chi squared: 1639.33
+Log evidence: -839.0
 Degrees of freedom: 1733
 
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-H0: 65.90 +0.67 -0.66 km/s/Mpc
+H0: 65.89 +0.67 -0.66 km/s/Mpc
 Ωm: 0.331 +0.008 -0.008
-ωb: 0.02237 +0.00015 -0.00014
-w0: -0.907 +0.040 -0.041
-ΔM: -0.102 +0.013 -0.013
+ωb: 0.02237 +0.00014 -0.00015
+w0: -0.907 +0.040 -0.040 (prior width 1.5: -1.5 to 0.0)
+M: -19.426 +0.013 -0.013
 z*: 1088.90
-z_drag: 1059.94
+z_drag: 1059.95
 r_s(z*) = 144.18 Mpc
 r_s(z_drag) = 146.74 Mpc
-Chi squared: 1638.69 (Δ chi2 5.0 from ΛCDM)
-Log evidence: -838.7
+Chi squared: 1638.68
+Log evidence: -838.3
 Degrees of freedom: 1733
 
 ===============================
 
 Flat w(z) = w0 + wa * z / (1 + z)
-H0: 67.11 +1.00 -1.09 km/s/Mpc
-Ωm: 0.320 +0.011 -0.010
-ωb: 0.02235 +0.00015 -0.00015
-w0: -0.765 +0.108 -0.115
-wa: -0.888 +0.575 -0.555
-ΔM: -0.054 +0.034 -0.038
+H0: 67.06 +1.04 -1.12 km/s/Mpc
+Ωm: 0.320 +0.012 -0.011
+ωb: 0.02235 +0.00014 -0.00014
+w0: -0.770 +0.110 -0.115 (prior width 1.5: -1.5 to 0.0)
+wa: -0.865 +0.572 -0.570 (prior width 6.5: -4.0 to 2.5)
+M: -19.378 +0.034 -0.039
 z*: 1088.94
-z_drag: 1059.92
-r_s(z*) = 144.13 Mpc
+z_drag: 1059.93
+r_s(z*) = 144.12 Mpc
 r_s(z_drag) = 146.69 Mpc
-Chi squared: 1637.39 (Δ chi2 6.3 from ΛCDM)
+Chi squared: 1637.60
+Log evidence: -838.2
 Degrees of freedom: 1732
 
 Flat w(z) = w0 + wa * ((1 + z)^2 - 1) / ((1 + z)^2 + 1) (reduces to w0waCDM at low z)
 ρ_de = ρ_de_0 * (1 + z)^(3 * (1 + w0)) * {2 * (1 + z) / [1 + (1 + z)^2]}^(-3 * wa)
-H0: 67.13 +1.04 -1.13 km/s/Mpc
+H0: 67.13 +1.04 -1.12 km/s/Mpc
 Ωm: 0.320 +0.012 -0.011
-ωb: 0.02235 +0.00014 -0.00015
-w0: -0.779 +0.104 -0.110
-wa: -0.724 +0.480 -0.480
-ΔM: -0.053 +0.034 -0.039
+ωb: 0.02235 +0.00015 -0.00015
+w0: -0.780 +0.105 -0.108
+wa: -0.722 +0.472 -0.479
+M: -19.377 +0.034 -0.039
 z*: 1088.94
-z_drag: 1059.93
-r_s(z*) = 144.11 Mpc
+z_drag: 1059.92
+r_s(z*) = 144.12 Mpc
 r_s(z_drag) = 146.68 Mpc
-Chi squared: 1637.48 (Δ chi2 6.2 from ΛCDM)
-Log evidence: -839.6
+Chi squared: 1637.47
+Log evidence: -838.4
 Degrees of freedom: 1732
 """

@@ -115,8 +115,8 @@ def main():
 
     best_fit = np.percentile(samples, 50, axis=0)
 
-    theory_mu_vals = theory_app_mag(best_fit)
-    residuals = app_mag_vals - theory_mu_vals
+    theory_app_mag_vals = theory_app_mag(best_fit)
+    residuals = app_mag_vals - theory_app_mag_vals
 
     # Calculate R-squared
     ss_res = np.sum(residuals**2)
@@ -152,9 +152,9 @@ def main():
     plot_predictions(
         legend=legend,
         x=z_cmb_vals,
-        y=app_mag_vals,
+        y=app_mag_vals - M_50,
         y_err=y_err,
-        y_model=theory_mu_vals,
+        y_model=theory_app_mag_vals - M_50,
         label=f"$Ω_m$={Om_label}",
         x_scale="log",
     )
