@@ -21,7 +21,7 @@ def H_z(z, params):
     OL = 1 - Om
     one_plus_z = 1 + z
     cubed = one_plus_z**3
-    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
+    rho_de = (2 * cubed**2 / (1 + cubed**2)) ** (1 + w0)
     return 100 * h * np.sqrt(Om * cubed + OL * rho_de)
 
 
@@ -140,7 +140,9 @@ def main():
     samples = sampler.get_chain(discard=burn_in, flat=True)
     chain_samples = sampler.get_chain(discard=burn_in, flat=False)
     print("Gelman-Rubin:", gelman_rubin(chain_samples))
-    print(f"Log evidence: {log_evidence(samples, log_probs, log_probability, bounds):.2f}")
+    print(
+        f"Log evidence: {log_evidence(samples, log_probs, log_probability, bounds):.2f}"
+    )
 
     [
         [h_16, h_50, h_84],
@@ -212,16 +214,16 @@ RMSD: 0.279
 
 ===============================
 
-Flat alternative: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
+Flat alternative: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**6)
 rd: 147.09 Mpc (fixed)
-h: 0.670 +0.016 -0.015
-Ωm: 0.308 +0.012 -0.011
-w0: -0.832 +0.118 -0.127 (prior width 1.5: from -1.5 to 0.0)
-Chi squared: 8.44
+h: 0.655 +0.022 -0.021
+Ωm: 0.323 +0.018 -0.018
+w0: -0.626 +0.225 -0.237
+Chi squared: 7.87
+Log evidence: -12.83
 Degs of freedom: 10
-Log evidence: -13.77
-R^2: 0.9990
-RMSD: 0.265
+R^2: 0.9991
+RMSD: 0.251
 
 ===============================
 

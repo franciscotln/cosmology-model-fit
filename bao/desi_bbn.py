@@ -26,7 +26,7 @@ def Ez(z, params):
     OL = 1 - Om - Or
     one_plus_z = 1 + z
     cubic = one_plus_z**3
-    rho_de = (2 * cubic / (1 + cubic)) ** (2 * (1 + w0))
+    rho_de = (2 * cubic**2 / (1 + cubic**2)) ** (1 + w0)
     return np.sqrt(Or * one_plus_z**4 + Om * cubic + OL * rho_de)
 
 
@@ -235,16 +235,16 @@ RMSD: 0.281
 
 ===============================
 
-Flat alternative: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-H0: 65.65 +2.18 -2.05 km/s/Mpc
+Flat alternative: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**6)
+H0: 64.25 +2.78 -2.50 km/s/Mpc
 ωb: 0.02190 +0.00025 -0.00025
-ωm: 0.13271 +0.00703 -0.00669
-Ωm: 0.3076 +0.0118 -0.0115
-w0: -0.834 +0.121 -0.127
-r_d: 150.20 Mpc
-z_d: 1058.08 +0.81 -0.81
-Chi squared: 8.42
+ωm: 0.13321 +0.00623 -0.00592
+Ωm: 0.3224 +0.0189 -0.0185
+w0: -0.628 +0.230 -0.245
+r_d: 150.06 Mpc
+z_d: 1058.11 +0.78 -0.78
+Chi squared: 7.86
 Degs of freedom: 10
-R^2: 0.9990
-RMSD: 0.266
+R^2: 0.9991
+RMSD: 0.251
 """
