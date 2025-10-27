@@ -15,7 +15,7 @@ cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
 cho_bao = cho_factor(cov_matrix_bao, lower=True)[0]
 
 """
-Planck compressed priors without ωm = Ωm * h^2 (arXiv:2503.14738v2)
+Planck compressed priors for θ* and ωb, without ωm = Ωm * h^2 (arXiv:2503.14738v2)
 This way we allow for the ratio ωb / ωm to vary freely independently from Planck.
 """
 cho_cmb = cho_factor(cmb.covariance[:2, :2], lower=True)[0]
@@ -31,7 +31,7 @@ def Ez(z, theta):
     z_plus_1 = 1 + z
     Or = Orh2 / h**2
     cubed = z_plus_1**3
-    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
+    rho_de = (2 * cubed**2 / (1 + cubed**2)) ** (1 + w0)
     return np.sqrt(Or * z_plus_1**4 + Om * cubed + (1 - Om) * rho_de)
 
 
@@ -258,16 +258,16 @@ Degs of freedom: 32
 
 ===============================
 
-Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-H0: 66.20 +0.81 -0.81 km/s/Mpc
-Ωm: 0.314 +0.007 -0.007
-ωm: 0.1376 +0.0010 -0.0010
-ωb: 0.02223 +0.00014 -0.00014
-w0: -0.837 +0.055 -0.054 (prior width 1.5: -1.5 to 0.0)
-z_d: 1059.20 +0.35 -0.35
-r_d: 148.51 Mpc
-Chi squared: 31.29
-Log Evidence: -32.66 (Δ logZ = 1.84 against ΛCDM)
+Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**6)
+H0: 65.77 +0.88 -0.86 km/s/Mpc
+Ωm: 0.319 +0.008 -0.008
+ωm: 0.1381 +0.0009 -0.0009
+ωb: 0.02224 +0.00014 -0.00014
+w0: -0.730 +0.084 -0.083 (prior width 1.5: -1.5 to 0.0)
+z_d: 1059.23 +0.35 -0.35
+r_d: 148.38 Mpc
+Chi squared: 29.81
+Log Evidence: -31.47 (Δ logZ = 3.03 against ΛCDM)
 Degs of freedom: 32
 
 ===============================
