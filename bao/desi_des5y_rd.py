@@ -22,7 +22,7 @@ dx = np.diff(z_grid)
 def Ez(z, params):
     Om, w0 = params[3], params[4]
     inv_a3 = (1 + z) ** 3
-    rho_de = (2 * inv_a3 / (1 + inv_a3)) ** (2 * (1 + w0))
+    rho_de = (2 * inv_a3**2 / (1 + inv_a3**2)) ** (1 + w0)
 
     return np.sqrt(Om * inv_a3 + (1 - Om) * rho_de)
 
@@ -242,14 +242,15 @@ Degrees of freedom: 1744
 
 ===============================
 
-Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-ΔM: -0.061 +0.012 -0.012 mag
-r_d: 147.09 +0.45 -0.44 Mpc
-H0: 67.05 +0.59 -0.58 km/s/Mpc
-Ωm: 0.307 +0.008 -0.008
-w0: -0.834 +0.044 -0.045 (prior width 1.5: -1.5 to 0.0)
-Chi squared: 1646.5
-Log evidence: -841.7 (Δ logZ = 3.7 against ΛCDM)
+Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**6)
+ΔM: -0.059 +0.012 -0.012 mag
+r_d: 147.09 +0.44 -0.45 Mpc
+H0: 66.96 +0.60 -0.60 km/s/Mpc
+Ωm: 0.312 +0.008 -0.008
+w0: -0.777 +0.058 -0.059 (prior width 1.5: -1.5 to 0.0)
+wa: d w(z)/dz at z=0 = -3.0 * (1 + w0)
+Chi squared: 1645.7
+Log evidence: -841.1 (Δ logZ = 4.3 against ΛCDM)
 Degrees of freedom: 1744
 
 ===============================

@@ -26,7 +26,7 @@ def H_z(z, params):
     OL = 1 - Om
     one_plus_z = 1 + z
     cubed = one_plus_z**3
-    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
+    rho_de = (2 * cubed**2 / (1 + cubed**2)) ** (1 + w0)
     return 100 * h * np.sqrt(Om * cubed + OL * rho_de)
 
 
@@ -63,12 +63,7 @@ def bao_theory(z, qty, params):
     return results / params[3]
 
 
-qty_map = {
-    "DV_over_rs": 0,
-    "DM_over_rs": 1,
-    "DH_over_rs": 2,
-}
-
+qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
 quantities = np.array([qty_map[q] for q in data["quantity"]], dtype=np.int32)
 
 
@@ -229,15 +224,15 @@ RMSD: 0.282
 
 ===============================
 
-Flat alternative: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-h: 0.681 +0.013 -0.013
-Ωm: 0.308 +0.012 -0.012
-Ωm h^2: 0.1430 +0.0011 -0.0011
-Ωb h^2 (inferred): 0.02512
-w0: -0.832 +0.121 -0.128
-rd: 144.70 +1.94 -1.94
-Chi squared: 8.44
+Flat alternative: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**6)
+h: 0.666 +0.020 -0.019
+Ωm: 0.323 +0.019 -0.019
+ωm: 0.1430 +0.0011 -0.0011
+w0: -0.626 +0.232 -0.245
+wa: d w(z)/dz at z=0 = -3.0 * (1 + w0)
+rd: 144.83 +1.73 -1.72
+Chi squared: 7.88
 Degs of freedom: 10
-R^2: 0.9990
-RMSD: 0.266
+R^2: 0.9991
+RMSD: 0.252
 """

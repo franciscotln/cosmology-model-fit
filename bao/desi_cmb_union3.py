@@ -26,7 +26,7 @@ def Ez(z, params):
     Or = Or_h2 / h**2
     Ode = 1 - Om - Or
     one_plus_z = 1 + z
-    rho_de = (2 * one_plus_z**3 / (1 + one_plus_z**3)) ** (2 * (1 + w0))
+    rho_de = (2 * one_plus_z**6 / (1 + one_plus_z**6)) ** (1 + w0)
 
     return np.sqrt(Or * one_plus_z**4 + Om * one_plus_z**3 + Ode * rho_de)
 
@@ -280,19 +280,20 @@ Degs of freedom: 33
 
 ===============================
 
-Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
+Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**6)
 
-H0: 66.8 +0.8 -0.8 km/s/Mpc
-Ωm: 0.313 +0.007 -0.007
+H0: 66.2 +0.9 -0.9 km/s/Mpc
+Ωm: 0.320 +0.008 -0.008
 ωb: 0.02261 +0.00012 -0.00012
-ωm: 0.14003 +0.00072 -0.00072
-w0: -0.888 +0.052 -0.052 (prior width 1.5: -1.5 to 0.0)
-z*: 1091.30 +0.19 -0.19
-r*: 144.79 Mpc
-z_d: 1060.22 +0.27 -0.28
-r_d: 147.55 Mpc
-Chi squared: 39.44
-Log evidence: -36.1 (Δ logZ = -0.2 in favour of ΛCDM)
+ωm: 0.14013 +0.00068 -0.00067
+w0: -0.779 +0.083 -0.083 (prior width 1.5: -1.5 to 0.0)
+wa: d w(z)/dz at z=0 = -3.0 * (1 + w0)
+z*: 1091.32 +0.19 -0.19
+r*: 144.77 Mpc
+z_d: 1060.21 +0.27 -0.27
+r_d: 147.54 Mpc
+Chi squared: 36.93
+Log evidence: -34.4 (Δ logZ = 1.5 against ΛCDM)
 Degs of freedom: 33
 
 ===============================

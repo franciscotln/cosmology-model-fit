@@ -31,7 +31,7 @@ def Ez(z, theta):
     Or = Orh2 / h**2
     Ode = 1 - Om - Or
     cubed = z_plus_1**3
-    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
+    rho_de = (2 * cubed**2 / (1 + cubed**2)) ** (1 + w0)
     return np.sqrt(Or * z_plus_1**4 + Om * cubed + Ode * rho_de)
 
 
@@ -260,20 +260,6 @@ Chi squared: 1661.97
 Log Evidence: -846.94
 Degrees of freedom: 1746
 
-With DESY6 BAO:
-H0: 68.46 +0.35 -0.35 km/s/Mpc
-Ωm: 0.298 +0.004 -0.004
-ωm: 0.1396 +0.0009 -0.0009
-ωb: 0.02224 +0.00032 -0.00032
-z_d: 1059.35 +0.75 -0.76
-r_d: 147.97 Mpc
-z*: 1088.75 +0.33 -0.32
-r*: 145.34 Mpc
-100 θ*: 1.04114
-Chi squared: 1665.00
-Log Evidence: -848.48
-Degrees of freedom: 1747
-
 ===============================
 
 Flat wCDM w(z) = w0
@@ -291,53 +277,22 @@ Chi squared: 1649.91
 Log Evidence: -844.08 (Δ logZ = 2.86 against ΛCDM)
 Degrees of freedom: 1745
 
-With DESY6 BAO:
-H0: 66.72 +0.60 -0.59 km/s/Mpc
-Ωm: 0.307 +0.005 -0.005
-ωm: 0.1365 +0.0013 -0.0013
-ωb: 0.02236 +0.00032 -0.00032
-w0: -0.909 +0.025 -0.025
-z_d: 1059.40 +0.76 -0.76
-r_d: 148.71 Mpc
-z*: 1088.41 +0.34 -0.33
-r*: 146.09 Mpc
-100 θ*: 1.04105
-Chi squared: 1652.67
-Log Evidence: -845.47 (Δ logZ = 3.01 against ΛCDM)
-Degrees of freedom: 1746
-
 ===============================
 
-Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-H0: 66.54 +0.58 -0.58 km/s/Mpc
-Ωm: 0.312 +0.005 -0.005
-ωm: 0.1380 +0.0010 -0.0010
-ωb: 0.02235 +0.00032 -0.00031
-w0: -0.855 +0.037 -0.037 (prior width 1.5: -1.5 to 0.0)
-wa: d w(z)/dz at (z=0) = -1.5 * (1 + w0) = -0.2175 +/- 0.0555
-z_d: 1059.48 +0.75 -0.75
-r_d: 148.31 Mpc
-z*: 1088.53 +0.33 -0.32
-r*: 145.70 Mpc
-100 θ*: 1.04111
-Chi squared: 1647.13
-Log Evidence: -842.31 (Δ logZ = 4.63 against ΛCDM)
+Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**6)
+H0: 66.46 +0.57 -0.57 km/s/Mpc
+Ωm: 0.314 +0.006 -0.006
+ωm: 0.1385 +0.0010 -0.0010
+ωb: 0.02233 +0.00032 -0.00032
+w0: -0.789 +0.052 -0.051 (prior width 1.5: -1.5 to 0.0)
+z_d: 1059.49 +0.75 -0.76
+r_d: 148.19 Mpc +0.52 -0.52
+z*: 1088.58 +0.32 -0.32
+r*: 145.57 Mpc
+100 θ*: 1.04109
+Chi squared: 1645.86
+Log Evidence: -841.33 (Δ logZ = 5.61 against ΛCDM)
 Degrees of freedom: 1745
-
-With DESY6 BAO:
-H0: 66.58 +0.58 -0.57 km/s/Mpc
-Ωm: 0.311 +0.005 -0.005
-ωm: 0.1378 +0.0010 -0.0010
-ωb: 0.02235 +0.00032 -0.00032
-w0: -0.853 +0.036 -0.037
-z_d: 1059.46 +0.76 -0.76
-r_d: 148.38 Mpc
-z*: 1088.51 +0.33 -0.32
-r*: 145.76 Mpc
-100 θ*: 1.04108
-Chi squared: 1649.74
-Log Evidence: -843.63 (Δ logZ = 4.85 against ΛCDM)
-Degrees of freedom: 1746
 
 ===============================
 
@@ -356,20 +311,4 @@ r*: 145.14 Mpc
 Chi squared: 1645.85
 Log Evidence: -843.38 (Δ logZ = 3.56 against ΛCDM)
 Degrees of freedom: 1744
-
-With DESY6 BAO:
-H0: 66.75 +0.58 -0.56 km/s/Mpc
-Ωm: 0.315 +0.006 -0.006
-ωm: 0.1402 +0.0017 -0.0018
-ωb: 0.02231 +0.00032 -0.00032
-w0: -0.787 +0.061 -0.060
-wa: -0.606 +0.273 -0.281
-z_d: 1059.54 +0.74 -0.76
-r_d: 147.77 Mpc
-z*: 1088.72 +0.35 -0.34
-r*: 145.16 Mpc
-100 θ*: 1.04096
-Chi squared: 1648.35
-Log Evidence: -844.66 (Δ logZ = 3.82 against ΛCDM)
-Degrees of freedom: 1745
 """

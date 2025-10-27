@@ -12,7 +12,6 @@ cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
 cho_bao = cho_factor(bao_cov_matrix, lower=True)[0]
 
 c = c0 / 1000  # Speed of light in km/s
-rd = 147.09  # Mpc, fixed
 
 z_max = max(np.max(z_sn_vals), np.max(bao_data["z"])) + 0.1
 z_grid = np.linspace(0, z_max, num=1200)
@@ -21,10 +20,10 @@ dx = np.diff(z_grid)
 
 @njit
 def Ez(z, params):
-    Om, w0 = params[2], params[3]
+    Om, w0, wa = params[3], params[4], params[5]
     inv_a = 1 + z
     cubic = inv_a**3
-    rho_de = (2 * cubic / (1 + cubic)) ** (2 * (1 + w0))
+    rho_de = (2 * cubic**2 / (1 + cubic**2)) ** (1 + w0)
     return np.sqrt(Om * cubic + (1 - Om) * rho_de)
 
 
@@ -36,7 +35,7 @@ def mu_theory(params):
 
 @njit
 def H_z(z, params):
-    return params[1] * Ez(z, params)
+    return params[2] * Ez(z, params)
 
 
 @njit
@@ -73,7 +72,7 @@ def bao_theory(z, qty, params):
     results[DH_mask] = DH_z(z[DH_mask], params)
     results[DM_mask] = DM_z(z[DM_mask], params)
     results[DV_mask] = DV_z(z[DV_mask], params)
-    return results / rd
+    return results / params[1]
 
 
 def solve_triang(cho_L, delta):
@@ -81,19 +80,31 @@ def solve_triang(cho_L, delta):
     return np.dot(y, y)
 
 
+"""
+Planck prior on sound horizon at drag epoch r_d in Mpc
+width increased by 75% to account for model dependence
+"""
+rd_planck = 147.09
+rd_planck_sigma = 1.75 * 0.26
+
+
 def chi_squared(params):
+    delta_prior = params[1] - rd_planck
+    chi_prior = (delta_prior / rd_planck_sigma) ** 2
+
     delta_sn = mu_vals - mu_theory(params)
     chi_sn = solve_triang(cho_sn, delta_sn)
 
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
     chi_bao = solve_triang(cho_bao, delta_bao)
 
-    return chi_sn + chi_bao
+    return chi_sn + chi_bao + chi_prior
 
 
 bounds = np.array(
     [
         (-0.7, 0.7),  # ΔM
+        (120, 180),  # rd
         (60, 75),  # H0
         (0.1, 0.6),  # Ωm
         (-1.5, 0.0),  # w0
@@ -159,6 +170,7 @@ def main():
     chains_samples = sampler.get_chain(discard=burn_in, flat=False)
     samples = sampler.get_chain(discard=burn_in, flat=True)
     log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
+    log_evd = log_evidence(samples, log_probs, log_probability, bounds)
 
     print("Gelman-Rubin:", gelman_rubin(chains_samples))
 
@@ -167,18 +179,22 @@ def main():
 
     [
         dM_err,
+        rd_err,
         H0_err,
         Om_err,
         w0_err,
     ] = np.diff(pct, axis=0).T
 
+    degrees_of_freedom = 1 + len(bao_data["value"]) + len(z_sn_vals) - len(best_fit)
+
     print(f"ΔM: {best_fit[0]:.3f} +{dM_err[1]:.3f} -{dM_err[0]:.3f} mag")
-    print(f"H0: {best_fit[1]:.2f} +{H0_err[1]:.2f} -{H0_err[0]:.2f} km/s/Mpc")
-    print(f"Ωm: {best_fit[2]:.3f} +{Om_err[1]:.3f} -{Om_err[0]:.3f}")
-    print(f"w0: {best_fit[3]:.3f} +{w0_err[1]:.3f} -{w0_err[0]:.3f}")
+    print(f"rd: {best_fit[1]:.2f} +{rd_err[1]:.2f} -{rd_err[0]:.2f} Mpc")
+    print(f"H0: {best_fit[2]:.2f} +{H0_err[1]:.2f} -{H0_err[0]:.2f} km/s/Mpc")
+    print(f"Ωm: {best_fit[3]:.3f} +{Om_err[1]:.3f} -{Om_err[0]:.3f}")
+    print(f"w0: {best_fit[4]:.3f} +{w0_err[1]:.3f} -{w0_err[0]:.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
-    print(f"Log Evidence: {log_evidence(samples, log_probs, log_probability, bounds):.2f}")
-    print(f"Degs of freedom: {len(bao_data['value']) + len(z_sn_vals) - len(best_fit)}")
+    print(f"Log Evidence: {log_evd:.2f}")
+    print(f"Degs of freedom: {degrees_of_freedom}")
 
     plot_bao_predictions(
         theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
@@ -196,7 +212,7 @@ def main():
         x_scale="log",
     )
     plot_corner_and_chains(
-        labels=["$Δ_M$", "$H_0$", "$Ω_m$", "$w_0$"],
+        labels=["$Δ_M$", "$r_d$", "$H_0$", "$Ω_m$", "$w_0$"],
         flat_samples=samples,
         samples=chains_samples,
     )
@@ -211,40 +227,44 @@ DESI BAO DR2 2025
 *******************************
 
 Flat ΛCDM
-H0: 68.69 +0.47 -0.47 km/s/Mpc
+rd: 147.09 +0.45 -0.44 Mpc
+H0: 68.69 +0.52 -0.51 km/s/Mpc
 Ωm: 0.304 +0.008 -0.008
 Chi squared: 38.82
-Log Evidence: -27.88
+Log Evidence: -31.83
 Degs of freedom: 32
 
 ===============================
 
 Flat wCDM
-H0: 67.12 +0.75 -0.73 km/s/Mpc
+rd: 147.09 +0.45 -0.44 Mpc
+H0: 67.12 +0.77 -0.76 km/s/Mpc
 Ωm: 0.298 +0.009 -0.009
-w0: -0.866 +0.051 -0.051 (prior width 1.5: -1.5 to 0.0)
+w0: -0.865 +0.049 -0.051 (prior width 1.5: -1.5 to 0.0)
 Chi squared: 32.16
-Log Evidence: -27.01 (Δ logZ = 0.87 over ΛCDM)
+Log Evidence: -30.96 (Δ logZ = 0.87 against ΛCDM)
 Degs of freedom: 31
 
 ===============================
 
-Flat -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-H0: 66.66 +0.82 -0.80 km/s/Mpc
-Ωm: 0.310 +0.009 -0.008
-w0: -0.802 +0.066 -0.066 (prior width 1.5: -1.5 to 0.0)
-Chi squared: 30.37
-Log Evidence: -25.86 (Δ logZ = 2.02 over ΛCDM)
+Flat -1 + 2 * (1 + w0) / (1 + (1 + z)**6)
+rd: 147.09 +0.44 -0.45 Mpc
+H0: 66.29 +0.91 -0.90 km/s/Mpc
+Ωm: 0.317 +0.010 -0.009
+w0: -0.707 +0.094 -0.093 (prior width 1.5: -1.5 to 0.0)
+Chi squared: 29.42
+Log Evidence: -29.00 (Δ logZ = 2.83 over ΛCDM)
 Degs of freedom: 31
 
 ===============================
 
 Flat w0waCDM
-H0: 66.21 +0.90 -0.88 km/s/Mpc
+rd: 147.09 +0.44 -0.45 Mpc
+H0: 66.20 +0.92 -0.90 km/s/Mpc
 Ωm: 0.331 +0.016 -0.017
-w0: -0.697 +0.112 -0.108 (prior width 1.5: -1.5 to 0.0)
-wa: -1.008 +0.549 -0.551 (prior width 4.0: -3.0 to 1.0)
+w0: -0.697 +0.111 -0.108 (prior width 1.5: -1.5 to 0.0)
+wa: -1.005 +0.548 -0.548 (prior width 4.0: -3.0 to 1.0)
 Chi squared: 28.79
-Log Evidence: -26.40 (Δ logZ = 1.48 over ΛCDM)
+Log Evidence: -30.34 (Δ logZ = 1.49 over ΛCDM)
 Degs of freedom: 30
 """
