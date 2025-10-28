@@ -235,7 +235,11 @@ if __name__ == "__main__":
     main()
 
 """
-Compressed priors: (R, π/θ*, ωb)CMB for ΛCDM
+*******************************
+DESI DR2 + DES5Y + (R, π/θ*, ωb)CMB
+*******************************
+
+Compressed priors for ΛCDM
 Flat ΛCDM w(z) = -1
 ΔM: -0.059 +0.008 -0.008 mag
 H0: 68.40 +0.28 -0.28 km/s/Mpc
@@ -246,7 +250,7 @@ w0: -1
 wa: 0
 r*: 144.60 Mpc
 z*: 1088.62 +0.14 -0.14
-r_d: 147.13 Mpc
+r_d: 147.13 Mpc (1.0175 x r*)
 z_d: 1060.11 +0.27 -0.27
 Chi squared: 1664.85
 Log evidence: -849.5
@@ -254,8 +258,8 @@ Degrees of freedom: 1747
 
 ===============================
 
-Compressed priors: (R, π/θ*, ωb)CMB for wCDM
-Flat wCDM w(z) = w0
+Compressed priors for wCDM
+Flat wDM w(z) = w0
 ΔM: -0.073 +0.010 -0.010
 H0: 67.40 +0.54 -0.53 km/s/Mpc
 Ωm: 0.3097 +0.0049 -0.0048
@@ -265,7 +269,7 @@ w0: -0.950 +0.022 -0.022 (prior width 1.5: -1.5 to 0.0)
 wa: 0
 r*: 144.83 Mpc
 z*: 1088.43 +0.16 -0.16
-r_d: 147.34 Mpc
+r_d: 147.34 Mpc (1.0173 x r*)
 z_d: 1060.27 +0.28 -0.28
 Chi squared: 1659.32
 Log evidence: -850.0 (Δ logZ = -0.5 in favour of ΛCDM)
@@ -273,7 +277,7 @@ Degrees of freedom: 1746
 
 ===============================
 
-Compressed priors: (R, π/θ*, ωb)CMB for wCDM
+Compressed priors for wCDM
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**6)
 ΔM: -0.071 +0.009 -0.009
 H0: 66.70 +0.55 -0.56 km/s/Mpc
@@ -284,7 +288,7 @@ w0: -0.817 +0.051 -0.051 (prior width 1.5: -1.5 to 0.0)
 wa: d w(z)/dz at z=0 = -3 * (1 + w0)
 r*: 144.77 Mpc
 z*: 1088.47 +0.14 -0.14
-r_d: 147.28 Mpc
+r_d: 147.28 Mpc (1.0173 x r*)
 z_d: 1060.25 +0.27 -0.27
 Chi squared: 1651.87
 Log evidence: -845.4 (Δ logZ = 4.1 against ΛCDM)
@@ -292,7 +296,7 @@ Degrees of freedom: 1746
 
 ===============================
 
-Compressed priors: (R, π/θ*, ωb)CMB for ΛCDM
+Compressed priors for ΛCDM
 Flat w(z) = w0 + wa * z / (1 + z)
 ΔM: -0.055 +0.011 -0.011 mag
 H0: 66.98 +0.55 -0.55 km/s/Mpc
@@ -303,7 +307,7 @@ w0: -0.761 +0.057 -0.056 (prior width 1.5: -1.5 to 0.0)
 wa: -0.802 +0.221 -0.237 (prior width 3.5: -2.5 to 1.0)
 r*: 144.35 Mpc
 z*: 1088.79 +0.17 -0.17
-r_d: 146.90 Mpc
+r_d: 146.90 Mpc (1.0177 x r*)
 z_d: 1060.01 +0.28 -0.28
 Chi squared: 1646.86
 Log evidence: -845.4 (Δ logZ = 4.1 against ΛCDM)
