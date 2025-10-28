@@ -277,7 +277,7 @@ z_d: 1059.24 +0.35 -0.35
 r_d: 148.34 Mpc (1.018 x r*)
 z*: 1088.68 (1.0278 x z_d)
 r*: 145.64 Mpc
-R:
+R: 1.7360
 Chi squared: 1645.88
 Log Evidence: -842.39 (Δ logZ = 5.60 against ΛCDM)
 Degrees of freedom: 1745
