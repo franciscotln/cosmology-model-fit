@@ -2,7 +2,7 @@ from numba import njit
 import numpy as np
 from scipy.constants import c as c0
 from scipy.linalg import cho_factor, solve_triangular
-import y2024BBN.prior_lcdm_shonberg as bbn
+import y2024BBN.prior_lcdm_schoneberg as bbn
 from y2024DES.data import get_data, effective_sample_size as sn_size
 from y2025BAO.data import get_data as get_bao_data
 
@@ -239,6 +239,10 @@ if __name__ == "__main__":
     main()
 
 """
+*******************************
+DESI DR2 + DES5Y + BBN Schöngerg+2024
+*******************************
+
 Flat ΛCDM w(z) = -1
 H0: 68.6 +0.5 -0.5 km/s/Mpc
 Ωm: 0.3105 +0.0079 -0.0077

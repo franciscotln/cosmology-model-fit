@@ -3,7 +3,7 @@ import numpy as np
 from scipy.linalg import cho_factor, solve_triangular
 from y2025BAO.data import get_data as get_bao_data
 import cmb.data_desi_compression as cmb
-import y2024BBN.prior_lcdm_shonberg as bbn
+import y2024BBN.prior_lcdm_schoneberg as bbn
 
 c = cmb.c  # speed of light in km/s
 Or_h2 = cmb.Omega_r_h2()
