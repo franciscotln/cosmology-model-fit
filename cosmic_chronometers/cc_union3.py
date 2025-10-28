@@ -21,7 +21,7 @@ z_grid = np.linspace(0, np.max(z_sn_vals), num=1000)
 def Ez(z, params):
     Om, w0 = params[3], params[4]
     one_plus_z = 1 + z
-    rho_de = (2 * one_plus_z**3 / (1 + one_plus_z**3)) ** (2 * (1 + w0))
+    rho_de = (2 * one_plus_z**6 / (1 + one_plus_z**6)) ** (1 + w0)
     return np.sqrt(Om * one_plus_z**3 + (1 - Om) * rho_de)
 
 
@@ -65,6 +65,7 @@ def chi_squared(params):
 
 normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
 
+
 @njit
 def log_prior(params):
     if not np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
@@ -86,9 +87,9 @@ def log_probability(params):
 
 
 def main():
-    import emcee, corner
-    import matplotlib.pyplot as plt
+    import emcee
     from multiprocessing import Pool
+    from corner_plot import plot_corner_and_chains
     from log_evidence import log_evidence
     from sn.plotting import plot_predictions as plot_sn_predictions
     from .plot_predictions import plot_cc_predictions
@@ -134,7 +135,7 @@ def main():
         [w0_16, w0_50, w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = np.array([f_cc_50, dM_50, h0_50, Om_50, w0_50])
+    best_fit = np.percentile(samples, 50, axis=0)
     deg_of_freedom = z_sn_vals.size + z_cc_vals.size - len(best_fit)
 
     print(f"f_cc: {f_cc_50:.2f} +{(f_cc_84 - f_cc_50):.2f} -{(f_cc_50 - f_cc_16):.2f}")
@@ -143,7 +144,9 @@ def main():
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"w0: {w0_50:.2f} +{(w0_84 - w0_50):.2f} -{(w0_50 - w0_16):.2f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
-    print(f"Log evidence: {log_evidence(samples, log_probs, log_probability, bounds):.1f}")
+    print(
+        f"Log evidence: {log_evidence(samples, log_probs, log_probability, bounds):.1f}"
+    )
     print(f"Degrees of freedom: {deg_of_freedom}")
 
     plot_cc_predictions(
@@ -151,7 +154,7 @@ def main():
         z=z_cc_vals,
         H=H_cc_vals,
         H_err=np.sqrt(np.diag(cov_matrix_cc)) * f_cc_50,
-        label=f"{legend_cc}: $H_0$={h0_50:.1f} km/s/Mpc",
+        label=legend_cc,
     )
     plot_sn_predictions(
         legend=legend_sn,
@@ -159,33 +162,14 @@ def main():
         y=mu_vals,
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=mu_theory(best_fit),
-        label=f"Best fit: $H_0$={h0_50:.2f} km/s/Mpc, $\Omega_m$={Om_50:.4f}",
+        label=f"$H_0$={h0_50:.2f} km/s/Mpc, $\Omega_m$={Om_50:.4f}",
         x_scale="log",
     )
-    labels = ["$f_{CCH}$", "$Δ_M$", "$H_0$", "$Ω_m$", "$w_0$"]
-    corner.corner(
-        samples,
-        labels=labels,
-        quantiles=[0.159, 0.5, 0.841],
-        show_titles=True,
-        title_fmt=".3f",
-        smooth=2.0,
-        smooth1d=2.0,
-        bins=100,
-        levels=(0.393, 0.864),  # 1 and 2 sigmas in 2D
-        fill_contours=False,
-        plot_datapoints=False,
+    plot_corner_and_chains(
+        labels=["$f_{CCH}$", "$Δ_M$", "$H_0$", "$Ω_m$", "$w_0$"],
+        flat_samples=samples,
+        samples=chains_samples,
     )
-    plt.show()
-
-    plt.figure(figsize=(16, 1.5 * ndim))
-    for n in range(ndim):
-        plt.subplot2grid((ndim, 1), (n, 0))
-        plt.plot(chains_samples[:, :, n], alpha=0.3)
-        plt.ylabel(labels[n])
-        plt.xlim(0, None)
-    plt.tight_layout()
-    plt.show()
 
 
 if __name__ == "__main__":
@@ -215,24 +199,16 @@ Degrees of freedom: 50
 
 ==============================
 
-Flat alternative: w(z) = -1 + 2 * (1 + w0) / ((1 + z)**3 + 1)
+Flat alternative: w(z) = -1 + 2 * (1 + w0) / ((1 + z)**6 + 1)
 f_cc: 0.71 +0.10 -0.08
-ΔM: -0.178 +0.124 -0.125 mag
-H0: 66.3 +2.7 -2.7 km/s/Mpc
-Ωm: 0.320 +0.035 -0.034
-w0: -0.84 +0.12 -0.14
-Chi squared: 51.87
+ΔM: -0.180 +0.123 -0.124 mag
+H0: 66.1 +2.7 -2.6 km/s/Mpc
+Ωm: 0.326 +0.029 -0.028
+w0: -0.77 +0.14 -0.16
+wa = d w(z=0)/dz = -3.0*(1 + w0)
+Chi squared: 51.46
+Log evidence: -151.1
 Degrees of freedom: 50
-
-
-f_cc: 0.71 +0.10 -0.08
-ΔM: -0.176 +0.123 -0.123 mag
-H0: 66.4 +2.7 -2.6 km/s/Mpc
-Ωm: 0.319 +0.025 -0.024
-w0: -5/6 (fixed)
-wa = d w(z=0)/dz = -1.5*(1 + w0)
-Chi squared: 52.19
-Degrees of freedom: 51
 
 ==============================
 
