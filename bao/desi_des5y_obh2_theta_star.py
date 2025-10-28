@@ -15,7 +15,7 @@ cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
 cho_bao = cho_factor(cov_matrix_bao, lower=True)[0]
 
 """
-Planck compressed priors for θ* and ωb, without the shift parameter R (arXiv:2503.14738v2)
+Planck compressed priors for θ* and ωb, without the shift parameter R (arXiv:1808.05724v1)
 The geometry is constrained by θ* and the sound horizon by ωb.
 """
 cho_cmb = cho_factor(cmb.covariance_wcdm[1:, 1:], lower=True)[0]
