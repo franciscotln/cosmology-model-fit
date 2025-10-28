@@ -1,35 +1,43 @@
 from numba import njit
 import numpy as np
-from scipy.integrate import cumulative_trapezoid
-from scipy.linalg import cho_factor, cho_solve
+from scipy.linalg import cho_factor, solve_triangular
 from y2024DES.data import get_data, effective_sample_size
 from y2005cc.data import get_data as get_cc_data
 
 cc_legend, z_cc_vals, H_cc_vals, cov_matrix_cc = get_cc_data()
 sn_legend, z_cmb, z_hel, observed_mu_vals, cov_matrix_sn = get_data()
-cho_sn = cho_factor(cov_matrix_sn)
-cho_cc = cho_factor(cov_matrix_cc)
+
+cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
+cho_cc = cho_factor(cov_matrix_cc, lower=True)[0]
 logdet_cc = np.linalg.slogdet(cov_matrix_cc)[1]
 N_cc = len(z_cc_vals)
 
-grid = np.linspace(0, np.max(z_cmb), num=1000)
+grid = np.linspace(0, np.max(z_cmb) + 0.1, num=1000)
+dx = np.diff(grid)
 
 c = 299792.458  # Speed of light in km/s
 
 
 @njit
 def Ez(z, params):
-    O_m, w0 = params[3], params[4]
+    Om, w0 = params[3], params[4]
     cubed = (1 + z) ** 3
-    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
-    return np.sqrt(O_m * cubed + (1 - O_m) * rho_de)
+    rho_de = (2 * cubed**2 / (1 + cubed**2)) ** (1 + w0)
+    return np.sqrt(Om * cubed + (1 - Om) * rho_de)
 
 
+@njit
+def DM_z(z, params):
+    dh_grid = c / H_z(grid, params)
+    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    cum_dm = np.zeros(grid.size)
+    cum_dm[1:] = np.cumsum(dx * dy)
+    return np.interp(z, grid, cum_dm)
+
+
+@njit
 def theory_mu(params):
-    offset_mag, H0 = params[1], params[2]
-    integral = cumulative_trapezoid(1 / Ez(grid, params), grid, initial=0)
-    I = np.interp(z_cmb, grid, integral)
-    return offset_mag + 25 + 5 * np.log10((1 + z_hel) * (c / H0) * I)
+    return params[1] + 25 + 5 * np.log10((1 + z_hel) * DM_z(z_cmb, params))
 
 
 @njit
@@ -49,18 +57,23 @@ bounds = np.array(
 )
 
 
+def solve_triang(cho_L, delta):
+    y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
+    return np.dot(y, y)
+
+
 def chi_squared(params):
-    f_cc = params[0]
     delta_sn = observed_mu_vals - theory_mu(params)
-    chi_sn = np.dot(delta_sn, cho_solve(cho_sn, delta_sn, check_finite=False))
+    chi_sn = solve_triang(cho_sn, delta_sn)
 
     delta_cc = H_cc_vals - H_z(z_cc_vals, params)
-    chi_cc = f_cc**2 * np.dot(delta_cc, cho_solve(cho_cc, delta_cc, check_finite=False))
+    chi_cc = params[0] ** 2 * solve_triang(cho_cc, delta_cc)
 
     return chi_sn + chi_cc
 
 
 normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
+
 
 @njit
 def log_prior(params):
@@ -83,10 +96,10 @@ def log_probability(params):
 
 
 def main():
-    import emcee, corner
-    import matplotlib.pyplot as plt
+    import emcee
     from multiprocessing import Pool
     from log_evidence import log_evidence
+    from corner_plot import plot_corner_and_chains
     from sn.plotting import plot_predictions as plot_sn_predictions
     from .plot_predictions import plot_cc_predictions
 
@@ -122,6 +135,7 @@ def main():
     samples = sampler.get_chain(discard=burn_in, flat=True)
     log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
     chains_samples = sampler.get_chain(discard=burn_in, flat=False)
+    log_evd = log_evidence(samples, log_probs, log_probability, bounds)
 
     [
         [f_cc_16, f_cc_50, f_cc_84],
@@ -135,12 +149,12 @@ def main():
     deg_of_freedom = effective_sample_size + z_cc_vals.size - len(best_fit)
 
     print(f"f_cc: {f_cc_50:.2f} +{(f_cc_84 - f_cc_50):.2f} -{(f_cc_50 - f_cc_16):.2f}")
-    print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f}")
-    print(f"H0: {h0_50:.1f} +{(h0_84 - h0_50):.1f} -{(h0_50 - h0_16):.1f}")
+    print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
+    print(f"H0: {h0_50:.1f} +{(h0_84 - h0_50):.1f} -{(h0_50 - h0_16):.1f} km/s/Mpc")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
-    print(f"Log evidence: {log_evidence(samples, log_probs, log_probability, bounds):.1f}")
+    print(f"Log evidence: {log_evd:.1f}")
     print(f"Degrees of freedom: {deg_of_freedom}")
 
     plot_cc_predictions(
@@ -159,31 +173,11 @@ def main():
         label=f"Best fit: $Ω_m$={Om_50:.3f}, $H_0$={h0_50:.1f} km/s/Mpc",
         x_scale="log",
     )
-
-    labels = ["$f_{CCH}$", "$Δ_M$", "$H_0$", "$Ω_m$", "$w_0$"]
-    corner.corner(
-        samples,
-        labels=labels,
-        quantiles=[0.159, 0.5, 0.841],
-        show_titles=True,
-        title_fmt=".3f",
-        smooth=2.0,
-        smooth1d=2.0,
-        bins=100,
-        levels=(0.393, 0.864),  # 1 and 2 sigmas in 2D
-        fill_contours=False,
-        plot_datapoints=False,
+    plot_corner_and_chains(
+        labels=["$f_{CCH}$", "$Δ_M$", "$H_0$", "$Ω_m$", "$w_0$"],
+        flat_samples=samples,
+        samples=chains_samples,
     )
-    plt.show()
-
-    plt.figure(figsize=(16, 1.5 * ndim))
-    for n in range(ndim):
-        plt.subplot2grid((ndim, 1), (n, 0))
-        plt.plot(chains_samples[:, :, n], alpha=0.3)
-        plt.ylabel(labels[n])
-        plt.xlim(0, None)
-    plt.tight_layout()
-    plt.show()
 
 
 if __name__ == "__main__":
@@ -213,13 +207,14 @@ Degrees of freedom: 1763
 
 ==============================
 
-Flat alternative: w(z) = -1 + 2 * (1 + w0) / ((1 + z)**3 + 1)
+Flat alternative: w(z) = -1 + 2 * (1 + w0) / ((1 + z)**6 + 1)
 f_cc: 1.46 +0.18 -0.18
-ΔM: -0.073 +0.081 -0.082 mag
-H0: 66.8 +2.5 -2.5 km/s/Mpc
-Ωm: 0.318 +0.030 -0.030
-w0: -0.869 +0.093 -0.102
-Chi squared: 1670.08
+ΔM: -0.070 +0.078 -0.080 mag
+H0: 66.7 +2.4 -2.4 km/s/Mpc
+Ωm: 0.320 +0.025 -0.024
+w0: -0.827 +0.103 -0.112
+Chi squared: 1669.44
+Log evidence: -961.8
 Degrees of freedom: 1763
 
 ==============================
