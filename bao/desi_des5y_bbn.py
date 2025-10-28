@@ -11,7 +11,7 @@ c = c0 / 1000  # km/s
 
 sn_legend, z_cmb, z_hel, mu_values, cov_matrix_sn = get_data()
 bao_legend, bao_data, bao_cov_matrix = get_bao_data()
-cho_sn = np.load("cho_des5y.npy")  # cho_factor(cov_matrix_sn, lower=True)[0]
+cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
 cho_bao = cho_factor(bao_cov_matrix, lower=True)[0]
 
 z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
