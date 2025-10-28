@@ -11,7 +11,7 @@ c = c0 / 1000  # km/s
 
 sn_legend, z_cmb, z_hel, mu_values, cov_matrix_sn = get_data()
 bao_legend, bao_data, bao_cov_matrix = get_bao_data()
-cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
+cho_sn = np.load("cho_des5y.npy")  # cho_factor(cov_matrix_sn, lower=True)[0]
 cho_bao = cho_factor(bao_cov_matrix, lower=True)[0]
 
 z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
@@ -32,7 +32,7 @@ def Ez(z, params):
     Ode = 1 - Om
     one_plus_z = 1 + z
     cubed = one_plus_z**3
-    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
+    rho_de = (2 * cubed**2 / (1 + cubed**2)) ** (1 + w0)
 
     return np.sqrt(Om * cubed + Ode * rho_de)
 
@@ -208,7 +208,9 @@ def main():
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f}")
     print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
-    print(f"Log Evidence: {log_evidence(samples, log_probs, log_probability, bounds):.2f}")
+    print(
+        f"Log Evidence: {log_evidence(samples, log_probs, log_probability, bounds):.2f}"
+    )
     print(f"Degrees of freedom: {1 + bao_data['z'].size + sn_size - len(best_fit)}")
 
     plot_bao_predictions(
@@ -265,16 +267,16 @@ Degrees of freedom: 1744
 
 ===============================
 
-Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-H0: 66.0 +0.9 -0.9 km/s/Mpc
-Ωm: 0.3075 +0.0080 -0.0076
-ωb: 0.02218 +0.00055 -0.00054
-ωm: 0.13385 +0.00531 -0.00520
-w0: -0.834 +0.045 -0.045 (prior width 1.5: -1.5 to 0.0)
-ΔM: -0.097 +0.023 -0.023 mag
-r_d: 149.51 +1.59 -1.53 Mpc
-Chi squared: 1646.49
-Log Evidence: -838.33 (Δ logZ = 3.60 against ΛCDM)
+Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**6)
+H0: 66.2 +0.8 -0.8 km/s/Mpc
+Ωm: 0.3116 +0.0079 -0.0077
+ωb: 0.02218 +0.00054 -0.00054
+ωm: 0.13635 +0.00486 -0.00470
+w0: -0.778 +0.059 -0.059 (prior width 1.5: -1.5 to 0.0)
+ΔM: -0.085 +0.021 -0.021
+r_d: 148.87 +1.45 -1.41 Mpc
+Chi squared: 1645.67
+Log Evidence: -837.62 (Δ logZ = 4.31 against ΛCDM)
 Degrees of freedom: 1744
 
 ===============================
