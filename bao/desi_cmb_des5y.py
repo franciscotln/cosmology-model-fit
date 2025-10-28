@@ -90,8 +90,8 @@ def solve_triang(cho_L, delta):
 def chi_squared(params):
     H0, Om, Obh2 = params[0], params[1], params[2]
 
-    delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez, params, H0, Om, Obh2)
-    chi2_cmb = np.dot(delta, np.dot(cmb.inv_cov_mat, delta))
+    delta = cmb.DISTANCE_PRIORS_WCDM - cmb.cmb_distances(Ez, params, H0, Om, Obh2)
+    chi2_cmb = np.dot(delta, np.dot(cmb.inv_cov_mat_wcdm, delta))
 
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
     chi_bao = solve_triang(cho_bao, delta_bao)
@@ -235,12 +235,15 @@ if __name__ == "__main__":
     main()
 
 """
+Compressed priors: (R, π/θ*, ωb)CMB for ΛCDM
 Flat ΛCDM w(z) = -1
 ΔM: -0.059 +0.008 -0.008 mag
 H0: 68.40 +0.28 -0.28 km/s/Mpc
 Ωm: 0.3032 +0.0036 -0.0036
 ωb: 0.02250 +0.00012 -0.00012
 ωm: 0.14186 +0.00061 -0.00061
+w0: -1
+wa: 0
 r*: 144.60 Mpc
 z*: 1088.62 +0.14 -0.14
 r_d: 147.13 Mpc
@@ -251,40 +254,45 @@ Degrees of freedom: 1747
 
 ===============================
 
+Compressed priors: (R, π/θ*, ωb)CMB for wCDM
 Flat wCDM w(z) = w0
-ΔM: -0.073 +0.010 -0.010 mag
-H0: 67.41 +0.53 -0.53 km/s/Mpc
-Ωm: 0.3099 +0.0048 -0.0048
-ωb: 0.02259 +0.00013 -0.00013
-ωm: 0.14081 +0.00079 -0.00079
-w0: -0.952 +0.022 -0.022 (prior width 1.5: -1.5 to 0.0)
-r*: 144.82 Mpc
-z*: 1088.45 +0.16 -0.16
-r_d: 147.33 Mpc
-z_d: 1060.24 +0.28 -0.28
-Chi squared: 1660.35
-Log evidence: -850.5 (Δ logZ = -1.0 in favour of ΛCDM)
+ΔM: -0.073 +0.010 -0.010
+H0: 67.40 +0.54 -0.53 km/s/Mpc
+Ωm: 0.3097 +0.0049 -0.0048
+ωb: 0.02261 +0.00013 -0.00013
+ωm: 0.14073 +0.00079 -0.00080
+w0: -0.950 +0.022 -0.022 (prior width 1.5: -1.5 to 0.0)
+wa: 0
+r*: 144.83 Mpc
+z*: 1088.43 +0.16 -0.16
+r_d: 147.34 Mpc
+z_d: 1060.27 +0.28 -0.28
+Chi squared: 1659.32
+Log evidence: -850.0 (Δ logZ = -0.5 in favour of ΛCDM)
 Degrees of freedom: 1746
 
 ===============================
 
+Compressed priors: (R, π/θ*, ωb)CMB for wCDM
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**6)
-ΔM: -0.072 +0.009 -0.009 mag
-H0: 66.68 +0.56 -0.55 km/s/Mpc
-Ωm: 0.3172 +0.0056 -0.0055
-ωb: 0.02257 +0.00012 -0.00012
-ωm: 0.14106 +0.00066 -0.00065
-w0: -0.820 +0.051 -0.051 (prior width 1.5: -1.5 to 0.0)
+ΔM: -0.071 +0.009 -0.009
+H0: 66.70 +0.55 -0.56 km/s/Mpc
+Ωm: 0.3169 +0.0056 -0.0055
+ωb: 0.02259 +0.00012 -0.00012
+ωm: 0.14101 +0.00066 -0.00065
+w0: -0.817 +0.051 -0.051 (prior width 1.5: -1.5 to 0.0)
+wa: d w(z)/dz at z=0 = -3 * (1 + w0)
 r*: 144.77 Mpc
-z*: 1088.49 +0.14 -0.14
+z*: 1088.47 +0.14 -0.14
 r_d: 147.28 Mpc
-z_d: 1060.21 +0.27 -0.27
-Chi squared: 1652.80
-Log evidence: -845.9 (Δ logZ = 3.6 against ΛCDM)
+z_d: 1060.25 +0.27 -0.27
+Chi squared: 1651.87
+Log evidence: -845.4 (Δ logZ = 4.1 against ΛCDM)
 Degrees of freedom: 1746
 
 ===============================
 
+Compressed priors: (R, π/θ*, ωb)CMB for ΛCDM
 Flat w(z) = w0 + wa * z / (1 + z)
 ΔM: -0.055 +0.011 -0.011 mag
 H0: 66.98 +0.55 -0.55 km/s/Mpc
@@ -299,21 +307,5 @@ r_d: 146.90 Mpc
 z_d: 1060.01 +0.28 -0.28
 Chi squared: 1646.86
 Log evidence: -845.4 (Δ logZ = 4.1 against ΛCDM)
-Degrees of freedom: 1745
-
-Flat w(z) = w0 + wa * ((1 + z)^2 - 1) / ((1 + z)^2 + 1) (reduces to w0waCDM at low z)
-ΔM: -0.055 +0.011 -0.011 mag
-H0: 67.00 +0.55 -0.54 km/s/Mpc
-Ωm: 0.3186 +0.0056 -0.0054
-ωb: 0.02242 +0.00013 -0.00013
-ωm: 0.14302 +0.00090 -0.00092
-w0: -0.774 +0.054 -0.053
-wa: -0.657 +0.185 -0.196
-r*: 144.35 Mpc
-z*: 1088.79 +0.18 -0.17
-r_d: 146.90 Mpc
-z_d: 1060.01 +0.28 -0.28
-Chi squared: 1646.86
-Log evidence: -845.5 (Δ logZ = 4.0 against ΛCDM)
 Degrees of freedom: 1745
 """
