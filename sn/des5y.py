@@ -21,7 +21,7 @@ inv_a = 1 + z_grid
 def Ez(params):
     Om, w0 = params[1], params[2]
     Ode = 1 - Om
-    Rho_de = (2 * inv_a**3 / (1 + inv_a**3)) ** (2 * (1 + w0))
+    Rho_de = (2 * inv_a**6 / (1 + inv_a**6)) ** (1 + w0)
     return np.sqrt(Om * inv_a**3 + Ode * Rho_de)
 
 
@@ -197,17 +197,16 @@ Effective deg of freedom: 1732
 
 ==============================
 
-Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)^3)
-M: -19.290 +0.013 -0.013 mag
-Ωm: 0.298 +0.043 -0.045
-w0: -0.81 +0.11 -0.13
-wa = d w(z=0)/dz = -1.5*(1 + w0)
+Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)^6)
+M: -19.287 +0.014 -0.014 mag
+Ωm: 0.308 +0.032 -0.033
+w0: -0.77 +0.12 -0.13
+wa: d w(z)/dz at z=0 = -3.0 * (1 + w0)
 R-squared (%): 98.40
 RMSD (mag): 0.264
-Skewness of residuals: 3.417
-Chi squared: 1637.96
+Skewness of residuals: 3.421
+Chi squared: 1637.28
 Effective deg of freedom: 1732
-QH(0.1663) = -0.353 +0.032 - 0.031 with correlation: -1.6889e-06
 
 ==============================
 

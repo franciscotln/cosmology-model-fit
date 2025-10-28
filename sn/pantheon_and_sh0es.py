@@ -1,13 +1,7 @@
 from numba import njit
-import emcee
-import corner
-import matplotlib.pyplot as plt
 import numpy as np
-from scipy.integrate import cumulative_trapezoid
 import scipy.stats as stats
-from scipy.linalg import cho_factor, cho_solve
-from multiprocessing import Pool
-from .plotting import plot_predictions, print_color, plot_residuals
+from scipy.linalg import cho_factor, solve_triangular
 from y2022pantheonSHOES.data_shoes import get_data
 
 legend, z_values, z_hel_values, apparent_mag_values, cepheid_distances, cov_matrix = (
@@ -15,11 +9,13 @@ legend, z_values, z_hel_values, apparent_mag_values, cepheid_distances, cov_matr
 )
 
 cepheids_mask = cepheid_distances != -9
-cho = cho_factor(cov_matrix)
+cho = cho_factor(cov_matrix, lower=True)[0]
 
 c = 299792.458  # Speed of light (km/s)
 
-z_grid = np.linspace(0, np.max(z_values), num=1000)
+z_grid = np.linspace(0, np.max(z_values) + 0.1, num=1000)
+dx = np.diff(z_grid)
+
 one_plus_z = 1 + z_grid
 one_plus_z_hel = 1 + z_hel_values
 
@@ -27,22 +23,34 @@ one_plus_z_hel = 1 + z_hel_values
 @njit
 def Ez(params):
     O_m, w0 = params[2], params[3]
-    rho_de = (2 * one_plus_z**3 / (1 + one_plus_z**3)) ** (2 * (1 + w0))
+    rho_de = (2 * one_plus_z**6 / (1 + one_plus_z**6)) ** (1 + w0)
     return np.sqrt(O_m * one_plus_z**3 + (1 - O_m) * rho_de)
 
 
+@njit
+def DM_z(theta):
+    dh_grid = (c / theta[1]) / Ez(theta)
+    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    cum_dm = np.zeros(z_grid.size)
+    cum_dm[1:] = np.cumsum(dx * dy)
+    return np.interp(z_values, z_grid, cum_dm)
+
+
+@njit
 def model_mu(params):
-    H0 = params[1]
-    integral_vals = cumulative_trapezoid(1 / Ez(params), z_grid, initial=0)
-    I = np.interp(z_values, z_grid, integral_vals)
-    return 25 + 5 * np.log10((c / H0) * one_plus_z_hel * I)
+    return 25 + 5 * np.log10(one_plus_z_hel * DM_z(params))
+
+
+def solve_triang(cho_L, delta):
+    y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
+    return np.dot(y, y)
 
 
 def chi_squared(params):
     mu_theory = np.where(cepheids_mask, cepheid_distances, model_mu(params))
     apparent_mag_theory = mu_theory + params[0]
     delta = apparent_mag_values - apparent_mag_theory
-    return np.dot(delta, cho_solve(cho, delta, check_finite=False))
+    return solve_triang(cho, delta)
 
 
 def log_likelihood(params):
@@ -58,11 +66,13 @@ bounds = np.array(
     ]
 )
 
+normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
+
 
 @njit
 def log_prior(params):
     if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
-        return 0.0
+        return normalization
     return -np.inf
 
 
@@ -74,6 +84,11 @@ def log_probability(params):
 
 
 def main():
+    import emcee
+    from multiprocessing import Pool
+    from corner_plot import plot_corner_and_chains
+    from .plotting import plot_predictions, print_color, plot_residuals
+
     burn_in = 100
     n_dim = len(bounds)
     n_walkers = 500
@@ -94,7 +109,7 @@ def main():
         )
         sampler.run_mcmc(initial_pos, n_steps, progress=True)
 
-    chains_samples = sampler.get_chain(discard=0, flat=False)
+    chains_samples = sampler.get_chain(discard=burn_in, flat=False)
     samples = sampler.get_chain(discard=burn_in, flat=True)
 
     try:
@@ -105,13 +120,13 @@ def main():
         print_color("Autocorrelation time", "Not available")
 
     [
-        [M_16, M_50, M_84],
-        [H0_16, H0_50, H0_84],
-        [omega_16, omega_50, omega_84],
-        [w0_16, w0_50, w0_84],
+        (M_16, M_50, M_84),
+        (H0_16, H0_50, H0_84),
+        (omega_16, omega_50, omega_84),
+        (w0_16, w0_50, w0_84),
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = np.array([M_50, H0_50, omega_50, w0_50], dtype=np.float64)
+    best_fit = np.percentile(samples, 50, axis=0)
 
     predicted_mu_values = model_mu(best_fit)
     residuals = (
@@ -145,33 +160,13 @@ def main():
     print_color("kurtosis of residuals", f"{stats.kurtosis(residuals):.3f}")
     print_color("Chi squared", f"{chi_squared(best_fit):.2f}")
 
-    labels = ["M", "$H_0$", "$Ω_m$", "$w_0$"]
-    corner.corner(
-        samples,
-        labels=labels,
-        quantiles=[0.159, 0.5, 0.841],
-        show_titles=True,
-        title_fmt=".4f",
-        smooth=1.5,
-        smooth1d=1.5,
-        bins=100,
-        levels=(0.393, 0.864),  # 1 and 2 sigmas in 2D
-        fill_contours=False,
-        plot_datapoints=False,
-    )
-    plt.show()
-
-    _, axes = plt.subplots(n_dim, figsize=(10, 10), sharex=True)
-    for i in range(n_dim):
-        axes[i].plot(chains_samples[:, :, i], color="black", alpha=0.3)
-        axes[i].set_ylabel(labels[i])
-        axes[i].axvline(x=burn_in, color="red", linestyle="--", alpha=0.5)
-        axes[i].axhline(y=best_fit[i], color="white", linestyle="--", alpha=0.5)
-    axes[n_dim - 1].set_xlabel("trace")
-    plt.show()
-
     sigma_mu = np.sqrt(cov_matrix.diagonal())
 
+    plot_corner_and_chains(
+        labels=["M", "$H_0$", "$Ω_m$", "$w_0$"],
+        flat_samples=samples,
+        samples=chains_samples,
+    )
     plot_predictions(
         legend=legend,
         x=z_values,
@@ -181,7 +176,6 @@ def main():
         label=f"H0={H0_50:.2f} km/s/Mpc",
         x_scale="log",
     )
-
     plot_residuals(z_values=z_values, residuals=residuals, y_err=sigma_mu, bins=40)
 
 
@@ -223,15 +217,15 @@ Chi squared: 1451.70
 
 =============================
 
-Flat w0 - (1 + w0) * (((1 + z)**3 - 1) / ((1 + z)**3 + 1))
-M: -19.243 +0.029/-0.029 mag
-H0 (km/s/Mpc): 73.45 +1.04/-1.01 km/s/Mpc
-Ωm: 0.314 +0.043/-0.044
-w0: -0.936 +0.124/-0.143
-wa: 0
+Flat w0 - (1 + w0) * (((1 + z)**6 - 1) / ((1 + z)**6 + 1))
+M: -19.243 +0.029/-0.030
+H0 (km/s/Mpc): 73.44 +1.03/-1.03
+Ωm: 0.319 +0.035/-0.034
+w0: -0.934 +0.127/-0.145
+wa: d w(z)/dz at z=0 = -3 * (1 + w0)
 R-squared (%): 99.78
 RMSD (mag): 0.153
 Skewness of residuals: 0.077
-kurtosis of residuals: 1.560
+kurtosis of residuals: 1.561
 Chi squared: 1451.71
 """
