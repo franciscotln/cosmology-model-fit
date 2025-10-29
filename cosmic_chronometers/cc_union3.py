@@ -21,7 +21,7 @@ z_grid = np.linspace(0, np.max(z_sn_vals), num=1000)
 def Ez(z, params):
     Om, w0 = params[3], params[4]
     one_plus_z = 1 + z
-    rho_de = (2 * one_plus_z**6 / (1 + one_plus_z**6)) ** (1 + w0)
+    rho_de = (2 * one_plus_z**3 / (1 + one_plus_z**3)) ** (2 * (1 + w0))
     return np.sqrt(Om * one_plus_z**3 + (1 - Om) * rho_de)
 
 
@@ -199,15 +199,15 @@ Degrees of freedom: 50
 
 ==============================
 
-Flat alternative: w(z) = -1 + 2 * (1 + w0) / ((1 + z)**6 + 1)
+Flat alternative: w(z) = -1 + 2 * (1 + w0) / ((1 + z)**3 + 1)
 f_cc: 0.71 +0.10 -0.08
-ΔM: -0.180 +0.123 -0.124 mag
-H0: 66.1 +2.7 -2.6 km/s/Mpc
-Ωm: 0.326 +0.029 -0.028
-w0: -0.77 +0.14 -0.16
-wa = d w(z=0)/dz = -3.0*(1 + w0)
-Chi squared: 51.46
-Log evidence: -151.1
+ΔM: -0.178 +0.124 -0.125 mag
+H0: 66.3 +2.7 -2.7 km/s/Mpc
+Ωm: 0.320 +0.035 -0.034
+w0: -0.84 +0.12 -0.14
+wa = d w(z=0)/dz = -1.5 * (1 + w0)
+Chi squared: 51.87
+Log evidence: -151.6
 Degrees of freedom: 50
 
 ==============================
