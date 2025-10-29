@@ -24,7 +24,7 @@ def Ez(z, params):
 
     one_plus_z = 1 + z
     cubed = one_plus_z**3
-    rho_de = (2 * cubed**2 / (1 + cubed**2)) ** (1 + w0)
+    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
 
     return np.sqrt(Or * one_plus_z**4 + Om * cubed + Ode * rho_de)
 
@@ -133,18 +133,15 @@ def main():
     nsteps = 2200 + burn_in
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
+    moves = [
+        (emcee.moves.KDEMove(), 0.30),
+        (emcee.moves.DEMove(), 0.56),
+        (emcee.moves.DESnookerMove(), 0.14),
+    ]
 
     with Pool(5) as pool:
         sampler = emcee.EnsembleSampler(
-            nwalkers,
-            ndim,
-            log_probability,
-            pool=pool,
-            moves=[
-                (emcee.moves.KDEMove(), 0.30),
-                (emcee.moves.DEMove(), 0.56),
-                (emcee.moves.DESnookerMove(), 0.14),
-            ],
+            nwalkers, ndim, log_probability, pool=pool, moves=moves
         )
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
 
@@ -233,16 +230,16 @@ Degs of freedom: 14
 
 ===============================
 
-Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**6)
-H0: 67.29 +2.08 -1.93 km/s/Mpc
-Ωm: 0.3090 +0.0179 -0.0176
-ωm: 0.13995 +0.00076 -0.00076
-ωb: 0.02240 +0.00013 -0.00012
-w0: -0.893 +0.183 -0.191
-r*: 145.16 Mpc
-z*: 1088.61 +0.16 -0.16
-r_d: 147.78 +0.19 -0.19 Mpc
-Chi squared: 13.43
+Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
+H0: 68.23 +1.41 -1.34 km/s/Mpc
+Ωm: 0.3009 +0.0115 -0.0114
+ωm: 0.14009 +0.00081 -0.00080
+ωb: 0.02239 +0.00013 -0.00013
+w0: -0.985 +0.086 -0.089
+r*: 145.13 Mpc
+z*: 1088.63 +0.16 -0.16
+r_d: 147.75 +0.19 -0.20 Mpc
+Chi squared: 13.74
 Degs of freedom: 14
 
 ===============================

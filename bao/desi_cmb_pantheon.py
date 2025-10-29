@@ -13,15 +13,10 @@ bao_legend, bao_data, bao_cov_matrix = get_bao_data()
 
 cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
 cho_bao = cho_factor(bao_cov_matrix, lower=True)[0]
-cho_sn_T = cho_sn.T
-cho_bao_T = cho_bao.T
 
-sn_grid = np.linspace(0, np.max(z_cmb), num=1000)
-dx_sn = np.diff(sn_grid)
-one_plus_z_hel = 1 + z_hel
-
-bao_grid = np.linspace(0, np.max(bao_data["z"]), num=1000)
-dx_bao = np.diff(bao_grid)
+z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
+z_grid = np.linspace(0, z_max, num=1200)
+dx = np.diff(z_grid)
 
 
 @njit
@@ -31,24 +26,14 @@ def Ez(z, params):
     Or = Or_h2 / h**2
     Ode = 1 - Om - Or
     one_plus_z = 1 + z
-    rho_de = (2 * one_plus_z**6 / (1 + one_plus_z**6)) ** (1 + w0)
+    rho_de = (2 * one_plus_z**3 / (1 + one_plus_z**3)) ** (2 * (1 + w0))
 
     return np.sqrt(Or * one_plus_z**4 + Om * one_plus_z**3 + Ode * rho_de)
 
 
 @njit
-def DM(grid, zs, dx, params):
-    dh_grid = DH_z(grid, params)
-    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
-    cum_dm = np.zeros(grid.size)
-    cum_dm[1:] = np.cumsum(dx * dy)
-    dms = np.interp(zs, grid, cum_dm)
-    return dms
-
-
-@njit
 def apparent_mag(params):
-    dL = one_plus_z_hel * DM(sn_grid, z_cmb, dx_sn, params)
+    dL = (1 + z_hel) * DM_z(z_cmb, params)
     return params[3] + 25 + 5 * np.log10(dL)
 
 
@@ -64,7 +49,12 @@ def DH_z(z, params):
 
 @njit
 def DM_z(z, params):
-    return DM(bao_grid, z, dx_bao, params)
+    dh_grid = DH_z(z_grid, params)
+    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    cum_dm = np.zeros(z_grid.size)
+    cum_dm[1:] = np.cumsum(dx * dy)
+    dms = np.interp(z, z_grid, cum_dm)
+    return dms
 
 
 @njit
@@ -74,12 +64,7 @@ def DV_z(z, params):
     return (z * DH * DM**2) ** (1 / 3)
 
 
-qty_map = {
-    "DV_over_rs": 0,
-    "DM_over_rs": 1,
-    "DH_over_rs": 2,
-}
-
+qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
 quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int64)
 
 
@@ -99,10 +84,9 @@ def bao_theory(z, qty, params):
     return results / rd
 
 
-def solve_triang(L, L_T, delta):
-    y = solve_triangular(L, delta, lower=True, check_finite=False)
-    z = solve_triangular(L_T, y, lower=False, check_finite=False)
-    return delta @ z
+def solve_triang(cho_L, delta):
+    y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
+    return np.dot(y, y)
 
 
 def chi_squared(params):
@@ -112,10 +96,10 @@ def chi_squared(params):
     chi2_cmb = np.dot(delta, np.dot(cmb.inv_cov_mat, delta))
 
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
-    chi_bao = solve_triang(cho_bao, cho_bao_T, delta_bao)
+    chi_bao = solve_triang(cho_bao, delta_bao)
 
     delta_sn = mb_values - apparent_mag(params)
-    chi_sn = solve_triang(cho_sn, cho_sn_T, delta_sn)
+    chi_sn = solve_triang(cho_sn, delta_sn)
 
     return chi2_cmb + chi_bao + chi_sn
 
@@ -189,13 +173,16 @@ def main():
     samples = sampler.get_chain(discard=burn_in, flat=True)
     chains_samples = sampler.get_chain(discard=burn_in, flat=False)
     log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
+    log_evd = log_evidence(samples, log_probs, log_probability, bounds)
 
     pct = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
-    H0_16, H0_50, H0_84 = pct[0]
-    Om_16, Om_50, Om_84 = pct[1]
-    Obh2_16, Obh2_50, Obh2_84 = pct[2]
-    M_16, M_50, M_84 = pct[3]
-    w0_16, w0_50, w0_84 = pct[4]
+    [
+        (H0_16, H0_50, H0_84),
+        (Om_16, Om_50, Om_84),
+        (Obh2_16, Obh2_50, Obh2_84),
+        (M_16, M_50, M_84),
+        (w0_16, w0_50, w0_84),
+    ] = pct
 
     best_fit = np.percentile(samples, 50, axis=0)
 
@@ -213,7 +200,7 @@ def main():
     print(f"z_d: {z_d:.2f}")
     print(f"rd: {cmb.rs_z(Ez, z_d, best_fit, H0_50, Obh2_50):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
-    print(f"Log evidence: {log_evidence(samples, log_probs, log_probability, bounds):.2f}")
+    print(f"Log evidence: {log_evd:.2f}")
 
     plot_bao_predictions(
         theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
@@ -272,19 +259,19 @@ Degrees of freedom: 1601
 
 ===============================
 
-Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**6)
-H0: 67.35 +0.57 -0.56 km/s/Mpc
-Ωm: 0.308 +0.006 -0.005
-ωb: 0.02240 +0.00012 -0.00012
-w0: -0.896 +0.051 -0.050
-M: -19.430 +0.012 -0.012
-z*: 1088.60
-r*: 145.17 Mpc
-z_d: 1059.75
-rd: 147.75 Mpc
-Chi squared: 1416.19
-Log evidence: -727.57
-Degrees of freedom: 1601
+Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
+H0: 67.42 +0.58 -0.58 km/s/Mpc
+Ωm: 0.307 +0.005 -0.005
+ωb: 0.02241 +0.00012 -0.00012
+w0: -0.931 +0.036 -0.037
+wa: d w(z)/dz at z=0 = -1.5 * (1 + w0)
+M: -19.431 +0.013 -0.013
+z*: 1088.58
+r*: 145.20 Mpc
+z_d: 1059.76
+rd: 147.78 Mpc
+Chi squared: 1416.80
+Log evidence: -728.21
 
 ===============================
 

@@ -23,7 +23,7 @@ def Ez(z, params):
     Om, w0 = params[2], params[3]
     one_plus_z = 1 + z
     cubic = one_plus_z**3
-    rho_de = (2 * cubic**2 / (1 + cubic**2)) ** (1 + w0)
+    rho_de = (2 * cubic / (1 + cubic)) ** (2 * (1 + w0))
     return np.sqrt(Om * cubic + (1 - Om) * rho_de)
 
 
@@ -146,18 +146,15 @@ def main():
     nsteps = 2000 + burn_in
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
+    moves = [
+        (emcee.moves.KDEMove(), 0.30),
+        (emcee.moves.DEMove(), 0.56),
+        (emcee.moves.DESnookerMove(), 0.14),
+    ]
 
     with Pool(5) as pool:
         sampler = emcee.EnsembleSampler(
-            nwalkers,
-            ndim,
-            log_probability,
-            pool=pool,
-            moves=[
-                (emcee.moves.KDEMove(), 0.30),
-                (emcee.moves.DEMove(), 0.56),
-                (emcee.moves.DESnookerMove(), 0.14),
-            ],
+            nwalkers, ndim, log_probability, pool=pool, moves=moves
         )
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
 
@@ -246,13 +243,13 @@ Degs of freedom: 31
 
 ===============================
 
-Flat -1 + 2 * (1 + w0) / (1 + (1 + z)**6)
-rd: 145.08 +1.46 -1.45 Mpc
-H0: 67.19 +1.06 -1.04 km/s/Mpc
-Ωm: 0.317 +0.010 -0.009
-w0: -0.706 +0.093 -0.095 (prior width 1.5: -1.5 to 0.0)
-Chi squared: 29.4
-Log evidence: -28.4 (Δ logZ = 2.8 over ΛCDM)
+Flat -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
+rd: 144.32 +1.64 -1.64 Mpc
+H0: 67.95 +0.99 -0.98 km/s/Mpc
+Ωm: 0.310 +0.009 -0.009
+w0: -0.802 +0.066 -0.066 (prior width 1.5: -1.5 to 0.0)
+Chi squared: 30.4
+Log evidence: -29.2 (Δ logZ = 2.0 over ΛCDM)
 Degs of freedom: 31
 
 ===============================

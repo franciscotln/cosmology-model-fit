@@ -26,7 +26,7 @@ def Ez(z, params):
     O_m, w0 = params[3], params[4]
     one_plus_z = 1 + z
     cubic = one_plus_z**3
-    rho_de = (2 * cubic**2 / (1 + cubic**2)) ** (1 + w0)
+    rho_de = (2 * cubic / (1 + cubic)) ** (2 * (1 + w0))
     return np.sqrt(O_m * cubic + (1 - O_m) * rho_de)
 
 
@@ -56,12 +56,7 @@ def DV_z(z, params):
     return (z * DH * DM**2) ** (1 / 3)
 
 
-qty_map = {
-    "DV_over_rs": 0,
-    "DM_over_rs": 1,
-    "DH_over_rs": 2,
-}
-
+qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
 quantities = np.array([qty_map[q] for q in data["quantity"]], dtype=np.int32)
 
 
@@ -239,19 +234,29 @@ Degrees of freedom: 41
 
 ===============================
 
-Flat -1 + 2 * (1 + w0) / (1 + (1 + z)**6)
+Flat -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
 f_cc: 1.46 +0.18 -0.18
-H0: 66.1 +3.3 -3.1 km/s/Mpc
-r_d: 147.2 +5.0 -4.7 Mpc
-Ωm: 0.319 +0.018 -0.018
-ωm: 0.1392 +0.0098 -0.0095
-w0: -0.700 +0.227 -0.239
-Chi squared: 40.27
-log likelihood: -134.97
+H0: 67.3 +2.8 -2.7
+r_d: 147.1 +5.1 -4.6
+Ωm: 0.307 +0.011 -0.011
+ωm: 0.1390 +0.0100 -0.0096
+w0: -0.857 +0.118 -0.126
+wa: d w(z)/dz at z=0 = -1.5 * (1 + w0)
+Chi squared: 40.81
+log likelihood: -135.09
 Degrees of freedom: 41
 
 ===============================
 
 Flat w0waCDM
-TODO
+f_cc: 1.43 +0.18 -0.18
+H0: 64.6 +3.7 -3.7
+r_d: 147.2 +5.1 -4.8
+Ωm: 0.350 +0.044 -0.047
+ωm: 0.1450 +0.0119 -0.0128
+w0: -0.532 +0.399 -0.355
+wa: -1.541 +1.391 -1.414
+Chi squared: 38.38
+log likelihood: -134.66
+Degrees of freedom: 40
 """

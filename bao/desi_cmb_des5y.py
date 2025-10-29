@@ -25,7 +25,7 @@ def Ez(z, params):
     Or = Or_h2 / h**2
     Ode = 1 - Om - Or
     one_plus_z = 1 + z
-    rho_de = (2 * one_plus_z**6 / (1 + one_plus_z**6)) ** (1 + w0)
+    rho_de = (2 * one_plus_z**3 / (1 + one_plus_z**3)) ** (2 * (1 + w0))
 
     return (Or * one_plus_z**4 + Om * one_plus_z**3 + Ode * rho_de) ** 0.5
 
@@ -278,20 +278,20 @@ Degrees of freedom: 1746
 ===============================
 
 Compressed priors for wCDM
-Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**6)
-ΔM: -0.071 +0.009 -0.009
-H0: 66.70 +0.55 -0.56 km/s/Mpc
-Ωm: 0.3169 +0.0056 -0.0055
-ωb: 0.02259 +0.00012 -0.00012
-ωm: 0.14101 +0.00066 -0.00065
-w0: -0.817 +0.051 -0.051 (prior width 1.5: -1.5 to 0.0)
-wa: d w(z)/dz at z=0 = -3 * (1 + w0)
-r*: 144.77 Mpc
-z*: 1088.47 +0.14 -0.14
-r_d: 147.28 Mpc (1.0173 x r*)
-z_d: 1060.25 +0.27 -0.27
-Chi squared: 1651.87
-Log evidence: -845.4 (Δ logZ = 4.1 against ΛCDM)
+Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
+ΔM: -0.074 +0.010 -0.009
+H0: 66.90 +0.55 -0.54 km/s/Mpc
+Ωm: 0.3147 +0.0054 -0.0053
+ωb: 0.02261 +0.00012 -0.00012
+ωm: 0.14083 +0.00069 -0.00069
+w0: -0.886 +0.036 -0.035 (prior width 1.5: -1.5 to 0.0)
+wa: d w(z)/dz at z=0 = -1.5 * (1 + w0)
+r*: 144.81 Mpc
+z*: 1088.44 +0.15 -0.15
+r_d: 147.32 Mpc
+z_d: 1060.26 +0.27 -0.27
+Chi squared: 1654.40
+Log evidence: -847.1 (Δ logZ = 2.4 against ΛCDM)
 Degrees of freedom: 1746
 
 ===============================

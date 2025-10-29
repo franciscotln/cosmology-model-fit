@@ -26,7 +26,7 @@ def Ez(z, params):
     OL = 1 - Om - Or
     one_plus_z = 1 + z
     cubic = one_plus_z**3
-    rho_de = (2 * cubic**2 / (1 + cubic**2)) ** (1 + w0)
+    rho_de = (2 * cubic / (1 + cubic)) ** (2 * (1 + w0))
     return np.sqrt(Or * one_plus_z**4 + Om * cubic + OL * rho_de)
 
 
@@ -58,12 +58,7 @@ def DV_z(z, params):
     return (z * DH * DM**2) ** (1 / 3)
 
 
-qty_map = {
-    "DV_over_rs": 0,
-    "DM_over_rs": 1,
-    "DH_over_rs": 2,
-}
-
+qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
 quantities = np.array([qty_map[q] for q in data["quantity"]], dtype=np.int32)
 
 
@@ -235,16 +230,16 @@ RMSD: 0.281
 
 ===============================
 
-Flat alternative: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**6)
-H0: 64.25 +2.78 -2.50 km/s/Mpc
+Flat alternative: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
+H0: 65.65 +2.20 -2.03 km/s/Mpc
 ωb: 0.02190 +0.00025 -0.00025
-ωm: 0.13321 +0.00623 -0.00592
-Ωm: 0.3224 +0.0189 -0.0185
-w0: -0.628 +0.230 -0.245
-r_d: 150.06 Mpc
-z_d: 1058.11 +0.78 -0.78
-Chi squared: 7.86
+ωm: 0.13274 +0.00710 -0.00674
+Ωm: 0.3077 +0.0116 -0.0116
+w0: -0.833 +0.120 -0.129
+r_d: 150.18 Mpc
+z_d: 1058.08 +0.81 -0.82
+Chi squared: 8.43
 Degs of freedom: 10
-R^2: 0.9991
-RMSD: 0.251
+R^2: 0.9990
+RMSD: 0.266
 """

@@ -24,7 +24,7 @@ def Ez(z, theta):
     Om, w0 = theta[2], theta[3]
     one_plus_z = 1 + z
     cubed = one_plus_z**3
-    rho_de = (2 * cubed**2 / (1 + cubed**2)) ** (1 + w0)
+    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
     return np.sqrt(Om * cubed + (1 - Om) * rho_de)
 
 
@@ -231,14 +231,14 @@ Degrees of freedom: 1599
 
 ===============================
 
-Flat w0 - (1 + w0) * ((1 + z)**6 - 1) / ((1 + z)**6 + 1)
+Flat w0 - (1 + w0) * ((1 + z)**3 - 1) / ((1 + z)**3 + 1)
 r_d: 147.09 Mpc (fixed)
-M0: -19.413 +0.013 -0.013 mag
-H0: 67.81 +0.59 -0.59 km/s/Mpc
-Ωm: 0.306 +0.008 -0.008
-w0: -0.872 +0.059 -0.059
-Chi squared: 1411.66 (Δ chi2 4.48)
-Log evidence: -720.68
+M0: -19.415 +0.014 -0.014 mag
+H0: 67.79 +0.59 -0.58 km/s/Mpc
+Ωm: 0.304 +0.008 -0.008
+w0: -0.895 +0.046 -0.047
+Chi squared: 1411.30 (Δ chi2 4.84)
+Log evidence: -720.74
 Degrees of freedom: 1599
 
 ===============================

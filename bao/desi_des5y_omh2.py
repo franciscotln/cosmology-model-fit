@@ -7,6 +7,7 @@ from y2025BAO.data import get_data as get_bao_data
 
 sn_legend, z_cmb, z_hel, mu_values, cov_matrix_sn = get_data()
 bao_legend, bao_data, cov_matrix_bao = get_bao_data()
+
 cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
 cho_bao = cho_factor(cov_matrix_bao, lower=True)[0]
 
@@ -22,7 +23,7 @@ def Ez(z, params):
     Om, w0 = params[3], params[4]
     z_plus_1 = 1 + z
     cubed = z_plus_1**3
-    rho_de = (2 * cubed**2 / (1 + cubed**2)) ** (1 + w0)
+    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
     return np.sqrt(Om * cubed + (1 - Om) * rho_de)
 
 
@@ -58,12 +59,7 @@ def DV_z(z, params):
     return (z * DH * DM**2) ** (1 / 3)
 
 
-qty_map = {
-    "DV_over_rs": 0,
-    "DM_over_rs": 1,
-    "DH_over_rs": 2,
-}
-
+qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
 quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int64)
 
 
@@ -81,7 +77,7 @@ def bao_theory(z, qty, params):
 
 """
 Planck prior on Ωm * h^2
-Fit rs(drag) directly as a free parameter without early universe constraints
+Fit rs(drag) directly as a free parameter without early universe physics
 """
 Omh2_planck = 0.1430
 Omh2_planck_sigma = 0.0011
@@ -177,13 +173,16 @@ def main():
     chains_samples = sampler.get_chain(discard=burn_in, flat=False)
     samples = sampler.get_chain(discard=burn_in, flat=True)
     log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
+    log_evd = log_evidence(samples, log_probs, log_probability, bounds)
 
     pct = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
-    dM_16, dM_50, dM_84 = pct[0]
-    rd_16, rd_50, rd_84 = pct[1]
-    H0_16, H0_50, H0_84 = pct[2]
-    Om_16, Om_50, Om_84 = pct[3]
-    w0_16, w0_50, w0_84 = pct[4]
+    [
+        (dM_16, dM_50, dM_84),
+        (rd_16, rd_50, rd_84),
+        (H0_16, H0_50, H0_84),
+        (Om_16, Om_50, Om_84),
+        (w0_16, w0_50, w0_84),
+    ] = pct
 
     best_fit = np.percentile(samples, 50, axis=0)
 
@@ -193,9 +192,7 @@ def main():
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.1f}")
-    print(
-        f"Log evidence: {log_evidence(samples, log_probs, log_probability, bounds):.1f}"
-    )
+    print(f"Log evidence: {log_evd:.1f}")
     print(f"Degrees of freedom: {1 + bao_data['value'].size + sn_size - len(best_fit)}")
 
     plot_bao_predictions(
@@ -249,15 +246,15 @@ Degrees of freedom: 1744
 
 ===============================
 
-Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**6)
-ΔM: -0.033 +0.026 -0.026 mag
-r_d: 145.36 +1.42 -1.40 Mpc
-H0: 67.75 +0.88 -0.88 km/s/Mpc
-Ωm: 0.312 +0.008 -0.008
-w0: -0.777 +0.058 -0.059 (prior width 1.5: -1.5 to 0.0)
-wa: d w(z)/dz at z=0 = -3.0 * (1 + w0)
-Chi squared: 1645.7
-Log evidence: -840.9 (Δ logZ = 4.3 against ΛCDM)
+Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
+ΔM: -0.025 +0.028 -0.028 mag
+r_d: 144.63 +1.56 -1.55 Mpc
+H0: 68.19 +0.92 -0.89 km/s/Mpc
+Ωm: 0.308 +0.008 -0.008
+w0: -0.834 +0.045 -0.046 (prior width 1.5: -1.5 to 0.0)
+wa: d w(z)/dz at z=0 = -1.5 * (1 + w0)
+Chi squared: 1646.5
+Log evidence: -841.5 (Δ logZ = 3.7 against ΛCDM)
 Degrees of freedom: 1744
 
 ===============================

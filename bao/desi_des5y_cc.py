@@ -29,7 +29,7 @@ def Ez(z, theta):
     Om, w0 = theta[4], theta[5]
     one_plus_z = 1 + z
     cubed = one_plus_z**3
-    rho_de = (2 * cubed**2 / (1 + cubed**2)) ** (1 + w0)
+    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
     return np.sqrt(Om * cubed + (1 - Om) * rho_de)
 
 
@@ -177,6 +177,7 @@ def main():
     samples = sampler.get_chain(discard=burn_in, flat=True)
     chains_samples = sampler.get_chain(discard=burn_in, flat=False)
     log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
+    log_evd = log_evidence(samples, log_probs, log_probability, bounds)
 
     [
         [f_cc_16, f_cc_50, f_cc_84],
@@ -198,9 +199,7 @@ def main():
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
-    print(
-        f"Log evidence: {log_evidence(samples, log_probs, log_probability, bounds):.2f}"
-    )
+    print(f"Log evidence: {log_evd:.2f}")
     print(f"Degrees of freedom: {deg_of_freedom}")
 
     plot_bao_predictions(
@@ -263,15 +262,16 @@ Degrees of freedom: 1775
 
 ===============================
 
-Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**6)
-f_cc: 1.46 +0.19 -0.18
-H0: 66.9 +2.3 -2.2 km/s/Mpc
-r_d: 147.1 +4.9 -4.7 Mpc
-Ωm: 0.312 +0.008 -0.008
-w0: -0.784 +0.060 -0.060 (prior width 1.5: -1.5 to 0.0)
-wa = d w(z=0)/dz = -3.0*(1 + w0)
-Chi squared: 1678.02
-Log evidence: -971.27 (Δ logZ = 3.97 against ΛCDM)
+Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
+f_cc: 1.46 +0.18 -0.18
+ΔM: -0.061 +0.071 -0.073 mag
+H0: 67.1 +2.3 -2.3 km/s/Mpc
+r_d: 147.1 +5.0 -4.7 Mpc
+Ωm: 0.308 +0.008 -0.008
+w0: -0.840 +0.046 -0.046 (prior width 1.5: -1.5 to 0.0)
+wa: d w(z)/dz at z=0 = -1.5 * (1 + w0)
+Chi squared: 1678.86
+Log evidence: -971.99 (Δ logZ = 3.25 against ΛCDM)
 Degrees of freedom: 1775
 
 ===============================
