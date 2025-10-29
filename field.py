@@ -5,10 +5,10 @@ from scipy.interpolate import interp1d
 
 # values from DESI DR2 + rd_Planck + DES5Y
 Rho_de_0 = 1  # normalised
-H0 = 67.05  # Hubble constant in km/s/Mpc
-Om = 0.307
+H0 = 66.99  # Hubble constant in km/s/Mpc
+Om = 0.309
 Or = 4.1835e-05 / (H0 / 100) ** 2  # Radiation density
-w0 = -0.834  # Equation of state parameter from fit
+w0 = -0.799  # Equation of state parameter from fit
 
 a_min = 1e-8
 a_max = 4
@@ -16,9 +16,9 @@ N_a = 5000
 a_vals = np.linspace(a_min, a_max, N_a)
 
 
-w_de = lambda a: -1 + 2 * (1 + w0) * a**3 / (1 + a**3)
+w_de = lambda a: -1 + (1 + w0) * a**3
 
-Rho_de = lambda a: Rho_de_0 * (2 / (1 + a**3)) ** (2 * (1 + w0))
+Rho_de = lambda a: Rho_de_0 * np.exp((1 + w0) * (1 - a**3))
 
 H = (
     lambda a: H0
@@ -28,10 +28,10 @@ H = (
 V_phi = lambda a: (1 - w_de(a)) * Rho_de(a) / 2
 
 # Dimensionless Hubble parameter
-h = lambda a: H(a) / H0
+E_a = lambda a: H(a) / H0
 
 # d_phi/da in reduced Planck units (dimensionless)
-d_phi_da = lambda a: np.sqrt(Rho_de(a) * (1 + w_de(a))) / (a * h(a))
+d_phi_da = lambda a: np.sqrt(Rho_de(a) * (1 + w_de(a))) / (a * E_a(a))
 
 phi_vals = cumulative_trapezoid(d_phi_da(a_vals), a_vals, initial=0)
 
@@ -43,7 +43,7 @@ phi_plot = np.linspace(min(phi_vals), max(phi_vals), 2000)
 
 # d_phi/dt in units of H0 (to be converted to physical units later)
 # da/dt = H*a, so d_phi/dt = (d_phi/da) * (da/dt) = (d_phi/da) * H * a
-d_phi_dt_val = d_phi_da(a_vals) * h(a_vals) * a_vals
+d_phi_dt_val = d_phi_da(a_vals) * E_a(a_vals) * a_vals
 
 # Scalar field
 plt.figure(figsize=(8, 5))
@@ -88,7 +88,7 @@ plt.show()
 
 
 # dt/da in units of 1/H0 (dimensionless time)
-dt_da = lambda a: 1 / (a * h(a))
+dt_da = lambda a: 1 / (a * E_a(a))
 t_vals = cumulative_trapezoid(dt_da(a_vals), a_vals, initial=0)
 
 # Convert time from 1/H0 units to Gyr
