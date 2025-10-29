@@ -72,10 +72,10 @@ def solve_triang(cho_L, delta):
 
 """
 Planck prior on sound horizon at drag epoch r_d in Mpc
-width increased by 75% to account for model dependence
+width increased by 100% to account for model dependence
 """
 rd_planck = 147.09
-rd_planck_sigma = 1.75 * 0.26
+rd_planck_sigma = 2 * 0.26
 
 
 def chi_squared(params):
@@ -159,13 +159,7 @@ def main():
 
     best_fit = np.percentile(samples, 50, axis=0)
     pct = np.percentile(samples, [15.9, 50, 84.1], axis=0)
-
-    [
-        rd_err,
-        H0_err,
-        Om_err,
-        w0_err,
-    ] = np.diff(pct, axis=0).T
+    rd_err, H0_err, Om_err, w0_err = np.diff(pct, axis=0).T
 
     print("Gelman-Rubin:", gelman_rubin(chains_samples))
     print(f"rd: {best_fit[0]:.2f} +{rd_err[1]:.2f} -{rd_err[0]:.2f} Mpc")
@@ -198,41 +192,40 @@ DESI BAO DR2 2025
 *******************************
 
 Flat ΛCDM
-rd: 147.09 +0.45 -0.45 Mpc
-H0: 69.03 +0.54 -0.54 km/s/Mpc
+rd: 147.09 +0.52 -0.51 Mpc
+H0: 69.03 +0.54 -0.55 km/s/Mpc
 Ωm: 0.298 +0.009 -0.008
 w0: -1
 wa: 0
 Chi squared: 10.27
-Log Evidence: -15.68
-Degs of freedom: 11
+Log Evidence: -15.5
 
 ===============================
 
 Flat wCDM
-rd: 147.09 +0.45 -0.45 Mpc
-H0: 67.83 +1.22 -1.14 km/s/Mpc
+rd: 147.09 +0.51 -0.51 Mpc
+H0: 67.86 +1.22 -1.15 km/s/Mpc
 Ωm: 0.297 +0.009 -0.009
-w0: -0.914 +0.076 -0.079
+w0: -0.915 +0.075 -0.080
 wa: 0
-Chi squared: 9.14
-Log Evidence: -17.11
+Chi squared: 9.10
+Log Evidence: -16.98
 Degs of freedom: 10
 
 ===============================
 
 Flat -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-rd: 147.09 +0.45 -0.45 Mpc
-H0: 67.00 +1.63 -1.49 km/s/Mpc
-Ωm: 0.308 +0.012 -0.012
-w0: -0.831 +0.120 -0.129
-wa: d w(z)/dz at z=0 = -1.5 * (1 + w0) = -0.253 +0.194 -0.180
+rd: 147.09 +0.51 -0.52 Mpc
+H0: 67.03 +1.60 -1.50 km/s/Mpc
+Ωm: 0.308 +0.012 -0.011
+w0: -0.833 +0.120 -0.128
+wa: d w(z)/dz at z=0 = -1.5 * (1 + w0) = -0.250 +0.192 -0.180
 Chi squared: 8.44
-Log Evidence: -16.34
+Log Evidence: -16.21
 Degs of freedom: 10
 
 ===============================
 
 Flat w0waCDM
-
+TODO
 """
