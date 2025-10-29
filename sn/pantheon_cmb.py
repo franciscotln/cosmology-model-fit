@@ -24,7 +24,7 @@ def Ez(z, params):
     Ode = 1 - Om - Or
     one_plus_z = 1 + z
     cubed = one_plus_z**3
-    fz_de = (2 * cubed**2 / (1 + cubed**2)) ** (1 + w0)
+    fz_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
 
     return np.sqrt(Or * one_plus_z**4 + Om * cubed + Ode * fz_de)
 
@@ -153,8 +153,8 @@ def main():
 
     Omh2_16, Omh2_50, Omh2_84 = np.percentile(Omh2_samples, one_sigma_conf_int)
     z_st_16, z_st_50, z_st_84 = np.percentile(z_star_samples, one_sigma_conf_int)
-    z_dr_16, z_dr_50, z_dr_84 = np.percentile(z_drag_samples, one_sigma_conf_int)
-    r_dr_16, r_dr_50, r_dr_84 = np.percentile(r_drag_samples, one_sigma_conf_int)
+    z_d_16, z_d_50, z_d_84 = np.percentile(z_drag_samples, one_sigma_conf_int)
+    r_d_16, r_d_50, r_d_84 = np.percentile(r_drag_samples, one_sigma_conf_int)
 
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
@@ -163,12 +163,10 @@ def main():
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"M: {M_50:.3f} +{(M_84 - M_50):.3f} -{(M_50 - M_16):.3f}")
     print(f"z*: {z_st_50:.2f} +{(z_st_84 - z_st_50):.2f} -{(z_st_50 - z_st_16):.2f}")
-    print(
-        f"z_drag: {z_dr_50:.2f} +{(z_dr_84 - z_dr_50):.2f} -{(z_dr_50 - z_dr_16):.2f}"
-    )
+    print(f"z_drag: {z_d_50:.2f} +{(z_d_84 - z_d_50):.2f} -{(z_d_50 - z_d_16):.2f}")
     print(f"r_s(z*) = {cmb.rs_z(Ez, z_st_50, best_fit, H0_50, Obh2_50):.2f} Mpc")
     print(
-        f"r_s(z_drag) = {r_dr_50:.2f} +{(r_dr_84 - r_dr_50):.2f} -{(r_dr_50 - r_dr_16):.2f} Mpc"
+        f"r_s(z_drag) = {r_d_50:.2f} +{(r_d_84 - r_d_50):.2f} -{(r_d_50 - r_d_16):.2f} Mpc"
     )
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
 
@@ -225,18 +223,18 @@ Degrees of freedom: 1586
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-H0: 66.82 +0.68 -0.66 km/s/Mpc
-Ωm: 0.322 +0.008 -0.008
-ωm: 0.14383 +0.00125 -0.00123
-ωb: 0.02236 +0.00014 -0.00014
-w0: -0.946 +0.056 -0.056
-wa: d w(z)/dz at z=0 = -3 * (1 + w0)
-M: -19.449 +0.016 -0.016
+H0: 66.77 +0.73 -0.70 km/s/Mpc
+Ωm: 0.323 +0.008 -0.008
+ωm: 0.14384 +0.00127 -0.00124
+ωb: 0.02236 +0.00015 -0.00015
+w0: -0.961 +0.042 -0.042
+wa: d w(z)/dz at z=0 = -1.5 * (1 + w0)
+M: -19.452 +0.018 -0.017
 z*: 1088.91 +0.22 -0.21
 z_drag: 1059.94 +0.29 -0.29
-r_s(z*) = 144.17 Mpc
-r_s(z_drag) = 146.73 +0.29 -0.28 Mpc
-Chi squared: 1402.63
+r_s(z*) = 144.16 Mpc
+r_s(z_drag) = 146.73 +0.28 -0.29 Mpc
+Chi squared: 1402.68
 
 ===============================
 

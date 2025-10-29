@@ -23,7 +23,7 @@ one_plus_z_hel = 1 + z_hel_values
 @njit
 def Ez(params):
     O_m, w0 = params[2], params[3]
-    rho_de = (2 * one_plus_z**6 / (1 + one_plus_z**6)) ** (1 + w0)
+    rho_de = (2 * one_plus_z**3 / (1 + one_plus_z**3)) ** (2 * (1 + w0))
     return np.sqrt(O_m * one_plus_z**3 + (1 - O_m) * rho_de)
 
 
@@ -217,15 +217,15 @@ Chi squared: 1451.70
 
 =============================
 
-Flat w0 - (1 + w0) * (((1 + z)**6 - 1) / ((1 + z)**6 + 1))
-M: -19.243 +0.029/-0.030
-H0 (km/s/Mpc): 73.44 +1.03/-1.03
-Ωm: 0.319 +0.035/-0.034
-w0: -0.934 +0.127/-0.145
-wa: d w(z)/dz at z=0 = -3 * (1 + w0)
+Flat w0 - (1 + w0) * (((1 + z)**3 - 1) / ((1 + z)**3 + 1))
+M: -19.243 +0.029/-0.029
+H0 (km/s/Mpc): 73.46 +1.03/-1.02
+Ωm: 0.314 +0.043/-0.044
+w0: -0.936 +0.124/-0.143
+wa: d w(z)/dz at z=0 = -1.5 * (1 + w0)
 R-squared (%): 99.78
 RMSD (mag): 0.153
 Skewness of residuals: 0.077
-kurtosis of residuals: 1.561
+kurtosis of residuals: 1.560
 Chi squared: 1451.71
 """
