@@ -19,7 +19,7 @@ cho_cov = cho_factor(covariance, lower=True)[0]
 @njit
 def E(z, om, w0):
     inv_a = 1 + z
-    rho_de = (2 * inv_a**3 / (1 + inv_a**3)) ** (2 * (1 + w0))
+    rho_de = np.exp((1 + w0) * (1 - inv_a**-3))
     return np.sqrt(om * inv_a**3 + (1 - om) * rho_de)
 
 
@@ -40,17 +40,10 @@ def growth_deriv(y, a, om, w0):
     HH = H**2
 
     # Compute d(H^2)/da including both matter and dark energy contributions
-    inv_a = 1 + z
-    inv_a2 = inv_a**2
-    inv_a3 = inv_a**3
-
-    drho_de_da = (
-        2
-        * (1 + w0)
-        * (2 * inv_a3 / (1 + inv_a3)) ** (2 * (1 + w0) - 1)
-        * (6 * inv_a2 / (1 + inv_a3) - 2 * inv_a3 * 3 * inv_a2 / (1 + inv_a3) ** 2)
-        * (-1 / a**2)
-    )
+    # rho_de = exp((1 + w0) * (1 - a^3))
+    # d(rho_de)/da = -3 * (1 + w0) * a^2 * rho_de
+    rho_de = np.exp((1 + w0) * (1 - a**3))
+    drho_de_da = -3 * (1 + w0) * a**2 * rho_de
     dHHda = -3 * om / a**4 + (1 - om) * drho_de_da
 
     Hprime = (1 / 2) * dHHda / H
@@ -235,7 +228,7 @@ flat wCDM
 Ωm = 0.252 +0.022 -0.022
 σ8 = 0.864 +0.062 -0.047
 S8 = 0.796 +0.034 -0.033
-w0 = -0.771 +0.114 -0.120
+w0 = -0.77 +0.11 -0.12
 f = 1.32 +0.11 -0.11
 chi2 = 63.32
 62 deg of freedom
@@ -243,11 +236,11 @@ chi2 = 63.32
 ===============================
 
 flat wzCDM
-Ωm = 0.271 +0.019 -0.018
-σ8 = 0.833 +0.032 -0.030
-S8 = 0.793 +0.033 -0.033
-w0 = -0.727 +0.142 -0.150
-f = 1.32 +0.11 -0.11
-chi2 = 63.53
+Ωm = 0.276 +0.020 -0.019
+σ8 = 0.829 +0.029 -0.027
+S8 = 0.796 +0.034 -0.034
+w0 = -0.66 +0.18 -0.18
+f = 1.32 +0.12 -0.11
+chi2 = 63.41
 62 deg of freedom
 """
