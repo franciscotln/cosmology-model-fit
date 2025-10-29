@@ -31,6 +31,7 @@ def Ez(z, theta):
     Or = Orh2 / h**2
     Ode = 1 - Om - Or
     cubed = z_plus_1**3
+    # Upper limit of thawing quintessence models arXiv:astro-ph/0505494v1
     rho_de = np.exp((1 + w0) * (1 - 1 / cubed))
     return np.sqrt(Or * z_plus_1**4 + Om * cubed + Ode * rho_de)
 
