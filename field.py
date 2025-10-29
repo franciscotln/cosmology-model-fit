@@ -3,12 +3,12 @@ import matplotlib.pyplot as plt
 from scipy.integrate import cumulative_trapezoid
 from scipy.interpolate import interp1d
 
-# values from BAO + CCH + DES5Y
+# values from DESI DR2 + rd_Planck + DES5Y
 Rho_de_0 = 1  # normalised
-H0 = 66.96  # Hubble constant in km/s/Mpc
-Om = 0.312
+H0 = 67.05  # Hubble constant in km/s/Mpc
+Om = 0.307
 Or = 4.1835e-05 / (H0 / 100) ** 2  # Radiation density
-w0 = -0.777  # Equation of state parameter from fit
+w0 = -0.834  # Equation of state parameter from fit
 
 a_min = 1e-8
 a_max = 4
@@ -16,9 +16,9 @@ N_a = 5000
 a_vals = np.linspace(a_min, a_max, N_a)
 
 
-w_de = lambda a: -1 + 2 * (1 + w0) * a**6 / (1 + a**6)
+w_de = lambda a: -1 + 2 * (1 + w0) * a**3 / (1 + a**3)
 
-Rho_de = lambda a: Rho_de_0 * (2 / (1 + a**6)) ** (1 + w0)
+Rho_de = lambda a: Rho_de_0 * (2 / (1 + a**3)) ** (2 * (1 + w0))
 
 H = (
     lambda a: H0
