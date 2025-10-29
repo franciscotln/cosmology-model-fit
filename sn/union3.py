@@ -26,7 +26,7 @@ dx = np.diff(z_grid)
 def Ez(z, params):
     Om, w0 = params[OM], params[W0]
     cubed = (1 + z) ** 3
-    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
+    rho_de = np.exp((1 + w0) * (1 - 1 / cubed))
     return np.sqrt(Om * cubed + (1 - Om) * rho_de)
 
 
@@ -204,6 +204,7 @@ Flat wCDM: w(z) = w0
 
 Ωm: 0.252 +0.086/-0.108
 w0: -0.748 +0.153/-0.183
+wa: 0
 R-squared (%): 99.94
 RMSD (mag): 0.055
 Skewness of residuals: -1.266
@@ -213,15 +214,16 @@ Degs of freedom: 19
 
 ===============================
 
-Flat alternative: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
+Flat alternative: w(z) = -1 + (1 + w0) / (1 + z)^3
 
-Ωm: 0.295 +0.052/-0.053
-w0: -0.751 +0.142/-0.169
+Ωm: 0.302 +0.047/-0.046
+w0: -0.712 +0.159/-0.188
+wa: -3 * (1 + w0)
 R-squared (%): 99.94
 RMSD (mag): 0.053
-Skewness of residuals: -1.077
-Chi squared: 21.7
-Log evidence: -16.5
+Skewness of residuals: -1.030
+Chi squared: 21.5
+Log evidence: -16.3
 Degs of freedom: 19
 
 ===============================

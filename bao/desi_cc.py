@@ -26,7 +26,7 @@ def Ez(z, params):
     O_m, w0 = params[3], params[4]
     one_plus_z = 1 + z
     cubic = one_plus_z**3
-    rho_de = (2 * cubic / (1 + cubic)) ** (2 * (1 + w0))
+    rho_de = np.exp((1 + w0) * (1 - 1 / one_plus_z**3))
     return np.sqrt(O_m * cubic + (1 - O_m) * rho_de)
 
 
@@ -158,11 +158,11 @@ def main():
     samples = sampler.get_chain(discard=burn_in, flat=True)
 
     [
-        [f_cc_16, f_cc_50, f_cc_84],
-        [h0_16, h0_50, h0_84],
-        [rd_16, rd_50, rd_84],
-        [Om_16, Om_50, Om_84],
-        [w0_16, w0_50, w0_84],
+        (f_cc_16, f_cc_50, f_cc_84),
+        (h0_16, h0_50, h0_84),
+        (rd_16, rd_50, rd_84),
+        (Om_16, Om_50, Om_84),
+        (w0_16, w0_50, w0_84),
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
     best_fit = np.percentile(samples, 50, axis=0)
@@ -171,8 +171,8 @@ def main():
     Omh2_16, Omh2_50, Omh2_84 = np.percentile(Omh2_samples, [15.9, 50, 84.1])
 
     print(f"f_cc: {f_cc_50:.2f} +{(f_cc_84 - f_cc_50):.2f} -{(f_cc_50 - f_cc_16):.2f}")
-    print(f"H0: {h0_50:.1f} +{(h0_84 - h0_50):.1f} -{(h0_50 - h0_16):.1f}")
-    print(f"r_d: {rd_50:.1f} +{(rd_84 - rd_50):.1f} -{(rd_50 - rd_16):.1f}")
+    print(f"H0: {h0_50:.1f} +{(h0_84 - h0_50):.1f} -{(h0_50 - h0_16):.1f} km/s/Mpc")
+    print(f"r_d: {rd_50:.1f} +{(rd_84 - rd_50):.1f} -{(rd_50 - rd_16):.1f} Mpc")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"ωm: {Omh2_50:.4f} +{(Omh2_84 - Omh2_50):.4f} -{(Omh2_50 - Omh2_16):.4f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
@@ -234,24 +234,24 @@ Degrees of freedom: 41
 
 ===============================
 
-Flat -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-f_cc: 1.46 +0.18 -0.18
-H0: 67.3 +2.8 -2.7
-r_d: 147.1 +5.1 -4.6
-Ωm: 0.307 +0.011 -0.011
-ωm: 0.1390 +0.0100 -0.0096
-w0: -0.857 +0.118 -0.126
-wa: d w(z)/dz at z=0 = -1.5 * (1 + w0)
-Chi squared: 40.81
-log likelihood: -135.09
+Flat -1 + (1 + w0) / (1 + z)**3
+f_cc: 1.46 +0.19 -0.18
+H0: 66.9 +2.9 -2.9 km/s/Mpc
+r_d: 147.2 +5.0 -4.7 Mpc
+Ωm: 0.311 +0.014 -0.013
+ωm: 0.1390 +0.0098 -0.0095
+w0: -0.795 +0.165 -0.172
+wa: d w(z)/dz at z=0 = -3 * (1 + w0)
+Chi squared: 40.64
+log likelihood: -135.05
 Degrees of freedom: 41
 
 ===============================
 
 Flat w0waCDM
 f_cc: 1.43 +0.18 -0.18
-H0: 64.6 +3.7 -3.7
-r_d: 147.2 +5.1 -4.8
+H0: 64.6 +3.7 -3.7 km/s/Mpc
+r_d: 147.2 +5.1 -4.8 Mpc
 Ωm: 0.350 +0.044 -0.047
 ωm: 0.1450 +0.0119 -0.0128
 w0: -0.532 +0.399 -0.355

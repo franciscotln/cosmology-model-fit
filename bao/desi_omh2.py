@@ -26,7 +26,7 @@ def H_z(z, params):
     OL = 1 - Om
     one_plus_z = 1 + z
     cubed = one_plus_z**3
-    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
+    rho_de = np.exp((1 + w0) * (1 - 1 / one_plus_z**3))
     return 100 * h * np.sqrt(Om * cubed + OL * rho_de)
 
 
@@ -202,6 +202,7 @@ h: 0.693 +0.010 -0.010
 Ωm h^2: 0.1430 +0.0011 -0.0011
 Ωb h^2 (inferred): 0.02292
 w0: -1
+wa: 0
 rd: 146.48 +1.33 -1.31
 Chi squared: 10.27
 Degs of freedom: 11
@@ -216,6 +217,7 @@ h: 0.694 +0.011 -0.011
 Ωm h^2: 0.1430 +0.0011 -0.0011
 Ωb h^2 (inferred): 0.02597
 w0: -0.914 +0.076 -0.080
+wa: 0
 rd: 144.03 +2.67 -2.94
 Chi squared: 9.16
 Degs of freedom: 10
@@ -224,14 +226,15 @@ RMSD: 0.282
 
 ===============================
 
-Flat alternative: w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-h: 0.681 +0.013 -0.013
-Ωm: 0.308 +0.012 -0.012
+Flat alternative: w(z) = -1 + (1 + w0) / (1 + z)**3
+h: 0.676 +0.016 -0.015
+Ωm: 0.313 +0.014 -0.014
 ωm: 0.1430 +0.0011 -0.0011
-w0: -0.832 +0.120 -0.128
-rd: 144.69 +1.94 -1.91
-Chi squared: 8.44
+w0: -0.755 +0.168 -0.178
+wa: d w(z)/dz at z=0 = -3 * (1 + w0)
+rd: 144.72 +1.88 -1.89
+Chi squared: 8.27
 Degs of freedom: 10
-R^2: 0.9990
-RMSD: 0.266
+R^2: 0.9991
+RMSD: 0.262
 """

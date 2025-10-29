@@ -33,7 +33,7 @@ def Ez(z, theta):
     Or = Orh2 / h**2
     Ode = 1 - Om - Or
     cubed = z_plus_1**3
-    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
+    rho_de = np.exp((1 + w0) * (1 - 1 / cubed))
     return np.sqrt(Or * z_plus_1**4 + Om * cubed + Ode * rho_de)
 
 
@@ -205,7 +205,9 @@ def main():
     print(f"z_d: {zd_50:.2f} +{(zd_84 - zd_50):.2f} -{(zd_50 - zd_16):.2f}")
     print(f"r_d: {cmb.rs_z(Ez, zd_50, best_fit, H0_50, Obh2_50):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
-    print(f"Log Evidence: {log_evidence(samples, log_probs, log_probability, bounds):.2f}")
+    print(
+        f"Log Evidence: {log_evidence(samples, log_probs, log_probability, bounds):.2f}"
+    )
     print(f"Degs of freedom: {2 + len(bao_data['z']) + len(z_cmb) - len(best_fit)}")
 
     plot_bao_predictions(
@@ -264,17 +266,18 @@ Degs of freedom: 1600
 
 ===============================
 
-Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-M: -19.434 +0.013 -0.013 mag
-H0: 67.23 +0.59 -0.58 km/s/Mpc
-Ωm: 0.306 +0.005 -0.005
-ωm: 0.1382 +0.0010 -0.0009
+Flat w(z) = -1 + (1 + w0) / (1 + z)^3
+M: -19.433 +0.013 -0.013 mag
+H0: 67.24 +0.59 -0.58 km/s/Mpc
+Ωm: 0.306 +0.006 -0.005
+ωm: 0.1383 +0.0009 -0.0009
 ωb: 0.02223 +0.00014 -0.00014
-w0: -0.906 +0.038 -0.038 (prior width 1.5: -1.5 to 0.0)
-z_d: 1059.23 +0.35 -0.35
-r_d: 148.36 Mpc
-Chi squared: 1411.51
-Log Evidence: -725.81
+w0: -0.887 +0.047 -0.046 (prior width 1.5: -1.5 to 0.0)
+wa: -3 * (1 + w0)
+z_d: 1059.24 +0.35 -0.35
+r_d: 148.32 Mpc
+Chi squared: 1411.54
+Log Evidence: -725.63
 Degrees of freedom: 1600
 
 ===============================

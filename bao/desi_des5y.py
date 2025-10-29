@@ -23,7 +23,7 @@ def Ez(z, theta):
     Om, w0 = theta[2], theta[3]
     z_plus_1 = 1 + z
     cubed = z_plus_1**3
-    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
+    rho_de = np.exp((1 + w0) * (1 - 1 / cubed))
     return np.sqrt(Om * cubed + (1 - Om) * rho_de)
 
 
@@ -228,14 +228,14 @@ Degrees of freedom: 1744
 
 ===============================
 
-Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)^3)
-ΔM: -9.193 +0.012 -0.012
-r_d * h: 98.64 +0.82 -0.83
-Ωm: 0.307 +0.008 -0.008
-w0: -0.834 +0.045 -0.045 (prior width 1.5: -1.5 to 0.0)
-wa: d w(z)/dz at z=0 = -1.5 * (1 + w0)
-Chi squared: 1646.49
-Log Evidence: -837.59 (Δ logZ 3.64 against ΛCDM)
+Flat w(z) = -1 + (1 + w0) / (1 + z)^3
+ΔM: -9.190 +0.012 -0.012
+r_d * h: 98.54 +0.83 -0.83
+Ωm: 0.309 +0.008 -0.008
+w0: -0.799 +0.053 -0.054
+wa: d w(z)/dz at z=0 = -3 * (1 + w0)
+Chi squared: 1646.00
+Log Evidence: -837.17 (Δ logZ 4.06 against ΛCDM)
 Degrees of freedom: 1744
 
 ===============================

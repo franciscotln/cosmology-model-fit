@@ -22,7 +22,7 @@ dx = np.diff(z_grid)
 def Ez(z, params):
     Om, w0 = params[3], params[4]
     inv_a3 = (1 + z) ** 3
-    rho_de = (2 * inv_a3 / (1 + inv_a3)) ** (2 * (1 + w0))
+    rho_de = np.exp((1 + w0) * (1 - 1 / inv_a3))
 
     return np.sqrt(Om * inv_a3 + (1 - Om) * rho_de)
 
@@ -219,7 +219,6 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM w(z) = -1
-ΔM: -0.056 +0.012 -0.013 mag
 r_d: 147.09 +0.45 -0.44 Mpc
 H0: 68.36 +0.49 -0.49 km/s/Mpc
 Ωm: 0.310 +0.008 -0.008
@@ -231,7 +230,6 @@ Degrees of freedom: 1745
 ===============================
 
 Flat wCDM w(z) = w0
-ΔM: -0.063 +0.013 -0.013 mag
 r_d: 147.09 +0.44 -0.44 Mpc
 H0: 67.21 +0.58 -0.58 km/s/Mpc
 Ωm: 0.298 +0.009 -0.009
@@ -242,21 +240,19 @@ Degrees of freedom: 1744
 
 ===============================
 
-Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-ΔM: -0.061 +0.012 -0.012 mag
-r_d: 147.09 +0.45 -0.44 Mpc
-H0: 67.05 +0.59 -0.58 km/s/Mpc
-Ωm: 0.307 +0.008 -0.008
-w0: -0.834 +0.044 -0.045 (prior width 1.5: -1.5 to 0.0)
-wa: d w(z)/dz at z=0 = -1.5 * (1 + w0)
-Chi squared: 1646.5
-Log evidence: -841.7 (Δ logZ = 3.7 against ΛCDM)
+Flat w(z) = -1 + (1 + w0) / (1 + z)**3
+r_d: 147.09 +0.44 -0.44 Mpc
+H0: 66.99 +0.61 -0.60 km/s/Mpc
+Ωm: 0.309 +0.008 -0.008
+w0: -0.799 +0.053 -0.054 (prior width 1.5: -1.5 to 0.0)
+wa: d w(z)/dz at z=0 = -3 * (1 + w0)
+Chi squared: 1646.0
+Log evidence: -841.3 (Δ logZ = 4.1 against ΛCDM)
 Degrees of freedom: 1744
 
 ===============================
 
 Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
-ΔM: -0.057 +0.013 -0.013 mag
 r_d: 147.09 +0.44 -0.45 Mpc
 H0: 66.98 +0.60 -0.58 km/s/Mpc
 Ωm: 0.321 +0.012 -0.015

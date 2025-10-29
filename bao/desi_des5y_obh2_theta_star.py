@@ -32,7 +32,7 @@ def Ez(z, theta):
     Or = Orh2 / h**2
     Ode = 1 - Om - Or
     cubed = z_plus_1**3
-    rho_de = (2 * cubed / (1 + cubed)) ** (2 * (1 + w0))
+    rho_de = np.exp((1 + w0) * (1 - 1 / cubed))
 
     return np.sqrt(Or * z_plus_1**4 + Om * cubed + Ode * rho_de)
 
@@ -281,20 +281,20 @@ Degrees of freedom: 1745
 
 ===============================
 
-Flat w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)**3)
-H0: 66.68 +0.56 -0.55 km/s/Mpc
-Ωm: 0.312 +0.005 -0.005
-ωm: 0.1389 +0.0010 -0.0010
+Flat w(z) = -1 + (1 + w0) / (1 + z)**3
+H0: 66.62 +0.57 -0.56 km/s/Mpc
+Ωm: 0.313 +0.006 -0.005
+ωm: 0.1391 +0.0009 -0.0009
 ωb: 0.02239 +0.00015 -0.00015
-w0: -0.858 +0.037 -0.037 (prior width 1.5: -1.5 to 0.0)
-wa: d w(z)/dz at z=0 = -1.5 * (1 + w0)
-z_d: 1059.66 +0.36 -0.36
-r_d: 148.01 Mpc
-z*: 1088.54 +0.15 -0.16
-r*: 145.42 Mpc
-shift parameter R: 1.735
-Chi squared: 1647.36
-Log Evidence: -843.26 (Δ logZ = 4.27 against ΛCDM)
+w0: -0.821 +0.045 -0.046 (prior width 1.5: -1.5 to 0.0)
+wa: d w(z)/dz at z=0 = -3 * (1 + w0)
+z_d: 1059.67 +0.36 -0.36
+r_d: 147.97 Mpc
+z*: 1088.55 +0.15 -0.15
+r*: 145.38 Mpc
+R: 1.736
+Chi squared: 1646.66
+Log Evidence: -842.69 (Δ logZ = 4.84 against ΛCDM)
 Degrees of freedom: 1745
 
 ===============================
