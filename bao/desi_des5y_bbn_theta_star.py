@@ -154,6 +154,7 @@ def main():
     from sn.plotting import plot_predictions as plot_sn_predictions
     from .plot_predictions import plot_bao_predictions
     from corner_plot import plot_corner_and_chains
+    from gelman_rubin import gelman_rubin
     from log_evidence import log_evidence
 
     ndim = len(bounds)
@@ -186,6 +187,7 @@ def main():
     samples = sampler.get_chain(discard=burn_in, flat=True)
     log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
     log_evd = log_evidence(samples, log_probs, log_probability, bounds)
+    print("Gelman-Rubin:", gelman_rubin(chains_samples))
 
     [
         (H0_16, H0_50, H0_84),
