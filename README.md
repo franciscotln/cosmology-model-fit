@@ -1,6 +1,7 @@
 # cosmology-model-fit
 Probing variable equation of state for dark energy, for example with my own:
-$$w_{DE}(z) = w_0 - (1 + w_0) \frac{(1 + z)^6 - 1}{(1 + z)^6 + 1}$$
+$$w_{DE}(z) = -1 + \frac{(1 + w_0)}{(1 + z)^3}$$
+This is the upper limit of thawing quintessence models as described in https://arxiv.org/abs/astro-ph/0505494
 
 ## Necessary packages to run the code in python3
 ```bash
@@ -12,7 +13,7 @@ pip3 install numpy pandas matplotlib scipy corner numba
 python3 -m sn.pantheon
 ```
 
-## To run BAO fits
+## To run a joint fit combining DESI DR2 + DES5Y + BBN + $\theta*$
 ```bash
-python3 -m bao.desi
+python3 -m bao.desi_des5y_bbn_theta_star
 ```
