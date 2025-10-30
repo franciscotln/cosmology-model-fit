@@ -1,41 +1,50 @@
 from numba import njit
 import numpy as np
-from scipy.integrate import cumulative_trapezoid
-from scipy.linalg import cho_factor, cho_solve
+from scipy.linalg import cho_factor, solve_triangular
 from y2023union3.data import get_data as get_sn_data
 from y2005cc.data import get_data as get_cc_data
 
 legend_sn, z_sn_vals, mu_vals, cov_matrix_sn = get_sn_data()
 legend_cc, z_cc_vals, H_cc_vals, cov_matrix_cc = get_cc_data()
+
 logdet_cc = np.linalg.slogdet(cov_matrix_cc)[1]
 N_cc = len(z_cc_vals)
-cho_sn = cho_factor(cov_matrix_sn)
-cho_cc = cho_factor(cov_matrix_cc)
+
+cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
+cho_cc = cho_factor(cov_matrix_cc, lower=True)[0]
 
 c = 299792.458  # Speed of light in km/s
 
 z_grid = np.linspace(0, np.max(z_sn_vals), num=1000)
+dx = np.diff(z_grid)
 
 
 @njit
 def Ez(z, params):
     Om, w0 = params[3], params[4]
     one_plus_z = 1 + z
-    rho_de = (2 * one_plus_z**3 / (1 + one_plus_z**3)) ** (2 * (1 + w0))
+    rho_de = np.exp((1 + w0) * (1 - one_plus_z**-3))
     return np.sqrt(Om * one_plus_z**3 + (1 - Om) * rho_de)
-
-
-def mu_theory(params):
-    dM, h0 = params[1], params[2]
-    y = 1 / Ez(z_grid, params)
-    integral_values = cumulative_trapezoid(y=y, x=z_grid, initial=0)
-    I = np.interp(z_sn_vals, z_grid, integral_values)
-    return dM + 25 + 5 * np.log10((1 + z_sn_vals) * (c / h0) * I)
 
 
 @njit
 def H_z(z, params):
     return params[2] * Ez(z, params)
+
+
+@njit
+def DM_z(z, params):
+    dh_grid = c / H_z(z_grid, params)
+    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    cum_dm = np.zeros(z_grid.size)
+    cum_dm[1:] = np.cumsum(dx * dy)
+    return np.interp(z, z_grid, cum_dm)
+
+
+@njit
+def mu_theory(params):
+    dL = (1 + z_sn_vals) * DM_z(z_sn_vals, params)
+    return params[1] + 25 + 5 * np.log10(dL)
 
 
 bounds = np.array(
@@ -50,15 +59,17 @@ bounds = np.array(
 )
 
 
+def solve_triang(cho_L, delta):
+    y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
+    return np.dot(y, y)
+
+
 def chi_squared(params):
-    f_cc = params[0]
     delta_sn = mu_vals - mu_theory(params)
-    chi_sn = np.dot(delta_sn, cho_solve(cho_sn, delta_sn, check_finite=False))
+    chi_sn = solve_triang(cho_sn, delta_sn)
 
     cc_delta = H_cc_vals - H_z(z_cc_vals, params)
-    chi_cc = f_cc**-2 * np.dot(
-        cc_delta, cho_solve(cho_cc, cc_delta, check_finite=False)
-    )
+    chi_cc = params[0] ** -2 * solve_triang(cho_cc, cc_delta)
 
     return chi_sn + chi_cc
 
@@ -126,6 +137,7 @@ def main():
     chains_samples = sampler.get_chain(discard=burn_in, flat=False)
     samples = sampler.get_chain(discard=burn_in, flat=True)
     log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
+    log_evd = log_evidence(samples, log_probs, log_probability, bounds)
 
     [
         [f_cc_16, f_cc_50, f_cc_84],
@@ -144,9 +156,7 @@ def main():
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"w0: {w0_50:.2f} +{(w0_84 - w0_50):.2f} -{(w0_50 - w0_16):.2f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
-    print(
-        f"Log evidence: {log_evidence(samples, log_probs, log_probability, bounds):.1f}"
-    )
+    print(f"Log evidence: {log_evd:.1f}")
     print(f"Degrees of freedom: {deg_of_freedom}")
 
     plot_cc_predictions(
@@ -199,15 +209,15 @@ Degrees of freedom: 50
 
 ==============================
 
-Flat alternative: w(z) = -1 + 2 * (1 + w0) / ((1 + z)**3 + 1)
+Flat alternative: w(z) = -1 + (1 + w0) / (1 + z)^3
 f_cc: 0.71 +0.10 -0.08
-ΔM: -0.178 +0.124 -0.125 mag
-H0: 66.3 +2.7 -2.7 km/s/Mpc
-Ωm: 0.320 +0.035 -0.034
-w0: -0.84 +0.12 -0.14
-wa = d w(z=0)/dz = -1.5 * (1 + w0)
-Chi squared: 51.87
-Log evidence: -151.6
+ΔM: -0.179 +0.123 -0.126 mag
+H0: 66.2 +2.7 -2.6 km/s/Mpc
+Ωm: 0.322 +0.032 -0.031
+w0: -0.80 +0.14 -0.15
+wa: d w(z)/dz at z=0 = -3 * (1 + w0)
+Chi squared: 51.63
+Log evidence: -151.3
 Degrees of freedom: 50
 
 ==============================
