@@ -1,5 +1,5 @@
 # cosmology-model-fit
-Probing variable equation of state for dark energy, for example with my own:
+Probing variable equation of state for dark energy, for example with this thawing model:
 $$w_{DE}(z) = -1 + \frac{(1 + w_0)}{(1 + z)^3}$$
 This is the upper limit of thawing quintessence models as described in https://arxiv.org/abs/astro-ph/0505494
 
