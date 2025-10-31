@@ -65,7 +65,7 @@ quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int32
 @njit
 def bao_theory(z, qty, params):
     Omh2 = params[1] * (params[0] / 100) ** 2
-    rd = cmb.r_drag(wb=params[2], wm=Omh2)
+    rd = cmb.r_drag1(wb=params[2], wm=Omh2)
     results = np.empty(z.size, dtype=np.float64)
     DV_mask = qty == 0
     DM_mask = qty == 1
@@ -134,7 +134,7 @@ def log_probability(params):
 
 
 def main():
-    import emcee
+    from emcee import EnsembleSampler, autocorr, moves
     from multiprocessing import Pool
     from corner_plot import plot_corner_and_chains
     from log_evidence import log_evidence
@@ -146,24 +146,22 @@ def main():
     burn_in = 200
     nsteps = 2000 + burn_in
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
-    moves = [
-        (emcee.moves.KDEMove(), 0.30),
-        (emcee.moves.DEMove(), 0.56),
-        (emcee.moves.DESnookerMove(), 0.14),
+    mvs = [
+        (moves.KDEMove(), 0.30),
+        (moves.DEMove(), 0.56),
+        (moves.DESnookerMove(), 0.14),
     ]
 
     with Pool(5) as pool:
-        sampler = emcee.EnsembleSampler(
-            nwalkers, ndim, log_probability, pool=pool, moves=moves
-        )
+        sampler = EnsembleSampler(nwalkers, ndim, log_probability, pool, mvs)
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
 
     try:
         tau = sampler.get_autocorr_time()
         print("auto-correlation time", tau)
         print("acceptance fraction", np.mean(sampler.acceptance_fraction))
-        print("effective samples", ndim * nwalkers * nsteps / np.max(tau))
-    except emcee.autocorr.AutocorrError as e:
+        print("effective samples", ndim * nwalkers * (nsteps - burn_in) / np.max(tau))
+    except autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
 
     chains_samples = sampler.get_chain(discard=burn_in, flat=False)
@@ -172,10 +170,12 @@ def main():
     log_evd = log_evidence(samples, log_probs, log_probability, bounds)
 
     pct = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
-    H0_16, H0_50, H0_84 = pct[0]
-    Om_16, Om_50, Om_84 = pct[1]
-    Obh2_16, Obh2_50, Obh2_84 = pct[2]
-    w0_16, w0_50, w0_84 = pct[3]
+    [
+        (H0_16, H0_50, H0_84),
+        (Om_16, Om_50, Om_84),
+        (Obh2_16, Obh2_50, Obh2_84),
+        (w0_16, w0_50, w0_84),
+    ] = pct
 
     best_fit = np.percentile(samples, 50, axis=0)
 
@@ -217,46 +217,47 @@ Dataset: DESI DR2 2024 + θ∗ + BBN
 *******************************
 
 Flat ΛCDM w(z) = -1
-rd: 148.22 +0.71 -0.70 Mpc
-H0: 68.57 +0.46 -0.47 km/s/Mpc
-Ωm: 0.2956 +0.0046 -0.0045
-ωb: 0.02216 +0.00053 -0.00053
+rd: 148.24 +0.70 -0.69 Mpc
+H0: 68.58 +0.47 -0.47 km/s/Mpc
+Ωm: 0.2953 +0.0045 -0.0043
+ωb: 0.02215 +0.00053 -0.00053
 w0: -1
 wa: 0
-r*: 145.53 Mpc
+r*: 145.56 Mpc
 z*: 1088.81 +0.55 -0.53
-Chi squared: 10.34
+Chi squared: 10.35
 Log evidence: -14.5
 Degs of freedom: 12
 
 ===============================
 
 Flat wCDM w(z) = w0
-rd: 148.46 +0.76 -0.76 Mpc
-H0: 67.71 +1.13 -1.08 km/s/Mpc
-Ωm: 0.3007 +0.0075 -0.0076
-ωb: 0.02222 +0.00054 -0.00054
-w0: -0.958 +0.048 -0.050 (prior width 1.5: -1.5 to 0.0)
+rd: 148.44 +0.75 -0.73 Mpc
+H0: 67.74 +1.10 -1.08 km/s/Mpc
+Ωm: 0.3005 +0.0075 -0.0076
+ωb: 0.02222 +0.00054 -0.00053
+w0: -0.959 +0.047 -0.048
 wa: 0
-r*: 145.81 Mpc
+r*: 145.79 Mpc
 z*: 1088.66 +0.57 -0.56
 Chi squared: 9.57
-Log evidence: -16.6
+Log evidence: -16.7
 Degs of freedom: 11
 
 ===============================
 
 Flat w(z) = -1 + (1 + w0) / (1 + z)**3
-rd: 148.39 +0.73 -0.72 Mpc
-H0: 66.53 +1.74 -1.62 km/s/Mpc
-Ωm: 0.3119 +0.0143 -0.0141
-ωb: 0.02223 +0.00054 -0.00054
-w0: -0.828 +0.136 -0.142
+rd: 148.38 +0.71 -0.70 Mpc
+H0: 66.56 +1.72 -1.63 km/s/Mpc
+Ωm: 0.3116 +0.0143 -0.0142
+ωb: 0.02223 +0.00054 -0.00053
+w0: -0.830 +0.136 -0.140 (prior width 1.5: -1.5 to 0.0)
 wa: d w(z)/dz at z=0 = -3 * (1 + w0)
-r*: 145.75 Mpc
+r*: 145.74 Mpc
 z*: 1088.66 +0.56 -0.54
 Chi squared: 8.79
 Log evidence: -15.2
+Degs of freedom: 11
 
 ===============================
 

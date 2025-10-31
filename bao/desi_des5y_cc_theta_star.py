@@ -85,7 +85,7 @@ quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int32
 @njit
 def bao_theory(z, qty, theta):
     H0, Obh2, Om = theta[2], theta[3], theta[4]
-    rd = cmb.r_drag(wb=Obh2, wm=Om * (H0 / 100) ** 2)
+    rd = cmb.r_drag1(wb=Obh2, wm=Om * (H0 / 100) ** 2)
 
     DV_mask = qty == 0
     DM_mask = qty == 1
@@ -183,9 +183,7 @@ def main():
     ]
 
     with Pool(8) as pool:
-        sampler = emcee.EnsembleSampler(
-            nwalkers, ndim, log_probability, pool=pool, moves=moves
-        )
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
 
     try:
@@ -220,7 +218,7 @@ def main():
     print(f"f_cc: {f_cc_50:.2f} +{(f_cc_84 - f_cc_50):.2f} -{(f_cc_50 - f_cc_16):.2f}")
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
     print(f"H0: {h0_50:.1f} +{(h0_84 - h0_50):.1f} -{(h0_50 - h0_16):.1f} km/s/Mpc")
-    print(f"Ωm h^2: {wb_50:.4f} +{(wb_84 - wb_50):.4f} -{(wb_50 - wb_16):.4f} Mpc")
+    print(f"ω_b: {wb_50:.4f} +{(wb_84 - wb_50):.4f} -{(wb_50 - wb_16):.4f} Mpc")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"r_d: {r_d_50:.2f} +{(r_d_84 - r_d_50):.2f} -{(r_d_50 - r_d_16):.2f} Mpc")
@@ -263,54 +261,58 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM: w(z) = -1
-f_cc: 1.48 +0.18 -0.17
-H0: 66.6 +1.5 -1.3 km/s/Mpc
-Ωm h^2: 0.0198 +0.0021 -0.0017 Mpc
-Ωm: 0.307 +0.008 -0.007
-r_d: 151.1 +2.3 -2.8 Mpc
-Chi squared: 1692.55
-Log evidence: -978.76
+f_cc: 1.48 +0.18 -0.18
+ΔM: -0.118 +0.042 -0.038 mag
+H0: 66.5 +1.4 -1.3 km/s/Mpc
+ωb: 0.0195 +0.0020 -0.0018 Mpc
+Ωm: 0.307 +0.007 -0.007
+r_d: 151.45 +2.38 -2.58 Mpc
+Chi squared: 1692.49
+Log evidence: -978.55
 Degrees of freedom: 1777
 
 ===============================
 
 Flat wCDM: w(z) = w0
-f_cc: 1.47 +0.18 -0.18
-H0: 68.4 +1.9 -1.6 km/s/Mpc
-Ωm h^2: 0.0258 +0.0034 -0.0030 Mpc
-Ωm: 0.303 +0.006 -0.005
-w0: -0.894 +0.028 -0.028 (prior width 1.5: -1.5 to 0.0)
-r_d: 144.7 +3.4 -3.7 Mpc
-Chi squared: 1681.36
-Log evidence: -975.91 (Δ logZ = 2.85 over ΛCDM)
+f_cc: 1.47 +0.18 -0.17
+ΔM: -0.029 +0.054 -0.051 mag
+H0: 68.4 +1.7 -1.6 km/s/Mpc
+ωb: 0.0256 +0.0031 -0.0029 Mpc
+Ωm: 0.302 +0.007 -0.006
+w0: -0.888 +0.030 -0.031 (prior width 1.5: -1.5 to 0.0)
+wa: 0
+r_d: 144.95 +3.20 -3.17 Mpc
+Chi squared: 1681.11
+Log evidence: -975.68 (Δ logZ = 2.87 over ΛCDM)
 Degrees of freedom: 1776
 
 ===============================
 
 Flat w(z) = -1 + (1 + w0) / (1 + z)^3
-f_cc: 1.47 +0.18 -0.18
-ΔM: -0.038 +0.059 -0.051 mag
-H0: 67.7 +1.9 -1.6 km/s/Mpc
-Ωm h^2: 0.0246 +0.0033 -0.0027 Mpc
-Ωm: 0.310 +0.007 -0.006
-w0: -0.806 +0.049 -0.049 (prior width 1.5: -1.5 to 0.0)
+f_cc: 1.48 +0.18 -0.18
+ΔM: -0.047 +0.049 -0.047 mag
+H0: 67.4 +1.6 -1.4 km/s/Mpc
+ωb: 0.0240 +0.0026 -0.0024 Mpc
+Ωm: 0.310 +0.007 -0.007
+w0: -0.805 +0.050 -0.051 (prior width 1.5: -1.5 to 0.0)
 wa: -3 * (1 + w0)
-r_d: 145.56 +3.33 -3.78 Mpc
-Chi squared: 1679.09
-Log evidence: -973.94 (Δ logZ = 4.82 over ΛCDM)
+r_d: 146.27 +2.96 -2.91 Mpc
+Chi squared: 1678.93
+Log evidence: -974.07 (Δ logZ = 4.48 over ΛCDM)
 Degrees of freedom: 1776
 
 ===============================
 
 Flat w0waCDM: w(z) = w0 + wa * z / (1 + z)
-f_cc: 1.47 +0.18 -0.18
-H0: 66.8 +2.1 -1.7 km/s/Mpc
-Ωm h^2: 0.0226 +0.0039 -0.0031 Mpc
-Ωm: 0.315 +0.010 -0.009
-w0: -0.802 +0.066 -0.061 (prior width 1.5: -1.5 to 0.0)
-wa: -0.546 +0.328 -0.368 (prior width 5.0: -3.0 to 2.0)
-r_d: 147.5 +3.7 -4.2 Mpc
-Chi squared: 1678.85
-Log evidence: -976.10 (Δ logZ = 2.66 over ΛCDM)
+f_cc: 1.47 +0.18 -0.17
+ΔM: -0.074 +0.058 -0.054 mag
+H0: 66.5 +2.0 -1.7 km/s/Mpc
+ωb: 0.0220 +0.0036 -0.0031 Mpc
+Ωm: 0.316 +0.011 -0.011
+w0: -0.802 +0.066 -0.062 (prior width 1.5: -1.5 to 0.0)
+wa: -0.551 +0.347 -0.374 (prior width 5.0: -3.0 to 2.0)
+r_d: 148.19 +3.79 -3.79 Mpc
+Chi squared: 1678.66
+Log evidence: -975.96 (Δ logZ = 2.59 over ΛCDM)
 Degrees of freedom: 1775
 """

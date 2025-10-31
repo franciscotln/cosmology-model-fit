@@ -26,7 +26,7 @@ def Ez(z, params):
     O_m, w0 = params[3], params[4]
     one_plus_z = 1 + z
     cubic = one_plus_z**3
-    rho_de = np.exp((1 + w0) * (1 - 1 / one_plus_z**3))
+    rho_de = np.exp((1 + w0) * (1 - 1 / cubic))
     return np.sqrt(O_m * cubic + (1 - O_m) * rho_de)
 
 
@@ -141,9 +141,7 @@ def main():
     ]
 
     with Pool(5) as pool:
-        sampler = emcee.EnsembleSampler(
-            nwalkers, ndim, log_probability, pool=pool, moves=moves
-        )
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
 
     try:
@@ -178,7 +176,7 @@ def main():
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"log likelihood: {log_likelihood(best_fit):.2f}")
-    print(f"Degrees of freedom: {data['value'].size + z_cc_vals.size - len(best_fit)}")
+    print(f"Degrees of freedom: {len(data['z']) + len(z_cc_vals) - len(best_fit)}")
 
     plot_bao_predictions(
         theory_predictions=lambda z, qty: theory_bao(z, qty, best_fit),

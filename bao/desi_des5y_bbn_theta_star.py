@@ -170,9 +170,7 @@ def main():
     ]
 
     with Pool(8) as pool:
-        sampler = emcee.EnsembleSampler(
-            nwalkers, ndim, log_probability, pool=pool, moves=moves
-        )
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
 
     try:
@@ -290,7 +288,7 @@ H0: 66.48 +0.58 -0.58 km/s/Mpc
 w0: -0.817 +0.045 -0.045 (prior width 1.5: -1.5 to 0.0)
 wa: d w(z)/dz at z=0 = -3 * (1 + w0)
 z_d: 1059.48 +0.75 -0.76
-r_d: 148.27 Mpc
+r_d: 148.27 Mpc (1.0180 x r*)
 z*: 1088.55 +0.33 -0.32
 r*: 145.65 Mpc
 100 θ*: 1.04111

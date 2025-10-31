@@ -21,7 +21,7 @@ def H_z(z, params):
     OL = 1 - Om
     one_plus_z = 1 + z
     cubed = one_plus_z**3
-    rho_de = np.exp((1 + w0) * (1 - one_plus_z**-3))
+    rho_de = np.exp((1 + w0) * (1 - 1 / cubed))
     return 100 * h * np.sqrt(Om * cubed + OL * rho_de)
 
 
@@ -113,17 +113,13 @@ def main():
     nsteps = 2000 + burn_in
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (n_walkers, n_dim))
+    moves = [
+        (emcee.moves.KDEMove(), 0.30),
+        (emcee.moves.DEMove(), 0.56),
+        (emcee.moves.DESnookerMove(), 0.14),
+    ]
 
-    sampler = emcee.EnsembleSampler(
-        n_walkers,
-        n_dim,
-        log_probability,
-        moves=[
-            (emcee.moves.KDEMove(), 0.30),
-            (emcee.moves.DEMove(), 0.56),
-            (emcee.moves.DESnookerMove(), 0.14),
-        ],
-    )
+    sampler = emcee.EnsembleSampler(n_walkers, n_dim, log_probability, moves=moves)
     sampler.run_mcmc(initial_pos, nsteps, progress=True)
 
     try:
@@ -136,13 +132,12 @@ def main():
     except emcee.autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
 
-    log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
     samples = sampler.get_chain(discard=burn_in, flat=True)
     chain_samples = sampler.get_chain(discard=burn_in, flat=False)
+    log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
     print("Gelman-Rubin:", gelman_rubin(chain_samples))
-    print(
-        f"Log evidence: {log_evidence(samples, log_probs, log_probability, bounds):.2f}"
-    )
+    log_evd = log_evidence(samples, log_probs, log_probability, bounds)
+    print(f"Log evidence: {log_evd:.2f}")
 
     [
         [h_16, h_50, h_84],
@@ -150,7 +145,7 @@ def main():
         [w0_16, w0_50, w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = np.array([h_50, Om_50, w0_50], dtype=np.float64)
+    best_fit = np.percentile(samples, 50, axis=0)
 
     residuals = data["value"] - bao_theory(data["z"], quantities, best_fit)
     SS_res = np.sum(residuals**2)

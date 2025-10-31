@@ -24,7 +24,7 @@ def Ez(z, params):
 
     one_plus_z = 1 + z
     cubed = one_plus_z**3
-    rho_de = np.exp((1 + w0) * (1 - 1 / one_plus_z**3))
+    rho_de = np.exp((1 + w0) * (1 - 1 / cubed))
 
     return np.sqrt(Or * one_plus_z**4 + Om * cubed + Ode * rho_de)
 
@@ -61,7 +61,7 @@ quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int32
 
 def bao_theory(z, qty, params):
     h, Om, Obh2 = params[0] / 100, params[1], params[2]
-    rd = cmb.r_drag(wb=Obh2, wm=Om * h**2)
+    rd = cmb.r_drag1(wb=Obh2, wm=Om * h**2)
 
     results = np.empty(z.size, dtype=np.float64)
     DV_mask = qty == 0
@@ -125,10 +125,11 @@ def main():
     import emcee
     from multiprocessing import Pool
     from corner_plot import plot_corner_and_chains
+    from gelman_rubin import gelman_rubin
     from .plot_predictions import plot_bao_predictions
 
     ndim = len(bounds)
-    nwalkers = 150
+    nwalkers = 200
     burn_in = 200
     nsteps = 2200 + burn_in
     np.random.seed(42)
@@ -140,9 +141,7 @@ def main():
     ]
 
     with Pool(5) as pool:
-        sampler = emcee.EnsembleSampler(
-            nwalkers, ndim, log_probability, pool=pool, moves=moves
-        )
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
 
     try:
@@ -155,12 +154,15 @@ def main():
 
     chains_samples = sampler.get_chain(discard=burn_in, flat=False)
     samples = sampler.get_chain(discard=burn_in, flat=True)
+    print("Gelman-Rubin:", gelman_rubin(chains_samples))
 
     pct = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
-    H0_16, H0_50, H0_84 = pct[0]
-    Om_16, Om_50, Om_84 = pct[1]
-    Obh2_16, Obh2_50, Obh2_84 = pct[2]
-    w0_16, w0_50, w0_84 = pct[3]
+    [
+        (H0_16, H0_50, H0_84),
+        (Om_16, Om_50, Om_84),
+        (Obh2_16, Obh2_50, Obh2_84),
+        (w0_16, w0_50, w0_84),
+    ] = pct
 
     best_fit = np.percentile(samples, 50, axis=0)
 
@@ -230,12 +232,12 @@ Degs of freedom: 14
 
 ===============================
 
-Flat w(z) = -1 + (1 + w0) / (1 + z)**3
-H0: 68.00 +1.65 -1.57 km/s/Mpc
-Ωm: 0.3029 +0.0137 -0.0135
+Flat w(z) = -1 + (1 + w0) / (1 + z)^3
+H0: 68.00 +1.64 -1.58 km/s/Mpc
+Ωm: 0.3028 +0.0139 -0.0135
 ωm: 0.14004 +0.00079 -0.00079
-ωb: 0.02239 +0.00013 -0.00012
-w0: -0.963 +0.125 -0.128
+ωb: 0.02239 +0.00013 -0.00013
+w0: -0.964 +0.126 -0.127
 r*: 145.14 Mpc
 z*: 1088.62 +0.16 -0.16
 r_d: 147.76 +0.19 -0.19 Mpc

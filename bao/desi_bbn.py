@@ -10,6 +10,9 @@ cho = cho_factor(cov_matrix)
 
 Orh2 = Omega_r_h2()
 
+z_grid = np.linspace(0, np.max(data["z"]) + 0.1, num=2000)
+dx = np.diff(z_grid)
+
 
 def rd(params):
     H0, Om, Obh2 = params[0], params[1], params[2]
@@ -26,7 +29,7 @@ def Ez(z, params):
     OL = 1 - Om - Or
     one_plus_z = 1 + z
     cubic = one_plus_z**3
-    rho_de = np.exp((1 + w0) * (1 - one_plus_z**-3))
+    rho_de = np.exp((1 + w0) * (1 - 1 / cubic))
     return np.sqrt(Or * one_plus_z**4 + Om * cubic + OL * rho_de)
 
 
@@ -42,13 +45,11 @@ def DH_z(z, params):
 
 @njit
 def DM_z(z, params):
-    result = np.empty(z.size, dtype=np.float64)
-    for i in range(z.size):
-        zp = z[i]
-        x = np.linspace(0, zp, num=max(250, int(250 * zp)))
-        y = DH_z(x, params)
-        result[i] = np.trapz(y=y, x=x)
-    return result
+    dh_grid = DH_z(z_grid, params)
+    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    cum_dm = np.zeros(z_grid.size)
+    cum_dm[1:] = np.cumsum(dx * dy)
+    return np.interp(z, z_grid, cum_dm)
 
 
 @njit
@@ -73,6 +74,15 @@ def bao_theory(z, qty, params):
     return results / rd(params)
 
 
+def chi_squared(params):
+    bbn_delta = (bbn.Obh2 - params[2]) / bbn.Obh2_sigma
+    bbn_chi2 = bbn_delta**2
+
+    delta = data["value"] - bao_theory(data["z"], quantities, params)
+    bao_chi2 = delta.dot(cho_solve(cho, delta, check_finite=False))
+    return bao_chi2 + bbn_chi2
+
+
 bounds = np.array(
     [
         (55, 75),  # H0
@@ -83,21 +93,14 @@ bounds = np.array(
     dtype=np.float64,
 )
 
-
-def chi_squared(params):
-    bbn_delta = (bbn.Obh2 - params[2]) / bbn.Obh2_sigma
-    bbn_chi2 = bbn_delta**2
-
-    delta = data["value"] - bao_theory(data["z"], quantities, params)
-    bao_chi2 = delta.dot(cho_solve(cho, delta, check_finite=False))
-    return bao_chi2 + bbn_chi2
+normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
 
 
 @njit
 def log_prior(params):
     if not np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
         return -np.inf
-    return 0.0
+    return normalization
 
 
 def log_likelihood(params):
@@ -130,9 +133,7 @@ def main():
     ]
 
     with Pool(5) as pool:
-        sampler = emcee.EnsembleSampler(
-            nwalkers, ndim, log_probability, pool=pool, moves=moves
-        )
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
 
     try:
@@ -147,13 +148,13 @@ def main():
     samples = sampler.get_chain(discard=burn_in, flat=True)
 
     [
-        [H0_16, H0_50, H0_84],
-        [Om_16, Om_50, Om_84],
-        [Obh2_16, Obh2_50, Obh2_84],
-        [w0_16, w0_50, w0_84],
+        (H0_16, H0_50, H0_84),
+        (Om_16, Om_50, Om_84),
+        (Obh2_16, Obh2_50, Obh2_84),
+        (w0_16, w0_50, w0_84),
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = np.array([H0_50, Om_50, Obh2_50, w0_50], dtype=np.float64)
+    best_fit = np.percentile(samples, 50, axis=0)
 
     h_samples = samples[:, 0] / 100
     Omh2_samples = samples[:, 1] * h_samples**2
@@ -174,7 +175,7 @@ def main():
     print(f"r_d: {rd(best_fit):.2f} Mpc")
     print(f"z_d: {z_d_50:.2f} +{(z_d_84 - z_d_50):.2f} -{(z_d_50 - z_d_16):.2f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
-    print(f"Degs of freedom: {1 + data['value'].size  - len(best_fit)}")
+    print(f"Degs of freedom: {1 + len(data['z'])  - len(best_fit)}")
     print(f"R^2: {r2:.4f}")
     print(f"RMSD: {np.sqrt(np.mean(residuals**2)):.3f}")
 
@@ -206,6 +207,7 @@ H0: 68.45 +0.44 -0.43 km/s/Mpc
 ωm: 0.13943 +0.00476 -0.00463
 Ωm: 0.2976 +0.0086 -0.0084
 w0: -1
+wa: 0
 r_d: 148.31 Mpc
 z_d: 1058.58 +0.70 -0.70
 Chi squared: 10.29
@@ -216,29 +218,30 @@ RMSD: 0.305
 ===============================
 
 Flat wCDM:
-H0: 66.25 +2.17 -2.16 km/s/Mpc
+H0: 66.24 +2.16 -2.16 km/s/Mpc
 ωb: 0.02190 +0.00025 -0.00025
-ωm: 0.13068 +0.00970 -0.00990
-Ωm: 0.2970 +0.0089 -0.0088
-w0: -0.918 +0.076 -0.079
-r_d: 150.83 Mpc
-z_d: 1057.91 +0.96 -0.99
-Chi squared: 9.05
+ωm: 0.13063 +0.00969 -0.00994
+Ωm: 0.2969 +0.0089 -0.0087
+w0: -0.918 +0.075 -0.078
+wa: 0
+r_d: 150.85 Mpc
+z_d: 1057.89 +0.97 -0.99
+Chi squared: 9.04
 Degs of freedom: 10
 R^2: 0.9989
-RMSD: 0.281
+RMSD: 0.280
 
 ===============================
 
 Flat alternative: w(z) = -1 + (1 + w0) / (1 + z)**3
-H0: 65.17 +2.43 -2.24 km/s/Mpc
+H0: 65.19 +2.42 -2.25 km/s/Mpc
 ωb: 0.02190 +0.00025 -0.00025
-ωm: 0.13273 +0.00689 -0.00640
-Ωm: 0.3124 +0.0139 -0.0139
-w0: -0.757 +0.167 -0.178
+ωm: 0.13279 +0.00685 -0.00647
+Ωm: 0.3122 +0.0139 -0.0138
+w0: -0.758 +0.169 -0.177
 wa: -3 * (1 + w0)
 r_d: 150.17 Mpc
-z_d: 1058.08 +0.81 -0.79
+z_d: 1058.08 +0.80 -0.80
 Chi squared: 8.25
 Degs of freedom: 10
 R^2: 0.9991

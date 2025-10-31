@@ -21,10 +21,26 @@ dx = np.diff(z_grid)
 
 
 @njit
-def r_drag(wb, wm, n_eff=3.04):  # arXiv:2503.14738v2 (eq 2)
-    return (
-        147.05 * (0.02236 / wb) ** 0.13 * (0.1432 / wm) ** 0.23 * (3.04 / n_eff) ** 0.1
-    )
+def r_drag(wb, wm):
+    """
+    arXiv:2106.00428v2 (eq 8)
+    Alternatively z_drag from the same paper can we used
+    to compute the integral over c_s / H(z) yielding the same results.
+    """
+    a1 = 0.00257366
+    a2 = 0.05032
+    a3 = 0.013
+    a4 = 0.7720642
+    a5 = 0.24346362
+    a6 = 0.00641072
+    a7 = 0.5350899
+    a8 = 32.7525
+    a9 = 0.315473
+
+    term_A_denominator = (a1 * (wb**a2)) + (a3 * (wb**a4) * (wm**a5)) + (a6 * (wm**a7))
+    term_A = 1.0 / term_A_denominator
+    term_B = a8 / (wm**a9)
+    return term_A - term_B
 
 
 @njit
@@ -149,22 +165,17 @@ def main():
     ndim = len(bounds)
     nwalkers = 150
     burn_in = 200
-    nsteps = 2000 + burn_in
+    nsteps = 2200 + burn_in
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
+    moves = [
+        (emcee.moves.KDEMove(), 0.30),
+        (emcee.moves.DEMove(), 0.56),
+        (emcee.moves.DESnookerMove(), 0.14),
+    ]
 
     with Pool(6) as pool:
-        sampler = emcee.EnsembleSampler(
-            nwalkers,
-            ndim,
-            log_probability,
-            pool=pool,
-            moves=[
-                (emcee.moves.KDEMove(), 0.30),
-                (emcee.moves.DEMove(), 0.56),
-                (emcee.moves.DESnookerMove(), 0.14),
-            ],
-        )
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
 
     try:
@@ -241,58 +252,60 @@ DESI DR2 + DES5Y + BBN Schöngerg+2024
 *******************************
 
 Flat ΛCDM w(z) = -1
-H0: 68.6 +0.5 -0.5 km/s/Mpc
-Ωm: 0.3105 +0.0079 -0.0077
-ωb: 0.02219 +0.00053 -0.00053
-ωm: 0.14621 +0.00430 -0.00417
+H0: 68.9 +0.6 -0.6 km/s/Mpc
+Ωm: 0.3106 +0.0079 -0.0077
+ωb: 0.02218 +0.00054 -0.00054
+ωm: 0.14728 +0.00488 -0.00474
 w0: -1
-ΔM: -0.047 +0.017 -0.018 mag
-r_d: 146.50 +1.24 -1.23 Mpc
+wa: 0
+ΔM: -0.040 +0.021 -0.020
+r_d: 145.99 +1.48 -1.46 Mpc
 Chi squared: 1658.97
-Log Evidence: -841.93
+Log Evidence: -841.81
 Degrees of freedom: 1745
 
 ===============================
 
 Flat wCDM w(z) = w0
-H0: 65.4 +1.1 -1.2 km/s/Mpc
-Ωm: 0.2980 +0.0088 -0.0089
-ωb: 0.02219 +0.00054 -0.00054
-ωm: 0.12741 +0.00715 -0.00708
-w0: -0.872 +0.037 -0.038 (prior width 1.5: -1.5 to 0.0)
-ΔM: -0.123 +0.031 -0.032 mag
-r_d: 151.22 +2.15 -2.05 Mpc
-Chi squared: 1648.09
-Log Evidence: -839.26 (Δ logZ = 2.67 against ΛCDM)
+H0: 65.2 +1.2 -1.3 km/s/Mpc
+Ωm: 0.2982 +0.0090 -0.0088
+ωb: 0.02219 +0.00054 -0.00055
+ωm: 0.12696 +0.00766 -0.00743
+w0: -0.872 +0.038 -0.038 (prior width 1.5: -1.5 to 0.0)
+wa: 0
+ΔM: -0.128 +0.034 -0.035
+r_d: 151.55 +2.37 -2.32 Mpc
+Chi squared: 1648.10
+Log Evidence: -839.23 (Δ logZ = 2.58 against ΛCDM)
 Degrees of freedom: 1744
 
 ===============================
 
 Flat w(z) = -1 + (1 + w0) / (1 + z)^3
-H0: 66.0 +0.9 -0.9 km/s/Mpc
-Ωm: 0.3093 +0.0078 -0.0076
+H0: 66.0 +1.0 -0.9 km/s/Mpc
+Ωm: 0.3094 +0.0079 -0.0077
 ωb: 0.02218 +0.00054 -0.00054
-ωm: 0.13486 +0.00504 -0.00494
-w0: -0.799 +0.053 -0.054 (prior width 1.5: -1.5 to 0.0)
+ωm: 0.13471 +0.00553 -0.00535
+w0: -0.800 +0.054 -0.054 (prior width 1.5: -1.5 to 0.0)
 wa: d w(z)/dz at z=0 = -3 * (1 + w0)
-ΔM: -0.092 +0.022 -0.022
-r_d: 149.26 +1.49 -1.47 Mpc
+ΔM: -0.093 +0.025 -0.025
+r_d: 149.35 +1.72 -1.70 Mpc
 Chi squared: 1646.00
-Log Evidence: -837.89 (Δ logZ = 4.04 against ΛCDM)
+Log Evidence: -837.80 (Δ logZ = 4.81 against ΛCDM)
 Degrees of freedom: 1744
 
 ===============================
 
 Flat w(z) = w0 + wa * z / (1 + z)
-H0: 67.1 +1.1 -1.3 km/s/Mpc
-Ωm: 0.3217 +0.0126 -0.0149
-ωb: 0.02218 +0.00053 -0.00054
-ωm: 0.14495 +0.00912 -0.01106
-w0: -0.782 +0.072 -0.068 (prior width 1.5: -1.5 to 0.0)
-wa: -0.735 +0.452 -0.451 (prior width 4.5: -3.0 to 1.5)
-ΔM: -0.053 +0.036 -0.045
-r_d: 146.83 +2.81 -2.22 Mpc
-Chi squared: 1645.56
-Log Evidence: -839.24 (Δ logZ = 2.69 against ΛCDM)
+H0: 67.3 +1.4 -1.5 km/s/Mpc
+Ωm: 0.3219 +0.0126 -0.0149
+ωb: 0.02219 +0.00054 -0.00054
+ωm: 0.14598 +0.01045 -0.01208
+w0: -0.782 +0.071 -0.068 (prior width 1.5: -1.5 to 0.0)
+wa: -0.740 +0.447 -0.452 (prior width 4.5: -3.0 to 1.5)
+ΔM: -0.046 +0.044 -0.052
+r_d: 146.35 +3.34 -2.74 Mpc
+Chi squared: 1645.51
+Log Evidence: -839.11 (Δ logZ = 2.70 against ΛCDM)
 Degrees of freedom: 1743
 """
