@@ -133,29 +133,13 @@ plt.plot(t_vals_Gyr, potential_term, label=r"Potential term $V(\phi)$")
 plt.xlabel("t [Gyr]")
 plt.ylabel(r"Energy density [normalized]")
 plt.title(r"Scalar Field Energy Components")
-plt.axvline(
-    x=t_today_Gyr,
-    color="r",
-    linestyle="--",
-    label="Present time",
-    alpha=0.5,
-)
+plt.axvline(x=t_today_Gyr, color="r", linestyle="--", label="Present time", alpha=0.5)
 plt.grid(True)
 plt.legend()
 plt.show()
 
 
 t_plot_range = t_grid_Gyr[t_grid_Gyr <= max(t_vals_Gyr)]
-plt.figure(figsize=(8, 5))
-plt.plot(t_plot_range, phi_of_t(t_plot_range), label=r"$\phi(t)$")
-plt.axvline(x=t_today_Gyr, color="r", linestyle="--", label="Present time", alpha=0.5)
-plt.xlabel(r"$t$ [Gyr]")
-plt.ylabel(r"$\phi(t)$ [reduced Planck units]")
-plt.title(r"Scalar Field $\phi$ vs Time $t$")
-plt.legend()
-plt.grid(True)
-plt.show()
-
 
 plt.figure(figsize=(8, 5))
 plt.plot(t_plot_range, a_of_t(t_plot_range), label=r"$a(t)$", linewidth=2)
@@ -165,4 +149,20 @@ plt.ylabel(r"$a(t)$")
 plt.title(r"Scale Factor $a$ vs Time $t$ [Gyr]")
 plt.legend()
 plt.grid(True, alpha=0.3)
+plt.show()
+
+
+phi_of_t_quad = lambda t: 1.713572e-05 * t * (t - 1)
+
+
+plt.figure(figsize=(8, 5))
+plt.plot(t_plot_range, phi_of_t(t_plot_range), label=r"$\phi(t)$", linewidth=2)
+plt.plot(t_plot_range, phi_of_t_quad(t_plot_range), label=r"quadratic", linestyle="--")
+plt.axvline(x=t_today_Gyr, color="r", linestyle="--", label="Present time", alpha=0.7)
+plt.xlabel(r"$t$ [Gyr]")
+plt.ylabel(r"$\phi(t)$ [reduced Planck units]")
+plt.title(r"Scalar Field $\phi$ vs Time $t$")
+plt.legend()
+plt.xlim(0, None)
+plt.grid(True)
 plt.show()
