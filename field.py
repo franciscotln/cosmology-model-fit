@@ -11,7 +11,7 @@ Or = 4.1835e-05 / (H0 / 100) ** 2  # Radiation density
 w0 = -0.799  # Equation of state parameter from fit
 
 a_min = 1e-8
-a_max = 4
+a_max = 5
 N_a = 5000
 a_vals = np.linspace(a_min, a_max, N_a)
 
@@ -155,11 +155,13 @@ phi_of_t_quad = lambda t: 1.713572e-05 * t * (t - 1)
 
 
 plt.figure(figsize=(8, 5))
-plt.plot(t_plot_range, phi_of_t(t_plot_range), label=r"$\phi(t)$", linewidth=2)
-plt.plot(t_plot_range, phi_of_t_quad(t_plot_range), label=r"quadratic", linestyle="--")
+plt.plot(t_plot_range, 1e3 * phi_of_t(t_plot_range), label=r"$\phi(t)$", linewidth=2)
+plt.plot(
+    t_plot_range, 1e3 * phi_of_t_quad(t_plot_range), label=r"quadratic", linestyle="--"
+)
 plt.axvline(x=t_today_Gyr, color="r", linestyle="--", label="Present time", alpha=0.7)
 plt.xlabel(r"$t$ [Gyr]")
-plt.ylabel(r"$\phi(t)$ [reduced Planck units]")
+plt.ylabel(r"$\phi(t) \times 10^-3$ [reduced Planck units]")
 plt.title(r"Scalar Field $\phi$ vs Time $t$")
 plt.legend()
 plt.xlim(0, None)
