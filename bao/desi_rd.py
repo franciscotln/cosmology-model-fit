@@ -19,7 +19,7 @@ def Ez(z, params):
     Om, w0 = params[2], params[3]
     inv_a = 1 + z
     cubic = inv_a**3
-    rho_de = np.exp((1 + w0) * (1 - inv_a**-3))
+    rho_de = np.exp((1 + w0) * (1 - 1 / cubic))
     return np.sqrt(Om * cubic + (1 - Om) * rho_de)
 
 

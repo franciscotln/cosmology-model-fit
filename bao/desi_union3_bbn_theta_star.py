@@ -7,6 +7,11 @@ from y2023union3.data import get_data
 from y2025BAO.data import get_data as get_bao_data
 
 c = cmb.c  # Speed of light in km/s
+Orh2 = cmb.Omega_r_h2()
+
+# arXiv:1807.06209v4 (Planck 2018 final)
+theta_stx100 = 1.04110
+theta_stx100_err = 0.00031
 
 sn_legend, z_sn_vals, mu_values, cov_matrix_sn = get_data()
 bao_legend, bao_data, cov_matrix_bao = get_bao_data()
@@ -18,8 +23,6 @@ z_max = max(np.max(z_sn_vals), np.max(bao_data["z"])) + 0.1
 z_grid = np.linspace(0, z_max, num=1200)
 dx = np.diff(z_grid)
 
-Orh2 = cmb.Omega_r_h2()
-
 
 @njit
 def Ez(z, theta):
@@ -28,6 +31,7 @@ def Ez(z, theta):
     Or = Orh2 / h**2
     Ode = 1 - Om - Or
     cubed = z_plus_1**3
+    # Upper limit of thawing quintessence models arXiv:astro-ph/0505494v1
     rho_de = np.exp((1 + w0) * (1 - 1 / z_plus_1**3))
     return np.sqrt(Or * z_plus_1**4 + Om * cubed + Ode * rho_de)
 
@@ -96,11 +100,6 @@ def solve_triang(cho_L, delta):
     return np.dot(y, y)
 
 
-# arXiv:1807.06209v4 (Planck 2018 final)
-theta_stx100 = 1.04110
-theta_stx100_err = 2 * 0.00031  # 2-sigma error to account for variations in the models
-
-
 def chi_squared(theta):
     delta_theta_100 = theta_stx100 - theta_100_theory(theta)
     chi2_theta_100 = (delta_theta_100 / theta_stx100_err) ** 2
@@ -154,6 +153,7 @@ def main():
     from sn.plotting import plot_predictions as plot_sn_predictions
     from .plot_predictions import plot_bao_predictions
     from corner_plot import plot_corner_and_chains
+    from gelman_rubin import gelman_rubin
     from log_evidence import log_evidence
 
     ndim = len(bounds)
@@ -169,9 +169,7 @@ def main():
     ]
 
     with Pool(8) as pool:
-        sampler = emcee.EnsembleSampler(
-            nwalkers, ndim, log_probability, pool=pool, moves=moves
-        )
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
 
     try:
@@ -186,6 +184,7 @@ def main():
     samples = sampler.get_chain(discard=burn_in, flat=True)
     log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
     log_evd = log_evidence(samples, log_probs, log_probability, bounds)
+    print("Gelman-Rubin:", gelman_rubin(chains_samples))
 
     one_sigma_ci = [15.9, 50, 84.1]
     [
@@ -197,7 +196,7 @@ def main():
     ] = np.percentile(samples, one_sigma_ci, axis=0).T
 
     best_fit = np.percentile(samples, 50, axis=0)
-    degrees_of_freedom = 2 + len(bao_data["value"]) + len(z_sn_vals) - len(best_fit)
+    degrees_of_freedom = 2 + len(bao_data["z"]) + len(z_sn_vals) - len(best_fit)
 
     Omh2_samples = samples[:, 1] * (samples[:, 0] / 100) ** 2
     zd_samples = cmb.z_drag(wb=samples[:, 2], wm=Omh2_samples)
@@ -248,69 +247,70 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM  w(z) = -1
+ΔM: -0.124 +0.087 -0.087 mag
 H0: 68.56 +0.36 -0.36 km/s/Mpc
 Ωm: 0.297 +0.004 -0.004
-ωm: 0.1395 +0.0010 -0.0010
+ωm: 0.1394 +0.0009 -0.0009
 ωb: 0.02228 +0.00032 -0.00032
 w0: -1
 wa: 0
-z_d: 1059.44 +0.75 -0.76
-r_d: 147.96 Mpc
-z*: 1088.71 +0.33 -0.32
-r*: 145.34 Mpc
-Chi squared: 39.77
-Log Evidence: -32.77
+z_d: 1059.43 +0.75 -0.76
+r_d: 147.98 Mpc
+z*: 1088.70 +0.33 -0.32
+r*: 145.35 Mpc
+Chi squared: 39.78
+Log Evidence: -33.45
 Degrees of freedom: 33
 
 ===============================
 
 Flat wCDM w(z) = w0
-H0: 66.83 +0.78 -0.77 km/s/Mpc
+ΔM: -0.170 +0.089 -0.090 mag
+H0: 66.83 +0.78 -0.78 km/s/Mpc
 Ωm: 0.307 +0.006 -0.006
-ωm: 0.1369 +0.0015 -0.0015
-ωb: 0.02235 +0.00032 -0.00032
-w0: -0.917 +0.033 -0.034 (prior width 1.5: -1.5 to 0.0)
+ωm: 0.1369 +0.0014 -0.0015
+ωb: 0.02236 +0.00032 -0.00032
+w0: -0.916 +0.033 -0.034 (prior width 1.5: -1.5 to 0.0)
 wa: 0
 z_d: 1059.42 +0.76 -0.77
-r_d: 148.60 Mpc
-z*: 1088.45 +0.35 -0.33
+r_d: 148.59 Mpc
+z*: 1088.45 +0.35 -0.34
 r*: 145.98 Mpc
-Chi squared: 33.87
-Log Evidence: -32.73 (Δ logZ = 0.04 compared to ΛCDM)
+Chi squared: 33.88
+Log Evidence: -33.39 (Δ logZ = 0.06 compared to ΛCDM)
 Degrees of freedom: 32
 
 ===============================
 
 Flat w(z) = -1 + (1 + w0) / (1 + z)**3
-ΔM: -0.183 +0.090 -0.089 mag
-H0: 66.05 +0.88 -0.86 km/s/Mpc
+ΔM: -0.181 +0.090 -0.090 mag
+H0: 66.06 +0.87 -0.85 km/s/Mpc
 Ωm: 0.316 +0.008 -0.008
-ωm: 0.1380 +0.0012 -0.0011
+ωm: 0.1380 +0.0011 -0.0011
 ωb: 0.02235 +0.00032 -0.00032
-w0: -0.782 +0.070 -0.071
+w0: -0.783 +0.070 -0.071 (prior width 1.5: -1.5 to 0.0)
 wa: d w(z)/dz at z=0 = -3 * (1 + w0)
-z_d: 1059.48 +0.76 -0.77
+z_d: 1059.49 +0.75 -0.77
 r_d: 148.31 Mpc
-z*: 1088.52 +0.33 -0.33
+z*: 1088.52 +0.34 -0.32
 r*: 145.70 Mpc
-Chi squared: 30.57
-Log Evidence: -30.30 (Δ logZ = 2.47 compared to ΛCDM)
+Chi squared: 30.58
+Log Evidence: -30.99 (Δ logZ = 2.46 compared to ΛCDM)
 Degrees of freedom: 32
 
 ===============================
-
-Flat w(z) = w0 + wa * z / (1 + z)
-H0: 66.05 +0.84 -0.83 km/s/Mpc
-Ωm: 0.323 +0.009 -0.009
-ωm: 0.1407 +0.0018 -0.0020
+ΔM: -0.175 +0.089 -0.088 mag
+H0: 66.05 +0.84 -0.82 km/s/Mpc
+Ωm: 0.322 +0.009 -0.009
+ωm: 0.1407 +0.0017 -0.0019
 ωb: 0.02230 +0.00032 -0.00032
-w0: -0.720 +0.096 -0.093 (prior width 1.5: -1.5 to 0.0)
-wa: -0.797 +0.351 -0.375 (prior width 4.0: -3.0 to 1.0)
-z_d: 1059.58 +0.76 -0.77
-r_d: 147.62 Mpc
-z*: 1088.76 +0.36 -0.36
-r*: 145.02 Mpc
-Chi squared: 29.19
-Log Evidence: -31.66 (Δ logZ = 1.11 compared to ΛCDM)
+w0: -0.722 +0.096 -0.092 (prior width 1.5: -1.5 to 0.0)
+wa: -0.786 +0.349 -0.372 (prior width 4.0: -3.0 to 1.0)
+z_d: 1059.57 +0.75 -0.75
+r_d: 147.64 Mpc
+z*: 1088.76 +0.36 -0.35
+r*: 145.03 Mpc
+Chi squared: 29.32
+Log Evidence: -32.34 (Δ logZ = 1.11 compared to ΛCDM)
 Degrees of freedom: 31
 """
