@@ -299,6 +299,8 @@ Log Evidence: -30.99 (Δ logZ = 2.46 compared to ΛCDM)
 Degrees of freedom: 32
 
 ===============================
+
+Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
 ΔM: -0.175 +0.089 -0.088 mag
 H0: 66.05 +0.84 -0.82 km/s/Mpc
 Ωm: 0.322 +0.009 -0.009
