@@ -148,19 +148,14 @@ def main():
     nsteps = 2000 + burn_in
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
+    moves = [
+        (emcee.moves.KDEMove(), 0.30),
+        (emcee.moves.DEMove(), 0.56),
+        (emcee.moves.DESnookerMove(), 0.14),
+    ]
 
     with Pool(8) as pool:
-        sampler = emcee.EnsembleSampler(
-            nwalkers,
-            ndim,
-            log_probability,
-            pool=pool,
-            moves=[
-                (emcee.moves.KDEMove(), 0.30),
-                (emcee.moves.DEMove(), 0.56),
-                (emcee.moves.DESnookerMove(), 0.14),
-            ],
-        )
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
 
     try:
@@ -278,7 +273,7 @@ Degrees of freedom: 1746
 ===============================
 
 Compressed priors for wCDM
-Flat w(z) = -1 + (1 + w0) / (1 + z)**3
+Flat w(z) = -1 + (1 + w0) / (1 + z)^3
 ΔM: -0.073 +0.009 -0.009
 H0: 66.80 +0.56 -0.56 km/s/Mpc
 Ωm: 0.3157 +0.0055 -0.0054
@@ -288,7 +283,7 @@ w0: -0.851 +0.044 -0.045 (prior width 1.5: -1.5 to 0.0)
 wa: d w(z)/dz at z=0 = -3 * (1 + w0)
 r*: 144.80 Mpc
 z*: 1088.45 +0.15 -0.15
-r_d: 147.31 Mpc
+r_d: 147.31 Mpc (1.0173 x r*)
 z_d: 1060.26 +0.27 -0.27
 Chi squared: 1653.27
 Log evidence: -846.3 (Δ logZ = 3.2 against ΛCDM)
