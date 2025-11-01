@@ -31,30 +31,25 @@ def DH_z(z, theta):
 
 
 @njit
-def DM_z(z, theta):
-    dh_grid = DH_z(z_grid, theta)
-    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
-    cum_dm = np.zeros(z_grid.size)
-    cum_dm[1:] = np.cumsum(dx * dy)
-    return np.interp(z, z_grid, cum_dm)
-
-
-@njit
-def DV_z(z, theta):
-    DH = DH_z(z, theta)
-    DM = DM_z(z, theta)
-    return (z * DH * DM**2) ** (1 / 3)
-
-
-@njit
 def bao_theory(z, qty, theta):
+    dh_grid = DH_z(z_grid, theta)
+
+    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    dm_grid = np.zeros(z_grid.size)
+    dm_grid[1:] = np.cumsum(dx * dy)
+
     DV_mask = qty == 0
     DM_mask = qty == 1
     DH_mask = qty == 2
+
     results = np.empty(z.size, dtype=np.float64)
-    results[DH_mask] = DH_z(z[DH_mask], theta)
-    results[DM_mask] = DM_z(z[DM_mask], theta)
-    results[DV_mask] = DV_z(z[DV_mask], theta)
+
+    results[DH_mask] = np.interp(z[DH_mask], z_grid, dh_grid)
+    results[DM_mask] = np.interp(z[DM_mask], z_grid, dm_grid)
+
+    dh_at_z = np.interp(z[DV_mask], z_grid, dh_grid)
+    dm_at_z = np.interp(z[DV_mask], z_grid, dm_grid)
+    results[DV_mask] = (z[DV_mask] * dh_at_z * dm_at_z**2) ** (1 / 3)
     return results / rd
 
 
@@ -135,9 +130,8 @@ def main():
     samples = sampler.get_chain(discard=burn_in, flat=True)
     chain_samples = sampler.get_chain(discard=burn_in, flat=False)
     log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
-    print("Gelman-Rubin:", gelman_rubin(chain_samples))
     log_evd = log_evidence(samples, log_probs, log_probability, bounds)
-    print(f"Log evidence: {log_evd:.2f}")
+    print("Gelman-Rubin:", gelman_rubin(chain_samples))
 
     [
         [h_16, h_50, h_84],
@@ -156,6 +150,7 @@ def main():
     print(f"Ωm: {Om_50:.3f} +{Om_84-Om_50:.3f} -{Om_50-Om_16:.3f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
+    print(f"Log evidence: {log_evd:.2f}")
     print(f"Degs of freedom: {data['value'].size  - len(best_fit)}")
     print(f"R^2: {r2:.4f}")
     print(f"RMSD: {np.sqrt(np.mean(residuals**2)):.3f}")
@@ -188,6 +183,7 @@ rd: 147.09 Mpc (fixed)
 h: 0.690 +0.005 -0.005
 Ωm: 0.298 +0.009 -0.008
 w0: -1
+wa: 0
 Chi squared: 10.27
 Degs of freedom: 11
 Log evidence: -13.11
@@ -200,7 +196,7 @@ Flat wCDM:
 rd: 147.09 Mpc (fixed)
 h: 0.679 +0.012 -0.011
 Ωm: 0.297 +0.009 -0.009
-w0: -0.916 +0.076 -0.078 (prior width 1.5: from -1.5 to 0.0)
+w0: -0.916 +0.076 -0.079 (prior width 1.5: from -1.5 to 0.0)
 Chi squared: 9.13
 Degs of freedom: 10
 Log evidence: -14.54
@@ -213,8 +209,8 @@ Flat alternative: w(z) = -1 + (1 + w0) / (1 + z)**3
 rd: 147.09 Mpc (fixed)
 h: 0.665 +0.018 -0.017
 Ωm: 0.313 +0.014 -0.014
-w0: -0.756 +0.165 -0.173
-Chi squared: 8.26
+w0: -0.755 +0.164 -0.173
+Chi squared: 8.27
 Log evidence: -13.35
 Degs of freedom: 10
 R^2: 0.9991
