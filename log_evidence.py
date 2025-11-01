@@ -7,10 +7,10 @@ import scipy.optimize
 def log_evidence(mc_samples, log_probs, log_probability, bounds):
     """
     Laplace approximation for Bayesian evidence (ln Z) using Hessian at MAP.
-    -inf < ln(Z) < 1: weak
-    1 <= ln(Z) < 3: positive
-    3 <= ln(Z) < 5: strong
-    ln(Z) >= 5: very strong
+    - -inf < ln(Z) < 1: weak
+    - 1 <= ln(Z) < 3: positive
+    - 3 <= ln(Z) < 5: strong
+    - ln(Z) >= 5: very strong
     """
     # Find best MCMC sample as starting point
     best_sample_idx = np.argmax(log_probs)
