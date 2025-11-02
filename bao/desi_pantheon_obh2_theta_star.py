@@ -33,7 +33,7 @@ def Ez(z, theta):
     Or = Orh2 / h**2
     Ode = 1 - Om - Or
     cubed = z_plus_1**3
-    rho_de = np.exp((1 + w0) * (1 - 1 / cubed))
+    rho_de = (4 * cubed / (1 + 3 * cubed)) ** (4 * (1 + w0))
     return np.sqrt(Or * z_plus_1**4 + Om * cubed + Ode * rho_de)
 
 
@@ -69,12 +69,7 @@ def DV_z(z, theta):
     return (z * DH * DM**2) ** (1 / 3)
 
 
-qty_map = {
-    "DV_over_rs": 0,
-    "DM_over_rs": 1,
-    "DH_over_rs": 2,
-}
-
+qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
 quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int64)
 
 
@@ -164,22 +159,21 @@ def main():
     ]
 
     with Pool(8) as pool:
-        sampler = emcee.EnsembleSampler(
-            nwalkers, ndim, log_probability, pool=pool, moves=moves
-        )
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
 
     try:
         tau = sampler.get_autocorr_time()
         print("auto-correlation time", tau)
         print("acceptance fraction:", np.mean(sampler.acceptance_fraction))
-        print("effective samples", ndim * nwalkers * nsteps / np.max(tau))
+        print("effective samples", ndim * nwalkers * (nsteps - burn_in) / np.max(tau))
     except emcee.autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
 
     chains_samples = sampler.get_chain(discard=burn_in, flat=False)
     samples = sampler.get_chain(discard=burn_in, flat=True)
     log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
+    log_evd = log_evidence(samples, log_probs, log_probability, bounds)
 
     [
         [H0_16, H0_50, H0_84],
@@ -205,9 +199,7 @@ def main():
     print(f"z_d: {zd_50:.2f} +{(zd_84 - zd_50):.2f} -{(zd_50 - zd_16):.2f}")
     print(f"r_d: {cmb.rs_z(Ez, zd_50, best_fit, H0_50, Obh2_50):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
-    print(
-        f"Log Evidence: {log_evidence(samples, log_probs, log_probability, bounds):.2f}"
-    )
+    print(f"Log Evidence: {log_evd:.2f}")
     print(f"Degs of freedom: {2 + len(bao_data['z']) + len(z_cmb) - len(best_fit)}")
 
     plot_bao_predictions(
@@ -266,19 +258,19 @@ Degs of freedom: 1600
 
 ===============================
 
-Flat w(z) = -1 + (1 + w0) / (1 + z)^3
+Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
 M: -19.433 +0.013 -0.013 mag
-H0: 67.24 +0.59 -0.58 km/s/Mpc
+H0: 67.23 +0.59 -0.58 km/s/Mpc
 Ωm: 0.306 +0.006 -0.005
-ωm: 0.1383 +0.0009 -0.0009
+ωm: 0.1382 +0.0009 -0.0009
 ωb: 0.02223 +0.00014 -0.00014
-w0: -0.887 +0.047 -0.046 (prior width 1.5: -1.5 to 0.0)
-wa: -3 * (1 + w0)
+w0: -0.896 +0.043 -0.042
+wa: d w(z)/dz at z=0 = -(9 / 4) * (1 + w0)
 z_d: 1059.24 +0.35 -0.35
-r_d: 148.32 Mpc
-Chi squared: 1411.54
-Log Evidence: -725.63
-Degrees of freedom: 1600
+r_d: 148.34 Mpc
+Chi squared: 1411.52
+Log Evidence: -725.71
+Degs of freedom: 1600
 
 ===============================
 

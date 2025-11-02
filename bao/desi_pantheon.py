@@ -24,7 +24,7 @@ def Ez(z, theta):
     Om, w0 = theta[2], theta[3]
     one_plus_z = 1 + z
     cubed = one_plus_z**3
-    rho_de = np.exp((1 + w0) * (1 - 1 / cubed))
+    rho_de = (4 * cubed / (1 + 3 * cubed)) ** (4 * (1 + w0))
     return np.sqrt(Om * cubed + (1 - Om) * rho_de)
 
 
@@ -136,19 +136,14 @@ def main():
     nsteps = 2000 + burn_in
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
+    moves = [
+        (emcee.moves.KDEMove(), 0.30),
+        (emcee.moves.DEMove(), 0.56),
+        (emcee.moves.DESnookerMove(), 0.14),
+    ]
 
     with Pool(6) as pool:
-        sampler = emcee.EnsembleSampler(
-            nwalkers,
-            ndim,
-            log_probability,
-            pool=pool,
-            moves=[
-                (emcee.moves.KDEMove(), 0.30),
-                (emcee.moves.DEMove(), 0.56),
-                (emcee.moves.DESnookerMove(), 0.14),
-            ],
-        )
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
 
     try:
@@ -162,6 +157,7 @@ def main():
     chains_samples = sampler.get_chain(discard=burn_in, flat=False)
     samples = sampler.get_chain(discard=burn_in, flat=True)
     log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
+    log_evd = log_evidence(samples, log_probs, log_probability, bounds)
 
     [
         [M_16, M_50, M_84],
@@ -177,9 +173,7 @@ def main():
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
-    print(
-        f"Log evidence: {log_evidence(samples, log_probs, log_probability, bounds):.2f}"
-    )
+    print(f"Log evidence: {log_evd:.2f}")
     print(f"Degrees of freedom: {data['z'].size + z_cmb.size - len(best_fit)}")
 
     plot_bao_predictions(
@@ -234,14 +228,14 @@ Degrees of freedom: 1599
 
 ===============================
 
-Flat -1 + (1 + w0) / (1 + z)^3
-M0: -19.414 +0.014 -0.014 mag
-H0: 67.79 +0.59 -0.59 km/s/Mpc
-Ωm: 0.305 +0.008 -0.008
-w0: -0.878 +0.054 -0.055
-wa: -3 * (1 + w0)
-Chi squared: 1411.43
-Log evidence: -720.64
+Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
+M0: -19.415 +0.014 -0.013 mag
+H0: 67.79 +0.60 -0.58 km/s/Mpc
+Ωm: 0.304 +0.008 -0.008
+w0: -0.886 +0.050 -0.051
+wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
+Chi squared: 1411.37 (Δ chi2 4.77)
+Log evidence: -720.69
 Degrees of freedom: 1599
 
 ===============================
