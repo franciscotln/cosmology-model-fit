@@ -274,7 +274,7 @@ z*: 1088.43 +0.34 -0.33
 r*: 146.02 Mpc
 100 θ*: 1.04106
 Chi squared: 1649.91
-Log Evidence: -844.08 (Δ logZ = 2.86 against ΛCDM)
+Log Evidence: -844.08 (Δ logZ = 2.9 against ΛCDM)
 Degrees of freedom: 1745
 
 ===============================
@@ -284,7 +284,7 @@ H0: 66.51 +0.58 -0.58 km/s/Mpc
 Ωm: 0.312 +0.006 -0.005
 ωm: 0.1381 +0.0010 -0.0010
 ωb: 0.02235 +0.00032 -0.00032
-w0: -0.835 +0.041 -0.041
+w0: -0.835 +0.041 -0.041 (prior width 1.5: -1.5 to 0.0)
 wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
 z_d: 1059.49 +0.75 -0.76
 r_d: 148.28 Mpc
@@ -292,7 +292,7 @@ z*: 1088.53 +0.33 -0.32
 r*: 145.67 Mpc
 100 θ*: 1.04109
 Chi squared: 1646.72
-Log Evidence: -841.99 (Δ logZ = 4.95 against ΛCDM)
+Log Evidence: -841.99 (Δ logZ = 5.0 against ΛCDM)
 Degrees of freedom: 1745
 
 ===============================
@@ -310,6 +310,6 @@ z*: 1088.73 +0.35 -0.35
 r*: 145.14 Mpc
 100 θ*: 1.04098
 Chi squared: 1645.85
-Log Evidence: -843.38 (Δ logZ = 3.56 against ΛCDM)
+Log Evidence: -843.38 (Δ logZ = 3.6 against ΛCDM)
 Degrees of freedom: 1744
 """

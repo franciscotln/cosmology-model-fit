@@ -274,7 +274,7 @@ z*: 1088.46 +0.17 -0.17
 r*: 145.73 Mpc
 R: 1.731
 Chi squared: 1650.22
-Log Evidence: -845.06 (Δ logZ = 2.47 against ΛCDM)
+Log Evidence: -845.06 (Δ logZ = 2.5 against ΛCDM)
 Degrees of freedom: 1745
 
 ===============================
@@ -292,7 +292,7 @@ z*: 1088.53 +0.33 -0.32
 r*: 145.67 Mpc
 100 θ*: 1.04109
 Chi squared: 1646.72
-Log Evidence: -841.99 (Δ logZ = 5.54 against ΛCDM)
+Log Evidence: -841.99 (Δ logZ = 5.5 against ΛCDM)
 Degrees of freedom: 1745
 
 ===============================
@@ -310,6 +310,6 @@ z*: 1088.75 +0.18 -0.18
 r*: 144.80 Mpc
 R: 1.743
 Chi squared: 1645.79
-Log Evidence: -844.21 (Δ logZ = 3.32 against ΛCDM)
+Log Evidence: -844.21 (Δ logZ = 3.3 against ΛCDM)
 Degrees of freedom: 1744
 """
