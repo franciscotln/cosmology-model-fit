@@ -26,7 +26,7 @@ def Ez(z, params):
     Or = Or_h2 / h**2
     Ode = 1 - Om - Or
     one_plus_z = 1 + z
-    rho_de = np.exp((1 + w0) * (1 - 1 / one_plus_z**3))
+    rho_de = (4 * one_plus_z**3 / (1 + 3 * one_plus_z**3)) ** (4 * (1 + w0))
 
     return np.sqrt(Or * one_plus_z**4 + Om * one_plus_z**3 + Ode * rho_de)
 
@@ -158,9 +158,7 @@ def main():
     ]
 
     with Pool(6) as pool:
-        sampler = emcee.EnsembleSampler(
-            nwalkers, ndim, log_probability, pool=pool, moves=moves
-        )
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
 
     try:
@@ -274,20 +272,20 @@ Degs of freedom: 33
 ===============================
 
 Compressed cmb priors: (R, π/θ*, ωb) for wCDM
-Flat w(z) = -1 + (1 + w0) / (1 + z)**3
-ΔM: -0.166 +0.089 -0.090 mag
-H0: 66.7 +0.8 -0.8 km/s/Mpc
-Ωm: 0.317 +0.008 -0.008
-ωb: 0.02260 +0.00013 -0.00012
-ωm: 0.14086 +0.00070 -0.00070
-w0: -0.842 +0.068 -0.068 (prior width 1.5: -1.5 to 0.0)
-wa: d w(z)/dz at z=0 = -3 * (1 + w0)
-z*: 1088.45 +0.15 -0.15
-r*: 144.80 Mpc
-z_d: 1060.26 +0.28 -0.27
+Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)**3)
+ΔM: -0.166 +0.090 -0.089 mag
+H0: 66.8 +0.8 -0.8 km/s/Mpc
+Ωm: 0.316 +0.008 -0.007
+ωb: 0.02260 +0.00012 -0.00012
+ωm: 0.14085 +0.00071 -0.00071
+w0: -0.865 +0.060 -0.060
+wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
+z*: 1088.44 +0.15 -0.15
+r*: 144.81 Mpc
+z_d: 1060.26 +0.27 -0.28
 r_d: 147.31 Mpc
-Chi squared: 37.75
-Log evidence: -35.0 (Δ logZ = 0.9 against ΛCDM)
+Chi squared: 38.13
+Log evidence: -35.3 (Δ logZ = 0.6 against ΛCDM)
 Degs of freedom: 33
 
 ===============================

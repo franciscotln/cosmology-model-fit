@@ -25,7 +25,7 @@ def Ez(z, params):
     Om, w0 = params[1], params[3]
     one_plus_z = 1 + z
     cubic = one_plus_z**3
-    rho_de = np.exp((1 + w0) * (1 - 1 / cubic))
+    rho_de = (4 * cubic / (1 + 3 * cubic)) ** (4 * (1 + w0))
     return np.sqrt(Om * cubic + (1 - Om) * rho_de)
 
 
@@ -246,13 +246,14 @@ Degs of freedom: 31
 
 ===============================
 
-Flat -1 + (1 + w0) / (1 + z)**3
-H0: 65.41 +1.21 -1.20 km/s/Mpc
-Ωm: 0.313 +0.009 -0.009
-ωm: 0.1339 +0.0056 -0.0054
-ωb: 0.02232 +0.00033 -0.00033
-w0: -0.748 +0.081 -0.083
-r_d: 149.45 +1.62 -1.60 Mpc
-Chi squared: 29.88
+Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)**3)
+H0: 65.46 +1.24 -1.19 km/s/Mpc
+Ωm: 0.312 +0.009 -0.009
+ωm: 0.1335 +0.0058 -0.0055
+ωb: 0.02232 +0.00033 -0.00032
+w0: -0.775 +0.074 -0.075
+wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
+r_d: 149.55 +1.65 -1.66 Mpc
+Chi squared: 30.07
 Degs of freedom: 31
 """

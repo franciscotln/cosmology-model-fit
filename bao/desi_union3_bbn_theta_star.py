@@ -31,8 +31,7 @@ def Ez(z, theta):
     Or = Orh2 / h**2
     Ode = 1 - Om - Or
     cubed = z_plus_1**3
-    # Upper limit of thawing quintessence models arXiv:astro-ph/0505494v1
-    rho_de = np.exp((1 + w0) * (1 - 1 / z_plus_1**3))
+    rho_de = (4 * cubed / (1 + 3 * cubed)) ** (4 * (1 + w0))
     return np.sqrt(Or * z_plus_1**4 + Om * cubed + Ode * rho_de)
 
 
@@ -282,20 +281,20 @@ Degrees of freedom: 32
 
 ===============================
 
-Flat w(z) = -1 + (1 + w0) / (1 + z)**3
-ΔM: -0.181 +0.090 -0.090 mag
-H0: 66.06 +0.87 -0.85 km/s/Mpc
-Ωm: 0.316 +0.008 -0.008
-ωm: 0.1380 +0.0011 -0.0011
-ωb: 0.02235 +0.00032 -0.00032
-w0: -0.783 +0.070 -0.071 (prior width 1.5: -1.5 to 0.0)
-wa: d w(z)/dz at z=0 = -3 * (1 + w0)
-z_d: 1059.49 +0.75 -0.77
-r_d: 148.31 Mpc
+Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)**3)
+ΔM: -0.181 +0.089 -0.089 mag
+H0: 66.16 +0.85 -0.84 km/s/Mpc
+Ωm: 0.315 +0.008 -0.008
+ωm: 0.1379 +0.0011 -0.0011
+ωb: 0.02235 +0.00032 -0.00033
+w0: -0.809 +0.063 -0.063 (prior width 1.5: -1.5 to 0.0)
+wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
+z_d: 1059.48 +0.75 -0.77
+r_d: 148.32 Mpc
 z*: 1088.52 +0.34 -0.32
-r*: 145.70 Mpc
-Chi squared: 30.58
-Log Evidence: -30.99 (Δ logZ = 2.46 compared to ΛCDM)
+r*: 145.71 Mpc
+Chi squared: 30.84
+Log Evidence: -31.23 (Δ logZ = 2.22 compared to ΛCDM)
 Degrees of freedom: 32
 
 ===============================

@@ -26,7 +26,7 @@ def Ez(z, params):
     Or = Or_h2 / h**2
     Ode = 1 - Om - Or
     one_plus_z = 1 + z
-    rho_de = np.exp((1 + w0) * (1 - 1 / one_plus_z**3))
+    rho_de = (4 * one_plus_z**3 / (1 + 3 * one_plus_z**3)) ** (4 * (1 + w0))
 
     return np.sqrt(Or * one_plus_z**4 + Om * one_plus_z**3 + Ode * rho_de)
 
@@ -157,9 +157,7 @@ def main():
     ]
 
     with Pool(6) as pool:
-        sampler = emcee.EnsembleSampler(
-            nwalkers, ndim, log_probability, pool=pool, moves=moves
-        )
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
 
     try:
@@ -259,19 +257,19 @@ Degrees of freedom: 1601
 
 ===============================
 
-Flat w(z) = -1 + (1 + w0) / (1 + z)^3
-H0: 67.39 +0.58 -0.58 km/s/Mpc
+Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)**3)
+H0: 67.39 +0.58 -0.59 km/s/Mpc
 Ωm: 0.308 +0.006 -0.005
 ωb: 0.02241 +0.00012 -0.00012
-w0: -0.913 +0.046 -0.045 (prior width 1.5: -1.5 to 0.0)
-wa: d w(z)/dz at z=0 = -1.5 * (1 + w0)
+w0: -0.921 +0.042 -0.041
+wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
 M: -19.431 +0.013 -0.013
 z*: 1088.58
-r*: 145.18 Mpc
-z_d: 1059.75
-rd: 147.76 Mpc
-Chi squared: 1416.52
-Log evidence: -727.87
+r*: 145.19 Mpc
+z_d: 1059.76
+rd: 147.77 Mpc
+Chi squared: 1416.63
+Log evidence: -728.01
 Degrees of freedom: 1601
 
 ===============================

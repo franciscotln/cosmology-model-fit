@@ -26,7 +26,7 @@ def Ez(z, params):
     O_m, w0 = params[3], params[4]
     one_plus_z = 1 + z
     cubic = one_plus_z**3
-    rho_de = np.exp((1 + w0) * (1 - 1 / cubic))
+    rho_de = (4 * cubic / (1 + 3 * cubic)) ** (4 * (1 + w0))
     return np.sqrt(O_m * cubic + (1 - O_m) * rho_de)
 
 
@@ -213,6 +213,7 @@ r_d: 146.9 +4.9 -4.6 Mpc
 Ωm: 0.299 +0.009 -0.008
 ωm: 0.1424 +0.0095 -0.0091
 w0: -1
+wa: 0
 Chi squared: 42.58
 log likelihood: -135.81
 Degrees of freedom: 42
@@ -226,22 +227,23 @@ r_d: 147.1 +5.0 -4.6 Mpc
 Ωm: 0.298 +0.009 -0.009
 ωm: 0.1375 +0.0105 -0.0103
 w0: -0.923 +0.075 -0.077
+wa: 0
 Chi squared: 41.34
 log likelihood: -135.28
 Degrees of freedom: 41
 
 ===============================
 
-Flat -1 + (1 + w0) / (1 + z)**3
-f_cc: 1.46 +0.19 -0.18
-H0: 66.9 +2.9 -2.9 km/s/Mpc
-r_d: 147.2 +5.0 -4.7 Mpc
-Ωm: 0.311 +0.014 -0.013
-ωm: 0.1390 +0.0098 -0.0095
-w0: -0.795 +0.165 -0.172
-wa: d w(z)/dz at z=0 = -3 * (1 + w0)
-Chi squared: 40.64
-log likelihood: -135.05
+Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
+f_cc: 1.46 +0.18 -0.18
+H0: 67.0 +2.8 -2.8 km/s/Mpc
+r_d: 147.1 +5.0 -4.6 Mpc
+Ωm: 0.309 +0.012 -0.012
+ωm: 0.1390 +0.0098 -0.0094
+w0: -0.824 +0.141 -0.151
+wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
+Chi squared: 40.65
+log likelihood: -135.07
 Degrees of freedom: 41
 
 ===============================

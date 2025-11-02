@@ -28,7 +28,7 @@ def Ez(z, params):
     Ode = 1 - Om - Or
     one_plus_z = 1 + z
     cubed = one_plus_z**3
-    rho_de = np.exp((1 + w0) * (1 - 1 / one_plus_z**3))
+    rho_de = (4 * one_plus_z**3 / (1 + 3 * one_plus_z**3)) ** (4 * (1 + w0))
     return np.sqrt(Or * one_plus_z**4 + Om * cubed + Ode * rho_de)
 
 
@@ -246,17 +246,17 @@ Degs of freedom: 11
 
 ===============================
 
-Flat w(z) = -1 + (1 + w0) / (1 + z)**3
-rd: 148.38 +0.71 -0.70 Mpc
-H0: 66.56 +1.72 -1.63 km/s/Mpc
-Ωm: 0.3116 +0.0143 -0.0142
-ωb: 0.02223 +0.00054 -0.00053
-w0: -0.830 +0.136 -0.140 (prior width 1.5: -1.5 to 0.0)
-wa: d w(z)/dz at z=0 = -3 * (1 + w0)
+Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
+rd: 148.38 +0.71 -0.71 Mpc
+H0: 66.72 +1.61 -1.53 km/s/Mpc
+Ωm: 0.3101 +0.0132 -0.0131
+ωb: 0.02224 +0.00053 -0.00054
+w0: -0.857 +0.116 -0.119 (prior width 1.5: -1.5 to 0.0)
+wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
 r*: 145.74 Mpc
-z*: 1088.66 +0.56 -0.54
-Chi squared: 8.79
-Log evidence: -15.2
+z*: 1088.65 +0.57 -0.54
+Chi squared: 8.85
+Log evidence: -15.4
 Degs of freedom: 11
 
 ===============================

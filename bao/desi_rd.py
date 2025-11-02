@@ -19,7 +19,7 @@ def Ez(z, params):
     Om, w0 = params[2], params[3]
     inv_a = 1 + z
     cubic = inv_a**3
-    rho_de = np.exp((1 + w0) * (1 - 1 / cubic))
+    rho_de = (4 * cubic / (1 + 3 * cubic)) ** (4 * (1 + w0))
     return np.sqrt(Om * cubic + (1 - Om) * rho_de)
 
 
@@ -139,9 +139,7 @@ def main():
         (emcee.moves.DESnookerMove(), 0.14),
     ]
     with Pool(5) as pool:
-        sampler = emcee.EnsembleSampler(
-            nwalkers, ndim, log_probability, pool=pool, moves=moves
-        )
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
 
     try:
@@ -214,14 +212,14 @@ Degs of freedom: 10
 
 ===============================
 
-Flat -1 + (1 + w0) / (1 + z)**3
-rd: 147.09 +0.51 -0.52 Mpc
-H0: 66.53 +1.89 -1.76 km/s/Mpc
-Ωm: 0.313 +0.014 -0.014
-w0: -0.757 +0.169 -0.178
-wa: d w(z)/dz at z=0 = -3 * (1 + w0)
-Chi squared: 8.27
-Log Evidence: -15.80
+Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)**3)
+rd: 147.09 +0.51 -0.51 Mpc
+H0: 66.74 +1.78 -1.64 km/s/Mpc
+Ωm: 0.310 +0.013 -0.013
+w0: -0.793 +0.145 -0.154
+wa: -(9/4) * (1 + w0)
+Chi squared: 8.33
+Log Evidence: -15.98
 Degs of freedom: 10
 
 ===============================

@@ -26,7 +26,7 @@ def H_z(z, params):
     OL = 1 - Om
     one_plus_z = 1 + z
     cubed = one_plus_z**3
-    rho_de = np.exp((1 + w0) * (1 - 1 / one_plus_z**3))
+    rho_de = (4 * cubed / (1 + 3 * cubed)) ** (4 * (1 + w0))
     return 100 * h * np.sqrt(Om * cubed + OL * rho_de)
 
 
@@ -226,15 +226,15 @@ RMSD: 0.282
 
 ===============================
 
-Flat alternative: w(z) = -1 + (1 + w0) / (1 + z)**3
-h: 0.676 +0.016 -0.015
-Ωm: 0.313 +0.014 -0.014
+Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)**3)
+h: 0.679 +0.015 -0.014
+Ωm: 0.311 +0.013 -0.013
 ωm: 0.1430 +0.0011 -0.0011
-w0: -0.755 +0.168 -0.178
-wa: d w(z)/dz at z=0 = -3 * (1 + w0)
-rd: 144.72 +1.88 -1.89
-Chi squared: 8.27
+w0: -0.792 +0.144 -0.155
+wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
+rd: 144.70 +1.90 -1.88
+Chi squared: 8.34
 Degs of freedom: 10
-R^2: 0.9991
-RMSD: 0.262
+R^2: 0.9990
+RMSD: 0.263
 """
