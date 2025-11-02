@@ -22,8 +22,7 @@ def Ez(z, params):
     Or = Or_h2 / h**2
     Ode = 1 - Om - Or
     one_plus_z = 1 + z
-    rho_de = np.exp((1 + w0) * (1 - one_plus_z**-3))
-
+    rho_de = (4 * one_plus_z**3 / (1 + 3 * one_plus_z**3)) ** (4 * (1 + w0))
     return np.sqrt(Or * one_plus_z**4 + Om * one_plus_z**3 + Ode * rho_de)
 
 
@@ -209,19 +208,19 @@ Degrees of freedom: 1733
 
 ===============================
 
-Flat w(z) = -1 + (1 + w0) / (1 + z)^3
-H0: 65.90 +0.66 -0.66 km/s/Mpc
+Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
+H0: 65.91 +0.67 -0.66 km/s/Mpc
 Ωm: 0.331 +0.008 -0.008
 ωb: 0.02237 +0.00014 -0.00014
-w0: -0.883 +0.050 -0.050
-wa: d w(z)/dz at z=0 = -3 * (1 + w0)
-M: -19.424 +0.013 -0.013
-z*: 1088.89
-z_drag: 1059.95
+w0: -0.895 +0.045 -0.045
+wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
+M: -19.424 +0.014 -0.013
+z*: 1088.90
+z_drag: 1059.94
 r_s(z*) = 144.19 Mpc
 r_s(z_drag) = 146.75 Mpc
-Chi squared: 1638.30
-Log evidence: -837.9
+Chi squared: 1638.47
+Log evidence: -838.1
 Degrees of freedom: 1733
 
 ===============================
@@ -239,21 +238,5 @@ r_s(z*) = 144.12 Mpc
 r_s(z_drag) = 146.69 Mpc
 Chi squared: 1637.60
 Log evidence: -838.2
-Degrees of freedom: 1732
-
-Flat w(z) = w0 + wa * ((1 + z)^2 - 1) / ((1 + z)^2 + 1) (reduces to w0waCDM at low z)
-ρ_de = ρ_de_0 * (1 + z)^(3 * (1 + w0)) * {2 * (1 + z) / [1 + (1 + z)^2]}^(-3 * wa)
-H0: 67.13 +1.04 -1.12 km/s/Mpc
-Ωm: 0.320 +0.012 -0.011
-ωb: 0.02235 +0.00015 -0.00015
-w0: -0.780 +0.105 -0.108
-wa: -0.722 +0.472 -0.479
-M: -19.377 +0.034 -0.039
-z*: 1088.94
-z_drag: 1059.92
-r_s(z*) = 144.12 Mpc
-r_s(z_drag) = 146.68 Mpc
-Chi squared: 1637.47
-Log evidence: -838.4
 Degrees of freedom: 1732
 """
