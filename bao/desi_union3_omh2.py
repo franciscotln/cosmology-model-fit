@@ -239,7 +239,7 @@ H0: 69.32 +1.11 -1.07 km/s/Mpc
 w0: -0.865 +0.051 -0.051 (prior width 1.5: -1.5 to 0.0)
 wa: 0
 Chi squared: 32.2
-Log evidence: -30.3 (Δ logZ = 0.91 over ΛCDM)
+Log evidence: -30.3 (Δ logZ = 0.9 over ΛCDM)
 Degs of freedom: 31
 
 ===============================

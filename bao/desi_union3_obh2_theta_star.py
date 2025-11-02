@@ -258,7 +258,7 @@ wa: 0
 z_d: 1059.59 +0.36 -0.37
 r_d: 148.27 Mpc
 Chi squared: 34.18
-Log Evidence: -34.36 (Δ logZ = -0.20 in favour of ΛCDM)
+Log Evidence: -34.36 (Δ logZ = -0.2 in favour of ΛCDM)
 Degs of freedom: 32
 
 ===============================
@@ -274,7 +274,7 @@ wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
 z_d: 1059.65 +0.36 -0.36
 r_d: 148.02 Mpc
 Chi squared: 31.09
-Log Evidence: -32.19 (Δ logZ = 1.97 against ΛCDM)
+Log Evidence: -32.19 (Δ logZ = 2.0 against ΛCDM)
 Degs of freedom: 32
 
 ===============================
@@ -290,6 +290,6 @@ w_a: -0.828 +0.348 -0.367 (prior width 4.0: -3.0 to 1.0)
 z_d: 1059.78 +0.36 -0.37
 r_d: 147.29 Mpc
 Chi squared: 29.41
-Log Evidence: -33.12 (Δ logZ = 1.04 against ΛCDM)
+Log Evidence: -33.12 (Δ logZ = 1.0 against ΛCDM)
 Degs of freedom: 31
 """
