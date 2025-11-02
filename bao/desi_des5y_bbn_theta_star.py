@@ -90,8 +90,8 @@ def theta_starx100_theory(params):
     H0, Om, Obh2 = params[0], params[1], params[2]
     z_star = cmb.z_star(wb=Obh2, wm=Om * (H0 / 100) ** 2)
     rs_star = cmb.rs_z(Ez, z_star, params, H0, Obh2)
-    DA_star = cmb.DA_z(Ez, z_star, params, H0)
-    return 100 * rs_star / ((1 + z_star) * DA_star)
+    DM_star = (1 + z_star) * cmb.DA_z(Ez, z_star, params, H0)
+    return 100 * rs_star / DM_star
 
 
 def solve_triang(cho_L, delta):
@@ -107,12 +107,12 @@ def chi_squared(theta):
     chi2_bbn = (delta_bbn / bbn.Obh2_sigma) ** 2
 
     delta_sn = mu_values - theory_mu(theta)
-    chi_sn = solve_triang(cho_sn, delta_sn)
+    chi2_sn = solve_triang(cho_sn, delta_sn)
 
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, theta)
-    chi_bao = solve_triang(cho_bao, delta_bao)
+    chi2_bao = solve_triang(cho_bao, delta_bao)
 
-    return chi_sn + chi_bao + chi2_theta_100 + chi2_bbn
+    return chi2_sn + chi2_bao + chi2_theta_100 + chi2_bbn
 
 
 bounds = np.array(
@@ -251,6 +251,8 @@ H0: 68.39 +0.35 -0.35 km/s/Mpc
 Ωm: 0.299 +0.004 -0.004
 ωm: 0.1398 +0.0009 -0.0009
 ωb: 0.02224 +0.00032 -0.00032
+w0: -1
+wa: 0
 z_d: 1059.37 +0.75 -0.76
 r_d: 147.92 Mpc (1.0182 x r*)
 z*: 1088.77 +0.33 -0.32
@@ -268,6 +270,7 @@ H0: 66.67 +0.59 -0.59 km/s/Mpc
 ωm: 0.1367 +0.0013 -0.0013
 ωb: 0.02236 +0.00032 -0.00032
 w0: -0.909 +0.025 -0.025 (prior width 1.5: -1.5 to 0.0)
+wa: 0
 z_d: 1059.41 +0.76 -0.76
 r_d: 148.64 Mpc (1.0179 x r*)
 z*: 1088.43 +0.34 -0.33
