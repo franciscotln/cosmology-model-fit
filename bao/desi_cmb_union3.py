@@ -120,9 +120,9 @@ normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
 
 @njit
 def log_prior(params):
-    if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
-        return normalization
-    return -np.inf
+    if not np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
+        return -np.inf
+    return normalization
 
 
 def log_likelihood(params):
@@ -236,8 +236,9 @@ if __name__ == "__main__":
     main()
 
 """
-Compressed cmb priors: (R, π/θ*, ωb) for ΛCDM
 Flat ΛCDM w(z) = -1
+
+Chen's compressed cmb priors: (R, π/θ*, ωb) for ΛCDM
 H0: 68.5 +0.3 -0.3 km/s/Mpc
 Ωm: 0.300 +0.004 -0.004
 ωb: 0.02255 +0.00012 -0.00012
@@ -251,10 +252,27 @@ Chi squared: 43.92
 Log evidence: -35.9
 Degs of freedom: 34
 
+** Planck + ACT compression **
+ΔM: -0.130 +0.086 -0.086 mag
+H0: 68.3 +0.3 -0.3 km/s/Mpc
+Ωm: 0.302 +0.004 -0.004
+ωb: 0.02255 +0.00012 -0.00012
+ωm: 0.14093 +0.00062 -0.00061
+w0: -1
+wa: 0
+z*: 1088.51 +0.14 -0.14
+r*: 144.82 Mpc
+z_d: 1060.14 +0.27 -0.27
+r_d: 147.35 Mpc
+Chi squared: 46.57
+Log evidence: -37.2
+Degs of freedom: 34
+
 ===============================
 
-Compressed cmb priors: (R, π/θ*, ωb) for wCDM
 Flat wCDM w(z) = w0
+
+Chen's compressed cmb priors: (R, π/θ*, ωb) for wCDM
 H0: 67.9 +0.7 -0.7 km/s/Mpc
 Ωm: 0.306 +0.006 -0.006
 ωb: 0.02259 +0.00013 -0.00013
@@ -269,16 +287,33 @@ Chi squared: 41.96
 Log evidence: -38.0 (Δ logZ = -2.1 in favour of ΛCDM)
 Degs of freedom: 33
 
+** Planck + ACT compression **
+ΔM: -0.139 +0.089 -0.088 mag
+H0: 68.0 +0.7 -0.7 km/s/Mpc
+Ωm: 0.304 +0.006 -0.006
+ωb: 0.02257 +0.00013 -0.00013
+ωm: 0.14065 +0.00080 -0.00081
+w0: -0.984 +0.027 -0.028 (prior width 1.5: -1.5 to 0.0)
+wa: 0
+z*: 1088.46 +0.17 -0.16
+r*: 144.89 Mpc
+z_d: 1060.17 +0.28 -0.28
+r_d: 147.41 Mpc
+Chi squared: 46.23
+Log evidence: -40.1 (Δ logZ = -2.9 in favour of ΛCDM)
+Degs of freedom: 33
+
 ===============================
 
-Compressed cmb priors: (R, π/θ*, ωb) for wCDM
 Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)**3)
+
+Chen's compressed cmb priors: (R, π/θ*, ωb) for wCDM
 ΔM: -0.166 +0.090 -0.089 mag
 H0: 66.8 +0.8 -0.8 km/s/Mpc
 Ωm: 0.316 +0.008 -0.007
 ωb: 0.02260 +0.00012 -0.00012
 ωm: 0.14085 +0.00071 -0.00071
-w0: -0.865 +0.060 -0.060
+w0: -0.865 +0.060 -0.060 (prior width 1.5: -1.5 to 0.0)
 wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
 z*: 1088.44 +0.15 -0.15
 r*: 144.81 Mpc
@@ -288,10 +323,27 @@ Chi squared: 38.13
 Log evidence: -35.3 (Δ logZ = 0.6 against ΛCDM)
 Degs of freedom: 33
 
+** Planck + ACT compression **
+ΔM: -0.167 +0.088 -0.089 mag
+H0: 66.8 +0.8 -0.8 km/s/Mpc
+Ωm: 0.315 +0.008 -0.008
+ωb: 0.02260 +0.00013 -0.00013
+ωm: 0.14031 +0.00071 -0.00070
+w0: -0.881 +0.060 -0.060 (prior width 1.5: -1.5 to 0.0)
+wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
+z*: 1088.41 +0.16 -0.15
+r*: 144.96 Mpc
+z_d: 1060.22 +0.27 -0.27
+r_d: 147.47 Mpc
+Chi squared: 42.68
+Log evidence: -37.6 (Δ logZ = -0.4 in favour of ΛCDM)
+Degs of freedom: 33
+
 ===============================
 
-Compressed cmb priors: (R, π/θ*, ωb) for ΛCDM
 Flat w(z) = w0 + wa * z / (1 + z)
+
+Chen's compressed cmb priors: (R, π/θ*, ωb) for ΛCDM
 H0: 66.2 +0.8 -0.8 km/s/Mpc
 Ωm: 0.327 +0.009 -0.008
 ωb: 0.02241 +0.00013 -0.00013
@@ -304,5 +356,21 @@ z_d: 1059.99 +0.28 -0.28
 r_d: 146.88 Mpc
 Chi squared: 29.99
 Log evidence: -33.4 (Δ logZ = 2.5 against ΛCDM)
+Degs of freedom: 32
+
+** Planck + ACT compression **
+ΔM: -0.170 +0.088 -0.089 mag
+H0: 66.0 +0.8 -0.8 km/s/Mpc
+Ωm: 0.327 +0.009 -0.008
+ωb: 0.02242 +0.00013 -0.00013
+ωm: 0.14254 +0.00088 -0.00089
+w0: -0.666 +0.089 -0.085 (prior width 1.5: -1.5 to 0.0)
+wa: -1.080 +0.286 -0.304 (prior width 4.0: -3.0 to 1.0)
+z*: 1088.75 +0.18 -0.18
+r*: 144.48 Mpc
+z_d: 1059.98 +0.28 -0.28
+r_d: 147.03 Mpc
+Chi squared: 30.83
+Log evidence: -33.8 (Δ logZ = 3.4 against ΛCDM)
 Degs of freedom: 32
 """

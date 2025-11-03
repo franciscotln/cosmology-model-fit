@@ -232,6 +232,8 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM  w(z) = -1
+
+** Chen's compressed priors for ΛCDM **
 ΔM: -0.121 +0.085 -0.086 mag
 H0: 68.66 +0.30 -0.30 km/s/Mpc
 Ωm: 0.298 +0.004 -0.004
@@ -245,9 +247,25 @@ Chi squared: 39.51
 Log Evidence: -34.16
 Degs of freedom: 33
 
+** Planck + ACT compression **
+ΔM: -0.122 +0.086 -0.086 mag
+H0: 68.61 +0.29 -0.29 km/s/Mpc
+Ωm: 0.296 +0.004 -0.004
+ωm: 0.1395 +0.0008 -0.0008
+ωb: 0.02236 +0.00014 -0.00014
+w0: -1
+wa: 0
+z_d: 1059.63 +0.33 -0.33
+r_d: 147.88 Mpc
+Chi squared: 39.85
+Log Evidence: -34.39
+Degs of freedom: 33
+
 ===============================
 
 Flat wCDM w(z) = w0
+
+** Chen's compressed priors for wCDM **
 ΔM: -0.164 +0.090 -0.090 mag
 H0: 67.00 +0.77 -0.75 km/s/Mpc
 Ωm: 0.307 +0.006 -0.006
@@ -261,9 +279,25 @@ Chi squared: 34.18
 Log Evidence: -34.36 (Δ logZ = -0.2 in favour of ΛCDM)
 Degs of freedom: 32
 
+** Planck + ACT compression **
+ΔM: -0.169 +0.089 -0.090 mag
+H0: 66.84 +0.76 -0.76 km/s/Mpc
+Ωm: 0.307 +0.006 -0.006
+ωm: 0.1369 +0.0014 -0.0014
+ωb: 0.02238 +0.00014 -0.00014
+w0: -0.916 +0.033 -0.033 (prior width 1.5: -1.5 to 0.0)
+wa: 0
+z_d: 1059.47 +0.34 -0.34
+r_d: 148.57 Mpc
+Chi squared: 33.85
+Log Evidence: -34.27 (Δ logZ = 0.12 against ΛCDM)
+Degs of freedom: 32
+
 ===============================
 
 Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)**3)
+
+** Chen's compressed priors for wCDM **
 ΔM: -0.176 +0.090 -0.090 mag
 H0: 66.31 +0.85 -0.83 km/s/Mpc
 Ωm: 0.316 +0.008 -0.008
@@ -277,9 +311,25 @@ Chi squared: 31.09
 Log Evidence: -32.19 (Δ logZ = 2.0 against ΛCDM)
 Degs of freedom: 32
 
+** Planck + ACT compression **
+ΔM: -0.180 +0.089 -0.089 mag
+H0: 66.16 +0.84 -0.84 km/s/Mpc
+Ωm: 0.315 +0.008 -0.008
+ωm: 0.1379 +0.0010 -0.0010
+ωb: 0.02238 +0.00014 -0.00014
+w0: -0.808 +0.063 -0.063 (prior width 1.5: -1.5 to 0.0)
+wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
+z_d: 1059.54 +0.33 -0.34
+r_d: 148.30 Mpc
+Chi squared: 30.81
+Log Evidence: -32.13 (Δ logZ = 2.26 against ΛCDM)
+Degs of freedom: 32
+
 ===============================
 
 Flat w(z) = w0 + wa * z / (1 + z)
+
+** Chen's compressed priors for ΛCDM **
 ΔM: -0.170 +0.088 -0.088 mag
 H0: 66.18 +0.83 -0.82 km/s/Mpc
 Ωm: 0.324 +0.009 -0.009
@@ -291,5 +341,19 @@ z_d: 1059.78 +0.36 -0.37
 r_d: 147.29 Mpc
 Chi squared: 29.41
 Log Evidence: -33.12 (Δ logZ = 1.0 against ΛCDM)
+Degs of freedom: 31
+
+** Planck + ACT compression **
+ΔM: -0.175 +0.087 -0.088 mag
+H0: 66.05 +0.82 -0.80 km/s/Mpc
+Ωm: 0.322 +0.009 -0.009
+ωm: 0.1407 +0.0017 -0.0018
+ωb: 0.02237 +0.00014 -0.00014
+w0: -0.720 +0.094 -0.092 (prior width 1.5: -1.5 to 0.0)
+wa: -0.787 +0.345 -0.362 (prior width 4.0: -3.0 to 1.0)
+z_d: 1059.71 +0.35 -0.35
+r_d: 147.58 Mpc
+Chi squared: 29.36
+Log Evidence: -33.24 (Δ logZ = 1.15 against ΛCDM)
 Degs of freedom: 31
 """
