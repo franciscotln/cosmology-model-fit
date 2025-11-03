@@ -23,7 +23,7 @@ dx = np.diff(z_grid)
 def Ez(z, params):
     Om, w0 = params[3], params[4]
     one_plus_z = 1 + z
-    rho_de = np.exp((1 + w0) * (1 - one_plus_z**-3))
+    rho_de = ((4 * one_plus_z**3) / (1 + 3 * one_plus_z**3)) ** (4 * (1 + w0))
     return np.sqrt(Om * one_plus_z**3 + (1 - Om) * rho_de)
 
 
@@ -111,19 +111,14 @@ def main():
     nsteps = 2000 + burn_in
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
+    moves = [
+        (emcee.moves.KDEMove(), 0.30),
+        (emcee.moves.DEMove(), 0.56),
+        (emcee.moves.DESnookerMove(), 0.14),
+    ]
 
     with Pool(5) as pool:
-        sampler = emcee.EnsembleSampler(
-            nwalkers,
-            ndim,
-            log_probability,
-            pool=pool,
-            moves=[
-                (emcee.moves.KDEMove(), 0.30),
-                (emcee.moves.DEMove(), 0.56),
-                (emcee.moves.DESnookerMove(), 0.14),
-            ],
-        )
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
 
     try:
@@ -209,15 +204,15 @@ Degrees of freedom: 50
 
 ==============================
 
-Flat alternative: w(z) = -1 + (1 + w0) / (1 + z)^3
+Flat alternative: w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
 f_cc: 0.71 +0.10 -0.08
-ΔM: -0.179 +0.123 -0.126 mag
-H0: 66.2 +2.7 -2.6 km/s/Mpc
-Ωm: 0.322 +0.032 -0.031
-w0: -0.80 +0.14 -0.15
-wa: d w(z)/dz at z=0 = -3 * (1 + w0)
-Chi squared: 51.63
-Log evidence: -151.3
+ΔM: -0.178 +0.123 -0.124 mag
+H0: 66.3 +2.7 -2.7 km/s/Mpc
+Ωm: 0.322 +0.033 -0.032
+w0: -0.82 +0.13 -0.14
+wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
+Chi squared: 51.67
+Log evidence: -151.4
 Degrees of freedom: 50
 
 ==============================

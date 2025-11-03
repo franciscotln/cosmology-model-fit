@@ -22,7 +22,7 @@ c = 299792.458  # Speed of light in km/s
 def Ez(z, params):
     Om, w0 = params[3], params[4]
     cubed = (1 + z) ** 3
-    rho_de = np.exp((1 + w0) * (1 - 1 / cubed))
+    rho_de = ((4 * cubed) / (1 + 3 * cubed)) ** (4 * (1 + w0))
     return np.sqrt(Om * cubed + (1 - Om) * rho_de)
 
 
@@ -109,19 +109,14 @@ def main():
     nsteps = 2000 + burn_in
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
+    moves = [
+        (emcee.moves.KDEMove(), 0.3),
+        (emcee.moves.DEMove(), 0.56),
+        (emcee.moves.DESnookerMove(), 0.14),
+    ]
 
     with Pool(6) as pool:
-        sampler = emcee.EnsembleSampler(
-            nwalkers,
-            ndim,
-            log_probability,
-            pool=pool,
-            moves=[
-                (emcee.moves.KDEMove(), 0.3),
-                (emcee.moves.DEMove(), 0.56),
-                (emcee.moves.DESnookerMove(), 0.14),
-            ],
-        )
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
 
     try:
@@ -145,7 +140,7 @@ def main():
         [w0_16, w0_50, w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = np.array([f_cc_50, dM_50, h0_50, Om_50, w0_50], dtype=np.float64)
+    best_fit = np.percentile(samples, 50, axis=0)
     deg_of_freedom = effective_sample_size + z_cc_vals.size - len(best_fit)
 
     print(f"f_cc: {f_cc_50:.2f} +{(f_cc_84 - f_cc_50):.2f} -{(f_cc_50 - f_cc_16):.2f}")
@@ -209,15 +204,15 @@ Degrees of freedom: 1763
 
 ==============================
 
-Flat alternative: w(z) = -1 + (1 + w0) / (1 + z)^3
+Flat alternative: w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
 f_cc: 1.46 +0.18 -0.18
-ΔM: -0.070 +0.079 -0.080 mag
+ΔM: -0.072 +0.079 -0.081 mag
 H0: 66.8 +2.5 -2.4 km/s/Mpc
-Ωm: 0.318 +0.028 -0.027
-w0: -0.838 +0.101 -0.113
-wa: d w(z)/dz at z=0 = -3 * (1 + w0)
-Chi squared: 1669.73
-Log evidence: -962.0
+Ωm: 0.318 +0.028 -0.028
+w0: -0.854 +0.097 -0.107
+wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
+Chi squared: 1670.00
+Log evidence: -962.1
 Degrees of freedom: 1763
 
 ==============================
