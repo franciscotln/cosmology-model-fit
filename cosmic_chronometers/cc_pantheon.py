@@ -24,9 +24,9 @@ c = c0 / 1000  # Speed of light in km/s
 
 @njit
 def Ez(z, Om, w0):
-    one_plus_z = 1 + z
-    rho_de = np.exp((1 + w0) * (1 - one_plus_z**-3))
-    return np.sqrt(Om * one_plus_z**3 + (1 - Om) * rho_de)
+    cubed = (1 + z) ** 3
+    rho_de = ((4 * cubed) / (1 + 3 * cubed)) ** (4 * (1 + w0))
+    return np.sqrt(Om * cubed + (1 - Om) * rho_de)
 
 
 @njit
@@ -116,9 +116,7 @@ def main():
     ]
 
     with Pool(5) as pool:
-        sampler = emcee.EnsembleSampler(
-            nwalkers, ndim, log_probability, pool=pool, moves=moves
-        )
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
 
     try:
@@ -211,12 +209,12 @@ Degrees of freedom: 1618
 
 Flat alternative: w(z) = -1 + (1 + w0) / (1 + z)**3
 f_cc: 0.70 +0.10 -0.08
-H0: 67.2 +2.6 -2.6
-M: -19.437 +0.084 -0.085
-Ωm: 0.322 +0.028 -0.028
-ωm: 0.1454 +0.0125 -0.0122
-w0: -0.954 +0.107 -0.117
-wa: -3 * (1 + w0)
-Chi squared: 1432.61
+H0: 67.3 +2.6 -2.6
+M: -19.435 +0.083 -0.086
+Ωm: 0.322 +0.029 -0.029
+ωm: 0.1455 +0.0126 -0.0124
+w0: -0.958 +0.101 -0.113
+wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
+Chi squared: 1432.53
 Degrees of freedom: 1618
 """

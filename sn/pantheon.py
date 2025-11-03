@@ -21,7 +21,7 @@ cubed = (1 + z_grid) ** 3
 @njit
 def Ez(params):
     Om, w0 = params[1], params[2]
-    rho_de = np.exp((1 + w0) * (1 - 1 / cubed))
+    rho_de = (4 * cubed / (1 + 3 * cubed)) ** (4 * (1 + w0))
     return np.sqrt(Om * cubed + (1 - Om) * rho_de)
 
 
@@ -225,18 +225,18 @@ Log Evidence: -710.6
 
 =============================
 
-Flat w(z) = -1 + (1 + w0) / (1 + z)^3
-M: -19.347 +0.009/-0.010
-Ωm: 0.315 +0.038/-0.038
-w0: -0.924 +0.128/-0.146
-wa: d w(z)/dz at z=0 = -3 * (1 + w0)
+Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
+M: -19.347 +0.009/-0.009
+Ωm: 0.313 +0.040/-0.040
+w0: -0.925 +0.125/-0.144
+wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
 R-squared (%): 99.74
-RMSD (mag): 0.154
+RMSD (mag): 0.153
 Skewness of residuals: 0.081
 kurtosis of residuals: 1.589
 Degs of freedom: 1587
 Chi squared: 1402.55
-Log Evidence: -710.7
+Log Evidence: -710.8
 
 =============================
 
