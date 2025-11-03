@@ -5,10 +5,10 @@ from scipy.interpolate import interp1d
 
 # values from DESI DR2 + rd_Planck + DES5Y
 Rho_de_0 = 1  # normalised
-H0 = 66.99  # Hubble constant in km/s/Mpc
-Om = 0.309
+H0 = 66.52  # Hubble constant in km/s/Mpc
+Om = 0.312
 Or = 4.1835e-05 / (H0 / 100) ** 2  # Radiation density
-w0 = -0.799  # Equation of state parameter from fit
+w0 = -0.834  # Equation of state parameter from fit
 
 a_min = 1e-8
 a_max = 5
@@ -16,9 +16,9 @@ N_a = 5000
 a_vals = np.linspace(a_min, a_max, N_a)
 
 
-w_de = lambda a: -1 + (1 + w0) * a**3
+w_de = lambda a: -1 + 4 * (1 + w0) * a**3 / (3 + a**3)
 
-Rho_de = lambda a: Rho_de_0 * np.exp((1 + w0) * (1 - a**3))
+Rho_de = lambda a: Rho_de_0 * (4 / (3 + a**3)) ** (4 * (1 + w0))
 
 H = (
     lambda a: H0
@@ -151,7 +151,7 @@ plt.grid(True, alpha=0.3)
 plt.show()
 
 
-phi_of_t_quad = lambda t: 1.713572e-05 * t * (t - 1)
+phi_of_t_quad = lambda t: 1.41310997e-05 * t * (t + 1)
 
 
 plt.figure(figsize=(8, 5))
