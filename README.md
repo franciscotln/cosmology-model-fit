@@ -5,7 +5,7 @@ This within the limits of thawing quintessence models as described in https://ar
 
 ## Necessary packages to run the code in python3
 ```bash
-pip3 install numpy pandas matplotlib scipy corner numba
+pip3 install numpy pandas matplotlib scipy corner numba numdifftools
 ```
 
 ## To run Hubble fits (example below for Pantheon+ sample) as a module
