@@ -2,6 +2,7 @@ from numba import njit
 import numpy as np
 from scipy.constants import c as c0
 from scipy.linalg import cho_factor, solve_triangular
+from cmb.data_chen_compression import r_drag
 from y2024DES.data import get_data, effective_sample_size as sn_size
 from y2025BAO.data import get_data as get_bao_data
 
@@ -64,6 +65,7 @@ quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int64
 
 @njit
 def bao_theory(z, qty, params):
+    rd = r_drag(wb=params[1], wm=params[3] * (params[2] / 100) ** 2)
     DV_mask = qty == 0
     DM_mask = qty == 1
     DH_mask = qty == 2
@@ -71,15 +73,7 @@ def bao_theory(z, qty, params):
     results[DH_mask] = DH_z(z[DH_mask], params)
     results[DM_mask] = DM_z(z[DM_mask], params)
     results[DV_mask] = DV_z(z[DV_mask], params)
-    return results / params[1]
-
-
-"""
-Planck prior on sound horizon at drag epoch r_d in Mpc
-width increased by 75% to account for model dependence
-"""
-rd_planck = 147.09
-rd_planck_sigma = 1.75 * 0.26
+    return results / rd
 
 
 def solve_triang(cho_L, delta):
@@ -87,8 +81,16 @@ def solve_triang(cho_L, delta):
     return np.dot(y, y)
 
 
+"""
+Planck prior on sound horizon at drag epoch r_d in Mpc
+"""
+rd_planck = 147.09
+rd_planck_sigma = 0.26
+
+
 def chi_squared(params):
-    chi2_prior = ((rd_planck - params[1]) / rd_planck_sigma) ** 2
+    delta_rd_prior = rd_planck - r_drag(params[1], params[3] * (params[2] / 100) ** 2)
+    chi2_prior = (delta_rd_prior / rd_planck_sigma) ** 2
 
     delta_sn = mu_values - theory_mu(params)
     chi_sn = solve_triang(cho_sn, delta_sn)
@@ -101,7 +103,7 @@ def chi_squared(params):
 bounds = np.array(
     [
         (-0.4, 0.4),  # ΔM
-        (120.0, 160.0),  # r_d
+        (0.010, 0.030),  # Ob * h^2
         (50.0, 90.0),  # H0
         (0.1, 0.8),  # Ωm
         (-1.5, 0.0),  # w0
@@ -152,9 +154,7 @@ def main():
     ]
 
     with Pool(6) as pool:
-        sampler = emcee.EnsembleSampler(
-            nwalkers, ndim, log_probability, pool=pool, moves=moves
-        )
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
 
     try:
@@ -173,17 +173,20 @@ def main():
     pct = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
     [
         (dM_16, dM_50, dM_84),
-        (rd_16, rd_50, rd_84),
+        (Obh2_16, Obh2_50, Obh2_84),
         (H0_16, H0_50, H0_84),
         (Om_16, Om_50, Om_84),
         (w0_16, w0_50, w0_84),
     ] = pct
 
     best_fit = np.percentile(samples, 50, axis=0)
+    rd_samples = r_drag(samples[:, 1], samples[:, 3] * (samples[:, 2] / 100) ** 2)
+    rd_16, rd_50, rd_84 = np.percentile(rd_samples, [15.9, 50, 84.1])
 
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
-    print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
+    print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
+    print(f"ωb: {Obh2_50:.5f} +{(Obh2_84 - Obh2_50):.5f} -{(Obh2_50 - Obh2_16):.5f}")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.1f}")
@@ -206,7 +209,7 @@ def main():
         x_scale="log",
     )
     plot_corner_and_chains(
-        labels=["$Δ_M$", "$r_d$", "$H_0$", "$Ω_M$", "$w_0$"],
+        labels=["$Δ_M$", "$ω_b$", "$H_0$", "$Ω_m$", "$w_0$"],
         flat_samples=samples,
         samples=chains_samples,
     )
@@ -218,46 +221,52 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM w(z) = -1
-r_d: 147.09 +0.45 -0.44 Mpc
-H0: 68.36 +0.49 -0.49 km/s/Mpc
+H0: 68.36 +0.45 -0.45 km/s/Mpc
+r_d: 147.09 +0.25 -0.25 Mpc
+ωb: 0.02159 +0.00065 -0.00065
 Ωm: 0.310 +0.008 -0.008
 w0: -1
+wa: 0
 Chi squared: 1659.0
-Log evidence: -845.4
+Log evidence: -845.1
 Degrees of freedom: 1745
 
 ===============================
 
 Flat wCDM w(z) = w0
-r_d: 147.09 +0.44 -0.44 Mpc
-H0: 67.21 +0.58 -0.58 km/s/Mpc
+H0: 67.21 +0.56 -0.55 km/s/Mpc
+r_d: 147.09 +0.26 -0.26 Mpc
+ωb: 0.02491 +0.00139 -0.00128
 Ωm: 0.298 +0.009 -0.009
-w0: -0.872 +0.038 -0.037 (prior width 1.5: -1.5 to 0.0)
+w0: -0.871 +0.037 -0.037 (prior width 1.5: -1.5 to 0.0)
+wa: 0
 Chi squared: 1648.1
-Log evidence: -842.7 (Δ logZ = 2.7 against ΛCDM)
+Log evidence: -842.4 (Δ logZ = 2.7 against ΛCDM)
 Degrees of freedom: 1744
 
 ===============================
 
 Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)**3)
-r_d: 147.09 +0.44 -0.44 Mpc
-H0: 67.02 +0.59 -0.59 km/s/Mpc
-Ωm: 0.309 +0.008 -0.008
-w0: -0.816 +0.049 -0.049 (prior width 1.5: -1.5 to 0.0)
-wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
+H0: 67.02 +0.58 -0.57 km/s/Mpc
+r_d: 147.09 +0.25 -0.25 Mpc
+ωb: 0.02361 +0.00089 -0.00086
+Ωm: 0.308 +0.008 -0.008
+w0: -0.815 +0.049 -0.049 (prior width 1.5: -1.5 to 0.0)
+wa: d w(z)/d z at z=0 = -(9/4) * (1 + w0)
 Chi squared: 1646.2
-Log evidence: -841.5 (Δ logZ = 3.9 against ΛCDM)
+Log evidence: -841.2 (Δ logZ = 3.9 against ΛCDM)
 Degrees of freedom: 1744
 
 ===============================
 
 Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
-r_d: 147.09 +0.44 -0.45 Mpc
-H0: 66.98 +0.60 -0.58 km/s/Mpc
-Ωm: 0.321 +0.012 -0.015
-w0: -0.783 +0.071 -0.068 (prior width 1.5: -1.5 to 0.0)
-wa: -0.720 +0.446 -0.447 (prior width 5.0: -3.0 to 2.0)
+H0: 66.98 +0.57 -0.57 km/s/Mpc
+r_d: 147.09 +0.25 -0.25 Mpc
+ωb: 0.02186 +0.00186 -0.00141
+Ωm: 0.321 +0.012 -0.014
+w0: -0.784 +0.070 -0.066 (prior width 1.5: -1.5 to 0.0)
+wa: -0.718 +0.434 -0.440 (prior width 5.5: -3.5 to 2.0)
 Chi squared: 1645.5
-Log evidence: -842.7 (Δ logZ = 2.7 against ΛCDM)
+Log evidence: -842.5 (Δ logZ = 2.6 against ΛCDM)
 Degrees of freedom: 1743
 """
