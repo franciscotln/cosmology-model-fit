@@ -185,7 +185,7 @@ def main():
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
     print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
     print(f"ωb: {Obh2_50:.5f} +{(Obh2_84 - Obh2_50):.5f} -{(Obh2_50 - Obh2_16):.5f}")
-    print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
+    print(f"Ωm: {Om_50:.4f} +{(Om_84 - Om_50):.4f} -{(Om_50 - Om_16):.4f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.1f}")
     print(f"Log evidence: {log_evd:.1f}")
@@ -292,7 +292,7 @@ DESI sub-compression (100 x θ*, r_d)CMB with covariance
 H0: 67.24 +0.54 -0.54 km/s/Mpc
 r_d: 147.28 +0.27 -0.27 Mpc
 ωb: 0.02354 +0.00038 -0.00037
-Ωm: 0.305 +0.005 -0.005
+Ωm: 0.3053 +0.0049 -0.0048
 w0: -0.899 +0.026 -0.027 (prior width 1.5: -1.5 to 0.0)
 wa: 0
 Chi squared: 1649.2
@@ -334,7 +334,7 @@ DESI sub-compression (100 x θ*, r_d)CMB with covariance
 H0: 66.94 +0.57 -0.56 km/s/Mpc
 r_d: 147.30 +0.27 -0.27 Mpc
 ωb: 0.02316 +0.00030 -0.00030
-Ωm: 0.311 +0.006 -0.005
+Ωm: 0.3105 +0.0055 -0.0055
 w0: -0.827 +0.042 -0.042 (prior width 1.5: -1.5 to 0.0)
 wa: d w(z)/d z at z=0 = -(9/4) * (1 + w0)
 Chi squared: 1646.4
