@@ -2,7 +2,7 @@ from numba import njit
 import numpy as np
 from scipy.constants import c as c0
 from scipy.linalg import cho_factor, solve_triangular
-import cmb.data_desi_sub_compression as cmb
+import y2024cmbearlylcdm.data as cmb
 from y2023union3.data import get_data as get_sn_data
 from y2025BAO.data import get_data as get_bao_data
 
@@ -66,8 +66,7 @@ quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int64
 
 
 @njit
-def bao_theory(z, qty, params):
-    rd = cmb.r_drag(wb=params[1], wm=params[3] * (params[2] / 100) ** 2)
+def bao_theory(z, qty, rd, params):
     DV_mask = qty == 0
     DM_mask = qty == 1
     DH_mask = qty == 2
@@ -86,13 +85,16 @@ def solve_triang(cho_L, delta):
 def chi_squared(params):
     wb, H0, Om = params[1], params[2], params[3]
 
-    delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez, params, H0, Om, wb)
+    dists = cmb.cmb_distances(Ez, params, H0, Om, wb)
+    rd = dists[1]
+
+    delta_cmb = cmb.DISTANCE_PRIORS - dists
     chi2_rd = delta_cmb @ cmb.inv_cov_mat @ delta_cmb
 
     delta_sn = mu_values - theory_mu(params)
     chi_sn = solve_triang(cho_sn, delta_sn)
 
-    delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
+    delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, rd, params)
     chi_bao = solve_triang(cho_bao, delta_bao)
 
     return chi_sn + chi_bao + chi2_rd
@@ -178,21 +180,21 @@ def main():
     ] = pct
 
     best_fit = np.percentile(samples, 50, axis=0)
-    rd_samples = cmb.r_drag(samples[:, 1], samples[:, 3] * (samples[:, 2] / 100) ** 2)
-    rd_16, rd_50, rd_84 = np.percentile(rd_samples, [15.9, 50, 84.1])
+    theta_100, rd = cmb.cmb_distances(Ez, best_fit, H0_50, Om_50, Obh2_50)
 
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
-    print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
     print(f"ωb: {Obh2_50:.5f} +{(Obh2_84 - Obh2_50):.5f} -{(Obh2_50 - Obh2_16):.5f}")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
+    print(f"r_d: {rd:.2f} Mpc")
+    print(f"100 θ*: {theta_100:.5f}")
     print(f"Chi squared: {chi_squared(best_fit):.1f}")
     print(f"Log evidence: {log_evd:.1f}")
     print(f"Degrees of freedom: {1 + len(bao_data['z']) + len(z_cmb) - len(best_fit)}")
 
     plot_bao_predictions(
-        theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
+        theory_predictions=lambda z, qty: bao_theory(z, qty, rd, best_fit),
         data=bao_data,
         errors=np.sqrt(np.diag(cov_matrix_bao)),
         title=bao_legend,
@@ -216,117 +218,67 @@ def main():
 if __name__ == "__main__":
     main()
 
+"""
+arXiv:2302.12911 - CMB Constraints on the Early Universe Independent of Late-Time Cosmology
+(100 θ*, r_drag)CMB
+"""
+
 
 """
 Flat ΛCDM w(z) = -1
-
-Planck's priors for 100 x θ* and r_d with estimated correlation ρ = 0.2932
-H0: 69.00 +0.41 -0.41 km/s/Mpc
-r_d: 147.12 +0.25 -0.25 Mpc
-ωb: 0.02293 +0.00027 -0.00027
-Ωm: 0.295 +0.005 -0.004
+H0: 68.80 +0.42 -0.42 km/s/Mpc
+ωb: 0.02266 +0.00028 -0.00028
+Ωm: 0.296 +0.005 -0.004
 w0: -1
 wa: 0
-Chi squared: 40.3
+r_d: 147.49 Mpc
+100 θ*: 1.04106
+Chi squared: 40.1
 Log evidence: -36.0
-Degrees of freedom: 32
-
-----
-
-DESI sub-compression (100 x θ*, r_d)CMB with covariance
-H0: 68.89 +0.42 -0.42 km/s/Mpc
-r_d: 147.34 +0.27 -0.27 Mpc
-ωb: 0.02278 +0.00028 -0.00028
-Ωm: 0.295 +0.005 -0.004
-w0: -1
-wa: 0
-Chi squared: 40.3
-Log evidence: -36.1
 Degrees of freedom: 32
 """
 
 
 """
 Flat wCDM w(z) = w0
-
-Planck's priors for 100 x θ* and r_d with estimated correlation ρ = 0.2932
-H0: 67.42 +0.71 -0.69 km/s/Mpc
-r_d: 147.07 +0.25 -0.25 Mpc
-ωb: 0.02367 +0.00041 -0.00040
+H0: 67.27 +0.71 -0.69 km/s/Mpc
+ωb: 0.02337 +0.00041 -0.00040
 Ωm: 0.305 +0.006 -0.006
-w0: -0.903 +0.035 -0.035 (prior width 1.5: -1.5 to 0.0)
+w0: -0.905 +0.035 -0.035 (prior width 1.5: -1.5 to 0.0)
 wa: 0
-Chi squared: 33.2
-Log evidence: -35.2 (Δ logZ = 0.8 against ΛCDM)
-
-----
-
-DESI sub-compression (100 x θ*, r_d)CMB with covariance
-H0: 67.33 +0.70 -0.69 km/s/Mpc
-r_d: 147.29 +0.27 -0.27 Mpc
-ωb: 0.02351 +0.00041 -0.00040
-Ωm: 0.305 +0.006 -0.006
-w0: -0.904 +0.035 -0.035 (prior width 1.5: -1.5 to 0.0)
-wa: 0
-Chi squared: 33.2
-Log evidence: -35.4 (Δ logZ = 0.7 against ΛCDM)
+r_d: 147.44 Mpc
+100 θ*: 1.04095
+Chi squared: 33.3
+Log evidence: -35.4 (Δ logZ = 0.6 against ΛCDM)
 Degrees of freedom: 31
 """
 
 
 """
 Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)**3)
-
-Planck's priors for 100 x θ* and r_d with estimated correlation ρ = 0.2932
-H0: 66.65 +0.83 -0.81 km/s/Mpc
-r_d: 147.08 +0.25 -0.26 Mpc
-ωb: 0.02337 +0.00031 -0.00031
+H0: 66.51 +0.82 -0.81 km/s/Mpc
+ωb: 0.02309 +0.00032 -0.00031
 Ωm: 0.314 +0.008 -0.007
-w0: -0.794 +0.063 -0.064 (prior width 1.5: -1.5 to 0.0)
+w0: -0.797 +0.064 -0.064 (prior width 1.5: -1.5 to 0.0)
 wa: d w(z)/d z at z=0 = (9/4) * (1 + w0)
-Chi squared: 30.4
-Log evidence: -33.3 (Δ logZ = 2.7 against ΛCDM)
-Degrees of freedom: 31
-
-----
-
-DESI sub-compression (100 x θ*, r_d)CMB with covariance
-H0: 66.56 +0.82 -0.81 km/s/Mpc
-r_d: 147.29 +0.27 -0.27 Mpc
-ωb: 0.02321 +0.00031 -0.00031
-Ωm: 0.314 +0.008 -0.007
-w0: -0.795 +0.064 -0.064 (prior width 1.5: -1.5 to 0.0)
-wa: d w(z)/d z at z=0 = (9/4) * (1 + w0)
-Chi squared: 30.4
-Log evidence: -33.4 (Δ logZ = 2.7 against ΛCDM)
+r_d: 147.44 Mpc
+100 θ*: 1.04103
+Chi squared: 30.5
+Log evidence: -33.4 (Δ logZ = 2.6 against ΛCDM)
 Degrees of freedom: 31
 """
 
 
 """
 Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
-
-Planck's priors for 100 x θ* and r_d with estimated correlation ρ = 0.2932
-H0: 66.28 +0.87 -0.87 km/s/Mpc
-r_d: 147.10 +0.25 -0.25 Mpc
-ωb: 0.02274 +0.00053 -0.00046
-Ωm: 0.321 +0.010 -0.010
-w0: -0.723 +0.099 -0.095 (prior width 1.5: -1.5 to 0.0)
-wa: -0.766 +0.379 -0.398 (prior width 4.5: -3.0 to 1.5)
-Chi squared: 29.3
-Log evidence: -34.6 (Δ logZ = 1.4 against ΛCDM)
-Degrees of freedom: 30
-
-----
-
-DESI sub-compression (100 x θ*, r_d)CMB with covariance
-H0: 66.17 +0.87 -0.87 km/s/Mpc
-r_d: 147.32 +0.27 -0.27 Mpc
-ωb: 0.02257 +0.00052 -0.00047
+H0: 66.10 +0.89 -0.85 km/s/Mpc
+ωb: 0.02243 +0.00051 -0.00045
 Ωm: 0.322 +0.010 -0.010
-w0: -0.720 +0.099 -0.095 (prior width 1.5: -1.5 to 0.0)
-wa: -0.784 +0.369 -0.395 (prior width 4.5: -3.0 to 1.5)
+w0: -0.719 +0.097 -0.096 (prior width 1.5: -1.5 to 0.0)
+wa: -0.790 +0.374 -0.391 (prior width 4.5: -3.0 to 1.5)
+r_d: 147.49 Mpc
+100 θ*: 1.04093
 Chi squared: 29.4
-Log evidence: -34.7 (Δ logZ = 1.4 against ΛCDM)
+Log evidence: -34.7 (Δ logZ = 1.3 against ΛCDM)
 Degrees of freedom: 30
 """
