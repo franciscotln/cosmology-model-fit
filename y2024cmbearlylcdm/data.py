@@ -49,9 +49,7 @@ def DA_z(Ez_func, z, params, H0):
 def cmb_distances(Ez_func, params, H0, Om, Ob_h2):
     Om_h2 = Om * (H0 / 100) ** 2
     zstar = z_star(wb=Ob_h2, wm=Om_h2)
-    zdrag = z_drag(wb=Ob_h2, wm=Om_h2)
-
-    rs_drag = rs_z(Ez_func, zdrag, params, H0, Ob_h2)
+    rs_drag = r_drag(Ob_h2, Om_h2)
     rs_star = rs_z(Ez_func, zstar, params, H0, Ob_h2)
     DM_star = (1 + zstar) * DA_z(Ez_func, zstar, params, H0)
     theta = rs_star / DM_star
@@ -67,27 +65,21 @@ def z_star(wb, wm):
 
 
 @njit
-def r_drag(wb, wm):
-    """arXiv:2106.00428v2 (eq 8)"""
-    a1 = 0.00257366
-    a2 = 0.05032
-    a3 = 0.013
-    a4 = 0.7720642
-    a5 = 0.24346362
-    a6 = 0.00641072
-    a7 = 0.5350899
-    a8 = 32.7525
-    a9 = 0.315473
-
-    term_A_denominator = (a1 * (wb**a2)) + (a3 * (wb**a4) * (wm**a5)) + (a6 * (wm**a7))
-    term_A = 1.0 / term_A_denominator
-    term_B = a8 / (wm**a9)
-    return term_A - term_B
-
-
-@njit
 def z_drag(wb, wm):
     """arXiv:2106.00428v2 (eq A2)"""
     return (
         1 + 428.169 * wb**0.256459 * wm**0.616388 + 925.56 * wm**0.751615
     ) * wm**-0.714129
+
+
+rd_fid = samples.mean("rdrag")
+wb_fid = samples.mean("ombh2")
+wm_fid = samples.mean("omegamh2")
+
+
+@njit
+def r_drag(wb, wm, n_eff=N_EFF):
+    """arXiv:2212.04522v2 (eq 3.4)"""
+    return (
+        rd_fid * (wb_fid / wb) ** 0.13 * (wm_fid / wm) ** 0.23 * (3.044 / n_eff) ** 0.1
+    )
