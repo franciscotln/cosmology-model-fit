@@ -141,7 +141,7 @@ def main():
     np.random.seed(42)
     ndim = len(bounds)
     nwalkers = 150
-    burn_in = 200
+    burn_in = 300
     nsteps = 2000 + burn_in
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
@@ -307,10 +307,26 @@ Degrees of freedom: 31
 Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
 
 Planck's priors for 100 x θ* and r_d with estimated correlation ρ = 0.2932
-TODO
+H0: 66.28 +0.87 -0.87 km/s/Mpc
+r_d: 147.10 +0.25 -0.25 Mpc
+ωb: 0.02274 +0.00053 -0.00046
+Ωm: 0.321 +0.010 -0.010
+w0: -0.723 +0.099 -0.095 (prior width 1.5: -1.5 to 0.0)
+wa: -0.766 +0.379 -0.398 (prior width 4.5: -3.0 to 1.5)
+Chi squared: 29.3
+Log evidence: -34.6 (Δ logZ = 1.4 against ΛCDM)
+Degrees of freedom: 30
 
 ----
 
 DESI sub-compression (100 x θ*, r_d)CMB with covariance
-TODO
+H0: 66.17 +0.87 -0.87 km/s/Mpc
+r_d: 147.32 +0.27 -0.27 Mpc
+ωb: 0.02257 +0.00052 -0.00047
+Ωm: 0.322 +0.010 -0.010
+w0: -0.720 +0.099 -0.095 (prior width 1.5: -1.5 to 0.0)
+wa: -0.784 +0.369 -0.395 (prior width 4.5: -3.0 to 1.5)
+Chi squared: 29.4
+Log evidence: -34.7 (Δ logZ = 1.4 against ΛCDM)
+Degrees of freedom: 30
 """
