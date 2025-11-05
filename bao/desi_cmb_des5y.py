@@ -233,7 +233,9 @@ if __name__ == "__main__":
 *******************************
 DESI DR2 + DES5Y + (R, π/θ*, ωb)CMB
 *******************************
+"""
 
+"""
 Flat ΛCDM w(z) = -1
 
 ** Chen's compressed priors for ΛCDM **
@@ -281,9 +283,10 @@ r_d: 147.63 Mpc
 z_d: 1059.66 +0.26 -0.26
 Chi squared: 1664.21
 Log evidence: -849.4
+"""
 
-===============================
 
+"""
 Flat wDM w(z) = w0
 
 ** Chen's compressed priors for wCDM **
@@ -331,9 +334,10 @@ r_d: 147.85 Mpc
 z_d: 1059.80 +0.27 -0.27
 Chi squared: 1658.68
 Log evidence: -849.9 (Δ logZ = -0.5 in favour of ΛCDM)
+"""
 
-===============================
 
+"""
 Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
 
 ** Chen's compressed priors for wCDM **
@@ -381,9 +385,10 @@ r_d: 147.82 Mpc
 z_d: 1059.78 +0.26 -0.26
 Chi squared: 1652.97
 Log evidence: -846.5 (Δ logZ = 2.9 against ΛCDM)
+"""
 
-===============================
 
+"""
 Flat w(z) = w0 + wa * z / (1 + z)
 
 ** Chen's compressed priors for ΛCDM **

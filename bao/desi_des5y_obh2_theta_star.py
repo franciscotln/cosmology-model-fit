@@ -245,7 +245,9 @@ if __name__ == "__main__":
 *******************************
 DESI DR2 + DES5Y + (π/θ*, ωb)CMB
 *******************************
+"""
 
+"""
 Flat ΛCDM  w(z) = -1
 
 ** Chen's compressed priors for ΛCDM **
@@ -278,8 +280,25 @@ Chi squared: 1662.12
 Log Evidence: -847.91
 Degrees of freedom: 1746
 
-===============================
+** DESI compression **
+H0: 68.37 +0.29 -0.29 km/s/Mpc
+Ωm: 0.299 +0.004 -0.004
+ωm: 0.1397 +0.0008 -0.0008
+ωb: 0.02222 +0.00014 -0.00014
+w0: -1
+wa: 0
+z_d: 1059.31 +0.35 -0.34
+r_d: 147.97 Mpc
+z*: 1088.78 +0.15 -0.15
+r*: 145.33 Mpc
+shift parameter R: 1.740
+Chi squared: 1661.96
+Log Evidence: -847.99
+Degrees of freedom: 1746
+"""
 
+
+"""
 Flat wCDM w(z) = w0
 
 ** Chen's compressed priors for wCDM **
@@ -313,8 +332,23 @@ Chi squared: 1649.88
 Log Evidence: -844.96 (Δ logZ = 2.95 against ΛCDM)
 Degrees of freedom: 1745
 
-===============================
+** DESI compression **
+H0: 66.60 +0.57 -0.56 km/s/Mpc
+Ωm: 0.308 +0.005 -0.005
+ωm: 0.1365 +0.0012 -0.0013
+ωb: 0.02224 +0.00014 -0.00014
+w0: -0.910 +0.025 -0.025
+z_d: 1059.12 +0.35 -0.35
+r_d: 148.81 Mpc
+z*: 1088.55 +0.16 -0.16
+r*: 146.15 Mpc
+shift parameter R: 1.730
+Chi squared: 1649.98
+Log Evidence: -845.15 (Δ logZ = 2.84 against ΛCDM)
+"""
 
+
+"""
 Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
 
 ** Chen's compressed priors for wCDM **
@@ -349,8 +383,25 @@ Chi squared: 1646.69
 Log Evidence: -842.88 (Δ logZ = 5.03 against ΛCDM)
 Degrees of freedom: 1745
 
-===============================
+** DESI compression **
+H0: 66.43 +0.55 -0.55 km/s/Mpc
+Ωm: 0.312 +0.005 -0.005
+ωm: 0.1378 +0.0009 -0.0009
+ωb: 0.02223 +0.00014 -0.00014
+w0: -0.836 +0.041 -0.041 (prior width 1.5: -1.5 to 0.0)
+wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
+z_d: 1059.21 +0.35 -0.34
+r_d: 148.45 Mpc
+z*: 1088.64 +0.15 -0.15
+r*: 145.79 Mpc
+shift parameter R: 1.735
+Chi squared: 1646.75
+Log Evidence: -843.06 (Δ logZ = 4.93 against ΛCDM)
+Degrees of freedom: 1745
+"""
 
+
+"""
 Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
 
 ** Chen's compressed priors for ΛCDM **
@@ -383,5 +434,21 @@ r*: 145.09 Mpc
 R: 1.742
 Chi squared: 1645.96
 Log Evidence: -844.35 (Δ logZ = 3.56 against ΛCDM)
+Degrees of freedom: 1744
+
+** DESI compression **
+H0: 66.64 +0.56 -0.55 km/s/Mpc
+Ωm: 0.315 +0.006 -0.006
+ωm: 0.1401 +0.0016 -0.0018
+ωb: 0.02223 +0.00014 -0.00014
+w0: -0.793 +0.061 -0.059 (prior width 1.5: -1.5 to 0.0)
+wa: -0.585 +0.268 -0.282 (prior width 3.5: -2.5 to 1.0)
+z_d: 1059.36 +0.36 -0.35
+r_d: 147.85 Mpc
+z*: 1088.80 +0.18 -0.19
+r*: 145.22 Mpc
+shift parameter R: 1.742
+Chi squared: 1645.94
+Log Evidence: -844.46 (Δ logZ = 3.53 against ΛCDM)
 Degrees of freedom: 1744
 """
