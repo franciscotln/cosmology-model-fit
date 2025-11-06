@@ -72,7 +72,9 @@ def cmb_distances(Ez_func, params, H0, Om, Ob_h2):
 @njit
 def z_star(wb, wm):
     """arXiv:2106.00428v2 (eq A4)"""
-    return (391.672 * wm ** (-0.372296) + 937.422 * wb ** (-0.97966)) / (
+    SCALING_FID = 0.99993  # z_star_fid / z_star(wb_fid, wm_fid)
+
+    return SCALING_FID * (391.672 * wm ** (-0.372296) + 937.422 * wb ** (-0.97966)) / (
         wm ** (-0.0192951) * wb ** (-0.93681)
     ) + wm ** (-0.731631)
 
@@ -90,6 +92,18 @@ def z_drag(wb, wm):
 
 
 @njit
+def z_star_HU(wb, wm):
+    """arXiv:astro-ph/9510117v2 (eq-1)"""
+    SCALING_FID = 0.9971  # z_star_fid / z_star_HU(wb_fid, wm_fid)
+
+    g1 = 0.0783 * wb**-0.238 / (1 + 39.5 * wb**0.763)
+    g2 = 0.560 / (1 + 21.1 * wb**1.81)
+    factor_1 = 1 + 0.00124 * wb**-0.738
+    factor_2 = 1 + g1 * wm**g2
+    return SCALING_FID * 1048 * factor_1 * factor_2
+
+
+@njit
 def z_drag_HU(wb, wm):
     """arXiv:astro-ph/9510117v2 (eq-2)"""
     SCALING_FID = 0.99521  # z_drag_fid / z_drag_HU(wb_fid, wm_fid)
@@ -102,7 +116,10 @@ def z_drag_HU(wb, wm):
 wb_fid = 0.02223  # samples.mean("ombh2")
 wm_fid = 0.14208  # samples.mean("omegamh2")
 rd_fid = 147.46  # samples.mean("rdrag")
+H0_fid = 67.49  # samples.mean("H0")
+theta_star_fid = 1.04103  # samples.mean("thetastar")
 z_drag_fid = 1057.91  # from integral to achieve rd_fid in ΛCDM
+z_star_fid = 1088.86  # from integral to achieve theta_star_fid in ΛCDM
 
 
 @njit

@@ -70,7 +70,9 @@ def r_drag(wb, wm, n_eff=N_EFF):
 @njit
 def z_star(wb, wm):
     """arXiv:2106.00428v2 (eq A4)"""
-    return (391.672 * wm ** (-0.372296) + 937.422 * wb ** (-0.97966)) / (
+    SCALING_FID = 0.99993  # z_star_fid / z_star(wb_fid, wm_fid)
+
+    return SCALING_FID * (391.672 * wm ** (-0.372296) + 937.422 * wb ** (-0.97966)) / (
         wm ** (-0.0192951) * wb ** (-0.93681)
     ) + wm ** (-0.731631)
 
@@ -99,11 +101,13 @@ def r_drag1(wb, wm):
 @njit
 def z_star_HU(wb, wm):
     """arXiv:astro-ph/9510117v2 (eq-1)"""
+    SCALING_FID = 0.9971  # z_star_fid / z_star_HU(wb_fid, wm_fid)
+
     g1 = 0.0783 * wb**-0.238 / (1 + 39.5 * wb**0.763)
     g2 = 0.560 / (1 + 21.1 * wb**1.81)
     factor_1 = 1 + 0.00124 * wb**-0.738
     factor_2 = 1 + g1 * wm**g2
-    return 1048 * factor_1 * factor_2
+    return SCALING_FID * 1048 * factor_1 * factor_2
 
 
 @njit
