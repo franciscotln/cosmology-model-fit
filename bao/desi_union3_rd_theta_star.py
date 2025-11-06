@@ -182,10 +182,14 @@ def main():
     best_fit = np.percentile(samples, 50, axis=0)
     theta_100, rd = cmb.cmb_distances(Ez, best_fit, H0_50, Om_50, Obh2_50)
 
+    omh2_samples = samples[:, 3] * (samples[:, 2] / 100) ** 2
+    omh2_16, omh2_50, omh2_84 = np.percentile(omh2_samples, [15.9, 50, 84.1])
+
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
     print(f"ωb: {Obh2_50:.5f} +{(Obh2_84 - Obh2_50):.5f} -{(Obh2_50 - Obh2_16):.5f}")
-    print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
+    print(f"ωm: {omh2_50:.4f} +{(omh2_84 - omh2_50):.4f} -{(omh2_50 - omh2_16):.4f}")
+    print(f"Ωm: {Om_50:.4f} +{(Om_84 - Om_50):.4f} -{(Om_50 - Om_16):.4f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"r_d: {rd:.2f} Mpc")
     print(f"100 θ*: {theta_100:.5f}")
@@ -228,7 +232,8 @@ arXiv:2302.12911 - CMB Constraints on the Early Universe Independent of Late-Tim
 Flat ΛCDM w(z) = -1
 H0: 68.77 +0.42 -0.42 km/s/Mpc
 ωb: 0.02271 +0.00028 -0.00028
-Ωm: 0.297 +0.005 -0.005
+ωm: 0.1403 +0.0007 -0.0006
+Ωm: 0.2967 +0.0046 -0.0045
 w0: -1
 wa: 0
 r_d: 147.49 Mpc
@@ -243,7 +248,8 @@ Degrees of freedom: 32
 Flat wCDM w(z) = w0
 H0: 67.27 +0.70 -0.69 km/s/Mpc
 ωb: 0.02339 +0.00041 -0.00040
-Ωm: 0.305 +0.006 -0.006
+ωm: 0.1381 +0.0011 -0.0011
+Ωm: 0.3053 +0.0056 -0.0056
 w0: -0.906 +0.035 -0.036
 wa: 0
 r_d: 147.44 Mpc
@@ -258,7 +264,8 @@ Degrees of freedom: 31
 Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)**3)
 H0: 66.51 +0.82 -0.81 km/s/Mpc
 ωb: 0.02312 +0.00032 -0.00032
-Ωm: 0.314 +0.008 -0.008
+ωm: 0.1391 +0.0008 -0.0008
+Ωm: 0.3143 +0.0076 -0.0075
 w0: -0.800 +0.064 -0.064 (prior width 1.5: -1.5 to 0.0)
 wa: d w(z)/d z at z=0 = (9/4) * (1 + w0)
 r_d: 147.44 Mpc
