@@ -280,20 +280,20 @@ Chi squared: 1662.12
 Log Evidence: -847.91
 Degrees of freedom: 1746
 
-** DESI compression **
-H0: 68.37 +0.29 -0.29 km/s/Mpc
-Ωm: 0.299 +0.004 -0.004
-ωm: 0.1397 +0.0008 -0.0008
+** Early ΛCDM **
+H0: 68.28 +0.29 -0.29 km/s/Mpc
+Ωm: 0.300 +0.004 -0.004
+ωm: 0.1399 +0.0008 -0.0008
 ωb: 0.02222 +0.00014 -0.00014
 w0: -1
 wa: 0
-z_d: 1059.31 +0.35 -0.34
-r_d: 147.97 Mpc
-z*: 1088.78 +0.15 -0.15
-r*: 145.33 Mpc
-shift parameter R: 1.740
-Chi squared: 1661.96
-Log Evidence: -847.99
+z_d: 1057.75 +0.34 -0.35
+r_d: 148.05 Mpc
+z*: 1088.80 +0.15 -0.15
+r*: 145.26 Mpc
+R: 1.741
+Chi squared: 1661.33
+Log Evidence: -847.67
 Degrees of freedom: 1746
 """
 
@@ -332,19 +332,20 @@ Chi squared: 1649.88
 Log Evidence: -844.96 (Δ logZ = 2.95 against ΛCDM)
 Degrees of freedom: 1745
 
-** DESI compression **
-H0: 66.60 +0.57 -0.56 km/s/Mpc
-Ωm: 0.308 +0.005 -0.005
-ωm: 0.1365 +0.0012 -0.0013
+** Early ΛCDM **
+H0: 66.59 +0.57 -0.57 km/s/Mpc
+Ωm: 0.309 +0.005 -0.005
+ωm: 0.1369 +0.0012 -0.0013
 ωb: 0.02224 +0.00014 -0.00014
-w0: -0.910 +0.025 -0.025
-z_d: 1059.12 +0.35 -0.35
-r_d: 148.81 Mpc
-z*: 1088.55 +0.16 -0.16
-r*: 146.15 Mpc
-shift parameter R: 1.730
-Chi squared: 1649.98
-Log Evidence: -845.15 (Δ logZ = 2.84 against ΛCDM)
+w0: -0.913 +0.025 -0.025
+z_d: 1057.56 +0.35 -0.35
+r_d: 148.84 Mpc
+z*: 1088.57 +0.16 -0.16
+r*: 146.04 Mpc
+R: 1.731
+Chi squared: 1650.30
+Log Evidence: -845.32 (Δ logZ = 2.35 against ΛCDM)
+Degrees of freedom: 1745
 """
 
 
@@ -383,20 +384,20 @@ Chi squared: 1646.69
 Log Evidence: -842.88 (Δ logZ = 5.03 against ΛCDM)
 Degrees of freedom: 1745
 
-** DESI compression **
-H0: 66.43 +0.55 -0.55 km/s/Mpc
-Ωm: 0.312 +0.005 -0.005
-ωm: 0.1378 +0.0009 -0.0009
+** Early ΛCDM **
+H0: 66.41 +0.56 -0.55 km/s/Mpc
+Ωm: 0.313 +0.005 -0.005
+ωm: 0.1382 +0.0009 -0.0009
 ωb: 0.02223 +0.00014 -0.00014
-w0: -0.836 +0.041 -0.041 (prior width 1.5: -1.5 to 0.0)
+w0: -0.840 +0.041 -0.041 (prior width 1.5: -1.5 to 0.0)
 wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-z_d: 1059.21 +0.35 -0.34
-r_d: 148.45 Mpc
-z*: 1088.64 +0.15 -0.15
-r*: 145.79 Mpc
-shift parameter R: 1.735
-Chi squared: 1646.75
-Log Evidence: -843.06 (Δ logZ = 4.93 against ΛCDM)
+z_d: 1057.65 +0.35 -0.34
+r_d: 148.51 Mpc
+z*: 1088.66 +0.15 -0.15
+r*: 145.71 Mpc
+R: 1.735
+Chi squared: 1647.01
+Log Evidence: -843.18 (Δ logZ = 4.49 against ΛCDM)
 Degrees of freedom: 1745
 """
 
@@ -436,19 +437,19 @@ Chi squared: 1645.96
 Log Evidence: -844.35 (Δ logZ = 3.56 against ΛCDM)
 Degrees of freedom: 1744
 
-** DESI compression **
-H0: 66.64 +0.56 -0.55 km/s/Mpc
-Ωm: 0.315 +0.006 -0.006
-ωm: 0.1401 +0.0016 -0.0018
+** Early ΛCDM **
+H0: 66.64 +0.54 -0.55 km/s/Mpc
+Ωm: 0.317 +0.006 -0.006
+ωm: 0.1407 +0.0016 -0.0018
 ωb: 0.02223 +0.00014 -0.00014
-w0: -0.793 +0.061 -0.059 (prior width 1.5: -1.5 to 0.0)
-wa: -0.585 +0.268 -0.282 (prior width 3.5: -2.5 to 1.0)
-z_d: 1059.36 +0.36 -0.35
-r_d: 147.85 Mpc
-z*: 1088.80 +0.18 -0.19
-r*: 145.22 Mpc
-shift parameter R: 1.742
-Chi squared: 1645.94
-Log Evidence: -844.46 (Δ logZ = 3.53 against ΛCDM)
+w0: -0.790 +0.061 -0.059 (prior width 1.5: -1.5 to 0.0)
+wa: -0.617 +0.268 -0.284 (prior width 3.5: -2.5 to 1.0)
+z_d: 1057.81 +0.36 -0.36
+r_d: 147.86 Mpc
+z*: 1088.84 +0.18 -0.18
+r*: 145.09 Mpc
+R: 1.744
+Chi squared: 1645.79
+Log Evidence: -844.39 (Δ logZ = 3.28 against ΛCDM)
 Degrees of freedom: 1744
 """
