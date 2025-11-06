@@ -61,7 +61,8 @@ def DA_z(Ez_func, z, params, H0):
 def cmb_distances(Ez_func, params, H0, Om, Ob_h2):
     Om_h2 = Om * (H0 / 100) ** 2
     zstar = z_star(wb=Ob_h2, wm=Om_h2)
-    rs_drag = r_drag(Ob_h2, Om_h2)
+    zdrag = z_drag(wb=Ob_h2, wm=Om_h2)
+    rs_drag = rs_z(Ez_func, zdrag, params, H0, Ob_h2)
     rs_star = rs_z(Ez_func, zstar, params, H0, Ob_h2)
     DM_star = (1 + zstar) * DA_z(Ez_func, zstar, params, H0)
     theta = rs_star / DM_star
@@ -101,7 +102,7 @@ def z_drag_HU(wb, wm):
 wb_fid = 0.02223  # samples.mean("ombh2")
 wm_fid = 0.14208  # samples.mean("omegamh2")
 rd_fid = 147.46  # samples.mean("rdrag")
-z_drag_fid = 1057.91  # from integral to achieve rd_fid
+z_drag_fid = 1057.91  # from integral to achieve rd_fid in ΛCDM
 
 
 @njit
