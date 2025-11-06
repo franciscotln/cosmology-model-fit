@@ -3,22 +3,18 @@ import numpy as np
 from scipy.integrate import quad
 from scipy.constants import c as c0
 
+# from y2024cmbearlylcdm.data import samples
+
 c = c0 / 1000  # km/s
 
-# --- PLANCK PRIORS (arXiv:2503.14738v2 Abdul Karim+) ---
-DISTANCE_PRIORS = np.array(
+# samples.mean(["thetastar_unscaled", "ombh2", "omegamh2"])
+# samples.cov(["thetastar_unscaled", "ombh2", "omegamh2"])
+DISTANCE_PRIORS = np.array([0.0104103, 0.02223, 0.14208], dtype=np.float64)
+covariance = 1e-9 * np.array(
     [
-        0.01041,  # θ* ≡ rs(z*) / DM(z*)
-        0.02223,  # ωb
-        0.14208,  # ωm
-    ],
-    dtype=np.float64,
-)
-covariance = 10**-9 * np.array(
-    [
-        [0.006621, 0.12444, -1.1929],
-        [0.12444, 21.344, -94.001],
-        [-1.1929, -94.001, 1488.4],
+        [0.00662099420, 0.124442058, -1.19287532],
+        [0.124442058, 21.3441666, -94.0008323],
+        [-1.19287532, -94.0008323, 1488.41714],
     ],
     dtype=np.float64,
 )
@@ -58,11 +54,19 @@ def cmb_distances(Ez_func, params, H0, Om, Ob_h2):
     return np.array([theta, Ob_h2, Om_h2])
 
 
+obh2_fid = 0.02223  # samples.mean("ombh2")
+omh2_fid = 0.14208  # samples.mean("omegamh2")
+rd_fid = 147.46  # samples.mean("rdrag")
+
+
 @njit
 def r_drag(wb, wm, n_eff=N_EFF):
-    """arXiv:2503.14738v2 (eq 2)"""
+    """arXiv:2212.04522v2 (eq 3.4)"""
     return (
-        147.05 * (0.02236 / wb) ** 0.13 * (0.1432 / wm) ** 0.23 * (3.04 / n_eff) ** 0.1
+        rd_fid
+        * (obh2_fid / wb) ** 0.13
+        * (omh2_fid / wm) ** 0.23
+        * (3.044 / n_eff) ** 0.1
     )
 
 

@@ -14,6 +14,7 @@ samples = loadMCSamples(
     "y2024cmbearlylcdm/raw/spline_planck_PR4_TTTEEE_lowE_lensing_ISW",
     settings={"ignore_rows": 0.3},
 )
+samples.addDerived(samples.getParams().thetastar / 100, "thetastar_unscaled")
 
 DISTANCE_PRIORS = samples.mean(["thetastar", "rdrag"])
 covariance = samples.cov(["thetastar", "rdrag"])
@@ -81,5 +82,5 @@ wm_fid = samples.mean("omegamh2")
 def r_drag(wb, wm, n_eff=N_EFF):
     """arXiv:2212.04522v2 (eq 3.4)"""
     return (
-        rd_fid * (wb_fid / wb) ** 0.13 * (wm_fid / wm) ** 0.23 * (3.044 / n_eff) ** 0.1
+        rd_fid * (wb_fid / wb) ** 0.13 * (wm_fid / wm) ** 0.23 * (N_EFF / n_eff) ** 0.1
     )

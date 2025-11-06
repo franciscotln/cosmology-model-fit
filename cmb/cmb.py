@@ -69,9 +69,7 @@ def main():
     ]
 
     with Pool(5) as pool:
-        sampler = emcee.EnsembleSampler(
-            nwalkers, ndim, log_probability, pool=pool, moves=moves
-        )
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
 
     try:
@@ -87,9 +85,11 @@ def main():
 
     one_sigma_percentiles = [15.9, 50, 84.1]
     pct = np.percentile(samples, one_sigma_percentiles, axis=0).T
-    H0_16, H0_50, H0_84 = pct[0]
-    Om_16, Om_50, Om_84 = pct[1]
-    Obh2_16, Obh2_50, Obh2_84 = pct[2]
+    [
+        (H0_16, H0_50, H0_84),
+        (Om_16, Om_50, Om_84),
+        (Obh2_16, Obh2_50, Obh2_84),
+    ] = pct
 
     best_fit = np.array([H0_50, Om_50, Obh2_50], dtype=np.float64)
 
@@ -159,17 +159,17 @@ Chi squared: 0.0002
 
 ===============================
 
-Karim+ DESI DR2 compression
-H0: 67.49 +0.59 -0.58 km/s/Mpc
-Ωm: 0.3119 +0.0080 -0.0078
+Early ΛCDM (arXiv:2302.12911v2)
+H0: 67.50 +0.59 -0.58 km/s/Mpc
+Ωm: 0.3119 +0.0081 -0.0079
 ωm: 0.1421 +0.0012 -0.0012
 ωb: 0.02223 +0.00014 -0.00014
-z_eq: 3396.3 +28.6 -28.6
-z*: 1088.94 +0.22 -0.21
-z_drag: 1059.51 +0.29 -0.29
-r*: 144.69 Mpc
-r_d: 147.31 Mpc
-Chi squared: 0.0005
+z_eq: 3396.5 +28.7 -28.8
+z*: 1088.94 +0.22 -0.22
+z_drag: 1057.94
+r*: 144.70 Mpc
+r_d: 147.46 +0.25 -0.24 Mpc
+Chi squared: 0.0066
 
 ===============================
 

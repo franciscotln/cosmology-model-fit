@@ -65,7 +65,7 @@ quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int32
 @njit
 def bao_theory(z, qty, params):
     Omh2 = params[1] * (params[0] / 100) ** 2
-    rd = cmb.r_drag1(wb=params[2], wm=Omh2)
+    rd = cmb.r_drag(wb=params[2], wm=Omh2)
     results = np.empty(z.size, dtype=np.float64)
     DV_mask = qty == 0
     DM_mask = qty == 1
@@ -217,60 +217,60 @@ Dataset: DESI DR2 2024 + θ∗ + BBN
 *******************************
 
 Flat ΛCDM w(z) = -1
-rd: 148.24 +0.70 -0.69 Mpc
-H0: 68.59 +0.47 -0.47 km/s/Mpc
-Ωm: 0.2954 +0.0045 -0.0044
-ωb: 0.02216 +0.00053 -0.00053
+rd: 148.24 +0.71 -0.70 Mpc
+H0: 68.54 +0.47 -0.47 km/s/Mpc
+Ωm: 0.2961 +0.0046 -0.0045
+ωb: 0.02217 +0.00053 -0.00053
 w0: -1
 wa: 0
-r*: 145.55 Mpc
-z*: 1088.80 +0.55 -0.52
-Chi squared: 10.35
-Log evidence: -15.6
+r*: 145.50 Mpc
+z*: 1088.81 +0.55 -0.53
+Chi squared: 10.31
+Log evidence: -15.5
 Degs of freedom: 12
 
 ===============================
 
 Flat wCDM w(z) = w0
-rd: 148.44 +0.73 -0.73 Mpc
-H0: 67.74 +1.11 -1.08 km/s/Mpc
-Ωm: 0.3005 +0.0076 -0.0076
-ωb: 0.02222 +0.00054 -0.00053
-w0: -0.960 +0.047 -0.048
+rd: 148.45 +0.77 -0.75 Mpc
+H0: 67.76 +1.12 -1.10 km/s/Mpc
+Ωm: 0.3006 +0.0076 -0.0076
+ωb: 0.02223 +0.00054 -0.00054
+w0: -0.962 +0.048 -0.050 (prior width 1.5: -1.5 to 0.0)
 wa: 0
-r*: 145.79 Mpc
-z*: 1088.65 +0.58 -0.55
-Chi squared: 9.58
+r*: 145.75 Mpc
+z*: 1088.66 +0.58 -0.56
+Chi squared: 9.63
 Log evidence: -17.7
 Degs of freedom: 11
 
 ===============================
 
 Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
-rd: 148.38 +0.72 -0.70 Mpc
-H0: 66.71 +1.59 -1.54 km/s/Mpc
-Ωm: 0.3102 +0.0132 -0.0130
-ωb: 0.02224 +0.00054 -0.00054
-w0: -0.856 +0.116 -0.118
+rd: 148.41 +0.73 -0.72 Mpc
+H0: 66.73 +1.61 -1.53 km/s/Mpc
+Ωm: 0.3102 +0.0131 -0.0130
+ωb: 0.02224 +0.00053 -0.00054
+w0: -0.860 +0.117 -0.120 (prior width 1.5: -1.5 to 0.0)
 wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-r*: 145.73 Mpc
-z*: 1088.65 +0.57 -0.54
-Chi squared: 8.84
-Log evidence: -16.5
+r*: 145.71 Mpc
+z*: 1088.66 +0.57 -0.53
+Chi squared: 8.92
+Log evidence: -16.4
 Degs of freedom: 11
 
 ===============================
 
 Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
-rd: 147.72 +0.80 -0.76 Mpc
-H0: 64.15 +2.35 -2.14 km/s/Mpc
-Ωm: 0.3434 +0.0271 -0.0272
-ωb: 0.02211 +0.00055 -0.00054
-w0: -0.516 +0.278 -0.273 (prior width 1.5: -1.5 to 1.5)
-wa: -1.396 +0.846 -0.879 (prior width 10.0: -7.0 to 3.0)
-r*: 144.95 Mpc
-z*: 1089.02 +0.60 -0.59
-Chi squared: 7.31
-Log evidence: -17.6
+rd: 147.56 +0.85 -0.81 Mpc
+H0: 63.65 +2.52 -2.48 km/s/Mpc
+Ωm: 0.3509 +0.0329 -0.0297
+ωb: 0.02211 +0.00054 -0.00055
+w0: -0.447 +0.335 -0.298 (prior width 4.0: -2.5 to 1.5)
+wa: -1.637 +0.936 -1.082 (prior width 12.0: -8.0 to 4.0)
+r*: 144.74 Mpc
+z*: 1089.07 +0.61 -0.59
+Chi squared: 7.14
+Log evidence: -18.8
 Degs of freedom: 10
 """
