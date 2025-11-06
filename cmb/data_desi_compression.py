@@ -66,7 +66,7 @@ def r_drag(wb, wm, n_eff=N_EFF):
         rd_fid
         * (obh2_fid / wb) ** 0.13
         * (omh2_fid / wm) ** 0.23
-        * (3.044 / n_eff) ** 0.1
+        * (N_EFF / n_eff) ** 0.1
     )
 
 
