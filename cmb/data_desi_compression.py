@@ -54,8 +54,8 @@ def cmb_distances(Ez_func, params, H0, Om, Ob_h2):
     return np.array([theta, Ob_h2, Om_h2])
 
 
-obh2_fid = 0.02223  # samples.mean("ombh2")
-omh2_fid = 0.14208  # samples.mean("omegamh2")
+wb_fid = 0.02223  # samples.mean("ombh2")
+wm_fid = 0.14208  # samples.mean("omegamh2")
 rd_fid = 147.46  # samples.mean("rdrag")
 
 
@@ -63,10 +63,7 @@ rd_fid = 147.46  # samples.mean("rdrag")
 def r_drag(wb, wm, n_eff=N_EFF):
     """arXiv:2212.04522v2 (eq 3.4)"""
     return (
-        rd_fid
-        * (obh2_fid / wb) ** 0.13
-        * (omh2_fid / wm) ** 0.23
-        * (N_EFF / n_eff) ** 0.1
+        rd_fid * (wb_fid / wb) ** 0.13 * (wm_fid / wm) ** 0.23 * (N_EFF / n_eff) ** 0.1
     )
 
 
@@ -81,6 +78,8 @@ def z_star(wb, wm):
 @njit
 def r_drag1(wb, wm):
     """arXiv:2106.00428v2 (eq 8)"""
+    SCALING_FID = 1.001  # rd_fid / r_drag1(wb_fid, wm_fid)
+
     a1 = 0.00257366
     a2 = 0.05032
     a3 = 0.013
@@ -94,7 +93,7 @@ def r_drag1(wb, wm):
     term_A_denominator = (a1 * (wb**a2)) + (a3 * (wb**a4) * (wm**a5)) + (a6 * (wm**a7))
     term_A = 1.0 / term_A_denominator
     term_B = a8 / (wm**a9)
-    return term_A - term_B
+    return SCALING_FID * (term_A - term_B)
 
 
 @njit
@@ -110,10 +109,12 @@ def z_star_HU(wb, wm):
 @njit
 def z_drag_HU(wb, wm):
     """arXiv:astro-ph/9510117v2 (eq-2)"""
+    SCALING_FID = 0.99521  # z_drag_fid / z_drag_HU(wb_fid, wm_fid)
+
     b1 = 0.313 * (wm**-0.419) * (1 + 0.607 * (wm**0.674))
     b2 = 0.238 * (wm**0.223)
 
-    numerator_factor = 1345 * (wm**0.251)
+    numerator_factor = SCALING_FID * 1345 * (wm**0.251)
     denominator = 1 + 0.659 * (wm**0.828)
     correction_factor = 1 + b1 * (wb**b2)
 
@@ -123,6 +124,10 @@ def z_drag_HU(wb, wm):
 @njit
 def z_drag(wb, wm):
     """arXiv:2106.00428v2 (eq A2)"""
+    SCALING_FID = 0.9985  # z_drag_fid / z_drag(wb_fid, wm_fid)
+
     return (
-        1 + 428.169 * wb**0.256459 * wm**0.616388 + 925.56 * wm**0.751615
-    ) * wm**-0.714129
+        SCALING_FID
+        * (1 + 428.169 * wb**0.256459 * wm**0.616388 + 925.56 * wm**0.751615)
+        * wm**-0.714129
+    )

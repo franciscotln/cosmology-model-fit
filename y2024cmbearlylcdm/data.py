@@ -7,17 +7,28 @@ from numba import njit
 import numpy as np
 from scipy.integrate import quad
 from scipy.constants import c as c0
-from getdist import loadMCSamples
 
 
-samples = loadMCSamples(
-    "y2024cmbearlylcdm/raw/spline_planck_PR4_TTTEEE_lowE_lensing_ISW",
-    settings={"ignore_rows": 0.3},
+# from getdist import loadMCSamples
+
+
+# samples = loadMCSamples(
+#     "y2024cmbearlylcdm/raw/spline_planck_PR4_TTTEEE_lowE_lensing_ISW",
+#     settings={"ignore_rows": 0.3},
+# )
+# samples.addDerived(samples.getParams().thetastar / 100, "thetastar_unscaled")
+
+# samples.mean(["thetastar", "rdrag"])
+# samples.cov(["thetastar", "rdrag"])
+
+DISTANCE_PRIORS = np.array([1.04103, 147.46], dtype=np.float64)
+covariance = 1e-05 * np.array(
+    [
+        [0.00662099420, 2.10838540],
+        [2.10838540, 7798.46644],
+    ],
+    dtype=np.float64,
 )
-samples.addDerived(samples.getParams().thetastar / 100, "thetastar_unscaled")
-
-DISTANCE_PRIORS = samples.mean(["thetastar", "rdrag"])
-covariance = samples.cov(["thetastar", "rdrag"])
 inv_cov_mat = np.linalg.inv(covariance)
 
 
@@ -68,22 +79,29 @@ def z_star(wb, wm):
 @njit
 def z_drag(wb, wm):
     """arXiv:2106.00428v2 (eq A2)"""
+    SCALING_FID = 0.9985  # z_drag_fid / z_drag(wb_fid, wm_fid)
+
     return (
-        1 + 428.169 * wb**0.256459 * wm**0.616388 + 925.56 * wm**0.751615
-    ) * wm**-0.714129
+        SCALING_FID
+        * (1 + 428.169 * wb**0.256459 * wm**0.616388 + 925.56 * wm**0.751615)
+        * wm**-0.714129
+    )
 
 
 @njit
 def z_drag_HU(wb, wm):
     """arXiv:astro-ph/9510117v2 (eq-2)"""
+    SCALING_FID = 0.99521  # z_drag_fid / z_drag_HU(wb_fid, wm_fid)
+
     b1 = 0.313 * wm**-0.419 * (1 + 0.607 * wm**0.674)
     b2 = 0.238 * wm**0.223
-    return 1345 * wm**0.251 * (1 + b1 * wb**b2) / (1 + 0.659 * wm**0.828)
+    return SCALING_FID * 1345 * wm**0.251 * (1 + b1 * wb**b2) / (1 + 0.659 * wm**0.828)
 
 
-rd_fid = samples.mean("rdrag")
-wb_fid = samples.mean("ombh2")
-wm_fid = samples.mean("omegamh2")
+wb_fid = 0.02223  # samples.mean("ombh2")
+wm_fid = 0.14208  # samples.mean("omegamh2")
+rd_fid = 147.46  # samples.mean("rdrag")
+z_drag_fid = 1057.91  # from integral to achieve rd_fid
 
 
 @njit
@@ -92,3 +110,24 @@ def r_drag(wb, wm, n_eff=N_EFF):
     return (
         rd_fid * (wb_fid / wb) ** 0.13 * (wm_fid / wm) ** 0.23 * (N_EFF / n_eff) ** 0.1
     )
+
+
+@njit
+def r_drag1(wb, wm):
+    """arXiv:2106.00428v2 (eq 8)"""
+    SCALING_FID = 1.001  # rd_fid / r_drag1(wb_fid, wm_fid)
+
+    a1 = 0.00257366
+    a2 = 0.05032
+    a3 = 0.013
+    a4 = 0.7720642
+    a5 = 0.24346362
+    a6 = 0.00641072
+    a7 = 0.5350899
+    a8 = 32.7525
+    a9 = 0.315473
+
+    term_A_denominator = (a1 * (wb**a2)) + (a3 * (wb**a4) * (wm**a5)) + (a6 * (wm**a7))
+    term_A = 1.0 / term_A_denominator
+    term_B = a8 / (wm**a9)
+    return SCALING_FID * (term_A - term_B)

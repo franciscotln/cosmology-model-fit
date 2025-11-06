@@ -3,7 +3,7 @@ import numpy as np
 from scipy.linalg import cho_factor, solve_triangular
 from y2023union3.data import get_data
 from y2025BAO.data import get_data as get_bao_data
-import cmb.data_chen_compression as cmb
+import cmb.data_desi_compression as cmb
 
 c = cmb.c  # km/s
 Or_h2 = cmb.Omega_r_h2()
@@ -13,7 +13,7 @@ bao_legend, bao_data, bao_cov_matrix = get_bao_data()
 
 cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
 cho_bao = cho_factor(bao_cov_matrix, lower=True)[0]
-cho_cmb = cho_factor(cmb.covariance_wcdm, lower=True)[0]
+cho_cmb = cho_factor(cmb.covariance, lower=True)[0]
 
 z_max = max(np.max(z_sn_vals), np.max(bao_data["z"])) + 0.1
 z_grid = np.linspace(0, z_max, num=1200)
@@ -92,7 +92,7 @@ def solve_triang(cho_L, delta):
 def chi_squared(params):
     H0, Om, Ob_h2 = params[0], params[1], params[2]
 
-    delta_cmb = cmb.DISTANCE_PRIORS_WCDM - cmb.cmb_distances(Ez, params, H0, Om, Ob_h2)
+    delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez, params, H0, Om, Ob_h2)
     chi2_cmb = solve_triang(cho_cmb, delta_cmb)
 
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
@@ -268,8 +268,23 @@ Chi squared: 46.57
 Log evidence: -37.2
 Degs of freedom: 34
 
-===============================
+** Early-time ΛCDM **
+ΔM: -0.130 +0.086 -0.087 mag
+H0: 68.3 +0.3 -0.3 km/s/Mpc
+Ωm: 0.301 +0.004 -0.004
+ωb: 0.02235 +0.00012 -0.00012
+ωm: 0.14046 +0.00060 -0.00060
+z*: 1088.69 +0.14 -0.14
+r*: 145.05 Mpc
+z_d: 1058.09 +0.26 -0.26
+r_d: 147.78 Mpc
+Chi squared: 41.88
+Log evidence: -35.1
+Degs of freedom: 34
+"""
 
+
+"""
 Flat wCDM w(z) = w0
 
 Chen's compressed cmb priors: (R, π/θ*, ωb) for wCDM
@@ -303,8 +318,24 @@ Chi squared: 46.23
 Log evidence: -40.1 (Δ logZ = -2.9 in favour of ΛCDM)
 Degs of freedom: 33
 
-===============================
+** Early-time ΛCDM **
+H0: 67.6 +0.7 -0.7 km/s/Mpc
+Ωm: 0.306 +0.006 -0.006
+ωb: 0.02240 +0.00013 -0.00013
+ωm: 0.13986 +0.00081 -0.00082
+w0: -0.968 +0.028 -0.029 (prior width 1.5: -1.5 to 0.0)
+wa: 0
+z*: 1088.59 +0.16 -0.16
+r*: 145.18 Mpc
+z_d: 1058.16 +0.27 -0.27
+r_d: 147.90 Mpc
+Chi squared: 40.61
+Log evidence: -37.5 (Δ logZ = -2.4 in favour of ΛCDM)
+Degs of freedom: 33
+"""
 
+
+"""
 Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)**3)
 
 Chen's compressed cmb priors: (R, π/θ*, ωb) for wCDM
@@ -339,8 +370,24 @@ Chi squared: 42.68
 Log evidence: -37.6 (Δ logZ = -0.4 in favour of ΛCDM)
 Degs of freedom: 33
 
-===============================
+** Early-time ΛCDM **
+H0: 66.5 +0.8 -0.8 km/s/Mpc
+Ωm: 0.316 +0.008 -0.007
+ωb: 0.02242 +0.00012 -0.00012
+ωm: 0.13973 +0.00068 -0.00070
+w0: -0.862 +0.060 -0.059 (prior width 1.5: -1.5 to 0.0)
+wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
+z*: 1088.57 +0.15 -0.15
+r*: 145.21 Mpc
+z_d: 1058.18 +0.27 -0.26
+r_d: 147.93 Mpc
+Chi squared: 36.75
+Log evidence: -34.9 (Δ logZ = 0.2 against ΛCDM)
+Degs of freedom: 33
+"""
 
+
+"""
 Flat w(z) = w0 + wa * z / (1 + z)
 
 Chen's compressed cmb priors: (R, π/θ*, ωb) for ΛCDM
@@ -372,5 +419,21 @@ z_d: 1059.98 +0.28 -0.28
 r_d: 147.03 Mpc
 Chi squared: 30.83
 Log evidence: -33.8 (Δ logZ = 3.4 against ΛCDM)
+Degs of freedom: 32
+
+** Early-time ΛCDM **
+ΔM: -0.175 +0.089 -0.090 mag
+H0: 66.0 +0.8 -0.8 km/s/Mpc
+Ωm: 0.326 +0.009 -0.008
+ωb: 0.02225 +0.00013 -0.00013
+ωm: 0.14177 +0.00090 -0.00093
+w0: -0.692 +0.088 -0.086 (prior width 1.5: -1.5 to 0.0)
+wa: -0.955 +0.292 -0.306 (prior width 4.0: -3.0 to 1.0)
+z*: 1088.89 +0.18 -0.18
+r*: 144.77 Mpc
+z_d: 1057.95 +0.27 -0.28
+r_d: 147.52 Mpc
+Chi squared: 29.32
+Log evidence: -33.4 (Δ logZ = 1.7 against ΛCDM)
 Degs of freedom: 32
 """
