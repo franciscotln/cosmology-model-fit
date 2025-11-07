@@ -67,8 +67,7 @@ def DA_z(Ez_func, z, params, H0):
 def cmb_distances(Ez_func, params, H0, Om, Ob_h2):
     Om_h2 = Om * (H0 / 100) ** 2
     zstar = z_star(wb=Ob_h2, wm=Om_h2)
-    zdrag = z_drag(wb=Ob_h2, wm=Om_h2)
-    rs_drag = rs_z(Ez_func, zdrag, params, H0, Ob_h2)
+    rs_drag = r_drag(wb=Ob_h2, wm=Om_h2)
     rs_star = rs_z(Ez_func, zstar, params, H0, Ob_h2)
     DM_star = (1 + zstar) * DA_z(Ez_func, zstar, params, H0)
     theta = rs_star / DM_star
@@ -120,17 +119,9 @@ def z_drag_HU(wb, wm):
 
 
 @njit
-def r_drag(wb, wm, n_eff=N_EFF):
-    """arXiv:2212.04522v2 (eq 3.4)"""
-    return (
-        rd_fid * (wb_fid / wb) ** 0.13 * (wm_fid / wm) ** 0.23 * (N_EFF / n_eff) ** 0.1
-    )
-
-
-@njit
-def r_drag1(wb, wm):
+def r_drag(wb, wm):
     """arXiv:2106.00428v2 (eq 8)"""
-    SCALING_FID = 1.001  # rd_fid / r_drag1(wb_fid, wm_fid)
+    SCALING_FID = 1.001  # rd_fid / r_drag(wb_fid, wm_fid)
 
     a1 = 0.00257366
     a2 = 0.05032
@@ -146,3 +137,16 @@ def r_drag1(wb, wm):
     term_A = 1.0 / term_A_denominator
     term_B = a8 / (wm**a9)
     return SCALING_FID * (term_A - term_B)
+
+
+"""
+Scaled arXiv:2106.00428v2 (eq 8) is very accurate.
+Using the mcmc samples from ombh2 and omegamh2 to compute  r_drag(wb, wm):
+
+rdrag_mcmc_mean: 147.460 +- 0.279
+rdrag_formula_mean: 147.453 +- 0.278
+
+Correlation matrix:
+[[1.         0.99999971]
+ [0.99999971 1.        ]]
+"""
