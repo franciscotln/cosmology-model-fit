@@ -9,15 +9,6 @@ from scipy.integrate import quad
 from scipy.constants import c as c0
 
 
-# from getdist import loadMCSamples
-
-
-# samples = loadMCSamples(
-#     "y2023cmbearlylcdm/raw/spline_planck_PR4_TTTEEE_lowE_lensing_ISW",
-#     settings={"ignore_rows": 0.3},
-# )
-# samples.addDerived(samples.getParams().thetastar / 100, "thetastar_unscaled")
-
 wb_fid = 0.02223  # samples.mean("ombh2")
 wm_fid = 0.14208  # samples.mean("omegamh2")
 rd_fid = 147.46  # samples.mean("rdrag")
@@ -66,22 +57,12 @@ def DA_z(Ez_func, z, params, H0):
 
 def cmb_distances(Ez_func, params, H0, Om, Ob_h2):
     Om_h2 = Om * (H0 / 100) ** 2
-    zstar = z_star(wb=Ob_h2, wm=Om_h2)
     rs_drag = r_drag(wb=Ob_h2, wm=Om_h2)
+    zstar = z_star(wb=Ob_h2, wm=Om_h2)
     rs_star = rs_z(Ez_func, zstar, params, H0, Ob_h2)
     DM_star = (1 + zstar) * DA_z(Ez_func, zstar, params, H0)
     theta = rs_star / DM_star
     return np.array([100 * theta, rs_drag], dtype=np.float64)
-
-
-@njit
-def z_star(wb, wm):
-    """arXiv:2106.00428v2 (eq A4)"""
-    SCALING_FID = 0.999926  # z_star_fid / z_star(wb_fid, wm_fid)
-
-    return SCALING_FID * (391.672 * wm ** (-0.372296) + 937.422 * wb ** (-0.97966)) / (
-        wm ** (-0.0192951) * wb ** (-0.93681)
-    ) + wm ** (-0.731631)
 
 
 @njit
@@ -97,9 +78,9 @@ def z_drag(wb, wm):
 
 
 @njit
-def z_star_HU(wb, wm):
+def z_star(wb, wm):
     """arXiv:astro-ph/9510117v2 (eq-1)"""
-    SCALING_FID = 0.997094  # z_star_fid / z_star_HU(wb_fid, wm_fid)
+    SCALING_FID = 0.997094  # z_star_fid / z_star(wb_fid, wm_fid)
 
     g1 = 0.0783 * wb**-0.238 / (1 + 39.5 * wb**0.763)
     g2 = 0.560 / (1 + 21.1 * wb**1.81)
@@ -149,4 +130,21 @@ rdrag_formula_mean: 147.453 +- 0.278
 Correlation matrix:
 [[1.         0.99999971]
  [0.99999971 1.        ]]
+"""
+
+
+"""
+Scaled z* from HU's formula to match z* fid
+100 θ* mcmc_mean: 1.041027 ± 0.000257
+100 θ* Hu mean:   1.041006 ± 0.000259
+
+Correlation matrix:
+            100 θ*     100 θ*HU
+100 θ*    [[1.         0.9995947]
+100 θ*HU  [0.9995947 1.        ]]
+"""
+
+
+"""
+Both z_drag_HU and z_drag yield almost identical results for rdrag_mcmc
 """
