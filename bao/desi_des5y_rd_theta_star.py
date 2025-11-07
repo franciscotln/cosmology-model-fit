@@ -232,13 +232,14 @@ arXiv:2302.12911 - CMB Constraints on the Early Universe Independent of Late-Tim
 """
 Flat ΛCDM w(z) = -1
 H0: 68.53 +0.41 -0.41 km/s/Mpc
-ωb: 0.02263 +0.00029 -0.00029
-Ωm: 0.2993 +0.0046 -0.0045
+ωb: 0.02264 +0.00028 -0.00029
+ωm: 0.14055 +0.00061 -0.00060
+Ωm: 0.2993 +0.0045 -0.0045
 w0: -1
 wa: 0
-r_d: 147.52 Mpc
-100 θ*: 1.04108
-Chi squared: 1662.0
+r_d: 147.51 Mpc
+100 θ*: 1.04107
+Chi squared: 1662.1
 Log evidence: -849.3
 Degrees of freedom: 1745
 """
@@ -246,13 +247,14 @@ Degrees of freedom: 1745
 
 """
 Flat wCDM w(z) = w0
-H0: 67.18 +0.54 -0.54 km/s/Mpc
-ωb: 0.02353 +0.00039 -0.00039
+H0: 67.17 +0.55 -0.54 km/s/Mpc
+ωb: 0.02353 +0.00040 -0.00039
+ωm: 0.13805 +0.00095 -0.00097
 Ωm: 0.3059 +0.0049 -0.0049
 w0: -0.901 +0.027 -0.027 (prior width 1.5: -1.5 to 0.0)
 wa: 0
-r_d: 147.43 Mpc
-100 θ*: 1.04099
+r_d: 147.44 Mpc
+100 θ*: 1.04098
 Chi squared: 1649.3
 Log evidence: -846.1 (Δ logZ = 3.2 against ΛCDM)
 Degrees of freedom: 1744
@@ -262,13 +264,13 @@ Degrees of freedom: 1744
 """
 Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)**3)
 H0: 66.88 +0.57 -0.57 km/s/Mpc
-ωb: 0.02315 +0.00031 -0.00031
-ωm: 0.13920 +0.00069 -0.00068
+ωb: 0.02315 +0.00031 -0.00032
+ωm: 0.13920 +0.00070 -0.00069
 Ωm: 0.3112 +0.0056 -0.0055
-w0: -0.830 +0.042 -0.042 (prior width 1.5: -1.5 to 0.0)
+w0: -0.829 +0.042 -0.043 (prior width 1.5: -1.5 to 0.0)
 wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-r_d: 147.45 Mpc
-100 θ*: 1.04102
+r_d: 147.44 Mpc
+100 θ*: 1.04101
 Chi squared: 1646.5
 Log evidence: -844.2 (Δ logZ = 5.1 against ΛCDM)
 Degrees of freedom: 1744
@@ -277,14 +279,15 @@ Degrees of freedom: 1744
 
 """
 Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
-H0: 66.81 +0.56 -0.55 km/s/Mpc
-ωb: 0.02257 +0.00053 -0.00048
-Ωm: 0.3156 +0.0065 -0.0066
-w0: -0.790 +0.062 -0.060 (prior width 1.5: -1.5 to 0.0)
-wa: -0.601 +0.296 -0.308 (prior width 4.0: -2.5 to 1.5)
+H0: 66.82 +0.57 -0.56 km/s/Mpc
+ωb: 0.02258 +0.00053 -0.00047
+ωm: 0.14091 +0.00128 -0.00146
+Ωm: 0.3155 +0.0066 -0.0067
+w0: -0.792 +0.063 -0.060 (prior width 1.5: -1.5 to 0.0)
+wa: -0.595 +0.294 -0.309 (prior width 4.0: -2.5 to 1.5)
 r_d: 147.48 Mpc
-100 θ*: 1.04093
-Chi squared: 1645.9
+100 θ*: 1.04091
+Chi squared: 1646.0
 Log evidence: -845.6 (Δ logZ = 3.7 against ΛCDM)
 Degrees of freedom: 1743
 """
