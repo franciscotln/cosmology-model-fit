@@ -80,7 +80,7 @@ def z_drag(wb, wm):
 @njit
 def z_star(wb, wm):
     """arXiv:astro-ph/9510117v2 (eq-1)"""
-    SCALING_FID = 0.997094  # z_star_fid / z_star(wb_fid, wm_fid)
+    SCALING_FID = 0.99706346
 
     g1 = 0.0783 * wb**-0.238 / (1 + 39.5 * wb**0.763)
     g2 = 0.560 / (1 + 21.1 * wb**1.81)
@@ -136,12 +136,12 @@ Correlation matrix:
 """
 Scaled z* from HU's formula to match z* fid
 100 θ* mcmc_mean: 1.041027 ± 0.000257
-100 θ* Hu mean:   1.041006 ± 0.000259
+100 θ* Hu mean:   1.041027 ± 0.000259
 
 Correlation matrix:
             100 θ*     100 θ*HU
-100 θ*    [[1.         0.9995947]
-100 θ*HU  [0.9995947 1.        ]]
+100 θ*    [[1.         0.99959582]
+100 θ*HU  [0.99959582  1.        ]]
 """
 
 
