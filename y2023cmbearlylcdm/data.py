@@ -24,8 +24,8 @@ rd_fid = 147.46  # samples.mean("rdrag")
 H0_fid = 67.49  # samples.mean("H0")
 theta_star_fid = 1.04103  # samples.mean("thetastar")
 z_drag_fid = 1057.91  # from integral to achieve rd_fid in ΛCDM
-z_star_fid = 1088.86  # from integral to achieve theta_star_fid in ΛCDM
-# samples.cov(["thetastar", "rdrag"])
+z_star_fid = 1088.857  # from integral to achieve theta_star_fid in ΛCDM
+# covariance = samples.cov(["thetastar", "rdrag"])
 
 DISTANCE_PRIORS = np.array([theta_star_fid, rd_fid], dtype=np.float64)
 covariance = 1e-05 * np.array(
@@ -78,7 +78,7 @@ def cmb_distances(Ez_func, params, H0, Om, Ob_h2):
 @njit
 def z_star(wb, wm):
     """arXiv:2106.00428v2 (eq A4)"""
-    SCALING_FID = 0.99993  # z_star_fid / z_star(wb_fid, wm_fid)
+    SCALING_FID = 0.999926  # z_star_fid / z_star(wb_fid, wm_fid)
 
     return SCALING_FID * (391.672 * wm ** (-0.372296) + 937.422 * wb ** (-0.97966)) / (
         wm ** (-0.0192951) * wb ** (-0.93681)
@@ -88,7 +88,7 @@ def z_star(wb, wm):
 @njit
 def z_drag(wb, wm):
     """arXiv:2106.00428v2 (eq A2)"""
-    SCALING_FID = 0.9985  # z_drag_fid / z_drag(wb_fid, wm_fid)
+    SCALING_FID = 0.99849  # z_drag_fid / z_drag(wb_fid, wm_fid)
 
     return (
         SCALING_FID
@@ -100,7 +100,7 @@ def z_drag(wb, wm):
 @njit
 def z_star_HU(wb, wm):
     """arXiv:astro-ph/9510117v2 (eq-1)"""
-    SCALING_FID = 0.9971  # z_star_fid / z_star_HU(wb_fid, wm_fid)
+    SCALING_FID = 0.997094  # z_star_fid / z_star_HU(wb_fid, wm_fid)
 
     g1 = 0.0783 * wb**-0.238 / (1 + 39.5 * wb**0.763)
     g2 = 0.560 / (1 + 21.1 * wb**1.81)
