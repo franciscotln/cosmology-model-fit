@@ -61,7 +61,8 @@ quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int32
 
 def bao_theory(z, qty, params):
     h, Om, Obh2 = params[0] / 100, params[1], params[2]
-    rd = cmb.r_drag1(wb=Obh2, wm=Om * h**2)
+    zd = cmb.z_drag(wb=Obh2, wm=Om * h**2)
+    rd = cmb.rs_z(Ez, zd, params, params[0], Obh2)
 
     results = np.empty(z.size, dtype=np.float64)
     DV_mask = qty == 0
@@ -156,7 +157,8 @@ def main():
     samples = sampler.get_chain(discard=burn_in, flat=True)
     print("Gelman-Rubin:", gelman_rubin(chains_samples))
 
-    pct = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
+    one_sigma_contours = [15.9, 50, 84.1]
+    pct = np.percentile(samples, one_sigma_contours, axis=0).T
     [
         (H0_16, H0_50, H0_84),
         (Om_16, Om_50, Om_84),
@@ -169,9 +171,9 @@ def main():
     Om_h2_samples = samples[:, 1] * (samples[:, 0] / 100) ** 2
     z_st_samples = cmb.z_star(samples[:, 2], Om_h2_samples)
     r_d_samples = cmb.r_drag(samples[:, 2], Om_h2_samples)
-    Omh2_16, Omh2_50, Omh2_84 = np.percentile(Om_h2_samples, [15.9, 50, 84.1])
-    z_st_16, z_st_50, z_st_84 = np.percentile(z_st_samples, [15.9, 50, 84.1])
-    rd_16, rd_50, rd_84 = np.percentile(r_d_samples, [15.9, 50, 84.1])
+    Omh2_16, Omh2_50, Omh2_84 = np.percentile(Om_h2_samples, one_sigma_contours)
+    z_st_16, z_st_50, z_st_84 = np.percentile(z_st_samples, one_sigma_contours)
+    rd_16, rd_50, rd_84 = np.percentile(r_d_samples, one_sigma_contours)
 
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
     print(f"Ωm: {Om_50:.4f} +{(Om_84 - Om_50):.4f} -{(Om_50 - Om_16):.4f}")
@@ -205,61 +207,63 @@ Dataset: DESI DR2 2024 + (θ∗,ωb,ωbc)CMB
 *******************************
 
 Flat ΛCDM w(z) = -1
-H0: 68.45 +0.30 -0.30 km/s/Mpc
-Ωm: 0.2991 +0.0038 -0.0038
-ωm: 0.14015 +0.00063 -0.00063
-ωb: 0.02238 +0.00012 -0.00012
+H0: 68.40 +0.29 -0.29 km/s/Mpc
+Ωm: 0.2997 +0.0037 -0.0037
+ωm: 0.14025 +0.00060 -0.00061
+ωb: 0.02237 +0.00012 -0.00012
 w0: -1
 wa: 0
-r*: 145.12 Mpc
-z*: 1088.64 +0.14 -0.14
-r_d: 147.74 +0.17 -0.17 Mpc
-Chi squared: 13.87
+r*: 145.10 Mpc
+z*: 1088.57 +0.14 -0.14
+r_d: 147.78 +0.17 -0.17 Mpc
+Chi squared: 13.39
 Degs of freedom: 15
 
 ===============================
 
 Flat wCDM w(z) = w0
-H0: 68.91 +0.96 -0.92 km/s/Mpc
-Ωm: 0.2958 +0.0074 -0.0073
-ωm: 0.14049 +0.00089 -0.00090
+H0: 68.84 +0.97 -0.92 km/s/Mpc
+Ωm: 0.2966 +0.0073 -0.0074
+ωm: 0.14055 +0.00087 -0.00088
 ωb: 0.02235 +0.00013 -0.00013
-w0: -1.020 +0.038 -0.040
+w0: -1.019 +0.038 -0.040
 wa: 0
-r*: 145.06 Mpc
-z*: 1088.69 +0.17 -0.17
-r_d: 147.69 +0.21 -0.20 Mpc
-Chi squared: 13.67
+r*: 145.04 Mpc
+z*: 1088.62 +0.17 -0.17
+r_d: 147.73 +0.20 -0.20 Mpc
+Chi squared: 13.19
 Degs of freedom: 14
 
 ===============================
 
 Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
-H0: 68.06 +1.54 -1.46 km/s/Mpc
-Ωm: 0.3021 +0.0126 -0.0126
-ωm: 0.13997 +0.00076 -0.00077
-ωb: 0.02240 +0.00013 -0.00013
-w0: -0.970 +0.106 -0.108
+H0: 68.06 +1.53 -1.47 km/s/Mpc
+Ωm: 0.3026 +0.0128 -0.0125
+ωm: 0.14015 +0.00077 -0.00077
+ωb: 0.02238 +0.00013 -0.00013
+w0: -0.974 +0.106 -0.109
 wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-r*: 145.15 Mpc
-z*: 1088.61 +0.16 -0.16
-r_d: 147.77 +0.19 -0.19 Mpc
-Chi squared: 13.92
+r*: 145.12 Mpc
+z*: 1088.55 +0.16 -0.16
+r_d: 147.79 +0.19 -0.19 Mpc
+Chi squared: 13.34
 Degs of freedom: 14
 
 ===============================
 
 Flat w(z) = w0 + wa * z / (1 + z)
-H0: 63.78 +2.02 -1.90 km/s/Mpc
-Ωm: 0.3489 +0.0231 -0.0220
-ωm: 0.14198 +0.00092 -0.00099
-ωb: 0.02223 +0.00013 -0.00013
-w0: -0.453 +0.228 -0.223
-wa: -1.594 +0.635 -0.682 (unconstrained)
-r*: 144.74 Mpc
-z*: 1088.93 +0.18 -0.19
-r_d: 147.35 Mpc
-z_d: 1059.52 +0.28 -0.28
-Chi squared: 7.29
+Overfits, the uncertainties go wild and the prior are very wide
+The posterior volume is also very large, making the evidence small
+
+H0: 63.74 +2.04 -2.06 km/s/Mpc
+Ωm: 0.3499 +0.0249 -0.0225
+ωm: 0.14217 +0.00097 -0.00101
+ωb: 0.02222 +0.00013 -0.00013
+w0: -0.454 +0.249 -0.228 (prior width -2.0 to +1.5)
+wa: -1.600 +0.656 -0.755 (prior width -6.0 to 2.5)
+r*: 144.69 Mpc
+z*: 1088.87 +0.19 -0.19
+r_d: 147.45 +0.22 -0.21 Mpc
+Chi squared: 7.02
 Degs of freedom: 13
 """

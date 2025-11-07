@@ -69,10 +69,8 @@ quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int64
 def bao_theory(z, qty, params):
     H0, Om, Obh2 = params[0], params[1], params[2]
     Omh2 = Om * (H0 / 100) ** 2
-    rd = cmb.r_drag(wb=Obh2, wm=Omh2)
-    # for compressions data_desi_compression, use:
-    # z_drag = cmb.z_drag(wb=Obh2, wm=Omh2)
-    # rd = cmb.rs_z(Ez, z_drag, params, H0, Obh2)
+    z_drag = cmb.z_drag(wb=Obh2, wm=Omh2)
+    rd = cmb.rs_z(Ez, z_drag, params, H0, Obh2)
 
     results = np.empty(z.size, dtype=np.float64)
     DV_mask = qty == 0
@@ -273,17 +271,17 @@ Log evidence: -850.9
 
 ** Early time ΛCDM **
 ΔM: -0.066 +0.008 -0.008
-H0: 68.20 +0.29 -0.29 km/s/Mpc
-Ωm: 0.3025 +0.0037 -0.0037
-ωb: 0.02233 +0.00012 -0.00012
-ωm: 0.14069 +0.00061 -0.00061
+H0: 68.19 +0.28 -0.29 km/s/Mpc
+Ωm: 0.3026 +0.0037 -0.0036
+ωb: 0.02233 +0.00012 -0.00011
+ωm: 0.14067 +0.00060 -0.00059
 w0: -1
 wa: 0
-r*: 145.00 Mpc
-z*: 1088.73 +0.14 -0.14
-r_d:
-z_d:
-Chi squared: 1663.37
+r*: 145.01 Mpc
+z*: 1088.65 +0.14 -0.14
+r_d: 147.75 Mpc
+z_d: 1058.04 +0.26 -0.26
+Chi squared: 1663.22
 Log evidence: -848.9
 """
 
@@ -324,17 +322,17 @@ Log evidence: -852.5 (Δ logZ = -1.6 in favour of ΛCDM)
 
 ** Early time ΛCDM **
 ΔM: -0.081 +0.010 -0.010
-H0: 67.14 +0.54 -0.53 km/s/Mpc
-Ωm: 0.3095 +0.0049 -0.0048
+H0: 67.11 +0.54 -0.53 km/s/Mpc
+Ωm: 0.3098 +0.0049 -0.0048
 ωb: 0.02243 +0.00012 -0.00012
-ωm: 0.13953 +0.00080 -0.00080
+ωm: 0.13955 +0.00077 -0.00078
 w0: -0.948 +0.022 -0.022 (prior width 1.5: -1.5 to 0.0)
 wa: 0
-r*: 145.25 Mpc
-z*: 1088.54 +0.16 -0.16
-r_d:
-z_d:
-Chi squared: 1658.18
+r*: 145.26 Mpc
+z*: 1088.46 +0.16 -0.16
+r_d: 147.97 Mpc
+z_d: 1058.18 +0.26 -0.27
+Chi squared: 1657.97
 Log evidence: -849.6 (Δ logZ = -0.7 in favour of ΛCDM)
 """
 
@@ -374,18 +372,18 @@ Chi squared: 1658.28
 Log evidence: -848.9 (Δ logZ = 2.0 against ΛCDM)
 
 ** Early time ΛCDM **
-ΔM: -0.081 +0.009 -0.009
-H0: 66.59 +0.55 -0.55 km/s/Mpc
-Ωm: 0.3150 +0.0055 -0.0053
+ΔM: -0.082 +0.009 -0.009
+H0: 66.57 +0.55 -0.55 km/s/Mpc
+Ωm: 0.3153 +0.0054 -0.0053
 ωb: 0.02242 +0.00012 -0.00012
-ωm: 0.13969 +0.00069 -0.00068
-w0: -0.865 +0.040 -0.040 (prior width 1.5: -1.5 to 0.0)
+ωm: 0.13971 +0.00067 -0.00066
+w0: -0.866 +0.040 -0.040 (prior width 1.5: -1.5 to 0.0)
 wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
 r*: 145.21 Mpc
-z*: 1088.56 +0.15 -0.15
-r_d:
-z_d:
-Chi squared: 1652.58
+z*: 1088.49 +0.15 -0.14
+r_d: 147.93 Mpc
+z_d: 1058.17 +0.27 -0.26
+Chi squared: 1652.46
 Log evidence: -846.2 (Δ logZ = 2.7 against ΛCDM)
 """
 
