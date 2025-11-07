@@ -102,7 +102,7 @@ def z_drag_HU(wb, wm):
 @njit
 def r_drag(wb, wm):
     """arXiv:2106.00428v2 (eq 8)"""
-    SCALING_FID = 1.001  # rd_fid / r_drag(wb_fid, wm_fid)
+    SCALING_FID = 1.0010482
 
     a1 = 0.00257366
     a2 = 0.05032
@@ -125,7 +125,7 @@ Scaled arXiv:2106.00428v2 (eq 8) is very accurate.
 Using the mcmc samples from ombh2 and omegamh2 to compute  r_drag(wb, wm):
 
 rdrag_mcmc_mean: 147.460 +- 0.279
-rdrag_formula_mean: 147.453 +- 0.278
+rdrag_formula_mean: 147.460 +- 0.278
 
 Correlation matrix:
 [[1.         0.99999971]

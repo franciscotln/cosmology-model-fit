@@ -62,7 +62,7 @@ rd_fid = 147.46  # samples.mean("rdrag")
 @njit
 def r_drag(wb, wm):
     """arXiv:2106.00428v2 (eq 8)"""
-    SCALING_FID = 1.001  # rd_fid / r_drag(wb_fid, wm_fid)
+    SCALING_FID = 1.0010482
 
     a1 = 0.00257366
     a2 = 0.05032
