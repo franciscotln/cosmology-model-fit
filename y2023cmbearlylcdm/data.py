@@ -13,7 +13,7 @@ from scipy.constants import c as c0
 
 
 # samples = loadMCSamples(
-#     "y2024cmbearlylcdm/raw/spline_planck_PR4_TTTEEE_lowE_lensing_ISW",
+#     "y2023cmbearlylcdm/raw/spline_planck_PR4_TTTEEE_lowE_lensing_ISW",
 #     settings={"ignore_rows": 0.3},
 # )
 # samples.addDerived(samples.getParams().thetastar / 100, "thetastar_unscaled")
