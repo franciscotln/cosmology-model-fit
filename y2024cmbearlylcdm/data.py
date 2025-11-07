@@ -18,10 +18,16 @@ from scipy.constants import c as c0
 # )
 # samples.addDerived(samples.getParams().thetastar / 100, "thetastar_unscaled")
 
-# samples.mean(["thetastar", "rdrag"])
+wb_fid = 0.02223  # samples.mean("ombh2")
+wm_fid = 0.14208  # samples.mean("omegamh2")
+rd_fid = 147.46  # samples.mean("rdrag")
+H0_fid = 67.49  # samples.mean("H0")
+theta_star_fid = 1.04103  # samples.mean("thetastar")
+z_drag_fid = 1057.91  # from integral to achieve rd_fid in ΛCDM
+z_star_fid = 1088.86  # from integral to achieve theta_star_fid in ΛCDM
 # samples.cov(["thetastar", "rdrag"])
 
-DISTANCE_PRIORS = np.array([1.04103, 147.46], dtype=np.float64)
+DISTANCE_PRIORS = np.array([theta_star_fid, rd_fid], dtype=np.float64)
 covariance = 1e-05 * np.array(
     [
         [0.00662099420, 2.10838540],
@@ -111,15 +117,6 @@ def z_drag_HU(wb, wm):
     b1 = 0.313 * wm**-0.419 * (1 + 0.607 * wm**0.674)
     b2 = 0.238 * wm**0.223
     return SCALING_FID * 1345 * wm**0.251 * (1 + b1 * wb**b2) / (1 + 0.659 * wm**0.828)
-
-
-wb_fid = 0.02223  # samples.mean("ombh2")
-wm_fid = 0.14208  # samples.mean("omegamh2")
-rd_fid = 147.46  # samples.mean("rdrag")
-H0_fid = 67.49  # samples.mean("H0")
-theta_star_fid = 1.04103  # samples.mean("thetastar")
-z_drag_fid = 1057.91  # from integral to achieve rd_fid in ΛCDM
-z_star_fid = 1088.86  # from integral to achieve theta_star_fid in ΛCDM
 
 
 @njit
