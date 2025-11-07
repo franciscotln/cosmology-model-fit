@@ -60,16 +60,6 @@ rd_fid = 147.46  # samples.mean("rdrag")
 
 
 @njit
-def z_star(wb, wm):
-    """arXiv:2106.00428v2 (eq A4)"""
-    SCALING_FID = 0.999926  # z_star_fid / z_star(wb_fid, wm_fid)
-
-    return SCALING_FID * (391.672 * wm ** (-0.372296) + 937.422 * wb ** (-0.97966)) / (
-        wm ** (-0.0192951) * wb ** (-0.93681)
-    ) + wm ** (-0.731631)
-
-
-@njit
 def r_drag(wb, wm):
     """arXiv:2106.00428v2 (eq 8)"""
     SCALING_FID = 1.001  # rd_fid / r_drag(wb_fid, wm_fid)
@@ -91,9 +81,9 @@ def r_drag(wb, wm):
 
 
 @njit
-def z_star_HU(wb, wm):
+def z_star(wb, wm):
     """arXiv:astro-ph/9510117v2 (eq-1)"""
-    SCALING_FID = 0.997094  # z_star_fid / z_star_HU(wb_fid, wm_fid)
+    SCALING_FID = 0.99706346
 
     g1 = 0.0783 * wb**-0.238 / (1 + 39.5 * wb**0.763)
     g2 = 0.560 / (1 + 21.1 * wb**1.81)
