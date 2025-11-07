@@ -2,7 +2,7 @@ from numba import njit
 import numpy as np
 from scipy.constants import c as c0
 from scipy.linalg import cho_factor, solve_triangular
-import cmb.data_desi_compression as cmb
+import cmb.data_cmb_act_compression as cmb
 from y2024DES.data import effective_sample_size as sn_sample, get_data as get_sn_data
 from y2005cc.data import get_data as get_cc_data
 from y2025BAO.data import get_data as get_bao_data
@@ -85,7 +85,7 @@ quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int32
 @njit
 def bao_theory(z, qty, theta):
     H0, Obh2, Om = theta[2], theta[3], theta[4]
-    rd = cmb.r_drag1(wb=Obh2, wm=Om * (H0 / 100) ** 2)
+    rd = cmb.r_drag(wb=Obh2, wm=Om * (H0 / 100) ** 2)
 
     DV_mask = qty == 0
     DM_mask = qty == 1
@@ -213,15 +213,15 @@ def main():
     deg_of_freedom = 1 + sn_sample + bao_data["value"].size + z_cc_vals.size - ndim
 
     r_d_samples = cmb.r_drag(samples[:, 3], samples[:, 4] * (samples[:, 2] / 100) ** 2)
-    r_d_16, r_d_50, r_d_84 = np.percentile(r_d_samples, [15.9, 50, 84.1])
+    rd_16, rd_50, rd_84 = np.percentile(r_d_samples, [15.9, 50, 84.1])
 
     print(f"f_cc: {f_cc_50:.2f} +{(f_cc_84 - f_cc_50):.2f} -{(f_cc_50 - f_cc_16):.2f}")
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
     print(f"H0: {h0_50:.1f} +{(h0_84 - h0_50):.1f} -{(h0_50 - h0_16):.1f} km/s/Mpc")
-    print(f"ω_b: {wb_50:.4f} +{(wb_84 - wb_50):.4f} -{(wb_50 - wb_16):.4f} Mpc")
+    print(f"ωb: {wb_50:.4f} +{(wb_84 - wb_50):.4f} -{(wb_50 - wb_16):.4f} Mpc")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
-    print(f"r_d: {r_d_50:.2f} +{(r_d_84 - r_d_50):.2f} -{(r_d_50 - r_d_16):.2f} Mpc")
+    print(f"r_drag: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Log evidence: {log_evd:.2f}")
     print(f"Degrees of freedom: {deg_of_freedom}")
@@ -266,7 +266,9 @@ f_cc: 1.48 +0.18 -0.18
 H0: 66.5 +1.4 -1.3 km/s/Mpc
 ωb: 0.0195 +0.0020 -0.0018 Mpc
 Ωm: 0.307 +0.007 -0.007
-r_d: 151.45 +2.38 -2.58 Mpc
+w0: -1
+wa: 0
+r_drag: 151.45 +2.38 -2.58 Mpc
 Chi squared: 1692.49
 Log evidence: -978.55
 Degrees of freedom: 1777
@@ -281,7 +283,7 @@ H0: 68.4 +1.7 -1.6 km/s/Mpc
 Ωm: 0.302 +0.007 -0.006
 w0: -0.888 +0.030 -0.031 (prior width 1.5: -1.5 to 0.0)
 wa: 0
-r_d: 144.95 +3.20 -3.17 Mpc
+r_drag: 144.95 +3.20 -3.17 Mpc
 Chi squared: 1681.11
 Log evidence: -975.68 (Δ logZ = 2.87 over ΛCDM)
 Degrees of freedom: 1776
@@ -292,13 +294,13 @@ Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
 f_cc: 1.48 +0.18 -0.17
 ΔM: -0.046 +0.050 -0.047 mag
 H0: 67.5 +1.6 -1.4 km/s/Mpc
-ω_b: 0.0241 +0.0027 -0.0024 Mpc
+ωb: 0.0241 +0.0027 -0.0024 Mpc
 Ωm: 0.309 +0.007 -0.007
 w0: -0.822 +0.046 -0.047 (prior width 1.5: -1.5 to 0.0)
 wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-r_d: 146.14 +2.95 -2.96 Mpc
-Chi squared: 1679.21
-Log evidence: -974.24 (Δ logZ = 4.31 over ΛCDM)
+r_drag: 146.06 +2.95 -2.96 Mpc
+Chi squared: 1679.22
+Log evidence: -974.25 (Δ logZ = 4.30 over ΛCDM)
 Degrees of freedom: 1776
 
 ===============================
@@ -311,7 +313,7 @@ H0: 66.5 +2.0 -1.7 km/s/Mpc
 Ωm: 0.316 +0.011 -0.011
 w0: -0.802 +0.066 -0.062 (prior width 1.5: -1.5 to 0.0)
 wa: -0.551 +0.347 -0.374 (prior width 5.0: -3.0 to 2.0)
-r_d: 148.19 +3.79 -3.79 Mpc
+r_drag: 148.19 +3.79 -3.79 Mpc
 Chi squared: 1678.66
 Log evidence: -975.96 (Δ logZ = 2.59 over ΛCDM)
 Degrees of freedom: 1775

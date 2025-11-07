@@ -1,7 +1,7 @@
 from numba import njit
 import numpy as np
 from scipy.linalg import cho_factor, solve_triangular
-import cmb.data_desi_compression as cmb
+import cmb.data_cmb_act_compression as cmb
 import y2024BBN.prior_lcdm_schoneberg as bbn
 from y2024DES.data import get_data, effective_sample_size as sn_size
 from y2025BAO.data import get_data as get_bao_data

@@ -3,7 +3,7 @@ import numpy as np
 from scipy.integrate import quad
 from scipy.constants import c as c0
 
-# from y2024cmbearlylcdm.data import samples
+# from y2023cmbearlylcdm.data import samples
 
 c = c0 / 1000  # km/s
 
