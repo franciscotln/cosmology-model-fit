@@ -9,7 +9,7 @@ c = c0 / 1000  # km/s
 
 # samples.mean(["thetastar_unscaled", "ombh2", "omegamh2"])
 # samples.cov(["thetastar_unscaled", "ombh2", "omegamh2"])
-DISTANCE_PRIORS = np.array([0.0104103, 0.02223, 0.14208], dtype=np.float64)
+DISTANCE_PRIORS = np.array([0.010410274, 0.02223, 0.14208], dtype=np.float64)
 covariance = 1e-9 * np.array(
     [
         [0.00662099420, 0.124442058, -1.19287532],
