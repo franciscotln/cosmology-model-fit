@@ -182,10 +182,13 @@ def main():
 
     best_fit = np.percentile(samples, 50, axis=0)
     theta_100, rd = cmb.cmb_distances(Ez, best_fit, H0_50, Om_50, Obh2_50)
+    omh2_samples = samples[:, 3] * (samples[:, 2] / 100) ** 2
+    omh2_16, omh2_50, omh2_84 = np.percentile(omh2_samples, [15.9, 50, 84.1])
 
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
     print(f"ωb: {Obh2_50:.5f} +{(Obh2_84 - Obh2_50):.5f} -{(Obh2_50 - Obh2_16):.5f}")
+    print(f"ωm: {omh2_50:.5f} +{(omh2_84 - omh2_50):.5f} -{(omh2_50 - omh2_16):.5f}")
     print(f"Ωm: {Om_50:.4f} +{(Om_84 - Om_50):.4f} -{(Om_50 - Om_16):.4f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"r_d: {rd:.2f} Mpc")
@@ -260,6 +263,7 @@ Degrees of freedom: 1744
 Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)**3)
 H0: 66.88 +0.57 -0.57 km/s/Mpc
 ωb: 0.02315 +0.00031 -0.00031
+ωm: 0.13920 +0.00069 -0.00068
 Ωm: 0.3112 +0.0056 -0.0055
 w0: -0.830 +0.042 -0.042 (prior width 1.5: -1.5 to 0.0)
 wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
