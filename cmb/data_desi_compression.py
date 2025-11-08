@@ -3,12 +3,8 @@ import numpy as np
 from scipy.integrate import quad
 from scipy.constants import c as c0
 
-# from y2023cmbearlylcdm.data import samples
-
 c = c0 / 1000  # km/s
 
-# samples.mean(["thetastar_unscaled", "ombh2", "omegamh2"])
-# samples.cov(["thetastar_unscaled", "ombh2", "omegamh2"])
 DISTANCE_PRIORS = np.array([0.010410274, 0.02223, 0.14208], dtype=np.float64)
 covariance = 1e-9 * np.array(
     [
@@ -54,11 +50,6 @@ def cmb_distances(Ez_func, params, H0, Om, Ob_h2):
     return np.array([theta, Ob_h2, Om_h2])
 
 
-wb_fid = 0.02223  # samples.mean("ombh2")
-wm_fid = 0.14208  # samples.mean("omegamh2")
-rd_fid = 147.46  # samples.mean("rdrag")
-
-
 @njit
 def r_drag(wb, wm):
     """arXiv:2106.00428v2 (eq 8)"""
@@ -95,7 +86,7 @@ def z_star(wb, wm):
 @njit
 def z_drag_HU(wb, wm):
     """arXiv:astro-ph/9510117v2 (eq-2)"""
-    SCALING_FID = 0.99521  # z_drag_fid / z_drag_HU(wb_fid, wm_fid)
+    SCALING_FID = 0.99521
 
     b1 = 0.313 * (wm**-0.419) * (1 + 0.607 * (wm**0.674))
     b2 = 0.238 * (wm**0.223)
@@ -110,7 +101,7 @@ def z_drag_HU(wb, wm):
 @njit
 def z_drag(wb, wm):
     """arXiv:2106.00428v2 (eq A2)"""
-    SCALING_FID = 0.99849  # z_drag_fid / z_drag(wb_fid, wm_fid)
+    SCALING_FID = 0.99849
 
     return (
         SCALING_FID
