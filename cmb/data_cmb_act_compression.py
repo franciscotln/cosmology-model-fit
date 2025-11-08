@@ -88,6 +88,17 @@ def z_star(wb, wm):
 
 
 @njit
+def z_star_HU(wb, wm):
+    """arXiv:astro-ph/9510117v2 (eq-1)"""
+
+    g1 = 0.0783 * wb**-0.238 / (1 + 39.5 * wb**0.763)
+    g2 = 0.560 / (1 + 21.1 * wb**1.81)
+    factor_1 = 1 + 0.00124 * wb**-0.738
+    factor_2 = 1 + g1 * wm**g2
+    return 1048 * factor_1 * factor_2
+
+
+@njit
 def z_drag_HU(wb, wm):
     """arXiv:astro-ph/9510117v2 (eq-2)"""
     b1 = 0.313 * wm**-0.419 * (1 + 0.607 * wm**0.674)
