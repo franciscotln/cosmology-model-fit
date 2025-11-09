@@ -242,6 +242,19 @@ r_d: 147.51 Mpc
 Chi squared: 1662.1
 Log evidence: -849.3
 Degrees of freedom: 1745
+
+-- ATC DR6 only --
+H0: 69.28 +0.49 -0.49 km/s/Mpc
+ωb: 0.02379 +0.00049 -0.00049
+ωm: 0.14212 +0.00082 -0.00082
+Ωm: 0.2961 +0.0046 -0.0046
+w0: -1
+wa: 0
+r_d: 146.15 Mpc
+100 θ*: 1.04088
+Chi squared: 1664.3
+Log evidence: -849.6
+Degrees of freedom: 1745
 """
 
 
@@ -257,6 +270,19 @@ r_d: 147.44 Mpc
 100 θ*: 1.04098
 Chi squared: 1649.3
 Log evidence: -846.1 (Δ logZ = 3.2 against ΛCDM)
+Degrees of freedom: 1744
+
+-- ATC DR6 only --
+H0: 67.88 +0.59 -0.58 km/s/Mpc
+ωb: 0.02502 +0.00061 -0.00059
+ωm: 0.13958 +0.00107 -0.00109
+Ωm: 0.3029 +0.0049 -0.0048
+w0: -0.890 +0.026 -0.027 (prior width 1.5: -1.5 to 0.0)
+wa: 0
+r_d: 145.83 Mpc
+100 θ*: 1.04071
+Chi squared: 1648.6
+Log evidence: -844.9 (Δ logZ = 4.7 against ΛCDM)
 Degrees of freedom: 1744
 """
 
@@ -274,6 +300,19 @@ r_d: 147.44 Mpc
 Chi squared: 1646.5
 Log evidence: -844.2 (Δ logZ = 5.1 against ΛCDM)
 Degrees of freedom: 1744
+
+-- ATC DR6 only --
+H0: 67.58 +0.61 -0.61 km/s/Mpc
+ωb: 0.02453 +0.00053 -0.00052
+ωm: 0.14090 +0.00087 -0.00086
+Ωm: 0.3085 +0.0056 -0.0055
+w0: -0.817 +0.042 -0.042 (prior width 1.5: -1.5 to 0.0)
+wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
+r_d: 145.87 Mpc
+100 θ*: 1.04074
+Chi squared: 1646.2
+Log evidence: -843.2 (Δ logZ = 6.4 against ΛCDM)
+Degrees of freedom: 1744
 """
 
 
@@ -289,5 +328,18 @@ r_d: 147.48 Mpc
 100 θ*: 1.04091
 Chi squared: 1646.0
 Log evidence: -845.6 (Δ logZ = 3.7 against ΛCDM)
+Degrees of freedom: 1743
+
+-- ATC DR6 only --
+H0: 67.54 +0.61 -0.61 km/s/Mpc
+ωb: 0.02410 +0.00074 -0.00069
+ωm: 0.14204 +0.00143 -0.00161
+Ωm: 0.3113 +0.0067 -0.0068
+w0: -0.800 +0.062 -0.059 (prior width 1.5: -1.5 to 0.0)
+wa: -0.491 +0.288 -0.304 (prior width 4.0: -2.5 to 1.5)
+r_d: 145.93 Mpc
+100 θ*: 1.04072
+Chi squared: 1646.1
+Log evidence: -845.0 (Δ logZ = 4.6 against ΛCDM)
 Degrees of freedom: 1743
 """
