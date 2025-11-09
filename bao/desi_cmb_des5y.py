@@ -451,7 +451,19 @@ Log evidence: -845.4 (Δ logZ = 4.1 against ΛCDM)
 Degrees of freedom: 1745
 
 ** Planck + ACT DR6 CMB compression **
-TODO
+ΔM: -0.058 +0.011 -0.011
+H0: 66.88 +0.54 -0.54 km/s/Mpc
+Ωm: 0.3171 +0.0055 -0.0053
+ωb: 0.02252 +0.00010 -0.00010
+ωm: 0.14188 +0.00088 -0.00088
+w0: -0.762 +0.056 -0.054 (prior width 1.5: -1.5 to 0.0)
+wa: -0.779 +0.212 -0.226 (prior width 3.5: -2.5 to 1.0)
+r*: 144.62 Mpc
+z*: 1088.29 +0.18 -0.18
+r_d: 147.12 Mpc
+z_d: 1060.19 +0.23 -0.22
+Chi squared: 1647.17
+Log evidence: -845.9 (Δ logZ = 4.4 against ΛCDM)
 
 ** Early time ΛCDM **
 ΔM: -0.064 +0.011 -0.011
