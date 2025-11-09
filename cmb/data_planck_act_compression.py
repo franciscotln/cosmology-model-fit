@@ -14,7 +14,7 @@ DISTANCE_PRIORS = np.array(
     ],
     dtype=np.float64,
 )
-covariance = 10**-8 * np.array(
+covariance = np.array(
     [
         [1.53695593e-05, 1.06033525e-04, -2.09800310e-07],
         [1.06033525e-04, 5.56342893e-03, -1.59024331e-06],
@@ -63,6 +63,8 @@ def cmb_distances(Ez_func, params, H0, Om, Ob_h2):
 @njit
 def r_drag(wb, wm):
     """arXiv:2106.00428v2 (eq 8)"""
+    SCALING_FID = 1.00110357
+
     a1 = 0.00257366
     a2 = 0.05032
     a3 = 0.013
@@ -76,26 +78,19 @@ def r_drag(wb, wm):
     term_A_denominator = (a1 * (wb**a2)) + (a3 * (wb**a4) * (wm**a5)) + (a6 * (wm**a7))
     term_A = 1.0 / term_A_denominator
     term_B = a8 / (wm**a9)
-    return term_A - term_B
+    return SCALING_FID * (term_A - term_B)
 
 
 @njit
 def z_star(wb, wm):
-    """arXiv:2106.00428v2 (eq A4)"""
-    return (391.672 * wm ** (-0.372296) + 937.422 * wb ** (-0.97966)) / (
-        wm ** (-0.0192951) * wb ** (-0.93681)
-    ) + wm ** (-0.731631)
-
-
-@njit
-def z_star_HU(wb, wm):
     """arXiv:astro-ph/9510117v2 (eq-1)"""
+    SCALING_FID = 0.9969799
 
     g1 = 0.0783 * wb**-0.238 / (1 + 39.5 * wb**0.763)
     g2 = 0.560 / (1 + 21.1 * wb**1.81)
     factor_1 = 1 + 0.00124 * wb**-0.738
     factor_2 = 1 + g1 * wm**g2
-    return 1048 * factor_1 * factor_2
+    return SCALING_FID * 1048 * factor_1 * factor_2
 
 
 @njit
@@ -109,6 +104,10 @@ def z_drag_HU(wb, wm):
 @njit
 def z_drag(wb, wm):
     """arXiv:2106.00428v2 (eq A2)"""
+    SCALING_FID = 1.00003192
+
     return (
-        1 + 428.169 * wb**0.256459 * wm**0.616388 + 925.56 * wm**0.751615
-    ) * wm**-0.714129
+        SCALING_FID
+        * (1 + 428.169 * wb**0.256459 * wm**0.616388 + 925.56 * wm**0.751615)
+        * wm**-0.714129
+    )
