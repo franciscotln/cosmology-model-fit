@@ -81,7 +81,7 @@ def r_drag(wb, wm):
 
 
 @njit
-def z_star1(wb, wm):
+def z_star(wb, wm):
     """arXiv:2106.00428v2 (eq A4)"""
     return (391.672 * wm ** (-0.372296) + 937.422 * wb ** (-0.97966)) / (
         wm ** (-0.0192951) * wb ** (-0.93681)
@@ -89,7 +89,7 @@ def z_star1(wb, wm):
 
 
 @njit
-def z_star(wb, wm):
+def z_star_HU(wb, wm):
     """arXiv:astro-ph/9510117v2 (eq-1)"""
     g1 = 0.0783 * wb**-0.238 / (1 + 39.5 * wb**0.763)
     g2 = 0.560 / (1 + 21.1 * wb**1.81)

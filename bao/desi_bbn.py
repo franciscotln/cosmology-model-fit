@@ -3,7 +3,7 @@ import numpy as np
 from scipy.linalg import cho_factor, cho_solve
 from y2025BAO.data import get_data
 import y2024BBN.prior_lcdm_schoneberg as bbn
-from cmb.data_cmb_act_compression import c, z_drag, rs_z, Omega_r_h2
+from cmb.data_union3_compression import c, z_drag, rs_z, Omega_r_h2
 
 legend, data, cov_matrix = get_data()
 cho = cho_factor(cov_matrix)
