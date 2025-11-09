@@ -1,3 +1,10 @@
+"""
+arXiv:2503.14452v2
+https://lambda.gsfc.nasa.gov/product/act/act_dr6.02/act_dr6.02_chains_lcdm_get.html
+https://lambda.gsfc.nasa.gov/product/act/act_dr6.02/act_dr6.02_chains_info.html
+https://lambda.gsfc.nasa.gov/product/act/act_dr6.02/act_dr6.02_chains_prod_table.html
+"""
+
 from numba import njit
 import numpy as np
 from scipy.integrate import quad

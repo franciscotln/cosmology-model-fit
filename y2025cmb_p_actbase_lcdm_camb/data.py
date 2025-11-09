@@ -2,7 +2,7 @@
 arXiv:2503.14452v2
 File: p-actbase_lcdm_camb
 https://lambda.gsfc.nasa.gov/product/act/act_dr6.02/act_dr6.02_chains_lcdm_get.html
-https://lambda.gsfc.nasa.gov/product/act/act_dr6.02/act_dr6.02_chains_info.html#:~:text=Throughout%20CH25%20and%20L25%20we,for%20the%20cobaya%20MCMC%20sampler.
+https://lambda.gsfc.nasa.gov/product/act/act_dr6.02/act_dr6.02_chains_info.html
 https://lambda.gsfc.nasa.gov/product/act/act_dr6.02/act_dr6.02_chains_prod_table.html
 """
 
