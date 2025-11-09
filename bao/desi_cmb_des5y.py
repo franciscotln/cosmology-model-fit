@@ -254,20 +254,18 @@ Chi squared: 1664.85
 Log evidence: -849.5
 Degrees of freedom: 1747
 
-** Planck + ACT cmb compression **
-ΔM: -0.064 +0.008 -0.008
-H0: 68.23 +0.27 -0.27 km/s/Mpc
-Ωm: 0.3033 +0.0036 -0.0035
-ωb: 0.02252 +0.00012 -0.00012
-ωm: 0.14118 +0.00061 -0.00061
-w0: -1
-wa: 0
-r*: 144.77 Mpc
-z*: 1088.55 +0.14 -0.14
-r_d: 147.30 Mpc
-z_d: 1060.11 +0.27 -0.27
-Chi squared: 1667.67
-Log evidence: -850.9
+** Planck + ACT DR6 cmb compression **
+ΔM: -0.062 +0.007 -0.007
+H0: 68.33 +0.26 -0.26 km/s/Mpc
+Ωm: 0.3017 +0.0035 -0.0034
+ωb: 0.02257 +0.00010 -0.00010
+ωm: 0.14086 +0.00061 -0.00061
+r*: 144.86 Mpc
+z*: 1088.15 +0.15 -0.15
+r_d: 147.35 Mpc
+z_d: 1060.21 +0.22 -0.23
+Chi squared: 1665.94
+Log evidence: -850.3
 
 ** Early time ΛCDM **
 ΔM: -0.066 +0.008 -0.008
@@ -320,20 +318,20 @@ Chi squared: 1659.32
 Log evidence: -850.0 (Δ logZ = -0.5 in favour of ΛCDM)
 Degrees of freedom: 1746
 
-** Planck + ACT cmb compression **
+** Planck + ACT DR6 cmb compression **
 ΔM: -0.077 +0.010 -0.010
-H0: 67.37 +0.53 -0.53 km/s/Mpc
-Ωm: 0.3091 +0.0049 -0.0047
-ωb: 0.02260 +0.00013 -0.00013
-ωm: 0.14031 +0.00078 -0.00078
-w0: -0.960 +0.021 -0.022 (prior width 1.5: -1.5 to 0.0)
+H0: 67.31 +0.54 -0.53 km/s/Mpc
+Ωm: 0.3087 +0.0048 -0.0048
+ωb: 0.02262 +0.00010 -0.00010
+ωm: 0.13985 +0.00078 -0.00078
+w0: -0.953 +0.021 -0.021 (prior width 1.5: -1.5 to 0.0)
 wa: 0
-r*: 144.96 Mpc
-z*: 1088.41 +0.16 -0.16
-r_d: 147.47 Mpc
-z_d: 1060.21 +0.27 -0.27
-Chi squared: 1664.31
-Log evidence: -852.5 (Δ logZ = -1.6 in favour of ΛCDM)
+r*: 145.10 Mpc
+z*: 1087.99 +0.17 -0.17
+r_d: 147.58 Mpc
+z_d: 1060.25 +0.23 -0.23
+Chi squared: 1661.41
+Log evidence: -851.4 (Δ logZ = -1.1 in favour of ΛCDM)
 
 ** Early time ΛCDM **
 ΔM: -0.082 +0.010 -0.010
@@ -386,20 +384,20 @@ Chi squared: 1653.72
 Log evidence: -846.6 (Δ logZ = 2.9 against ΛCDM)
 Degrees of freedom: 1746
 
-** Planck + ACT cmb compression **
-ΔM: -0.080 +0.009 -0.009
-H0: 66.71 +0.56 -0.55 km/s/Mpc
-Ωm: 0.3152 +0.0054 -0.0054
-ωb: 0.02261 +0.00012 -0.00013
-ωm: 0.14029 +0.00068 -0.00068
-w0: -0.876 +0.040 -0.040 (prior width 1.5: -1.5 to 0.0)
+** Planck + ACT DR6 cmb compression **
+ΔM: -0.079 +0.009 -0.009
+H0: 66.70 +0.55 -0.55 km/s/Mpc
+Ωm: 0.3145 +0.0055 -0.0053
+ωb: 0.02262 +0.00010 -0.00010
+ωm: 0.13993 +0.00067 -0.00067
+w0: -0.869 +0.039 -0.039 (prior width 1.5: -1.5 to 0.0)
 wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-r*: 144.96 Mpc
-z*: 1088.40 +0.15 -0.15
-r_d: 147.47 Mpc
-z_d: 1060.22 +0.27 -0.27
-Chi squared: 1658.28
-Log evidence: -848.9 (Δ logZ = 2.0 against ΛCDM)
+r*: 145.08 Mpc
+z*: 1088.00 +0.16 -0.16
+r_d: 147.56 Mpc
+z_d: 1060.26 +0.23 -0.23
+Chi squared: 1655.37
+Log evidence: -847.8 (Δ logZ = 2.5 against ΛCDM)
 
 ** Early time ΛCDM **
 ΔM: -0.082 +0.009 -0.009
@@ -452,20 +450,8 @@ Chi squared: 1646.86
 Log evidence: -845.4 (Δ logZ = 4.1 against ΛCDM)
 Degrees of freedom: 1745
 
-** Planck + ACT CMB compression **
-ΔM: -0.058 +0.011 -0.011
-H0: 66.88 +0.54 -0.54 km/s/Mpc
-Ωm: 0.3184 +0.0056 -0.0054
-ωb: 0.02243 +0.00013 -0.00013
-ωm: 0.14241 +0.00086 -0.00088
-w0: -0.753 +0.056 -0.055 (prior width 1.5: -1.5 to 0.0)
-wa: -0.847 +0.218 -0.228 (prior width 3.5: -2.5 to 1.0)
-r*: 144.51 Mpc
-z*: 1088.74 +0.18 -0.18
-r_d: 147.06 Mpc
-z_d: 1059.99 +0.27 -0.28
-Chi squared: 1647.87
-Log evidence: -845.8 (Δ logZ = 5.1 against ΛCDM)
+** Planck + ACT DR6 CMB compression **
+TODO
 
 ** Early time ΛCDM **
 ΔM: -0.064 +0.011 -0.011
