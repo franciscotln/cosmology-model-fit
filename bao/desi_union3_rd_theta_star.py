@@ -223,13 +223,14 @@ if __name__ == "__main__":
     main()
 
 """
-arXiv:2302.12911 - CMB Constraints on the Early Universe Independent of Late-Time Cosmology
 (100 θ*, r_drag)CMB
 """
 
 
 """
 Flat ΛCDM w(z) = -1
+
+-- Early ΛCDM arXiv:2302.12911 --
 H0: 68.77 +0.42 -0.42 km/s/Mpc
 ωb: 0.02276 +0.00029 -0.00029
 ωm: 0.1403 +0.0006 -0.0006
@@ -254,11 +255,26 @@ r_d: 146.05 Mpc
 Chi squared: 41.3
 Log evidence: -35.7
 Degrees of freedom: 32
+
+-- ATC DR6 + Planck --
+H0: 68.95 +0.43 -0.42 km/s/Mpc
+ωb: 0.02304 +0.00030 -0.00029
+ωm: 0.1406 +0.0006 -0.0006
+Ωm: 0.2958 +0.0046 -0.0046
+w0: -1
+wa: 0
+r_d: 147.17 Mpc
+100 θ*: 1.04097
+Chi squared: 40.2
+Log evidence: -35.9
+Degrees of freedom: 32
 """
 
 
 """
 Flat wCDM w(z) = w0
+
+-- Early ΛCDM arXiv:2302.12911 --
 H0: 67.27 +0.70 -0.68 km/s/Mpc
 ωb: 0.02349 +0.00043 -0.00042
 ωm: 0.1382 +0.0010 -0.0011
@@ -283,11 +299,26 @@ r_d: 145.82 Mpc
 Chi squared: 32.7
 Log evidence: -34.2 (Δ logZ = 1.5 against ΛCDM)
 Degrees of freedom: 31
+
+-- ATC DR6 + Planck --
+H0: 67.39 +0.71 -0.69 km/s/Mpc
+ωb: 0.02381 +0.00044 -0.00042
+ωm: 0.1384 +0.0011 -0.0011
+Ωm: 0.3047 +0.0056 -0.0057
+w0: -0.903 +0.035 -0.036 (prior width 1.5: -1.5 to 0.0)
+wa: 0
+r_d: 147.12 Mpc
+100 θ*: 1.04088
+Chi squared: 33.2
+Log evidence: -35.3 (Δ logZ = 0.6 against ΛCDM)
+Degrees of freedom: 31
 """
 
 
 """
 Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)**3)
+
+-- Early ΛCDM arXiv:2302.12911 --
 H0: 66.51 +0.82 -0.81 km/s/Mpc
 ωb: 0.02321 +0.00033 -0.00033
 ωm: 0.1391 +0.0007 -0.0007
@@ -312,11 +343,26 @@ r_d: 145.84 Mpc
 Chi squared: 30.1
 Log evidence: -32.3 (Δ logZ = 3.4 against ΛCDM)
 Degrees of freedom: 31
+
+-- ATC DR6 + Planck --
+H0: 66.64 +0.84 -0.81 km/s/Mpc
+ωb: 0.02350 +0.00033 -0.00033
+ωm: 0.1394 +0.0007 -0.0008
+Ωm: 0.3138 +0.0076 -0.0075
+w0: -0.796 +0.064 -0.063 (prior width 1.5: -1.5 to 0.0)
+wa: d w(z)/d z at z=0 = (9/4) * (1 + w0)
+r_d: 147.12 Mpc
+100 θ*: 1.04089
+Chi squared: 30.4
+Log evidence: -33.3 (Δ logZ = 2.6 against ΛCDM)
+Degrees of freedom: 31
 """
 
 
 """
 Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
+
+-- Early ΛCDM arXiv:2302.12911 --
 H0: 66.09 +0.89 -0.88 km/s/Mpc
 ωb: 0.02248 +0.00054 -0.00048
 ωm: 0.1412 +0.0013 -0.0015
@@ -341,4 +387,7 @@ r_d: 145.94 Mpc
 Chi squared: 29.7
 Log evidence: -34.0 (Δ logZ = 1.7 against ΛCDM)
 Degrees of freedom: 30
+
+-- ATC DR6 + Planck --
+TODO
 """
