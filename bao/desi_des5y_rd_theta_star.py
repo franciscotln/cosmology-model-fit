@@ -390,5 +390,15 @@ Log evidence: -845.0 (Δ logZ = 4.6 against ΛCDM)
 Degrees of freedom: 1743
 
 -- ATC DR6 + Planck --
-TODO
+H0: 66.95 +0.58 -0.56 km/s/Mpc
+ωb: 0.02291 +0.00055 -0.00049
+ωm: 0.14113 +0.00130 -0.00153
+Ωm: 0.3146 +0.0066 -0.0066
+w0: -0.792 +0.063 -0.061 (prior width 1.5: -1.5 to 0.0)
+wa: -0.577 +0.297 -0.314 (prior width 4.0: -2.5 to 1.5)
+r_d: 147.17 Mpc
+100 θ*: 1.04081
+Chi squared: 1646.1
+Log evidence: -845.6 (Δ logZ = 3.9 against ΛCDM)
+Degrees of freedom: 1743
 """
