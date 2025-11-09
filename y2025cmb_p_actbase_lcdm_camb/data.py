@@ -9,6 +9,7 @@ https://lambda.gsfc.nasa.gov/product/act/act_dr6.02/act_dr6.02_chains_prod_table
 import numpy as np
 from scipy.integrate import quad
 from scipy.constants import c as c0
+from numba import njit
 
 c = c0 / 1000  # km/s
 
@@ -32,6 +33,7 @@ def Omega_r_h2(Neff=N_EFF):
     return O_GAMMA_H2 * (1 + 0.2271 * Neff)
 
 
+@njit
 def z_star(wb, wm):
     """arXiv:astro-ph/9510117v2 (eq-1)"""
     SCALING_FID = 0.9969799
@@ -43,6 +45,7 @@ def z_star(wb, wm):
     return SCALING_FID * 1048 * factor_1 * factor_2
 
 
+@njit
 def r_drag(wb, wm):
     """arXiv:2106.00428v2 (eq 8)"""
     SCALING_FID = 1.00110357
@@ -63,6 +66,7 @@ def r_drag(wb, wm):
     return SCALING_FID * (term_A - term_B)
 
 
+@njit
 def z_drag(wb, wm):
     """arXiv:2106.00428v2 (eq A2)"""
     SCALING_FID = 1.00003192
