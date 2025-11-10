@@ -68,7 +68,7 @@ def cmb_distances(Ez_func, params, H0, Om, Ob_h2):
 @njit
 def z_drag(wb, wm):
     """arXiv:2106.00428v2 (eq A2)"""
-    SCALING_FID = 0.99849  # z_drag_fid / z_drag(wb_fid, wm_fid)
+    SCALING_FID = 0.998476  # reproduces rdrag from integral
 
     return (
         SCALING_FID
@@ -87,16 +87,6 @@ def z_star(wb, wm):
     factor_1 = 1 + 0.00124 * wb**-0.738
     factor_2 = 1 + g1 * wm**g2
     return SCALING_FID * 1048 * factor_1 * factor_2
-
-
-@njit
-def z_drag_HU(wb, wm):
-    """arXiv:astro-ph/9510117v2 (eq-2)"""
-    SCALING_FID = 0.99521  # z_drag_fid / z_drag_HU(wb_fid, wm_fid)
-
-    b1 = 0.313 * wm**-0.419 * (1 + 0.607 * wm**0.674)
-    b2 = 0.238 * wm**0.223
-    return SCALING_FID * 1345 * wm**0.251 * (1 + b1 * wb**b2) / (1 + 0.659 * wm**0.828)
 
 
 @njit
@@ -146,5 +136,12 @@ Correlation matrix:
 
 
 """
-Both z_drag_HU and z_drag yield almost identical results for rdrag_mcmc
+correlation matrix using z_drag formula:
+            rdrag       rdrag_comp
+rdrag      [[1.         0.99999953]
+rdrag_comp  [0.99999953 1.        ]]
+
+rdrag, rdrag_com
+[147.46044 147.46044]
+[0.27926 0.27865]
 """
