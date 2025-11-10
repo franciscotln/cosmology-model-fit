@@ -35,7 +35,7 @@ def Omega_r_h2(Neff=N_EFF):
 @njit
 def z_star(wb, wm):
     """arXiv:astro-ph/9510117v2 (eq-1)"""
-    SCALING_FID = 0.997026
+    SCALING_FID = 0.997026  # reproduces θ* from integrals on r* and DA*
 
     g1 = 0.0783 * wb**-0.238 / (1 + 39.5 * wb**0.763)
     g2 = 0.560 / (1 + 21.1 * wb**1.81)
@@ -68,7 +68,7 @@ def r_drag(wb, wm):
 @njit
 def z_drag(wb, wm):
     """arXiv:2106.00428v2 (eq A2)"""
-    SCALING_FID = 1.0000421
+    SCALING_FID = 0.998421  # reproduces rdrag from integral
 
     return (
         SCALING_FID
@@ -104,11 +104,22 @@ def cmb_distances(Ez_func, params, H0, Om, Ob_h2):
 
 """
 correlation matrix:
-            theta* mc    theta* comp
-theta* mc   [[1.         0.99941485]
-theta* comp [0.99941485 1.        ]]
+         θ* mc       θ* comp
+θ* mc   [[1.         0.99941485]
+θ* comp  [0.99941485 1.        ]]
 
- theta* mc  theta* comp
+ θ* mc   θ* comp
 [1.04075 1.04075]
 [0.00031 0.00031]
+"""
+
+"""
+correlation matrix using z_drag formula:
+            rdrag       rdrag_comp
+rdrag      [[1.         0.99999724]
+rdrag_comp  [0.99999724 1.        ]]
+
+rdrag, rdrag_com
+[145.87780 145.87780]
+[0.56280 0.56127]
 """
