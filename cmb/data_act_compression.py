@@ -68,7 +68,7 @@ def r_drag(wb, wm):
 @njit
 def z_drag(wb, wm):
     """arXiv:2106.00428v2 (eq A2)"""
-    SCALING_FID = 1.0000421
+    SCALING_FID = 0.998421  # reproduces rdrag from integral
 
     return (
         SCALING_FID
