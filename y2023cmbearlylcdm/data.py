@@ -112,7 +112,7 @@ def r_drag(wb, wm):
 
 """
 Scaled arXiv:2106.00428v2 (eq 8) is very accurate.
-Using the mcmc samples from ombh2 and omegamh2 to compute  r_drag(wb, wm):
+Using the mcmc samples from ombh2 and omegamh2 to compute r_drag(wb, wm):
 
 rdrag_mcmc_mean: 147.460 +- 0.279
 rdrag_formula_mean: 147.460 +- 0.278
@@ -124,7 +124,7 @@ Correlation matrix:
 
 
 """
-Scaled z* from HU's formula to match z* fid
+Scaled z* from HU's formula to match θ* computed from integrals:
 100 θ* mcmc_mean: 1.041027 ± 0.000257
 100 θ* Hu mean:   1.041027 ± 0.000259
 
@@ -136,7 +136,7 @@ Correlation matrix:
 
 
 """
-correlation matrix using z_drag formula:
+correlation matrix using z_drag formula to compute the integral:
             rdrag       rdrag_comp
 rdrag      [[1.         0.99999953]
 rdrag_comp  [0.99999953 1.        ]]
