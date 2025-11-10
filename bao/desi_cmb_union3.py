@@ -3,7 +3,7 @@ import numpy as np
 from scipy.linalg import cho_factor, solve_triangular
 from y2023union3.data import get_data
 from y2025BAO.data import get_data as get_bao_data
-import cmb.data_desi_compression as cmb
+import cmb.data_planck_act_compression as cmb
 
 c = cmb.c  # km/s
 Or_h2 = cmb.Omega_r_h2()
@@ -68,11 +68,11 @@ qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
 quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int32)
 
 
+@njit
 def bao_theory(z, qty, params):
     H0, Om, Obh2 = params[0], params[1], params[2]
     Omh2 = Om * (H0 / 100) ** 2
-    z_drag = cmb.z_drag(wb=Obh2, wm=Omh2)
-    rd = cmb.rs_z(Ez, z_drag, params, H0, Obh2)
+    rd = cmb.r_drag(wb=Obh2, wm=Omh2)
 
     results = np.empty(z.size, dtype=np.float64)
     DV_mask = qty == 0
@@ -253,19 +253,19 @@ Log evidence: -35.9
 Degs of freedom: 34
 
 ** Planck + ACT compression **
-ΔM: -0.130 +0.086 -0.086 mag
-H0: 68.3 +0.3 -0.3 km/s/Mpc
-Ωm: 0.302 +0.004 -0.004
-ωb: 0.02255 +0.00012 -0.00012
-ωm: 0.14093 +0.00062 -0.00061
+ΔM: -0.129 +0.086 -0.087 mag
+H0: 68.4 +0.3 -0.3 km/s/Mpc
+Ωm: 0.301 +0.004 -0.003
+ωb: 0.02257 +0.00010 -0.00010
+ωm: 0.14078 +0.00062 -0.00062
 w0: -1
 wa: 0
-z*: 1088.51 +0.14 -0.14
-r*: 144.82 Mpc
-z_d: 1060.14 +0.27 -0.27
-r_d: 147.35 Mpc
-Chi squared: 46.57
-Log evidence: -37.2
+z*: 1088.13 +0.15 -0.15
+r*: 144.88 Mpc
+z_d: 1060.22 +0.22 -0.23
+r_d: 147.36 Mpc
+Chi squared: 43.39
+Log evidence: -36.0
 Degs of freedom: 34
 
 ** Early-time ΛCDM **
@@ -303,19 +303,19 @@ Log evidence: -38.0 (Δ logZ = -2.1 in favour of ΛCDM)
 Degs of freedom: 33
 
 ** Planck + ACT compression **
-ΔM: -0.139 +0.089 -0.088 mag
-H0: 68.0 +0.7 -0.7 km/s/Mpc
-Ωm: 0.304 +0.006 -0.006
-ωb: 0.02257 +0.00013 -0.00013
-ωm: 0.14065 +0.00080 -0.00081
-w0: -0.984 +0.027 -0.028 (prior width 1.5: -1.5 to 0.0)
+ΔM: -0.144 +0.089 -0.088 mag
+H0: 67.8 +0.7 -0.7 km/s/Mpc
+Ωm: 0.305 +0.006 -0.006
+ωb: 0.02260 +0.00010 -0.00010
+ωm: 0.14033 +0.00081 -0.00081
+w0: -0.976 +0.027 -0.028 (prior width 1.5: -1.5 to 0.0)
 wa: 0
-z*: 1088.46 +0.17 -0.16
-r*: 144.89 Mpc
-z_d: 1060.17 +0.28 -0.28
-r_d: 147.41 Mpc
-Chi squared: 46.23
-Log evidence: -40.1 (Δ logZ = -2.9 in favour of ΛCDM)
+z*: 1088.06 +0.17 -0.17
+r*: 144.99 Mpc
+z_d: 1060.24 +0.23 -0.23
+r_d: 147.47 Mpc
+Chi squared: 42.64
+Log evidence: -38.7 (Δ logZ = -2.7 in favour of ΛCDM)
 Degs of freedom: 33
 
 ** Early-time ΛCDM **
@@ -355,19 +355,19 @@ Log evidence: -35.3 (Δ logZ = 0.6 against ΛCDM)
 Degs of freedom: 33
 
 ** Planck + ACT compression **
-ΔM: -0.167 +0.088 -0.089 mag
-H0: 66.8 +0.8 -0.8 km/s/Mpc
-Ωm: 0.315 +0.008 -0.008
-ωb: 0.02260 +0.00013 -0.00013
-ωm: 0.14031 +0.00071 -0.00070
-w0: -0.881 +0.060 -0.060 (prior width 1.5: -1.5 to 0.0)
+ΔM: -0.171 +0.090 -0.088 mag
+H0: 66.7 +0.8 -0.8 km/s/Mpc
+Ωm: 0.315 +0.008 -0.007
+ωb: 0.02261 +0.00010 -0.00010
+ωm: 0.14011 +0.00071 -0.00071
+w0: -0.871 +0.060 -0.059 (prior width 1.5: -1.5 to 0.0)
 wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-z*: 1088.41 +0.16 -0.15
-r*: 144.96 Mpc
-z_d: 1060.22 +0.27 -0.27
-r_d: 147.47 Mpc
-Chi squared: 42.68
-Log evidence: -37.6 (Δ logZ = -0.4 in favour of ΛCDM)
+z*: 1088.02 +0.16 -0.16
+r*: 145.04 Mpc
+z_d: 1060.25 +0.23 -0.23
+r_d: 147.51 Mpc
+Chi squared: 38.86
+Log evidence: -36.0 (Δ logZ = 0.0 equal to ΛCDM)
 Degs of freedom: 33
 
 ** Early-time ΛCDM **
@@ -406,19 +406,19 @@ Log evidence: -33.4 (Δ logZ = 2.5 against ΛCDM)
 Degs of freedom: 32
 
 ** Planck + ACT compression **
-ΔM: -0.170 +0.088 -0.089 mag
+ΔM: -0.171 +0.088 -0.088 mag
 H0: 66.0 +0.8 -0.8 km/s/Mpc
-Ωm: 0.327 +0.009 -0.008
-ωb: 0.02242 +0.00013 -0.00013
-ωm: 0.14254 +0.00088 -0.00089
-w0: -0.666 +0.089 -0.085 (prior width 1.5: -1.5 to 0.0)
-wa: -1.080 +0.286 -0.304 (prior width 4.0: -3.0 to 1.0)
-z*: 1088.75 +0.18 -0.18
-r*: 144.48 Mpc
-z_d: 1059.98 +0.28 -0.28
-r_d: 147.03 Mpc
-Chi squared: 30.83
-Log evidence: -33.8 (Δ logZ = 3.4 against ΛCDM)
+Ωm: 0.326 +0.008 -0.008
+ωb: 0.02251 +0.00010 -0.00010
+ωm: 0.14218 +0.00089 -0.00091
+w0: -0.683 +0.087 -0.086 (prior width 1.5: -1.5 to 0.0)
+wa: -0.987 +0.284 -0.299 (prior width 4.0: -3.0 to 1.0)
+z*: 1088.33 +0.18 -0.18
+r*: 144.55 Mpc
+z_d: 1060.19 +0.23 -0.23
+r_d: 147.05 Mpc
+Chi squared: 29.72
+Log evidence: -33.6 (Δ logZ = 2.4 against ΛCDM)
 Degs of freedom: 32
 
 ** Early-time ΛCDM **

@@ -15,6 +15,8 @@ cho_bao = cho_factor(bao_cov_matrix, lower=True)[0]
 theta_100 = 1.04110
 theta_100_err = 1.75 * 0.00031
 
+HU_zstar_factor = 0.999979  # best fit on ΛCDM
+
 z_max = np.max(bao_data["z"]) + 0.1
 z_grid = np.linspace(0, z_max, num=1200)
 dx = np.diff(z_grid)
@@ -78,7 +80,7 @@ def bao_theory(z, qty, params):
 
 def theta_100_theory(params):
     H0, Om, Obh2 = params[0], params[1], params[2]
-    z_star = cmb.z_star(wb=Obh2, wm=Om * (H0 / 100) ** 2)
+    z_star = HU_zstar_factor * cmb.z_star_HU(wb=Obh2, wm=Om * (H0 / 100) ** 2)
     rs_star = cmb.rs_z(Ez, z_star, params, H0, Obh2)
     DA_star = cmb.DA_z(Ez, z_star, params, H0)
     return 100 * rs_star / ((1 + z_star) * DA_star)
@@ -181,7 +183,7 @@ def main():
 
     Omh2_samples = samples[:, 1] * (samples[:, 0] / 100) ** 2
     rd_samples = cmb.r_drag(wb=samples[:, 2], wm=Omh2_samples)
-    z_star_samples = cmb.z_star(wb=samples[:, 2], wm=Omh2_samples)
+    z_star_samples = HU_zstar_factor * cmb.z_star_HU(wb=samples[:, 2], wm=Omh2_samples)
     rd_16, rd_50, rd_84 = np.percentile(rd_samples, [15.9, 50, 84.1])
     z_st_16, z_st_50, z_st_84 = np.percentile(z_star_samples, [15.9, 50, 84.1])
 
@@ -192,6 +194,7 @@ def main():
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"r*: {cmb.rs_z(Ez, z_st_50, best_fit, H0_50, Obh2_50):.2f} Mpc")
     print(f"z*: {z_st_50:.2f} +{(z_st_84 - z_st_50):.2f} -{(z_st_50 - z_st_16):.2f}")
+    print(f"100 θ*: {theta_100_theory(best_fit):.5f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Log evidence: {log_evd:.1f}")
 
@@ -217,60 +220,64 @@ Dataset: DESI DR2 2024 + θ∗ + BBN
 *******************************
 
 Flat ΛCDM w(z) = -1
-rd: 148.24 +0.71 -0.70 Mpc
-H0: 68.54 +0.47 -0.47 km/s/Mpc
-Ωm: 0.2961 +0.0046 -0.0045
-ωb: 0.02217 +0.00053 -0.00053
+rd: 147.79 +0.70 -0.69 Mpc
+H0: 68.69 +0.46 -0.46 km/s/Mpc
+Ωm: 0.2975 +0.0045 -0.0044
+ωb: 0.02219 +0.00053 -0.00053
 w0: -1
 wa: 0
-r*: 145.50 Mpc
-z*: 1088.81 +0.55 -0.53
-Chi squared: 10.31
+r*: 144.90 Mpc
+z*: 1091.93 +0.72 -0.70
+100 θ*: 1.04110
+Chi squared: 10.29
 Log evidence: -15.5
 Degs of freedom: 12
 
 ===============================
 
 Flat wCDM w(z) = w0
-rd: 148.45 +0.77 -0.75 Mpc
-H0: 67.76 +1.12 -1.10 km/s/Mpc
-Ωm: 0.3006 +0.0076 -0.0076
-ωb: 0.02223 +0.00054 -0.00054
-w0: -0.962 +0.048 -0.050 (prior width 1.5: -1.5 to 0.0)
+rd: 147.96 +0.74 -0.74 Mpc
+H0: 68.08 +1.13 -1.08 km/s/Mpc
+Ωm: 0.3013 +0.0076 -0.0077
+ωb: 0.02224 +0.00053 -0.00054
+w0: -0.970 +0.047 -0.049 (prior width 1.5: -1.5 to 0.0)
 wa: 0
-r*: 145.75 Mpc
-z*: 1088.66 +0.58 -0.56
-Chi squared: 9.63
-Log evidence: -17.7
+r*: 145.08 Mpc
+z*: 1091.78 +0.76 -0.72
+100 θ*: 1.04105
+Chi squared: 9.87
+Log evidence: -17.8
 Degs of freedom: 11
 
 ===============================
 
 Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
-rd: 148.41 +0.73 -0.72 Mpc
-H0: 66.73 +1.61 -1.53 km/s/Mpc
-Ωm: 0.3102 +0.0131 -0.0130
-ωb: 0.02224 +0.00053 -0.00054
-w0: -0.860 +0.117 -0.120 (prior width 1.5: -1.5 to 0.0)
+rd: 147.93 +0.71 -0.71 Mpc
+H0: 67.12 +1.61 -1.55 km/s/Mpc
+Ωm: 0.3100 +0.0133 -0.0131
+ωb: 0.02226 +0.00054 -0.00053
+w0: -0.879 +0.117 -0.119
 wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-r*: 145.71 Mpc
-z*: 1088.66 +0.57 -0.53
-Chi squared: 8.92
-Log evidence: -16.4
+r*: 145.06 Mpc
+z*: 1091.76 +0.73 -0.71
+100 θ*: 1.04110
+Chi squared: 9.23
+Log evidence: -16.6
 Degs of freedom: 11
 
 ===============================
 
 Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
-rd: 147.56 +0.85 -0.81 Mpc
-H0: 63.65 +2.52 -2.48 km/s/Mpc
-Ωm: 0.3509 +0.0329 -0.0297
-ωb: 0.02211 +0.00054 -0.00055
-w0: -0.447 +0.335 -0.298 (prior width 4.0: -2.5 to 1.5)
-wa: -1.637 +0.936 -1.082 (prior width 12.0: -8.0 to 4.0)
-r*: 144.74 Mpc
-z*: 1089.07 +0.61 -0.59
-Chi squared: 7.14
-Log evidence: -18.8
+rd: 147.03 +0.84 -0.78 Mpc
+H0: 63.80 +2.48 -2.51 km/s/Mpc
+Ωm: 0.3527 +0.0326 -0.0290
+ωb: 0.02210 +0.00055 -0.00055
+w0: -0.438 +0.333 -0.294 (prior width 4.0: -2.5 to 1.5)
+wa: -1.681 +0.922 -1.058 (prior width 12.0: -8.0 to 4.0)
+r*: 144.12 Mpc
+z*: 1092.31 +0.80 -0.77
+100 θ*: 1.04100
+Chi squared: 6.85
+Log evidence: -18.7
 Degs of freedom: 10
 """
