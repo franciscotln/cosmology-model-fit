@@ -139,7 +139,7 @@ def main():
     ndim = len(bounds)
     nwalkers = 100
     burn_in = 100
-    nsteps = 1000 + burn_in
+    nsteps = 1200 + burn_in
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
     moves = [
         (emcee.moves.KDEMove(), 0.30),
@@ -165,14 +165,22 @@ def main():
     chains_samples = sampler.get_chain(discard=burn_in, flat=False)
 
     pct = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
-    Om_16, Om_50, Om_84 = pct[0]
-    s8_16, s8_50, s8_84 = pct[1]
-    w0_16, w0_50, w0_84 = pct[2]
-    f_16, f_50, f_84 = pct[3]
+    [
+        (Om_16, Om_50, Om_84),
+        (s8_16, s8_50, s8_84),
+        (w0_16, w0_50, w0_84),
+        (f_16, f_50, f_84),
+    ] = pct
 
+    # Power 0.14205 yields 0 correlation with Ωm
     S8_samples = samples[:, 1] * (samples[:, 0] / 0.3) ** 0.5
+    S8_chains_samples = chains_samples[:, :, 1] * (chains_samples[:, :, 0] / 0.3) ** 0.5
+
     S8_16, S8_50, S8_84 = np.percentile(S8_samples, [15.9, 50, 84.1])
     best_fit = np.percentile(samples, 50, axis=0)
+
+    samples = np.hstack((S8_samples[:, None], samples))
+    chains_samples = np.dstack((S8_chains_samples, chains_samples))
 
     print(f"Ωm = {Om_50:.3f} +{Om_84-Om_50:.3f} -{Om_50-Om_16:.3f}")
     print(f"σ8 = {s8_50:.3f} +{s8_84-s8_50:.3f} -{s8_50-s8_16:.3f}")
@@ -181,7 +189,7 @@ def main():
     print(f"f = {f_50:.2f} +{f_84-f_50:.2f} -{f_50-f_16:.2f}")
     print(f"chi2 = {chi_squared(best_fit):.2f}")
 
-    labels = ["$Ω_m$", "$\sigma_8$", "$w_0$", "$f_{err}$"]
+    labels = ["$S_8$", "$Ω_m$", "$\sigma_8$", "$w_0$", "$f_{err}$"]
     plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
 
     z_plot = np.linspace(0, np.max(z_data), 200)
