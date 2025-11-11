@@ -1,7 +1,7 @@
 from numba import njit
 import numpy as np
 from scipy.linalg import cho_factor, solve_triangular
-import cmb.data_chen_compression as cmb
+import cmb.data_planck_act_compression as cmb
 from y2024DES.data import get_data, effective_sample_size as sn_size
 from y2025BAO.data import get_data as get_bao_data
 
@@ -18,7 +18,7 @@ cho_bao = cho_factor(cov_matrix_bao, lower=True)[0]
 Planck compressed priors for π/θ* and ωb, without the shift parameter R (arXiv:1808.05724v1)
 The geometry is constrained by θ* and the sound horizon by ωb.
 """
-cho_cmb = cho_factor(cmb.covariance_wcdm[1:, 1:], lower=True)[0]
+cho_cmb = cho_factor(cmb.covariance[1:, 1:], lower=True)[0]
 
 z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
 z_grid = np.linspace(0, z_max, num=1200)
@@ -96,7 +96,7 @@ def solve_triang(cho_L, delta):
 def chi_squared(theta):
     H0, Om, Obh2 = theta[0], theta[1], theta[2]
 
-    delta_cmb = cmb.DISTANCE_PRIORS_WCDM - cmb.cmb_distances(Ez, theta, H0, Om, Obh2)
+    delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez, theta, H0, Om, Obh2)
     chi2_cmb = solve_triang(cho_cmb, delta_cmb[1:])
 
     delta_sn = mu_values - theory_mu(theta)
@@ -264,20 +264,20 @@ Chi squared: 1661.47
 Log Evidence: -847.53
 Degrees of freedom: 1746
 
-** Planck + ATC cmb compression **
-H0: 68.46 +0.29 -0.29 km/s/Mpc
+** Planck + ATC DR6 compression **
+H0: 68.44 +0.28 -0.28 km/s/Mpc
 Ωm: 0.299 +0.004 -0.004
-ωm: 0.1399 +0.0008 -0.0008
-ωb: 0.02235 +0.00014 -0.00014
+ωm: 0.1401 +0.0008 -0.0008
+ωb: 0.02249 +0.00011 -0.00011
 w0: -1
 wa: 0
-z_d: 1059.63 +0.33 -0.33
-r_d: 147.78 Mpc
-z*: 1088.65 +0.15 -0.15
-r*: 145.18 Mpc
+z_d: 1058.24 +0.26 -0.26
+r_d: 147.77 Mpc
+z*: 1088.19 +0.15 -0.15
+r*: 145.09 Mpc
 R: 1.740
-Chi squared: 1662.12
-Log Evidence: -847.91
+Chi squared: 1661.81
+Log Evidence: -848.13
 Degrees of freedom: 1746
 
 ** Early ΛCDM **
@@ -316,20 +316,20 @@ Chi squared: 1650.22
 Log Evidence: -845.06 (Δ logZ = 2.47 against ΛCDM)
 Degrees of freedom: 1745
 
-** Planck + ATC cmb compression **
-H0: 66.67 +0.57 -0.57 km/s/Mpc
+** Planck + ATC DR6 compression **
+H0: 66.69 +0.58 -0.57 km/s/Mpc
 Ωm: 0.308 +0.005 -0.005
-ωm: 0.1367 +0.0012 -0.0012
-ωb: 0.02238 +0.00014 -0.00014
-w0: -0.909 +0.025 -0.025 (prior width 1.5: -1.5 to 0.0)
+ωm: 0.1370 +0.0013 -0.0012
+ωb: 0.02250 +0.00011 -0.00011
+w0: -0.911 +0.025 -0.025 (prior width 1.5: -1.5 to 0.0)
 wa: 0
-z_d: 1059.46 +0.34 -0.34
-r_d: 148.63 Mpc
-z*: 1088.41 +0.17 -0.17
-r*: 146.02 Mpc
-R: 1.730
-Chi squared: 1649.88
-Log Evidence: -844.96 (Δ logZ = 2.95 against ΛCDM)
+z_d: 1058.03 +0.27 -0.27
+r_d: 148.62 Mpc
+z*: 1087.90 +0.18 -0.18
+r*: 145.92 Mpc
+R: 1.731
+Chi squared: 1650.02
+Log Evidence: -845.40 (Δ logZ = 2.73 against ΛCDM)
 Degrees of freedom: 1745
 
 ** Early ΛCDM **
@@ -368,20 +368,20 @@ Chi squared: 1646.94
 Log Evidence: -842.93 (Δ logZ = 4.60 against ΛCDM)
 Degrees of freedom: 1745
 
-** Planck + ATC cmb compression **
+** Planck + ATC DR6 compression **
 H0: 66.52 +0.55 -0.55 km/s/Mpc
-Ωm: 0.312 +0.005 -0.005
-ωm: 0.1381 +0.0009 -0.0009
-ωb: 0.02238 +0.00014 -0.00014
-w0: -0.834 +0.041 -0.040 (prior width 1.5: -1.5 to 0.0)
+Ωm: 0.313 +0.005 -0.005
+ωm: 0.1383 +0.0009 -0.0009
+ωb: 0.02250 +0.00011 -0.00011
+w0: -0.836 +0.041 -0.041 (prior width 1.5: -1.5 to 0.0)
 wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-z_d: 1059.55 +0.33 -0.33
+z_d: 1058.13 +0.26 -0.26
 r_d: 148.26 Mpc
-z*: 1088.50 +0.16 -0.16
-r*: 145.66 Mpc
-R: 1.734
-Chi squared: 1646.69
-Log Evidence: -842.88 (Δ logZ = 5.03 against ΛCDM)
+z*: 1088.02 +0.16 -0.16
+r*: 145.57 Mpc
+R: 1.735
+Chi squared: 1646.80
+Log Evidence: -843.31 (Δ logZ = 4.82 against ΛCDM)
 Degrees of freedom: 1745
 
 ** Early ΛCDM **
@@ -421,20 +421,20 @@ Chi squared: 1645.79
 Log Evidence: -844.21 (Δ logZ = 3.32 against ΛCDM)
 Degrees of freedom: 1744
 
-** Planck + ATC cmb compression **
-H0: 66.73 +0.56 -0.56 km/s/Mpc
-Ωm: 0.315 +0.006 -0.006
-ωm: 0.1404 +0.0017 -0.0018
-ωb: 0.02237 +0.00014 -0.00014
-w0: -0.794 +0.061 -0.058 (prior width 1.5: -1.5 to 0.0)
-wa: -0.578 +0.268 -0.283 (prior width 3.5: -2.5 to 1.0)
-z_d: 1059.70 +0.34 -0.35
-r_d: 147.67 Mpc
-z*: 1088.66 +0.19 -0.19
-r*: 145.09 Mpc
-R: 1.742
-Chi squared: 1645.96
-Log Evidence: -844.35 (Δ logZ = 3.56 against ΛCDM)
+** Planck + ATC DR6 compression **
+H0: 66.74 +0.56 -0.55 km/s/Mpc
+Ωm: 0.316 +0.006 -0.006
+ωm: 0.1407 +0.0017 -0.0018
+ωb: 0.02249 +0.00011 -0.00011
+w0: -0.791 +0.061 -0.060 (prior width 1.5: -1.5 to 0.0)
+wa: -0.594 +0.269 -0.282 (prior width 3.5: -2.5 to 1.0)
+z_d: 1058.29 +0.28 -0.28
+r_d: 147.63 Mpc
+z*: 1088.23 +0.20 -0.21
+r*: 144.96 Mpc
+shift parameter R: 1.742
+Chi squared: 1645.78
+Log Evidence: -844.65 (Δ logZ = 3.48 against ΛCDM)
 Degrees of freedom: 1744
 
 ** Early ΛCDM **
