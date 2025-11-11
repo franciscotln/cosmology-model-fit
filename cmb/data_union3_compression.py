@@ -6,15 +6,11 @@ from scipy.constants import c as c0
 c = c0 / 1000  # km/s
 
 # --- PLANCK PRIORS (Rubin+ arXiv:2311.12098v2) ---
-# θ ≡ rs(z*) / DM(z*)
 # R ≡ √(Ωm H0²) * DA(z*) * (1 + z*) / c
+# 100 θ* ≡ 100 rs(z*) / DM(z*)
+# ωb = Ωb h²
 DISTANCE_PRIORS = np.array(
-    [
-        1.7492768568335353,  # R
-        1.039233410719115,  # 100 θ
-        0.02239245,  # ωb
-    ],
-    dtype=np.float64,
+    [1.7492768568335353, 1.039233410719115, 0.02239245], dtype=np.float64
 )
 inv_cov_mat = np.array(
     [

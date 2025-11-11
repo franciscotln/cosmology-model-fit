@@ -6,14 +6,8 @@ from scipy.constants import c as c0
 c = c0 / 1000  # km/s
 
 # Chen+2018 arXiv:1808.05724v1
-DISTANCE_PRIORS = np.array(
-    [
-        1.750235,  # R
-        301.4707,  # lA = π / θ*
-        0.02235976,  # ωb
-    ],
-    dtype=np.float64,
-)
+# R, lA = π / θ*, ωb = Ωb h^2
+DISTANCE_PRIORS = np.array([1.750235, 301.4707, 0.02235976], dtype=np.float64)
 inv_cov_mat = np.array(
     [
         [94392.3971, -1360.4913, 1664517.2916],

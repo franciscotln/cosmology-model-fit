@@ -13,14 +13,8 @@ from scipy.constants import c as c0
 c = c0 / 1000  # km/s
 
 # arXiv:2503.14452v2 P-ACT baseline LCDM constraints
-DISTANCE_PRIORS = np.array(
-    [
-        1.74800862,  # R
-        301.802768,  # lA = π / θ*
-        0.0224967038,  # ωb
-    ],
-    dtype=np.float64,
-)
+# R, lA = π / θ*, ωb = Ωb h^2
+DISTANCE_PRIORS = np.array([1.74800862, 301.802768, 0.0224967038], dtype=np.float64)
 covariance = np.array(
     [
         [1.53695593e-05, 1.06033525e-04, -2.09800310e-07],

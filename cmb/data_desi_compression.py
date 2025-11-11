@@ -5,6 +5,7 @@ from scipy.constants import c as c0
 
 c = c0 / 1000  # km/s
 
+# θ*, Obh2, Omh2
 DISTANCE_PRIORS = np.array([0.010410274, 0.02223, 0.14208], dtype=np.float64)
 covariance = 1e-9 * np.array(
     [

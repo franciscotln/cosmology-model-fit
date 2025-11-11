@@ -12,7 +12,7 @@ from numba import njit
 
 c = c0 / 1000  # km/s
 
-# 100 x theta*, Obh2, Omh2
+# 100 θ*, Obh2, Omh2
 DISTANCE_PRIORS = np.array([1.04075356, 0.02259009, 0.14702022], dtype=np.float64)
 covariance = np.array(
     [
