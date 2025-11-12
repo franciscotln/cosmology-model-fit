@@ -35,7 +35,7 @@ def Omega_r_h2(Neff=N_EFF):
 @njit
 def z_star(wb, wm):
     """arXiv:astro-ph/9510117v2 (eq-1)"""
-    SCALING_FID = 0.997026  # reproduces θ* from integrals on r* and DA*
+    SCALING_FID = 0.9981950308412795  # reproduces z* from mcsamples
 
     g1 = 0.0783 * wb**-0.238 / (1 + 39.5 * wb**0.763)
     g2 = 0.560 / (1 + 21.1 * wb**1.81)
@@ -47,7 +47,7 @@ def z_star(wb, wm):
 @njit
 def r_drag(wb, wm):
     """arXiv:2106.00428v2 (eq 8)"""
-    SCALING_FID = 1.001067865
+    SCALING_FID = 1.001067940891529  # reproduces rdrag from mcsamples
 
     a1 = 0.00257366
     a2 = 0.05032
@@ -68,7 +68,7 @@ def r_drag(wb, wm):
 @njit
 def z_drag(wb, wm):
     """arXiv:2106.00428v2 (eq A2)"""
-    SCALING_FID = 0.998421  # reproduces rdrag from integral
+    SCALING_FID = 1.000042094274071  # reproduces zdrag from mcsamples
 
     return (
         SCALING_FID
@@ -100,26 +100,3 @@ def cmb_distances(Ez_func, params, H0, Om, Ob_h2):
     DM_star = (1 + zstar) * DA_z(Ez_func, zstar, params, H0)
     thetastar = rs_star / DM_star
     return np.array([100 * thetastar, rs_drag], dtype=np.float64)
-
-
-"""
-correlation matrix:
-         θ* mc       θ* comp
-θ* mc   [[1.         0.99941485]
-θ* comp  [0.99941485 1.        ]]
-
- θ* mc   θ* comp
-[1.04075 1.04075]
-[0.00031 0.00031]
-"""
-
-"""
-correlation matrix using z_drag formula:
-            rdrag       rdrag_comp
-rdrag      [[1.         0.99999724]
-rdrag_comp  [0.99999724 1.        ]]
-
-rdrag, rdrag_com
-[145.87780 145.87780]
-[0.56280 0.56127]
-"""
