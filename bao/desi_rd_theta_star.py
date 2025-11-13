@@ -6,7 +6,8 @@ from y2025BAO.data import get_data as get_bao_data
 import y2025cmb_actbase_lcdm_camb.data as cmb
 
 c = c0 / 1000  # Speed of light in km/s
-Orh2 = cmb.Omega_r_h2()
+Orh2 = cmb.Omega_r_h2(2.044)
+Omnu_h2 = cmb.Omnu_h2
 
 bao_legend, bao_data, bao_cov_matrix = get_bao_data()
 cho_bao = cho_factor(bao_cov_matrix, lower=True)[0]
@@ -16,19 +17,21 @@ dx = np.diff(z_grid)
 
 
 @njit
-def Ez(z, params):
-    h, Om, w0 = params[1] / 100, params[2], params[3]
-    Or = Orh2 / h**2
-    Ol = 1 - Om - Or
+def Ez(z, Obc, Or, w0=-1, wa=0):
+    Ol = 1 - Obc - Or
     inv_a = 1 + z
     cubic = inv_a**3
     rho_de = (4 * cubic / (1 + 3 * cubic)) ** (4 * (1 + w0))
-    return np.sqrt(Or * inv_a**4 + Om * cubic + Ol * rho_de)
+    return np.sqrt(Or * inv_a**4 + Obc * cubic + Ol * rho_de)
 
 
 @njit
 def H_z(z, params):
-    return params[1] * Ez(z, params)
+    H0, Obh2, Och2, w0 = params
+    h = H0 / 100
+    Obc = (Obh2 + Och2 + Omnu_h2) / h**2
+    Or = Orh2 / h**2
+    return H0 * Ez(z, Obc, Or, w0)
 
 
 @njit
@@ -74,7 +77,7 @@ def solve_triang(cho_L, delta):
 
 
 def chi_squared(params):
-    distances = cmb.cmb_distances(Ez, params, params[1], params[2], params[0])
+    distances = cmb.cmb_distances(Ez, *params)
     rd = distances[1]
     delta_cmb = cmb.DISTANCE_PRIORS - distances
     chi2_cmb = delta_cmb @ cmb.inv_cov_mat @ delta_cmb
@@ -87,9 +90,9 @@ def chi_squared(params):
 
 bounds = np.array(
     [
-        (0.010, 0.030),  # Obh2
         (60, 75),  # H0
-        (0.1, 0.6),  # Ωm
+        (0.010, 0.030),  # Obh2
+        (0.01, 0.3),  # Och2
         (-1.5, 0.0),  # w0
     ],
     dtype=np.float64,
@@ -154,22 +157,24 @@ def main():
 
     best_fit = np.percentile(samples, 50, axis=0)
     pct = np.percentile(samples, [15.9, 50, 84.1], axis=0)
-    obh2_err, H0_err, Om_err, w0_err = np.diff(pct, axis=0).T
+    H0_err, obh2_err, och2_err, w0_err = np.diff(pct, axis=0).T
 
-    Omh2_samples = samples[:, 2] * (samples[:, 1] / 100) ** 2
-    Omh2_50 = np.percentile(Omh2_samples, 50)
-    Omh2_err = np.diff(np.percentile(Omh2_samples, [15.9, 50, 84.1]))
+    Om_h2_samples = np.full_like(samples[:, 0], Omnu_h2) + samples[:, 1] + samples[:, 2]
+    Om_samples = Om_h2_samples / (samples[:, 0] / 100) ** 2
+    Om_h2_50 = np.percentile(Om_h2_samples, 50)
+    Om_h2_err = np.diff(np.percentile(Om_h2_samples, [15.9, 50, 84.1]))
+    Om_50 = np.percentile(Om_samples, 50)
+    Om_err = np.diff(np.percentile(Om_samples, [15.9, 50, 84.1]))
 
-    thetastar_best, rd_best = cmb.cmb_distances(
-        Ez, best_fit, best_fit[1], best_fit[2], best_fit[0]
-    )
+    thetastar_best, rd_best = cmb.cmb_distances(Ez, *best_fit)
 
     print("Gelman-Rubin:", gelman_rubin(chains_samples))
-    print(f"ωb: {best_fit[0]:.5f} +{obh2_err[1]:.5f} -{obh2_err[0]:.5f}")
-    print(f"H0: {best_fit[1]:.2f} +{H0_err[1]:.2f} -{H0_err[0]:.2f} km/s/Mpc")
-    print(f"Ωm: {best_fit[2]:.3f} +{Om_err[1]:.3f} -{Om_err[0]:.3f}")
+    print(f"H0: {best_fit[0]:.2f} +{H0_err[0]:.2f} -{H0_err[0]:.2f} km/s/Mpc")
+    print(f"ωb: {best_fit[1]:.5f} +{obh2_err[1]:.5f} -{obh2_err[0]:.5f}")
+    print(f"ωc: {best_fit[2]:.5f} +{och2_err[1]:.5f} -{och2_err[0]:.5f}")
     print(f"w0: {best_fit[3]:.3f} +{w0_err[1]:.3f} -{w0_err[0]:.3f}")
-    print(f"ωm: {Omh2_50:.5f} +{Omh2_err[1]:.5f} -{Omh2_err[0]:.5f}")
+    print(f"ωm: {Om_h2_50:.5f} +{Om_h2_err[1]:.5f} -{Om_h2_err[0]:.5f}")
+    print(f"Ωm: {Om_50:.4f} +{Om_err[1]:.4f} -{Om_err[0]:.4f}")
     print(f"rdrag: {rd_best:.2f} Mpc")
     print(f"100 θ*: {thetastar_best:.5f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
@@ -183,7 +188,7 @@ def main():
         title=bao_legend,
     )
     plot_corner_and_chains(
-        labels=["$ω_b$", "$H_0$", "$Ω_m$", "$w_0$"],
+        labels=["$H_0$", "$ω_b$", "$ω_c$", "$w_0$"],
         flat_samples=samples,
         samples=chains_samples,
     )
@@ -199,67 +204,113 @@ DESI BAO DR2 2025 + (100 θ*, rdrag)CMB
 
 Flat ΛCDM w(z) = -1
 
--- ACT DR6 --
-H0: 69.82 +0.52 -0.51 km/s/Mpc
-ωb: 0.02413 +0.00051 -0.00050
-ωm: 0.14172 +0.00084 -0.00083
-Ωm: 0.291 +0.005 -0.005
+-- ACT DR6 + Planck --
+H0: 69.15 +0.43 -0.43 km/s/Mpc
+ωb: 0.02314 +0.00030 -0.00030
+ωc: 0.11659 +0.00074 -0.00073
+Ωm: 0.2936 +0.0047 -0.0046
 w0: -1
 wa: 0
-rdrag: 145.98 Mpc
+rdrag: 147.16 Mpc
+100 θ*: 1.04095
+Chi squared: 10.54
+Log Evidence: -17.99
+Degs of freedom: 11
+
+-- ACT DR6 --
+H0: 69.82 +0.51 -0.51 km/s/Mpc
+ωb: 0.02413 +0.00051 -0.00050
+ωc: 0.11696 +0.00076 -0.00075
+ωm: 0.14174 +0.00084 -0.00083
+Ωm: 0.2907 +0.0047 -0.0047
+w0: -1
+wa: 0
+rdrag: 145.97 Mpc
 100 θ*: 1.04079
-Chi squared: 11.14
-Log Evidence: -17.32
+Chi squared: 11.15
+Log Evidence: -17.50
 Degs of freedom: 11
 
 ===============================
 
 Flat wCDM w(z) = w0
 
--- ACT DR6 --
-H0: 68.57 +1.00 -0.96 km/s/Mpc
-ωb: 0.02472 +0.00069 -0.00066
-ωm: 0.14034 +0.00129 -0.00134
-Ωm: 0.298 +0.007 -0.007
-w0: -0.928 +0.048 -0.051 (prior width 1.5: -1.5 to 0.0)
+-- ACT DR6 + Planck --
+H0: 68.18 +0.95 -0.95 km/s/Mpc
+ωb: 0.02352 +0.00049 -0.00046
+ωc: 0.11513 +0.00157 -0.00164
+Ωm: 0.2996 +0.0071 -0.0073
+w0: -0.945 +0.049 -0.052 (prior width 1.5: -1.5 to 0.0)
 wa: 0
-rdrag: 145.87 Mpc
-100 θ*: 1.04073
-Chi squared: 9.10
-Log Evidence: -18.78
+rdrag: 147.13 Mpc
+100 θ*: 1.04093
+Chi squared: 9.30
+Log Evidence: -19.86
+Degs of freedom: 10
+
+-- ACT DR6 --
+H0: 68.61 +0.96 -0.96 km/s/Mpc
+ωb: 0.02472 +0.00068 -0.00067
+ωc: 0.11502 +0.00161 -0.00169
+ωm: 0.14038 +0.00130 -0.00136
+Ωm: 0.2982 +0.0070 -0.0071
+w0: -0.929 +0.049 -0.050 (prior width 1.5: -1.5 to 0.0)
+wa: 0
+rdrag: 145.85 Mpc
+100 θ*: 1.04071
+Chi squared: 9.12
+Log Evidence: -18.98
 Degs of freedom: 10
 
 ===============================
 
 Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)**3)
 
--- ACT DR6 --
-H0: 67.34 +1.55 -1.44 km/s/Mpc
-ωb: 0.02456 +0.00058 -0.00058
-ωm: 0.14084 +0.00100 -0.00100
-Ωm: 0.311 +0.013 -0.013
-w0: -0.798 +0.115 -0.120 (prior width 1.5: -1.5 to 0.0)
+-- ATC DR6 + Planck --
+H0: 67.11 +1.48 -1.48 km/s/Mpc
+ωb: 0.02343 +0.00037 -0.00038
+ωc: 0.11550 +0.00111 -0.00110
+ωm: 0.13957 +0.00089 -0.00088
+Ωm: 0.3099 +0.0132 -0.0128
+w0: -0.834 +0.119 -0.122 (prior width 1.5: -1.5 to 0.0)
+wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
+rdrag: 147.13 Mpc
+100 θ*: 1.04095
+Chi squared: 8.54
+Log Evidence: -18.66
+Degs of freedom: 10
+
+-- ATC DR6 --
+H0: 67.43 +1.46 -1.46 km/s/Mpc
+ωb: 0.02455 +0.00057 -0.00057
+ωc: 0.11567 +0.00111 -0.00112
+ωm: 0.14086 +0.00100 -0.00100
+Ωm: 0.3098 +0.0129 -0.0127
+w0: -0.805 +0.116 -0.119 (prior width 1.5: -1.5 to 0.0)
 wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
 rdrag: 145.86 Mpc
 100 θ*: 1.04074
 Chi squared: 8.34
-Log Evidence: -17.53
+Log Evidence: -17.79
 Degs of freedom: 10
 
 ===============================
 
 Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
 
--- ACT DR6 --
-H0: 65.19 +2.63 -2.62 km/s/Mpc
-ωb: 0.02372 +0.00091 -0.00076
-ωm: 0.14307 +0.00167 -0.00212
-Ωm: 0.337 +0.032 -0.029
-w0: -0.559 +0.314 -0.278
-wa: -1.206 +0.889 -1.017
-rdrag: 145.96 Mpc
-100 θ*: 1.04068
-Chi squared: 7.88
-Log Evidence: -19.90
+-- ACT DR6 + Planck --
+H0: 64.36 +2.40 -2.40 km/s/Mpc
+ωb: 0.02256 +0.00065 -0.00053
+ωc: 0.11903 +0.00187 -0.00244
+w0: -0.514 +0.298 -0.280
+wa: -1.406 +0.907 -0.972
+Ωm: 0.3432 +0.0299 -0.0290
+rdrag: 147.15 Mpc
+100 θ*: 1.04088
+Chi squared: 7.24
+Log Evidence: -21.58
 Degs of freedom: 9
+
+-- ACT DR6 --
+TODO
 """

@@ -22,44 +22,32 @@ N_EFF = 3.046
 TCMB = 2.7255  # K
 O_GAMMA_H2 = 2.4729e-5
 
+T_nu0 = (4 / 11) ** (1 / 3) * TCMB  # K
+T_nu0_eV = T_nu0 * 8.617333262e-5  #  1.67639e-04 eV
+mnu_tot = 0.06  # total mass [eV]
+Omnu_h2 = mnu_tot / 93.14  # present-day Omega_nu*h^2
+z_nr = mnu_tot / (3.15 * T_nu0_eV)
+
 
 def Omega_r_h2(Neff=N_EFF):
     return O_GAMMA_H2 * (1 + 0.2271 * Neff)
 
 
-@njit
-def Or(h, Om):
-    """arXiv:astro-ph/9709112v1 (eq-2)"""
-    # z_eq = 2.5 x 10^4 x Ωm x h^2 x (2.7 / TCMB)^4
-    # Probably 2.482 x 10^4 is rounded
-    z_eq = 24077.44 * Om * h**2
-    return Om / (1 + z_eq)
+Orh2_h_z = Omega_r_h2(3.044)
+Orh2_l_z = Omega_r_h2(2.044)
 
 
 @njit
 def z_star(wb, wm):
-    """arXiv:2106.00428v2 (eq A4)"""
-    return (391.672 * wm ** (-0.372296) + 937.422 * wb ** (-0.97966)) / (
-        wm ** (-0.0192951) * wb ** (-0.93681)
-    ) + wm ** (-0.731631)
-
-
-@njit
-def z_star_HU(wb, wm):
     """arXiv:astro-ph/9510117v2 (eq-1)"""
+    # SCALING_FACTOR = 0.9962 matches H0
+    SCALING_FACTOR = 0.9974
+
     g1 = 0.0783 * wb**-0.238 / (1 + 39.5 * wb**0.763)
     g2 = 0.560 / (1 + 21.1 * wb**1.81)
     factor_1 = 1 + 0.00124 * wb**-0.738
     factor_2 = 1 + g1 * wm**g2
-    return 1048 * factor_1 * factor_2
-
-
-@njit
-def z_drag_HU(wb, wm):
-    """arXiv:astro-ph/9510117v2 (eq-2)"""
-    b1 = 0.313 * wm**-0.419 * (1 + 0.607 * wm**0.674)
-    b2 = 0.238 * wm**0.223
-    return 1345 * wm**0.251 * (1 + b1 * wb**b2) / (1 + 0.659 * wm**0.828)
+    return SCALING_FACTOR * 1048 * factor_1 * factor_2
 
 
 @njit
@@ -68,34 +56,6 @@ def z_drag(wb, wm):
     return (
         1 + 428.169 * wb**0.256459 * wm**0.616388 + 925.56 * wm**0.751615
     ) * wm**-0.714129
-
-
-def rs_z(Ez_func, z, params, H0, Ob_h2):
-    """Sound horizon at redshift z."""
-    Rb = 3 * Ob_h2 / (4 * O_GAMMA_H2)
-
-    def integrand(a):
-        denom = a**2 * Ez_func(1 / a - 1, params) * np.sqrt(3 * (1 + Rb * a))
-        return c / denom
-
-    return quad(integrand, 0, 1 / (1 + z))[0] / H0
-
-
-def DA_z(Ez_func, z, params, H0):
-    I = quad(lambda zp: c / Ez_func(zp, params), 0, z)[0]
-    return (I / H0) / (1.0 + z)
-
-
-def cmb_distances(Ez_func, params, H0, Om, Ob_h2):
-    Om_h2 = Om * (H0 / 100) ** 2
-    zstar = z_star(wb=Ob_h2, wm=Om_h2)
-    rs_star = rs_z(Ez_func, zstar, params, H0, Ob_h2)
-    DA_star = DA_z(Ez_func, zstar, params, H0)
-    DM_star = (1 + zstar) * DA_star
-
-    R = 100 * np.sqrt(Om_h2) * DM_star / c
-    lA = np.pi * DM_star / rs_star
-    return np.array([R, lA, Ob_h2])
 
 
 @njit
@@ -115,6 +75,41 @@ def r_drag(wb, wm):
     term_A = 1.0 / term_A_denominator
     term_B = a8 / (wm**a9)
     return term_A - term_B
+
+
+def rs_z(Ez_func, z_lim, H0, Obh2, Och2, w0=-1, wa=0):
+    h = H0 / 100
+    Rb = 3 * Obh2 / (4 * O_GAMMA_H2)
+    Obc = (Och2 + Obh2) / h**2
+    Or = Orh2_h_z / h**2
+
+    def integrand(a):
+        denom = a**2 * Ez_func(1 / a - 1, Obc, Or, w0, wa) * np.sqrt(3 * (1 + Rb * a))
+        return 1 / denom
+
+    return (c / H0) * quad(integrand, 1e-09, 1 / (1 + z_lim))[0]
+
+
+def DM_z(Ez_func, z_lim, H0, Obh2, Och2, w0=-1, wa=0):
+    h = H0 / 100
+    Obc = (Och2 + Obh2) / h**2
+    Omnu = Omnu_h2 / h**2
+    Or_l_z = Orh2_l_z / h**2
+    Or_h_z = Orh2_h_z / h**2
+    int_l_z, _ = quad(lambda z: 1 / Ez_func(z, Obc + Omnu, Or_l_z, w0, wa), 0, z_nr)
+    int_h_z, _ = quad(lambda z: 1 / Ez_func(z, Obc, Or_h_z, w0, wa), z_nr, z_lim)
+    return (int_l_z + int_h_z) * c / H0
+
+
+def cmb_distances(Ez_func, H0, Ob_h2, Oc_h2, w0=-1, wa=0):
+    Om_h2 = Oc_h2 + Ob_h2 + Omnu_h2
+    zstar = z_star(wb=Ob_h2, wm=Om_h2)
+    rs_star = rs_z(Ez_func, zstar, H0, Ob_h2, Oc_h2, w0, wa)
+    DM_star = DM_z(Ez_func, zstar, H0, Ob_h2, Oc_h2, w0, wa)
+
+    R = 100 * np.sqrt(Om_h2) * DM_star / c
+    lA = np.pi * DM_star / rs_star
+    return np.array([R, lA, Ob_h2])
 
 
 # R, lA = π / θ*, Ωb h^2

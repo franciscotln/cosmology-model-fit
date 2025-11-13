@@ -1,31 +1,27 @@
 from numba import njit
 import numpy as np
-import cmb.data_desi_compression as cmb
+import cmb.data_chen_compression as cmb
 
 Or_h2 = cmb.Omega_r_h2()
 
 
 @njit
-def Ez(z, params):
-    h, Om = params[0] / 100, params[1]
-    Or = Or_h2 / h**2
-    Ode = 1 - Om - Or
+def Ez(z, Obc, Or, w0=-1, wa=0):
+    Ode = 1 - Obc - Or
     one_plus_z = 1 + z
-
-    return np.sqrt(Or * one_plus_z**4 + Om * one_plus_z**3 + Ode)
+    return np.sqrt(Or * one_plus_z**4 + Obc * one_plus_z**3 + Ode)
 
 
 def chi_squared(params):
-    H0, Om, Ob_h2 = params
-    delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez, params, H0, Om, Ob_h2)
+    delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez, *params)
     return np.dot(delta, np.dot(cmb.inv_cov_mat, delta))
 
 
 bounds = np.array(
     [
         (60, 70),  # H0
-        (0.15, 0.45),  # Ωm
-        (0.020, 0.024),  # Ωb * h^2
+        (0.018, 0.025),  # Ωb * h^2
+        (0.05, 0.25),  # Ωc * h^2
     ],
     dtype=np.float64,
 )
@@ -87,37 +83,40 @@ def main():
     pct = np.percentile(samples, one_sigma_percentiles, axis=0).T
     [
         (H0_16, H0_50, H0_84),
-        (Om_16, Om_50, Om_84),
         (Obh2_16, Obh2_50, Obh2_84),
+        (Och2_16, Och2_50, Och2_84),
     ] = pct
 
     best_fit = np.percentile(samples, 50, axis=0)
 
     h_samples = samples[:, 0] / 100
-    Omh2_samples = samples[:, 1] * h_samples**2
+    Omh2_samples = samples[:, 1] + samples[:, 2] + cmb.Omnu_h2
+    Om_samples = Omh2_samples / h_samples**2
     z_eq_samples = -1 + Omh2_samples / Or_h2
-    z_st_samples = cmb.z_star(samples[:, 2], Omh2_samples)
-    z_dr_samples = cmb.z_drag(samples[:, 2], Omh2_samples)
+    z_st_samples = cmb.z_star(samples[:, 1], Omh2_samples)
+    z_dr_samples = cmb.z_drag(samples[:, 1], Omh2_samples)
+    Om_16, Om_50, Om_84 = np.percentile(Om_samples, one_sigma_percentiles)
     Omh2_16, Omh2_50, Omh2_84 = np.percentile(Omh2_samples, one_sigma_percentiles)
     z_eq_16, z_eq_50, z_eq_84 = np.percentile(z_eq_samples, one_sigma_percentiles)
     z_st_16, z_st_50, z_st_84 = np.percentile(z_st_samples, one_sigma_percentiles)
     z_d_16, z_d_50, z_d_84 = np.percentile(z_dr_samples, one_sigma_percentiles)
-    rd_samples = cmb.r_drag(wb=samples[:, 2], wm=Omh2_samples)
+    rd_samples = cmb.r_drag(wb=samples[:, 1], wm=Omh2_samples)
     rd_16, rd_50, rd_84 = np.percentile(rd_samples, one_sigma_percentiles)
 
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
-    print(f"Ωm: {Om_50:.4f} +{(Om_84 - Om_50):.4f} -{(Om_50 - Om_16):.4f}")
-    print(f"ωm: {Omh2_50:.5f} +{(Omh2_84 - Omh2_50):.5f} -{(Omh2_50 - Omh2_16):.5f}")
+    print(f"ωc: {Och2_50:.4f} +{(Och2_84 - Och2_50):.4f} -{(Och2_50 - Och2_16):.4f}")
     print(f"ωb: {Obh2_50:.5f} +{(Obh2_84 - Obh2_50):.5f} -{(Obh2_50 - Obh2_16):.5f}")
+    print(f"ωm: {Omh2_50:.5f} +{(Omh2_84 - Omh2_50):.5f} -{(Omh2_50 - Omh2_16):.5f}")
+    print(f"Ωm: {Om_50:.4f} +{(Om_84 - Om_50):.4f} -{(Om_50 - Om_16):.4f}")
     print(f"z_eq: {z_eq_50:.1f} +{(z_eq_84 - z_eq_50):.1f} -{(z_eq_50 - z_eq_16):.1f}")
     print(f"z*: {z_st_50:.2f} +{(z_st_84 - z_st_50):.2f} -{(z_st_50 - z_st_16):.2f}")
     print(f"z_drag: {z_d_50:.2f} +{(z_d_84 - z_d_50):.2f} -{(z_d_50 - z_d_16):.2f}")
-    print(f"r*: {cmb.rs_z(Ez, z_st_50, best_fit, H0_50, Obh2_50):.2f} Mpc")
+    print(f"r*: {cmb.rs_z(Ez, z_st_50, H0_50, Obh2_50, Och2_50):.2f} Mpc")
     print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.4f}")
 
     plot_corner_and_chains(
-        labels=["$H_0$", "$Ω_m$", "$ω_b$"],
+        labels=["$H_0$", "$ω_b$", "$ω_c$"],
         flat_samples=samples,
         samples=chains_samples,
     )
@@ -129,19 +128,20 @@ if __name__ == "__main__":
 """
 Flat ΛCDM w(z) = -1 
 
-===============================
+*******************************
 
 Chen+2018 compression
-H0: 67.41 +0.61 -0.60 km/s/Mpc
-Ωm: 0.3167 +0.0085 -0.0082
-ωm: 0.1439 +0.0013 -0.0013
+H0: 67.38 +0.60 -0.60 km/s/Mpc
+ωc: 0.1203 +0.0014 -0.0013
 ωb: 0.02236 +0.00015 -0.00015
-z_eq: 3438.3 +30.2 -30.1
-z*: 1088.92 +0.22 -0.22
-z_drag: 1059.93 +0.29 -0.29
-r*: 144.16 Mpc
-r_d: 146.72 +0.29 -0.29 Mpc
-Chi squared: 0.0004
+ωm: 0.14327 +0.00127 -0.00126
+Ωm: 0.3155 +0.0084 -0.0082
+z_eq: 3423.7 +30.4 -30.2
+z*: 1089.11 +0.28 -0.28
+z_drag: 1059.89 +0.29 -0.29
+r*: 144.46 Mpc
+r_d: 146.88 +0.29 -0.29 Mpc
+Chi squared: 0.0006
 
 ===============================
 
@@ -150,6 +150,7 @@ H0: 67.48 +0.57 -0.57 km/s/Mpc
 Ωm: 0.3121 +0.0079 -0.0077
 ωm: 0.14209 +0.00119 -0.00119
 ωb: 0.02223 +0.00014 -0.00014
+ωm: 0.14208 +0.00120 -0.00120
 z_eq: 3396.4 +28.5 -28.4
 z*: 1088.82 +0.28 -0.27
 z_drag: 1057.90 +0.28 -0.29
@@ -159,43 +160,31 @@ Chi squared: 0.0002
 
 ===============================
 
-Rubin+ Union3 compression
-H0: 67.39 +0.60 -0.60 km/s/Mpc
-Ωm: 0.3150 +0.0084 -0.0081
-ωm: 0.1430 +0.0013 -0.0013
-ωb: 0.02239 +0.00014 -0.00015
-z_eq: 3420.2 +30.3 -30.2
-z*: 1091.88 +0.28 -0.28
-z_drag: 1059.94 +0.29 -0.29
-r*: 144.13 Mpc
-r_d: 146.95 Mpc
-Chi squared: 0.0017
-
-===============================
-
 ACT DR6 compression
-H0: 66.09 +0.79 -0.77 km/s/Mpc
-Ωm: 0.3367 +0.0127 -0.0125
-ωm: 0.14707 +0.00210 -0.00210
+H0: 66.12 +0.78 -0.77 km/s/Mpc
+ωc: 0.12378 +0.00211 -0.00209
 ωb: 0.02259 +0.00016 -0.00016
-z_eq: 3515.3 +50.1 -50.1
-z*: 1088.69 +0.29 -0.30
+ωm: 0.14702 +0.00210 -0.00208
+Ωm: 0.3363 +0.0128 -0.0123
+z_eq: 3514.1 +50.1 -49.8
+z*: 1089.96 +0.29 -0.29
 z_drag: 1060.72 +0.39 -0.39
-r*: 143.26 Mpc
-r_d: 145.86 +0.56 -0.55 Mpc
-Chi squared: 0.0008
+r*: 143.32 Mpc
+r_d: 145.46 +0.55 -0.55 Mpc
+Chi squared: 0.0004
 
 ===============================
 
 Planck + ACT DR6 compression
-H0: 67.54 +0.49 -0.48 km/s/Mpc
-Ωm: 0.3127 +0.0070 -0.0069
-ωm: 0.14266 +0.00114 -0.00113
-ωb: 0.02249 +0.00011 -0.00011
-z_eq: 3410.0 +27.3 -27.1
-z*: 1088.40 +0.21 -0.21
-z_drag: 1060.18 +0.23 -0.23
-r*: 144.43 Mpc
-r_d: 147.09 +0.28 -0.29 Mpc
-Chi squared: 0.0015
+H0: 67.63 +0.49 -0.49 km/s/Mpc
+ωc: 0.11932 +0.00118 -0.00118
+ωb: 0.02250 +0.00011 -0.00011
+ωm: 0.14246 +0.00114 -0.00114
+Ωm: 0.3115 +0.0070 -0.0069
+z_eq: 3405.1 +27.3 -27.2
+z*: 1089.68 +0.21 -0.21
+z_drag: 1060.17 +0.23 -0.23
+r*: 144.53 Mpc
+r_d: 147.14 +0.29 -0.28 Mpc
+Chi squared: 0.0003
 """

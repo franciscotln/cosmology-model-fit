@@ -21,40 +21,59 @@ N_EFF = 3.044
 TCMB = 2.7255  # K
 O_GAMMA_H2 = 2.4729e-05
 
+T_nu0 = (4 / 11) ** (1 / 3) * TCMB  # K
+T_nu0_eV = T_nu0 * 8.617333262e-5  #  1.67639e-04 eV
+mnu_tot = 0.06  # total mass [eV]
+Omnu_h2 = mnu_tot / 93.14  # present-day Omega_nu*h^2
+z_nr = mnu_tot / (3.15 * T_nu0_eV)
+
 
 def Omega_r_h2(Neff=N_EFF):
     return O_GAMMA_H2 * (1 + 0.2271 * Neff)
 
 
-def rs_z(Ez_func, z, params, H0, Ob_h2):
-    """Sound horizon at redshift z."""
-    Rb = 3 * Ob_h2 / (4 * O_GAMMA_H2)
+Orh2_h_z = Omega_r_h2(3.044)
+Orh2_l_z = Omega_r_h2(2.044)
+
+
+def rs_z(Ez_func, z_lim, H0, Obh2, Och2, w0=-1, wa=0):
+    h = H0 / 100
+    Rb = 3 * Obh2 / (4 * O_GAMMA_H2)
+    Obc = (Och2 + Obh2) / h**2
+    Or = Orh2_h_z / h**2
 
     def integrand(a):
-        denom = a**2 * Ez_func(1 / a - 1, params) * np.sqrt(3 * (1 + Rb * a))
-        return c / denom
+        denom = a**2 * Ez_func(1 / a - 1, Obc, Or, w0, wa) * np.sqrt(3 * (1 + Rb * a))
+        return 1 / denom
 
-    return quad(integrand, 0, 1 / (1 + z))[0] / H0
-
-
-def DA_z(Ez_func, z, params, H0):
-    I = quad(lambda zp: c / Ez_func(zp, params), 0, z)[0]
-    return (I / H0) / (1.0 + z)
+    return (c / H0) * quad(integrand, 1e-09, 1 / (1 + z_lim))[0]
 
 
-def cmb_distances(Ez_func, params, H0, Om, Ob_h2):
-    Om_h2 = Om * (H0 / 100) ** 2
+def DM_z(Ez_func, z_lim, H0, Obh2, Och2, w0=-1, wa=0):
+    h = H0 / 100
+    Obc = (Och2 + Obh2) / h**2
+    Omnu = Omnu_h2 / h**2
+    Or_l_z = Orh2_l_z / h**2
+    Or_h_z = Orh2_h_z / h**2
+    int_l_z, _ = quad(lambda z: 1 / Ez_func(z, Obc + Omnu, Or_l_z, w0, wa), 0, z_nr)
+    int_h_z, _ = quad(lambda z: 1 / Ez_func(z, Obc, Or_h_z, w0, wa), z_nr, z_lim)
+    return (int_l_z + int_h_z) * c / H0
+
+
+
+def cmb_distances(Ez_func, H0, Ob_h2, Oc_h2, w0=-1, wa=0):
+    Om_h2 = Oc_h2 + Ob_h2 + Omnu_h2
     zstar = z_star(wb=Ob_h2, wm=Om_h2)
-    rs_star = rs_z(Ez_func, zstar, params, H0, Ob_h2)
-    DA_star = DA_z(Ez_func, zstar, params, H0)
-    theta = rs_star / ((1 + zstar) * DA_star)
-    return np.array([theta, Ob_h2, Om_h2])
+    rs_star = rs_z(Ez_func, zstar, H0, Ob_h2, Oc_h2, w0, wa)
+    DM_star = DM_z(Ez_func, zstar, H0, Ob_h2, Oc_h2, w0, wa)
+    thetastar = rs_star / DM_star
+    return np.array([thetastar, Ob_h2, Om_h2])
 
 
 @njit
 def r_drag(wb, wm):
     """arXiv:2106.00428v2 (eq 8)"""
-    SCALING_FID = 1.0010482
+    SCALING_FID = 1.0010481824509851
 
     a1 = 0.00257366
     a2 = 0.05032
@@ -75,7 +94,7 @@ def r_drag(wb, wm):
 @njit
 def z_star(wb, wm):
     """arXiv:astro-ph/9510117v2 (eq-1)"""
-    SCALING_FID = 0.99706346
+    SCALING_FID = 0.9981350407579086
 
     g1 = 0.0783 * wb**-0.238 / (1 + 39.5 * wb**0.763)
     g2 = 0.560 / (1 + 21.1 * wb**1.81)
@@ -87,7 +106,7 @@ def z_star(wb, wm):
 @njit
 def z_drag(wb, wm):
     """arXiv:2106.00428v2 (eq A2)"""
-    SCALING_FID = 0.998476  # reproduces rdrag from integral
+    SCALING_FID = 1.0001866265459478  # reproduces rdrag from integral
 
     return (
         SCALING_FID

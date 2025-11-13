@@ -6,7 +6,8 @@ from y2024DES.data import get_data, effective_sample_size as sn_size
 from y2025BAO.data import get_data as get_bao_data
 
 c = cmb.c  # Speed of light in km/s
-Orh2 = cmb.Omega_r_h2()
+Orh2 = cmb.Omega_r_h2(2.044)
+Omnu_h2 = cmb.Omnu_h2
 
 sn_legend, z_cmb, z_hel, mu_values, cov_matrix_sn = get_data()
 bao_legend, bao_data, cov_matrix_bao = get_bao_data()
@@ -20,12 +21,12 @@ dx = np.diff(z_grid)
 
 
 @njit
-def Ez(z, params):
-    h, Om, w0 = params[2] / 100, params[3], params[4]
-    Or = Orh2 / h**2
-    inv_a3 = (1 + z) ** 3
-    rho_de = (4 * inv_a3 / (1 + 3 * inv_a3)) ** (4 * (1 + w0))
-    return np.sqrt(Or * (1 + z) ** 4 + Om * inv_a3 + (1 - Om - Or) * rho_de)
+def Ez(z, Obc, Or, w0=-1, wa=0):
+    Ol = 1 - Obc - Or
+    inv_a = 1 + z
+    cubic = inv_a**3
+    rho_de = (4 * cubic / (1 + 3 * cubic)) ** (4 * (1 + w0))
+    return np.sqrt(Or * inv_a**4 + Obc * cubic + Ol * rho_de)
 
 
 @njit
@@ -36,7 +37,11 @@ def theory_mu(params):
 
 @njit
 def H_z(z, params):
-    return params[2] * Ez(z, params)
+    H0, Obh2, Och2, w0 = params[1:]
+    h = H0 / 100
+    Obc = (Obh2 + Och2 + Omnu_h2) / h**2
+    Or = Orh2 / h**2
+    return H0 * Ez(z, Obc, Or, w0)
 
 
 @njit
@@ -82,9 +87,7 @@ def solve_triang(cho_L, delta):
 
 
 def chi_squared(params):
-    wb, H0, Om = params[1], params[2], params[3]
-
-    dists = cmb.cmb_distances(Ez, params, H0, Om, wb)
+    dists = cmb.cmb_distances(Ez, *params[1:])
     rd = dists[1]
 
     delta_cmb = cmb.DISTANCE_PRIORS - dists
@@ -102,9 +105,9 @@ def chi_squared(params):
 bounds = np.array(
     [
         (-0.4, 0.4),  # ΔM
-        (0.010, 0.030),  # Ob * h^2
         (50.0, 90.0),  # H0
-        (0.1, 0.8),  # Ωm
+        (0.010, 0.030),  # Ob * h^2
+        (0.05, 0.3),  # Ωm * h^2
         (-1.5, 0.0),  # w0
     ],
     dtype=np.float64,
@@ -174,21 +177,25 @@ def main():
     pct = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
     [
         (dM_16, dM_50, dM_84),
-        (Obh2_16, Obh2_50, Obh2_84),
         (H0_16, H0_50, H0_84),
-        (Om_16, Om_50, Om_84),
+        (Obh2_16, Obh2_50, Obh2_84),
+        (Och2_16, Och2_50, Och2_84),
         (w0_16, w0_50, w0_84),
     ] = pct
 
     best_fit = np.percentile(samples, 50, axis=0)
-    theta_100, rd = cmb.cmb_distances(Ez, best_fit, H0_50, Om_50, Obh2_50)
-    omh2_samples = samples[:, 3] * (samples[:, 2] / 100) ** 2
+    theta_100, rd = cmb.cmb_distances(Ez, *best_fit[1:])
+
+    omh2_samples = samples[:, 2] + samples[:, 3] + Omnu_h2
+    Om_samples = omh2_samples / (samples[:, 1] / 100) ** 2
     omh2_16, omh2_50, omh2_84 = np.percentile(omh2_samples, [15.9, 50, 84.1])
+    Om_16, Om_50, Om_84 = np.percentile(Om_samples, [15.9, 50, 84.1])
 
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
     print(f"ωb: {Obh2_50:.5f} +{(Obh2_84 - Obh2_50):.5f} -{(Obh2_50 - Obh2_16):.5f}")
-    print(f"ωm: {omh2_50:.5f} +{(omh2_84 - omh2_50):.5f} -{(omh2_50 - omh2_16):.5f}")
+    print(f"ωc: {Och2_50:.4f} +{(Och2_84 - Och2_50):.4f} -{(Och2_50 - Och2_16):.4f}")
+    print(f"ωm: {omh2_50:.4f} +{(omh2_84 - omh2_50):.4f} -{(omh2_50 - omh2_16):.4f}")
     print(f"Ωm: {Om_50:.4f} +{(Om_84 - Om_50):.4f} -{(Om_50 - Om_16):.4f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"r_d: {rd:.2f} Mpc")
@@ -213,7 +220,7 @@ def main():
         x_scale="log",
     )
     plot_corner_and_chains(
-        labels=["$Δ_M$", "$ω_b$", "$H_0$", "$Ω_m$", "$w_0$"],
+        labels=["$Δ_M$", "$H_0$", "$ω_b$", "$ω_c$", "$w_0$"],
         flat_samples=samples,
         samples=chains_samples,
     )
@@ -232,42 +239,31 @@ if __name__ == "__main__":
 Flat ΛCDM w(z) = -1
 
 -- Early time ΛCDM arXiv:2302.12911 --
-H0: 68.53 +0.41 -0.41 km/s/Mpc
-ωb: 0.02264 +0.00028 -0.00029
-ωm: 0.14055 +0.00061 -0.00060
-Ωm: 0.2993 +0.0045 -0.0045
+H0: 68.54 +0.41 -0.41 km/s/Mpc
+ωb: 0.02265 +0.00028 -0.00029
+ωc: 0.1172 +0.0007 -0.0007
+ωm: 0.1405 +0.0006 -0.0006
+Ωm: 0.2992 +0.0046 -0.0044
 w0: -1
 wa: 0
-r_d: 147.51 Mpc
+r_d: 147.52 Mpc
 100 θ*: 1.04107
 Chi squared: 1662.1
-Log evidence: -849.3
+Log evidence: -849.1
 Degrees of freedom: 1745
 
 -- ATC DR6 only --
-H0: 69.28 +0.49 -0.49 km/s/Mpc
-ωb: 0.02379 +0.00049 -0.00049
-ωm: 0.14212 +0.00082 -0.00082
-Ωm: 0.2961 +0.0046 -0.0046
+H0: 69.36 +0.49 -0.49 km/s/Mpc
+ωb: 0.02354 +0.00049 -0.00049
+ωc: 0.1169 +0.0007 -0.0007
+ωm: 0.1411 +0.0008 -0.0008
+Ωm: 0.2933 +0.0046 -0.0045
 w0: -1
 wa: 0
-r_d: 146.15 Mpc
-100 θ*: 1.04088
-Chi squared: 1664.3
-Log evidence: -849.6
-Degrees of freedom: 1745
-
--- ATC DR6 + Planck --
-H0: 68.70 +0.42 -0.41 km/s/Mpc
-ωb: 0.02292 +0.00029 -0.00029
-ωm: 0.14089 +0.00062 -0.00063
-Ωm: 0.2985 +0.0045 -0.0045
-w0: -1
-wa: 0
-r_d: 147.20 Mpc
-100 θ*: 1.04099
-Chi squared: 1662.5
-Log evidence: -849.5
+r_d: 146.21 Mpc
+100 θ*: 1.04089
+Chi squared: 1666.7
+Log evidence: -850.5
 Degrees of freedom: 1745
 """
 
@@ -276,42 +272,31 @@ Degrees of freedom: 1745
 Flat wCDM w(z) = w0
 
 -- Early time ΛCDM arXiv:2302.12911 --
-H0: 67.17 +0.55 -0.54 km/s/Mpc
-ωb: 0.02353 +0.00040 -0.00039
-ωm: 0.13805 +0.00095 -0.00097
-Ωm: 0.3059 +0.0049 -0.0049
+H0: 67.19 +0.55 -0.54 km/s/Mpc
+ωb: 0.02355 +0.00040 -0.00039
+ωc: 0.1138 +0.0012 -0.0013
+ωm: 0.1380 +0.0010 -0.0010
+Ωm: 0.3057 +0.0049 -0.0049
 w0: -0.901 +0.027 -0.027 (prior width 1.5: -1.5 to 0.0)
 wa: 0
-r_d: 147.44 Mpc
-100 θ*: 1.04098
+r_d: 147.43 Mpc
+100 θ*: 1.04100
 Chi squared: 1649.3
-Log evidence: -846.1 (Δ logZ = 3.2 against ΛCDM)
+Log evidence: -845.8 (Δ logZ = 3.3 against ΛCDM)
 Degrees of freedom: 1744
 
 -- ATC DR6 only --
-H0: 67.88 +0.59 -0.58 km/s/Mpc
-ωb: 0.02502 +0.00061 -0.00059
-ωm: 0.13958 +0.00107 -0.00109
-Ωm: 0.3029 +0.0049 -0.0048
-w0: -0.890 +0.026 -0.027 (prior width 1.5: -1.5 to 0.0)
+H0: 67.85 +0.58 -0.58 km/s/Mpc
+ωb: 0.02490 +0.00060 -0.00061
+ωc: 0.1128 +0.0013 -0.0013
+ωm: 0.1383 +0.0011 -0.0011
+Ωm: 0.3004 +0.0048 -0.0047
+w0: -0.882 +0.027 -0.027 (prior width 1.5: -1.5 to 0.0)
 wa: 0
 r_d: 145.83 Mpc
 100 θ*: 1.04071
-Chi squared: 1648.6
-Log evidence: -844.9 (Δ logZ = 4.7 against ΛCDM)
-Degrees of freedom: 1744
-
--- ATC DR6 + Planck --
-H0: 67.32 +0.55 -0.54 km/s/Mpc
-ωb: 0.02385 +0.00040 -0.00039
-ωm: 0.13832 +0.00096 -0.00098
-Ωm: 0.3052 +0.0049 -0.0049
-w0: -0.899 +0.027 -0.026 (prior width 1.5: -1.5 to 0.0)
-wa: 0
-r_d: 147.12 Mpc
-100 θ*: 1.04089
-Chi squared: 1649.2
-Log evidence: -845.9 (Δ logZ = 3.6 against ΛCDM)
+Chi squared: 1648.3
+Log evidence: -844.4 (Δ logZ = 6.1 against ΛCDM)
 Degrees of freedom: 1744
 """
 
@@ -320,42 +305,32 @@ Degrees of freedom: 1744
 Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)**3)
 
 -- Early time ΛCDM arXiv:2302.12911 --
-H0: 66.88 +0.58 -0.56 km/s/Mpc
-ωb: 0.02316 +0.00031 -0.00031
-ωm: 0.13921 +0.00070 -0.00070
-Ωm: 0.3112 +0.0056 -0.0055
-w0: -0.830 +0.042 -0.042 (prior width 1.5: -1.5 to 0.0)
+H0: 66.89 +0.57 -0.56 km/s/Mpc
+ωb: 0.02317 +0.00032 -0.00031
+ωc: 0.1154 +0.0008 -0.0008
+ωm: 0.1392 +0.0007 -0.0007
+Ωm: 0.3111 +0.0055 -0.0055
+w0: -0.829 +0.042 -0.042 (prior width 1.5: -1.5 to 0.0)
 wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
 r_d: 147.44 Mpc
-100 θ*: 1.04099
+100 θ*: 1.04102
 Chi squared: 1646.5
-Log evidence: -844.2 (Δ logZ = 5.1 against ΛCDM)
+Log evidence: -844.0 (Δ logZ = 5.1 against ΛCDM)
 Degrees of freedom: 1744
 
 -- ATC DR6 only --
-H0: 67.58 +0.61 -0.61 km/s/Mpc
-ωb: 0.02453 +0.00053 -0.00052
-ωm: 0.14090 +0.00087 -0.00086
-Ωm: 0.3085 +0.0056 -0.0055
-w0: -0.817 +0.042 -0.042 (prior width 1.5: -1.5 to 0.0)
+H0: 67.56 +0.61 -0.61 km/s/Mpc
+ωb: 0.02433 +0.00052 -0.00052
+ωc: 0.1148 +0.0009 -0.0009
+ωm: 0.1398 +0.0009 -0.0009
+Ωm: 0.3063 +0.0056 -0.0054
+w0: -0.807 +0.042 -0.041 (prior width 1.5: -1.5 to 0.0)
 wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-r_d: 145.87 Mpc
-100 θ*: 1.04074
-Chi squared: 1646.2
-Log evidence: -843.2 (Δ logZ = 6.4 against ΛCDM)
-Degrees of freedom: 1744
-
--- ATC DR6 + Planck --
-H0: 67.02 +0.58 -0.56 km/s/Mpc
-ωb: 0.02345 +0.00033 -0.00032
-ωm: 0.13952 +0.00070 -0.00070
-Ωm: 0.3106 +0.0055 -0.0056
-w0: -0.826 +0.042 -0.042 (prior width 1.5: -1.5 to 0.0)
-wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-r_d: 147.12 Mpc
-100 θ*: 1.04094
-Chi squared: 1646.4
-Log evidence: -844.1 (Δ logZ = 5.5 against ΛCDM)
+r_d: 145.89 Mpc
+r_d: 145.90 Mpc
+100 θ*: 1.04075
+Chi squared: 1646.3
+Log evidence: -843.0 (Δ logZ = 7.5 against ΛCDM)
 Degrees of freedom: 1744
 """
 
@@ -364,41 +339,10 @@ Degrees of freedom: 1744
 Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
 
 -- Early time ΛCDM arXiv:2302.12911 --
-H0: 66.82 +0.57 -0.56 km/s/Mpc
-ωb: 0.02258 +0.00053 -0.00047
-ωm: 0.14091 +0.00128 -0.00146
-Ωm: 0.3155 +0.0066 -0.0067
-w0: -0.792 +0.063 -0.060 (prior width 1.5: -1.5 to 0.0)
-wa: -0.595 +0.294 -0.309 (prior width 4.0: -2.5 to 1.5)
-r_d: 147.48 Mpc
-100 θ*: 1.04091
-Chi squared: 1646.0
-Log evidence: -845.6 (Δ logZ = 3.7 against ΛCDM)
-Degrees of freedom: 1743
+TODO
+w0: (prior width 1.5: -1.5 to 0.0)
+wa: (prior width 4.0: -2.5 to 1.5)
 
 -- ATC DR6 only --
-H0: 67.54 +0.61 -0.61 km/s/Mpc
-ωb: 0.02410 +0.00074 -0.00069
-ωm: 0.14204 +0.00143 -0.00161
-Ωm: 0.3113 +0.0067 -0.0068
-w0: -0.800 +0.062 -0.059 (prior width 1.5: -1.5 to 0.0)
-wa: -0.491 +0.288 -0.304 (prior width 4.0: -2.5 to 1.5)
-r_d: 145.93 Mpc
-100 θ*: 1.04072
-Chi squared: 1646.1
-Log evidence: -845.0 (Δ logZ = 4.6 against ΛCDM)
-Degrees of freedom: 1743
-
--- ATC DR6 + Planck --
-H0: 66.95 +0.58 -0.56 km/s/Mpc
-ωb: 0.02291 +0.00055 -0.00049
-ωm: 0.14113 +0.00130 -0.00153
-Ωm: 0.3146 +0.0066 -0.0066
-w0: -0.792 +0.063 -0.061 (prior width 1.5: -1.5 to 0.0)
-wa: -0.577 +0.297 -0.314 (prior width 4.0: -2.5 to 1.5)
-r_d: 147.17 Mpc
-100 θ*: 1.04081
-Chi squared: 1646.1
-Log evidence: -845.6 (Δ logZ = 3.9 against ΛCDM)
-Degrees of freedom: 1743
+TODO
 """
