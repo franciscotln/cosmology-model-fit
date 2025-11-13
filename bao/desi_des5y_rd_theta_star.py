@@ -339,10 +339,30 @@ Degrees of freedom: 1744
 Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
 
 -- Early time ΛCDM arXiv:2302.12911 --
-TODO
-w0: (prior width 1.5: -1.5 to 0.0)
-wa: (prior width 4.0: -2.5 to 1.5)
+H0: 66.83 +0.57 -0.57 km/s/Mpc
+ωb: 0.02260 +0.00054 -0.00048
+ωc: 0.1177 +0.0017 -0.0019
+ωm: 0.1409 +0.0013 -0.0015
+Ωm: 0.3153 +0.0066 -0.0067
+w0: -0.791 +0.063 -0.061 (prior width 1.5: -1.5 to 0.0)
+wa: -0.596 +0.296 -0.309 (prior width 4.0: -2.5 to 1.5)
+r_d: 147.46 Mpc
+100 θ*: 1.04102
+Chi squared: 1645.7
+Log evidence: -845.4 (Δ logZ = 3.7 against ΛCDM)
+Degrees of freedom: 1743
 
 -- ATC DR6 only --
-TODO
+H0: 67.55 +0.62 -0.61 km/s/Mpc
+ωb: 0.02408 +0.00078 -0.00072
+ωc: 0.1158 +0.0019 -0.0023
+ωm: 0.1405 +0.0015 -0.0017
+Ωm: 0.3077 +0.0068 -0.0069
+w0: -0.808 +0.060 -0.058 (prior width 1.5: -1.5 to 0.0)
+wa: -0.401 +0.279 -0.296 (prior width 4.0: -2.5 to 1.5)
+r_d: 145.92 Mpc
+100 θ*: 1.04073
+Chi squared: 1646.5
+Log evidence: -845.0 (Δ logZ = 5.5 against ΛCDM)
+Degrees of freedom: 1743
 """

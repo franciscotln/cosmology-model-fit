@@ -302,7 +302,17 @@ Log evidence: -847.6 (Δ logZ = 2.6 against ΛCDM)
 Flat w(z) = w0 + wa * z / (1 + z)
 
 ** Early time ΛCDM **
-TODO
-w0: (prior width 1.5: -1.5 to 0.0)
-wa: (prior width 3.5: -2.5 to 1.0)
+H0: 66.72 +0.55 -0.53 km/s/Mpc
+Ωm: 0.3180 +0.0055 -0.0054
+ωb: 0.02227 +0.00013 -0.00013
+ωc: 0.1187 +0.0010 -0.0010
+ωm: 0.1416 +0.0009 -0.0009
+w0: -0.770 +0.057 -0.055 (prior width 1.5: -1.5 to 0.0)
+wa: -0.747 +0.220 -0.233 (prior width 3.5: -2.5 to 1.0)
+r*: 144.88 Mpc
+z*: 1089.90 +0.23 -0.23
+r_d: 147.57 Mpc
+z_d: 1059.76 +0.27 -0.27
+Chi squared: 1646.21
+Log evidence: -846.5 (Δ logZ = 3.7 against ΛCDM)
 """
