@@ -1,6 +1,6 @@
 from numba import njit
 import numpy as np
-import cmb.data_chen_compression as cmb
+import cmb.data_desi_compression as cmb
 
 Or_h2 = cmb.Omega_r_h2()
 
@@ -147,16 +147,16 @@ Chi squared: 0.0006
 
 Early ΛCDM (arXiv:2302.12911v2)
 H0: 67.48 +0.57 -0.57 km/s/Mpc
-Ωm: 0.3121 +0.0079 -0.0077
-ωm: 0.14209 +0.00119 -0.00119
+ωc: 0.1192 +0.0013 -0.0013
 ωb: 0.02223 +0.00014 -0.00014
-ωm: 0.14208 +0.00120 -0.00120
-z_eq: 3396.4 +28.5 -28.4
-z*: 1088.82 +0.28 -0.27
-z_drag: 1057.90 +0.28 -0.29
-r*: 144.70 Mpc
-r_d: 147.46 +0.27 -0.27 Mpc
-Chi squared: 0.0002
+ωm: 0.14207 +0.00121 -0.00119
+Ωm: 0.3120 +0.0080 -0.0077
+z_eq: 3395.9 +28.8 -28.6
+z*: 1090.05 +0.28 -0.28
+z_drag: 1059.72 +0.29 -0.29
+r*: 144.76 Mpc
+r_d: 147.46 +0.28 -0.27 Mpc
+Chi squared: 0.0001
 
 ===============================
 
