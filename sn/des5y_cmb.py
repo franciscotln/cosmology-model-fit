@@ -10,7 +10,7 @@ Omnu_h2 = cmb.Omnu_h2
 
 sn_legend, z_cmb, z_hel, mu_vals, cov_matrix_sn = get_data()
 
-cho_sn = np.load("cho_des.npy")  # cho_factor(cov_matrix_sn, lower=True)[0]
+cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
 cho_cmb = cho_factor(cmb.covariance, lower=True)[0]
 
 z_grid = np.linspace(0, np.max(z_cmb) + 0.1, num=1000)

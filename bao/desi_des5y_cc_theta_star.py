@@ -11,7 +11,7 @@ cc_legend, z_cc_vals, H_cc_vals, cov_matrix_cc = get_cc_data()
 sn_legend, z_sn_vals, z_sn_hel_vals, mu_values, cov_matrix_sn = get_sn_data()
 bao_legend, bao_data, cov_matrix_bao = get_bao_data()
 
-cho_sn = np.load("cho_des.npy")  # cho_factor(cov_matrix_sn, lower=True)[0]
+cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
 cho_bao = cho_factor(cov_matrix_bao, lower=True)[0]
 cho_cc = cho_factor(cov_matrix_cc, lower=True)[0]
 
