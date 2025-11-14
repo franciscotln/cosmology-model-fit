@@ -86,8 +86,7 @@ def cmb_distances(Ez_func, H0, Ob_h2, Oc_h2, w0=-1, wa=0):
 @njit
 def z_drag(wb, wm):
     """arXiv:2106.00428v2 (eq A2)"""
-    SCALING_FID = 1.0001866265459478  # reproduces rdrag from integral
-
+    SCALING_FID = 1.0001949212793952  # reproduces rdrag from integral
     return (
         SCALING_FID
         * (1 + 428.169 * wb**0.256459 * wm**0.616388 + 925.56 * wm**0.751615)
@@ -98,7 +97,7 @@ def z_drag(wb, wm):
 @njit
 def z_star(wb, wm):
     """arXiv:astro-ph/9510117v2 (eq-1)"""
-    SCALING_FID = 0.9981350407579086
+    SCALING_FID = 0.9981903485502505
 
     g1 = 0.0783 * wb**-0.238 / (1 + 39.5 * wb**0.763)
     g2 = 0.560 / (1 + 21.1 * wb**1.81)
