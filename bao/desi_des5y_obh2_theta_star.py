@@ -2,7 +2,7 @@ from numba import njit
 import numpy as np
 from scipy.linalg import cho_factor, solve_triangular
 import cmb.data_planck_act_compression as cmb
-from y2024DES.data import get_data, effective_sample_size as sn_size
+from y2025DESdovekie.data import get_data, effective_sample_size as sn_size
 from y2025BAO.data import get_data as get_bao_data
 
 c = cmb.c  # Speed of light in km/s
@@ -16,7 +16,7 @@ cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
 cho_bao = cho_factor(cov_matrix_bao, lower=True)[0]
 
 """
-Planck compressed priors for π/θ* and ωb, without the shift parameter R (arXiv:1808.05724v1)
+Planck + ACT compressed priors for π/θ* and ωb, without the shift parameter R (arXiv:1808.05724v1)
 """
 cho_cmb = cho_factor(cmb.covariance[1:, 1:], lower=True)[0]
 
@@ -28,16 +28,10 @@ dx = np.diff(z_grid)
 @njit
 def Ez(z, Obc, Or, w0=-1, wa=0):
     Ol = 1 - Obc - Or
-    inv_a = 1 + z
-    cubic = inv_a**3
+    zp1 = 1 + z
+    cubic = zp1**3
     rho_de = (4 * cubic / (1 + 3 * cubic)) ** (4 * (1 + w0))
-    return np.sqrt(Or * inv_a**4 + Obc * cubic + Ol * rho_de)
-
-
-@njit
-def theory_mu(theta):
-    dL = (1 + z_hel) * DM_z(z_cmb, theta)
-    return theta[0] + 25 + 5 * np.log10(dL)
+    return np.sqrt(Or * zp1**4 + Obc * cubic + Ol * rho_de)
 
 
 @njit
@@ -74,6 +68,7 @@ qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
 quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int64)
 
 
+@njit
 def bao_theory(z, qty, theta):
     Obh2, Och2 = theta[2], theta[3]
     rd = cmb.r_drag(wb=Obh2, wm=Obh2 + Och2 + Omnu_h2)
@@ -86,6 +81,12 @@ def bao_theory(z, qty, theta):
     results[DM_mask] = DM_z(z[DM_mask], theta)
     results[DV_mask] = DV_z(z[DV_mask], theta)
     return results / rd
+
+
+@njit
+def theory_mu(theta):
+    dL = (1 + z_hel) * DM_z(z_cmb, theta)
+    return theta[0] + 25 + 5 * np.log10(dL)
 
 
 def solve_triang(cho_L, delta):
@@ -145,6 +146,7 @@ def main():
     from sn.plotting import plot_predictions as plot_sn_predictions
     from .plot_predictions import plot_bao_predictions
     from log_evidence import log_evidence
+    from gelman_rubin import gelman_rubin
 
     ndim = len(bounds)
     nwalkers = 150
@@ -174,6 +176,7 @@ def main():
     samples = sampler.get_chain(discard=burn_in, flat=True)
     log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
     log_evd = log_evidence(samples, log_probs, log_probability, bounds)
+    print("Gelman-Rubin:", gelman_rubin(chains_samples))
 
     [
         (dM_16, dM_50, dM_84),
@@ -239,84 +242,92 @@ if __name__ == "__main__":
 
 """
 *******************************
-DESI DR2 + DES5Y + (π/θ*, ωb)CMB
+DESI DR2 + DES5Y + (π/θ*, ωb)CMB from Planck + ACT
 *******************************
 """
 
 """
 Flat ΛCDM  w(z) = -1
 
-** Planck + ATC DR6 compression **
-H0: 68.45 +0.28 -0.28 km/s/Mpc
-Ωm: 0.299 +0.004 -0.004
+H0: 68.53 +0.28 -0.28 km/s/Mpc
+Ωm: 0.298 +0.004 -0.004
 ωb: 0.02249 +0.00011 -0.00011
-ωc: 0.1170 +0.0008 -0.0008
-ωm: 0.1401 +0.0008 -0.0008
+ωc: 0.1168 +0.0008 -0.0008
+ωm: 0.1399 +0.0008 -0.0008
 w0: -1
 wa: 0
-z_d: 1059.99 +0.26 -0.26
-r_d: 147.77 Mpc
-z*: 1089.49 +0.15 -0.15
-r*: 145.14 Mpc
-shift R: 1.741
+z_d: 1059.98 +0.26 -0.26
+r_d: 147.82 Mpc
+z*: 1089.47 +0.15 -0.15
+r*: 145.19 Mpc
+shift R: 1.740
 100 θ*: 1.04096
-Chi squared: 1661.81
-Log Evidence: -849.63
-Degrees of freedom: 1746
+Chi squared: 1646.85
+Log Evidence: -842.00
+Degrees of freedom: 1725
 """
 
 
 """
 Flat wCDM w(z) = w0
 
-** Planck + ATC DR6 compression **
-H0: 66.70 +0.58 -0.57 km/s/Mpc
-Ωm: 0.308 +0.005 -0.005
+H0: 67.30 +0.56 -0.56 km/s/Mpc
+Ωm: 0.304 +0.005 -0.005
 ωb: 0.02250 +0.00011 -0.00011
-ωc: 0.1138 +0.0013 -0.0012
-ωm: 0.1370 +0.0013 -0.0013
-w0: -0.911 +0.025 -0.025 (prior width 1.5: -1.5 to 0.0)
+ωc: 0.1145 +0.0012 -0.0012
+ωm: 0.1377 +0.0012 -0.0012
+w0: -0.937 +0.025 -0.025 (prior width 1.5: -1.5 to 0.0)
 wa: 0
-z_d: 1059.78 +0.27 -0.27
-r_d: 148.62 Mpc
-z*: 1089.20 +0.17 -0.18
-r*: 145.97 Mpc
-shift R: 1.731
-100 θ*: 1.04091
-Chi squared: 1650.01
-Log Evidence: -846.93 (Δ logZ = 2.70 against ΛCDM)
-Degrees of freedom: 1745
+z_d: 1059.83 +0.27 -0.27
+r_d: 148.43 Mpc
+z*: 1089.26 +0.17 -0.18
+r*: 145.78 Mpc
+shift R: 1.733
+100 θ*: 1.04093
+Chi squared: 1640.50
+Log Evidence: -842.05 (Δ logZ = -0.05 in favour of ΛCDM)
+Degrees of freedom: 1724
 """
 
 
 """
 Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
 
-** Planck + ATC DR6 compression **
-H0: 66.54 +0.55 -0.55 km/s/Mpc
-Ωm: 0.312 +0.005 -0.005
+H0: 67.18 +0.54 -0.54 km/s/Mpc
+Ωm: 0.307 +0.005 -0.005
 ωb: 0.02250 +0.00011 -0.00011
-ωc: 0.1152 +0.0009 -0.0009
-ωm: 0.1383 +0.0009 -0.0009
-w0: -0.837 +0.041 -0.041 (prior width 1.5: -1.5 to 0.0)
+ωc: 0.1155 +0.0009 -0.0009
+ωm: 0.1386 +0.0009 -0.0009
+w0: -0.885 +0.040 -0.040 (prior width 1.5: -1.5 to 0.0)
 wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-z_d: 1059.88 +0.26 -0.26
-r_d: 148.26 Mpc
-z*: 1089.32 +0.16 -0.16
-r*: 145.62 Mpc
-shift R: 1.735
+z_d: 1059.90 +0.26 -0.26
+r_d: 148.18 Mpc
+z*: 1089.35 +0.16 -0.16
+r*: 145.54 Mpc
+shift R: 1.736
 100 θ*: 1.04094
-Chi squared: 1646.79
-Log Evidence: -844.84 (Δ logZ = 4.79 against ΛCDM)
-Degrees of freedom: 1745
+Chi squared: 1638.87
+Log Evidence: -840.75 (Δ logZ = 1.25 against ΛCDM)
 """
 
 
 """
 Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
 
-** Planck + ATC DR6 compression **
-TODO
-w0: (prior width 1.5: -1.5 to 0.0)
-wa: (prior width 3.5: -2.5 to 1.0)
+H0: 67.34 +0.54 -0.54 km/s/Mpc
+Ωm: 0.310 +0.006 -0.006
+ωb: 0.02250 +0.00011 -0.00011
+ωc: 0.1173 +0.0017 -0.0019
+ωm: 0.1404 +0.0017 -0.0019
+w0: -0.850 +0.059 -0.058 (prior width 1.5: -1.5 to 0.0)
+wa: -0.436 +0.266 -0.277 (prior width 3.5: -2.5 to 1.0)
+z_d: 1060.02 +0.28 -0.28
+r_d: 147.69 Mpc
+z*: 1089.50 +0.20 -0.21
+r*: 145.06 Mpc
+shift R: 1.742
+100 θ*: 1.04090
+Chi squared: 1638.27
+Log Evidence: -842.36 (Δ logZ = -0.36 in favour of ΛCDM)
+Degrees of freedom: 1723
 """
