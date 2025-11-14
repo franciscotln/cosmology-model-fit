@@ -3,7 +3,7 @@ import numpy as np
 from scipy.linalg import cho_factor, solve_triangular
 import cmb.data_planck_act_compression as cmb
 import y2024BBN.prior_lcdm_schoneberg as bbn
-from y2024DES.data import get_data, effective_sample_size as sn_size
+from y2025DESdovekie.data import get_data, effective_sample_size as sn_size
 from y2025BAO.data import get_data as get_bao_data
 
 c = cmb.c  # Speed of light in km/s
@@ -247,68 +247,72 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM  w(z) = -1
-H0: 68.11 +0.45 -0.45 km/s/Mpc
-ωb: 0.02199 +0.00052 -0.00053
-ωc: 0.1168 +0.0008 -0.0008
-ωm: 0.1394 +0.0011 -0.0011
+H0: 68.22 +0.44 -0.44 km/s/Mpc
+ωb: 0.02204 +0.00052 -0.00052
+ωc: 0.1166 +0.0008 -0.0008
+ωm: 0.1393 +0.0011 -0.0011
+Ωm: 0.299 +0.004 -0.004
 w0: -1
 wa: 0
-r_d: 148.38 +0.69 -0.68 Mpc
-z*: 1090.15 +0.73 -0.69
-r*: 145.57 Mpc
+r_d: 148.37 +0.68 -0.68 Mpc
+z*: 1090.06 +0.72 -0.68
+r*: 145.58 Mpc
 100 θ*: 1.04096
-Chi squared: 1661.23
-Log Evidence: -847.74
-Degrees of freedom: 1746
+Chi squared: 1646.45
+Log Evidence: -840.21
+Degrees of freedom: 1725
 
 ===============================
 
 Flat wCDM w(z) = w0
-H0: 66.60 +0.63 -0.63 km/s/Mpc
-ωb: 0.02231 +0.00053 -0.00053
-ωc: 0.1138 +0.0012 -0.0012
-ωm: 0.1368 +0.0014 -0.0014
-w0: -0.912 +0.026 -0.026 (prior width 1.5: -1.5 to 0.0)
+H0: 67.18 +0.62 -0.60 km/s/Mpc
+ωb: 0.02227 +0.00053 -0.00052
+ωc: 0.1145 +0.0012 -0.0012
+ωm: 0.1374 +0.0013 -0.0013
+Ωm: 0.304 +0.005 -0.005
+w0: -0.939 +0.025 -0.025 (prior width 1.5: -1.5 to 0.0)
 wa: 0
-r_d: 148.84 +0.70 -0.70 Mpc
-z*: 1089.45 +0.73 -0.70
-r*: 146.12 Mpc
+r_d: 148.68 +0.69 -0.69 Mpc
+z*: 1089.57 +0.72 -0.71
+r*: 145.96 Mpc
 100 θ*: 1.04092
-Chi squared: 1650.21
-Log Evidence: -845.44 (Δ logZ 2.3 against ΛCDM)
-Degrees of freedom: 1745
+Chi squared: 1640.67
+Log Evidence: -840.52 (Δ logZ -0.31 in favour of ΛCDM)
+Degrees of freedom: 1724
 
 ===============================
 
 Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
-H0: 66.42 +0.62 -0.61 km/s/Mpc
-ωb: 0.02227 +0.00053 -0.00053
-ωc: 0.1151 +0.0009 -0.0009
-ωm: 0.1380 +0.0011 -0.0011
-w0: -0.840 +0.042 -0.042 (prior width 1.5: -1.5 to 0.0)
+H0: 67.06 +0.61 -0.60 km/s/Mpc
+ωb: 0.02225 +0.00053 -0.00052
+ωc: 0.1154 +0.0009 -0.0009
+ωm: 0.1383 +0.0011 -0.0011
+Ωm: 0.308 +0.005 -0.005
+w0: -0.888 +0.041 -0.040 (prior width 1.5: -1.5 to 0.0)
 wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-r_d: 148.52 +0.68 -0.68 Mpc
-z*: 1089.62 +0.71 -0.69
-r*: 145.80 Mpc
-100 θ*: 1.04094
-Chi squared: 1646.95
-Log Evidence: -843.32 (Δ logZ 4.42 against ΛCDM)
-Degrees of freedom: 1745
+r_d: 148.47 +0.68 -0.68 Mpc
+z*: 1089.67 +0.71 -0.69
+r*: 145.75 Mpc
+100 θ*: 1.04093
+Chi squared: 1639.00
+Log Evidence: -839.21 (Δ logZ 1.00 against ΛCDM)
+Degrees of freedom: 1724
 
 ===============================
 
 Flat w(z) = w0 + wa * z / (1 + z)
-H0: 66.59 +0.61 -0.61 km/s/Mpc
-ωb: 0.02215 +0.00053 -0.00053
-ωc: 0.1176 +0.0017 -0.0018
-ωm: 0.1404 +0.0017 -0.0018
-w0: -0.791 +0.062 -0.060 (prior width 1.5: -1.5 to 0.0)
-wa: -0.616 +0.275 -0.290 (prior width 3.5: -2.5 to 1.0)
-r_d: 148.01 +0.74 -0.74 Mpc
-z*: 1089.99 +0.77 -0.73
-r*: 145.24 Mpc
-100 θ*: 1.04091
-Chi squared: 1645.62
-Log Evidence: -844.55 (Δ logZ 3.19 against ΛCDM)
-Degrees of freedom: 1744
+H0: 67.16 +0.61 -0.60 km/s/Mpc
+ωb: 0.02216 +0.00053 -0.00053
+ωc: 0.1173 +0.0017 -0.0019
+ωm: 0.1401 +0.0018 -0.0019
+Ωm: 0.310 +0.006 -0.006
+w0: -0.848 +0.061 -0.059 (prior width 1.5: -1.5 to 0.0)
+wa: -0.461 +0.273 -0.287 (prior width 3.5: -2.5 to 1.0)
+r_d: 148.07 +0.76 -0.74 Mpc
+z*: 1089.96 +0.77 -0.73
+r*: 145.30 Mpc
+100 θ*: 1.04086
+Chi squared: 1638.30
+Log Evidence: -840.72 (Δ logZ -0.51 in favour of ΛCDM)
+Degrees of freedom: 1723
 """
