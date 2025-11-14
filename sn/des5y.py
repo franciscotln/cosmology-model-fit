@@ -3,10 +3,15 @@ import numpy as np
 from scipy.constants import c as c0
 import scipy.stats as stats
 from scipy.linalg import cho_factor, solve_triangular
-from y2024DES.data import get_data, effective_sample_size
+from y2025DESdovekie.data import get_data, effective_sample_size
 
-legend, z_cmb_vals, z_hel_vals, app_mag_vals, covmat = get_data(False)
-cho = cho_factor(covmat, lower=True)[0]
+legend, z_cmb_vals, z_hel_vals, mu_vals, covmat = get_data()
+
+try:
+    cho = np.load("cho_des.npy")
+except FileNotFoundError:
+    cho = cho_factor(covmat, lower=True)[0]
+    np.save("cho_des.npy", cho)
 
 c = c0 / 1000  # Speed of light (km/s)
 H0 = 70  # Hubble constant (km/s/Mpc)
@@ -35,7 +40,7 @@ def DM_z(z, params):
 
 
 @njit
-def theory_app_mag(params):
+def theory_mu(params):
     dL = (1 + z_hel_vals) * DM_z(z_cmb_vals, params)
     return params[0] + 25 + 5 * np.log10(dL)
 
@@ -46,7 +51,7 @@ def solve_triang(cho_L, delta):
 
 
 def chi_squared(params):
-    delta = app_mag_vals - theory_app_mag(params)
+    delta = mu_vals - theory_mu(params)
     return solve_triang(cho, delta)
 
 
@@ -54,7 +59,7 @@ def log_likelihood(params):
     return -0.5 * chi_squared(params)
 
 
-bounds = np.array([(-20, -19), (0, 0.8), (-2.0, 0.0)], dtype=np.float64)  # M, Ωm, w0
+bounds = np.array([(-0.6, 0.6), (0, 0.8), (-2.0, 0.0)], dtype=np.float64)  # ΔM, Ωm, w0
 
 normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
 
@@ -115,12 +120,12 @@ def main():
 
     best_fit = np.percentile(samples, 50, axis=0)
 
-    theory_app_mag_vals = theory_app_mag(best_fit)
-    residuals = app_mag_vals - theory_app_mag_vals
+    theory_mu_vals = theory_mu(best_fit)
+    residuals = mu_vals - theory_mu_vals
 
     # Calculate R-squared
     ss_res = np.sum(residuals**2)
-    ss_tot = np.sum((app_mag_vals - np.mean(app_mag_vals)) ** 2)
+    ss_tot = np.sum((mu_vals - np.mean(mu_vals)) ** 2)
     r_squared = 1 - (ss_res / ss_tot)
 
     # Calculate root mean square deviation
@@ -145,16 +150,16 @@ def main():
     y_err = np.sqrt(covmat.diagonal())
 
     plot_corner_and_chains(
-        labels=["$M$", "$Ω_m$", "$w_0$"],
+        labels=["$ΔM$", "$Ω_m$", "$w_0$"],
         flat_samples=samples,
         samples=chains_samples,
     )
     plot_predictions(
         legend=legend,
         x=z_cmb_vals,
-        y=app_mag_vals - M_50,
+        y=mu_vals,
         y_err=y_err,
-        y_model=theory_app_mag_vals - M_50,
+        y_model=theory_mu_vals,
         label=f"$Ω_m$={Om_label}",
         x_scale="log",
     )
@@ -166,70 +171,44 @@ if __name__ == "__main__":
 
 """
 ********************************
-Dataset: DES-SN5YR
-z range: 0.025 - 1.121
-Sample size: 1829
+Dataset: DES-SN5YR Dovekie - effective: 1714 SNe
+z range: 0.025 - 1.144
+Sample size: 1820
 ********************************
 
 Flat ΛCDM w(z) = -1
-M: -19.302 +0.011 -0.011 mag
-Ωm: 0.352 +0.017 -0.017
+Ωm: 0.331 +0.015 -0.015
 w0: -1
-wa: 0
-R-squared (%): 98.41
-RMSD (mag): 0.263
-Skewness of residuals: 3.407
-Chi squared: 1640.07
-Effective deg of freedom: 1733
+R-squared (%): 98.38
+RMSD (mag): 0.268
+Skewness of residuals: 3.206
+Chi squared: 1631.42
+Effective deg of freedom: 1712
 
 ==============================
 
 Flat wCDM w(z) = w0
-M: -19.292 +0.013 -0.013 mag
-Ωm: 0.266 +0.071 -0.092
-w0: -0.80 +0.14 -0.15
-wa: 0
-R-squared (%): 98.40
-RMSD (mag): 0.264
-Skewness of residuals: 3.415
-Chi squared: 1638.52
-Effective deg of freedom: 1732
+Ωm: 0.260 +0.064 -0.081
+w0: -0.83 +0.13 -0.14
+R-squared (%): 98.37
+RMSD (mag): 0.268
+Skewness of residuals: 3.214
+Chi squared: 1630.18
+Effective deg of freedom: 1711
 
 ==============================
 
 Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
-M: -19.289 +0.013 -0.014 mag
-Ωm: 0.300 +0.040 -0.041
-w0: -0.80 +0.12 -0.13
-wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-R-squared (%): 98.40
-RMSD (mag): 0.264
-Skewness of residuals: 3.419
-Chi squared: 1637.73
-Effective deg of freedom: 1732
+Ωm: 0.289 +0.036 -0.037
+w0: -0.83 +0.11 -0.13
+R-squared (%): 98.37
+RMSD (mag): 0.268
+Skewness of residuals: 3.216
+Chi squared: 1629.62
+Effective deg of freedom: 1711
 
 ==============================
 
 Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
-M: -19.262 +0.018 -0.018 mag
-Ωm: 0.497 +0.033 -0.043
-w0: -0.35 +0.39 -0.31 (prior width 4.5: -2.5 to 2.0)
-wa: -9.08 +3.90 -4.81 (prior width 40: -30 to 10)
-R-squared (%): 98.40
-RMSD (mag): 0.264
-Skewness of residuals: 3.454
-Chi squared: 1631.98
-Effective deg of freedom: 1731
-
-Flat w(z) = w0 + wa * ((1 + z)^2 - 1) / ((1 + z)^2 + 1) (reduces to w0waCDM at low z)
-ρ_de = ρ_de_0 * (1 + z)^(3 * (1 + w0)) * {2 * (1 + z) / [1 + (1 + z)^2]}^(-3 * wa)
-M: -19.263 +0.018 -0.018 mag
-Ωm: 0.498 +0.033 -0.040
-w0: -0.39 +0.36 -0.29 (prior width 4.5: -2.5 to 2.0)
-wa: -8.12 +3.39 -4.31 (prior width 40: -30 to 10)
-R-squared (%): 98.40
-RMSD (mag): 0.264
-Skewness of residuals: 3.453
-Chi squared: 1631.95
-Effective deg of freedom: 1731
+TODO
 """
