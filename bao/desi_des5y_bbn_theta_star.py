@@ -196,7 +196,7 @@ def main():
     degs_of_freedom = 2 + len(bao_data["z"]) + sn_size - len(best_fit)
 
     Omh2_samples = samples[:, 2] + samples[:, 3] + Omnu_h2
-    Om_samples = Omh2_samples / (samples[:, 1] ** 2 / 100) ** 2
+    Om_samples = Omh2_samples / (samples[:, 1] / 100) ** 2
     rd_samples = cmb.r_drag(wb=samples[:, 2], wm=Omh2_samples)
     z_st_samples = cmb.z_star(wb=samples[:, 2], wm=Omh2_samples)
     Omh2_16, Omh2_50, Omh2_84 = np.percentile(Omh2_samples, one_sigma_contour)
@@ -251,7 +251,6 @@ H0: 68.11 +0.45 -0.45 km/s/Mpc
 ωb: 0.02199 +0.00052 -0.00053
 ωc: 0.1168 +0.0008 -0.0008
 ωm: 0.1394 +0.0011 -0.0011
-Ωm: 0.000 +0.000 -0.000
 w0: -1
 wa: 0
 r_d: 148.38 +0.69 -0.68 Mpc
@@ -269,7 +268,6 @@ H0: 66.60 +0.63 -0.63 km/s/Mpc
 ωb: 0.02231 +0.00053 -0.00053
 ωc: 0.1138 +0.0012 -0.0012
 ωm: 0.1368 +0.0014 -0.0014
-Ωm: 0.000 +0.000 -0.000
 w0: -0.912 +0.026 -0.026 (prior width 1.5: -1.5 to 0.0)
 wa: 0
 r_d: 148.84 +0.70 -0.70 Mpc
@@ -287,7 +285,6 @@ H0: 66.42 +0.62 -0.61 km/s/Mpc
 ωb: 0.02227 +0.00053 -0.00053
 ωc: 0.1151 +0.0009 -0.0009
 ωm: 0.1380 +0.0011 -0.0011
-Ωm: 0.000 +0.000 -0.000
 w0: -0.840 +0.042 -0.042 (prior width 1.5: -1.5 to 0.0)
 wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
 r_d: 148.52 +0.68 -0.68 Mpc
@@ -305,7 +302,6 @@ H0: 66.59 +0.61 -0.61 km/s/Mpc
 ωb: 0.02215 +0.00053 -0.00053
 ωc: 0.1176 +0.0017 -0.0018
 ωm: 0.1404 +0.0017 -0.0018
-Ωm: 0.000 +0.000 -0.000
 w0: -0.791 +0.062 -0.060 (prior width 1.5: -1.5 to 0.0)
 wa: -0.616 +0.275 -0.290 (prior width 3.5: -2.5 to 1.0)
 r_d: 148.01 +0.74 -0.74 Mpc
