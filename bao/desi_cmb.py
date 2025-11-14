@@ -256,10 +256,18 @@ Degs of freedom: 14
 ===============================
 
 Flat w(z) = w0 + wa * z / (1 + z)
-TODO
 Overfits, the uncertainties go wild and the prior are very wide
 The posterior volume is also very large, making the evidence small
 
-w0: (prior width -2.0 to +1.5)
-wa: (prior width -6.0 to 2.5)
+H0: 63.85 +2.09 -2.07 km/s/Mpc
+ωb: 0.02222 +0.00014 -0.00014
+ωc: 0.1193 +0.0011 -0.0011
+ωm: 0.1421 +0.0010 -0.0010
+Ωm: 0.349 +0.025 -0.023
+w0: -0.467 +0.253 -0.227 (prior width -2.0 to +1.5)
+wa: -1.563 +0.649 -0.753 (prior width -6.0 to 2.5)
+r*: 144.75 Mpc
+z*: 1090.07 +0.25 -0.25
+r_d: 147.45 +0.24 -0.24 Mpc
+Chi squared: 7.01
 """
