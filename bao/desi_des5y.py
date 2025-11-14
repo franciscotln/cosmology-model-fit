@@ -2,7 +2,7 @@ from numba import njit
 import numpy as np
 from scipy.constants import c as c0
 from scipy.linalg import cho_factor, solve_triangular
-from y2024DES.data import get_data, effective_sample_size as sn_size
+from y2025DESdovekie.data import get_data, effective_sample_size as sn_size
 from y2025BAO.data import get_data as get_bao_data
 
 c = c0 / 1000  # Speed of light in km/s
@@ -21,8 +21,8 @@ dx = np.diff(z_grid)
 @njit
 def Ez(z, theta):
     Om, w0 = theta[2], theta[3]
-    z_plus_1 = 1 + z
-    cubed = z_plus_1**3
+    zp1 = 1 + z
+    cubed = zp1**3
     rho_de = (4 * cubed / (1 + 3 * cubed)) ** (4 * (1 + w0))
     return np.sqrt(Om * cubed + (1 - Om) * rho_de)
 
@@ -142,9 +142,7 @@ def main():
     ]
 
     with Pool(8) as pool:
-        sampler = emcee.EnsembleSampler(
-            nwalkers, ndim, log_probability, pool=pool, moves=moves
-        )
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
 
     try:
@@ -169,8 +167,8 @@ def main():
 
     best_fit = np.percentile(samples, 50, axis=0)
 
-    print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f}")
-    print(f"r_d * h: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f}")
+    print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
+    print(f"r_d * h: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
@@ -193,7 +191,7 @@ def main():
         x_scale="log",
     )
     plot_corner_and_chains(
-        labels=["$Δ_M$", "$r_d x h$", "$Ω_M$", "$w_0$"],
+        labels=["$Δ_M$", "$r_d x h$", "$Ω_m$", "$w_0$"],
         flat_samples=samples,
         samples=chains_samples,
     )
@@ -205,48 +203,50 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM
-ΔM: -9.229 +0.006 -0.006 mag
-r_d * h: 100.54 +0.66 -0.65 Mpc
-Ωm: 0.310 +0.008 -0.008
+ΔM: -9.233 +0.007 -0.007 mag
+r_d * h: 100.87 +0.64 -0.64 Mpc
+Ωm: 0.306 +0.008 -0.007
 w0: -1
 wa: 0
-Chi squared: 1658.97
-Log Evidence: -841.23
-Degrees of freedom: 1745
+Chi squared: 1645.28
+Log Evidence: -834.27
+Degrees of freedom: 1724
 
 ===============================
 
 Flat wCDM
-ΔM: -9.200 +0.011 -0.011 mag
-r_d * h: 98.86 +0.81 -0.81 Mpc
-Ωm: 0.298 +0.009 -0.009
-w0: -0.871 +0.037 -0.038 (prior width 1.5: -1.5 to -0.5)
+ΔM: -9.212 +0.011 -0.011 mag
+r_d * h: 99.69 +0.79 -0.78 Mpc
+Ωm: 0.297 +0.009 -0.008
+w0: -0.909 +0.037 -0.037 (prior width 1.5: -1.5 to -0.5)
 wa: 0
-Chi squared: 1648.09 (Δ chi2 10.88)
-Log Evidence: -838.55 (Δ logZ 2.68 against ΛCDM)
-Degrees of freedom: 1744
+Chi squared: 1639.51
+Log Evidence: -834.15 (Δ logZ 0.12 against ΛCDM)
+Degrees of freedom: 1723
 
 ===============================
 
 Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)**3)
-ΔM: -9.191 +0.012 -0.012 mag
-r_d * h: 98.58 +0.83 -0.83 Mpc
-Ωm: 0.309 +0.008 -0.008
-w0: -0.816 +0.049 -0.050 (prior width 1.5: -1.5 to 0.0)
+ΔM: -9.206 +0.012 -0.012 mag
+r_d * h: 99.49 +0.81 -0.81 Mpc
+Ωm: 0.304 +0.008 -0.007
+w0: -0.868 +0.048 -0.050
 wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-Chi squared: 1646.20
-Log Evidence: -837.35 (Δ logZ 3.88 against ΛCDM)
-Degrees of freedom: 1744
+Chi squared: 1638.53
+Log Evidence: -833.40 (Δ logZ 0.87 against ΛCDM)
+Degrees of freedom: 1723
 
 ===============================
 
 Flat w(z) = w0 + wa * z / (1 + z)
-ΔM: -9.187 +0.013 -0.013 mag
-r_d * h: 98.52 +0.82 -0.83 Mpc
-Ωm: 0.321 +0.013 -0.015
-w0: -0.783 +0.071 -0.067 (prior width 1.5: -1.5 to 0.0)
-wa: -0.723 +0.441 -0.446 (prior width 4.5: -3.0 to 1.5)
-Chi squared: 1645.45 (Δ chi2 13.52)
 Log Evidence: -838.65 (Δ logZ 2.58 against ΛCDM)
-Degrees of freedom: 1743
+
+ΔM: -9.203 +0.014 -0.014 mag
+r_d * h: 99.44 +0.82 -0.81 Mpc
+Ωm: 0.313 +0.013 -0.016
+w0: -0.846 +0.071 -0.065 (prior width 1.5: -1.5 to 0.0)
+wa: -0.517 +0.463 -0.456 (prior width 4.5: -3.0 to 1.5)
+Chi squared: 1638.13
+Log Evidence: -834.71 (Δ logZ -0.44 in favour of ΛCDM)
+Degrees of freedom: 1722
 """
