@@ -7,11 +7,7 @@ from y2025DESdovekie.data import get_data, effective_sample_size
 
 legend, z_cmb_vals, z_hel_vals, mu_vals, covmat = get_data()
 
-try:
-    cho = np.load("cho_des.npy")
-except FileNotFoundError:
-    cho = cho_factor(covmat, lower=True)[0]
-    np.save("cho_des.npy", cho)
+cho = cho_factor(covmat, lower=True)[0]
 
 c = c0 / 1000  # Speed of light (km/s)
 H0 = 70  # Hubble constant (km/s/Mpc)
