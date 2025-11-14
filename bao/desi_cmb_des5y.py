@@ -1,7 +1,7 @@
 from numba import njit
 import numpy as np
 from scipy.linalg import cho_factor, solve_triangular
-from y2024DES.data import get_data as get_sn_data
+from y2025DESdovekie.data import get_data as get_sn_data
 from y2025BAO.data import get_data as get_bao_data
 import cmb.data_desi_compression as cmb
 
@@ -242,19 +242,19 @@ DESI DR2 + DES5Y + (R, π/θ*, ωb)CMB
 Flat ΛCDM w(z) = -1
 
 ** Early time ΛCDM **
-H0: 68.18 +0.28 -0.28 km/s/Mpc
-Ωm: 0.3026 +0.0036 -0.0036
-ωb: 0.02234 +0.00012 -0.00012
-ωc: 0.1177 +0.0006 -0.0006
-ωm: 0.1406 +0.0006 -0.0006
+H0: 68.25 +0.28 -0.28 km/s/Mpc
+Ωm: 0.3016 +0.0036 -0.0036
+ωb: 0.02235 +0.00012 -0.00012
+ωc: 0.1175 +0.0006 -0.0006
+ωm: 0.1405 +0.0006 -0.0006
 w0: -1
 wa: 0
-r*: 145.08 Mpc
-z*: 1089.78 +0.18 -0.18
-r_d: 147.76 Mpc
-z_d: 1059.85 +0.26 -0.26
-Chi squared: 1663.38
-Log evidence: -850.2
+r*: 145.11 Mpc
+z*: 1089.75 +0.18 -0.18
+r_d: 147.78 Mpc
+z_d: 1059.87 +0.26 -0.26
+Chi squared: 1648.88
+Log evidence: -842.8
 """
 
 
@@ -262,19 +262,19 @@ Log evidence: -850.2
 Flat wDM w(z) = w0
 
 ** Early time ΛCDM **
-H0: 67.12 +0.54 -0.53 km/s/Mpc
-Ωm: 0.3097 +0.0049 -0.0048
-ωb: 0.02243 +0.00013 -0.00013
-ωc: 0.1164 +0.0008 -0.0008
-ωm: 0.1395 +0.0008 -0.0008
-w0: -0.949 +0.022 -0.022 (prior width 3.0: -3.0 to 0.0)
+H0: 67.61 +0.53 -0.52 km/s/Mpc
+Ωm: 0.3059 +0.0047 -0.0047
+ωb: 0.02241 +0.00012 -0.00013
+ωc: 0.1167 +0.0008 -0.0008
+ωm: 0.1398 +0.0008 -0.0008
+w0: -0.969 +0.022 -0.022 (prior width 1.0: -2.0 to 0.0)
 wa: 0
-r*: 145.33 Mpc
-z*: 1089.54 +0.21 -0.21
-r_d: 147.98 Mpc
-z_d: 1059.98 +0.27 -0.27
-Chi squared: 1658.22
-Log evidence: -850.9 (Δ logZ = -0.7 in favour of ΛCDM)
+r*: 145.27 Mpc
+z*: 1089.60 +0.21 -0.21
+r_d: 147.92 Mpc
+z_d: 1059.95 +0.27 -0.27
+Chi squared: 1646.86
+Log evidence: -845.1 (Δ logZ = -2.3 in favour of ΛCDM)
 """
 
 
@@ -282,19 +282,19 @@ Log evidence: -850.9 (Δ logZ = -0.7 in favour of ΛCDM)
 Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
 
 ** Early time ΛCDM **
-H0: 66.58 +0.55 -0.56 km/s/Mpc
-Ωm: 0.3151 +0.0055 -0.0053
-ωb: 0.02242 +0.00012 -0.00012
-ωc: 0.1166 +0.0007 -0.0007
-ωm: 0.1397 +0.0007 -0.0007
-w0: -0.867 +0.040 -0.040 (prior width 3.0: -3.0 to 0.0)
+H0: 67.19 +0.53 -0.54 km/s/Mpc
+Ωm: 0.3097 +0.0053 -0.0051
+ωb: 0.02241 +0.00012 -0.00012
+ωc: 0.1168 +0.0007 -0.0007
+ωm: 0.1398 +0.0007 -0.0007
+w0: -0.912 +0.039 -0.039 (prior width 3.0: -3.0 to 0.0)
 wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-r*: 145.29 Mpc
-z*: 1089.57 +0.19 -0.19
-r_d: 147.94 Mpc
-z_d: 1059.97 +0.27 -0.27
-Chi squared: 1652.67
-Log evidence: -847.6 (Δ logZ = 2.6 against ΛCDM)
+r*: 145.26 Mpc
+z*: 1089.60 +0.19 -0.19
+r_d: 147.91 Mpc
+z_d: 1059.96 +0.27 -0.27
+Chi squared: 1643.95
+Log evidence: -843.1 (Δ logZ = -0.3 in favour of ΛCDM)
 """
 
 
@@ -302,17 +302,17 @@ Log evidence: -847.6 (Δ logZ = 2.6 against ΛCDM)
 Flat w(z) = w0 + wa * z / (1 + z)
 
 ** Early time ΛCDM **
-H0: 66.72 +0.55 -0.54 km/s/Mpc
-Ωm: 0.3181 +0.0055 -0.0055
-ωb: 0.02226 +0.00013 -0.00013
-ωc: 0.1187 +0.0009 -0.0010
-ωm: 0.1416 +0.0009 -0.0009
-w0: -0.770 +0.057 -0.056 (prior width 1.5: -1.5 to 0.0)
-wa: -0.747 +0.219 -0.235 (prior width 3.5: -2.5 to 1.0)
-r*: 144.87 Mpc
-z*: 1089.96 +0.23 -0.23
-r_d: 147.56 Mpc
-z_d: 1059.76 +0.27 -0.27
-Chi squared: 1646.16
-Log evidence: -846.5 (Δ logZ = 3.7 against ΛCDM)
+H0: 67.31 +0.53 -0.53 km/s/Mpc
+Ωm: 0.3123 +0.0053 -0.0053
+ωb: 0.02227 +0.00013 -0.00013
+ωc: 0.1186 +0.0009 -0.0010
+ωm: 0.1415 +0.0009 -0.0009
+w0: -0.825 +0.055 -0.053 (prior width 1.5: -1.5 to 0.0)
+wa: -0.611 +0.216 -0.227 (prior width 3.5: -2.5 to 1.0)
+r*: 144.89 Mpc
+z*: 1089.95 +0.23 -0.23
+r_d: 147.58 Mpc
+z_d: 1059.77 +0.27 -0.27
+Chi squared: 1638.91
+Log evidence: -842.8 (Δ logZ = 0.0 compared to ΛCDM)
 """
