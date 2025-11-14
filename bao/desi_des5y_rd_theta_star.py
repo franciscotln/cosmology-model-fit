@@ -231,14 +231,13 @@ if __name__ == "__main__":
 
 
 """
-(100 θ*, r_drag)CMB
+(100 θ*, r_drag)CMB Early time ΛCDM arXiv:2302.12911
 """
 
 
 """
 Flat ΛCDM w(z) = -1
 
--- Early time ΛCDM arXiv:2302.12911 --
 H0: 68.66 +0.41 -0.41 km/s/Mpc
 ωb: 0.02271 +0.00028 -0.00029
 ωc: 0.1171 +0.0007 -0.0007
@@ -257,7 +256,6 @@ Degrees of freedom: 1724
 """
 Flat wCDM w(z) = w0
 
--- Early time ΛCDM arXiv:2302.12911 --
 H0: 67.71 +0.53 -0.53 km/s/Mpc
 ωb: 0.02335 +0.00038 -0.00038
 ωc: 0.1146 +0.0012 -0.0012
@@ -276,7 +274,6 @@ Degrees of freedom: 1723
 """
 Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)**3)
 
--- Early time ΛCDM arXiv:2302.12911 --
 H0: 67.50 +0.56 -0.55 km/s/Mpc
 ωb: 0.02309 +0.00031 -0.00031
 ωc: 0.1157 +0.0008 -0.0008
@@ -295,7 +292,6 @@ Degrees of freedom: 1723
 """
 Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
 
--- Early time ΛCDM arXiv:2302.12911 --
 H0: 67.45 +0.55 -0.56 km/s/Mpc
 ωb: 0.02266 +0.00056 -0.00049
 ωc: 0.1174 +0.0017 -0.0021
