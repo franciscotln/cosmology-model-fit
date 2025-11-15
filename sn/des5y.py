@@ -12,7 +12,7 @@ cho = cho_factor(covmat, lower=True)[0]
 c = c0 / 1000  # Speed of light (km/s)
 H0 = 70  # Hubble constant (km/s/Mpc)
 
-z_grid = np.linspace(0, np.max(z_cmb_vals) + 0.1, num=1200)
+z_grid = np.linspace(0, np.max(z_cmb_vals) + 0.1, num=2000)
 dx = np.diff(z_grid)
 
 inv_a = 1 + z_grid
@@ -55,7 +55,7 @@ def log_likelihood(params):
     return -0.5 * chi_squared(params)
 
 
-bounds = np.array([(-0.6, 0.6), (0, 0.8), (-2.0, 0.0)], dtype=np.float64)  # ΔM, Ωm, w0
+bounds = np.array([(-0.2, 0.2), (0, 0.8), (-2.0, 0.0)], dtype=np.float64)  # ΔM, Ωm, w0
 
 normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
 
@@ -81,14 +81,13 @@ def main():
     from .plotting import plot_predictions, print_color, plot_residuals
 
     ndim = len(bounds)
-    nwalkers = 150
+    nwalkers = 60
     burn_in = 200
-    nsteps = burn_in + 2000
+    nsteps = burn_in + 5000
     initial_state = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
     moves = [
         (emcee.moves.KDEMove(), 0.3),
-        (emcee.moves.DEMove(), 0.56),
-        (emcee.moves.DESnookerMove(), 0.14),
+        (emcee.moves.DEMove(), 0.7),
     ]
 
     with Pool(6) as pool:
@@ -134,7 +133,7 @@ def main():
     print_color("Dataset", legend)
     print_color("z range", f"{z_cmb_vals[0]:.3f} - {z_cmb_vals[-1]:.3f}")
     print_color("Sample size", len(z_cmb_vals))
-    print_color("M", M_label)
+    print_color("ΔM", M_label)
     print_color("Ωm", Om_label)
     print_color("w0", w0_label)
     print_color("R-squared (%)", f"{100 * r_squared:.2f}")
@@ -173,7 +172,7 @@ Sample size: 1820
 ********************************
 
 Flat ΛCDM w(z) = -1
-Ωm: 0.331 +0.015 -0.015
+Ωm: 0.331 +0.016 -0.015
 w0: -1
 R-squared (%): 98.38
 RMSD (mag): 0.268
@@ -184,8 +183,8 @@ Effective deg of freedom: 1712
 ==============================
 
 Flat wCDM w(z) = w0
-Ωm: 0.260 +0.064 -0.081
-w0: -0.83 +0.13 -0.14
+Ωm: 0.260 +0.065 -0.085
+w0: -0.83 +0.14 -0.15
 R-squared (%): 98.37
 RMSD (mag): 0.268
 Skewness of residuals: 3.214
@@ -195,8 +194,8 @@ Effective deg of freedom: 1711
 ==============================
 
 Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
-Ωm: 0.289 +0.036 -0.037
-w0: -0.83 +0.11 -0.13
+Ωm: 0.290 +0.036 -0.038
+w0: -0.83 +0.12 -0.13
 R-squared (%): 98.37
 RMSD (mag): 0.268
 Skewness of residuals: 3.216
