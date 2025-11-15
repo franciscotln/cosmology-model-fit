@@ -13,7 +13,7 @@ sn_legend, z_cmb, z_hel, mu_vals, cov_matrix_sn = get_data()
 cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
 cho_cmb = cho_factor(cmb.covariance, lower=True)[0]
 
-z_grid = np.linspace(0, np.max(z_cmb) + 0.1, num=1000)
+z_grid = np.linspace(0, np.max(z_cmb) + 0.1, num=2000)
 dx = np.diff(z_grid)
 
 
@@ -33,7 +33,7 @@ def DM_z(z, theta):
     Obc = (Obh2 + Och2 + Omnu_h2) / h**2
     Or = Orh2 / h**2
 
-    dh_grid = (c / theta[1]) / Ez(z_grid, Obc, Or,w0)
+    dh_grid = (c / theta[1]) / Ez(z_grid, Obc, Or, w0)
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size)
     cum_dm[1:] = np.cumsum(dx * dy)
@@ -110,8 +110,7 @@ def main():
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
     moves = [
         (emcee.moves.KDEMove(), 0.30),
-        (emcee.moves.DEMove(), 0.56),
-        (emcee.moves.DESnookerMove(), 0.14),
+        (emcee.moves.DEMove(), 0.70),
     ]
 
     with Pool(5) as pool:
@@ -176,7 +175,7 @@ def main():
         x_scale="log",
     )
     plot_corner_and_chains(
-        labels=["$H_0$", "$Ω_m$", "$ω_b$", "$w_0$", "$M$"],
+        labels=["$ΔM$", "$H_0$", "$ω_b$", "$ω_c$", "$w_0$"],
         flat_samples=samples,
         samples=chains_samples,
     )
@@ -187,14 +186,16 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM w(z) = -1
-H0: 67.39 +0.44 -0.44 km/s/Mpc
-Ωm: 0.315 +0.006 -0.006
+H0: 67.40 +0.45 -0.45 km/s/Mpc
+Ωm: 0.315 +0.007 -0.006
 ωb: 0.02247 +0.00011 -0.00011
 ωc: 0.1199 +0.0011 -0.0011
-ωm: 0.1430 +0.0010 -0.0010
-z*: 1089.76 +0.20 -0.19
-zd: 1060.16 +0.23 -0.23
-r*: 144.40 Mpc
+ωm: 0.1430 +0.0011 -0.0011
+w0: -1
+wa: 0
+z*: 1089.77 +0.20 -0.20
+zd: 1060.15 +0.23 -0.23
+r*: 144.41 Mpc
 r_d: 147.03 Mpc
 Chi squared: 1632.70
 Log evidence: -834.5
@@ -202,40 +203,50 @@ Log evidence: -834.5
 ===============================
 
 Flat wCDM w(z) = w0
-H0: 66.67 +0.71 -0.70 km/s/Mpc
+H0: 66.68 +0.72 -0.72 km/s/Mpc
 Ωm: 0.320 +0.008 -0.008
 ωb: 0.02250 +0.00011 -0.00011
 ωc: 0.1193 +0.0012 -0.0012
-ωm: 0.1424 +0.0011 -0.0011
-w0: -0.967 +0.025 -0.025 (prior width 1.5: -1.5 - 0.0)
+ωm: 0.1424 +0.0012 -0.0012
+w0: -0.967 +0.026 -0.026 (prior width 1.5: -1.5 - 0.0)
 wa: 0
 z*: 1089.67 +0.21 -0.21
 zd: 1060.17 +0.23 -0.23
 r*: 144.54 Mpc
 r_d: 147.16 Mpc
 Chi squared: 1631.01
-Log evidence: -836.8
+Log evidence: -836.9
 
 ===============================
 
 Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
-H0: 66.72 +0.63 -0.62 km/s/Mpc
+H0: 66.72 +0.64 -0.64 km/s/Mpc
 Ωm: 0.320 +0.007 -0.007
 ωb: 0.02250 +0.00011 -0.00011
 ωc: 0.1192 +0.0012 -0.0012
-ωm: 0.1423 +0.0011 -0.0011
-w0: -0.937 +0.042 -0.042 (prior width 1.5: -1.5 - 0.0)
+ωm: 0.1423 +0.0012 -0.0011
+w0: -0.937 +0.043 -0.043 (prior width 1.5: -1.5 - 0.0)
 wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-z*: 1089.66 +0.21 -0.20
-zd: 1060.17 +0.23 -0.23
+z*: 1089.66 +0.21 -0.21
+zd: 1060.18 +0.23 -0.24
 r*: 144.56 Mpc
 r_d: 147.18 Mpc
 Chi squared: 1630.49
 Log evidence: -836.1
 
 ===============================
-TODO
 Flat w(z) = w0 + wa * z / (1 + z)
-w0: (prior width 1.5: -1.5 to 0.0)
-wa: (prior width 6.5: -4.0 to 2.5)
+H0: 67.81 +0.99 -1.05 km/s/Mpc
+Ωm: 0.310 +0.011 -0.009
+ωb: 0.02249 +0.00011 -0.00011
+ωc: 0.1194 +0.0012 -0.0012
+ωm: 0.1425 +0.0012 -0.0012
+w0: -0.808 +0.112 -0.114 (prior width 1.5: -1.5 to 0.0)
+wa: -0.777 +0.545 -0.561 (prior width 6.5: -4.0 to 2.5)
+z*: 1089.70 +0.22 -0.21
+zd: 1060.17 +0.24 -0.23
+r*: 144.51 Mpc
+r_d: 147.13 Mpc
+Chi squared: 1629.47
+Log evidence: -837.4
 """
