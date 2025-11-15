@@ -3,7 +3,7 @@ import numpy as np
 from scipy.linalg import cho_factor, solve_triangular
 from y2025DESdovekie.data import get_data as get_sn_data
 from y2025BAO.data import get_data as get_bao_data
-import cmb.data_desi_compression as cmb
+import cmb.data_planck_act_compression as cmb
 
 c = cmb.c  # km/s
 Orh2 = cmb.Omega_r_h2(2.044)
@@ -138,6 +138,7 @@ def main():
     import emcee
     from multiprocessing import Pool
     from log_evidence import log_evidence
+    from gelman_rubin import gelman_rubin
     from corner_plot import plot_corner_and_chains
     from sn.plotting import plot_predictions as plot_sn_predictions
     from .plot_predictions import plot_bao_predictions
@@ -150,8 +151,7 @@ def main():
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
     moves = [
         (emcee.moves.KDEMove(), 0.30),
-        (emcee.moves.DEMove(), 0.56),
-        (emcee.moves.DESnookerMove(), 0.14),
+        (emcee.moves.DEMove(), 0.70),
     ]
 
     with Pool(8) as pool:
@@ -170,6 +170,7 @@ def main():
     chains_samples = sampler.get_chain(discard=burn_in, flat=False)
     log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
     log_evd = log_evidence(samples, log_probs, log_probability, bounds)
+    print(f"Gelman-Rubin: {gelman_rubin(chains_samples)}")
 
     one_sigma_contours = [15.9, 50, 84.1]
 
@@ -255,6 +256,19 @@ r_d: 147.78 Mpc
 z_d: 1059.87 +0.26 -0.26
 Chi squared: 1648.88
 Log evidence: -842.8
+
+** ACT DR6 + Planck **
+H0: 68.34 +0.27 -0.27 km/s/Mpc
+Ωm: 0.3015 +0.0036 -0.0035
+ωb: 0.02256 +0.00010 -0.00010
+ωc: 0.1176 +0.0006 -0.0006
+ωm: 0.1408 +0.0006 -0.0006
+r*: 144.92 Mpc
+z*: 1089.45 +0.16 -0.15
+r_d: 147.53 Mpc
+z_d: 1060.20 +0.23 -0.23
+Chi squared: 1649.62
+Log evidence: -843.3
 """
 
 
@@ -267,7 +281,7 @@ H0: 67.61 +0.53 -0.52 km/s/Mpc
 ωb: 0.02241 +0.00012 -0.00013
 ωc: 0.1167 +0.0008 -0.0008
 ωm: 0.1398 +0.0008 -0.0008
-w0: -0.969 +0.022 -0.022 (prior width 1.0: -2.0 to 0.0)
+w0: -0.969 +0.022 -0.022 (prior width 1.5: -1.5 to 0.0)
 wa: 0
 r*: 145.27 Mpc
 z*: 1089.60 +0.21 -0.21
@@ -275,6 +289,21 @@ r_d: 147.92 Mpc
 z_d: 1059.95 +0.27 -0.27
 Chi squared: 1646.86
 Log evidence: -845.1 (Δ logZ = -2.3 in favour of ΛCDM)
+
+** ACT DR6 + Planck **
+H0: 67.73 +0.54 -0.54 km/s/Mpc
+Ωm: 0.3056 +0.0049 -0.0048
+ωb: 0.02259 +0.00010 -0.00011
+ωc: 0.1170 +0.0008 -0.0008
+ωm: 0.1402 +0.0008 -0.0008
+w0: -0.972 +0.022 -0.022 (prior width 1.5: -1.5 to 0.0)
+wa: 0
+r*: 145.07 Mpc
+z*: 1089.35 +0.17 -0.17
+r_d: 147.67 Mpc
+z_d: 1060.23 +0.23 -0.23
+Chi squared: 1647.86
+Log evidence: -845.7
 """
 
 
@@ -287,7 +316,7 @@ H0: 67.19 +0.53 -0.54 km/s/Mpc
 ωb: 0.02241 +0.00012 -0.00012
 ωc: 0.1168 +0.0007 -0.0007
 ωm: 0.1398 +0.0007 -0.0007
-w0: -0.912 +0.039 -0.039 (prior width 3.0: -3.0 to 0.0)
+w0: -0.912 +0.039 -0.039 (prior width 1.5: -1.5 to 0.0)
 wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
 r*: 145.26 Mpc
 z*: 1089.60 +0.19 -0.19
@@ -295,6 +324,21 @@ r_d: 147.91 Mpc
 z_d: 1059.96 +0.27 -0.27
 Chi squared: 1643.95
 Log evidence: -843.1 (Δ logZ = -0.3 in favour of ΛCDM)
+
+** ACT DR6 + Planck **
+H0: 67.28 +0.55 -0.55 km/s/Mpc
+Ωm: 0.3097 +0.0053 -0.0052
+ωb: 0.02259 +0.00010 -0.00010
+ωc: 0.1170 +0.0007 -0.0007
+ωm: 0.1402 +0.0007 -0.0007
+w0: -0.915 +0.039 -0.039 (prior width 1.5: -1.5 to 0.0)
+wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
+r*: 145.07 Mpc
+z*: 1089.35 +0.16 -0.16
+r_d: 147.67 Mpc
+z_d: 1060.23 +0.23 -0.23
+Chi squared: 1644.87
+Log evidence: -843.6
 """
 
 
@@ -315,4 +359,7 @@ r_d: 147.58 Mpc
 z_d: 1059.77 +0.27 -0.27
 Chi squared: 1638.91
 Log evidence: -842.8 (Δ logZ = 0.0 compared to ΛCDM)
+
+** ACT DR6 + Planck **
+TODO
 """
