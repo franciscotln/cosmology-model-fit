@@ -14,11 +14,11 @@ from numba import njit
 c = c0 / 1000  # km/s
 
 # 100 x θ*, rdrag
-DISTANCE_PRIORS = np.array([1.04094236, 147.13946054], dtype=np.float64)
-covariance = 1e-05 * np.array(
+DISTANCE_PRIORS = np.array([1.0409405, 147.14481166], dtype=np.float64)
+covariance = np.array(
     [
-        [0.00661822738, 1.49110073],
-        [1.49110073, 8617.96956],
+        [6.46996351e-08, 1.47665412e-05],
+        [1.47665412e-05, 8.68828506e-02],
     ],
     dtype=np.float64,
 )
@@ -46,7 +46,7 @@ Orh2_l_z = Omega_r_h2(2.044)
 @njit
 def z_star(wb, wm):
     """arXiv:astro-ph/9510117v2 (eq-1)"""
-    SCALING_FID = 0.998170677213665  # reproduces z* from mcsamples
+    SCALING_FID = 0.9981159391545895  # reproduces z* from mcsamples
 
     g1 = 0.0783 * wb**-0.238 / (1 + 39.5 * wb**0.763)
     g2 = 0.560 / (1 + 21.1 * wb**1.81)
@@ -58,7 +58,7 @@ def z_star(wb, wm):
 @njit
 def r_drag(wb, wm):
     """arXiv:2106.00428v2 (eq 8)"""
-    SCALING_FID = 1.00110357  # reproduces rdrag from mcsamples
+    SCALING_FID = 1.0011037178265139  # reproduces rdrag from mcsamples
 
     a1 = 0.00257366
     a2 = 0.05032
@@ -79,7 +79,7 @@ def r_drag(wb, wm):
 @njit
 def z_drag(wb, wm):
     """arXiv:2106.00428v2 (eq A2)"""
-    SCALING_FID = 1.0000319154099564  # reproduces zdrag from mcsamples
+    SCALING_FID = 1.000031880280976
 
     return (
         SCALING_FID
@@ -95,9 +95,7 @@ def rs_z(Ez_func, z_lim, H0, Obh2, Och2, w0=-1, wa=0):
     Or = Orh2_h_z / h**2
 
     def integrand(a):
-        denom = (
-            a**2 * Ez_func(1 / a - 1, Obc, Or, w0, wa) * np.sqrt(3 * (1 + Rb * a))
-        )
+        denom = a**2 * Ez_func(1 / a - 1, Obc, Or, w0, wa) * np.sqrt(3 * (1 + Rb * a))
         return 1 / denom
 
     return (c / H0) * quad(integrand, 1e-09, 1 / (1 + z_lim))[0]

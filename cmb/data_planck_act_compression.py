@@ -14,12 +14,12 @@ c = c0 / 1000  # km/s
 
 # arXiv:2503.14452v2 P-ACT baseline LCDM constraints
 # R, lA = π / θ*, ωb = Ωb h^2
-DISTANCE_PRIORS = np.array([1.74800862, 301.802768, 0.0224967038], dtype=np.float64)
+DISTANCE_PRIORS = np.array([1.74795802, 301.803306, 0.0224962530], dtype=np.float64)
 covariance = np.array(
     [
-        [1.53695593e-05, 1.06033525e-04, -2.09800310e-07],
-        [1.06033525e-04, 5.56342893e-03, -1.59024331e-06],
-        [-2.09800310e-07, -1.59024331e-06, 1.23736642e-08],
+        [1.54911112e-05, 1.03997132e-04, -2.10953275e-07],
+        [1.03997132e-04, 5.43880523e-03, -1.53612827e-06],
+        [-2.10953275e-07, -1.53612827e-06, 1.23574770e-08],
     ],
     dtype=np.float64,
 )
@@ -86,7 +86,7 @@ def cmb_distances(Ez_func, H0, Ob_h2, Oc_h2, w0=-1, wa=0):
 @njit
 def r_drag(wb, wm):
     """arXiv:2106.00428v2 (eq 8)"""
-    SCALING_FID = 1.00110357
+    SCALING_FID = 1.0011037178265139
 
     a1 = 0.00257366
     a2 = 0.05032
@@ -107,7 +107,7 @@ def r_drag(wb, wm):
 @njit
 def z_star(wb, wm):
     """arXiv:astro-ph/9510117v2 (eq-1)"""
-    SCALING_FID = 0.998170677213665
+    SCALING_FID = 0.9981159391545895
 
     g1 = 0.0783 * wb**-0.238 / (1 + 39.5 * wb**0.763)
     g2 = 0.560 / (1 + 21.1 * wb**1.81)
@@ -119,7 +119,7 @@ def z_star(wb, wm):
 @njit
 def z_drag(wb, wm):
     """arXiv:2106.00428v2 (eq A2)"""
-    SCALING_FID = 1.0000319154099564  # reproduces rdrag from integral
+    SCALING_FID = 1.000031880280976
 
     return (
         SCALING_FID
