@@ -12,10 +12,6 @@ Omnu_h2 = cmb.Omnu_h2
 bao_legend, bao_data, bao_cov_matrix = get_bao_data()
 cho_bao = cho_factor(bao_cov_matrix, lower=True)[0]
 
-# arXiv:2503.14452v2 (ACT + Planck 2018)
-theta_100 = 1.04094
-theta_100_err = 0.00026
-
 z_max = np.max(bao_data["z"]) + 0.1
 z_grid = np.linspace(0, z_max, num=1200)
 dx = np.diff(z_grid)
@@ -87,14 +83,13 @@ def chi_squared(params):
     delta_bbn = bbn.Obh2 - params[1]
     chi2_bbn = (delta_bbn / bbn.Obh2_sigma) ** 2
 
-    lA = cmb.cmb_distances(Ez, *params)[1]
-    thetastar = 100 * np.pi / lA
-    chi2_theta_100 = ((theta_100 - thetastar) / theta_100_err) ** 2
+    delta_thetastar = cmb.DISTANCE_PRIORS[1] - cmb.cmb_distances(Ez, *params)[1]
+    chi2_thetastar = delta_thetastar**2 / cmb.covariance[1, 1]
 
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
     chi_bao = solve_triang(cho_bao, delta_bao)
 
-    return chi2_bbn + chi2_theta_100 + chi_bao
+    return chi2_bbn + chi2_thetastar + chi_bao
 
 
 bounds = np.array(
@@ -143,8 +138,7 @@ def main():
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
     mvs = [
         (moves.KDEMove(), 0.30),
-        (moves.DEMove(), 0.56),
-        (moves.DESnookerMove(), 0.14),
+        (moves.DEMove(), 0.70),
     ]
 
     with Pool(5) as pool:
@@ -218,52 +212,53 @@ Dataset: DESI DR2 2024 + θ∗ + BBN
 *******************************
 
 Flat ΛCDM w(z) = -1
-rd: 148.35 +0.69 -0.68 Mpc
-H0: 68.49 +0.46 -0.46 km/s/Mpc
-ωb: 0.02217 +0.00052 -0.00053
+rd: 148.35 +0.70 -0.70 Mpc
+H0: 68.49 +0.48 -0.47 km/s/Mpc
+ωb: 0.02217 +0.00054 -0.00053
 ωc: 0.1162 +0.0008 -0.0008
 ωm: 0.1390 +0.0011 -0.0011
-Ωm: 0.2963 +0.0044 -0.0044
+Ωm: 0.2963 +0.0046 -0.0045
 w0: -1
 wa: 0
 r*: 145.60 Mpc
-z*: 1089.85 +0.72 -0.69
-100 θ*: 1.04094
+z*: 1089.85 +0.73 -0.71
+100 θ*: 1.04095
 Chi squared: 10.30
 Log evidence: -17.9
+Degs of freedom: 12
 
 ===============================
 
 Flat wCDM w(z) = w0
-rd: 148.53 +0.74 -0.73 Mpc
-H0: 67.77 +1.11 -1.08 km/s/Mpc
-ωb: 0.02224 +0.00054 -0.00054
-ωc: 0.1152 +0.0015 -0.0016
+rd: 148.54 +0.75 -0.74 Mpc
+H0: 67.77 +1.13 -1.09 km/s/Mpc
+ωb: 0.02223 +0.00055 -0.00054
+ωc: 0.1153 +0.0016 -0.0016
 ωm: 0.1381 +0.0016 -0.0017
-Ωm: 0.3007 +0.0076 -0.0076
-w0: -0.966 +0.047 -0.049 (prior width 1.5: -1.5 to 0.0)
+Ωm: 0.3007 +0.0077 -0.0077
+w0: -0.966 +0.048 -0.050 (prior width 1.5: -1.5 to 0.0)
 wa: 0
-r*: 145.79 Mpc
-z*: 1089.68 +0.76 -0.73
-100 θ*: 1.04091
-Chi squared: 9.71
-Log evidence: -20.1
+r*: 145.80 Mpc
+z*: 1089.68 +0.77 -0.74
+100 θ*: 1.04093
+Chi squared: 9.70
+Log evidence: -20.2
 Degs of freedom: 11
 
 ===============================
 
 Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
-rd: 148.48 +0.71 -0.70 Mpc
-H0: 66.84 +1.60 -1.55 km/s/Mpc
+rd: 148.48 +0.71 -0.71 Mpc
+H0: 66.83 +1.61 -1.54 km/s/Mpc
 ωb: 0.02225 +0.00054 -0.00054
 ωc: 0.1153 +0.0012 -0.0012
 ωm: 0.1382 +0.0013 -0.0013
-Ωm: 0.3094 +0.0134 -0.0131
-w0: -0.873 +0.118 -0.118 (prior width 1.5: -1.5 to 0.0)
+Ωm: 0.3095 +0.0133 -0.0132
+w0: -0.872 +0.117 -0.120 (prior width 1.5: -1.5 to 0.0)
 wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
 r*: 145.76 Mpc
-z*: 1089.67 +0.74 -0.71
-100 θ*: 1.04093
+z*: 1089.66 +0.75 -0.72
+100 θ*: 1.04095
 Chi squared: 9.00
 Log evidence: -18.9
 Degs of freedom: 11
