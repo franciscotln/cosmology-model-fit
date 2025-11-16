@@ -141,6 +141,7 @@ def main():
     from corner_plot import plot_corner_and_chains
     from log_evidence import log_evidence
     from sn.plotting import plot_predictions as plot_sn_predictions
+    from gelman_rubin import gelman_rubin
     from .plot_predictions import plot_bao_predictions
 
     np.random.seed(42)
@@ -152,8 +153,7 @@ def main():
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
     moves = [
         (emcee.moves.KDEMove(), 0.30),
-        (emcee.moves.DEMove(), 0.56),
-        (emcee.moves.DESnookerMove(), 0.14),
+        (emcee.moves.DEMove(), 0.70),
     ]
 
     with Pool(6) as pool:
@@ -172,6 +172,7 @@ def main():
     samples = sampler.get_chain(discard=burn_in, flat=True)
     log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
     log_evd = log_evidence(samples, log_probs, log_probability, bounds)
+    print("Gelman-Rubin:", gelman_rubin(chains_samples))
 
     pct = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
     [
@@ -251,28 +252,28 @@ Log evidence: -35.6
 Degrees of freedom: 32
 
 -- ATC DR6 --
-H0: 69.68 +0.50 -0.51 km/s/Mpc
-ωb: 0.02374 +0.00050 -0.00050
-ωc: 0.1165 +0.0007 -0.0007
-ωm: 0.1409 +0.0008 -0.0008
-Ωm: 0.2902 +0.0047 -0.0046
+H0: 69.59 +0.52 -0.52 km/s/Mpc
+ωb: 0.02399 +0.00051 -0.00051
+ωc: 0.1173 +0.0008 -0.0008
+ωm: 0.1419 +0.0009 -0.0008
+Ωm: 0.2930 +0.0048 -0.0047
 w0: -1
 wa: 0
-r_d: 146.10 Mpc
-100 θ*: 1.04086
-Chi squared: 42.9
-Log evidence: -36.2
+r_d: 146.05 Mpc
+100 θ*: 1.04082
+Chi squared: 41.3
+Log evidence: -35.4
 Degrees of freedom: 32
 
 -- ATC DR6 + Planck --
-H0: 68.95 +0.43 -0.43 km/s/Mpc
+H0: 68.95 +0.44 -0.44 km/s/Mpc
 ωb: 0.02304 +0.00030 -0.00030
 ωc: 0.1169 +0.0007 -0.0007
-ωm: 0.1406 +0.0006 -0.0006
-Ωm: 0.2957 +0.0047 -0.0045
+ωm: 0.1406 +0.0007 -0.0006
+Ωm: 0.2958 +0.0047 -0.0046
 w0: -1
 wa: 0
-r_d: 147.17 Mpc
+r_d: 147.18 Mpc
 100 θ*: 1.04097
 Chi squared: 40.2
 Log evidence: -35.6
@@ -298,29 +299,29 @@ Log evidence: -35.2 (Δ logZ = 0.4 against ΛCDM)
 Degrees of freedom: 31
 
 -- ATC DR6 --
-H0: 67.85 +0.74 -0.71 km/s/Mpc
-ωb: 0.02489 +0.00064 -0.00063
-ωc: 0.1128 +0.0014 -0.0015
-ωm: 0.1383 +0.0012 -0.0012
-Ωm: 0.3004 +0.0056 -0.0055
-w0: -0.882 +0.034 -0.035 (prior width 1.5: -1.5 to 0.0)
+H0: 67.93 +0.75 -0.73 km/s/Mpc
+ωb: 0.02502 +0.00065 -0.00063
+ωc: 0.1140 +0.0014 -0.0015
+ωm: 0.1396 +0.0012 -0.0012
+Ωm: 0.3025 +0.0057 -0.0057
+w0: -0.892 +0.036 -0.036 (prior width 1.5: -1.5 to 0.0)
 wa: 0
-r_d: 145.84 Mpc
-100 θ*: 1.04072
-Chi squared: 32.3
-Log evidence: -33.8 (Δ logZ = 2.4 against ΛCDM)
+r_d: 145.81 Mpc
+100 θ*: 1.04069
+Chi squared: 32.7
+Log evidence: -34.0 (Δ logZ = 1.4 against ΛCDM)
 Degrees of freedom: 31
 
 -- ATC DR6 + Planck --
-H0: 67.41 +0.70 -0.69 km/s/Mpc
-ωb: 0.02381 +0.00044 -0.00043
-ωc: 0.1140 +0.0014 -0.0014
+H0: 67.41 +0.72 -0.71 km/s/Mpc
+ωb: 0.02380 +0.00045 -0.00044
+ωc: 0.1140 +0.0014 -0.0015
 ωm: 0.1384 +0.0011 -0.0011
-Ωm: 0.3046 +0.0056 -0.0056
-w0: -0.903 +0.035 -0.036 (prior width 1.5: -1.5 to 0.0)
+Ωm: 0.3046 +0.0058 -0.0057
+w0: -0.904 +0.036 -0.037 (prior width 1.5: -1.5 to 0.0)
 wa: 0
-r_d: 147.11 Mpc
-100 θ*: 1.04093
+r_d: 147.12 Mpc
+100 θ*: 1.04091
 Chi squared: 33.2
 Log evidence: -35.0 (Δ logZ = 0.6 against ΛCDM)
 Degrees of freedom: 31
@@ -346,29 +347,29 @@ Log evidence: -33.2 (Δ logZ = 2.4 against ΛCDM)
 Degrees of freedom: 31
 
 -- ATC DR6 --
-H0: 67.09 +0.84 -0.85 km/s/Mpc
-ωb: 0.02441 +0.00054 -0.00053
-ωc: 0.1146 +0.0009 -0.0009
-ωm: 0.1396 +0.0009 -0.0009
-Ωm: 0.3102 +0.0076 -0.0073
-w0: -0.768 +0.064 -0.063 (prior width 1.5: -1.5 to 0.0)
+H0: 67.17 +0.87 -0.84 km/s/Mpc
+ωb: 0.02461 +0.00054 -0.00054
+ωc: 0.1155 +0.0009 -0.0009
+ωm: 0.1408 +0.0009 -0.0009
+Ωm: 0.3120 +0.0076 -0.0076
+w0: -0.783 +0.065 -0.065 (prior width 1.5: -1.5 to 0.0)
 wa: d w(z)/d z at z=0 = (9/4) * (1 + w0)
-r_d: 145.88 Mpc
-100 θ*: 1.04077
+r_d: 145.84 Mpc
+100 θ*: 1.04071
 Chi squared: 30.1
-Log evidence: -32.1 (Δ logZ = 4.1 against ΛCDM)
+Log evidence: -32.1 (Δ logZ = 3.3 against ΛCDM)
 Degrees of freedom: 31
 
 -- ATC DR6 + Planck --
-H0: 66.65 +0.83 -0.82 km/s/Mpc
-ωb: 0.02349 +0.00034 -0.00033
+H0: 66.66 +0.85 -0.82 km/s/Mpc
+ωb: 0.02350 +0.00034 -0.00034
 ωc: 0.1152 +0.0009 -0.0009
-ωm: 0.1394 +0.0007 -0.0007
-Ωm: 0.3137 +0.0077 -0.0075
-w0: -0.797 +0.065 -0.064 (prior width 1.5: -1.5 to 0.0)
+ωm: 0.1394 +0.0008 -0.0008
+Ωm: 0.3137 +0.0077 -0.0077
+w0: -0.796 +0.064 -0.066 (prior width 1.5: -1.5 to 0.0)
 wa: d w(z)/d z at z=0 = (9/4) * (1 + w0)
-r_d: 147.13 Mpc
-100 θ*: 1.04092
+r_d: 147.12 Mpc
+100 θ*: 1.04095
 Chi squared: 30.4
 Log evidence: -33.1 (Δ logZ = 2.5 against ΛCDM)
 Degrees of freedom: 31
