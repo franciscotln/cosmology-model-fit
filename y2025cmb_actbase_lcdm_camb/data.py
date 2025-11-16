@@ -14,11 +14,11 @@ from numba import njit
 c = c0 / 1000  # km/s
 
 # 100 x θ*, rdrag
-DISTANCE_PRIORS = np.array([1.04075356, 145.87779696], dtype=np.float64)
-covariance = 1e-05 * np.array(
+DISTANCE_PRIORS = np.array([1.04075127, 145.87675367], dtype=np.float64)
+covariance = np.array(
     [
-        [0.00974139445, 6.92710786],
-        [6.92710786, 31673.9463],
+        [9.70888996e-08, 6.98597357e-05],
+        [6.98597357e-05, 3.17455454e-01],
     ]
 )
 inv_cov_mat = np.linalg.inv(covariance)
