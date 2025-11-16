@@ -303,7 +303,7 @@ z*: 1089.35 +0.17 -0.17
 r_d: 147.67 Mpc
 z_d: 1060.23 +0.23 -0.23
 Chi squared: 1647.86
-Log evidence: -845.7
+Log evidence: -845.7 (Δ logZ = -2.4 in favour of ΛCDM)
 """
 
 
@@ -338,7 +338,7 @@ z*: 1089.35 +0.16 -0.16
 r_d: 147.67 Mpc
 z_d: 1060.23 +0.23 -0.23
 Chi squared: 1644.87
-Log evidence: -843.6
+Log evidence: -843.6 (Δ logZ = -0.3 in favour of ΛCDM)
 """
 
 
