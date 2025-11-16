@@ -2,8 +2,6 @@ from numba import njit
 import numpy as np
 import cmb.data_planck_act_compression as cmb
 
-Or_h2 = cmb.Omega_r_h2()
-
 
 @njit
 def Ez(z, Obc, Or, w0=-1, wa=0):
@@ -91,7 +89,7 @@ def main():
     h_samples = samples[:, 0] / 100
     Omh2_samples = samples[:, 1] + samples[:, 2] + cmb.Omnu_h2
     Om_samples = Omh2_samples / h_samples**2
-    z_eq_samples = -1 + Omh2_samples / Or_h2
+    z_eq_samples = -1 + Omh2_samples / cmb.Omega_r_h2()
     z_st_samples = cmb.z_star(samples[:, 1], Omh2_samples)
     z_dr_samples = cmb.z_drag(samples[:, 1], Omh2_samples)
     Om_16, Om_50, Om_84 = np.percentile(Om_samples, one_sigma_percentiles)
