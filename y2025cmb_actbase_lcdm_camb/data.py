@@ -45,7 +45,7 @@ Orh2_l_z = Omega_r_h2(2.044)
 @njit
 def z_star(wb, wm):
     """arXiv:astro-ph/9510117v2 (eq-1)"""
-    SCALING_FID = 0.9981950308412795  # reproduces z* from mcsamples
+    SCALING_FID = 0.9981950658960976
 
     g1 = 0.0783 * wb**-0.238 / (1 + 39.5 * wb**0.763)
     g2 = 0.560 / (1 + 21.1 * wb**1.81)
@@ -57,7 +57,7 @@ def z_star(wb, wm):
 @njit
 def r_drag(wb, wm):
     """arXiv:2106.00428v2 (eq 8)"""
-    SCALING_FID = 0.9981950308412795 # reproduces rdrag from mcsamples
+    SCALING_FID = 1.0010679291640412
 
     a1 = 0.00257366
     a2 = 0.05032
@@ -78,7 +78,7 @@ def r_drag(wb, wm):
 @njit
 def z_drag(wb, wm):
     """arXiv:2106.00428v2 (eq A2)"""
-    SCALING_FID = 1.000042094274071  # reproduces zdrag from mcsamples
+    SCALING_FID = 1.000042079532769
 
     return (
         SCALING_FID

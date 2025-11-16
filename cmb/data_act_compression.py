@@ -12,13 +12,14 @@ from numba import njit
 
 c = c0 / 1000  # km/s
 
-# 100 θ*, Obh2, Omh2
-DISTANCE_PRIORS = np.array([1.04075356, 0.02259009, 0.14702022], dtype=np.float64)
+# arXiv:2503.14452v2 ACT baseline LCDM constraints
+# R, lA = π / θ*, ωb = Ωb h^2
+DISTANCE_PRIORS = np.array([1.76114018, 301.858188, 0.0225906400], dtype=np.float64)
 covariance = np.array(
     [
-        [9.74139445e-08, -1.05647111e-09, -2.65737996e-07],
-        [-1.05647111e-09, 2.77483896e-08, -2.13726712e-09],
-        [-2.65737996e-07, -2.13726712e-09, 4.50842499e-06],
+        [4.21173357e-05, 2.72141593e-04, -1.81499538e-07],
+        [2.72141593e-04, 8.16733306e-03, 2.41363324e-07],
+        [-1.81499538e-07, 2.41363324e-07, 2.81508052e-08],
     ]
 )
 inv_cov_mat = np.linalg.inv(covariance)
@@ -45,7 +46,7 @@ Orh2_l_z = Omega_r_h2(2.044)
 @njit
 def z_star(wb, wm):
     """arXiv:astro-ph/9510117v2 (eq-1)"""
-    SCALING_FID = 0.9981950308412795
+    SCALING_FID = 0.9981950658960976
 
     g1 = 0.0783 * wb**-0.238 / (1 + 39.5 * wb**0.763)
     g2 = 0.560 / (1 + 21.1 * wb**1.81)
@@ -57,7 +58,7 @@ def z_star(wb, wm):
 @njit
 def r_drag(wb, wm):
     """arXiv:2106.00428v2 (eq 8)"""
-    SCALING_FID = 0.9981950308412795
+    SCALING_FID = 1.0010679291640412
 
     a1 = 0.00257366
     a2 = 0.05032
@@ -78,7 +79,7 @@ def r_drag(wb, wm):
 @njit
 def z_drag(wb, wm):
     """arXiv:2106.00428v2 (eq A2)"""
-    SCALING_FID = 1.000042094274071  # reproduces rdrag from integral
+    SCALING_FID = 1.000042079532769  # reproduces rdrag from integral
 
     return (
         SCALING_FID
@@ -112,9 +113,14 @@ def DM_z(Ez_func, z_lim, H0, Obh2, Och2, w0=-1, wa=0):
 
 
 def cmb_distances(Ez_func, H0, Ob_h2, Oc_h2, w0=-1, wa=0):
+    """
+    returns (R, lA = π / θ*, ωb)
+    """
     Om_h2 = Oc_h2 + Ob_h2 + Omnu_h2
     zstar = z_star(wb=Ob_h2, wm=Om_h2)
     rs_star = rs_z(Ez_func, zstar, H0, Ob_h2, Oc_h2, w0, wa)
     DM_star = DM_z(Ez_func, zstar, H0, Ob_h2, Oc_h2, w0, wa)
-    theta = rs_star / DM_star
-    return np.array([100 * theta, Ob_h2, Om_h2])
+
+    R = 100 * np.sqrt(Om_h2) * DM_star / c
+    lA = np.pi * DM_star / rs_star
+    return np.array([R, lA, Ob_h2])
