@@ -3,7 +3,10 @@ import numpy as np
 from scipy.constants import c as c0
 from scipy.linalg import cho_factor, solve_triangular
 import cmb.data_planck_act_compression as cmb
-from y2024DES.data import effective_sample_size as sn_sample, get_data as get_sn_data
+from y2025DESdovekie.data import (
+    effective_sample_size as sn_size,
+    get_data as get_sn_data,
+)
 from y2005cc.data import get_data as get_cc_data
 from y2025BAO.data import get_data as get_bao_data
 
@@ -23,7 +26,7 @@ Orh2 = cmb.Omega_r_h2(2.044)
 Omnu_h2 = cmb.Omnu_h2
 
 z_max = max(np.max(z_sn_vals), np.max(bao_data["z"])) + 0.1
-z_grid = np.linspace(0, z_max, num=1200)
+z_grid = np.linspace(0, z_max, num=2000)
 dx = np.diff(z_grid)
 
 
@@ -164,14 +167,13 @@ def main():
 
     ndim = len(bounds)
     nwalkers = 150
-    burn_in = 200
-    nsteps = 2000 + burn_in
+    burn_in = 250
+    nsteps = 2500 + burn_in
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
     moves = [
         (emcee.moves.KDEMove(), 0.30),
-        (emcee.moves.DEMove(), 0.56),
-        (emcee.moves.DESnookerMove(), 0.14),
+        (emcee.moves.DEMove(), 0.70),
     ]
 
     with Pool(8) as pool:
@@ -202,7 +204,7 @@ def main():
 
     best_fit = np.percentile(samples, 50, axis=0)
 
-    deg_of_freedom = 1 + sn_sample + len(bao_data["value"]) + len(z_cc_vals) - ndim
+    deg_of_freedom = 1 + sn_size + len(bao_data["z"]) + len(z_cc_vals) - ndim
 
     Omh2_samples = samples[:, 3] + samples[:, 4] + Omnu_h2
     Om_samples = Omh2_samples / (samples[:, 2] / 100) ** 2
@@ -219,7 +221,7 @@ def main():
     print(f"ωm: {Omh2_50:.4f} +{(Omh2_84 - Omh2_50):.4f} -{(Omh2_50 - Omh2_16):.4f}")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
-    print(f"r_drag: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
+    print(f"r_d: {rd_50:.1f} +{(rd_84 - rd_50):.1f} -{(rd_50 - rd_16):.1f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Log evidence: {log_evd:.2f}")
     print(f"Degrees of freedom: {deg_of_freedom}")
@@ -243,7 +245,7 @@ def main():
         y=mu_values,
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=mu_theory(best_fit),
-        label=rf"Best fit: $H_0$={h0_50:.1f} km/s/Mpc, $Ω_m$={Om_50:.3f}",
+        label=rf"$Ω_m$={Om_50:.3f}",
         x_scale="log",
     )
     plot_corner_and_chains(
@@ -259,64 +261,56 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM: w(z) = -1
-f_cc: 1.48 +0.18 -0.17
-H0: 66.7 +1.3 -1.2 km/s/Mpc
-ωb: 0.0199 +0.0019 -0.0017 Mpc
-ωc: 0.1162 +0.0010 -0.0009
-ωm: 0.1367 +0.0026 -0.0022
-Ωm: 0.307 +0.008 -0.007
+f_cc: 1.48 +0.18 -0.18
+H0: 67.3 +1.4 -1.2 km/s/Mpc
+ωb: 0.0207 +0.0019 -0.0018 Mpc
+ωc: 0.1162 +0.0011 -0.0009
+ωm: 0.1375 +0.0028 -0.0024
+Ωm: 0.304 +0.007 -0.007
 w0: -1
 wa: 0
-r_drag: 150.95 +2.21 -2.41 Mpc
-Chi squared: 1692.59
-Log evidence: -978.69
-Degrees of freedom: 1777
+r_d: 150.1 +2.3 -2.4 Mpc
+Chi squared: 1678.87
+Log evidence: -971.53
+Degrees of freedom: 1756
 
 ===============================
 
 Flat wCDM: w(z) = w0
-f_cc: 1.47 +0.18 -0.17
-H0: 68.5 +1.6 -1.5 km/s/Mpc
-ωb: 0.0261 +0.0031 -0.0028 Mpc
-ωc: 0.1146 +0.0016 -0.0015
-ωm: 0.1412 +0.0043 -0.0036
-Ωm: 0.301 +0.007 -0.007
-w0: -0.887 +0.031 -0.031 (prior width 1.5: -1.5 to 0.0)
+f_cc: 1.48 +0.18 -0.18
+H0: 68.7 +1.6 -1.5 km/s/Mpc
+ωb: 0.0253 +0.0031 -0.0028 Mpc
+ωc: 0.1152 +0.0016 -0.0014
+ωm: 0.1410 +0.0043 -0.0035
+Ωm: 0.299 +0.007 -0.007
+w0: -0.917 +0.031 -0.032 (prior width 1.5: -1.5 to 0.0)
 wa: 0
-r_drag: 144.60 +3.18 -3.35 Mpc
-Chi squared: 1681.20
-Log evidence: -975.83 (Δ logZ = 2.86 over ΛCDM)
-Degrees of freedom: 1776
+r_drag: 145.25 +3.22 -3.39 Mpc
+Chi squared: 1672.53
+Log evidence: -971.25 (Δ logZ = 0.28 over ΛCDM)
+Degrees of freedom: 1755
 
 ===============================
 
 Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
-f_cc: 1.48 +0.18 -0.17
-H0: 67.6 +1.5 -1.4 km/s/Mpc
-ωb: 0.0245 +0.0026 -0.0024 Mpc
-ωc: 0.1160 +0.0015 -0.0013
-ωm: 0.1410 +0.0039 -0.0033
-Ωm: 0.309 +0.007 -0.007
-w0: -0.821 +0.046 -0.047 (prior width 1.5: -1.5 to 0.0)
+f_cc: 1.48 +0.18 -0.18
+H0: 68.0 +1.5 -1.4 km/s/Mpc
+ωb: 0.0240 +0.0026 -0.0023 Mpc
+ωc: 0.1161 +0.0015 -0.0012
+ωm: 0.1408 +0.0039 -0.0033
+Ωm: 0.304 +0.007 -0.007
+w0: -0.872 +0.046 -0.047 (prior width 1.5: -1.5 to 0.0)
 wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-r_drag: 145.90 +2.86 -2.98 Mpc
-Chi squared: 1679.36
-Log evidence: -974.43 (Δ logZ = 4.26 over ΛCDM)
-Degrees of freedom: 1776
+r_d: 146.3 +2.8 -3.0 Mpc
+Chi squared: 1671.80
+Log evidence: -970.45 (Δ logZ = 1.08 over ΛCDM)
+Degrees of freedom: 1755
 
 ===============================
 
 Flat w0waCDM: w(z) = w0 + wa * z / (1 + z)
-f_cc: 1.47 +0.18 -0.17
-H0: 66.6 +1.8 -1.6 km/s/Mpc
-ωb: 0.0223 +0.0035 -0.0031 Mpc
-ωc: 0.1176 +0.0018 -0.0021
-ωm: 0.1402 +0.0037 -0.0028
-Ωm: 0.316 +0.011 -0.010
-w0: -0.802 +0.067 -0.062 (prior width 1.5: -1.5 to 0.0)
-wa: -0.555 +0.345 -0.389 (prior width 5.0: -3.0 to 2.0)
-r_drag: 147.95 +3.41 -3.63 Mpc
-Chi squared: 1679.57
-Log evidence: -976.20 (Δ logZ = 2.49 over ΛCDM)
-Degrees of freedom: 1775
+TODO
+w0: (prior width 1.5: -1.5 to 0.0)
+wa: (prior width 5.0: -3.0 to 2.0)
+Log evidence was 2.49 over ΛCDM, now probably 0.0
 """
