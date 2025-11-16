@@ -142,33 +142,31 @@ def main():
     import emcee
     from multiprocessing import Pool
     from corner_plot import plot_corner_and_chains
+    from gelman_rubin import gelman_rubin
     from sn.plotting import plot_predictions as plot_sn_predictions
     from .plot_predictions import plot_bao_predictions
     from log_evidence import log_evidence
 
     ndim = len(bounds)
-    nwalkers = 150
+    nwalkers = 100
     burn_in = 200
-    nsteps = 2000 + burn_in
+    nsteps = 4000 + burn_in
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
     moves = [
         (emcee.moves.KDEMove(), 0.30),
-        (emcee.moves.DEMove(), 0.56),
-        (emcee.moves.DESnookerMove(), 0.14),
+        (emcee.moves.DEMove(), 0.70),
     ]
 
     with Pool(8) as pool:
-        sampler = emcee.EnsembleSampler(
-            nwalkers, ndim, log_probability, pool=pool, moves=moves
-        )
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
 
     try:
         tau = sampler.get_autocorr_time()
         print("auto-correlation time", tau)
         print("acceptance fraction:", np.mean(sampler.acceptance_fraction))
-        print("effective samples", ndim * nwalkers * nsteps / np.max(tau))
+        print("effective samples", ndim * nwalkers * (nsteps - burn_in) / np.max(tau))
     except emcee.autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
 
@@ -176,6 +174,7 @@ def main():
     samples = sampler.get_chain(discard=burn_in, flat=True)
     log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
     log_evd = log_evidence(samples, log_probs, log_probability, bounds)
+    print(f"Gelman-Rubin R: {gelman_rubin(chains_samples)}")
 
     [
         [dM_16, dM_50, dM_84],
@@ -220,7 +219,7 @@ def main():
         y=mu_vals,
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=theory_mu(best_fit),
-        label=f"Model: $Ω_m$={Om_50:.3f}",
+        label=f"$Ω_m$={Om_50:.3f}",
         x_scale="log",
     )
     plot_corner_and_chains(
@@ -235,66 +234,67 @@ if __name__ == "__main__":
 
 
 """
+*******************************
+DESI DR2
+SNIa Union3
+(θ*, rdrag) CMB Planck + ACT compression
+*******************************
+"""
+
+"""
 Flat ΛCDM  w(z) = -1
 
-** Planck + ACT compression **
-ΔM: -0.122 +0.086 -0.087 mag
-H0: 68.60 +0.29 -0.29 km/s/Mpc
+H0: 68.60 +0.30 -0.30 km/s/Mpc
 ωb: 0.02249 +0.00011 -0.00011
 ωc: 0.1166 +0.0008 -0.0008
-ωm: 0.1398 +0.0008 -0.0008
+ωm: 0.1397 +0.0008 -0.0008
 Ωm: 0.297 +0.004 -0.004
 w0: -1
 wa: 0
-z_d: 1059.97 +0.26 -0.26
+z_d: 1059.97 +0.27 -0.27
 r_d: 147.88 Mpc
 Chi squared: 39.69
-Log Evidence: -36.16
+Log Evidence: -36.18
 Degs of freedom: 33
 
 ===============================
 
 Flat wCDM w(z) = w0
 
-** Planck + ACT compression **
-ΔM: -0.169 +0.090 -0.088 mag
-H0: 66.88 +0.77 -0.76 km/s/Mpc
+H0: 66.87 +0.79 -0.76 km/s/Mpc
 ωb: 0.02250 +0.00011 -0.00011
 ωc: 0.1141 +0.0014 -0.0014
 ωm: 0.1372 +0.0014 -0.0014
 Ωm: 0.307 +0.006 -0.006
-w0: -0.919 +0.033 -0.034 (prior width 1.5: -1.5 to 0.0)
+w0: -0.919 +0.034 -0.034 (prior width 3.0: -3.0 to 0.0)
 wa: 0
-z_d: 1059.80 +0.28 -0.27
+z_d: 1059.80 +0.28 -0.28
 r_d: 148.56 Mpc
 Chi squared: 33.97
-Log Evidence: -36.25 (Δ logZ = -0.09 in favour of ΛCDM)
+Log Evidence: -36.29 (Δ logZ = -0.11 in favour of ΛCDM)
 Degs of freedom: 32
 
 ===============================
 
 Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)**3)
 
-** Planck + ACT compression **
-ΔM: -0.179 +0.089 -0.090 mag
-H0: 66.19 +0.84 -0.83 km/s/Mpc
+H0: 66.21 +0.85 -0.85 km/s/Mpc
 ωb: 0.02250 +0.00011 -0.00011
 ωc: 0.1150 +0.0010 -0.0010
-ωm: 0.1381 +0.0010 -0.0010
+ωm: 0.1382 +0.0010 -0.0010
 Ωm: 0.315 +0.008 -0.008
-w0: -0.811 +0.063 -0.064 (prior width 1.5: -1.5 to 0.0)
+w0: -0.813 +0.064 -0.064
 wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-z_d: 1059.87 +0.27 -0.27
+z_d: 1059.86 +0.27 -0.27
 r_d: 148.30 Mpc
-Chi squared: 30.92
-Log Evidence: -34.11 (Δ logZ = 2.05 against ΛCDM)
+Chi squared: 30.93
+Log Evidence: -34.12 (Δ logZ = 2.06 against ΛCDM)
 Degs of freedom: 32
 
 ===============================
 
 Flat w(z) = w0 + wa * z / (1 + z)
-
-** Planck + ACT compression **
+TODO: rerun
 ΔM: -0.175 +0.088 -0.089 mag
 H0: 66.09 +0.82 -0.82 km/s/Mpc
 ωb: 0.02250 +0.00011 -0.00011
