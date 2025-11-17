@@ -79,6 +79,7 @@ def main():
     from multiprocessing import Pool
     from corner_plot import plot_corner_and_chains
     from gelman_rubin import gelman_rubin
+    from log_evidence import log_evidence
     from .plotting import plot_predictions, print_color, plot_residuals
 
     ndim = len(bounds)
@@ -97,7 +98,10 @@ def main():
 
     samples = sampler.get_chain(discard=burn_in, flat=True)
     chains_samples = sampler.get_chain(discard=burn_in, flat=False)
+    log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
+    log_evd = log_evidence(samples, log_probs, log_probability, bounds)
     print(f"Gelman-Rubin: {gelman_rubin(chains_samples)}")
+    print(f"Log evidence: {log_evd:.1f}")
 
     try:
         tau = sampler.get_autocorr_time()
@@ -202,6 +206,7 @@ R-squared (%): 98.37
 RMSD (mag): 0.268
 Skewness of residuals: 3.216
 Chi squared: 1629.62
+Log evidence: -823.2
 Effective deg of freedom: 1711
 
 ==============================
