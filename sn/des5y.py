@@ -78,12 +78,13 @@ def main():
     import emcee
     from multiprocessing import Pool
     from corner_plot import plot_corner_and_chains
+    from gelman_rubin import gelman_rubin
     from .plotting import plot_predictions, print_color, plot_residuals
 
     ndim = len(bounds)
-    nwalkers = 60
-    burn_in = 200
-    nsteps = burn_in + 5000
+    nwalkers = 100
+    burn_in = 600
+    nsteps = burn_in + 4000
     initial_state = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
     moves = [
         (emcee.moves.KDEMove(), 0.3),
@@ -96,6 +97,7 @@ def main():
 
     samples = sampler.get_chain(discard=burn_in, flat=True)
     chains_samples = sampler.get_chain(discard=burn_in, flat=False)
+    print(f"Gelman-Rubin: {gelman_rubin(chains_samples)}")
 
     try:
         tau = sampler.get_autocorr_time()
@@ -187,7 +189,7 @@ Flat wCDM w(z) = w0
 w0: -0.83 +0.14 -0.15
 R-squared (%): 98.37
 RMSD (mag): 0.268
-Skewness of residuals: 3.214
+Skewness of residuals: 3.213
 Chi squared: 1630.18
 Effective deg of freedom: 1711
 
