@@ -107,8 +107,9 @@ def main():
     print(f"Ωm: {Om_50:.4f} +{(Om_84 - Om_50):.4f} -{(Om_50 - Om_16):.4f}")
     print(f"z_eq: {z_eq_50:.1f} +{(z_eq_84 - z_eq_50):.1f} -{(z_eq_50 - z_eq_16):.1f}")
     print(f"z*: {z_st_50:.2f} +{(z_st_84 - z_st_50):.2f} -{(z_st_50 - z_st_16):.2f}")
-    print(f"z_drag: {z_d_50:.2f} +{(z_d_84 - z_d_50):.2f} -{(z_d_50 - z_d_16):.2f}")
     print(f"r*: {cmb.rs_z(Ez, z_st_50, H0_50, Obh2_50, Och2_50):.2f} Mpc")
+    print(f"100 θ*: {100 * np.pi / cmb.cmb_distances(Ez, *best_fit)[1]:.7f} radians")
+    print(f"z_drag: {z_d_50:.2f} +{(z_d_84 - z_d_50):.2f} -{(z_d_50 - z_d_16):.2f}")
     print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.4f}")
 
@@ -180,8 +181,9 @@ H0: 67.64 +0.50 -0.50 km/s/Mpc
 Ωm: 0.3113 +0.0071 -0.0070
 z_eq: 3404.5 +28.0 -27.8
 z*: 1089.68 +0.21 -0.21
-z_drag: 1060.17 +0.23 -0.23
 r*: 144.54 Mpc
+100 θ*: 1.0409390
+z_drag: 1060.17 +0.23 -0.23
 r_d: 147.15 +0.29 -0.29 Mpc
 Chi squared: 0.0001
 """
