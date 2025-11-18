@@ -180,10 +180,12 @@ Sample size: 1820
 Flat ΛCDM w(z) = -1
 Ωm: 0.331 +0.016 -0.015
 w0: -1
+wa: 0
 R-squared (%): 98.38
 RMSD (mag): 0.268
 Skewness of residuals: 3.206
 Chi squared: 1631.42
+Log evidence: -822.3
 Effective deg of freedom: 1712
 
 ==============================
@@ -191,6 +193,7 @@ Effective deg of freedom: 1712
 Flat wCDM w(z) = w0
 Ωm: 0.260 +0.065 -0.085
 w0: -0.83 +0.14 -0.15
+wa: 0
 R-squared (%): 98.37
 RMSD (mag): 0.268
 Skewness of residuals: 3.213
@@ -202,6 +205,7 @@ Effective deg of freedom: 1711
 Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
 Ωm: 0.290 +0.036 -0.038
 w0: -0.83 +0.12 -0.13
+wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
 R-squared (%): 98.37
 RMSD (mag): 0.268
 Skewness of residuals: 3.216
