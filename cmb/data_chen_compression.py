@@ -33,15 +33,10 @@ def Omega_r_h2(Neff=N_EFF):
     return O_GAMMA_H2 * (1 + 0.2271 * Neff)
 
 
-Orh2_h_z = Omega_r_h2(3.044)
-Orh2_l_z = Omega_r_h2(2.044)
-
-
 @njit
 def z_star(wb, wm):
     """arXiv:astro-ph/9510117v2 (eq-1)"""
-    # SCALING_FACTOR = 0.9962 matches H0
-    SCALING_FACTOR = 0.9974
+    SCALING_FACTOR = 0.9981
 
     g1 = 0.0783 * wb**-0.238 / (1 + 39.5 * wb**0.763)
     g2 = 0.560 / (1 + 21.1 * wb**1.81)
@@ -61,6 +56,8 @@ def z_drag(wb, wm):
 @njit
 def r_drag(wb, wm):
     """arXiv:2106.00428v2 (eq 8)"""
+    SCALING_FID = 1.0017
+
     a1 = 0.00257366
     a2 = 0.05032
     a3 = 0.013
@@ -74,17 +71,16 @@ def r_drag(wb, wm):
     term_A_denominator = (a1 * (wb**a2)) + (a3 * (wb**a4) * (wm**a5)) + (a6 * (wm**a7))
     term_A = 1.0 / term_A_denominator
     term_B = a8 / (wm**a9)
-    return term_A - term_B
+    return SCALING_FID * (term_A - term_B)
 
 
 def rs_z(Ez_func, z_lim, H0, Obh2, Och2, w0=-1, wa=0):
     h = H0 / 100
     Rb = 3 * Obh2 / (4 * O_GAMMA_H2)
     Obc = (Och2 + Obh2) / h**2
-    Or = Orh2_h_z / h**2
 
     def integrand(a):
-        denom = a**2 * Ez_func(1 / a - 1, Obc, Or, w0, wa) * np.sqrt(3 * (1 + Rb * a))
+        denom = a**2 * Ez_func(1 / a - 1, H0, Obc, w0, wa) * np.sqrt(3 * (1 + Rb * a))
         return 1 / denom
 
     return (c / H0) * quad(integrand, 1e-09, 1 / (1 + z_lim))[0]
@@ -93,12 +89,8 @@ def rs_z(Ez_func, z_lim, H0, Obh2, Och2, w0=-1, wa=0):
 def DM_z(Ez_func, z_lim, H0, Obh2, Och2, w0=-1, wa=0):
     h = H0 / 100
     Obc = (Och2 + Obh2) / h**2
-    Omnu = Omnu_h2 / h**2
-    Or_l_z = Orh2_l_z / h**2
-    Or_h_z = Orh2_h_z / h**2
-    int_l_z, _ = quad(lambda z: 1 / Ez_func(z, Obc + Omnu, Or_l_z, w0, wa), 0, z_nr)
-    int_h_z, _ = quad(lambda z: 1 / Ez_func(z, Obc, Or_h_z, w0, wa), z_nr, z_lim)
-    return (int_l_z + int_h_z) * c / H0
+    integral = quad(lambda z: 1 / Ez_func(z, H0, Obc, w0, wa), 1e-8, z_lim)[0]
+    return integral * c / H0
 
 
 def cmb_distances(Ez_func, H0, Ob_h2, Oc_h2, w0=-1, wa=0):

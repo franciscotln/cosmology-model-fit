@@ -41,18 +41,13 @@ def Omega_r_h2(Neff=N_EFF):
     return O_GAMMA_H2 * (1 + 0.2271 * Neff)
 
 
-Orh2_h_z = Omega_r_h2(3.044)
-Orh2_l_z = Omega_r_h2(2.044)
-
-
 def rs_z(Ez_func, z_lim, H0, Obh2, Och2, w0=-1, wa=0):
     h = H0 / 100
     Rb = 3 * Obh2 / (4 * O_GAMMA_H2)
     Obc = (Och2 + Obh2) / h**2
-    Or = Orh2_h_z / h**2
 
     def integrand(a):
-        denom = a**2 * Ez_func(1 / a - 1, Obc, Or, w0, wa) * np.sqrt(3 * (1 + Rb * a))
+        denom = a**2 * Ez_func(1 / a - 1, H0, Obc, w0, wa) * np.sqrt(3 * (1 + Rb * a))
         return 1 / denom
 
     return (c / H0) * quad(integrand, 1e-09, 1 / (1 + z_lim))[0]
@@ -61,12 +56,8 @@ def rs_z(Ez_func, z_lim, H0, Obh2, Och2, w0=-1, wa=0):
 def DM_z(Ez_func, z_lim, H0, Obh2, Och2, w0=-1, wa=0):
     h = H0 / 100
     Obc = (Och2 + Obh2) / h**2
-    Omnu = Omnu_h2 / h**2
-    Or_l_z = Orh2_l_z / h**2
-    Or_h_z = Orh2_h_z / h**2
-    int_l_z, _ = quad(lambda z: 1 / Ez_func(z, Obc + Omnu, Or_l_z, w0, wa), 0, z_nr)
-    int_h_z, _ = quad(lambda z: 1 / Ez_func(z, Obc, Or_h_z, w0, wa), z_nr, z_lim)
-    return (int_l_z + int_h_z) * c / H0
+    integral = quad(lambda z: 1 / Ez_func(z, H0, Obc, w0, wa), 1e-8, z_lim)[0]
+    return integral * c / H0
 
 
 def cmb_distances(Ez_func, H0, Ob_h2, Oc_h2, w0=-1, wa=0):
