@@ -85,21 +85,18 @@ def z_drag(wb, wm):
 
 
 def rs_z(Ez_func, z_lim, H0, Obh2, Och2, w0=-1, wa=0):
-    h = H0 / 100
     Rb = 3 * Obh2 / (4 * O_GAMMA_H2)
-    Obc = (Och2 + Obh2) / h**2
 
     def integrand(a):
-        denom = a**2 * Ez_func(1 / a - 1, H0, Obc, w0, wa) * np.sqrt(3 * (1 + Rb * a))
+        Ez = Ez_func(1 / a - 1, H0, Obh2, Och2, w0, wa)
+        denom = a**2 * Ez * np.sqrt(3 * (1 + Rb * a))
         return 1 / denom
 
     return (c / H0) * quad(integrand, 1e-09, 1 / (1 + z_lim))[0]
 
 
 def DM_z(Ez_func, z_lim, H0, Obh2, Och2, w0=-1, wa=0):
-    h = H0 / 100
-    Obc = (Och2 + Obh2) / h**2
-    integral = quad(lambda z: 1 / Ez_func(z, H0, Obc, w0, wa), 1e-8, z_lim)[0]
+    integral = quad(lambda z: 1 / Ez_func(z, H0, Obh2, Och2, w0, wa), 1e-8, z_lim)[0]
     return integral * c / H0
 
 

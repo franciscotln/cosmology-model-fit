@@ -6,7 +6,8 @@ import cmb.data_planck_act_compression as cmb
 
 c = cmb.c  # Speed of light in km/s
 Orh2 = cmb.Omega_r_h2(2.044)
-Omnu_h2 = cmb.Omnu_h2
+Omnuh2 = cmb.Omnu_h2
+z_nr = cmb.z_nr
 
 sn_legend, z_cmb, z_hel, mb_values, cov_matrix_sn = get_data()
 cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
@@ -16,22 +17,40 @@ dx = np.diff(z_grid)
 
 
 @njit
-def Ez(z, Obc, Or, w0=-1, wa=0):
-    Ol = 1 - Obc - Or
+def Omnu_z(z):
+    """
+    Computes the appox. evolution of one massive
+    neutrino species energy density with redshift
+    """
+    return (
+        (1 + z) ** 4
+        * (1 + ((1 + z_nr) / (1 + z)) ** 2) ** 0.5
+        * (1 + (1 + z_nr) ** 2) ** -0.5
+    )
+
+
+@njit
+def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
+    h = H0 / 100
+    Onu = Omnuh2 / h**2
+    Or = Orh2 / h**2
+    Obc = (Obh2 + Och2) / h**2
+    Ode = 1.0 - Obc - Or - Onu
+
     zp1 = 1 + z
-    cubic = zp1**3
-    rho_de = (4 * cubic / (1 + 3 * cubic)) ** (4 * (1 + w0))
-    return np.sqrt(Or * zp1**4 + Obc * cubic + Ol * rho_de)
+
+    radiation_term = Or * zp1**4
+    matter_term = Obc * zp1**3
+    neutrino_term = Onu * Omnu_z(z)
+    dark_energy_term = Ode * (4 * zp1**3 / (1 + 3 * zp1**3)) ** (4 * (1 + w0))
+
+    return np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
 
 
 @njit
 def DM_z(z, params):
-    H0, Obh2, Och2 = params[1:]
-    h = H0 / 100
-    Obc = (Obh2 + Och2 + Omnu_h2) / h**2
-    Or = Orh2 / h**2
-
-    dh_grid = (c / params[1]) / Ez(z_grid, Obc, Or, -1)
+    H0, Obh2, Och2, w0 = params[1:]
+    dh_grid = (c / H0) / Ez(z_grid, H0, Obh2, Och2, w0)
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size)
     cum_dm[1:] = np.cumsum(dx * dy)
@@ -100,8 +119,8 @@ def main():
 
     ndim = len(bounds)
     nwalkers = 150
-    burn_in = 200
-    nsteps = 2000 + burn_in
+    burn_in = 250
+    nsteps = 2500 + burn_in
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
     moves = [
@@ -138,7 +157,7 @@ def main():
 
     best_fit = np.percentile(samples, 50, axis=0)
 
-    Omh2_samples = samples[:, 2] + samples[:, 3] + Omnu_h2
+    Omh2_samples = samples[:, 2] + samples[:, 3] + Omnuh2
     Om_samples = Omh2_samples / (samples[:, 1] / 100) ** 2
     z_star_samples = cmb.z_star(samples[:, 2], Omh2_samples)
     z_drag_samples = cmb.z_drag(samples[:, 2], Omh2_samples)
@@ -156,7 +175,7 @@ def main():
     print(f"ωb: {Obh2_50:.5f} +{(Obh2_84 - Obh2_50):.5f} -{(Obh2_50 - Obh2_16):.5f}")
     print(f"ωc: {Och2_50:.5f} +{(Och2_84 - Och2_50):.5f} -{(Och2_50 - Och2_16):.5f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
-    print(f"M: {M_50:.3f} +{(M_84 - M_50):.3f} -{(M_50 - M_16):.3f}")
+    print(f"M: {M_50:.3f} +{(M_84 - M_50):.3f} -{(M_50 - M_16):.3f} mag")
     print(f"z*: {z_st_50:.2f} +{(z_st_84 - z_st_50):.2f} -{(z_st_50 - z_st_16):.2f}")
     print(f"z_d: {z_d_50:.2f} +{(z_d_84 - z_d_50):.2f} -{(z_d_50 - z_d_16):.2f}")
     print(f"r* = {cmb.rs_z(Ez, z_st_50, *best_fit[1:]):.2f} Mpc")
@@ -184,51 +203,51 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM w(z) = -1
-H0: 67.45 +0.47 -0.46 km/s/Mpc
+H0: 67.44 +0.47 -0.47 km/s/Mpc
 Ωm: 0.314 +0.007 -0.007
-ωm: 0.14287 +0.00110 -0.00109
+ωm: 0.14289 +0.00111 -0.00110
 ωb: 0.02248 +0.00011 -0.00011
-ωc: 0.11975 +0.00114 -0.00113
+ωc: 0.11977 +0.00115 -0.00113
 w0: -1
 wa: 0
-M: -19.438 +0.013 -0.013
-z*: 1089.75 +0.20 -0.20
-z_d: 1060.16 +0.24 -0.24
-r* = 144.44 Mpc
+M: -19.438 +0.013 -0.013 mag
+z*: 1089.75 +0.21 -0.20
+z_d: 1060.16 +0.23 -0.24
+r* = 144.42 Mpc
 rd: 147.05 +0.28 -0.28 Mpc
-Chi squared: 1404.01
+Chi squared: 1403.99
 
 ===============================
 
 Flat wCDM w(z) = w0
-H0: 66.68 +0.81 -0.82 km/s/Mpc
+H0: 66.67 +0.82 -0.81 km/s/Mpc
 Ωm: 0.320 +0.009 -0.009
-ωm: 0.14242 +0.00118 -0.00118
+ωm: 0.14244 +0.00119 -0.00116
 ωb: 0.02250 +0.00011 -0.00011
-ωc: 0.11928 +0.00122 -0.00122
+ωc: 0.11930 +0.00122 -0.00121
 w0: -0.968 +0.029 -0.029 (prior width 1.5: from -1.5 to 0.0)
 wa: 0
-M: -19.455 +0.021 -0.021
+M: -19.456 +0.021 -0.020 mag
 z*: 1089.68 +0.21 -0.21
 z_d: 1060.17 +0.23 -0.23
-r* = 144.54 Mpc
-rd: 147.15 +0.30 -0.29 Mpc
-Chi squared: 1402.70
+r* = 144.53 Mpc
+rd: 147.15 +0.29 -0.29 Mpc
+Chi squared: 1402.71
 
 ===============================
 
-Flat w(z) = -1 + (1 + w0) / (1 + z)^3
-H0: 66.83 +0.71 -0.68 km/s/Mpc
+Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
+H0: 66.82 +0.70 -0.69 km/s/Mpc
 Ωm: 0.319 +0.008 -0.008
-ωm: 0.14241 +0.00116 -0.00117
+ωm: 0.14244 +0.00117 -0.00115
 ωb: 0.02250 +0.00011 -0.00011
-ωc: 0.11927 +0.00120 -0.00121
-w0: -0.946 +0.045 -0.046 (prior width 1.5: from -1.5 to 0.0)
+ωc: 0.11930 +0.00121 -0.00119
+w0: -0.947 +0.046 -0.046 (prior width 1.5: from -1.5 to 0.0)
 wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-M: -19.449 +0.017 -0.016
+M: -19.449 +0.017 -0.016 mag
 z*: 1089.68 +0.21 -0.21
-z_d: 1060.17 +0.23 -0.23
-r* = 144.54 Mpc
+z_d: 1060.17 +0.24 -0.23
+r* = 144.53 Mpc
 rd: 147.15 +0.29 -0.29 Mpc
 Chi squared: 1402.60
 

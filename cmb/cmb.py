@@ -1,6 +1,6 @@
 from numba import njit
 import numpy as np
-import cmb.data_union3_compression as cmb
+import cmb.data_planck_act_compression as cmb
 
 z_nr = cmb.z_nr
 Or_h2 = cmb.Omega_r_h2(2.044)
@@ -21,10 +21,11 @@ def Omnu_z(z):
 
 
 @njit
-def Ez(z, H0, Obc, w0=-1, wa=0):
+def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
     h = H0 / 100
     Onu = Omnu_h2 / h**2
     Or = Or_h2 / h**2
+    Obc = (Obh2 + Och2) / h**2
     Ode = 1.0 - Obc - Or - Onu
 
     radiation_term = Or * (1 + z) ** 4

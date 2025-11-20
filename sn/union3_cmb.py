@@ -6,7 +6,8 @@ import cmb.data_planck_act_compression as cmb
 
 c = cmb.c  # km/s
 Orh2 = cmb.Omega_r_h2(2.044)
-Omnu_h2 = cmb.Omnu_h2
+Omnuh2 = cmb.Omnu_h2
+z_nr = cmb.z_nr
 
 sn_legend, z_sn_vals, mu_vals, cov_matrix_sn = get_data()
 
@@ -18,22 +19,40 @@ dx = np.diff(z_grid)
 
 
 @njit
-def Ez(z, Obc, Or, w0=-1, wa=0):
-    Ol = 1 - Obc - Or
-    inv_a = 1 + z
-    cubic = inv_a**3
-    rho_de = (4 * cubic / (1 + 3 * cubic)) ** (4 * (1 + w0))
-    return np.sqrt(Or * inv_a**4 + Obc * cubic + Ol * rho_de)
+def Omnu_z(z):
+    """
+    Computes the appox. evolution of one massive
+    neutrino species energy density with redshift
+    """
+    return (
+        (1 + z) ** 4
+        * (1 + ((1 + z_nr) / (1 + z)) ** 2) ** 0.5
+        * (1 + (1 + z_nr) ** 2) ** -0.5
+    )
+
+
+@njit
+def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
+    h = H0 / 100
+    Onu = Omnuh2 / h**2
+    Or = Orh2 / h**2
+    Obc = (Obh2 + Och2) / h**2
+    Ode = 1.0 - Obc - Or - Onu
+
+    zp1 = 1 + z
+
+    radiation_term = Or * zp1**4
+    matter_term = Obc * zp1**3
+    neutrino_term = Onu * Omnu_z(z)
+    dark_energy_term = Ode * (4 * zp1**3 / (1 + 3 * zp1**3)) ** (4 * (1 + w0))
+
+    return np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
 
 
 @njit
 def DM_z(z, params):
     H0, Obh2, Och2, w0 = params[1:]
-    h = H0 / 100
-    Obc = (Obh2 + Och2 + Omnu_h2) / h**2
-    Or = Orh2 / h**2
-
-    dh_grid = (c / params[1]) / Ez(z_grid, Obc, Or, w0)
+    dh_grid = (c / H0) / Ez(z_grid, H0, Obh2, Och2, w0)
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size)
     cum_dm[1:] = np.cumsum(dx * dy)
@@ -144,7 +163,7 @@ def main():
     best_fit = np.percentile(samples, 50, axis=0)
     degrees_of_freedom = len(mu_vals) + len(cmb.DISTANCE_PRIORS) - len(best_fit)
 
-    Omh2_samples = samples[:, 2] + samples[:, 3] + Omnu_h2
+    Omh2_samples = samples[:, 2] + samples[:, 3] + Omnuh2
     Om_samples = Omh2_samples / (samples[:, 1] / 100) ** 2
     z_star_samples = cmb.z_star(samples[:, 2], Omh2_samples)
     z_drag_samples = cmb.z_drag(samples[:, 2], Omh2_samples)
@@ -195,35 +214,35 @@ Sample size: 22
 *******************************
 
 Flat ΛCDM w(z) = -1
-H0: 67.42 +0.48 -0.49 km/s/Mpc
+H0: 67.40 +0.48 -0.48 km/s/Mpc
 Ωm: 0.315 +0.007 -0.007
-ωm: 0.14295 +0.00114 -0.00114
+ωm: 0.14298 +0.00114 -0.00113
 ωb: 0.02247 +0.00011 -0.00011
-ωc: 0.1198 +0.0012 -0.0012
+ωc: 0.1199 +0.0012 -0.0012
 w0: -1
 wa: 0
 z*: 1089.76 +0.21 -0.21
-z_drag: 1060.15 +0.23 -0.23
-r*: 144.42 Mpc
-r_d: 147.04 Mpc
-Chi squared: 26.7
+z_drag: 1060.16 +0.23 -0.23
+r*: 144.40 Mpc
+r_d: 147.02 Mpc
+Chi squared: 26.6
 Log Evidence: -28.6
 Degrees of freedom: 21
 
 ===============================
 
 Flat wCDM w(z) = w0
-H0: 65.31 +1.24 -1.23 km/s/Mpc
-Ωm: 0.334 +0.014 -0.013
-ωm: 0.14239 +0.00118 -0.00117
+H0: 65.32 +1.23 -1.23 km/s/Mpc
+Ωm: 0.334 +0.013 -0.013
+ωm: 0.14242 +0.00118 -0.00117
 ωb: 0.02250 +0.00011 -0.00011
 ωc: 0.1193 +0.0012 -0.0012
-w0: -0.921 +0.043 -0.043 (prior width 1.5: -1.5 to 0.0)
+w0: -0.922 +0.043 -0.043 (prior width 1.5: -1.5 to 0.0)
 wa: 0
-z*: 1089.67 +0.21 -0.21
-z_drag: 1060.17 +0.23 -0.23
-r*: 144.55 Mpc
-r_d: 147.17 Mpc
+z*: 1089.68 +0.21 -0.21
+z_drag: 1060.17 +0.23 -0.24
+r*: 144.53 Mpc
+r_d: 147.15 Mpc
 Chi squared: 23.1
 Log Evidence: -29.5
 Degrees of freedom: 20
@@ -231,17 +250,17 @@ Degrees of freedom: 20
 ===============================
 
 Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
-H0: 65.40 +1.08 -1.06 km/s/Mpc
+H0: 65.40 +1.07 -1.06 km/s/Mpc
 Ωm: 0.333 +0.012 -0.011
-ωm: 0.14236 +0.00118 -0.00116
+ωm: 0.14238 +0.00118 -0.00116
 ωb: 0.02250 +0.00011 -0.00011
 ωc: 0.1192 +0.0012 -0.0012
-w0: -0.848 +0.075 -0.074 (prior width 1.5: -1.5 to 0.0)
+w0: -0.849 +0.075 -0.074 (prior width 1.5: -1.5 to 0.0)
 wa: d w(z)/d z at z=0 = -(9/4) * (1 + w0)
 z*: 1089.67 +0.21 -0.21
-z_drag: 1060.17 +0.24 -0.23
-r*: 144.56 Mpc
-r_d: 147.18 Mpc
+z_drag: 1060.18 +0.23 -0.23
+r*: 144.54 Mpc
+r_d: 147.16 Mpc
 Chi squared: 22.3
 Log Evidence: -28.6
 Degrees of freedom: 20
@@ -249,18 +268,18 @@ Degrees of freedom: 20
 ===============================
 
 Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
-H0: 66.65 +1.35 -1.40 km/s/Mpc
+H0: 66.62 +1.35 -1.42 km/s/Mpc
 Ωm: 0.321 +0.015 -0.013
-ωm: 0.14252 +0.00119 -0.00117
+ωm: 0.14255 +0.00121 -0.00118
 ωb: 0.02249 +0.00011 -0.00011
 ωc: 0.1194 +0.0012 -0.0012
-w0: -0.687 +0.160 -0.160 (prior width 1.5: -1.5 to 0.0)
-wa: -1.098 +0.730 -0.773 (prior width 8.5: -5.5 to 3.0)
-z*: 1089.69 +0.22 -0.21
-z_drag: 1060.17 +0.23 -0.24
-r*: 144.52 Mpc
-r_d: 147.14 Mpc
-Chi squared: 21.7
-Log Evidence: -29.3
+w0: -0.686 +0.160 -0.165 (prior width 1.5: -1.5 to 0.0)
+wa: -1.102 +0.753 -0.761 (prior width 8.5: -5.5 to 3.0)
+z*: 1089.70 +0.22 -0.21
+z_drag: 1060.17 +0.24 -0.23
+r*: 144.50 Mpc
+r_d: 147.12 Mpc
+Chi squared: 21.8
+Log Evidence: -29.7
 Degrees of freedom: 19
 """
