@@ -8,7 +8,8 @@ from y2025BAO.data import get_data as get_bao_data
 
 c = cmb.c  # Speed of light in km/s
 Orh2 = cmb.Omega_r_h2(2.044)
-Omnu_h2 = cmb.Omnu_h2
+Omnuh2 = cmb.Omnu_h2
+z_nr = cmb.z_nr
 
 # arXiv:2503.14452v2 (ACT + Planck 2018)
 theta_stx100 = 1.04094
@@ -26,12 +27,34 @@ dx = np.diff(z_grid)
 
 
 @njit
-def Ez(z, Obc, Or, w0=-1, wa=0):
-    Ol = 1 - Obc - Or
-    inv_a = 1 + z
-    cubic = inv_a**3
-    rho_de = (4 * cubic / (1 + 3 * cubic)) ** (4 * (1 + w0))
-    return np.sqrt(Or * inv_a**4 + Obc * cubic + Ol * rho_de)
+def Omnu_z(z):
+    """
+    Computes the appox. evolution of one massive
+    neutrino species energy density with redshift
+    """
+    return (
+        (1 + z) ** 4
+        * (1 + ((1 + z_nr) / (1 + z)) ** 2) ** 0.5
+        * (1 + (1 + z_nr) ** 2) ** -0.5
+    )
+
+
+@njit
+def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
+    h = H0 / 100
+    Onu = Omnuh2 / h**2
+    Or = Orh2 / h**2
+    Obc = (Obh2 + Och2) / h**2
+    Ode = 1.0 - Obc - Or - Onu
+
+    zp1 = 1 + z
+
+    radiation_term = Or * zp1**4
+    matter_term = Obc * zp1**3
+    neutrino_term = Onu * Omnu_z(z)
+    dark_energy_term = Ode * (4 * zp1**3 / (1 + 3 * zp1**3)) ** (4 * (1 + w0))
+
+    return np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
 
 
 @njit
@@ -43,10 +66,7 @@ def theory_mu(theta):
 @njit
 def H_z(z, theta):
     H0, Obh2, Och2, w0 = theta[1:]
-    h = H0 / 100
-    Obc = (Obh2 + Och2 + Omnu_h2) / h**2
-    Or = Orh2 / h**2
-    return H0 * Ez(z, Obc, Or, w0)
+    return H0 * Ez(z, H0, Obh2, Och2, w0)
 
 
 @njit
@@ -76,7 +96,7 @@ quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int64
 
 def bao_theory(z, qty, theta):
     Obh2, Och2 = theta[2], theta[3]
-    rd = cmb.r_drag(wb=Obh2, wm=Obh2 + Och2 + Omnu_h2)
+    rd = cmb.r_drag(wb=Obh2, wm=Obh2 + Och2 + Omnuh2)
 
     DV_mask = qty == 0
     DM_mask = qty == 1
@@ -111,7 +131,7 @@ def chi_squared(theta):
 
 bounds = np.array(
     [
-        (-0.8, 0.8),  # ΔM nuisance magnitude offset
+        (-1.0, 1.0),  # ΔM nuisance magnitude offset
         (50.0, 90.0),  # H0
         (0.010, 0.030),  # ωb = Ωb * h^2
         (0.05, 0.3),  # ωc = Ωc * h^2
@@ -152,14 +172,13 @@ def main():
 
     ndim = len(bounds)
     nwalkers = 150
-    burn_in = 200
-    nsteps = 2000 + burn_in
+    burn_in = 400
+    nsteps = 4000 + burn_in
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
     moves = [
         (emcee.moves.KDEMove(), 0.30),
-        (emcee.moves.DEMove(), 0.56),
-        (emcee.moves.DESnookerMove(), 0.14),
+        (emcee.moves.DEMove(), 0.70),
     ]
 
     with Pool(8) as pool:
@@ -170,7 +189,7 @@ def main():
         tau = sampler.get_autocorr_time()
         print("auto-correlation time", tau)
         print("acceptance fraction:", np.mean(sampler.acceptance_fraction))
-        print("effective samples", ndim * nwalkers * nsteps / np.max(tau))
+        print("effective samples", ndim * nwalkers * (nsteps - burn_in) / np.max(tau))
     except emcee.autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
 
@@ -192,7 +211,7 @@ def main():
     best_fit = np.percentile(samples, 50, axis=0)
     degrees_of_freedom = 2 + len(bao_data["z"]) + len(z_sn_vals) - len(best_fit)
 
-    Omh2_samples = samples[:, 2] + samples[:, 3] + Omnu_h2
+    Omh2_samples = samples[:, 2] + samples[:, 3] + Omnuh2
     Om_samples = Omh2_samples / (samples[:, 1] / 100) ** 2
     zd_samples = cmb.z_drag(wb=samples[:, 2], wm=Omh2_samples)
     z_st_samples = cmb.z_star(wb=samples[:, 2], wm=Omh2_samples)
@@ -229,7 +248,7 @@ def main():
         y=mu_values,
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=theory_mu(best_fit),
-        label=f"Model: $Ω_m$={Om_50:.3f}",
+        label=f"$Ω_m$={Om_50:.3f}",
         x_scale="log",
     )
     plot_corner_and_chains(
@@ -245,72 +264,76 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM  w(z) = -1
-H0: 68.32 +0.46 -0.46 km/s/Mpc
-ωb: 0.02209 +0.00053 -0.00052
-ωc: 0.1165 +0.0008 -0.0008
+H0: 68.32 +0.47 -0.47 km/s/Mpc
+ωb: 0.02209 +0.00054 -0.00053
+ωc: 0.1164 +0.0008 -0.0008
 ωm: 0.1392 +0.0011 -0.0011
+Ωm: 0.298 +0.005 -0.004
 w0: -1
 wa: 0
-z_d: 1059.02 +1.24 -1.25
+z_d: 1059.02 +1.27 -1.28
 r_d: 148.37 Mpc
-z*: 1089.99 +0.72 -0.69
-r*: 145.59 Mpc
-100 θ*: 1.04096
+z*: 1089.98 +0.74 -0.71
+r*: 145.58 Mpc
+100 θ*: 1.04095
 Chi squared: 39.43
-Log Evidence: -34.44
+Log Evidence: -34.66
 Degrees of freedom: 33
 
 ===============================
 
 Flat wCDM w(z) = w0
-H0: 66.79 +0.81 -0.79 km/s/Mpc
-ωb: 0.02230 +0.00053 -0.00053
-ωc: 0.1141 +0.0014 -0.0014
+H0: 66.78 +0.81 -0.80 km/s/Mpc
+ωb: 0.02229 +0.00054 -0.00054
+ωc: 0.1140 +0.0014 -0.0014
 ωm: 0.1370 +0.0015 -0.0015
-w0: -0.921 +0.034 -0.034 (prior width 1.5: -1.5 to 0.0)
+Ωm: 0.307 +0.006 -0.006
+w0: -0.921 +0.034 -0.035 (prior width 1.5: -1.5 to 0.0)
 wa: 0
-z_d: 1059.33 +1.22 -1.25
+z_d: 1059.32 +1.26 -1.28
 r_d: 148.79 Mpc
-z*: 1089.49 +0.74 -0.71
+z*: 1089.50 +0.75 -0.73
 r*: 146.06 Mpc
 100 θ*: 1.04092
 Chi squared: 34.16
-Log Evidence: -34.73 (Δ logZ = -0.29 in favour of ΛCDM)
+Log Evidence: -34.95 (Δ logZ = -0.29 in favour of ΛCDM)
 Degrees of freedom: 32
 
 ===============================
 
 Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)**3)
-H0: 66.10 +0.87 -0.87 km/s/Mpc
-ωb: 0.02229 +0.00053 -0.00053
-ωc: 0.1150 +0.0010 -0.0010
+H0: 66.10 +0.89 -0.88 km/s/Mpc
+ωb: 0.02229 +0.00054 -0.00054
+ωc: 0.1149 +0.0010 -0.0010
 ωm: 0.1379 +0.0012 -0.0012
-w0: -0.815 +0.063 -0.064 (prior width 1.5: -1.5 to 0.0)
+Ωm: 0.316 +0.008 -0.008
+w0: -0.815 +0.065 -0.065 (prior width 1.5: -1.5 to 0.0)
 wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-z_d: 1059.37 +1.23 -1.26
+z_d: 1059.38 +1.26 -1.28
 r_d: 148.55 Mpc
-z*: 1089.58 +0.72 -0.69
+z*: 1089.58 +0.74 -0.71
 r*: 145.83 Mpc
-100 θ*: 1.04095
-Chi squared: 31.11
-Log Evidence: -32.59 (Δ logZ = 1.85 against ΛCDM)
+100 θ*: 1.04093
+Chi squared: 31.10
+Log Evidence: -32.81 (Δ logZ = 1.85 against ΛCDM)
 Degrees of freedom: 32
 
 ===============================
 
 Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
-H0: 65.90 +0.87 -0.85 km/s/Mpc
-ωb: 0.02215 +0.00053 -0.00054
-ωc: 0.1180 +0.0016 -0.0018
-ωm: 0.1408 +0.0017 -0.0019
-w0: -0.716 +0.096 -0.094 (prior width 1.5: -1.5 to 0.0)
-wa: -0.835 +0.357 -0.372 (prior width 4.0: -3.0 to 1.0)
-z_d: 1059.25 +1.24 -1.26
+H0: 65.90 +0.88 -0.88 km/s/Mpc
+ωb: 0.02214 +0.00054 -0.00054
+ωc: 0.1180 +0.0017 -0.0019
+ωm: 0.1407 +0.0018 -0.0019
+Ωm: 0.324 +0.010 -0.010
+w0: -0.716 +0.100 -0.097 (prior width 1.5: -1.5 to 0.0)
+wa: -0.834 +0.371 -0.393 (prior width 4.0: -3.0 to 1.0)
+z_d: 1059.23 +1.26 -1.28
 r_d: 147.90 Mpc
-z*: 1090.04 +0.77 -0.74
+z*: 1090.05 +0.79 -0.75
 r*: 145.14 Mpc
-100 θ*: 1.04084
-Chi squared: 29.21
-Log Evidence: -33.46 (Δ logZ = 0.98 against ΛCDM)
+100 θ*: 1.04090
+Chi squared: 29.08
+Log Evidence: -33.68 (Δ logZ = 0.98 against ΛCDM)
 Degrees of freedom: 31
 """

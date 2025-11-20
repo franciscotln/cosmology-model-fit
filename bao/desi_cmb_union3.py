@@ -6,8 +6,9 @@ from y2025BAO.data import get_data as get_bao_data
 import cmb.data_desi_compression as cmb
 
 c = cmb.c  # km/s
-Orh2 = cmb.Omega_r_h2(2.044)  # late times 2 massless neutrinos
-Omnu_h2 = cmb.Omnu_h2
+Orh2 = cmb.Omega_r_h2(2.044)  # 2 massless neutrinos at all times
+Omnuh2 = cmb.Omnu_h2
+z_nr = cmb.z_nr
 
 sn_legend, z_sn_vals, mu_vals, cov_matrix_sn = get_data()
 bao_legend, bao_data, bao_cov_matrix = get_bao_data()
@@ -21,12 +22,34 @@ dx = np.diff(z_grid)
 
 
 @njit
-def Ez(z, Obc, Or, w0=-1, wa=0):
-    Ol = 1 - Obc - Or
-    inv_a = 1 + z
-    cubic = inv_a**3
-    rho_de = (4 * cubic / (1 + 3 * cubic)) ** (4 * (1 + w0))
-    return np.sqrt(Or * inv_a**4 + Obc * cubic + Ol * rho_de)
+def Omnu_z(z):
+    """
+    Computes the appox. evolution of one massive
+    neutrino species energy density with redshift
+    """
+    return (
+        (1 + z) ** 4
+        * (1 + ((1 + z_nr) / (1 + z)) ** 2) ** 0.5
+        * (1 + (1 + z_nr) ** 2) ** -0.5
+    )
+
+
+@njit
+def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
+    h = H0 / 100
+    Onu = Omnuh2 / h**2
+    Or = Orh2 / h**2
+    Obc = (Obh2 + Och2) / h**2
+    Ode = 1.0 - Obc - Or - Onu
+
+    zp1 = 1 + z
+
+    radiation_term = Or * zp1**4
+    matter_term = Obc * zp1**3
+    neutrino_term = Onu * Omnu_z(z)
+    dark_energy_term = Ode * (4 * zp1**3 / (1 + 3 * zp1**3)) ** (4 * (1 + w0))
+
+    return np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
 
 
 @njit
@@ -38,10 +61,7 @@ def mu_theory(params):
 @njit
 def H_z(z, params):
     H0, Obh2, Och2, w0 = params[1:]
-    h = H0 / 100
-    Obc = (Obh2 + Och2 + Omnu_h2) / h**2
-    Or = Orh2 / h**2
-    return H0 * Ez(z, Obc, Or, w0)
+    return H0 * Ez(z, H0, Obh2, Och2, w0)
 
 
 @njit
@@ -72,7 +92,7 @@ quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int32
 @njit
 def bao_theory(z, qty, params):
     Obh2, Och2 = params[2], params[3]
-    Omh2 = Obh2 + Och2 + Omnu_h2
+    Omh2 = Obh2 + Och2 + Omnuh2
     rd = cmb.r_drag(wb=Obh2, wm=Omh2)
 
     results = np.empty(z.size, dtype=np.float64)
@@ -105,7 +125,7 @@ def chi_squared(params):
 
 bounds = np.array(
     [
-        (-0.7, 0.7),  # ΔM
+        (-1.0, 1.0),  # ΔM
         (60, 75),  # H0
         (0.010, 0.030),  # ωb = Ωb * h^2
         (0.01, 0.25),  # ωc = Ωc * h^2
@@ -147,8 +167,8 @@ def main():
     np.random.seed(42)
     ndim = len(bounds)
     nwalkers = 150
-    burn_in = 200
-    nsteps = 2200 + burn_in
+    burn_in = 400
+    nsteps = 4000 + burn_in
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
     moves = [
@@ -189,7 +209,7 @@ def main():
     )
     log_evd = log_evidence(samples, log_probs, log_probability, bounds)
 
-    Omh2_samples = samples[:, 2] + samples[:, 3] + Omnu_h2
+    Omh2_samples = samples[:, 2] + samples[:, 3] + Omnuh2
     Om_samples = Omh2_samples / (samples[:, 1] / 100) ** 2
     z_star_samples = cmb.z_star(samples[:, 2], Omh2_samples)
     z_drag_samples = cmb.z_drag(samples[:, 2], Omh2_samples)
@@ -242,35 +262,35 @@ if __name__ == "__main__":
 Flat ΛCDM w(z) = -1
 
 ** Planck + ACT compression **
-H0: 68.39 +0.27 -0.27 km/s/Mpc
+H0: 68.38 +0.28 -0.27 km/s/Mpc
 Ωm: 0.3009 +0.0036 -0.0036
 ωb: 0.02257 +0.00010 -0.00010
-ωc: 0.1175 +0.0007 -0.0006
+ωc: 0.1175 +0.0007 -0.0007
 ωm: 0.1407 +0.0006 -0.0006
 w0: -1
 wa: 0
-z*: 1089.43 +0.16 -0.15
-r*: 144.95 Mpc
-z_d: 1060.20 +0.23 -0.23
-r_d: 147.55 Mpc
-Chi squared: 42.80
-Log evidence: -36.9
+z*: 1089.43 +0.16 -0.16
+r*: 144.94 Mpc
+z_d: 1060.21 +0.23 -0.23
+r_d: 147.54 Mpc
+Chi squared: 42.91
+Log evidence: -37.3
 Degs of freedom: 34
 
 ** Early-time ΛCDM **
-H0: 68.30 +0.30 -0.29 km/s/Mpc
-Ωm: 0.3010 +0.0038 -0.0037
+H0: 68.30 +0.29 -0.29 km/s/Mpc
+Ωm: 0.3010 +0.0038 -0.0038
 ωb: 0.02236 +0.00012 -0.00012
-ωc: 0.1174 +0.0007 -0.0007
+ωc: 0.1174 +0.0007 -0.0006
 ωm: 0.1404 +0.0006 -0.0006
 w0: -1
 wa: 0
 z*: 1089.72 +0.19 -0.19
 r*: 145.13 Mpc
-z_d: 1059.89 +0.27 -0.27
+z_d: 1059.88 +0.27 -0.27
 r_d: 147.80 Mpc
-Chi squared: 42.12
-Log evidence: -36.5
+Chi squared: 42.15
+Log evidence: -36.9
 Degs of freedom: 34
 """
 
@@ -279,23 +299,23 @@ Degs of freedom: 34
 Flat wCDM w(z) = w0
 
 ** Planck + ACT compression **
-H0: 67.78 +0.70 -0.69 km/s/Mpc
-Ωm: 0.3052 +0.0059 -0.0058
+H0: 67.79 +0.70 -0.69 km/s/Mpc
+Ωm: 0.3052 +0.0059 -0.0059
 ωb: 0.02259 +0.00011 -0.00011
 ωc: 0.1170 +0.0009 -0.0009
 ωm: 0.1402 +0.0008 -0.0008
-w0: -0.974 +0.027 -0.028
+w0: -0.974 +0.028 -0.028 (prior width 1.5: -1.5 to 0.0)
 wa: 0
 z*: 1089.36 +0.18 -0.18
-r*: 145.06 Mpc
+r*: 145.05 Mpc
 z_d: 1060.22 +0.23 -0.23
-r_d: 147.66 Mpc
-Chi squared: 41.86
-Log evidence: -39.5 (Δ logZ = -2.6 in favour of ΛCDM)
+r_d: 147.65 Mpc
+Chi squared: 41.99
+Log evidence: -40.0 (Δ logZ = -2.7 in favour of ΛCDM)
 Degs of freedom: 33
 
 ** Early-time ΛCDM **
-H0: 67.62 +0.71 -0.68 km/s/Mpc
+H0: 67.62 +0.71 -0.69 km/s/Mpc
 Ωm: 0.3057 +0.0060 -0.0059
 ωb: 0.02241 +0.00013 -0.00013
 ωc: 0.1168 +0.0009 -0.0009
@@ -305,9 +325,9 @@ wa: 0
 z*: 1089.60 +0.22 -0.22
 r*: 145.26 Mpc
 z_d: 1059.95 +0.28 -0.28
-r_d: 147.92 Mpc
-Chi squared: 40.93
-Log evidence: -39.0 (Δ logZ = -2.5 in favour of ΛCDM)
+r_d: 147.91 Mpc
+Chi squared: 40.96
+Log evidence: -39.3 (Δ logZ = -2.4 in favour of ΛCDM)
 Degs of freedom: 33
 """
 
@@ -316,35 +336,35 @@ Degs of freedom: 33
 Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)**3)
 
 ** Planck + ACT compression **
-H0: 66.65 +0.85 -0.83 km/s/Mpc
+H0: 66.65 +0.84 -0.83 km/s/Mpc
 Ωm: 0.3152 +0.0078 -0.0077
 ωb: 0.02260 +0.00010 -0.00010
 ωc: 0.1168 +0.0007 -0.0007
 ωm: 0.1400 +0.0007 -0.0007
-w0: -0.869 +0.060 -0.061 (prior width 1.5: -1.5 to 0.0)
+w0: -0.870 +0.061 -0.061 (prior width 1.5: -1.5 to 0.0)
 wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
 z*: 1089.32 +0.16 -0.16
-r*: 145.12 Mpc
+r*: 145.10 Mpc
 z_d: 1060.23 +0.23 -0.23
-r_d: 147.71 Mpc
-Chi squared: 38.03
-Log evidence: -36.9 (Δ logZ = 0.0 equal to ΛCDM)
+r_d: 147.70 Mpc
+Chi squared: 38.17
+Log evidence: -37.3 (Δ logZ = 0.0 equal to ΛCDM)
 Degs of freedom: 33
 
 ** Early-time ΛCDM **
-H0: 66.52 +0.83 -0.82 km/s/Mpc
-Ωm: 0.3156 +0.0078 -0.0077
-ωb: 0.02242 +0.00012 -0.00013
-ωc: 0.1166 +0.0007 -0.0008
-ωm: 0.1397 +0.0007 -0.0007
-w0: -0.863 +0.061 -0.061 (prior width 1.5: -1.5 to 0.0)
+H0: 66.54 +0.83 -0.82 km/s/Mpc
+Ωm: 0.3154 +0.0078 -0.0076
+ωb: 0.02242 +0.00012 -0.00012
+ωc: 0.1166 +0.0008 -0.0007
+ωm: 0.1396 +0.0007 -0.0007
+w0: -0.864 +0.061 -0.061 (prior width 1.5: -1.5 to 0.0)
 wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
 z*: 1089.57 +0.20 -0.20
-r*: 145.30 Mpc
-z_d: 1059.98 +0.27 -0.28
-r_d: 147.95 Mpc
-Chi squared: 37.07
-Log evidence: -36.3 (Δ logZ = 0.2 against ΛCDM)
+r*: 145.29 Mpc
+z_d: 1059.98 +0.27 -0.27
+r_d: 147.94 Mpc
+Chi squared: 37.11
+Log evidence: -36.7 (Δ logZ = 0.2 against ΛCDM)
 Degs of freedom: 33
 """
 
@@ -354,33 +374,33 @@ Flat w(z) = w0 + wa * z / (1 + z)
 
 ** Planck + ACT compression **
 H0: 66.08 +0.84 -0.83 km/s/Mpc
-Ωm: 0.3253 +0.0088 -0.0085
+Ωm: 0.3254 +0.0087 -0.0086
 ωb: 0.02251 +0.00011 -0.00011
 ωc: 0.1189 +0.0010 -0.0010
-ωm: 0.1420 +0.0009 -0.0009
-w0: -0.690 +0.091 -0.087 (prior width 1.5: -1.5 to 0.0)
-wa: -0.960 +0.292 -0.306 (prior width 4.0: -3.0 to 1.0)
+ωm: 0.1421 +0.0009 -0.0009
+w0: -0.690 +0.089 -0.087 (prior width 1.5: -1.5 to 0.0)
+wa: -0.962 +0.289 -0.306 (prior width 4.0: -3.0 to 1.0)
 z*: 1089.63 +0.19 -0.19
-r*: 144.63 Mpc
-z_d: 1060.17 +0.23 -0.24
-r_d: 147.25 Mpc
-Chi squared: 29.59
-Log evidence: -34.9 (Δ logZ = 2.0 against ΛCDM)
+r*: 144.62 Mpc
+z_d: 1060.18 +0.23 -0.23
+r_d: 147.24 Mpc
+Chi squared: 29.60
+Log evidence: -35.2 (Δ logZ = 2.1 against ΛCDM)
 Degs of freedom: 32
 
 ** Early-time ΛCDM **
-H0: 65.96 +0.85 -0.84 km/s/Mpc
-Ωm: 0.3257 +0.0089 -0.0087
+H0: 65.96 +0.85 -0.83 km/s/Mpc
+Ωm: 0.3257 +0.0088 -0.0086
 ωb: 0.02225 +0.00013 -0.00013
 ωc: 0.1188 +0.0010 -0.0010
-ωm: 0.1417 +0.0009 -0.0009
+ωm: 0.1417 +0.0009 -0.0010
 w0: -0.692 +0.091 -0.088 (prior width 1.5: -1.5 to 0.0)
-wa: -0.956 +0.297 -0.315 (prior width 4.0: -3.0 to 1.0)
+wa: -0.957 +0.297 -0.317 (prior width 4.0: -3.0 to 1.0)
 z*: 1089.99 +0.24 -0.24
-r*: 144.84 Mpc
+r*: 144.83 Mpc
 z_d: 1059.75 +0.28 -0.28
 r_d: 147.53 Mpc
-Chi squared: 29.38
-Log evidence: -34.6 (Δ logZ = 1.9 against ΛCDM)
+Chi squared: 29.39
+Log evidence: -35.0 (Δ logZ = 1.9 against ΛCDM)
 Degs of freedom: 32
 """

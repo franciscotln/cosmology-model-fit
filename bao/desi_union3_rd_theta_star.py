@@ -2,7 +2,7 @@ from numba import njit
 import numpy as np
 from scipy.constants import c as c0
 from scipy.linalg import cho_factor, solve_triangular
-import y2025cmb_actbase_lcdm_camb.data as cmb
+import y2025cmb_p_actbase_lcdm_camb.data as cmb
 from y2023union3.data import get_data as get_sn_data
 from y2025BAO.data import get_data as get_bao_data
 
@@ -266,34 +266,35 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM w(z) = -1
-TODO: rerun LCDM and w0waCDM with updated cmb module
-
 -- Early ΛCDM arXiv:2302.12911 --
-H0: 68.78 +0.42 -0.42 km/s/Mpc
-ωb: 0.02277 +0.00029 -0.00029
-ωc: 0.1168 +0.0007 -0.0007
-ωm: 0.1402 +0.0006 -0.0006
-Ωm: 0.2965 +0.0047 -0.0045
+H0: 68.78 +0.43 -0.43 km/s/Mpc
+ωb: 0.02277 +0.00030 -0.00030
+ωc: 0.1169 +0.0007 -0.0007
+ωm: 0.1403 +0.0006 -0.0006
+Ωm: 0.2965 +0.0047 -0.0047
 w0: -1
 wa: 0
-r_d: 147.49 Mpc
+r_d: 147.49 +0.28 -0.28 Mpc
+z_d: 1060.79 +0.65 -0.65
+z*: 1089.13 +0.43 -0.42
+r*: 144.96 Mpc
 100 θ*: 1.04106
 Chi squared: 39.9
-Log evidence: -35.6
+Log evidence: -35.8
 Degrees of freedom: 32
 
 -- ATC DR6 --
-H0: 69.59 +0.52 -0.52 km/s/Mpc
-ωb: 0.02398 +0.00052 -0.00051
+H0: 69.59 +0.52 -0.51 km/s/Mpc
+ωb: 0.02399 +0.00051 -0.00051
 ωc: 0.1173 +0.0008 -0.0008
 ωm: 0.1419 +0.0008 -0.0008
-Ωm: 0.2930 +0.0049 -0.0048
+Ωm: 0.2930 +0.0048 -0.0047
 w0: -1
 wa: 0
-r_d: 146.05 +0.55 -0.56 Mpc
-z_d: 1063.38 +1.12 -1.12
-z*: 1087.65 +0.64 -0.62
-r*: 143.93 Mpc
+r_d: 146.05 +0.55 -0.55 Mpc
+z_d: 1063.39 +1.11 -1.11
+z*: 1087.65 +0.63 -0.61
+r*: 143.92 Mpc
 100 θ*: 1.04083
 Chi squared: 41.3
 Log evidence: -35.6
@@ -301,15 +302,15 @@ Degrees of freedom: 32
 
 -- ATC DR6 + Planck --
 H0: 68.95 +0.44 -0.44 km/s/Mpc
-ωb: 0.02304 +0.00031 -0.00030
+ωb: 0.02304 +0.00030 -0.00031
 ωc: 0.1169 +0.0007 -0.0007
 ωm: 0.1406 +0.0007 -0.0006
-Ωm: 0.2957 +0.0048 -0.0047
+Ωm: 0.2957 +0.0047 -0.0047
 w0: -1
 wa: 0
-r_d: 147.18 +0.29 -0.29 Mpc
+r_d: 147.18 +0.29 -0.30 Mpc
 z_d: 1061.24 +0.66 -0.67
-z*: 1088.77 +0.43 -0.42
+z*: 1088.76 +0.43 -0.42
 r*: 144.74 Mpc
 100 θ*: 1.04097
 Chi squared: 40.2
@@ -335,7 +336,7 @@ z*: 1087.96 +0.64 -0.64
 r*: 145.14 Mpc
 100 θ*: 1.04100
 Chi squared: 33.4
-Log evidence: -35.4 (Δ logZ = 0.2 against ΛCDM)
+Log evidence: -35.4 (Δ logZ = 0.4 against ΛCDM)
 Degrees of freedom: 31
 
 -- ATC DR6 --
@@ -390,7 +391,7 @@ z*: 1088.43 +0.48 -0.47
 r*: 145.05 Mpc
 100 θ*: 1.04100
 Chi squared: 30.5
-Log evidence: -33.4 (Δ logZ = 2.2 against ΛCDM)
+Log evidence: -33.4 (Δ logZ = 2.4 against ΛCDM)
 Degrees of freedom: 31
 
 -- ATC DR6 --
@@ -433,50 +434,53 @@ Degrees of freedom: 31
 Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
 
 -- Early ΛCDM arXiv:2302.12911 --
-H0: 66.12 +0.89 -0.87 km/s/Mpc
-ωb: 0.02249 +0.00053 -0.00049
-ωc: 0.1181 +0.0017 -0.0020
-ωm: 0.1412 +0.0013 -0.0015
-Ωm: 0.3230 +0.0102 -0.0099
-w0: -0.717 +0.099 -0.096 (prior width 1.5: -1.5 to 0.0)
-wa: -0.823 +0.385 -0.399 (prior width 4.5: -3.0 to 1.5)
-r_d: 147.46 Mpc
-100 θ*: 1.04097
-Chi squared: 29.2
-Log evidence: -34.3 (Δ logZ = 1.3 against ΛCDM)
+H0: 66.11 +0.92 -0.89 km/s/Mpc
+ωb: 0.02250 +0.00057 -0.00050
+ωc: 0.1181 +0.0017 -0.0021
+ωm: 0.1412 +0.0013 -0.0016
+Ωm: 0.3228 +0.0104 -0.0105
+w0: -0.719 +0.102 -0.100 (prior width 1.5: -1.5 to 0.0)
+wa: -0.807 +0.403 -0.417 (prior width 4.5: -3.0 to 1.5)
+r_d: 147.47 +0.28 -0.27 Mpc
+z_d: 1060.27 +1.17 -1.05
+z*: 1089.59 +0.81 -0.91
+r*: 144.84 Mpc
+100 θ*: 1.04100
+Chi squared: 29.1
+Log evidence: -34.6 (Δ logZ = 1.2 against ΛCDM)
 Degrees of freedom: 30
 
 -- ATC DR6 --
-H0: 66.89 +0.94 -0.94 km/s/Mpc
-ωb: 0.02400 +0.00079 -0.00073
-ωc: 0.1178 +0.0019 -0.0023
+H0: 66.88 +0.95 -0.93 km/s/Mpc
+ωb: 0.02401 +0.00079 -0.00073
+ωc: 0.1177 +0.0019 -0.0023
 ωm: 0.1423 +0.0015 -0.0017
-Ωm: 0.3181 +0.0106 -0.0105
-w0: -0.734 +0.101 -0.098 (prior width 1.5: -1.5 to 0.0)
-wa: -0.685 +0.393 -0.411 (prior width 4.5: -3.0 to 1.5)
-r_d: 145.93 +0.56 -0.56 Mpc
-z_d: 1063.46 +1.61 -1.54
-z*: 1087.67 +1.01 -1.06
-r*: 143.80 Mpc
-100 θ*: 1.04070
+Ωm: 0.3180 +0.0105 -0.0105
+w0: -0.735 +0.101 -0.097 (prior width 1.5: -1.5 to 0.0)
+wa: -0.681 +0.391 -0.406 (prior width 4.5: -3.0 to 1.5)
+r_d: 145.93 +0.57 -0.56 Mpc
+z_d: 1063.47 +1.61 -1.54
+z*: 1087.66 +1.01 -1.06
+r*: 143.79 Mpc
+100 θ*: 1.04071
 Chi squared: 29.6
 Log evidence: -34.0 (Δ logZ = 1.6 against ΛCDM)
 Degrees of freedom: 30
 
 -- ATC DR6 + Planck --
-H0: 66.26 +0.91 -0.89 km/s/Mpc
-ωb: 0.02280 +0.00058 -0.00050
-ωc: 0.1180 +0.0018 -0.0020
+H0: 66.27 +0.90 -0.89 km/s/Mpc
+ωb: 0.02281 +0.00059 -0.00050
+ωc: 0.1180 +0.0017 -0.0021
 ωm: 0.1414 +0.0014 -0.0016
-Ωm: 0.3220 +0.0103 -0.0103
-w0: -0.721 +0.103 -0.099 (prior width 1.5: -1.5 to 0.0)
-wa: -0.785 +0.394 -0.420 (prior width 4.5: -3.0 to 1.5)
+Ωm: 0.3218 +0.0104 -0.0102
+w0: -0.721 +0.102 -0.100 (prior width 1.5: -1.5 to 0.0)
+wa: -0.787 +0.401 -0.418 (prior width 4.5: -3.0 to 1.5)
 r_d: 147.16 +0.29 -0.30 Mpc
-z_d: 1060.78 +1.18 -1.05
-z*: 1089.16 +0.80 -0.89
-r*: 144.64 Mpc
-100 θ*: 1.04096
+z_d: 1060.79 +1.20 -1.05
+z*: 1089.16 +0.80 -0.91
+r*: 144.63 Mpc
+100 θ*: 1.04095
 Chi squared: 29.2
-Log evidence: -34.6 (Δ logZ = 1.3 against ΛCDM)
+Log evidence: -34.5 (Δ logZ = 1.4 against ΛCDM)
 Degrees of freedom: 30
 """
