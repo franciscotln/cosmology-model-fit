@@ -1,5 +1,6 @@
 import corner
 import matplotlib.pyplot as plt
+import numpy as np
 
 
 def plot_corner_and_chains(labels, flat_samples, samples):
@@ -16,6 +17,7 @@ def plot_corner_and_chains(labels, flat_samples, samples):
         smooth=2.0,
         smooth1d=2.0,
         levels=(0.393, 0.864),
+        range=np.repeat(0.9999, ndim),
     )
     plt.show()
 
