@@ -14,7 +14,7 @@ cho_bao = cho_factor(bao_cov_matrix, lower=True)[0]
 c = c0 / 1000  # Speed of light in km/s
 
 z_max = max(np.max(z_sn_vals), np.max(bao_data["z"])) + 0.1
-z_grid = np.linspace(0, z_max, num=1200)
+z_grid = np.linspace(0, z_max, num=2000)
 dx = np.diff(z_grid)
 
 
@@ -82,7 +82,7 @@ def solve_triang(cho_L, delta):
 
 """
 Planck prior on sound horizon at drag epoch r_d in Mpc
-width increased by 75% to account for model dependence
+width increased by 75% to account for some model variations
 """
 rd_planck = 147.09
 rd_planck_sigma = 1.75 * 0.26
@@ -103,9 +103,9 @@ def chi_squared(params):
 
 bounds = np.array(
     [
-        (-0.7, 0.7),  # ΔM
-        (120, 180),  # rd
-        (60, 75),  # H0
+        (-1.0, 1.0),  # ΔM
+        (142, 152),  # rd
+        (55, 75),  # H0
         (0.1, 0.6),  # Ωm
         (-1.5, 0.0),  # w0
     ],
@@ -145,13 +145,12 @@ def main():
     np.random.seed(42)
     ndim = len(bounds)
     nwalkers = 150
-    burn_in = 200
-    nsteps = 2000 + burn_in
+    burn_in = 500
+    nsteps = 3500 + burn_in
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
     moves = [
         (emcee.moves.KDEMove(), 0.30),
-        (emcee.moves.DEMove(), 0.56),
-        (emcee.moves.DESnookerMove(), 0.14),
+        (emcee.moves.DEMove(), 0.70),
     ]
     with Pool(5) as pool:
         sampler = emcee.EnsembleSampler(
@@ -227,45 +226,48 @@ DESI BAO DR2 2025
 *******************************
 
 Flat ΛCDM
-rd: 147.09 +0.45 -0.44 Mpc
-H0: 68.69 +0.52 -0.51 km/s/Mpc
+rd: 147.09 +0.46 -0.45 Mpc
+H0: 68.69 +0.53 -0.52 km/s/Mpc
 Ωm: 0.304 +0.008 -0.008
-Chi squared: 38.82
-Log Evidence: -31.83
+w0: -1
+wa: 0
+Chi squared: 38.81
+Log Evidence: -30.68
 Degs of freedom: 32
 
 ===============================
 
 Flat wCDM
-rd: 147.09 +0.45 -0.44 Mpc
-H0: 67.12 +0.77 -0.76 km/s/Mpc
+rd: 147.09 +0.45 -0.46 Mpc
+H0: 67.13 +0.78 -0.77 km/s/Mpc
 Ωm: 0.298 +0.009 -0.009
-w0: -0.865 +0.049 -0.051 (prior width 1.5: -1.5 to 0.0)
-Chi squared: 32.16
-Log Evidence: -30.96 (Δ logZ = 0.9 against ΛCDM)
+w0: -0.865 +0.051 -0.052
+wa: 0
+Chi squared: 32.15
+Log Evidence: -29.82 (Δ logZ = 0.86 against ΛCDM)
 Degs of freedom: 31
 
 ===============================
 
 Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)**3)
-rd: 147.09 +0.44 -0.44 Mpc
-H0: 66.55 +0.85 -0.85 km/s/Mpc
+rd: 147.09 +0.45 -0.45 Mpc
+H0: 66.54 +0.88 -0.85 km/s/Mpc
 Ωm: 0.311 +0.009 -0.009
-w0: -0.774 +0.073 -0.074
+w0: -0.774 +0.075 -0.076
 wa: -(9/4) * (1 + w0)
-Chi squared: 30.06
-Log Evidence: -29.55 (Δ logZ = 2.3 over ΛCDM)
+Chi squared: 30.07
+Log Evidence: -28.41 (Δ logZ = 2.27 over ΛCDM)
 Degs of freedom: 31
 
 ===============================
 
 Flat w0waCDM
-rd: 147.09 +0.44 -0.45 Mpc
-H0: 66.20 +0.92 -0.90 km/s/Mpc
-Ωm: 0.331 +0.016 -0.017
-w0: -0.697 +0.111 -0.108 (prior width 1.5: -1.5 to 0.0)
-wa: -1.005 +0.548 -0.548 (prior width 4.0: -3.0 to 1.0)
+rd: 147.10 +0.45 -0.46 Mpc
+H0: 66.20 +0.94 -0.92 km/s/Mpc
+Ωm: 0.331 +0.016 -0.018
+w0: -0.698 +0.115 -0.110 (prior width 1.5: -1.5 to 0.0)
+wa: -1.005 +0.562 -0.564 (prior width 7.0: -4.5 to 2.5)
 Chi squared: 28.79
-Log Evidence: -30.34 (Δ logZ = 1.5 over ΛCDM)
+Log Evidence: -29.55 (Δ logZ = 1.13 over ΛCDM)
 Degs of freedom: 30
 """
