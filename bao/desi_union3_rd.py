@@ -80,12 +80,9 @@ def solve_triang(cho_L, delta):
     return np.dot(y, y)
 
 
-"""
-Planck prior on sound horizon at drag epoch r_d in Mpc
-width increased by 75% to account for some model variations
-"""
+# Planck prior on sound horizon at drag epoch r_d in Mpc
 rd_planck = 147.09
-rd_planck_sigma = 1.75 * 0.26
+rd_planck_sigma = 0.26
 
 
 def chi_squared(params):
@@ -226,48 +223,48 @@ DESI BAO DR2 2025
 *******************************
 
 Flat ΛCDM
-rd: 147.09 +0.46 -0.45 Mpc
-H0: 68.69 +0.53 -0.52 km/s/Mpc
+rd: 147.09 +0.26 -0.26 Mpc
+H0: 68.69 +0.50 -0.49 km/s/Mpc
 Ωm: 0.304 +0.008 -0.008
 w0: -1
 wa: 0
 Chi squared: 38.81
-Log Evidence: -30.68
+Log Evidence: -31.24
 Degs of freedom: 32
 
 ===============================
 
 Flat wCDM
-rd: 147.09 +0.45 -0.46 Mpc
-H0: 67.13 +0.78 -0.77 km/s/Mpc
+rd: 147.09 +0.26 -0.26 Mpc
+H0: 67.12 +0.77 -0.75 km/s/Mpc
 Ωm: 0.298 +0.009 -0.009
-w0: -0.865 +0.051 -0.052
+w0: -0.866 +0.051 -0.052 (prior width 1.5: -1.5 to 0.0)
 wa: 0
-Chi squared: 32.15
-Log Evidence: -29.82 (Δ logZ = 0.86 against ΛCDM)
+Chi squared: 32.16
+Log Evidence: -30.37 (Δ logZ = 0.87 against ΛCDM)
 Degs of freedom: 31
 
 ===============================
 
 Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)**3)
-rd: 147.09 +0.45 -0.45 Mpc
-H0: 66.54 +0.88 -0.85 km/s/Mpc
-Ωm: 0.311 +0.009 -0.009
-w0: -0.774 +0.075 -0.076
+rd: 147.09 +0.26 -0.26 Mpc
+H0: 66.54 +0.86 -0.84 km/s/Mpc
+Ωm: 0.312 +0.009 -0.009
+w0: -0.774 +0.075 -0.075 (prior width 1.5: -1.5 to 0.0)
 wa: -(9/4) * (1 + w0)
 Chi squared: 30.07
-Log Evidence: -28.41 (Δ logZ = 2.27 over ΛCDM)
+Log Evidence: -28.96 (Δ logZ = 2.28 over ΛCDM)
 Degs of freedom: 31
 
 ===============================
 
 Flat w0waCDM
-rd: 147.10 +0.45 -0.46 Mpc
-H0: 66.20 +0.94 -0.92 km/s/Mpc
+rd: 147.09 +0.26 -0.26 Mpc
+H0: 66.21 +0.93 -0.90 km/s/Mpc
 Ωm: 0.331 +0.016 -0.018
-w0: -0.698 +0.115 -0.110 (prior width 1.5: -1.5 to 0.0)
-wa: -1.005 +0.562 -0.564 (prior width 7.0: -4.5 to 2.5)
-Chi squared: 28.79
-Log Evidence: -29.55 (Δ logZ = 1.13 over ΛCDM)
+w0: -0.699 +0.116 -0.111 (prior width 1.5: -1.5 to 0.0)
+wa: -1.000 +0.563 -0.565 (prior width 7.0: -4.5 to 2.5)
+Chi squared: 28.80
+Log Evidence: -30.11 (Δ logZ = 1.13 over ΛCDM)
 Degs of freedom: 30
 """
