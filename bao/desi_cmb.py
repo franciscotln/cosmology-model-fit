@@ -5,33 +5,62 @@ from y2025BAO.data import get_data as get_bao_data
 import cmb.data_desi_compression as cmb
 
 c = cmb.c  # speed of light in km/s
-Orh2 = cmb.Omega_r_h2(2.044)  # 2 relativistic species
+Or_h2 = cmb.Omega_r_h2(2.044)  # 2 relativistic species
 Omnu_h2 = cmb.Omnu_h2  # 1 massive species with m_nu = 0.06 eV
+z_nr = cmb.z_nr
 
 bao_legend, bao_data, bao_cov_matrix = get_bao_data()
 cho_bao = cho_factor(bao_cov_matrix, lower=True)[0]
 cmb_cho = cho_factor(cmb.covariance, lower=True)[0]
 
-z_grid = np.linspace(0, np.max(bao_data["z"]) + 0.1, num=1000)
+z_grid = np.linspace(0, np.max(bao_data["z"]) + 0.1, num=2000)
 dx = np.diff(z_grid)
 
 
 @njit
-def Ez(z, Obc, Or, w0=-1, wa=0):
-    Ol = 1 - Obc - Or
-    inv_a = 1 + z
-    cubic = inv_a**3
-    rho_de = (4 * cubic / (1 + 3 * cubic)) ** (4 * (1 + w0))
-    return np.sqrt(Or * inv_a**4 + Obc * cubic + Ol * rho_de)
+def Omnu_z(z):
+    """
+    Computes the appox. evolution of one massive
+    neutrino species energy density with redshift
+    """
+    return (
+        (1 + z) ** 4
+        * (1 + ((1 + z_nr) / (1 + z)) ** 2) ** 0.5
+        * (1 + (1 + z_nr) ** 2) ** -0.5
+    )
+
+
+@njit
+def Ode_z(z, w0, wa):
+    zp1 = 1 + z
+    return (4 * zp1**3 / (1 + 3 * zp1**3)) ** (4 * (1 + w0))  # wzCDM
+    # return 1  # ΛCDM
+    # return zp1 ** (3 * (1 + w0))  # wCDM
+    # return zp1 ** (3 * (1 + w0 + wa)) * np.exp(-3 * wa * z / zp1)  # w0waCDM
+
+
+@njit
+def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
+    h = H0 / 100
+    Onu = Omnu_h2 / h**2
+    Or = Or_h2 / h**2
+    Obc = (Obh2 + Och2) / h**2
+    Ode = 1.0 - Obc - Or - Onu
+
+    zp1 = 1 + z
+
+    radiation_term = Or * zp1**4
+    matter_term = Obc * zp1**3
+    neutrino_term = Onu * Omnu_z(z)
+    dark_energy_term = Ode * Ode_z(z, w0, wa)
+
+    return np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
 
 
 @njit
 def H_z(z, params):
-    H0, Obh2, Och2, w0 = params
-    h = H0 / 100
-    Obc = (Obh2 + Och2 + Omnu_h2) / h**2
-    Or = Orh2 / h**2
-    return H0 * Ez(z, Obc, Or, w0)
+    H0, Obh2, Och2, w0 = params[0:]
+    return H0 * Ez(z, H0, Obh2, Och2, w0)
 
 
 @njit
@@ -92,7 +121,7 @@ def chi_squared(params):
 bounds = np.array(
     [
         (50, 80),  # H0
-        (0.021, 0.023),  # ωb = Ωb * h^2
+        (0.020, 0.024),  # ωb = Ωb * h^2
         (0.05, 0.30),  # ωc = Ωc * h^2
         (-1.5, 0.0),  # w0
     ],
@@ -125,21 +154,21 @@ def main():
     from multiprocessing import Pool
     from corner_plot import plot_corner_and_chains
     from gelman_rubin import gelman_rubin
+    from log_evidence import log_evidence
     from .plot_predictions import plot_bao_predictions
 
     ndim = len(bounds)
     nwalkers = 200
-    burn_in = 200
-    nsteps = 2200 + burn_in
+    burn_in = 400
+    nsteps = 4000 + burn_in
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
     moves = [
         (emcee.moves.KDEMove(), 0.30),
-        (emcee.moves.DEMove(), 0.56),
-        (emcee.moves.DESnookerMove(), 0.14),
+        (emcee.moves.DEMove(), 0.70),
     ]
 
-    with Pool(5) as pool:
+    with Pool(6) as pool:
         sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
 
@@ -153,6 +182,7 @@ def main():
 
     chains_samples = sampler.get_chain(discard=burn_in, flat=False)
     samples = sampler.get_chain(discard=burn_in, flat=True)
+    log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
     print("Gelman-Rubin:", gelman_rubin(chains_samples))
 
     one_sigma_contours = [15.9, 50, 84.1]
@@ -184,6 +214,7 @@ def main():
     print(f"r*: {cmb.rs_z(Ez, z_st_50, *best_fit):.2f} Mpc")
     print(f"z*: {z_st_50:.2f} +{(z_st_84 - z_st_50):.2f} -{(z_st_50 - z_st_16):.2f}")
     print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
+    print(f"Log Z: {log_evidence(samples, log_probs, log_probability, bounds):.2f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
 
     plot_bao_predictions(
@@ -208,66 +239,69 @@ Dataset: DESI DR2 2024 + (θ∗,ωb,ωbc)CMB
 *******************************
 
 Flat ΛCDM w(z) = -1
-H0: 68.40 +0.29 -0.29 km/s/Mpc
+H0: 68.39 +0.30 -0.30 km/s/Mpc
 ωb: 0.02238 +0.00012 -0.00012
-ωc: 0.1172 +0.0006 -0.0006
+ωc: 0.1172 +0.0007 -0.0007
 ωm: 0.1402 +0.0006 -0.0006
 Ωm: 0.300 +0.004 -0.004
 w0: -1
 wa: 0
-r*: 145.18 Mpc
-z*: 1089.68 +0.18 -0.18
-r_d: 147.84 +0.18 -0.18 Mpc
-Chi squared: 13.55
+r*: 145.17 Mpc
+z*: 1089.68 +0.19 -0.19
+r_d: 147.84 +0.19 -0.19 Mpc
+Log Z: -19.48
+Chi squared: 13.58
 Degs of freedom: 15
+"""
 
-===============================
-
+"""
 Flat wCDM w(z) = w0
-H0: 68.88 +0.97 -0.92 km/s/Mpc
+H0: 68.89 +0.97 -0.93 km/s/Mpc
 ωb: 0.02235 +0.00013 -0.00013
 ωc: 0.1176 +0.0009 -0.0009
 ωm: 0.1405 +0.0009 -0.0009
 Ωm: 0.296 +0.007 -0.007
-w0: -1.021 +0.038 -0.040 (prior width -1.5 to -0.3)
+w0: -1.021 +0.038 -0.040 (prior width -1.5 to 0.0)
 wa: 0
-r*: 145.10 Mpc
-z*: 1089.75 +0.22 -0.22
-r_d: 147.77 +0.22 -0.22 Mpc
-Chi squared: 13.33
+r*: 145.09 Mpc
+z*: 1089.75 +0.23 -0.23
+r_d: 147.77 +0.23 -0.22 Mpc
+Log Z: -22.08
+Chi squared: 13.35
 Degs of freedom: 14
+"""
 
-===============================
-
+"""
 Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
-H0: 68.14 +1.56 -1.46 km/s/Mpc
+H0: 68.14 +1.56 -1.48 km/s/Mpc
 ωb: 0.02238 +0.00013 -0.00013
 ωc: 0.1171 +0.0008 -0.0008
 ωm: 0.1401 +0.0008 -0.0008
 Ωm: 0.302 +0.013 -0.013
-w0: -0.982 +0.107 -0.109 (prior width -1.5 to 0.0)
+w0: -0.982 +0.107 -0.110 (prior width -1.5 to 0.0)
 wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
 r*: 145.19 Mpc
 z*: 1089.67 +0.21 -0.21
-r_d: 147.85 +0.21 -0.20 Mpc
-Chi squared: 13.50
+r_d: 147.85 +0.21 -0.21 Mpc
+Log Z: -21.17
+Chi squared: 13.52
 Degs of freedom: 14
+"""
 
-===============================
+"""
+Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
 
-Flat w(z) = w0 + wa * z / (1 + z)
-Overfits, the uncertainties go wild and the prior are very wide
-The posterior volume is also very large, making the evidence small
-
-H0: 63.85 +2.09 -2.07 km/s/Mpc
+H0: 63.86 +2.10 -2.10 km/s/Mpc
 ωb: 0.02222 +0.00014 -0.00014
 ωc: 0.1193 +0.0011 -0.0011
 ωm: 0.1421 +0.0010 -0.0010
-Ωm: 0.349 +0.025 -0.023
-w0: -0.467 +0.253 -0.227 (prior width -2.0 to +1.5)
-wa: -1.563 +0.649 -0.753 (prior width -6.0 to 2.5)
-r*: 144.75 Mpc
+Ωm: 0.348 +0.025 -0.023
+w0: -0.468 +0.255 -0.229 (prior width -2.0 to +1.0)
+wa: -1.565 +0.658 -0.755 (prior width -6.0 to 2.5)
+r*: 144.74 Mpc
 z*: 1090.07 +0.25 -0.25
-r_d: 147.45 +0.24 -0.24 Mpc
-Chi squared: 7.01
+r_d: 147.46 +0.24 -0.24 Mpc
+Log Z: -20.93
+Chi squared: 7.04
+Degs of freedom: 13
 """
