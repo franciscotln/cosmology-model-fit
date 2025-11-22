@@ -195,6 +195,7 @@ def main():
     ] = pct
 
     best_fit = np.percentile(samples, 50, axis=0)
+    degs_of_freedom = len(bao_data["z"]) + len(cmb.DISTANCE_PRIORS) - len(best_fit)
 
     Om_h2_samples = samples[:, 1] + samples[:, 2] + Omnu_h2
     Om_samples = Om_h2_samples / (samples[:, 0] / 100) ** 2
@@ -216,6 +217,7 @@ def main():
     print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
     print(f"Log Z: {log_evidence(samples, log_probs, log_probability, bounds):.2f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
+    print(f"Degs of freedom: {degs_of_freedom}")
 
     plot_bao_predictions(
         theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
@@ -251,7 +253,7 @@ z*: 1089.68 +0.19 -0.19
 r_d: 147.84 +0.19 -0.19 Mpc
 Log Z: -19.48
 Chi squared: 13.58
-Degs of freedom: 15
+Degs of freedom: 13
 """
 
 """
@@ -261,14 +263,14 @@ H0: 68.89 +0.97 -0.93 km/s/Mpc
 ωc: 0.1176 +0.0009 -0.0009
 ωm: 0.1405 +0.0009 -0.0009
 Ωm: 0.296 +0.007 -0.007
-w0: -1.021 +0.038 -0.040 (prior width -1.5 to 0.0)
+w0: -1.021 +0.038 -0.040 (prior width 1.5: -1.5 to 0.0)
 wa: 0
 r*: 145.09 Mpc
 z*: 1089.75 +0.23 -0.23
 r_d: 147.77 +0.23 -0.22 Mpc
 Log Z: -22.08
 Chi squared: 13.35
-Degs of freedom: 14
+Degs of freedom: 12
 """
 
 """
@@ -278,14 +280,14 @@ H0: 68.14 +1.56 -1.48 km/s/Mpc
 ωc: 0.1171 +0.0008 -0.0008
 ωm: 0.1401 +0.0008 -0.0008
 Ωm: 0.302 +0.013 -0.013
-w0: -0.982 +0.107 -0.110 (prior width -1.5 to 0.0)
+w0: -0.982 +0.107 -0.110 (prior width 1.5: -1.5 to 0.0)
 wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
 r*: 145.19 Mpc
 z*: 1089.67 +0.21 -0.21
 r_d: 147.85 +0.21 -0.21 Mpc
 Log Z: -21.17
 Chi squared: 13.52
-Degs of freedom: 14
+Degs of freedom: 12
 """
 
 """
@@ -296,12 +298,12 @@ H0: 63.86 +2.10 -2.10 km/s/Mpc
 ωc: 0.1193 +0.0011 -0.0011
 ωm: 0.1421 +0.0010 -0.0010
 Ωm: 0.348 +0.025 -0.023
-w0: -0.468 +0.255 -0.229 (prior width -2.0 to +1.0)
-wa: -1.565 +0.658 -0.755 (prior width -6.0 to 2.5)
+w0: -0.468 +0.255 -0.229 (prior width 3.0: -2.0 to 1.0)
+wa: -1.565 +0.658 -0.755 (prior width 8.5: -6.0 to 2.5)
 r*: 144.74 Mpc
 z*: 1090.07 +0.25 -0.25
 r_d: 147.46 +0.24 -0.24 Mpc
 Log Z: -20.93
 Chi squared: 7.04
-Degs of freedom: 13
+Degs of freedom: 11
 """
