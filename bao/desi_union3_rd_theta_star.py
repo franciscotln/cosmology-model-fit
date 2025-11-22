@@ -232,7 +232,7 @@ def main():
     print(f"100 θ*: {theta_100:.5f}")
     print(f"Chi squared: {chi_squared(best_fit):.1f}")
     print(f"Log evidence: {log_evd:.1f}")
-    print(f"Degrees of freedom: {1 + len(bao_data['z']) + len(z_cmb) - len(best_fit)}")
+    print(f"Degrees of freedom: {2 + len(bao_data['z']) + len(z_cmb) - len(best_fit)}")
 
     plot_bao_predictions(
         theory_predictions=lambda z, qty: bao_theory(z, qty, rd_50, best_fit),
@@ -260,7 +260,7 @@ if __name__ == "__main__":
     main()
 
 """
-(100 θ*, r_drag)CMB
+(100 θ*, r_drag)CMB Planck + ACT DR6
 """
 
 
@@ -281,7 +281,7 @@ r*: 144.96 Mpc
 100 θ*: 1.04106
 Chi squared: 39.9
 Log evidence: -35.8
-Degrees of freedom: 32
+Degrees of freedom: 33
 
 -- ATC DR6 --
 H0: 69.59 +0.52 -0.51 km/s/Mpc
@@ -298,7 +298,7 @@ r*: 143.92 Mpc
 100 θ*: 1.04083
 Chi squared: 41.3
 Log evidence: -35.6
-Degrees of freedom: 32
+Degrees of freedom: 33
 
 -- ATC DR6 + Planck --
 H0: 68.95 +0.44 -0.44 km/s/Mpc
@@ -315,7 +315,7 @@ r*: 144.74 Mpc
 100 θ*: 1.04097
 Chi squared: 40.2
 Log evidence: -35.9
-Degrees of freedom: 32
+Degrees of freedom: 33
 """
 
 
@@ -337,7 +337,7 @@ r*: 145.14 Mpc
 100 θ*: 1.04100
 Chi squared: 33.4
 Log evidence: -35.4 (Δ logZ = 0.4 against ΛCDM)
-Degrees of freedom: 31
+Degrees of freedom: 32
 
 -- ATC DR6 --
 H0: 67.93 +0.75 -0.74 km/s/Mpc
@@ -354,7 +354,7 @@ r*: 144.00 Mpc
 100 θ*: 1.04073
 Chi squared: 32.7
 Log evidence: -34.2 (Δ logZ = 1.4 against ΛCDM)
-Degrees of freedom: 31
+Degrees of freedom: 32
 
 -- ATC DR6 + Planck --
 H0: 67.40 +0.72 -0.71 km/s/Mpc
@@ -371,7 +371,7 @@ r*: 144.92 Mpc
 100 θ*: 1.04092
 Chi squared: 33.2
 Log evidence: -35.2 (Δ logZ = 0.7 against ΛCDM)
-Degrees of freedom: 31
+Degrees of freedom: 32
 """
 
 
@@ -392,7 +392,7 @@ r*: 145.05 Mpc
 100 θ*: 1.04100
 Chi squared: 30.5
 Log evidence: -33.4 (Δ logZ = 2.4 against ΛCDM)
-Degrees of freedom: 31
+Degrees of freedom: 32
 
 -- ATC DR6 --
 H0: 67.18 +0.87 -0.86 km/s/Mpc
@@ -409,7 +409,7 @@ r*: 143.91 Mpc
 100 θ*: 1.04073
 Chi squared: 30.1
 Log evidence: -32.3 (Δ logZ = 3.3 against ΛCDM)
-Degrees of freedom: 31
+Degrees of freedom: 32
 
 -- ATC DR6 + Planck --
 H0: 66.66 +0.85 -0.83 km/s/Mpc
@@ -426,7 +426,7 @@ r*: 144.83 Mpc
 100 θ*: 1.04093
 Chi squared: 30.4
 Log evidence: -33.3 (Δ logZ = 2.6 against ΛCDM)
-Degrees of freedom: 31
+Degrees of freedom: 32
 """
 
 
@@ -448,7 +448,7 @@ r*: 144.84 Mpc
 100 θ*: 1.04100
 Chi squared: 29.1
 Log evidence: -34.6 (Δ logZ = 1.2 against ΛCDM)
-Degrees of freedom: 30
+Degrees of freedom: 31
 
 -- ATC DR6 --
 H0: 66.88 +0.95 -0.93 km/s/Mpc
@@ -465,7 +465,7 @@ r*: 143.79 Mpc
 100 θ*: 1.04071
 Chi squared: 29.6
 Log evidence: -34.0 (Δ logZ = 1.6 against ΛCDM)
-Degrees of freedom: 30
+Degrees of freedom: 31
 
 -- ATC DR6 + Planck --
 H0: 66.27 +0.90 -0.89 km/s/Mpc
@@ -482,8 +482,9 @@ r*: 144.63 Mpc
 100 θ*: 1.04095
 Chi squared: 29.2
 Log evidence: -34.5 (Δ logZ = 1.4 against ΛCDM)
-Degrees of freedom: 30
+Degrees of freedom: 31
 """
+
 
 """
 (100 θ*, ωm)CMB Planck + ACT DR6
@@ -514,7 +515,7 @@ r*: 144.02 Mpc
 100 θ*: 1.04101
 Chi squared: 41.2
 Log evidence: -34.8
-Degrees of freedom: 32
+Degrees of freedom: 33
 """
 
 """
@@ -534,7 +535,7 @@ r*: 142.13 Mpc
 100 θ*: 1.04093
 Chi squared: 32.2
 Log evidence: -33.1 (Δ logZ = 1.7 against ΛCDM)
-Degrees of freedom: 31
+Degrees of freedom: 32
 """
 
 """
@@ -554,7 +555,7 @@ r*: 142.95 Mpc
 100 θ*: 1.04091
 Chi squared: 30.1
 Log evidence: -31.5 (Δ logZ = 3.3 against ΛCDM)
-Degrees of freedom: 31
+Degrees of freedom: 32
 """
 
 """
@@ -574,5 +575,94 @@ r*: 144.27 Mpc
 100 θ*: 1.04086
 Chi squared: 29.6
 Log evidence: -32.8 (Δ logZ = 2.0 against ΛCDM)
-Degrees of freedom: 30
+Degrees of freedom: 31
+"""
+
+
+"""
+(100 θ*, ωm, H0)CMB Planck + ACT DR6
+
+Priors:
+U(-1.0, 1.0)  # ΔM
+U(50.0, 90.0)  # H0
+U(0.010, 0.030)  # Ob * h^2
+U(0.05, 0.30)  # Ωc * h^2
+U(-1.5, 0.0)  # w0
+U(-3.0, 1.5)  # wa
+"""
+
+"""
+Flat ΛCDM w(z) = -1
+H0: 68.38 +0.27 -0.27 km/s/Mpc
+ωb: 0.02256 +0.00010 -0.00010
+ωc: 0.1175 +0.0007 -0.0007
+ωm: 0.1407 +0.0007 -0.0007
+Ωm: 0.3009 +0.0036 -0.0036
+w0: -1
+wa: 0
+r_d: 147.56 +0.20 -0.19 Mpc
+z_d: 1060.18 +0.24 -0.23
+z*: 1089.44 +0.16 -0.15
+r*: 144.95 Mpc
+100 θ*: 1.04110
+Chi squared: 42.9
+Log evidence: -38.3
+Degrees of freedom: 34
+"""
+
+"""
+Flat wCDM w(z) = w0
+H0: 68.10 +0.28 -0.28 km/s/Mpc
+ωb: 0.02619 +0.00132 -0.00127
+ωc: 0.1145 +0.0013 -0.0013
+ωm: 0.1413 +0.0007 -0.0007
+Ωm: 0.3048 +0.0039 -0.0038
+w0: -0.873 +0.040 -0.041 (prior width 1.5: -1.5 to 0.0)
+wa: 0
+r_d: 144.44 +1.07 -1.07 Mpc
+z_d: 1067.89 +2.59 -2.59
+z*: 1084.97 +1.43 -1.38
+r*: 142.97 Mpc
+100 θ*: 1.04105
+Chi squared: 33.7
+Log evidence: -36.5 (Δ logZ = 1.8 against ΛCDM)
+Degrees of freedom: 33
+"""
+
+"""
+Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)**3)
+H0: 67.65 +0.34 -0.34 km/s/Mpc
+ωb: 0.02565 +0.00085 -0.00086
+ωc: 0.1161 +0.0008 -0.0008
+ωm: 0.1424 +0.0008 -0.0008
+Ωm: 0.3111 +0.0048 -0.0047
+w0: -0.769 +0.061 -0.063 (prior width 1.5: -1.5 to 0.0)
+wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
+r_d: 144.60 +0.82 -0.80 Mpc
+z_d: 1066.86 +1.74 -1.80
+z*: 1085.66 +0.98 -0.91
+r*: 142.97 Mpc
+100 θ*: 1.04094
+Chi squared: 30.1
+Log evidence: -34.2 (Δ logZ = 4.1 against ΛCDM)
+Degrees of freedom: 33
+"""
+
+"""
+Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
+H0: 67.50 +0.40 -0.39 km/s/Mpc
+ωb: 0.02457 +0.00135 -0.00124
+ωc: 0.1175 +0.0015 -0.0017
+ωm: 0.1427 +0.0009 -0.0009
+Ωm: 0.3133 +0.0055 -0.0056
+w0: -0.766 +0.070 -0.066 (prior width 1.5: -1.5 to 0.0)
+wa: -0.560 +0.282 -0.321 (prior width 4.5: -3.0 to 1.5)
+r_d: 145.36 +1.04 -1.06 Mpc
+z_d: 1064.67 +2.75 -2.64
+z*: 1086.96 +1.59 -1.59
+r*: 143.41 Mpc
+100 θ*: 1.04110
+Chi squared: 30.7
+Log evidence: -36.2 (Δ logZ = 2.1 against ΛCDM)
+Degrees of freedom: 32
 """
