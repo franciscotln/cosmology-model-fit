@@ -177,7 +177,7 @@ def main():
         w0_err,
     ] = np.diff(pct, axis=0).T
 
-    degrees_of_freedom = 1 + len(bao_data["value"]) + len(z_sn_vals) - len(best_fit)
+    degrees_of_freedom = len(bao_data["value"]) + len(z_sn_vals) - len(best_fit)
 
     print(f"ΔM: {best_fit[0]:.3f} +{dM_err[1]:.3f} -{dM_err[0]:.3f} mag")
     print(f"rd: {best_fit[1]:.2f} +{rd_err[1]:.2f} -{rd_err[0]:.2f} Mpc")
@@ -226,7 +226,7 @@ w0: -1
 wa: 0
 Chi squared: 38.81
 Log Evidence: -28.51
-Degs of freedom: 32
+Degs of freedom: 31
 
 ===============================
 
@@ -238,7 +238,7 @@ w0: -0.866 +0.051 -0.052 (prior width 1.5: -1.5 to 0.0)
 wa: 0
 Chi squared: 32.16
 Log Evidence: -27.64 (Δ logZ = 0.87 against ΛCDM)
-Degs of freedom: 31
+Degs of freedom: 30
 
 ===============================
 
@@ -250,7 +250,7 @@ w0: -0.774 +0.075 -0.075 (prior width 1.5: -1.5 to 0.0)
 wa: -(9/4) * (1 + w0)
 Chi squared: 30.07
 Log Evidence: -26.23 (Δ logZ = 2.28 over ΛCDM)
-Degs of freedom: 31
+Degs of freedom: 30
 
 ===============================
 
@@ -262,5 +262,5 @@ w0: -0.699 +0.116 -0.111 (prior width 1.5: -1.5 to 0.0)
 wa: -1.000 +0.563 -0.565 (prior width 7.0: -4.5 to 2.5)
 Chi squared: 28.80
 Log Evidence: -27.38 (Δ logZ = 1.13 over ΛCDM)
-Degs of freedom: 30
+Degs of freedom: 29
 """
