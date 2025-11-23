@@ -2,7 +2,7 @@ from numba import njit
 import numpy as np
 from scipy.constants import c as c0
 from scipy.linalg import cho_factor, solve_triangular
-from y2024DES.data import get_data, effective_sample_size as sn_size
+from y2025DESdovekie.data import get_data, effective_sample_size as sn_size
 from y2025BAO.data import get_data as get_bao_data
 
 sn_legend, z_cmb, z_hel, mu_values, cov_matrix_sn = get_data()
@@ -14,15 +14,15 @@ cho_bao = cho_factor(cov_matrix_bao, lower=True)[0]
 c = c0 / 1000  # Speed of light in km/s
 
 z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
-z_grid = np.linspace(0, z_max, num=1000)
+z_grid = np.linspace(0, z_max, num=2000)
 dx = np.diff(z_grid)
 
 
 @njit
 def Ez(z, params):
     Om, w0 = params[3], params[4]
-    z_plus_1 = 1 + z
-    cubed = z_plus_1**3
+    zp1 = 1 + z
+    cubed = zp1**3
     rho_de = (4 * cubed / (1 + 3 * cubed)) ** (4 * (1 + w0))
     return np.sqrt(Om * cubed + (1 - Om) * rho_de)
 
@@ -75,50 +75,48 @@ def bao_theory(z, qty, params):
     return results / params[1]
 
 
-"""
-Planck prior on Ωm * h^2
-Fit rs(drag) directly as a free parameter without early universe physics
-"""
-Omh2_planck = 0.1430
-Omh2_planck_sigma = 0.0011
-
-
 def solve_triang(cho_L, delta):
     y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
     return np.dot(y, y)
 
 
 def chi_squared(params):
-    Omh2 = params[3] * (params[2] / 100) ** 2
-    chi2_prior = ((Omh2_planck - Omh2) / Omh2_planck_sigma) ** 2
-
     delta_sn = mu_values - theory_mu(params)
     chi_sn = solve_triang(cho_sn, delta_sn)
 
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
     chi_bao = solve_triang(cho_bao, delta_bao)
-    return chi_sn + chi_bao + chi2_prior
+    return chi_sn + chi_bao
 
 
 bounds = np.array(
     [
-        (-0.4, 0.4),  # ΔM
-        (120.0, 160.0),  # r_d
+        (-0.5, 0.5),  # ΔM
+        (120.0, 165.0),  # r_d
         (50.0, 90.0),  # H0
-        (0.1, 0.8),  # Ωm
+        (0.10, 0.50),  # Ωm
         (-1.5, 0.0),  # w0
     ],
     dtype=np.float64,
 )
 
-normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
+# Planck prior on Ωm * h^2
+# Fit r_drag directly as a free parameter without early universe physics
+Omh2_planck = 0.1430
+Omh2_planck_sigma = 0.0011
+
+# log-normalization for the prior:
+norm_uniform = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
+norm_gauss_omh2 = -0.5 * np.log(2 * np.pi * Omh2_planck_sigma**2)
 
 
 @njit
 def log_prior(params):
     if not np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
         return -np.inf
-    return normalization
+    Omh2 = params[3] * (params[2] / 100) ** 2
+    log_prior_omh2 = -0.5 * ((Omh2_planck - Omh2) / Omh2_planck_sigma) ** 2
+    return norm_uniform + norm_gauss_omh2 + log_prior_omh2
 
 
 def log_likelihood(params):
@@ -142,31 +140,25 @@ def main():
 
     np.random.seed(42)
     ndim = len(bounds)
-    nwalkers = 150
-    burn_in = 200
-    nsteps = 2000 + burn_in
+    nwalkers = 100
+    burn_in = 300
+    nsteps = 3000 + burn_in
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
+    moves = [
+        (emcee.moves.KDEMove(), 0.30),
+        (emcee.moves.DEMove(), 0.70),
+    ]
 
     with Pool(6) as pool:
-        sampler = emcee.EnsembleSampler(
-            nwalkers,
-            ndim,
-            log_probability,
-            pool=pool,
-            moves=[
-                (emcee.moves.KDEMove(), 0.30),
-                (emcee.moves.DEMove(), 0.56),
-                (emcee.moves.DESnookerMove(), 0.14),
-            ],
-        )
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
 
     try:
         tau = sampler.get_autocorr_time()
         print("auto-correlation time", tau)
         print("acceptance fraction:", np.mean(sampler.acceptance_fraction))
-        print("effective samples", ndim * nwalkers * nsteps / np.max(tau))
+        print("effective samples", ndim * nwalkers * (nsteps - burn_in) / np.max(tau))
     except emcee.autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
 
@@ -193,7 +185,7 @@ def main():
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.1f}")
     print(f"Log evidence: {log_evd:.1f}")
-    print(f"Degrees of freedom: {1 + bao_data['value'].size + sn_size - len(best_fit)}")
+    print(f"Degrees of freedom: {len(bao_data['z']) + sn_size - len(best_fit)}")
 
     plot_bao_predictions(
         theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
@@ -223,48 +215,48 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM w(z) = -1
-r_d: 148.14 +1.22 -1.23 Mpc
-H0: 67.86 +0.92 -0.89 km/s/Mpc
-Ωm: 0.310 +0.008 -0.008
+r_d: 147.58 +1.22 -1.21 Mpc
+H0: 68.34 +0.91 -0.88 km/s/Mpc
+Ωm: 0.306 +0.008 -0.008
 w0: -1
 wa: 0
-Chi squared: 1659.0
-Log evidence: -845.2
-Degrees of freedom: 1745
+Chi squared: 1645.3
+Log evidence: -832.1
+Degrees of freedom: 1723
 
 ===============================
 
 Flat wCDM w(z) = w0
-r_d: 142.73 +2.15 -2.27 Mpc
-H0: 69.28 +1.11 -1.05 km/s/Mpc
-Ωm: 0.298 +0.009 -0.009
-w0: -0.871 +0.038 -0.038 (prior width 1.5: -1.5 to 0.0)
+r_d: 143.79 +2.08 -2.14 Mpc
+H0: 69.35 +1.06 -1.02 km/s/Mpc
+Ωm: 0.297 +0.009 -0.009
+w0: -0.909 +0.038 -0.037
 wa: 0
-Chi squared: 1648.1
-Log evidence: -842.5 (Δ logZ = 2.7 against ΛCDM)
-Degrees of freedom: 1744
+Chi squared: 1639.5
+Log evidence: -832.0 (Δ logZ = 0.1 against ΛCDM)
+Degrees of freedom: 1722
 
 ===============================
 
 Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)**3)
-r_d: 144.82 +1.51 -1.52 Mpc
-H0: 68.07 +0.90 -0.88 km/s/Mpc
-Ωm: 0.309 +0.008 -0.008
-w0: -0.816 +0.049 -0.050 (prior width 1.5: -1.5 to 0.0)
+r_d: 145.17 +1.52 -1.53 Mpc
+H0: 68.54 +0.90 -0.89 km/s/Mpc
+Ωm: 0.304 +0.008 -0.008
+w0: -0.869 +0.049 -0.050
 wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-Chi squared: 1646.2
-Log evidence: -841.3 (Δ logZ = 3.9 against ΛCDM)
-Degrees of freedom: 1744
+Chi squared: 1638.5
+Log evidence: -831.2 (Δ logZ = 0.9 against ΛCDM)
+Degrees of freedom: 1722
 
 ===============================
 
 Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
-r_d: 147.72 +2.50 -3.24 Mpc
-H0: 66.71 +1.66 -1.31 km/s/Mpc
-Ωm: 0.321 +0.013 -0.015
-w0: -0.783 +0.073 -0.068 (prior width 1.5: -1.5 to 0.0)
-wa: -0.719 +0.449 -0.459 (prior width 5.0: -3.0 to 2.0)
-Chi squared: 1645.5
-Log evidence: -842.3 (Δ logZ = 2.9 against ΛCDM)
-Degrees of freedom: 1743
+r_d: 147.29 +2.70 -3.66 Mpc
+H0: 67.54 +1.89 -1.43 km/s/Mpc
+Ωm: 0.314 +0.013 -0.017
+w0: -0.846 +0.072 -0.066
+wa: -0.516 +0.470 -0.468
+Chi squared: 1638.1
+Log evidence: -832.9 (Δ logZ = -0.8 in favour of ΛCDM)
+Degrees of freedom: 1721
 """
