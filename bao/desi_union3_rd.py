@@ -80,22 +80,12 @@ def solve_triang(cho_L, delta):
     return np.dot(y, y)
 
 
-# Planck prior on sound horizon at drag epoch r_d in Mpc
-rd_planck = 147.09
-rd_planck_sigma = 0.26
-
-
 def chi_squared(params):
-    delta_prior = params[1] - rd_planck
-    chi_prior = (delta_prior / rd_planck_sigma) ** 2
-
     delta_sn = mu_vals - mu_theory(params)
     chi_sn = solve_triang(cho_sn, delta_sn)
-
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
     chi_bao = solve_triang(cho_bao, delta_bao)
-
-    return chi_sn + chi_bao + chi_prior
+    return chi_sn + chi_bao
 
 
 bounds = np.array(
@@ -109,14 +99,22 @@ bounds = np.array(
     dtype=np.float64,
 )
 
-normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
+# Planck prior on sound horizon at drag epoch rd [Mpc]
+rd_planck = 147.09
+rd_planck_sigma = 0.26
+
+# log-normalization for the prior:
+widths = bounds[:, 1] - bounds[:, 0]
+norm_uniform_except_rd = -np.sum(np.log(widths[[0, 2, 3, 4]]))
+norm_gauss_rd = -0.5 * np.log(2 * np.pi * rd_planck_sigma**2)
+normalization = norm_uniform_except_rd + norm_gauss_rd
 
 
 @njit
 def log_prior(params):
     if not np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
         return -np.inf
-    return normalization
+    return normalization - 0.5 * ((params[1] - rd_planck) / rd_planck_sigma) ** 2
 
 
 def log_likelihood(params):
@@ -150,9 +148,7 @@ def main():
         (emcee.moves.DEMove(), 0.70),
     ]
     with Pool(5) as pool:
-        sampler = emcee.EnsembleSampler(
-            nwalkers, ndim, log_probability, pool=pool, moves=moves
-        )
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
 
     try:
@@ -229,7 +225,7 @@ H0: 68.69 +0.50 -0.49 km/s/Mpc
 w0: -1
 wa: 0
 Chi squared: 38.81
-Log Evidence: -31.24
+Log Evidence: -28.51
 Degs of freedom: 32
 
 ===============================
@@ -241,7 +237,7 @@ H0: 67.12 +0.77 -0.75 km/s/Mpc
 w0: -0.866 +0.051 -0.052 (prior width 1.5: -1.5 to 0.0)
 wa: 0
 Chi squared: 32.16
-Log Evidence: -30.37 (Δ logZ = 0.87 against ΛCDM)
+Log Evidence: -27.64 (Δ logZ = 0.87 against ΛCDM)
 Degs of freedom: 31
 
 ===============================
@@ -253,7 +249,7 @@ H0: 66.54 +0.86 -0.84 km/s/Mpc
 w0: -0.774 +0.075 -0.075 (prior width 1.5: -1.5 to 0.0)
 wa: -(9/4) * (1 + w0)
 Chi squared: 30.07
-Log Evidence: -28.96 (Δ logZ = 2.28 over ΛCDM)
+Log Evidence: -26.23 (Δ logZ = 2.28 over ΛCDM)
 Degs of freedom: 31
 
 ===============================
@@ -265,6 +261,6 @@ H0: 66.21 +0.93 -0.90 km/s/Mpc
 w0: -0.699 +0.116 -0.111 (prior width 1.5: -1.5 to 0.0)
 wa: -1.000 +0.563 -0.565 (prior width 7.0: -4.5 to 2.5)
 Chi squared: 28.80
-Log Evidence: -30.11 (Δ logZ = 1.13 over ΛCDM)
+Log Evidence: -27.38 (Δ logZ = 1.13 over ΛCDM)
 Degs of freedom: 30
 """
