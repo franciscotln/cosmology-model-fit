@@ -258,7 +258,7 @@ if __name__ == "__main__":
 *******************************
 DESI DR2
 SNIa Union3
-(θ*, rdrag) CMB Planck + ACT compression
+(θ*, ωb) CMB Planck + ACT compression
 *******************************
 """
 
