@@ -1,7 +1,7 @@
 from numba import njit
 import numpy as np
 from scipy.linalg import cho_factor, solve_triangular
-from y2024DES.data import get_data, effective_sample_size
+from y2025DESdovekie.data import get_data, effective_sample_size
 from y2005cc.data import get_data as get_cc_data
 
 cc_legend, z_cc_vals, H_cc_vals, cov_matrix_cc = get_cc_data()
@@ -47,10 +47,10 @@ def H_z(z, params):
 
 bounds = np.array(
     [
-        (0.4, 2.5),  # f_cc
-        (-0.6, 0.6),  # ΔM
-        (55, 80),  # H0
-        (0.1, 0.6),  # Ωm
+        (0.2, 3.0),  # f_cc
+        (-0.5, 0.5),  # ΔM
+        (50.0, 85.0),  # H0
+        (0.05, 0.6),  # Ωm
         (-2.0, 0.0),  # w0
     ],
     dtype=np.float64,
@@ -104,15 +104,14 @@ def main():
     from .plot_predictions import plot_cc_predictions
 
     ndim = len(bounds)
-    nwalkers = 150
-    burn_in = 200
-    nsteps = 2000 + burn_in
+    nwalkers = 100
+    burn_in = 350
+    nsteps = 3500 + burn_in
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
     moves = [
-        (emcee.moves.KDEMove(), 0.3),
-        (emcee.moves.DEMove(), 0.56),
-        (emcee.moves.DESnookerMove(), 0.14),
+        (emcee.moves.KDEMove(), 0.30),
+        (emcee.moves.DEMove(), 0.70),
     ]
 
     with Pool(6) as pool:
@@ -133,17 +132,17 @@ def main():
     log_evd = log_evidence(samples, log_probs, log_probability, bounds)
 
     [
-        [f_cc_16, f_cc_50, f_cc_84],
-        [dM_16, dM_50, dM_84],
-        [h0_16, h0_50, h0_84],
-        [Om_16, Om_50, Om_84],
-        [w0_16, w0_50, w0_84],
+        (fcc_16, fcc_50, fcc_84),
+        (dM_16, dM_50, dM_84),
+        (h0_16, h0_50, h0_84),
+        (Om_16, Om_50, Om_84),
+        (w0_16, w0_50, w0_84),
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
     best_fit = np.percentile(samples, 50, axis=0)
     deg_of_freedom = effective_sample_size + z_cc_vals.size - len(best_fit)
 
-    print(f"f_cc: {f_cc_50:.2f} +{(f_cc_84 - f_cc_50):.2f} -{(f_cc_50 - f_cc_16):.2f}")
+    print(f"f_cc: {fcc_50:.2f} +{(fcc_84 - fcc_50):.2f} -{(fcc_50 - fcc_16):.2f}")
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
     print(f"H0: {h0_50:.1f} +{(h0_84 - h0_50):.1f} -{(h0_50 - h0_16):.1f} km/s/Mpc")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
@@ -156,7 +155,7 @@ def main():
         H_z=lambda z: H_z(z, best_fit),
         z=z_cc_vals,
         H=H_cc_vals,
-        H_err=np.sqrt(np.diag(cov_matrix_cc)) / f_cc_50,
+        H_err=np.sqrt(np.diag(cov_matrix_cc)) / fcc_50,
         label=f"{cc_legend}: $H_0$={h0_50:.1f} km/s/Mpc",
     )
     plot_sn_predictions(
@@ -165,7 +164,7 @@ def main():
         y=observed_mu_vals,
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=theory_mu(best_fit),
-        label=f"Best fit: $Ω_m$={Om_50:.3f}, $H_0$={h0_50:.1f} km/s/Mpc",
+        label=f"$Ω_m$={Om_50:.3f}, $H_0$={h0_50:.1f} km/s/Mpc",
         x_scale="log",
     )
     plot_corner_and_chains(
@@ -181,49 +180,42 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM: w(z) = -1
-f_cc: 1.47 +0.19 -0.18
-ΔM: -0.112 +0.072 -0.075 mag
-H0: 65.9 +2.3 -2.3 km/s/Mpc
-Ωm: 0.349 +0.016 -0.016
+f_cc: 1.48 +0.19 -0.18
+H0: 67.1 +2.4 -2.3 km/s/Mpc
+Ωm: 0.330 +0.015 -0.014
 w0: -1
 wa: 0
-Chi squared: 1672.35
-Degrees of freedom: 1764
+Chi squared: 1663.70
+Log evidence: -957.1
+Degrees of freedom: 1743
 
 ==============================
 
 Flat wCDM: w(z) = w0
-f_cc: 1.46 +0.18 -0.18
-ΔM: -0.075 +0.082 -0.083 mag
-H0: 66.8 +2.6 -2.5 km/s/Mpc
-Ωm: 0.308 +0.042 -0.047
-w0: -0.884 +0.100 -0.109
+f_cc: 1.46 +0.19 -0.18
+ΔM: -0.063 +0.082 -0.082 mag
+H0: 67.6 +2.6 -2.5 km/s/Mpc
+Ωm: 0.305 +0.038 -0.043
+w0: -0.926 +0.100 -0.108
 wa: 0
-Chi squared: 1670.64
-Degrees of freedom: 1763
+Chi squared: 1662.34
+Log evidence: -958.8
+Degrees of freedom: 1742
 
 ==============================
 
 Flat alternative: w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
-f_cc: 1.46 +0.18 -0.18
-ΔM: -0.072 +0.079 -0.081 mag
-H0: 66.8 +2.5 -2.4 km/s/Mpc
-Ωm: 0.318 +0.028 -0.028
-w0: -0.854 +0.097 -0.107
+f_cc: 1.46 +0.19 -0.18
+H0: 67.7 +2.5 -2.5 km/s/Mpc
+Ωm: 0.309 +0.026 -0.027
+w0: -0.898 +0.098 -0.109
 wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-Chi squared: 1670.00
-Log evidence: -962.1
-Degrees of freedom: 1763
+Chi squared: 1661.93
+Log evidence: -958.6
+Degrees of freedom: 1742
 
 ==============================
 
 Flat w0waCDM: w(z) = w0 + wa * z / (1 + z)
-f_cc: 1.45 +0.18 -0.18
-ΔM: -0.177 +0.087 -0.087 mag
-H0: 63.0 +2.7 -2.6 km/s/Mpc
-Ωm: 0.452 +0.030 -0.041
-w0: -0.544 +0.215 -0.208
-wa: -5.585 +2.465 -2.489
-Chi squared: 1664.59
-Degrees of freedom: 1762
+TODO
 """
