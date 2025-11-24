@@ -1,5 +1,6 @@
 from numba import njit
 import numpy as np
+from scipy.constants import c as c0
 from scipy.linalg import cho_factor, solve_triangular
 from y2023union3.data import get_data as get_sn_data
 from y2005cc.data import get_data as get_cc_data
@@ -13,28 +14,27 @@ N_cc = len(z_cc_vals)
 cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
 cho_cc = cho_factor(cov_matrix_cc, lower=True)[0]
 
-c = 299792.458  # Speed of light in km/s
+c = c0 / 1000  # Speed of light in km/s
 
 z_grid = np.linspace(0, np.max(z_sn_vals), num=1000)
 dx = np.diff(z_grid)
 
 
 @njit
-def Ez(z, params):
-    Om, w0 = params[3], params[4]
-    one_plus_z = 1 + z
-    rho_de = ((4 * one_plus_z**3) / (1 + 3 * one_plus_z**3)) ** (4 * (1 + w0))
-    return np.sqrt(Om * one_plus_z**3 + (1 - Om) * rho_de)
+def Ez(z, Om, w0):
+    zp1 = 1 + z
+    rho_de = ((4 * zp1**3) / (1 + 3 * zp1**3)) ** (4 * (1 + w0))
+    return np.sqrt(Om * zp1**3 + (1 - Om) * rho_de)
 
 
 @njit
-def H_z(z, params):
-    return params[2] * Ez(z, params)
+def H_z(z, H0, Om, w0):
+    return H0 * Ez(z, Om, w0)
 
 
 @njit
-def DM_z(z, params):
-    dh_grid = c / H_z(z_grid, params)
+def DM_z(z, H0, Om, w0):
+    dh_grid = c / H_z(z_grid, H0, Om, w0)
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size)
     cum_dm[1:] = np.cumsum(dx * dy)
@@ -42,21 +42,9 @@ def DM_z(z, params):
 
 
 @njit
-def mu_theory(params):
-    dL = (1 + z_sn_vals) * DM_z(z_sn_vals, params)
-    return params[1] + 25 + 5 * np.log10(dL)
-
-
-bounds = np.array(
-    [
-        (0.4, 2.5),  # f_cc
-        (-0.7, 0.5),  # ΔM
-        (55, 80),  # H0
-        (0.1, 0.7),  # Ωm
-        (-2.0, 0.0),  # w0
-    ],
-    dtype=np.float64,
-)
+def mu_theory(dM, H0, Om, w0):
+    dL = (1 + z_sn_vals) * DM_z(z_sn_vals, H0, Om, w0)
+    return dM + 25 + 5 * np.log10(dL)
 
 
 def solve_triang(cho_L, delta):
@@ -65,100 +53,91 @@ def solve_triang(cho_L, delta):
 
 
 def chi_squared(params):
-    delta_sn = mu_vals - mu_theory(params)
+    delta_sn = mu_vals - mu_theory(
+        params["dM"], params["H0"], params["Om"], params["w0"]
+    )
     chi_sn = solve_triang(cho_sn, delta_sn)
 
-    cc_delta = H_cc_vals - H_z(z_cc_vals, params)
-    chi_cc = params[0] ** -2 * solve_triang(cho_cc, cc_delta)
-
+    cc_delta = H_cc_vals - H_z(z_cc_vals, params["H0"], params["Om"], params["w0"])
+    chi_cc = params["f_cc"] ** 2 * solve_triang(cho_cc, cc_delta)
     return chi_sn + chi_cc
 
 
-normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
-
-
-@njit
-def log_prior(params):
-    if not np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
-        return -np.inf
-    return normalization
-
-
 def log_likelihood(params):
-    f_cc = params[0]
-    normalization_cc = N_cc * np.log(2 * np.pi) + logdet_cc + 2 * N_cc * np.log(f_cc)
+    f_cc = params["f_cc"]
+    normalization_cc = N_cc * np.log(2 * np.pi) + logdet_cc - 2 * N_cc * np.log(f_cc)
     return -0.5 * chi_squared(params) - 0.5 * normalization_cc
 
 
-def log_probability(params):
-    lp = log_prior(params)
-    if np.isinf(lp):
-        return -np.inf
-    return lp + log_likelihood(params)
-
-
 def main():
-    import emcee
+    from nautilus import Sampler, Prior
+    from corner import corner, quantile
+    import matplotlib.pyplot as plt
     from multiprocessing import Pool
-    from corner_plot import plot_corner_and_chains
-    from log_evidence import log_evidence
     from sn.plotting import plot_predictions as plot_sn_predictions
     from .plot_predictions import plot_cc_predictions
 
-    ndim = len(bounds)
-    nwalkers = 150
-    burn_in = 200
-    nsteps = 2000 + burn_in
-    np.random.seed(42)
-    initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
-    moves = [
-        (emcee.moves.KDEMove(), 0.30),
-        (emcee.moves.DEMove(), 0.56),
-        (emcee.moves.DESnookerMove(), 0.14),
-    ]
+    prior = Prior()
+    prior.add_parameter("f_cc", dist=(0.1, 3.0))
+    prior.add_parameter("dM", dist=(-1.0, 1.0))
+    prior.add_parameter("H0", dist=(55.0, 85.0))
+    prior.add_parameter("Om", dist=(0.1, 0.7))
+    prior.add_parameter("w0", dist=(-1.6, 0.0))
 
-    with Pool(5) as pool:
-        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
-        sampler.run_mcmc(initial_pos, nsteps, progress=True)
+    with Pool(6) as pool:
+        sampler = Sampler(prior, log_likelihood, n_live=10_000, pool=pool, seed=42)
+        sampler.run(verbose=True)
 
-    try:
-        tau = sampler.get_autocorr_time()
-        print("auto-correlation time", tau)
-        print("acceptance fraction", np.mean(sampler.acceptance_fraction))
-        print("effective samples", nwalkers * (nsteps - burn_in) * ndim / np.max(tau))
-    except emcee.autocorr.AutocorrError as e:
-        print("Autocorrelation time could not be computed", e)
+    samples, log_w, log_l = sampler.posterior()
+    w = np.exp(log_w)
+    log_evd = sampler.log_z
+    one_sigma_ci = [0.159, 0.5, 0.841]
+    labels = ["$f_{cc}$", "$ΔM$", "$H_0$", "$Ω_m$", "$w_0$"]
 
-    chains_samples = sampler.get_chain(discard=burn_in, flat=False)
-    samples = sampler.get_chain(discard=burn_in, flat=True)
-    log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
-    log_evd = log_evidence(samples, log_probs, log_probability, bounds)
+    corner(
+        samples,
+        weights=w,
+        labels=labels,
+        quantiles=one_sigma_ci,
+        show_titles=True,
+        title_fmt=".4f",
+        bins=100,
+        fill_contours=False,
+        plot_datapoints=False,
+        smooth=2.0,
+        smooth1d=2.0,
+        levels=(0.393, 0.864),
+        range=np.repeat(0.9999, len(labels)),
+    )
+    plt.show()
 
-    [
-        [f_cc_16, f_cc_50, f_cc_84],
-        [dM_16, dM_50, dM_84],
-        [h0_16, h0_50, h0_84],
-        [Om_16, Om_50, Om_84],
-        [w0_16, w0_50, w0_84],
-    ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
+    fcc_16, fcc_50, fcc_84 = quantile(samples[:, 0], one_sigma_ci, weights=w)
+    dM_16, dM_50, dM_84 = quantile(samples[:, 1], one_sigma_ci, weights=w)
+    h0_16, h0_50, h0_84 = quantile(samples[:, 2], one_sigma_ci, weights=w)
+    Om_16, Om_50, Om_84 = quantile(samples[:, 3], one_sigma_ci, weights=w)
+    w0_16, w0_50, w0_84 = quantile(samples[:, 4], one_sigma_ci, weights=w)
 
-    best_fit = np.percentile(samples, 50, axis=0)
-    deg_of_freedom = z_sn_vals.size + z_cc_vals.size - len(best_fit)
+    Omh2_samples = samples[:, 3] * (samples[:, 2] / 100) ** 2
+    Omh2_16, Omh2_50, Omh2_84 = quantile(Omh2_samples, one_sigma_ci, weights=w)
 
-    print(f"f_cc: {f_cc_50:.2f} +{(f_cc_84 - f_cc_50):.2f} -{(f_cc_50 - f_cc_16):.2f}")
+    best_fit = {"f_cc": fcc_50, "dM": dM_50, "H0": h0_50, "Om": Om_50, "w0": w0_50}
+    deg_of_freedom = z_sn_vals.size + z_cc_vals.size - len(labels)
+
+    print(f"f_cc: {fcc_50:.2f} +{(fcc_84 - fcc_50):.2f} -{(fcc_50 - fcc_16):.2f}")
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
     print(f"H0: {h0_50:.1f} +{(h0_84 - h0_50):.1f} -{(h0_50 - h0_16):.1f} km/s/Mpc")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
+    print(f"ωm: {Omh2_50:.4f} +{(Omh2_84 - Omh2_50):.4f} -{(Omh2_50 - Omh2_16):.4f}")
     print(f"w0: {w0_50:.2f} +{(w0_84 - w0_50):.2f} -{(w0_50 - w0_16):.2f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Log evidence: {log_evd:.1f}")
     print(f"Degrees of freedom: {deg_of_freedom}")
 
     plot_cc_predictions(
-        H_z=lambda z: H_z(z, best_fit),
+        H_z=lambda z: H_z(z, best_fit["H0"], best_fit["Om"], best_fit["w0"]),
         z=z_cc_vals,
         H=H_cc_vals,
-        H_err=np.sqrt(np.diag(cov_matrix_cc)) * f_cc_50,
+        H_err=np.sqrt(np.diag(cov_matrix_cc)) * fcc_50,
         label=legend_cc,
     )
     plot_sn_predictions(
@@ -166,14 +145,9 @@ def main():
         x=z_sn_vals,
         y=mu_vals,
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=mu_theory(best_fit),
-        label=f"$H_0$={h0_50:.2f} km/s/Mpc, $\Omega_m$={Om_50:.4f}",
+        y_model=mu_theory(dM_50, h0_50, Om_50, w0_50),
+        label=f"$Ω_m$={Om_50:.4f}",
         x_scale="log",
-    )
-    plot_corner_and_chains(
-        labels=["$f_{CCH}$", "$Δ_M$", "$H_0$", "$Ω_m$", "$w_0$"],
-        flat_samples=samples,
-        samples=chains_samples,
     )
 
 
@@ -183,47 +157,45 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM: w(z) = -1
-f_cc: 0.70 +0.10 -0.08
-ΔM: -0.204 +0.122 -0.123 mag
-H0: 65.9 +2.6 -2.7 km/s/Mpc
+f_cc: 1.47 +0.18 -0.18
+ΔM: -0.203 +0.121 -0.123 mag
+H0: 65.9 +2.6 -2.6 km/s/Mpc
 Ωm: 0.349 +0.024 -0.023
+ωm: 0.1513 +0.0106 -0.0103
 w0: -1
-Chi squared: 54.26
+wa: 0
+Chi squared: 56.22
+Log evidence: -150.8
 Degrees of freedom: 51
 
 ==============================
 
 Flat wCDM: w(z) = w0
-f_cc: 0.71 +0.10 -0.08
-ΔM: -0.178 +0.125 -0.126
-H0: 66.4 +2.7 -2.7
-Ωm: 0.305 +0.048 -0.055
+f_cc: 1.45 +0.19 -0.18
+H0: 66.4 +2.7 -2.7 km/s/Mpc
+Ωm: 0.305 +0.047 -0.055
+ωm: 0.1344 +0.0188 -0.0223
 w0: -0.85 +0.12 -0.14
-Chi squared: 52.27
+wa: 0
+Chi squared: 54.29
+Log evidence: -151.7
 Degrees of freedom: 50
 
 ==============================
 
 Flat alternative: w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
-f_cc: 0.71 +0.10 -0.08
-ΔM: -0.178 +0.123 -0.124 mag
-H0: 66.3 +2.7 -2.7 km/s/Mpc
-Ωm: 0.322 +0.033 -0.032
+f_cc: 1.45 +0.18 -0.18
+ΔM: -0.180 +0.125 -0.123 mag
+H0: 66.2 +2.7 -2.6 km/s/Mpc
+Ωm: 0.322 +0.032 -0.032
+ωm: 0.1412 +0.0132 -0.0131
 w0: -0.82 +0.13 -0.14
 wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-Chi squared: 51.67
 Log evidence: -151.4
 Degrees of freedom: 50
 
 ==============================
 
 Flat CPL: w(z) = w0 + wa * z / (1 + z)
-f_cc: 0.71 +0.10 -0.08
-ΔM: -0.241 +0.130 -0.130 mag
-H0: 63.6 +3.0 -3.0 km/s/Mpc
-Ωm: 0.426 +0.047 -0.058
-w0: -0.56 +0.29 -0.24
-wa: -3.87 +2.40 -2.83
-Chi squared: 50.24
-Degrees of freedom: 49
+TODO
 """
