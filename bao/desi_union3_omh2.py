@@ -110,7 +110,6 @@ def main():
     # Planck prior on ωm = Ωm * h^2
     prior.add_parameter("ωm", dist=norm(loc=0.1430, scale=0.0011))
     prior.add_parameter("w0", dist=(-1.5, 0.0))
-    prior.add_parameter("wa", dist=(-5.0, +3.0))
 
     with Pool(8) as pool:
         sampler = Sampler(
