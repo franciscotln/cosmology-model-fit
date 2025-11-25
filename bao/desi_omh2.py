@@ -88,7 +88,7 @@ def main():
     prior.add_parameter("rd", dist=(120, 160))
     prior.add_parameter("H0", dist=(50.0, 85.0))
     prior.add_parameter("ωm", dist=norm(loc=0.1430, scale=0.0011))  # Planck prior
-    prior.add_parameter("w0", dist=(-1.5, 0.0))
+    prior.add_parameter("w0", dist=(-1.6, 0.0))
 
     with Pool(8) as pool:
         sampler = Sampler(
@@ -178,27 +178,27 @@ Degs of freedom: 10
 ===============================
 
 Flat wCDM: w(z) = w0
-rd: 144.02 +2.69 -2.99 Mpc
-H0: 69.41 +1.07 -1.07 km/s/Mpc
+rd: 144.02 +2.67 -2.96 Mpc
+H0: 69.42 +1.08 -1.07 km/s/Mpc
 Ωm: 0.297 +0.009 -0.009
 ωm: 0.1430 +0.0011 -0.0011
-w0: -0.916 +0.078 -0.079
+w0: -0.915 +0.076 -0.081
 wa: 0
-Chi squared: 9.1
+Chi squared: 9.2
 Log evidence: -12.9
 Degs of freedom: 9
 
 ===============================
 
 Flat wzCDM: w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)**3)
-rd: 144.72 +1.90 -1.89 Mpc
-H0: 67.92 +1.50 -1.41 km/s/Mpc
+rd: 144.71 +1.91 -1.93 Mpc
+H0: 67.93 +1.48 -1.41 km/s/Mpc
 Ωm: 0.310 +0.013 -0.013
 ωm: 0.1430 +0.0011 -0.0011
-w0: -0.798 +0.146 -0.156
+w0: -0.797 +0.146 -0.156
 wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
 Chi squared: 8.3
-Log evidence: -11.9
+Log evidence: -12.0
 Degs of freedom: 9
 
 ===============================
