@@ -149,11 +149,12 @@ def main():
     Omh2_samples = samples[:, 1] + samples[:, 2] + Omnu_h2
     Om_samples = Omh2_samples / (samples[:, 0] / 100) ** 2
     rd_samples = cmb.r_drag(wb=samples[:, 1], wm=Omh2_samples)
-    z_star_samples = cmb.z_star(wb=samples[:, 1], wm=Omh2_samples)
-    Omh2_16, Omh2_50, Omh2_84 = np.percentile(Omh2_samples, [15.9, 50, 84.1])
-    Om_16, Om_50, Om_84 = np.percentile(Om_samples, [15.9, 50, 84.1])
-    rd_16, rd_50, rd_84 = np.percentile(rd_samples, [15.9, 50, 84.1])
-    zst_16, zst_50, zst_84 = np.percentile(z_star_samples, [15.9, 50, 84.1])
+    zstar_samples = cmb.z_star(wb=samples[:, 1], wm=Omh2_samples)
+
+    Omh2_16, Omh2_50, Omh2_84 = quantile(Omh2_samples, one_sigma_ci, weights=w)
+    Om_16, Om_50, Om_84 = quantile(Om_samples, one_sigma_ci, weights=w)
+    rd_16, rd_50, rd_84 = quantile(rd_samples, one_sigma_ci, weights=w)
+    zst_16, zst_50, zst_84 = quantile(zstar_samples, one_sigma_ci, weights=w)
 
     print(f"rd: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
@@ -203,16 +204,16 @@ Dataset: DESI DR2 2024 + θ∗ + BBN
 *******************************
 
 Flat ΛCDM w(z) = -1
-rd: 148.30 +1.37 -3.86 Mpc
+rd: 148.35 +0.69 -0.70 Mpc
 H0: 68.49 +0.47 -0.47 km/s/Mpc
 ωb: 0.02217 +0.00054 -0.00053
 ωc: 0.1162 +0.0008 -0.0008
-ωm: 0.1390 +0.0148 -0.0039
-Ωm: 0.2971 +0.0645 -0.0211
+ωm: 0.1390 +0.0011 -0.0011
+Ωm: 0.2963 +0.0046 -0.0045
 w0: -1
 wa: 0
-r*: 145.59 Mpc
-z*: 1090.01 +1.42 -1.02
+r*: 145.60 Mpc
+z*: 1089.85 +0.72 -0.71
 100 θ*: 1.04095
 Chi squared: 10.30
 Log evidence: -15.2
@@ -220,33 +221,33 @@ Log evidence: -15.2
 ===============================
 
 Flat wCDM w(z) = w0
-rd: 148.20 +1.76 -3.63 Mpc
-H0: 67.78 +1.12 -1.09 km/s/Mpc
-ωb: 0.02224 +0.00054 -0.00054
-ωc: 0.1153 +0.0016 -0.0016
-ωm: 0.1386 +0.0146 -0.0049
-Ωm: 0.3011 +0.0614 -0.0321
-w0: -0.966 +0.048 -0.049
+rd: 148.54 +0.74 -0.74 Mpc
+H0: 67.77 +1.13 -1.09 km/s/Mpc
+ωb: 0.02223 +0.00054 -0.00054
+ωc: 0.1152 +0.0016 -0.0016
+ωm: 0.1381 +0.0017 -0.0017
+Ωm: 0.3008 +0.0076 -0.0077
+w0: -0.965 +0.047 -0.050
 wa: 0
-r*: 145.78 Mpc
-z*: 1089.73 +1.68 -1.07
-100 θ*: 1.04093
+r*: 145.79 Mpc
+z*: 1089.68 +0.76 -0.73
+100 θ*: 1.04095
 Chi squared: 9.69
 Log evidence: -17.5
 
 ===============================
 
 Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
-rd: 148.24 +1.63 -2.85 Mpc
-H0: 66.82 +1.63 -1.55 km/s/Mpc
+rd: 148.49 +0.71 -0.70 Mpc
+H0: 66.83 +1.62 -1.54 km/s/Mpc
 ωb: 0.02225 +0.00054 -0.00054
 ωc: 0.1153 +0.0012 -0.0012
-ωm: 0.1386 +0.0114 -0.0044
-Ωm: 0.3112 +0.0705 -0.0361
-w0: -0.872 +0.117 -0.121
+ωm: 0.1382 +0.0013 -0.0013
+Ωm: 0.3095 +0.0133 -0.0132
+w0: -0.873 +0.118 -0.120
 wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-r*: 145.76 Mpc
-z*: 1089.66 +1.52 -1.00
+r*: 145.75 Mpc
+z*: 1089.66 +0.74 -0.72
 100 θ*: 1.04094
 Chi squared: 8.98
 Log evidence: -16.3
