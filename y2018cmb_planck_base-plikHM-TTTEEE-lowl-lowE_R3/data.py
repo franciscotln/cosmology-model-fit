@@ -1,5 +1,6 @@
 """
 Planck PR3, 2019
+plikHM TT, TE, EE + lowl + lowE
 https://irsa.ipac.caltech.edu/data/Planck/release_3/ancillary-data/cosmoparams/
 """
 
