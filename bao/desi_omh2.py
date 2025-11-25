@@ -1,33 +1,31 @@
 from numba import njit
 import numpy as np
 from scipy.constants import c as c0
-from y2025BAO.data import get_data
+from y2025BAO.data import get_data as get_bao_data
 
 c = c0 / 1000  # Speed of light in km/s
 
-legend, data, cov_matrix = get_data()
-cho = np.linalg.cholesky(cov_matrix)
-cho_T = cho.T
+bao_legend, bao_data, bao_cov_matrix = get_bao_data()
 
-z_grid = np.linspace(0, np.max(data["z"]) + 0.1, num=1200)
+inv_cov_mat = np.linalg.inv(bao_cov_matrix)
+
+z_grid = np.linspace(0, np.max(bao_data["z"]) + 0.1, num=2000)
 dx = np.diff(z_grid)
 
-"""
-Planck prior on Ωm * h^2
-Fit rs(drag) directly as a free parameter without early universe constraints
-"""
-Omh2_planck = 0.1430
-Omh2_planck_sigma = 0.0011
+
+@njit
+def Ez(z, params):
+    h, Omh2, w0 = params[1] / 100, params[2], params[3]
+    Om = Omh2 / h**2
+    zp1 = 1 + z
+    cubic = zp1**3
+    rho_de = (4 * cubic / (1 + 3 * cubic)) ** (4 * (1 + w0))
+    return np.sqrt(Om * cubic + (1 - Om) * rho_de)
 
 
 @njit
 def H_z(z, params):
-    h, Om, w0, _ = params
-    OL = 1 - Om
-    one_plus_z = 1 + z
-    cubed = one_plus_z**3
-    rho_de = (4 * cubed / (1 + 3 * cubed)) ** (4 * (1 + w0))
-    return 100 * h * np.sqrt(Om * cubed + OL * rho_de)
+    return params[1] * Ez(z, params)
 
 
 @njit
@@ -51,6 +49,10 @@ def DV_z(z, params):
     return (z * DH * DM**2) ** (1 / 3)
 
 
+qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
+quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int32)
+
+
 @njit
 def bao_theory(z, qty, params):
     DV_mask = qty == 0
@@ -60,181 +62,147 @@ def bao_theory(z, qty, params):
     results[DH_mask] = DH_z(z[DH_mask], params)
     results[DM_mask] = DM_z(z[DM_mask], params)
     results[DV_mask] = DV_z(z[DV_mask], params)
-    return results / params[3]
-
-
-qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
-quantities = np.array([qty_map[q] for q in data["quantity"]], dtype=np.int32)
+    return results / params[0]
 
 
 @njit
 def chi_squared(params):
-    Omh2 = params[1] * params[0] ** 2
-    Omh2_prior = (Omh2 - Omh2_planck) / Omh2_planck_sigma
-    chi2_prior = Omh2_prior**2
-
-    delta = data["value"] - bao_theory(data["z"], quantities, params)
-    y = np.linalg.solve(cho, delta)
-    x = np.linalg.solve(cho_T, y)
-    return np.dot(delta, x) + chi2_prior
+    delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
+    return delta_bao @ inv_cov_mat @ delta_bao
 
 
-bounds = np.array(
-    [
-        (0.500, 0.800),  # h
-        (0.100, 0.500),  # Ωm
-        (-2.0, 0.0),  # w0
-        (130.0, 160.0),  # rd
-    ],
-    dtype=np.float64,
-)
-
-normalization = -np.log(np.prod(bounds[:, 1] - bounds[:, 0]))
-
-
-@njit
-def log_prior(params):
-    if not np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
-        return -np.inf
-    return normalization
-
-
-@njit
 def log_likelihood(params):
     return -0.5 * chi_squared(params)
 
 
-def log_probability(params):
-    lp = log_prior(params)
-    if np.isinf(lp):
-        return -np.inf
-    return lp + log_likelihood(params)
-
-
 def main():
-    import emcee
-    from corner_plot import plot_corner_and_chains
-    from .plot_predictions import plot_bao_predictions, plot_bao_residuals
+    from nautilus import Sampler, Prior
+    from corner import corner, quantile
+    from scipy.stats import norm
+    import matplotlib.pyplot as plt
+    from multiprocessing import Pool
+    from sn.plotting import plot_predictions as plot_sn_predictions
+    from bao.plot_predictions import plot_bao_predictions
 
-    n_dim = len(bounds)
-    n_walkers = 160
-    burnin = 200
-    nsteps = 2000 + burnin
-    np.random.seed(42)
-    initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (n_walkers, n_dim))
+    prior = Prior()
+    prior.add_parameter("rd", dist=(120, 160))
+    prior.add_parameter("H0", dist=(50.0, 85.0))
+    prior.add_parameter("ωm", dist=norm(loc=0.1430, scale=0.0011))  # Planck prior
+    prior.add_parameter("w0", dist=(-1.5, 0.0))
 
-    sampler = emcee.EnsembleSampler(
-        n_walkers,
-        n_dim,
-        log_probability,
-        moves=[
-            (emcee.moves.KDEMove(), 0.30),
-            (emcee.moves.DEMove(), 0.56),
-            (emcee.moves.DESnookerMove(), 0.14),
-        ],
+    with Pool(8) as pool:
+        sampler = Sampler(
+            prior, log_likelihood, n_live=8_000, pool=pool, seed=42, pass_dict=False
+        )
+        sampler.run(verbose=True)
+
+    samples, log_w, log_l = sampler.posterior()
+    w = np.exp(log_w)
+    one_sigma_ci = [0.159, 0.5, 0.841]
+
+    Om_samples = samples[:, 2] / (samples[:, 1] / 100) ** 2
+
+    rd_16, rd_50, rd_84 = quantile(samples[:, 0], one_sigma_ci, weights=w)
+    H0_16, H0_50, H0_84 = quantile(samples[:, 1], one_sigma_ci, weights=w)
+    Omh2_16, Omh2_50, Omh2_84 = quantile(samples[:, 2], one_sigma_ci, weights=w)
+    w0_16, w0_50, w0_84 = quantile(samples[:, 3], one_sigma_ci, weights=w)
+    Om_16, Om_50, Om_84 = quantile(Om_samples, one_sigma_ci, weights=w)
+
+    best_fit = [rd_50, H0_50, Omh2_50, w0_50]
+
+    corner(
+        samples,
+        weights=w,
+        labels=prior.keys,
+        quantiles=one_sigma_ci,
+        show_titles=True,
+        title_fmt=".4f",
+        bins=100,
+        fill_contours=False,
+        plot_datapoints=False,
+        smooth=2.0,
+        smooth1d=2.0,
+        levels=(0.393, 0.864),
+        range=np.repeat(0.9999, len(prior.keys)),
     )
-    sampler.run_mcmc(initial_pos, nsteps, progress=True)
+    plt.show()
 
-    try:
-        tau = sampler.get_autocorr_time()
-        print("Auto-correlation time:", tau)
-        print("Effective samples:", n_dim * n_walkers * (nsteps - burnin) / np.max(tau))
-        print("Acceptance fraction:", np.mean(sampler.acceptance_fraction))
-    except emcee.autocorr.AutocorrError as e:
-        print("Autocorrelation time could not be computed", e)
+    degs_of_freedom = len(bao_data["z"]) - len(best_fit)
 
-    samples = sampler.get_chain(discard=burnin, flat=True)
-    chains_samples = sampler.get_chain(discard=burnin, flat=False)
-
-    [
-        [h_16, h_50, h_84],
-        [Om_16, Om_50, Om_84],
-        [w0_16, w0_50, w0_84],
-        [rd_16, rd_50, rd_84],
-    ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
-
-    best_fit = np.percentile(samples, 50, axis=0)
-
-    Omh2_samples = samples[:, 1] * samples[:, 0] ** 2
-    Omh2_16, Omh2_50, Omh2_84 = np.percentile(Omh2_samples, [15.9, 50, 84.1])
-
-    residuals = data["value"] - bao_theory(data["z"], quantities, best_fit)
-    SS_res = np.sum(residuals**2)
-    SS_tot = np.sum((data["value"] - np.mean(data["value"])) ** 2)
-    r2 = 1 - SS_res / SS_tot
-
-    print(f"h: {h_50:.3f} +{(h_84 - h_50):.3f} -{(h_50 - h_16):.3f}")
-    print(f"Ωm: {Om_50:.3f} +{Om_84-Om_50:.3f} -{Om_50-Om_16:.3f}")
+    print(f"rd: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
+    print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
+    print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"ωm: {Omh2_50:.4f} +{(Omh2_84 - Omh2_50):.4f} -{(Omh2_50 - Omh2_16):.4f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
-    print(f"rd: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f}")
-    print(f"Chi squared: {chi_squared(best_fit):.2f}")
-    print(f"Degs of freedom: {1 + data['value'].size  - len(best_fit)}")
-    print(f"R^2: {r2:.4f}")
-    print(f"RMSD: {np.sqrt(np.mean(residuals**2)):.3f}")
+    print(f"Chi squared: {chi_squared(best_fit):.1f}")
+    print(f"Log evidence: {sampler.log_z:.1f}")
+    print(f"Degs of freedom: {degs_of_freedom}")
 
     plot_bao_predictions(
         theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
-        data=data,
-        errors=np.sqrt(np.diag(cov_matrix)),
-        title=f"{legend}: $H_0$={100 * h_50:.1f} km/s/Mpc, $Ω_m$={Om_50:.3f}",
-    )
-    plot_bao_residuals(data, residuals, np.sqrt(np.diag(cov_matrix)))
-    plot_corner_and_chains(
-        labels=["$h$", "$Ω_m$", "$w_0$", "$r_d$"],
-        flat_samples=samples,
-        samples=chains_samples,
+        data=bao_data,
+        errors=np.sqrt(np.diag(bao_cov_matrix)),
+        title=bao_legend,
     )
 
 
 if __name__ == "__main__":
     main()
 
-
 """
 *******************************
-Dataset: DESI DR2 2024 + Ωm * h^2 Planck 2018
+DESI BAO DR2 2025
+Union3 SNe
+Omh2 prior from Planck 2018
+
+Priors:
+rd U(120, 160)
+H0 U(50.0, 85.0)
+ωm N(0.1430, 0.0011)
+w0 U(-1.6, 0.0)
+wa U(-5.0, +3.0)
+
 *******************************
 
-Flat ΛCDM:
-h: 0.693 +0.010 -0.010
-Ωm: 0.298 +0.009 -0.008
-Ωm h^2: 0.1430 +0.0011 -0.0011
-Ωb h^2 (inferred): 0.02292
+Flat ΛCDM: w(z) = -1
+rd: 146.44 +1.34 -1.31 Mpc
+H0: 69.34 +1.04 -1.03 km/s/Mpc
+Ωm: 0.297 +0.009 -0.008
+ωm: 0.1430 +0.0011 -0.0011
 w0: -1
 wa: 0
-rd: 146.48 +1.33 -1.31
-Chi squared: 10.27
-Degs of freedom: 11
-R^2: 0.9987
-RMSD: 0.305
+Chi squared: 10.3
+Log evidence: -11.4
+Degs of freedom: 10
 
 ===============================
 
-Flat wCDM:
-h: 0.694 +0.011 -0.011
+Flat wCDM: w(z) = w0
+rd: 144.02 +2.69 -2.99 Mpc
+H0: 69.41 +1.07 -1.07 km/s/Mpc
 Ωm: 0.297 +0.009 -0.009
-Ωm h^2: 0.1430 +0.0011 -0.0011
-Ωb h^2 (inferred): 0.02597
-w0: -0.914 +0.076 -0.080
+ωm: 0.1430 +0.0011 -0.0011
+w0: -0.916 +0.078 -0.079
 wa: 0
-rd: 144.03 +2.67 -2.94
-Chi squared: 9.16
-Degs of freedom: 10
-R^2: 0.9989
-RMSD: 0.282
+Chi squared: 9.1
+Log evidence: -12.9
+Degs of freedom: 9
 
 ===============================
 
-Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)**3)
-h: 0.679 +0.015 -0.014
-Ωm: 0.311 +0.013 -0.013
+Flat wzCDM: w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)**3)
+rd: 144.72 +1.90 -1.89 Mpc
+H0: 67.92 +1.50 -1.41 km/s/Mpc
+Ωm: 0.310 +0.013 -0.013
 ωm: 0.1430 +0.0011 -0.0011
-w0: -0.792 +0.144 -0.155
+w0: -0.798 +0.146 -0.156
 wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-rd: 144.70 +1.90 -1.88
-Chi squared: 8.34
-Degs of freedom: 10
-R^2: 0.9990
-RMSD: 0.263
+Chi squared: 8.3
+Log evidence: -11.9
+Degs of freedom: 9
+
+===============================
+
+Flat w0waCDM: w(z) = w0 + wa * z / (1 + z)
+TODO
 """
