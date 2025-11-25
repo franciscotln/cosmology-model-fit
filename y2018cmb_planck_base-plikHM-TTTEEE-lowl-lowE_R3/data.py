@@ -1,26 +1,28 @@
-from numba import njit
+"""
+Planck PR3, 2019
+https://irsa.ipac.caltech.edu/data/Planck/release_3/ancillary-data/cosmoparams/
+"""
+
 import numpy as np
 from scipy.integrate import quad
 from scipy.constants import c as c0
+from numba import njit
 
 c = c0 / 1000  # km/s
 
-# Chen+2018 arXiv:1808.05724v1
-# R, lA = π / θ*, ωb = Ωb h^2
-DISTANCE_PRIORS = np.array([1.750235, 301.4707, 0.02235976], dtype=np.float64)
-inv_cov_mat = np.array(
+# 100 x θ*, rdrag
+DISTANCE_PRIORS = np.array([1.0410875, 147.0515917], dtype=np.float64)
+covariance = np.array(
     [
-        [94392.3971, -1360.4913, 1664517.2916],
-        [-1360.4913, 161.4349, 3671.618],
-        [1664517.2916, 3671.618, 79719182.5162],
-    ],
-    dtype=np.float64,
+        [9.29868316e-08, 2.01530071e-05],
+        [2.01530071e-05, 8.79248605e-02],
+    ]
 )
-covariance = np.linalg.inv(inv_cov_mat)
+inv_cov_mat = np.linalg.inv(covariance)
 
-N_EFF = 3.046
+N_EFF = 3.044
 TCMB = 2.7255  # K
-O_GAMMA_H2 = 2.4729e-5
+O_GAMMA_H2 = 2.4729e-05
 
 T_nu0 = (4 / 11) ** (1 / 3) * TCMB  # K
 T_nu0_eV = T_nu0 * 8.617333262e-5  #  1.67639e-04 eV
@@ -36,27 +38,19 @@ def Omega_r_h2(Neff=N_EFF):
 @njit
 def z_star(wb, wm):
     """arXiv:astro-ph/9510117v2 (eq-1)"""
-    SCALING_FACTOR = 0.9981
+    SCALING_FID = 0.9981784742958223
 
     g1 = 0.0783 * wb**-0.238 / (1 + 39.5 * wb**0.763)
     g2 = 0.560 / (1 + 21.1 * wb**1.81)
     factor_1 = 1 + 0.00124 * wb**-0.738
     factor_2 = 1 + g1 * wm**g2
-    return SCALING_FACTOR * 1048 * factor_1 * factor_2
-
-
-@njit
-def z_drag(wb, wm):
-    """arXiv:2106.00428v2 (eq A2)"""
-    return (
-        1 + 428.169 * wb**0.256459 * wm**0.616388 + 925.56 * wm**0.751615
-    ) * wm**-0.714129
+    return SCALING_FID * 1048 * factor_1 * factor_2
 
 
 @njit
 def r_drag(wb, wm):
     """arXiv:2106.00428v2 (eq 8)"""
-    SCALING_FID = 1.0017
+    SCALING_FID = 1.0010217749139405
 
     a1 = 0.00257366
     a2 = 0.05032
@@ -72,6 +66,18 @@ def r_drag(wb, wm):
     term_A = 1.0 / term_A_denominator
     term_B = a8 / (wm**a9)
     return SCALING_FID * (term_A - term_B)
+
+
+@njit
+def z_drag(wb, wm):
+    """arXiv:2106.00428v2 (eq A2)"""
+    SCALING_FID = 1.0000381142353973
+
+    return (
+        SCALING_FID
+        * (1 + 428.169 * wb**0.256459 * wm**0.616388 + 925.56 * wm**0.751615)
+        * wm**-0.714129
+    )
 
 
 def rs_z(Ez_func, z_lim, H0, Obh2, Och2, w0=-1, wa=0):
@@ -92,23 +98,10 @@ def DM_z(Ez_func, z_lim, H0, Obh2, Och2, w0=-1, wa=0):
 
 def cmb_distances(Ez_func, H0, Ob_h2, Oc_h2, w0=-1, wa=0):
     Om_h2 = Oc_h2 + Ob_h2 + Omnu_h2
+    rs_drag = r_drag(wb=Ob_h2, wm=Om_h2)
     zstar = z_star(wb=Ob_h2, wm=Om_h2)
+
     rs_star = rs_z(Ez_func, zstar, H0, Ob_h2, Oc_h2, w0, wa)
     DM_star = DM_z(Ez_func, zstar, H0, Ob_h2, Oc_h2, w0, wa)
-
-    R = 100 * np.sqrt(Om_h2) * DM_star / c
-    lA = np.pi * DM_star / rs_star
-    return np.array([R, lA, Ob_h2])
-
-
-# R, lA = π / θ*, Ωb h^2
-DISTANCE_PRIORS_WCDM = np.array([1.7493, 301.462, 0.02239], dtype=np.float64)
-covariance_wcdm = np.array(
-    [
-        [2.1622500e-05, 1.9560225e-04, -4.6035000e-07],
-        [1.9560225e-04, 8.0102500e-03, -4.5645000e-06],
-        [-4.6035000e-07, -4.5645000e-06, 2.2500000e-08],
-    ],
-    dtype=np.float64,
-)
-inv_cov_mat_wcdm = np.linalg.inv(covariance_wcdm)
+    thetastar = rs_star / DM_star
+    return np.array([100 * thetastar, rs_drag], dtype=np.float64)

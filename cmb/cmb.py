@@ -1,6 +1,6 @@
 from numba import njit
 import numpy as np
-import cmb.data_planck_act_compression as cmb
+import cmb.data_planck_compression as cmb
 
 z_nr = cmb.z_nr
 Or_h2 = cmb.Omega_r_h2(2.044)
@@ -154,19 +154,19 @@ Flat ΛCDM w(z) = -1
 
 *******************************
 
-Chen+2018 compression (Planck 2018)
-H0: 67.44 +0.61 -0.61 km/s/Mpc
-ωc: 0.1206 +0.0014 -0.0014
+Planck compression (2019 - PR3)
+H0: 67.26 +0.60 -0.60 km/s/Mpc
+ωc: 0.1202 +0.0014 -0.0014
 ωb: 0.02236 +0.00015 -0.00015
-ωm: 0.14357 +0.00130 -0.00129
-Ωm: 0.3156 +0.0086 -0.0084
-z_eq: 3430.8 +31.1 -30.9
-z*: 1089.90 +0.29 -0.29
-r*: 144.31 Mpc
-100 θ*: 1.0420921 radians
-z_drag: 1059.91 +0.30 -0.30
-r_d: 147.05 +0.30 -0.30 Mpc
-Chi squared: 0.0003
+ωm: 0.14317 +0.00129 -0.00128
+Ωm: 0.3164 +0.0085 -0.0083
+z_eq: 3421.3 +30.8 -30.6
+z*: 1089.95 +0.29 -0.28
+r*: 144.41 Mpc
+100 θ*: 1.0410885
+z_drag: 1059.92 +0.29 -0.30
+r_d: 147.06 +0.30 -0.29 Mpc
+Chi squared: 0.0001
 
 ===============================
 
