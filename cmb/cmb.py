@@ -120,12 +120,21 @@ def main():
     rd_samples = cmb.r_drag(wb=samples[:, 1], wm=Omh2_samples)
 
     n = len(h_samples)
+    DMstar_samples = np.zeros(n, dtype=np.float64)
     rstar_samples = np.zeros(n, dtype=np.float64)
+    thetastar_samples = np.zeros(n, dtype=np.float64)
     for i in range(n):
+        DMstar_samples[i] = cmb.DM_z(
+            Ez, zst_samples[i], samples[i, 0], samples[i, 1], samples[i, 2]
+        )
         rstar_samples[i] = cmb.rs_z(
             Ez, zst_samples[i], samples[i, 0], samples[i, 1], samples[i, 2]
         )
+        thetastar_samples[i] = 100 * rstar_samples[i] / DMstar_samples[i]
 
+    theta_16, theta_50, theta_84 = np.percentile(
+        thetastar_samples, one_sigma_percentiles
+    )
     rst_16, rs_50, rst_84 = np.percentile(rstar_samples, one_sigma_percentiles)
     Om_16, Om_50, Om_84 = np.percentile(Om_samples, one_sigma_percentiles)
     Omh2_16, Omh2_50, Omh2_84 = np.percentile(Omh2_samples, one_sigma_percentiles)
@@ -142,13 +151,17 @@ def main():
     print(f"z_eq: {z_eq_50:.1f} +{(z_eq_84 - z_eq_50):.1f} -{(z_eq_50 - z_eq_16):.1f}")
     print(f"z*: {z_st_50:.2f} +{(z_st_84 - z_st_50):.2f} -{(z_st_50 - z_st_16):.2f}")
     print(f"r*: {rs_50:.2f} +{(rst_84 - rs_50):.2f} -{(rs_50 - rst_16):.2f} Mpc")
-    print(f"100 θ*: {100 * np.pi / cmb.cmb_distances(Ez, *best_fit)[1]:.5f}")
+    print(
+        f"100 θ*: {theta_50:.5f} +{(theta_84 - theta_50):.5f} -{(theta_50 - theta_16):.5f}"
+    )
     print(f"z_drag: {z_d_50:.2f} +{(z_d_84 - z_d_50):.2f} -{(z_d_50 - z_d_16):.2f}")
     print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.4f}")
 
-    samples = np.column_stack([samples, Om_samples, rd_samples, rstar_samples])
-    labels = ["$H_0$", "$ω_b$", "$ω_c$", "$Ω_m$", "$r_{drag}$", "$r*$"]
+    samples = np.column_stack(
+        [samples, thetastar_samples, Om_samples, rd_samples, rstar_samples]
+    )
+    labels = ["$H_0$", "$ω_b$", "$ω_c$", "$100 θ_*$", "$Ω_m$", "$r_{drag}$", "$r*$"]
 
     corner.corner(
         samples,
@@ -184,7 +197,7 @@ H0: 67.26 +0.60 -0.60 km/s/Mpc
 z_eq: 3407 +31 -31
 z*: 1089.95 +0.29 -0.28
 r*: 144.41 +0.30 -0.30 Mpc
-100 θ*: 1.04109
+100 θ*: 1.04109 +0.00030 -0.00030
 z_drag: 1059.92 +0.29 -0.30
 r_d: 147.06 +0.30 -0.29 Mpc
 Chi squared: 0.0001
@@ -199,8 +212,8 @@ H0: 67.47 +0.59 -0.58 km/s/Mpc
 Ωm: 0.3121 +0.0081 -0.0080
 z_eq: 3381 +29 -29
 z*: 1090.05 +0.28 -0.28
-r*: 144.75 Mpc
-100 θ*: 1.04103
+r*: 144.75 +0.29 -0.28 Mpc
+100 θ*: 1.04103 +0.00026 -0.00026
 z_drag: 1059.72 +0.29 -0.29
 r_d: 147.46 +0.28 -0.28 Mpc
 Chi squared: 0.0001
@@ -215,8 +228,8 @@ H0: 66.11 +0.79 -0.79 km/s/Mpc
 Ωm: 0.3364 +0.0131 -0.0124
 z_eq: 3499 +51 -50
 z*: 1089.96 +0.30 -0.29
-r*: 143.31 Mpc
-100 θ*: 1.04076
+r*: 143.31 +0.54 -0.54 Mpc
+100 θ*: 1.04075 +0.00031 -0.00031
 z_drag: 1060.72 +0.39 -0.40
 r_d: 145.87 +0.56 -0.56 Mpc
 Chi squared: 0.0009
@@ -231,8 +244,8 @@ H0: 67.62 +0.50 -0.50 km/s/Mpc
 Ωm: 0.3115 +0.0072 -0.0070
 z_eq: 3390 +28 -28
 z*: 1089.68 +0.21 -0.21
-r*: 144.52 Mpc
-100 θ*: 1.04094
+r*: 144.52 +0.29 -0.29 Mpc
+100 θ*: 1.04094 +0.00025 -0.00025
 z_drag: 1060.17 +0.24 -0.24
 r_d: 147.14 +0.29 -0.29 Mpc
 Chi squared: 0.0001
