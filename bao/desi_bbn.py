@@ -1,36 +1,26 @@
 from numba import njit
 import numpy as np
+from scipy.constants import c as c0
 from scipy.linalg import cho_factor, cho_solve
 from y2025BAO.data import get_data
 import y2024BBN.prior_lcdm_schoneberg as bbn
-from cmb.data_union3_compression import c, z_drag, rs_z, Omega_r_h2
+from cmb.data_planck_compression import r_drag
 
 legend, data, cov_matrix = get_data()
 cho = cho_factor(cov_matrix)
 
-Orh2 = Omega_r_h2()
-
-z_grid = np.linspace(0, np.max(data["z"]) + 0.1, num=2000)
+z_grid = np.linspace(0, np.max(data["z"]) + 0.1, num=2300)
 dx = np.diff(z_grid)
 
-
-def rd(params):
-    H0, Om, Obh2 = params[0], params[1], params[2]
-    h = H0 / 100
-    Omh2 = Om * h**2
-    zdrag = z_drag(wb=Obh2, wm=Omh2)
-    return rs_z(Ez, zdrag, params, H0=H0, Ob_h2=Obh2)
+c = c0 / 1000  # km/s
 
 
 @njit
 def Ez(z, params):
-    h, Om, w0 = params[0] / 100, params[1], params[3]
-    Or = Orh2 / h**2
-    OL = 1 - Om - Or
-    one_plus_z = 1 + z
-    cubic = one_plus_z**3
+    Om, w0 = params[1], params[3]
+    cubic = (1 + z) ** 3
     rho_de = (4 * cubic / (1 + 3 * cubic)) ** (4 * (1 + w0))
-    return np.sqrt(Or * one_plus_z**4 + Om * cubic + OL * rho_de)
+    return np.sqrt(Om * cubic + (1 - Om) * rho_de)
 
 
 @njit
@@ -63,7 +53,10 @@ qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
 quantities = np.array([qty_map[q] for q in data["quantity"]], dtype=np.int32)
 
 
+@njit
 def bao_theory(z, qty, params):
+    h, Om, Obh2 = params[0] / 100, params[1], params[2]
+    rd = r_drag(wb=Obh2, wm=Om * h**2)
     DV_mask = qty == 0
     DM_mask = qty == 1
     DH_mask = qty == 2
@@ -71,7 +64,7 @@ def bao_theory(z, qty, params):
     results[DH_mask] = DH_z(z[DH_mask], params)
     results[DM_mask] = DM_z(z[DM_mask], params)
     results[DV_mask] = DV_z(z[DV_mask], params)
-    return results / rd(params)
+    return results / rd
 
 
 def chi_squared(params):
@@ -118,18 +111,17 @@ def main():
     import emcee
     from multiprocessing import Pool
     from corner_plot import plot_corner_and_chains
-    from .plot_predictions import plot_bao_predictions
+    from bao.plot_predictions import plot_bao_predictions
 
     ndim = len(bounds)
-    nwalkers = 150
-    burn_in = 200
-    nsteps = 2000 + burn_in
+    nwalkers = 100
+    burn_in = 500
+    nsteps = 5000 + burn_in
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
     moves = [
         (emcee.moves.KDEMove(), 0.30),
-        (emcee.moves.DEMove(), 0.56),
-        (emcee.moves.DESnookerMove(), 0.14),
+        (emcee.moves.DEMove(), 0.70),
     ]
 
     with Pool(5) as pool:
@@ -159,8 +151,8 @@ def main():
     h_samples = samples[:, 0] / 100
     Omh2_samples = samples[:, 1] * h_samples**2
     Omh2_16, Omh2_50, Omh2_84 = np.percentile(Omh2_samples, [15.9, 50, 84.1])
-    z_d_samples = z_drag(wb=samples[:, 2], wm=Omh2_samples)
-    z_d_16, z_d_50, z_d_84 = np.percentile(z_d_samples, [15.9, 50, 84.1])
+    rd_samples = r_drag(wb=samples[:, 2], wm=Omh2_samples)
+    rd_16, rd_50, rd_84 = np.percentile(rd_samples, [15.9, 50, 84.1])
 
     residuals = data["value"] - bao_theory(data["z"], quantities, best_fit)
     SS_res = np.sum(residuals**2)
@@ -172,8 +164,7 @@ def main():
     print(f"ωm: {Omh2_50:.5f} +{(Omh2_84 - Omh2_50):.5f} -{(Omh2_50 - Omh2_16):.5f}")
     print(f"Ωm: {Om_50:.4f} +{Om_84-Om_50:.4f} -{Om_50-Om_16:.4f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
-    print(f"r_d: {rd(best_fit):.2f} Mpc")
-    print(f"z_d: {z_d_50:.2f} +{(z_d_84 - z_d_50):.2f} -{(z_d_50 - z_d_16):.2f}")
+    print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Degs of freedom: {1 + len(data['z'])  - len(best_fit)}")
     print(f"R^2: {r2:.4f}")
@@ -183,7 +174,7 @@ def main():
         theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
         data=data,
         errors=np.sqrt(np.diag(cov_matrix)),
-        title=f"{legend}: $H_0$={H0_50:.2f} km/s/Mpc, $Ω_m$={Om_50:.4f}",
+        title=f"{legend}: $Ω_m$={Om_50:.4f}",
     )
     plot_corner_and_chains(
         labels=["$H_0$", "$Ω_m$", "$ω_b$", "$w_0$"],
@@ -202,15 +193,14 @@ Dataset: DESI DR2 2025
 *******************************
 
 Flat ΛCDM:
-H0: 68.69 +0.59 -0.59 km/s/Mpc
-ωb: 0.02219 +0.00054 -0.00054
-ωm: 0.14037 +0.00514 -0.00490
-Ωm: 0.2976 +0.0086 -0.0084
+H0: 68.58 +0.60 -0.59 km/s/Mpc
+ωb: 0.02219 +0.00055 -0.00055
+ωm: 0.14007 +0.00518 -0.00492
+Ωm: 0.2979 +0.0087 -0.0085
 w0: -1
 wa: 0
-r_d: 147.80 Mpc
-z_d: 1059.30 +1.38 -1.41
-Chi squared: 10.29
+r_d: 148.03 +1.57 -1.59 Mpc
+Chi squared: 10.27
 Degs of freedom: 11
 R^2: 0.9987
 RMSD: 0.305
@@ -218,32 +208,30 @@ RMSD: 0.305
 ===============================
 
 Flat wCDM:
-H0: 66.45 +2.23 -2.20 km/s/Mpc
-ωb: 0.02219 +0.00055 -0.00055
-ωm: 0.13150 +0.00990 -0.01013
-Ωm: 0.2969 +0.0090 -0.0088
-w0: -0.917 +0.076 -0.079
+H0: 66.38 +2.22 -2.20 km/s/Mpc
+ωb: 0.02218 +0.00055 -0.00055
+ωm: 0.13138 +0.00984 -0.01004
+Ωm: 0.2973 +0.0089 -0.0087
+w0: -0.919 +0.076 -0.080
 wa: 0
-r_d: 150.36 Mpc
-z_d: 1058.61 +1.56 -1.57
-Chi squared: 9.04
+r_d: 150.44 +3.06 -2.84 Mpc
+Chi squared: 9.05
 Degs of freedom: 10
 R^2: 0.9989
-RMSD: 0.280
+RMSD: 0.281
 
 ===============================
 
 Flat alternative: w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
-H0: 65.61 +2.37 -2.19 km/s/Mpc
-ωb: 0.02218 +0.00054 -0.00054
-ωm: 0.13368 +0.00707 -0.00676
-Ωm: 0.3103 +0.0130 -0.0129
-w0: -0.795 +0.145 -0.153
+H0: 65.54 +2.39 -2.20 km/s/Mpc
+ωb: 0.02219 +0.00055 -0.00055
+ωm: 0.13346 +0.00713 -0.00672
+Ωm: 0.3105 +0.0130 -0.0130
+w0: -0.796 +0.146 -0.156
 wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-r_d: 149.67 Mpc
-z_d: 1058.78 +1.45 -1.46
-Chi squared: 8.32
+r_d: 149.84 +2.10 -2.12 Mpc
+Chi squared: 8.34
 Degs of freedom: 10
 R^2: 0.9990
-RMSD: 0.263
+RMSD: 0.264
 """
