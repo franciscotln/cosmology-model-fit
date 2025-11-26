@@ -6,40 +6,76 @@ from y2022pantheonSHOES.data import get_data
 from y2025BAO.data import get_data as get_bao_data
 
 c = cmb.c  # km/s
-Or_h2 = cmb.Omega_r_h2()
+Or_h2 = cmb.Omega_r_h2(2.044)
+Omnu_h2 = cmb.Omnu_h2
+z_nr = cmb.z_nr
 
 sn_legend, z_cmb, z_hel, mb_values, cov_matrix_sn = get_data()
 bao_legend, bao_data, bao_cov_matrix = get_bao_data()
 
-cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
-cho_bao = cho_factor(bao_cov_matrix, lower=True)[0]
+try:
+    cho_sn = np.load("cho_pant.npy")
+except FileNotFoundError:
+    cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
+    np.save("cho_pant.npy", cho_sn)
+
+inv_cov_bao = np.linalg.inv(bao_cov_matrix)
 
 z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
-z_grid = np.linspace(0, z_max, num=1200)
+z_grid = np.linspace(0, z_max, num=2300)
 dx = np.diff(z_grid)
 
 
 @njit
-def Ez(z, params):
-    H0, Om, w0 = params[0], params[1], params[4]
-    h = H0 / 100
-    Or = Or_h2 / h**2
-    Ode = 1 - Om - Or
-    one_plus_z = 1 + z
-    rho_de = (4 * one_plus_z**3 / (1 + 3 * one_plus_z**3)) ** (4 * (1 + w0))
+def Omnu_z(z):
+    """
+    Computes the appox. evolution of one massive
+    neutrino species energy density with redshift
+    """
+    return (
+        (1 + z) ** 4
+        * (1 + ((1 + z_nr) / (1 + z)) ** 2) ** 0.5
+        * (1 + (1 + z_nr) ** 2) ** -0.5
+    )
 
-    return np.sqrt(Or * one_plus_z**4 + Om * one_plus_z**3 + Ode * rho_de)
+
+@njit
+def Ode_z(z, w0, wa):
+    zp1 = 1 + z
+    return (4 * zp1**3 / (1 + 3 * zp1**3)) ** (4 * (1 + w0))  # wzCDM
+    # return 1  # ΛCDM
+    # return zp1 ** (3 * (1 + w0))  # wCDM
+    # return zp1 ** (3 * (1 + w0 + wa)) * np.exp(-3 * wa * z / zp1)  # w0waCDM
+
+
+@njit
+def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
+    h = H0 / 100
+    Onu = Omnu_h2 / h**2
+    Or = Or_h2 / h**2
+    Obc = (Obh2 + Och2) / h**2
+    Ode = 1.0 - Obc - Or - Onu
+
+    zp1 = 1 + z
+
+    radiation_term = Or * zp1**4
+    matter_term = Obc * zp1**3
+    neutrino_term = Onu * Omnu_z(z)
+    dark_energy_term = Ode * Ode_z(z, w0, wa)
+
+    return np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
 
 
 @njit
 def apparent_mag(params):
     dL = (1 + z_hel) * DM_z(z_cmb, params)
-    return params[3] + 25 + 5 * np.log10(dL)
+    return params[0] + 25 + 5 * np.log10(dL)
 
 
 @njit
 def H_z(z, params):
-    return params[0] * Ez(z, params)
+    H0, Obh2, Och2, w0 = params[1:]
+    return H0 * Ez(z, H0, Obh2, Och2, w0)
 
 
 @njit
@@ -69,10 +105,9 @@ quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int64
 
 
 def bao_theory(z, qty, params):
-    H0, Om, Obh2 = params[0], params[1], params[2]
-    h = H0 / 100
-    z_drag = cmb.z_drag(wb=Obh2, wm=Om * h**2)
-    rd = cmb.rs_z(Ez, z_drag, params, H0, Obh2)
+    Obh2, Och2 = params[2], params[3]
+    Omh2 = Obh2 + Och2 + Omnu_h2
+    rd = cmb.r_drag(wb=Obh2, wm=Omh2)
 
     results = np.empty(z.size, dtype=np.float64)
     DV_mask = qty == 0
@@ -90,13 +125,11 @@ def solve_triang(cho_L, delta):
 
 
 def chi_squared(params):
-    H0, Om, Obh2 = params[0], params[1], params[2]
-
-    delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez, params, H0, Om, Obh2)
-    chi2_cmb = np.dot(delta, np.dot(cmb.inv_cov_mat, delta))
+    delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez, *params[1:])
+    chi2_cmb = np.dot(delta_cmb, np.dot(cmb.inv_cov_mat, delta_cmb))
 
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
-    chi_bao = solve_triang(cho_bao, delta_bao)
+    chi_bao = np.dot(delta_bao, np.dot(inv_cov_bao, delta_bao))
 
     delta_sn = mb_values - apparent_mag(params)
     chi_sn = solve_triang(cho_sn, delta_sn)
@@ -106,10 +139,10 @@ def chi_squared(params):
 
 bounds = np.array(
     [
-        (60.0, 75.0),  # H0
-        (0.1, 0.6),  # Ωm
-        (0.019, 0.025),  # ωb = Ωb * h^2
         (-20.0, -19.0),  # M
+        (60.0, 75.0),  # H0
+        (0.019, 0.025),  # ωb = Ωb * h^2
+        (0.01, 0.25),  # ωc = Ωc * h^2
         (-1.5, 0.0),  # w0
     ],
     dtype=np.float64,
@@ -142,18 +175,17 @@ def main():
     from log_evidence import log_evidence
     from corner_plot import plot_corner_and_chains
     from sn.plotting import plot_predictions as plot_sn_predictions
-    from .plot_predictions import plot_bao_predictions
+    from bao.plot_predictions import plot_bao_predictions
 
     ndim = len(bounds)
-    nwalkers = 150
-    burn_in = 200
-    nsteps = 2000 + burn_in
+    nwalkers = 100
+    burn_in = 350
+    nsteps = 3500 + burn_in
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
     moves = [
         (emcee.moves.KDEMove(), 0.30),
-        (emcee.moves.DEMove(), 0.56),
-        (emcee.moves.DESnookerMove(), 0.14),
+        (emcee.moves.DEMove(), 0.70),
     ]
 
     with Pool(6) as pool:
@@ -175,31 +207,51 @@ def main():
 
     pct = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
     [
-        (H0_16, H0_50, H0_84),
-        (Om_16, Om_50, Om_84),
-        (Obh2_16, Obh2_50, Obh2_84),
         (M_16, M_50, M_84),
+        (H0_16, H0_50, H0_84),
+        (Obh2_16, Obh2_50, Obh2_84),
+        (Och2_16, Och2_50, Och2_84),
         (w0_16, w0_50, w0_84),
     ] = pct
 
     best_fit = np.percentile(samples, 50, axis=0)
+    degs_of_freedom = (
+        len(z_cmb) + len(bao_data["z"]) + len(cmb.DISTANCE_PRIORS) - len(best_fit)
+    )
 
-    Omh2_50 = Om_50 * (H0_50 / 100) ** 2
-    z_st = cmb.z_star(Obh2_50, Omh2_50)
-    z_d = cmb.z_drag(Obh2_50, Omh2_50)
+    omh2_samples = samples[:, 2] + samples[:, 3] + Omnu_h2
+    om_samples = omh2_samples / (samples[:, 1] / 100) ** 2
+    zst_samples = cmb.z_star(samples[:, 2], omh2_samples)
+    zdr_samples = cmb.z_drag(samples[:, 2], omh2_samples)
+    rdr_samples = cmb.r_drag(samples[:, 2], omh2_samples)
+
+    Omh2_16, Omh2_50, Omh2_84 = np.percentile(omh2_samples, [15.9, 50, 84.1])
+    Om_16, Om_50, Om_84 = np.percentile(om_samples, [15.9, 50, 84.1])
+    zst_16, zst_50, zst_84 = np.percentile(zst_samples, [15.9, 50, 84.1])
+    zdr_16, zdr_50, zdr_84 = np.percentile(zdr_samples, [15.9, 50, 84.1])
+    rd_16, rd_50, rd_84 = np.percentile(rdr_samples, [15.9, 50, 84.1])
 
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
-    print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"ωb: {Obh2_50:.5f} +{(Obh2_84 - Obh2_50):.5f} -{(Obh2_50 - Obh2_16):.5f}")
+    print(f"ωc: {Och2_50:.4f} +{(Och2_84 - Och2_50):.4f} -{(Och2_50 - Och2_16):.4f}")
+    print(f"ωm: {Omh2_50:.4f} +{(Omh2_84 - Omh2_50):.4f} -{(Omh2_50 - Omh2_16):.4f}")
+    print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"M: {M_50:.3f} +{(M_84 - M_50):.3f} -{(M_50 - M_16):.3f}")
-    print(f"z*: {z_st:.2f}")
-    print(f"r*: {cmb.rs_z(Ez, z_st, best_fit, H0_50, Obh2_50):.2f} Mpc")
-    print(f"z_d: {z_d:.2f}")
-    print(f"rd: {cmb.rs_z(Ez, z_d, best_fit, H0_50, Obh2_50):.2f} Mpc")
+    print(f"z*: {zst_50:.2f} +{(zst_84 - zst_50):.2f} -{(zst_50 - zst_16):.2f}")
+    print(f"z_d: {zdr_50:.2f} +{(zdr_84 - zdr_50):.2f} -{(zdr_50 - zdr_16):.2f}")
+    print(f"r*: {cmb.rs_z(Ez, zst_50, *best_fit[1:]):.2f} Mpc")
+    print(f"rd: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Log evidence: {log_evd:.2f}")
+    print(f"Degrees of freedom: {degs_of_freedom}")
 
+    labels = ["M", "$H_0$", "$ω_b$", "$ω_c$", "$w_0$"]
+    plot_corner_and_chains(
+        labels=labels,
+        flat_samples=samples,
+        samples=chains_samples,
+    )
     plot_bao_predictions(
         theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
         data=bao_data,
@@ -209,16 +261,11 @@ def main():
     plot_sn_predictions(
         legend=sn_legend,
         x=z_cmb,
-        y=mb_values,
+        y=mb_values - M_50,
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=apparent_mag(best_fit),
-        label=f"Model: $Ω_m$={Om_50:.3f}",
+        y_model=apparent_mag(best_fit) - M_50,
+        label=f"$Ω_m$={Om_50:.3f}",
         x_scale="log",
-    )
-    plot_corner_and_chains(
-        labels=["$H_0$", "$Ω_m$", "$ω_b$", "M", "$w_0$"],
-        flat_samples=samples,
-        samples=chains_samples,
     )
 
 
@@ -227,65 +274,62 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM w(z) = -1
-H0: 68.36 +0.28 -0.29 km/s/Mpc
-Ωm: 0.300 +0.004 -0.004
-ωb: 0.02237 +0.00012 -0.00012
-M: -19.413 +0.009 -0.009
-z*: 1088.67
-r*: 145.09 Mpc
-z_d: 1059.69
-rd: 147.68 Mpc
-Chi squared: 1420.19
-Log evidence: -727.14
+H0: 68.28 +0.29 -0.29 km/s/Mpc
+ωb: 0.02236 +0.00012 -0.00012
+ωc: 0.1174 +0.0006 -0.0006
+ωm: 0.1404 +0.0006 -0.0006
+Ωm: 0.301 +0.004 -0.004
+w0: -1
+wa: 0
+M: -19.415 +0.009 -0.009
+z*: 1089.73 +0.19 -0.18
+z_d: 1059.88 +0.27 -0.27
+r*: 145.12 Mpc
+rd: 147.80 +0.19 -0.19 Mpc
+Chi squared: 1419.53
+Log evidence: -726.82
 Degrees of freedom: 1602
 
 ===============================
 
 Flat wCDM w(z) = w0
-H0: 67.78 +0.57 -0.56 km/s/Mpc
-Ωm: 0.304 +0.005 -0.005
-ωb: 0.02242 +0.00012 -0.00012
-w0: -0.973 +0.023 -0.023 (prior width 1.5: -1.5 to 0.0)
-M: -19.426 +0.014 -0.014
-z*: 1088.57
-r*: 145.21 Mpc
-z_d: 1059.76
-rd: 147.79 Mpc
-Chi squared: 1418.84
-Log evidence: -729.70
+H0: 67.75 +0.59 -0.58 km/s/Mpc
+ωb: 0.02240 +0.00013 -0.00013
+ωc: 0.1168 +0.0008 -0.0009
+ωm: 0.1399 +0.0008 -0.0008
+Ωm: 0.305 +0.005 -0.005
+w0: -0.975 +0.024 -0.024
+wa: 0
+M: -19.427 +0.014 -0.014
+z*: 1089.62 +0.22 -0.21
+z_d: 1059.94 +0.28 -0.28
+r*: 145.24 Mpc
+rd: 147.90 +0.21 -0.21 Mpc
+Chi squared: 1418.34
+Log evidence: -729.46
 Degrees of freedom: 1601
 
 ===============================
 
 Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)**3)
-H0: 67.39 +0.58 -0.59 km/s/Mpc
-Ωm: 0.308 +0.006 -0.005
-ωb: 0.02241 +0.00012 -0.00012
-w0: -0.921 +0.042 -0.041
+H0: 67.35 +0.60 -0.59 km/s/Mpc
+ωb: 0.02240 +0.00012 -0.00012
+ωc: 0.1169 +0.0007 -0.0007
+ωm: 0.1399 +0.0007 -0.0007
+Ωm: 0.308 +0.006 -0.006
+w0: -0.925 +0.042 -0.042
 wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-M: -19.431 +0.013 -0.013
-z*: 1088.58
-r*: 145.19 Mpc
-z_d: 1059.76
-rd: 147.77 Mpc
-Chi squared: 1416.63
-Log evidence: -728.01
+M: -19.433 +0.013 -0.013
+z*: 1089.62 +0.20 -0.19
+r*: 145.24 Mpc
+z_d: 1059.94 +0.27 -0.27
+rd: 147.90 +0.20 -0.19 Mpc
+Chi squared: 1416.30
+Log evidence: -727.88
 Degrees of freedom: 1601
 
 ===============================
 
 Flat w(z) = w0 + wa * z / (1 + z)
-H0: 67.51 +0.58 -0.58 km/s/Mpc
-Ωm: 0.310 +0.006 -0.005
-ωb: 0.02230 +0.00013 -0.00013
-w0: -0.853 +0.054 -0.053 (prior width 1.5: -1.5 to 0.0)
-wa: -0.498 +0.201 -0.213 (prior width 3.0: -2.0 to 1.0)
-M: -19.420 +0.014 -0.014
-z*: 1088.79
-r*: 144.91 Mpc
-z_d: 1059.60
-rd: 147.51 Mpc
-Chi squared: 1413.05
-Log evidence: -728.35
-Degrees of freedom: 1600
+TODO
 """
