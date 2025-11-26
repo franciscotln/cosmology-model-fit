@@ -72,9 +72,9 @@ def log_probability(params):
 
 
 def main():
-    import emcee
+    import emcee, corner
+    import matplotlib.pyplot as plt
     from multiprocessing import Pool
-    from corner_plot import plot_corner_and_chains
 
     ndim = len(bounds)
     nwalkers = 200
@@ -100,9 +100,8 @@ def main():
         print("Autocorrelation time could not be computed", e)
 
     samples = sampler.get_chain(discard=burn_in, flat=True)
-    chains_samples = sampler.get_chain(discard=burn_in, flat=False)
 
-    one_sigma_percentiles = [15.9, 50, 84.1]
+    one_sigma_percentiles = np.array([15.9, 50, 84.1])
     pct = np.percentile(samples, one_sigma_percentiles, axis=0).T
     [
         (H0_16, H0_50, H0_84),
@@ -116,14 +115,23 @@ def main():
     Omh2_samples = samples[:, 1] + samples[:, 2] + cmb.Omnu_h2
     Om_samples = Omh2_samples / h_samples**2
     z_eq_samples = -1 + (samples[:, 1] + samples[:, 2]) / cmb.Omega_r_h2()
-    z_st_samples = cmb.z_star(samples[:, 1], Omh2_samples)
-    z_dr_samples = cmb.z_drag(samples[:, 1], Omh2_samples)
+    zst_samples = cmb.z_star(samples[:, 1], Omh2_samples)
+    zd_samples = cmb.z_drag(samples[:, 1], Omh2_samples)
+    rd_samples = cmb.r_drag(wb=samples[:, 1], wm=Omh2_samples)
+
+    n = len(h_samples)
+    rstar_samples = np.zeros(n, dtype=np.float64)
+    for i in range(n):
+        rstar_samples[i] = cmb.rs_z(
+            Ez, zst_samples[i], samples[i, 0], samples[i, 1], samples[i, 2]
+        )
+
+    rst_16, rs_50, rst_84 = np.percentile(rstar_samples, one_sigma_percentiles)
     Om_16, Om_50, Om_84 = np.percentile(Om_samples, one_sigma_percentiles)
     Omh2_16, Omh2_50, Omh2_84 = np.percentile(Omh2_samples, one_sigma_percentiles)
     z_eq_16, z_eq_50, z_eq_84 = np.percentile(z_eq_samples, one_sigma_percentiles)
-    z_st_16, z_st_50, z_st_84 = np.percentile(z_st_samples, one_sigma_percentiles)
-    z_d_16, z_d_50, z_d_84 = np.percentile(z_dr_samples, one_sigma_percentiles)
-    rd_samples = cmb.r_drag(wb=samples[:, 1], wm=Omh2_samples)
+    z_st_16, z_st_50, z_st_84 = np.percentile(zst_samples, one_sigma_percentiles)
+    z_d_16, z_d_50, z_d_84 = np.percentile(zd_samples, one_sigma_percentiles)
     rd_16, rd_50, rd_84 = np.percentile(rd_samples, one_sigma_percentiles)
 
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
@@ -133,17 +141,30 @@ def main():
     print(f"Ωm: {Om_50:.4f} +{(Om_84 - Om_50):.4f} -{(Om_50 - Om_16):.4f}")
     print(f"z_eq: {z_eq_50:.1f} +{(z_eq_84 - z_eq_50):.1f} -{(z_eq_50 - z_eq_16):.1f}")
     print(f"z*: {z_st_50:.2f} +{(z_st_84 - z_st_50):.2f} -{(z_st_50 - z_st_16):.2f}")
-    print(f"r*: {cmb.rs_z(Ez, z_st_50, H0_50, Obh2_50, Och2_50):.2f} Mpc")
+    print(f"r*: {rs_50:.2f} +{(rst_84 - rs_50):.2f} -{(rs_50 - rst_16):.2f} Mpc")
     print(f"100 θ*: {100 * np.pi / cmb.cmb_distances(Ez, *best_fit)[1]:.5f}")
     print(f"z_drag: {z_d_50:.2f} +{(z_d_84 - z_d_50):.2f} -{(z_d_50 - z_d_16):.2f}")
     print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.4f}")
 
-    plot_corner_and_chains(
-        labels=["$H_0$", "$ω_b$", "$ω_c$"],
-        flat_samples=samples,
-        samples=chains_samples,
+    samples = np.column_stack([samples, Om_samples, rd_samples, rstar_samples])
+    labels = ["$H_0$", "$ω_b$", "$ω_c$", "$Ω_m$", "$r_{drag}$", "$r*$"]
+
+    corner.corner(
+        samples,
+        labels=labels,
+        quantiles=one_sigma_percentiles / 100,
+        show_titles=True,
+        title_fmt=".4f",
+        bins=100,
+        fill_contours=False,
+        plot_datapoints=False,
+        smooth=2.0,
+        smooth1d=2.0,
+        levels=(0.393, 0.864),
+        range=np.repeat(0.9999, len(labels)),
     )
+    plt.show()
 
 
 if __name__ == "__main__":
@@ -162,7 +183,7 @@ H0: 67.26 +0.60 -0.60 km/s/Mpc
 Ωm: 0.3164 +0.0085 -0.0083
 z_eq: 3407 +31 -31
 z*: 1089.95 +0.29 -0.28
-r*: 144.41 Mpc
+r*: 144.41 +0.30 -0.30 Mpc
 100 θ*: 1.04109
 z_drag: 1059.92 +0.29 -0.30
 r_d: 147.06 +0.30 -0.29 Mpc
