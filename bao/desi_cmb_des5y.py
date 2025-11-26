@@ -304,7 +304,7 @@ Log evidence: -843.0
 
 
 """
-Flat wDM w(z) = w0
+Flat wcDM w(z) = w0
 
 ** Early time ΛCDM **
 H0: 67.60 +0.54 -0.53 km/s/Mpc
