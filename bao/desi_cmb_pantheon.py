@@ -13,12 +13,7 @@ z_nr = cmb.z_nr
 sn_legend, z_cmb, z_hel, mb_values, cov_matrix_sn = get_data()
 bao_legend, bao_data, bao_cov_matrix = get_bao_data()
 
-try:
-    cho_sn = np.load("cho_pant.npy")
-except FileNotFoundError:
-    cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
-    np.save("cho_pant.npy", cho_sn)
-
+cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
 inv_cov_bao = np.linalg.inv(bao_cov_matrix)
 
 z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
