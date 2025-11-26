@@ -8,7 +8,7 @@ from y2025BAO.data import get_data as get_bao_data
 sn_legend, z_cmb, z_hel, mu_values, cov_matrix_sn = get_data()
 bao_legend, bao_data, cov_matrix_bao = get_bao_data()
 
-cho_sn = np.load("cho_des.npy")  # cho_factor(cov_matrix_sn, lower=True)[0]
+cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
 cho_bao = cho_factor(cov_matrix_bao, lower=True)[0]
 
 c = c0 / 1000  # Speed of light in km/s
@@ -191,7 +191,9 @@ H0 U(50.0, 90.0)
 w0 U(-1.5, 0.0)
 wa U(-3.0, +2.0)
 *******************************
+"""
 
+"""
 Flat ΛCDM w(z) = -1
 r_d: 147.57 +1.21 -1.21 Mpc
 H0: 68.36 +0.90 -0.89 km/s/Mpc
