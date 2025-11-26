@@ -1,3 +1,8 @@
+"""
+Planck PR3, 2019
+plikHM TT, TE, EE + lowl + lowE
+"""
+
 from numba import njit
 import numpy as np
 from scipy.integrate import quad
