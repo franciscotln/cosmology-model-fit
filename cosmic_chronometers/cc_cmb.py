@@ -3,7 +3,6 @@ import numpy as np
 from scipy.linalg import cho_factor, cho_solve
 import cmb.data_planck_act_compression as cmb
 from y2005cc.data import get_data
-from .plot_predictions import plot_cc_predictions
 
 c = cmb.c  # Speed of light in km/s
 Orh2 = cmb.Omega_r_h2(2.044)
@@ -99,6 +98,7 @@ def main():
     from multiprocessing import Pool
     from log_evidence import log_evidence
     from corner_plot import plot_corner_and_chains
+    from .plot_predictions import plot_cc_predictions
 
     ndim = len(bounds)
     nwalkers = 150
