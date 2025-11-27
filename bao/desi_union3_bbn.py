@@ -285,6 +285,6 @@ wa: -1.023 +0.556 -0.565
 r_d: 145.96 +3.24 -2.67 Mpc
 q0: -0.198 +0.128 -0.129
 Chi squared: 28.84
-Log Evidence: -26.92 + 1.49 = -25.43 (Δ logZ = 2.68 against ΛCDM)
+Log Evidence: -26.92 + 0.25 = -26.67 (Δ logZ = 1.44 against ΛCDM)
 Degrees of freedom: 29
 """
