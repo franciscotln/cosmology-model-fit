@@ -1,7 +1,7 @@
 from numba import njit
 import numpy as np
 from y2025BAO.data import get_data as get_bao_data
-import cmb.data_early_lcdm_compression as cmb
+import cmb.data_planck_compression as cmb
 
 c = cmb.c  # speed of light in km/s
 Or_h2 = cmb.Omega_r_h2(2.044)  # 2 relativistic species
@@ -302,4 +302,68 @@ r_d: 147.46 +0.24 -0.24 Mpc
 Log Z: -20.93
 Chi squared: 7.04
 Degs of freedom: 11
+"""
+
+
+"""
+*******************************
+Dataset: DESI DR2 2024
+CMB Compressed priors: (R, lA = π / θ*, ωb)CMB Planck PR3
+*******************************
+"""
+
+"""
+Flat ΛCDM w(z) = -1
+H0: 68.46 +0.30 -0.30 km/s/Mpc
+ωb: 0.02254 +0.00012 -0.00012
+ωc: 0.1175 +0.0007 -0.0007
+ωm: 0.1407 +0.0007 -0.0007
+Ωm: 0.300 +0.004 -0.004
+w0: -1
+wa: 0
+r*: 144.95 Mpc
+z*: 1089.47 +0.19 -0.19
+r_d: 147.56 +0.20 -0.20 Mpc
+Log Z: -20.17
+Chi squared: 15.42
+Degs of freedom: 13
+"""
+
+"""
+Flat wCDM w(z) = w0
+H0: 69.15 +0.98 -0.94 km/s/Mpc
+ωb: 0.02250 +0.00013 -0.00013
+ωc: 0.1181 +0.0009 -0.0010
+ωm: 0.1412 +0.0009 -0.0009
+Ωm: 0.295 +0.007 -0.008
+w0: -1.030 +0.038 -0.040
+wa: 0
+r*: 144.84 Mpc
+z*: 1089.57 +0.23 -0.23
+r_d: 147.46 +0.23 -0.23 Mpc
+Log Z: -22.91
+Chi squared: 14.95
+Degs of freedom: 12
+"""
+
+"""
+Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
+H0: 68.43 +1.59 -1.50 km/s/Mpc
+ωb: 0.02254 +0.00013 -0.00013
+ωc: 0.1175 +0.0008 -0.0008
+ωm: 0.1407 +0.0008 -0.0008
+Ωm: 0.300 +0.013 -0.013
+w0: -0.998 +0.108 -0.111
+wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
+r*: 144.95 Mpc
+z*: 1089.47 +0.21 -0.21
+r_d: 147.56 +0.22 -0.22 Mpc
+Log Z: -22.16
+Chi squared: 15.42
+Degs of freedom: 12
+"""
+
+"""
+Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
+TODO
 """
