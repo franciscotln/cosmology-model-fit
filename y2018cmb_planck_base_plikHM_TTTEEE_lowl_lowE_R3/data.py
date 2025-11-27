@@ -11,9 +11,18 @@ from numba import njit
 
 c = c0 / 1000  # km/s
 
-# 100 x θ*, rdrag
-DISTANCE_PRIORS = np.array([1.0410875, 147.0515917], dtype=np.float64)
+DISTANCE_PRIORS = np.array([1.04108750, 147.051592, 0.143205130], dtype=np.float64)
 covariance = np.array(
+    [
+        [9.29868316e-08, 2.01530071e-05, -1.23592492e-07],
+        [2.01530071e-05, 8.79248605e-02, -3.54429310e-04],
+        [-1.23592492e-07, -3.54429310e-04, 1.65273871e-06],
+    ]
+)
+
+# 100 x θ*, rdrag
+DISTANCE_PRIORS1 = np.array([1.0410875, 147.0515917], dtype=np.float64)
+covariance1 = np.array(
     [
         [9.29868316e-08, 2.01530071e-05],
         [2.01530071e-05, 8.79248605e-02],
@@ -105,4 +114,4 @@ def cmb_distances(Ez_func, H0, Ob_h2, Oc_h2, w0=-1, wa=0):
     rs_star = rs_z(Ez_func, zstar, H0, Ob_h2, Oc_h2, w0, wa)
     DM_star = DM_z(Ez_func, zstar, H0, Ob_h2, Oc_h2, w0, wa)
     thetastar = rs_star / DM_star
-    return np.array([100 * thetastar, rs_drag], dtype=np.float64)
+    return np.array([100 * thetastar, rs_drag, Om_h2], dtype=np.float64)
