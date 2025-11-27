@@ -1,6 +1,6 @@
 import numpy as np
 import numdifftools as nd
-import scipy.optimize
+from scipy.optimize import minimize
 
 
 # Laplace approximation for Bayesian evidence (ln Z) using Hessian
@@ -12,27 +12,21 @@ def log_evidence(mc_samples, log_probs, log_probability, bounds):
     - 3 <= ln(Z) < 5: strong
     - ln(Z) >= 5: very strong
     """
-    # Find best MCMC sample as starting point
+
     best_sample_idx = np.argmax(log_probs)
     initial_guess = mc_samples[best_sample_idx]
     n_params = initial_guess.shape[0]
 
     def objective_function(theta):
-        """Negative log probability for minimization, handling infinities."""
         lp = log_probability(theta)
         if np.isinf(lp) or np.isnan(lp):
             return 1e10
         return -lp
 
-    best_result = scipy.optimize.minimize(
-        objective_function,
-        x0=initial_guess,
-        bounds=bounds,
-    )
+    best_result = minimize(objective_function, x0=initial_guess, bounds=bounds)
     best_log_prob = -best_result.fun
     initial_log_prob = log_probs[best_sample_idx]
 
-    # If optimization didn't converge, just use the best MCMC sample
     if not best_result.success:
         print("Optimization did not converge, using best MCMC sample for Hessian.")
         theta_map = initial_guess
@@ -41,10 +35,8 @@ def log_evidence(mc_samples, log_probs, log_probability, bounds):
         theta_map = best_result.x
         log_post_map = best_log_prob
 
-    # Wrap log_probability to handle infinities (for numerical derivatives)
     def log_prob_for_hessian(theta):
         lp = log_probability(theta)
-        # Replace -inf with large negative number for numerical stability
         if np.isinf(lp):
             return -1e10
         return lp
