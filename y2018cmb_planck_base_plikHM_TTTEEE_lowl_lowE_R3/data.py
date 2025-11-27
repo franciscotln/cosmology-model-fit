@@ -98,11 +98,14 @@ def DM_z(Ez_func, z_lim, H0, Obh2, Och2, w0=-1, wa=0):
 
 
 def cmb_distances(Ez_func, H0, Ob_h2, Oc_h2, w0=-1, wa=0):
+    """
+    returns (100 x θ*, rdrag)
+    """
     Om_h2 = Oc_h2 + Ob_h2 + Omnu_h2
-    rs_drag = r_drag(wb=Ob_h2, wm=Om_h2)
-    zstar = z_star(wb=Ob_h2, wm=Om_h2)
+    rs_drag = r_drag(Ob_h2, Om_h2)
+    zstar = z_star(Ob_h2, Om_h2)
 
     rs_star = rs_z(Ez_func, zstar, H0, Ob_h2, Oc_h2, w0, wa)
     DM_star = DM_z(Ez_func, zstar, H0, Ob_h2, Oc_h2, w0, wa)
     thetastar = rs_star / DM_star
-    return np.array([100 * thetastar, rs_drag, Om_h2], dtype=np.float64)
+    return np.array([100 * thetastar, rs_drag], dtype=np.float64)
