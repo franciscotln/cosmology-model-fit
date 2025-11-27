@@ -91,7 +91,7 @@ def rs_z(Ez_func, z_lim, H0, Obh2, Och2, w0=-1, wa=0):
         denom = a**2 * Ez * np.sqrt(3 * (1 + Rb * a))
         return 1 / denom
 
-    return (c / H0) * quad(integrand, 1e-09, 1 / (1 + z_lim))[0]
+    return (c / H0) * quad(integrand, 1e-08, 1 / (1 + z_lim))[0]
 
 
 def DM_z(Ez_func, z_lim, H0, Obh2, Och2, w0=-1, wa=0):
