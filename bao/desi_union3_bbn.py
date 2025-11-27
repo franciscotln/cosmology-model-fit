@@ -48,12 +48,6 @@ def Ez(z, params):
 
 
 @njit
-def theory_mu(params):
-    dL = (1 + z_cmb) * DM_z(z_cmb, params)
-    return params[-1] + 25 + 5 * np.log10(dL)
-
-
-@njit
 def H_z(z, params):
     return params[0] * Ez(z, params)
 
@@ -99,6 +93,12 @@ def bao_theory(z, qty, params):
 
 
 @njit
+def theory_mu(params):
+    dL = (1 + z_cmb) * DM_z(z_cmb, params)
+    return params[-1] + 25 + 5 * np.log10(dL)
+
+
+@njit
 def chi_squared(params):
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
     chi_bao = delta_bao @ inv_cov_bao @ delta_bao
@@ -139,6 +139,7 @@ def main():
     w = np.exp(log_w)
 
     one_sigma_ci = [0.159, 0.5, 0.841]
+
     corner(
         samples,
         weights=w,
@@ -211,12 +212,19 @@ if __name__ == "__main__":
 DESI DR2 + Union3 + BBN Schöngerg2024
 
 Priors:
+
+All models:
 H0 U(55, 80)
 Om U(0.10, 0.65)
 ωb N(0.02218, 0.00055)
-w0 U(-1.5, 0.0)
-wa U(-4.0, 2.5)
 dM U(-1.0, 1.0)
+
+wCDM and wzCDM:
+w0 U(-1.3, -0.3)
+
+w0waCDM:
+w0 U(-1.3, 0.0)
+wa U(-4.0, 2.0)
 *******************************
 """
 
@@ -267,5 +275,16 @@ Degrees of freedom: 30
 ===============================
 
 Flat w(z) = w0 + wa * z / (1 + z)
-TODO
+H0: 66.6 +1.4 -1.5 km/s/Mpc
+Ωm: 0.3313 +0.0156 -0.0177
+ωb: 0.02219 +0.00055 -0.00055
+ωm: 0.14753 +0.01020 -0.01183
+w0: -0.695 +0.116 -0.111
+wa: -1.023 +0.556 -0.565
+ΔM: -0.154 +0.099 -0.103
+r_d: 145.96 +3.24 -2.67 Mpc
+q0: -0.198 +0.128 -0.129
+Chi squared: 28.84
+Log Evidence: -26.92 + 1.49 = -25.43 (Δ logZ = 2.68 against ΛCDM)
+Degrees of freedom: 29
 """
