@@ -14,7 +14,7 @@ bao_legend, bao_data, cov_matrix_bao = get_bao_data()
 
 inv_cov_sn = np.linalg.inv(cov_matrix_sn)
 inv_cov_bao = np.linalg.inv(cov_matrix_bao)
-inv_cov_cmb = np.linalg.inv(cmb.covariance[np.ix_([0, 2], [0, 2])])
+inv_cov_cmb = np.linalg.inv(cmb.covariance[[0, 2], :][:, [0, 2]])
 
 z_max = max(np.max(z_sn_vals), np.max(bao_data["z"])) + 0.1
 z_grid = np.linspace(0, z_max, num=2500, dtype=np.float64)
