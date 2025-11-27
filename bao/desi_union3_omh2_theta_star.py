@@ -37,8 +37,7 @@ def Omnu_z(z):
 @njit
 def Ode_z(z, w0, wa):
     zp1 = 1 + z
-    # return (4 * zp1**3 / (1 + 3 * zp1**3)) ** (4 * (1 + w0))
-    return zp1 ** (3 * (1 + w0 + wa)) * np.exp(-3 * wa * z / zp1)
+    return (4 * zp1**3 / (1 + 3 * zp1**3)) ** (4 * (1 + w0))
 
 
 @njit
@@ -61,8 +60,8 @@ def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
 
 @njit
 def H_z(z, params):
-    H0, Obh2, Och2, w0, wa = params[1:]
-    return H0 * Ez(z, H0, Obh2, Och2, w0, wa)
+    H0, Obh2, Och2, w0 = params[1:]
+    return H0 * Ez(z, H0, Obh2, Och2, w0)
 
 
 @njit
@@ -123,8 +122,6 @@ def chi_squared(theta):
 
 
 def log_likelihood(theta):
-    if theta[4] + theta[5] >= 0.0:
-        return -np.inf
     return -0.5 * chi_squared(theta)
 
 
@@ -141,8 +138,7 @@ def main():
     prior.add_parameter("H0", dist=(50.0, 90.0))
     prior.add_parameter("ωb", dist=(0.01, 0.04))
     prior.add_parameter("ωc", dist=(0.05, 0.3))
-    prior.add_parameter("w0", dist=(-1.3, 0.0))
-    prior.add_parameter("wa", dist=(-3.5, +2.0))
+    prior.add_parameter("w0", dist=(-1.3, -0.3))
 
     with Pool(8) as pool:
         sampler = Sampler(
@@ -159,7 +155,6 @@ def main():
     Obh2_16, Obh2_50, Obh2_84 = quantile(samples[:, 2], one_sigma_ci, weights=w)
     Och2_16, Och2_50, Och2_84 = quantile(samples[:, 3], one_sigma_ci, weights=w)
     w0_16, w0_50, w0_84 = quantile(samples[:, 4], one_sigma_ci, weights=w)
-    wa_16, wa_50, wa_84 = quantile(samples[:, 5], one_sigma_ci, weights=w)
 
     Omh2_samples = samples[:, 2] + samples[:, 3] + Omnuh2
     Om_samples = Omh2_samples / (samples[:, 1] / 100) ** 2
@@ -171,7 +166,7 @@ def main():
     zd_16, zd_50, zd_84 = quantile(zd_samples, one_sigma_ci, weights=w)
     rd_16, rd_50, rd_84 = quantile(rd_samples, one_sigma_ci, weights=w)
 
-    best_fit = [dM_50, H0_50, Obh2_50, Och2_50, w0_50, wa_50]
+    best_fit = [dM_50, H0_50, Obh2_50, Och2_50, w0_50]
     degrees_of_freedom = 2 + len(bao_data["z"]) + len(z_sn_vals) - len(best_fit)
 
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
@@ -181,14 +176,13 @@ def main():
     print(f"ωm: {Omh2_50:.4f} +{(Omh2_84 - Omh2_50):.4f} -{(Omh2_50 - Omh2_16):.4f}")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
-    print(f"wa: {wa_50:.3f} +{(wa_84 - wa_50):.3f} -{(wa_50 - wa_16):.3f}")
     print(f"z_d: {zd_50:.2f} +{(zd_84 - zd_50):.2f} -{(zd_50 - zd_16):.2f}")
     print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Log Evidence: {sampler.log_z:.2f}")
     print(f"Degs of freedom: {degrees_of_freedom}")
 
-    labels = ["$Δ_M$", "$H_0$", "$ω_b$", "$ω_c$", "$w_0$", "$w_a$"]
+    labels = ["$Δ_M$", "$H_0$", "$ω_b$", "$ω_c$", "$w_0$"]
     corner(
         samples,
         weights=w,
