@@ -1,6 +1,6 @@
 """
-https://github.com/cmbant/PlanckEarlyLCDM/blob/main/README.md
-arXiv:2302.12911 - CMB Constraints on the Early Universe Independent of Late-Time Cosmology
+CMB Constraints on the Early Universe Independent of Late-Time Cosmology
+arXiv:2302.12911 https://github.com/cmbant/PlanckEarlyLCDM/blob/main/README.md
 """
 
 from numba import njit
@@ -9,13 +9,7 @@ from scipy.integrate import quad
 from scipy.constants import c as c0
 
 
-wb_fid = 0.02223  # samples.mean("ombh2")
-wm_fid = 0.14208  # samples.mean("omegamh2")
-rd_fid = 147.46  # samples.mean("rdrag")
-H0_fid = 67.49  # samples.mean("H0")
-theta_star_fid = 1.0410274  # samples.mean("thetastar")
-
-DISTANCE_PRIORS = np.array([theta_star_fid, rd_fid], dtype=np.float64)
+DISTANCE_PRIORS = np.array([1.0410274, 147.46], dtype=np.float64)
 covariance = 1e-05 * np.array(
     [
         [0.00662099420, 2.10838540],
