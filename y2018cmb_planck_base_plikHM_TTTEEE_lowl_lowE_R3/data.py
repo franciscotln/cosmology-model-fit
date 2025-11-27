@@ -11,18 +11,9 @@ from numba import njit
 
 c = c0 / 1000  # km/s
 
-DISTANCE_PRIORS = np.array([1.04108750, 147.051592, 0.143205130], dtype=np.float64)
-covariance = np.array(
-    [
-        [9.29868316e-08, 2.01530071e-05, -1.23592492e-07],
-        [2.01530071e-05, 8.79248605e-02, -3.54429310e-04],
-        [-1.23592492e-07, -3.54429310e-04, 1.65273871e-06],
-    ]
-)
-
 # 100 x θ*, rdrag
-DISTANCE_PRIORS1 = np.array([1.0410875, 147.0515917], dtype=np.float64)
-covariance1 = np.array(
+DISTANCE_PRIORS = np.array([1.0410875, 147.0515917], dtype=np.float64)
+covariance = np.array(
     [
         [9.29868316e-08, 2.01530071e-05],
         [2.01530071e-05, 8.79248605e-02],
