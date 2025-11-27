@@ -1,8 +1,7 @@
 from numba import njit
 import numpy as np
-from scipy.linalg import cho_factor, solve_triangular
 from y2025BAO.data import get_data as get_bao_data
-import cmb.data_desi_compression as cmb
+import cmb.data_early_lcdm_compression as cmb
 
 c = cmb.c  # speed of light in km/s
 Or_h2 = cmb.Omega_r_h2(2.044)  # 2 relativistic species
@@ -10,10 +9,9 @@ Omnu_h2 = cmb.Omnu_h2  # 1 massive species with m_nu = 0.06 eV
 z_nr = cmb.z_nr
 
 bao_legend, bao_data, bao_cov_matrix = get_bao_data()
-cho_bao = cho_factor(bao_cov_matrix, lower=True)[0]
-cmb_cho = cho_factor(cmb.covariance, lower=True)[0]
+inv_cov_bao = np.linalg.inv(bao_cov_matrix)
 
-z_grid = np.linspace(0, np.max(bao_data["z"]) + 0.1, num=2000)
+z_grid = np.linspace(0, np.max(bao_data["z"]) + 0.1, num=2500)
 dx = np.diff(z_grid)
 
 
@@ -59,7 +57,7 @@ def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
 
 @njit
 def H_z(z, params):
-    H0, Obh2, Och2, w0 = params[0:]
+    H0, Obh2, Och2, w0 = params
     return H0 * Ez(z, H0, Obh2, Och2, w0)
 
 
@@ -88,10 +86,10 @@ qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
 quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int32)
 
 
+@njit
 def bao_theory(z, qty, params):
     Obh2, Och2 = params[1], params[2]
-    Omh2 = Obh2 + Och2 + Omnu_h2
-    rd = cmb.r_drag(wb=Obh2, wm=Omh2)
+    rd = cmb.r_drag(Obh2, Obh2 + Och2 + Omnu_h2)
 
     results = np.empty(z.size, dtype=np.float64)
     DV_mask = qty == 0
@@ -103,17 +101,12 @@ def bao_theory(z, qty, params):
     return results / rd
 
 
-def solve_triang(cho_L, delta):
-    y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
-    return np.dot(y, y)
-
-
 def chi_squared(params):
     delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez, *params)
-    chi2_cmb = solve_triang(cmb_cho, delta_cmb)
+    chi2_cmb = delta_cmb @ cmb.inv_cov_mat @ delta_cmb
 
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
-    chi_bao = solve_triang(cho_bao, delta_bao)
+    chi_bao = delta_bao @ inv_cov_bao @ delta_bao
 
     return chi2_cmb + chi_bao
 
@@ -237,7 +230,8 @@ if __name__ == "__main__":
 
 """
 *******************************
-Dataset: DESI DR2 2024 + (θ∗,ωb,ωbc)CMB Early Times ΛCDM
+Dataset: DESI DR2 2024
+CMB Compressed priors: (θ∗, ωb, ωbc)CMB Early Times ΛCDM
 *******************************
 """
 
@@ -260,35 +254,35 @@ Degs of freedom: 13
 
 """
 Flat wCDM w(z) = w0
-H0: 68.88 +0.97 -0.93 km/s/Mpc
+H0: 68.89 +0.97 -0.93 km/s/Mpc
 ωb: 0.02235 +0.00013 -0.00013
 ωc: 0.1176 +0.0009 -0.0009
-ωm: 0.1405 +0.0009 -0.0009
+ωm: 0.1406 +0.0009 -0.0009
 Ωm: 0.296 +0.007 -0.007
 w0: -1.021 +0.038 -0.040 (prior width 2.0: -2.0 to 0.0)
 wa: 0
 r*: 145.09 Mpc
 z*: 1089.75 +0.23 -0.23
-r_d: 147.77 +0.22 -0.22 Mpc
-Log Z: -22.37
-Chi squared: 13.36
+r_d: 147.77 +0.23 -0.22 Mpc
+Log Z: -22.36
+Chi squared: 13.33
 Degs of freedom: 12
 """
 
 """
 Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
-H0: 68.14 +1.56 -1.49 km/s/Mpc
+H0: 68.14 +1.56 -1.48 km/s/Mpc
 ωb: 0.02238 +0.00013 -0.00013
 ωc: 0.1171 +0.0008 -0.0008
 ωm: 0.1401 +0.0008 -0.0008
 Ωm: 0.302 +0.013 -0.013
-w0: -0.982 +0.108 -0.110 (prior width 2.0: -2.0 to 0.0)
+w0: -0.982 +0.107 -0.110 (prior width 2.0: -2.0 to 0.0)
 wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-r*: 145.19 Mpc
+r*: 145.18 Mpc
 z*: 1089.67 +0.21 -0.21
 r_d: 147.85 +0.21 -0.21 Mpc
-Log Z: -21.45
-Chi squared: 13.52
+Log Z: -21.44
+Chi squared: 13.49
 Degs of freedom: 12
 """
 

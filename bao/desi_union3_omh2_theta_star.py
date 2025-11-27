@@ -1,6 +1,6 @@
 from numba import njit
 import numpy as np
-import cmb.data_desi_compression as cmb
+import cmb.data_early_lcdm_compression as cmb
 from y2023union3.data import get_data as get_sn_data
 from y2025BAO.data import get_data as get_bao_data
 

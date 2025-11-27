@@ -1,7 +1,7 @@
 from numba import njit
 import numpy as np
 from scipy.linalg import cho_factor, solve_triangular
-import cmb.data_desi_compression as cmb
+import cmb.data_early_lcdm_compression as cmb
 from y2022pantheonSHOES.data import get_data
 from y2025BAO.data import get_data as get_bao_data
 

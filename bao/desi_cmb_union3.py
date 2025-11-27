@@ -3,7 +3,7 @@ import numpy as np
 from scipy.linalg import cho_factor, solve_triangular
 from y2023union3.data import get_data
 from y2025BAO.data import get_data as get_bao_data
-import cmb.data_desi_compression as cmb
+import cmb.data_early_lcdm_compression as cmb
 
 c = cmb.c  # km/s
 Orh2 = cmb.Omega_r_h2(2.044)  # 2 massless neutrinos at all times
