@@ -1,5 +1,5 @@
 """
-arXiv:2503.14452v2
+ACT baseline LCDM constraints arXiv:2503.14452v2
 https://lambda.gsfc.nasa.gov/product/act/act_dr6.02/act_dr6.02_chains_lcdm_get.html
 https://lambda.gsfc.nasa.gov/product/act/act_dr6.02/act_dr6.02_chains_info.html
 https://lambda.gsfc.nasa.gov/product/act/act_dr6.02/act_dr6.02_chains_prod_table.html
@@ -12,7 +12,6 @@ from numba import njit
 
 c = c0 / 1000  # km/s
 
-# arXiv:2503.14452v2 ACT baseline LCDM constraints
 # R, lA = π / θ*, ωb = Ωb h^2
 DISTANCE_PRIORS = np.array([1.76114018, 301.858188, 0.0225906400], dtype=np.float64)
 covariance = np.array(
@@ -75,7 +74,7 @@ def r_drag(wb, wm):
 @njit
 def z_drag(wb, wm):
     """arXiv:2106.00428v2 (eq A2)"""
-    SCALING_FID = 1.000042079532769  # reproduces rdrag from integral
+    SCALING_FID = 1.000042079532769
 
     return (
         SCALING_FID

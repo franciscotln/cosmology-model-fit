@@ -1,3 +1,8 @@
+"""
+CMB Constraints on the Early Universe Independent of Late-Time Cosmology
+arXiv:2302.12911
+"""
+
 from numba import njit
 import numpy as np
 from scipy.integrate import quad
@@ -96,7 +101,7 @@ def z_star(wb, wm):
 @njit
 def z_drag(wb, wm):
     """arXiv:2106.00428v2 (eq A2)"""
-    SCALING_FID = 1.0001949212793952  # reproduces rdrag from integral
+    SCALING_FID = 1.0001949212793952
 
     return (
         SCALING_FID

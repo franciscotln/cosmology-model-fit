@@ -1,5 +1,5 @@
 """
-arXiv:2503.14452v2
+Planck+ACT baseline LCDM constraints arXiv:2503.14452v2
 https://lambda.gsfc.nasa.gov/product/act/act_dr6.02/act_dr6.02_chains_lcdm_get.html
 https://lambda.gsfc.nasa.gov/product/act/act_dr6.02/act_dr6.02_chains_info.html
 https://lambda.gsfc.nasa.gov/product/act/act_dr6.02/act_dr6.02_chains_prod_table.html
@@ -12,7 +12,6 @@ from scipy.constants import c as c0
 
 c = c0 / 1000  # km/s
 
-# arXiv:2503.14452v2 P-ACT baseline LCDM constraints
 # R, lA = π / θ*, ωb = Ωb h^2
 DISTANCE_PRIORS = np.array([1.74795802, 301.803306, 0.0224962530], dtype=np.float64)
 covariance = np.array(

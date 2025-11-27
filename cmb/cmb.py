@@ -33,7 +33,7 @@ def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
     dark_energy_term = Ode
     neutrino_term = Onu * Omnu_z(z)
 
-    return np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
+    return np.sqrt(radiation_term + matter_term + neutrino_term + dark_energy_term)
 
 
 def chi_squared(params):
@@ -77,9 +77,9 @@ def main():
     from multiprocessing import Pool
 
     ndim = len(bounds)
-    nwalkers = 200
-    burn_in = 200
-    nsteps = 2000 + burn_in
+    nwalkers = 100
+    burn_in = 400
+    nsteps = 4000 + burn_in
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
     moves = [
@@ -112,25 +112,27 @@ def main():
     best_fit = np.percentile(samples, 50, axis=0)
 
     h_samples = samples[:, 0] / 100
-    Omh2_samples = samples[:, 1] + samples[:, 2] + cmb.Omnu_h2
+    Omh2_samples = samples[:, 1] + samples[:, 2] + Omnu_h2
     Om_samples = Omh2_samples / h_samples**2
-    z_eq_samples = -1 + (samples[:, 1] + samples[:, 2]) / cmb.Omega_r_h2()
+    z_eq_samples = -1 + (samples[:, 1] + samples[:, 2]) / cmb.Omega_r_h2(3.044)
     zst_samples = cmb.z_star(samples[:, 1], Omh2_samples)
     zd_samples = cmb.z_drag(samples[:, 1], Omh2_samples)
-    rd_samples = cmb.r_drag(wb=samples[:, 1], wm=Omh2_samples)
+    rd_samples = cmb.r_drag(samples[:, 1], Omh2_samples)
 
     n = len(h_samples)
     DMstar_samples = np.zeros(n, dtype=np.float64)
     rstar_samples = np.zeros(n, dtype=np.float64)
     thetastar_samples = np.zeros(n, dtype=np.float64)
     for i in range(n):
-        DMstar_samples[i] = cmb.DM_z(
-            Ez, zst_samples[i], samples[i, 0], samples[i, 1], samples[i, 2]
-        )
-        rstar_samples[i] = cmb.rs_z(
-            Ez, zst_samples[i], samples[i, 0], samples[i, 1], samples[i, 2]
-        )
+        zst_i = zst_samples[i]
+        H0_i = samples[i, 0]
+        Obh2_i = samples[i, 1]
+        Och2_i = samples[i, 2]
+        DMstar_samples[i] = cmb.DM_z(Ez, zst_i, H0_i, Obh2_i, Och2_i)
+        rstar_samples[i] = cmb.rs_z(Ez, zst_i, H0_i, Obh2_i, Och2_i)
         thetastar_samples[i] = 100 * rstar_samples[i] / DMstar_samples[i]
+        if i % 5000 == 0:
+            print(f"Computed {i} of {n}  θ* samples")
 
     theta_16, theta_50, theta_84 = np.percentile(
         thetastar_samples, one_sigma_percentiles
@@ -192,15 +194,15 @@ Planck compression (2019 - PR3)
 H0: 67.26 +0.60 -0.60 km/s/Mpc
 ωc: 0.1202 +0.0014 -0.0014
 ωb: 0.02236 +0.00015 -0.00015
-ωm: 0.14317 +0.00129 -0.00128
-Ωm: 0.3164 +0.0085 -0.0083
+ωm: 0.14318 +0.00130 -0.00128
+Ωm: 0.3165 +0.0085 -0.0083
 z_eq: 3407 +31 -31
-z*: 1089.95 +0.29 -0.28
+z*: 1089.95 +0.29 -0.29
 r*: 144.41 +0.30 -0.30 Mpc
 100 θ*: 1.04109 +0.00030 -0.00030
-z_drag: 1059.92 +0.29 -0.30
-r_d: 147.06 +0.30 -0.29 Mpc
-Chi squared: 0.0001
+z_drag: 1059.92 +0.30 -0.30
+r_d: 147.06 +0.30 -0.30 Mpc
+Chi squared: 0.0003
 
 ===============================
 
