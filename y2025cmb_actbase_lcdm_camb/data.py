@@ -100,6 +100,9 @@ def DM_z(Ez_func, z_lim, H0, Obh2, Och2, w0=-1, wa=0):
 
 
 def cmb_distances(Ez_func, H0, Ob_h2, Oc_h2, w0=-1, wa=0):
+    """
+    returns (100 θ*, r_drag)
+    """
     Om_h2 = Oc_h2 + Ob_h2 + Omnu_h2
     rs_drag = r_drag(wb=Ob_h2, wm=Om_h2)
     zstar = z_star(wb=Ob_h2, wm=Om_h2)

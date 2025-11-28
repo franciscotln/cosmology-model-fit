@@ -20,7 +20,6 @@ covariance = np.array(
         [6.46996351e-08, 1.47665412e-05],
         [1.47665412e-05, 8.68828506e-02],
     ],
-    dtype=np.float64,
 )
 inv_cov_mat = np.linalg.inv(covariance)
 
@@ -101,6 +100,9 @@ def DM_z(Ez_func, z_lim, H0, Obh2, Och2, w0=-1, wa=0):
 
 
 def cmb_distances(Ez_func, H0, Ob_h2, Oc_h2, w0=-1, wa=0):
+    """
+    returns (100 θ*, r_drag)
+    """
     Om_h2 = Oc_h2 + Ob_h2 + Omnu_h2
     rs_drag = r_drag(wb=Ob_h2, wm=Om_h2)
     zstar = z_star(wb=Ob_h2, wm=Om_h2)
@@ -109,29 +111,3 @@ def cmb_distances(Ez_func, H0, Ob_h2, Oc_h2, w0=-1, wa=0):
     DM_star = DM_z(Ez_func, zstar, H0, Ob_h2, Oc_h2, w0, wa)
     thetastar = rs_star / DM_star
     return np.array([100 * thetastar, rs_drag], dtype=np.float64)
-
-
-"""
-# 100 x θ*, Om x h^2
-DISTANCE_PRIORS = np.array([1.0409405, 0.14245637], dtype=np.float64)
-covariance = np.array(
-    [
-        [6.46996351e-08, -7.25762574e-08],
-        [-7.25762574e-08, 1.38339068e-06],
-    ],
-    dtype=np.float64,
-)
-"""
-
-"""
-# 100 x θ*, Om x h^2, H0
-DISTANCE_PRIORS = np.array([1.0409405, 0.14245637, 67.62377425], dtype=np.float64)
-covariance = np.array(
-    [
-        [6.46996351e-08, -7.25762574e-08, 5.34889616e-05],
-        [-7.25762574e-08, 1.38339068e-06, -5.60315712e-04],
-        [5.34889616e-05, -5.60315712e-04, 2.52201928e-01],
-    ],
-    dtype=np.float64,
-)
-"""
