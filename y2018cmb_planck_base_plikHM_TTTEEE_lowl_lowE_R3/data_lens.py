@@ -1,23 +1,22 @@
 """
-Planck PR3, 2019 plikHM TT, TE, EE + lowl + lowE
+Planck PR3, 2019 plikHM TT, TE, EE + lowl + lowE + lensing
+https://irsa.ipac.caltech.edu/data/Planck/release_3/ancillary-data/cosmoparams/
 """
 
-from numba import njit
 import numpy as np
 from scipy.integrate import quad
 from scipy.constants import c as c0
+from numba import njit
 
 c = c0 / 1000  # km/s
 
-# R, lA = π / θ*, ωb = Ωb h^2
-DISTANCE_PRIORS = np.array([1.75063846, 301.760701, 0.0223597502], dtype=np.float64)
+# 100 x θ*, rdrag
+DISTANCE_PRIORS = np.array([1.04109894, 147.09077306], dtype=np.float64)
 covariance = np.array(
     [
-        [2.09107356e-05, 1.78419597e-04, -4.46283183e-07],
-        [1.78419597e-04, 7.81249750e-03, -4.24834772e-06],
-        [-4.46283183e-07, -4.24834772e-06, 2.21402189e-08],
-    ],
-    dtype=np.float64,
+        [9.41146626e-08, 1.40309227e-05],
+        [1.40309227e-05, 6.98979913e-02],
+    ]
 )
 inv_cov_mat = np.linalg.inv(covariance)
 
@@ -39,7 +38,7 @@ def Omega_r_h2(Neff=N_EFF):
 @njit
 def z_star(wb, wm):
     """arXiv:astro-ph/9510117v2 (eq-1)"""
-    SCALING_FID = 0.9981784742958223
+    SCALING_FID = 0.9981792057611513
 
     g1 = 0.0783 * wb**-0.238 / (1 + 39.5 * wb**0.763)
     g2 = 0.560 / (1 + 21.1 * wb**1.81)
@@ -51,7 +50,7 @@ def z_star(wb, wm):
 @njit
 def r_drag(wb, wm):
     """arXiv:2106.00428v2 (eq 8)"""
-    SCALING_FID = 1.0010217749139405
+    SCALING_FID = 1.001024343359464
 
     a1 = 0.00257366
     a2 = 0.05032
@@ -72,7 +71,7 @@ def r_drag(wb, wm):
 @njit
 def z_drag(wb, wm):
     """arXiv:2106.00428v2 (eq A2)"""
-    SCALING_FID = 1.0000381142353973
+    SCALING_FID = 1.0000382570679867
 
     return (
         SCALING_FID
@@ -99,13 +98,13 @@ def DM_z(Ez_func, z_lim, H0, Obh2, Och2, w0=-1, wa=0):
 
 def cmb_distances(Ez_func, H0, Ob_h2, Oc_h2, w0=-1, wa=0):
     """
-    return (R, lA=π / θ*, ωb=Ωb*h^2)
+    returns (100 x θ*, rdrag)
     """
     Om_h2 = Oc_h2 + Ob_h2 + Omnu_h2
-    zstar = z_star(wb=Ob_h2, wm=Om_h2)
+    rs_drag = r_drag(Ob_h2, Om_h2)
+    zstar = z_star(Ob_h2, Om_h2)
+
     rs_star = rs_z(Ez_func, zstar, H0, Ob_h2, Oc_h2, w0, wa)
     DM_star = DM_z(Ez_func, zstar, H0, Ob_h2, Oc_h2, w0, wa)
-
-    R = 100 * np.sqrt(Om_h2) * DM_star / c
-    lA = np.pi * DM_star / rs_star
-    return np.array([R, lA, Ob_h2])
+    thetastar = rs_star / DM_star
+    return np.array([100 * thetastar, rs_drag], dtype=np.float64)
