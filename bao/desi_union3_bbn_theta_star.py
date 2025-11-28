@@ -132,6 +132,18 @@ def log_likelihood(theta):
     return -0.5 * chi_squared(theta)
 
 
+def q0(Om, w0=-1):
+    """Calculate the deceleration parameter at z=0."""
+    return Om / 2 + (1 + 3 * w0) * (1 - Om) / 2
+
+
+def j0(Om, w0=-1, wa=0, model=None):
+    """Calculate the jerk parameter at z=0."""
+    if model == "wzCDM":
+        wa = -(9 / 4) * (1 + w0)
+    return 1 + (3 / 2) * (1 - Om) * (3 * w0 * (1 + w0) + wa)
+
+
 def main():
     from scipy.stats import norm
     from corner import corner, quantile
@@ -158,23 +170,28 @@ def main():
     w = np.exp(log_w)
     one_sigma_ci = [0.159, 0.5, 0.841]
 
-    Omh2_samples = samples[:, 2] + samples[:, 3] + Omnuh2
-    Om_samples = Omh2_samples / (samples[:, 1] / 100) ** 2
-    rd_samples = cmb.r_drag(samples[:, 2], Omh2_samples)
-    zd_samples = cmb.z_drag(samples[:, 2], Omh2_samples)
-    zst_samples = cmb.z_star(samples[:, 2], Omh2_samples)
-
     dM_16, dM_50, dM_84 = quantile(samples[:, 0], one_sigma_ci, weights=w)
     H0_16, H0_50, H0_84 = quantile(samples[:, 1], one_sigma_ci, weights=w)
     Obh2_16, Obh2_50, Obh2_84 = quantile(samples[:, 2], one_sigma_ci, weights=w)
     Och2_16, Och2_50, Och2_84 = quantile(samples[:, 3], one_sigma_ci, weights=w)
     w0_16, w0_50, w0_84 = quantile(samples[:, 4], one_sigma_ci, weights=w)
 
+    Omh2_samples = samples[:, 2] + samples[:, 3] + Omnuh2
+    Om_samples = Omh2_samples / (samples[:, 1] / 100) ** 2
+    rd_samples = cmb.r_drag(samples[:, 2], Omh2_samples)
+    zd_samples = cmb.z_drag(samples[:, 2], Omh2_samples)
+    zst_samples = cmb.z_star(samples[:, 2], Omh2_samples)
+    q0_samples = q0(Om_samples)
+    q0_samples = q0(Om_samples, w0=samples[:, 4])
+    j0_samples = j0(Om_samples, w0=samples[:, 4], wa=-(9 / 4) * (1 + samples[:, 4]))
+
     Omh2_16, Omh2_50, Omh2_84 = quantile(Omh2_samples, one_sigma_ci, weights=w)
     Om_16, Om_50, Om_84 = quantile(Om_samples, one_sigma_ci, weights=w)
     rd_16, rd_50, rd_84 = quantile(rd_samples, one_sigma_ci, weights=w)
     zd_16, zd_50, zd_84 = quantile(zd_samples, one_sigma_ci, weights=w)
     zst_16, zst_50, zst_84 = quantile(zst_samples, one_sigma_ci, weights=w)
+    q0_16, q0_50, q0_84 = quantile(q0_samples, one_sigma_ci, weights=w)
+    j0_16, j0_50, j0_84 = quantile(j0_samples, one_sigma_ci, weights=w)
 
     best_fit = [dM_50, H0_50, Obh2_50, Och2_50, w0_50]
     degrees_of_freedom = 1 + len(bao_data["z"]) + len(z_sn_vals) - len(best_fit)
@@ -191,6 +208,8 @@ def main():
     print(f"z*: {zst_50:.2f} +{(zst_84 - zst_50):.2f} -{(zst_50 - zst_16):.2f}")
     print(f"r*: {cmb.rs_z(Ez, zst_50, *best_fit[1:]):.2f} Mpc")
     print(f"100 θ*: {100 * np.pi / cmb.cmb_distances(Ez, *best_fit[1:])[1]:.5f}")
+    print(f"q0: {q0_50:.3f} +{(q0_84 - q0_50):.3f} -{(q0_50 - q0_16):.3f}")
+    print(f"j0: {j0_50:.3f} +{(j0_84 - j0_50):.3f} -{(j0_50 - j0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Log Evidence: {sampler.log_z:.2f}")
     print(f"Degrees of freedom: {degrees_of_freedom}")
@@ -268,6 +287,8 @@ r_d: 148.36 +0.69 -0.70 Mpc
 z*: 1089.98 +0.73 -0.71
 r*: 145.57 Mpc
 100 θ*: 1.04097
+q0: -0.553 +0.007 -0.007
+j0: 1
 Chi squared: 39.41
 Log Evidence: -32.00
 Degrees of freedom: 32
@@ -287,6 +308,8 @@ r_d: 148.78 +0.73 -0.71 Mpc
 z*: 1089.50 +0.75 -0.72
 r*: 146.05 Mpc
 100 θ*: 1.04092
+q0: -0.457 +0.041 -0.043
+j0: 0.773 +0.095 -0.084
 Chi squared: 34.12
 Log Evidence: -32.30 (Δ logZ = -0.30 in favour of ΛCDM)
 Degrees of freedom: 31
@@ -306,6 +329,8 @@ r_d: 148.54 +0.70 -0.70 Mpc
 z*: 1089.58 +0.74 -0.71
 r*: 145.82 Mpc
 100 θ*: 1.04096
+q0: -0.337 +0.073 -0.075
+j0: 0.111 +0.281 -0.249
 Chi squared: 31.07
 Log Evidence: -30.16 (Δ logZ = 1.84 against ΛCDM)
 Degrees of freedom: 31
@@ -325,6 +350,8 @@ r_d: 147.91 +0.78 -0.75 Mpc
 z*: 1090.04 +0.79 -0.75
 r*: 145.13 Mpc
 100 θ*: 1.04087
+q0: -0.225 +0.109 -0.109
+j0: -0.465 +0.510 -0.472
 Chi squared: 29.12
 Log Evidence: -31.12 + 0.09 = -31.03 (Δ logZ = 0.97 against ΛCDM)
 Degrees of freedom: 30
