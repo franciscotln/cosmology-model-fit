@@ -113,6 +113,18 @@ def log_likelihood(params):
     return -0.5 * chi_squared(params)
 
 
+def q0(Om, w0=-1):
+    """Calculate the deceleration parameter at z=0."""
+    return Om / 2 + (1 + 3 * w0) * (1 - Om) / 2
+
+
+def j0(Om, w0=-1, wa=0, model=None):
+    """Calculate the jerk parameter at z=0."""
+    if model == "wzCDM":
+        wa = -(9 / 4) * (1 + w0)
+    return 1 + (3 / 2) * (1 - Om) * (3 * w0 * (1 + w0) + wa)
+
+
 def main():
     from scipy.stats import norm
     from corner import corner, quantile
@@ -163,17 +175,17 @@ def main():
     w0_16, w0_50, w0_84 = quantile(samples[:, 3], one_sigma_ci, weights=w)
     dM_16, dM_50, dM_84 = quantile(samples[:, 4], one_sigma_ci, weights=w)
 
-    best_fit = [H0_50, Om_50, Obh2_50, w0_50, dM_50]
-
     Omh2_samples = samples[:, 1] * (samples[:, 0] / 100) ** 2
     rd_samples = r_drag(samples[:, 2], Omh2_samples)
-    q0_samples = 0.5 * samples[:, 1] + 0.5 * (1 - samples[:, 1]) * (
-        1 + 3 * samples[:, 3]
-    )
+    q0_samples = q0(samples[:, 1], w0=samples[:, 3])
+    j0_samples = j0(samples[:, 1], w0=samples[:, 3], wa=-(9 / 4) * (1 + samples[:, 3]))
 
     Omh2_16, Omh2_50, Omh2_84 = quantile(Omh2_samples, one_sigma_ci, weights=w)
     rd_16, rd_50, rd_84 = quantile(rd_samples, one_sigma_ci, weights=w)
     q0_16, q0_50, q0_84 = quantile(q0_samples, one_sigma_ci, weights=w)
+    j0_16, j0_50, j0_84 = quantile(j0_samples, one_sigma_ci, weights=w)
+
+    best_fit = [H0_50, Om_50, Obh2_50, w0_50, dM_50]
 
     print(f"H0: {H0_50:.1f} +{(H0_84 - H0_50):.1f} -{(H0_50 - H0_16):.1f} km/s/Mpc")
     print(f"Ωm: {Om_50:.4f} +{(Om_84 - Om_50):.4f} -{(Om_50 - Om_16):.4f}")
@@ -183,6 +195,7 @@ def main():
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f}")
     print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
     print(f"q0: {q0_50:.3f} +{(q0_84 - q0_50):.3f} -{(q0_50 - q0_16):.3f}")
+    print(f"j0: {j0_50:.3f} +{(j0_84 - j0_50):.3f} -{(j0_50 - j0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Log Evidence: {sampler.log_z:.2f}")
     print(f"Degrees of freedom: {len(bao_data['z']) + len(z_cmb) - len(best_fit)}")
@@ -238,6 +251,7 @@ w0: -1
 wa: 0
 r_d: 146.87 +1.54 -1.52 Mpc
 q0: -0.544 +0.013 -0.012
+j0: 1
 Chi squared: 38.82
 Log Evidence: -28.11
 Degrees of freedom: 31
@@ -253,6 +267,7 @@ w0: -0.868 +0.051 -0.052
 wa: 0
 r_d: 151.70 +2.71 -2.53 Mpc
 q0: -0.413 +0.051 -0.052
+j0: 0.324 +0.252 -0.236
 Chi squared: 32.15
 Log Evidence: -26.91 (Δ logZ = 1.20 against ΛCDM)
 Degrees of freedom: 30
@@ -268,6 +283,7 @@ w0: -0.775 +0.075 -0.076
 wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
 r_d: 149.78 +1.84 -1.82 Mpc
 q0: -0.299 +0.080 -0.083
+j0: -0.065 +0.320 -0.278
 Chi squared: 30.07
 Log Evidence: -25.47 (Δ logZ = 2.64 against ΛCDM)
 Degrees of freedom: 30
