@@ -30,6 +30,12 @@ def Omnu_z(z):
 
 
 @njit
+def Ode_z(z, w0, wa):
+    zp1 = 1 + z
+    return (2 * zp1**3 / (1 + w0 + (1 - w0) * zp1**3)) ** 2
+
+
+@njit
 def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
     h = H0 / 100
     Onu = Omnu_h2 / h**2
@@ -42,7 +48,7 @@ def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
     radiation_term = Or * zp1**4
     matter_term = Obc * zp1**3
     neutrino_term = Onu * Omnu_z(z)
-    dark_energy_term = Ode * (4 * zp1**3 / (1 + 3 * zp1**3)) ** (4 * (1 + w0))
+    dark_energy_term = Ode * Ode_z(z, w0, wa)
 
     return np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
 
@@ -107,7 +113,7 @@ bounds = np.array(
         (60, 75),  # H0
         (0.010, 0.030),  # Obh2
         (0.01, 0.3),  # Och2
-        (-1.5, 0.0),  # w0
+        (-1.0, -0.2),  # w0
     ],
     dtype=np.float64,
 )
@@ -236,32 +242,32 @@ Degs of freedom: 11
 
 Flat wCDM w(z) = w0
 H0: 68.18 +0.98 -0.98 km/s/Mpc
-ωb: 0.02352 +0.00050 -0.00047
-ωc: 0.11512 +0.00160 -0.00170
-ωm: 0.13927 +0.00124 -0.00130
-Ωm: 0.2995 +0.0073 -0.0074
+ωb: 0.02352 +0.00050 -0.00048
+ωc: 0.11511 +0.00159 -0.00170
 w0: -0.945 +0.051 -0.052
 wa: 0
+ωm: 0.1393 +0.0012 -0.0013
+Ωm: 0.2996 +0.0073 -0.0074
 rdrag: 147.13 Mpc
-100 θ*: 1.04090
+100 θ*: 1.04091
 Chi squared: 9.31
-Log Evidence: -19.87
+Log Evidence: -19.24
 Degs of freedom: 10
 
 ===============================
 
-Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)**3)
-H0: 67.11 +1.49 -1.49 km/s/Mpc
-ωb: 0.02343 +0.00038 -0.00038
-ωc: 0.1155 +0.0011 -0.0011
-ωm: 0.1396 +0.0009 -0.0009
-Ωm: 0.3099 +0.0132 -0.0131
-w0: -0.835 +0.120 -0.123
-wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
+Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
+H0: 66.90 +1.39 -1.39 km/s/Mpc
+ωb: 0.02345 +0.00036 -0.00035
+ωc: 0.11543 +0.00100 -0.00105
+w0: -0.809 +0.114 -0.108 (prior width 0.8: -1.0 to -0.2)
+wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
+ωm: 0.1395 +0.0008 -0.0008
+Ωm: 0.3118 +0.0125 -0.0113
 rdrag: 147.13 Mpc
-100 θ*: 1.04093
-Chi squared: 8.54
-Log Evidence: -18.66
+100 θ*: 1.04083
+Chi squared: 8.68
+Log Evidence: -17.98
 Degs of freedom: 10
 
 ===============================
