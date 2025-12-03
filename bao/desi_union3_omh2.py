@@ -1,20 +1,19 @@
 from numba import njit
 import numpy as np
-from scipy.linalg import cho_factor, solve_triangular
 from scipy.constants import c as c0
 from y2023union3.data import get_data as get_sn_data
 from y2025BAO.data import get_data as get_bao_data
 
-sn_legend, z_sn_vals, mu_vals, cov_matrix_sn = get_sn_data()
+sn_legend, z_sn_vals, mu_vals, sn_cov_matrix = get_sn_data()
 bao_legend, bao_data, bao_cov_matrix = get_bao_data()
 
-cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
-cho_bao = cho_factor(bao_cov_matrix, lower=True)[0]
+inv_cov_sn = np.linalg.inv(sn_cov_matrix)
+inv_cov_bao = np.linalg.inv(bao_cov_matrix)
 
 c = c0 / 1000  # Speed of light in km/s
 
 z_max = max(np.max(z_sn_vals), np.max(bao_data["z"])) + 0.1
-z_grid = np.linspace(0, z_max, num=2000)
+z_grid = np.linspace(0, z_max, num=2500)
 dx = np.diff(z_grid)
 
 
@@ -24,14 +23,8 @@ def Ez(z, params):
     Om = Omh2 / h**2
     zp1 = 1 + z
     cubic = zp1**3
-    rho_de = (4 * cubic / (1 + 3 * cubic)) ** (4 * (1 + w0))
+    rho_de = (2 * cubic / (1 + w0 + (1 - w0) * cubic)) ** 2
     return np.sqrt(Om * cubic + (1 - Om) * rho_de)
-
-
-@njit
-def mu_theory(params):
-    dL = (1 + z_sn_vals) * DM_z(z_sn_vals, params)
-    return params[0] + 25 + 5 * np.log10(dL)
 
 
 @njit
@@ -76,17 +69,19 @@ def bao_theory(z, qty, params):
     return results / params[1]
 
 
-def solve_triang(cho_L, delta):
-    y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
-    return y @ y
+@njit
+def mu_theory(params):
+    dL = (1 + z_sn_vals) * DM_z(z_sn_vals, params)
+    return params[0] + 25 + 5 * np.log10(dL)
 
 
+@njit
 def chi_squared(params):
     delta_sn = mu_vals - mu_theory(params)
-    chi_sn = solve_triang(cho_sn, delta_sn)
+    chi_sn = delta_sn @ inv_cov_sn @ delta_sn
 
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
-    chi_bao = solve_triang(cho_bao, delta_bao)
+    chi_bao = delta_bao @ inv_cov_bao @ delta_bao
     return chi_sn + chi_bao
 
 
@@ -107,9 +102,8 @@ def main():
     prior.add_parameter("ΔM", dist=(-1.0, +1.0))
     prior.add_parameter("rd", dist=(120, 160))
     prior.add_parameter("H0", dist=(50.0, 85.0))
-    # Planck prior on ωm = Ωm * h^2
-    prior.add_parameter("ωm", dist=norm(loc=0.1430, scale=0.0011))
-    prior.add_parameter("w0", dist=(-1.5, 0.0))
+    prior.add_parameter("ωm", dist=norm(loc=0.1430, scale=0.0011))  # Planck prior
+    prior.add_parameter("w0", dist=(-1.0, -0.2))
 
     with Pool(8) as pool:
         sampler = Sampler(
@@ -171,7 +165,7 @@ def main():
         legend=sn_legend,
         x=z_sn_vals,
         y=mu_vals,
-        y_err=np.sqrt(np.diag(cov_matrix_sn)),
+        y_err=np.sqrt(np.diag(sn_cov_matrix)),
         y_model=mu_theory(best_fit),
         label=f"$Ω_m$={Om_50:.3f}",
         x_scale="log",
@@ -192,6 +186,14 @@ Priors:
 rd U(120, 160)
 H0 U(50.0, 85.0)
 ωm N(0.1430, 0.0011)
+
+wCDM:
+w0 U(-1.3, -0.5)
+
+Quintessence model wzCDM:
+w0 U(-1.0, -0.2)
+
+w0waCDM:
 w0 U(-1.5, 0.0)
 wa U(-5.0, +3.0)
 
@@ -211,27 +213,27 @@ Degs of freedom: 31
 ===============================
 
 Flat wCDM: w(z) = w0
-rd: 142.48 +2.37 -2.61 Mpc
-H0: 69.35 +1.12 -1.08 km/s/Mpc
+rd: 142.48 +2.40 -2.59 Mpc
+H0: 69.34 +1.10 -1.07 km/s/Mpc
 Ωm: 0.297 +0.009 -0.009
 ωm: 0.1430 +0.0011 -0.0011
 w0: -0.865 +0.051 -0.052
 wa: 0
 Chi squared: 32.2
-Log evidence: -27.1 (Δ logZ = 0.9 against ΛCDM)
+Log evidence: -26.4 (Δ logZ = 1.6 against ΛCDM)
 Degs of freedom: 30
 
 ===============================
 
-Flat wzCDM: w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)**3)
-rd: 144.46 +1.61 -1.60 Mpc
-H0: 67.77 +1.01 -0.99 km/s/Mpc
-Ωm: 0.311 +0.009 -0.009
+Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
+rd: 144.56 +1.60 -1.63 Mpc
+H0: 67.72 +1.00 -0.98 km/s/Mpc
+Ωm: 0.312 +0.009 -0.009
 ωm: 0.1430 +0.0011 -0.0011
-w0: -0.774 +0.074 -0.076
-wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-Chi squared: 30.1
-Log evidence: -25.7 (Δ logZ = 2.3 against ΛCDM)
+w0: -0.765 +0.074 -0.076
+wa: 0.622 +0.161 -0.184 [1.5 * (1 - w0^2)]
+Chi squared: 30.0
+Log evidence: -25.0 (Δ logZ = 3.0 against ΛCDM)
 Degs of freedom: 30
 
 ===============================

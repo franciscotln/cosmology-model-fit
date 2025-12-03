@@ -1,6 +1,5 @@
 from numba import njit
 import numpy as np
-from scipy.linalg import cho_factor, solve_triangular
 from y2023union3.data import get_data
 from y2025BAO.data import get_data as get_bao_data
 import cmb.data_early_lcdm_compression as cmb
@@ -13,11 +12,11 @@ z_nr = cmb.z_nr
 sn_legend, z_sn_vals, mu_vals, cov_matrix_sn = get_data()
 bao_legend, bao_data, bao_cov_matrix = get_bao_data()
 
-cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
-cho_bao = cho_factor(bao_cov_matrix, lower=True)[0]
+inv_cov_sn = np.linalg.inv(cov_matrix_sn)
+inv_cov_bao = np.linalg.inv(bao_cov_matrix)
 
 z_max = max(np.max(z_sn_vals), np.max(bao_data["z"])) + 0.1
-z_grid = np.linspace(0, z_max, num=1200)
+z_grid = np.linspace(0, z_max, num=2500)
 dx = np.diff(z_grid)
 
 
@@ -35,6 +34,12 @@ def Omnu_z(z):
 
 
 @njit
+def Ode_z(z, w0, wa):
+    zp1 = 1 + z
+    return (2 * zp1**3 / (1 + w0 + (1 - w0) * zp1**3)) ** 2
+
+
+@njit
 def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
     h = H0 / 100
     Onu = Omnuh2 / h**2
@@ -47,15 +52,9 @@ def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
     radiation_term = Or * zp1**4
     matter_term = Obc * zp1**3
     neutrino_term = Onu * Omnu_z(z)
-    dark_energy_term = Ode * (4 * zp1**3 / (1 + 3 * zp1**3)) ** (4 * (1 + w0))
+    dark_energy_term = Ode * Ode_z(z, w0, wa)
 
     return np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
-
-
-@njit
-def mu_theory(params):
-    dL = (1 + z_sn_vals) * DM_z(z_sn_vals, params)
-    return params[0] + 25 + 5 * np.log10(dL)
 
 
 @njit
@@ -105,22 +104,29 @@ def bao_theory(z, qty, params):
     return results / rd
 
 
-def solve_triang(cho_L, delta):
-    y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
-    return np.dot(y, y)
+@njit
+def mu_theory(params):
+    dL = (1 + z_sn_vals) * DM_z(z_sn_vals, params)
+    return params[0] + 25 + 5 * np.log10(dL)
+
+
+@njit
+def chi2_sn(params):
+    delta_sn = mu_vals - mu_theory(params)
+    return delta_sn @ inv_cov_sn @ delta_sn
+
+
+@njit
+def chi2_bao(params):
+    delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
+    return delta_bao @ inv_cov_bao @ delta_bao
 
 
 def chi_squared(params):
     delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez, *params[1:])
-    chi2_cmb = np.dot(delta_cmb, np.dot(cmb.inv_cov_mat, delta_cmb))
+    chi2_cmb = delta_cmb @ cmb.inv_cov_mat @ delta_cmb
 
-    delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
-    chi_bao = solve_triang(cho_bao, delta_bao)
-
-    delta_sn = mu_vals - mu_theory(params)
-    chi_sn = solve_triang(cho_sn, delta_sn)
-
-    return chi2_cmb + chi_bao + chi_sn
+    return chi2_cmb + chi2_bao(params) + chi2_sn(params)
 
 
 bounds = np.array(
@@ -129,7 +135,7 @@ bounds = np.array(
         (60, 75),  # H0
         (0.010, 0.030),  # ωb = Ωb * h^2
         (0.01, 0.25),  # ωc = Ωc * h^2
-        (-1.5, 0.0),  # w0
+        (-1.0, -0.2),  # w0
     ],
     dtype=np.float64,
 )
@@ -162,7 +168,7 @@ def main():
     from log_evidence import log_evidence
     from gelman_rubin import gelman_rubin
     from sn.plotting import plot_predictions as plot_sn_predictions
-    from .plot_predictions import plot_bao_predictions
+    from bao.plot_predictions import plot_bao_predictions
 
     np.random.seed(42)
     ndim = len(bounds)
@@ -299,19 +305,19 @@ Degs of freedom: 34
 Flat wCDM w(z) = w0
 
 ** Planck + ACT compression **
-H0: 67.79 +0.70 -0.69 km/s/Mpc
+H0: 67.79 +0.71 -0.69 km/s/Mpc
 Ωm: 0.3052 +0.0059 -0.0059
 ωb: 0.02259 +0.00011 -0.00011
 ωc: 0.1170 +0.0009 -0.0009
-ωm: 0.1402 +0.0008 -0.0008
-w0: -0.974 +0.028 -0.028 (prior width 1.5: -1.5 to 0.0)
+ωm: 0.1403 +0.0008 -0.0008
+w0: -0.974 +0.028 -0.028 (prior width 0.8: -1.3 to -0.5)
 wa: 0
 z*: 1089.36 +0.18 -0.18
 r*: 145.05 Mpc
 z_d: 1060.22 +0.23 -0.23
 r_d: 147.65 Mpc
-Chi squared: 41.99
-Log evidence: -40.0 (Δ logZ = -2.7 in favour of ΛCDM)
+Chi squared: 41.98
+Log evidence: -39.3 (Δ logZ = -2.0 in favour of ΛCDM)
 Degs of freedom: 33
 
 ** Early-time ΛCDM **
@@ -320,51 +326,51 @@ H0: 67.62 +0.71 -0.69 km/s/Mpc
 ωb: 0.02241 +0.00013 -0.00013
 ωc: 0.1168 +0.0009 -0.0009
 ωm: 0.1398 +0.0008 -0.0008
-w0: -0.969 +0.028 -0.029 (prior width 1.5: -1.5 to 0.0)
+w0: -0.969 +0.028 -0.029 (prior width 0.8: -1.3 to -0.5)
 wa: 0
 z*: 1089.60 +0.22 -0.22
-r*: 145.26 Mpc
+r*: 145.25 Mpc
 z_d: 1059.95 +0.28 -0.28
 r_d: 147.91 Mpc
-Chi squared: 40.96
-Log evidence: -39.3 (Δ logZ = -2.4 in favour of ΛCDM)
+Chi squared: 40.92
+Log evidence: -38.7 (Δ logZ = -1.8 in favour of ΛCDM)
 Degs of freedom: 33
 """
 
 
 """
-Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)**3)
+Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
 
 ** Planck + ACT compression **
-H0: 66.65 +0.84 -0.83 km/s/Mpc
-Ωm: 0.3152 +0.0078 -0.0077
+H0: 66.59 +0.82 -0.81 km/s/Mpc
+Ωm: 0.3158 +0.0076 -0.0075
 ωb: 0.02260 +0.00010 -0.00010
 ωc: 0.1168 +0.0007 -0.0007
 ωm: 0.1400 +0.0007 -0.0007
-w0: -0.870 +0.061 -0.061 (prior width 1.5: -1.5 to 0.0)
-wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
+w0: -0.856 +0.061 -0.061 (prior width 0.8: -1.0 to -0.2)
+wa: 0.401 +0.151 -0.164 [1.5 * (1 - w0^2)]
 z*: 1089.32 +0.16 -0.16
 r*: 145.10 Mpc
-z_d: 1060.23 +0.23 -0.23
-r_d: 147.70 Mpc
-Chi squared: 38.17
-Log evidence: -37.3 (Δ logZ = 0.0 equal to ΛCDM)
+z_d: 1060.24 +0.23 -0.23
+r_d: 147.69 Mpc
+Chi squared: 37.88
+Log evidence: -36.5 (Δ logZ = 0.8 against ΛCDM)
 Degs of freedom: 33
 
 ** Early-time ΛCDM **
-H0: 66.54 +0.83 -0.82 km/s/Mpc
-Ωm: 0.3154 +0.0078 -0.0076
+H0: 66.48 +0.82 -0.82 km/s/Mpc
+Ωm: 0.3161 +0.0078 -0.0075
 ωb: 0.02242 +0.00012 -0.00012
-ωc: 0.1166 +0.0008 -0.0007
-ωm: 0.1396 +0.0007 -0.0007
-w0: -0.864 +0.061 -0.061 (prior width 1.5: -1.5 to 0.0)
-wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
+ωc: 0.1166 +0.0007 -0.0007
+ωm: 0.1397 +0.0007 -0.0007
+w0: -0.851 +0.063 -0.063 (prior width 0.8: -1.0 to -0.2)
+wa: 0.414 +0.155 -0.166 [1.5 * (1 - w0^2)]
 z*: 1089.57 +0.20 -0.20
-r*: 145.29 Mpc
-z_d: 1059.98 +0.27 -0.27
-r_d: 147.94 Mpc
-Chi squared: 37.11
-Log evidence: -36.7 (Δ logZ = 0.2 against ΛCDM)
+r*: 145.28 Mpc
+z_d: 1059.97 +0.27 -0.27
+r_d: 147.93 Mpc
+Chi squared: 36.80
+Log evidence: -35.8 (Δ logZ = 1.1 against ΛCDM)
 Degs of freedom: 33
 """
 
