@@ -37,7 +37,7 @@ def Omnu_z(z):
 @njit
 def Ode_z(z, w0, wa):
     zp1 = 1 + z
-    return (4 * zp1**3 / (1 + 3 * zp1**3)) ** (4 * (1 + w0))
+    return (2 * zp1**3 / (1 + w0 + (1 - w0) * zp1**3)) ** 2
 
 
 @njit
@@ -137,10 +137,8 @@ def q0(Om, w0=-1):
     return Om / 2 + (1 + 3 * w0) * (1 - Om) / 2
 
 
-def j0(Om, w0=-1, wa=0, model=None):
+def j0(Om, w0=-1, wa=0):
     """Calculate the jerk parameter at z=0."""
-    if model == "wzCDM":
-        wa = -(9 / 4) * (1 + w0)
     return 1 + (3 / 2) * (1 - Om) * (3 * w0 * (1 + w0) + wa)
 
 
@@ -158,7 +156,7 @@ def main():
     prior.add_parameter("H0", dist=(50, 90))
     prior.add_parameter("ωb", dist=norm(loc=bbn.Obh2, scale=bbn.Obh2_sigma))
     prior.add_parameter("ωc", dist=(0.05, 0.30))
-    prior.add_parameter("w0", dist=(-1.5, 0.0))
+    prior.add_parameter("w0", dist=(-1.0, -1 / 3))
 
     with Pool(8) as pool:
         sampler = Sampler(
@@ -176,6 +174,9 @@ def main():
     Och2_16, Och2_50, Och2_84 = quantile(samples[:, 3], one_sigma_ci, weights=w)
     w0_16, w0_50, w0_84 = quantile(samples[:, 4], one_sigma_ci, weights=w)
 
+    wa_samples = -1.5 * (1 - samples[:, 4] ** 2)
+    wa_16, wa_50, wa_84 = quantile(wa_samples, one_sigma_ci, weights=w)
+
     Omh2_samples = samples[:, 2] + samples[:, 3] + Omnuh2
     Om_samples = Omh2_samples / (samples[:, 1] / 100) ** 2
     rd_samples = cmb.r_drag(samples[:, 2], Omh2_samples)
@@ -183,7 +184,7 @@ def main():
     zst_samples = cmb.z_star(samples[:, 2], Omh2_samples)
     q0_samples = q0(Om_samples)
     q0_samples = q0(Om_samples, w0=samples[:, 4])
-    j0_samples = j0(Om_samples, w0=samples[:, 4], wa=-(9 / 4) * (1 + samples[:, 4]))
+    j0_samples = j0(Om_samples, w0=samples[:, 4], wa=wa_samples)
 
     Omh2_16, Omh2_50, Omh2_84 = quantile(Omh2_samples, one_sigma_ci, weights=w)
     Om_16, Om_50, Om_84 = quantile(Om_samples, one_sigma_ci, weights=w)
@@ -203,6 +204,7 @@ def main():
     print(f"ωm: {Omh2_50:.4f} +{(Omh2_84 - Omh2_50):.4f} -{(Omh2_50 - Omh2_16):.4f}")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
+    print(f"wa: {wa_50:.3f} +{(wa_84 - wa_50):.3f} -{(wa_50 - wa_16):.3f}")
     print(f"z_d: {zd_50:.2f} +{(zd_84 - zd_50):.2f} -{(zd_50 - zd_16):.2f}")
     print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
     print(f"z*: {zst_50:.2f} +{(zst_84 - zst_50):.2f} -{(zst_50 - zst_16):.2f}")
@@ -265,10 +267,14 @@ H0: U(50, 90)
 ωb: N(loc=0.02218, scale=0.00055)
 ωc: U(0.05, 0.30)
 
-wCDM, wzCDM, w0waCDM:
-w0: U(-1.5, 0.0)
+wCDM:
+w0: U(-1.2, -0.6)
+
+wzCDM
+w0: U(-1.0, -1/3)
 
 w0waCDM:
+w0: U(-1.5, 0.0)
 wa: U(-3.0, 1.0)
 w0 + wa < 0 enforced
 """
@@ -296,43 +302,43 @@ Degrees of freedom: 32
 ===============================
 
 Flat wCDM w(z) = w0
-H0: 66.79 +0.81 -0.80 km/s/Mpc
-ωb: 0.02230 +0.00054 -0.00054
+H0: 66.79 +0.81 -0.81 km/s/Mpc
+ωb: 0.02229 +0.00054 -0.00054
 ωc: 0.1141 +0.0014 -0.0014
 ωm: 0.1370 +0.0015 -0.0015
 Ωm: 0.307 +0.006 -0.006
-w0: -0.921 +0.034 -0.035
+w0: -0.921 +0.035 -0.035
 wa: 0
-z_d: 1059.33 +1.24 -1.28
-r_d: 148.78 +0.73 -0.71 Mpc
-z*: 1089.50 +0.75 -0.72
-r*: 146.05 Mpc
-100 θ*: 1.04092
-q0: -0.457 +0.041 -0.043
+z_d: 1059.32 +1.25 -1.27
+r_d: 148.78 +0.73 -0.72 Mpc
+z*: 1089.50 +0.75 -0.73
+r*: 146.06 Mpc
+100 θ*: 1.04091
+q0: -0.458 +0.042 -0.042
 j0: 0.773 +0.095 -0.084
-Chi squared: 34.12
-Log Evidence: -32.30 (Δ logZ = -0.30 in favour of ΛCDM)
+Chi squared: 34.13
+Log Evidence: -31.38 (Δ logZ = 0.62 against ΛCDM)
 Degrees of freedom: 31
 
 ===============================
 
-Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)**3)
-H0: 66.11 +0.89 -0.88 km/s/Mpc
-ωb: 0.02229 +0.00054 -0.00054
+Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
+H0: 66.07 +0.89 -0.87 km/s/Mpc
+ωb: 0.02229 +0.00054 -0.00053
 ωc: 0.1150 +0.0010 -0.0010
 ωm: 0.1379 +0.0012 -0.0012
-Ωm: 0.315 +0.008 -0.008
-w0: -0.816 +0.064 -0.064
-wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-z_d: 1059.37 +1.26 -1.27
-r_d: 148.54 +0.70 -0.70 Mpc
-z*: 1089.58 +0.74 -0.71
-r*: 145.82 Mpc
-100 θ*: 1.04096
-q0: -0.337 +0.073 -0.075
-j0: 0.111 +0.281 -0.249
-Chi squared: 31.07
-Log Evidence: -30.16 (Δ logZ = 1.84 against ΛCDM)
+Ωm: 0.316 +0.008 -0.008
+w0: -0.803 +0.065 -0.067
+wa: -0.534 +0.168 -0.150 [derived wa = -1.5 * (1 - w0^2)]
+z_d: 1059.38 +1.24 -1.27
+r_d: 148.53 +0.70 -0.70 Mpc
+z*: 1089.59 +0.73 -0.70
+r*: 145.81 Mpc
+100 θ*: 1.04093
+q0: -0.323 +0.074 -0.077
+j0: -0.036 +0.305 -0.249
+Chi squared: 30.89
+Log Evidence: -29.24 (Δ logZ = 2.76 against ΛCDM)
 Degrees of freedom: 31
 
 ===============================
