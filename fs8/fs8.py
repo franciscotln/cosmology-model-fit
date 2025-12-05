@@ -8,20 +8,20 @@ from numba import njit
 
 covariance = fs8_data.cov_mat
 data = fs8_data.data
-z_data = data["z"]
-fs8_data = data["fs8"]
-err_data = data["fs8_err"]
 Om_fid = data["omega_fid"]
 
 cho_cov = cho_factor(covariance, lower=True)[0]
 
 
 @njit
+def rho_de_z(z, w0):
+    cubic = (1 + z) ** 3
+    return (2 * cubic / (1 + w0 + (1 - w0) * cubic)) ** 2
+
+
+@njit
 def E(z, om, w0):
-    inv_a = 1 + z
-    cubic = inv_a**3
-    rho_de = (4 * cubic / (1 + 3 * cubic)) ** (4 * (1 + w0))
-    return np.sqrt(om * inv_a**3 + (1 - om) * rho_de)
+    return np.sqrt(om * (1 + z) ** 3 + (1 - om) * rho_de_z(z, w0))
 
 
 def DM(z, om, w0):
@@ -34,15 +34,15 @@ def compute_q(z, om, w0, om_fid):
 
 
 def growth_deriv(y, a, om, w0):
-    if a == 0:
+    if a < 1e-10:
         return [0, 0]
     z = 1 / a - 1
     H = E(z, om, w0)
     HH = H**2
 
     # Compute d(H^2)/da including both matter and dark energy contributions
-    rho_de = (4 / (3 + a**3)) ** (4 * (1 + w0))
-    drho_de_da = -12 * a**2 * (1 + w0) / (3 + a**3) * rho_de
+    rho_de = rho_de_z(z, w0)
+    drho_de_da = -6 * (1 + w0) * a**2 * rho_de / ((1 + w0) * a**3 + (1 - w0))
     dHHda = -3 * om / a**4 + (1 - om) * drho_de_da
 
     Hprime = (1 / 2) * dHHda / H
@@ -55,8 +55,6 @@ a_vals = np.logspace(-3, 0, 1000)
 
 
 def compute_fs8(zs, om, s8, w0):
-    # Initial conditions consistent with matter-dominated era: delta ~ a, d(delta)/da ~ 1
-    # delta(a_0) = a_0, d(delta)/da = a_0 (for delta ~ a initially)
     sol = solve_ivp(
         fun=lambda a, y: growth_deriv(y, a, om, w0),
         t_span=(a_vals[0], a_vals[-1]),
@@ -88,14 +86,14 @@ def solve_triang(cho_L, delta):
 
 def chi_squared(theta):
     Om, s8, w0, f_err = theta
-    fs8_th = compute_fs8(z_data, Om, s8, w0)
-    q = np.array([compute_q(zi, Om, w0, Omfi) for zi, Omfi in zip(z_data, Om_fid)])
-    fs8_corr = fs8_data * q
+    fs8_th = compute_fs8(data["z"], Om, s8, w0)
+    q = np.array([compute_q(zi, Om, w0, Omfi) for zi, Omfi in zip(data["z"], Om_fid)])
+    fs8_corr = data["fs8"] * q
     delta = fs8_corr - fs8_th
     return f_err**2 * solve_triang(cho_cov, delta)
 
 
-N = len(z_data)
+N = len(data["z"])
 
 
 def log_likelihood(theta):
@@ -104,10 +102,10 @@ def log_likelihood(theta):
 
 bounds = np.array(
     [
-        [0.1, 0.6],  # Om
-        [0.2, 1.2],  # sigma8
-        [-2.5, 0.0],  # w0
-        [0.4, 2.4],  # f_err: overstimation factor of the errors
+        (0.1, 0.6),  # Om
+        (0.2, 1.2),  # sigma8
+        (-1.0, 0.0),  # w0
+        (0.4, 2.4),  # f_err: overstimation factor of the errors
     ],
     dtype=np.float64,
 )
@@ -192,17 +190,17 @@ def main():
     labels = ["$S_8$", "$Ω_m$", "$\sigma_8$", "$w_0$", "$f_{err}$"]
     plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
 
-    z_plot = np.linspace(0, np.max(z_data), 200)
+    z_plot = np.linspace(0, np.max(data["z"]), 200)
     fs8_plot = compute_fs8(z_plot, *best_fit[0:-1])
 
     q_vals = np.array(
-        [compute_q(zi, Om_50, w0_50, Omfi) for zi, Omfi in zip(z_data, Om_fid)]
+        [compute_q(zi, Om_50, w0_50, Omfi) for zi, Omfi in zip(data["z"], Om_fid)]
     )
-    fs8_data_corrected = fs8_data * q_vals
-    err_data_corrected = err_data * q_vals
+    fs8_data_corrected = data["fs8"] * q_vals
+    err_data_corrected = data["fs8_err"] * q_vals
 
     plt.errorbar(
-        z_data,
+        data["z"],
         fs8_data_corrected,
         yerr=err_data_corrected / f_50,
         fmt=".",
@@ -243,11 +241,11 @@ chi2 = 63.32
 ===============================
 
 flat wzCDM
-Ωm = 0.274 +0.019 -0.019
-σ8 = 0.830 +0.030 -0.028
-S8 = 0.794 +0.033 -0.033
-w0 = -0.69 +0.16 -0.17
-f = 1.32 +0.12 -0.11
-chi2 = 63.58
+Ωm = 0.274 +0.019 -0.018
+σ8 = 0.830 +0.029 -0.026
+S8 = 0.795 +0.032 -0.030
+w0 = -0.679 +0.146 -0.152
+f = 1.32 +0.11 -0.11
+chi2 = 63.68
 62 deg of freedom
 """
