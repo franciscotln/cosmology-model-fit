@@ -14,10 +14,10 @@ sn_legend, z_cmb, z_hel, mu_values, cov_matrix_sn = get_sn_data()
 bao_legend, bao_data, bao_cov_matrix = get_bao_data()
 
 cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
-cho_bao = cho_factor(bao_cov_matrix, lower=True)[0]
+inv_cov_bao = np.linalg.inv(bao_cov_matrix)
 
 z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
-z_grid = np.linspace(0, z_max, num=2000)
+z_grid = np.linspace(0, z_max, num=2500)
 dx = np.diff(z_grid)
 
 
@@ -37,7 +37,7 @@ def Omnu_z(z):
 @njit
 def Ode_z(z, w0, wa):
     zp1 = 1 + z
-    return (4 * zp1**3 / (1 + 3 * zp1**3)) ** (4 * (1 + w0))  # wzCDM
+    return (2 * zp1**3 / (1 + w0 + (1 - w0) * zp1**3)) ** 2  # wzCDM
     # return 1  # ΛCDM
     # return zp1 ** (3 * (1 + w0))  # wCDM
     # return zp1 ** (3 * (1 + w0 + wa)) * np.exp(-3 * wa * z / zp1)  # w0waCDM
@@ -59,12 +59,6 @@ def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
     dark_energy_term = Ode * Ode_z(z, w0, wa)
 
     return np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
-
-
-@njit
-def theory_mu(params):
-    dL = (1 + z_hel) * DM_z(z_cmb, params)
-    return params[0] + 25 + 5 * np.log10(dL)
 
 
 @njit
@@ -98,6 +92,7 @@ qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
 quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int64)
 
 
+@njit
 def bao_theory(z, qty, params):
     Obh2, Och2 = params[2], params[3]
     Omh2 = Obh2 + Och2 + Omnuh2
@@ -113,6 +108,12 @@ def bao_theory(z, qty, params):
     return results / rd
 
 
+@njit
+def theory_mu(params):
+    dL = (1 + z_hel) * DM_z(z_cmb, params)
+    return params[0] + 25 + 5 * np.log10(dL)
+
+
 def solve_triang(cho_L, delta):
     y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
     return np.dot(y, y)
@@ -120,10 +121,10 @@ def solve_triang(cho_L, delta):
 
 def chi_squared(params):
     delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez, *params[1:])
-    chi2_cmb = np.dot(delta, np.dot(cmb.inv_cov_mat, delta))
+    chi2_cmb = delta @ cmb.inv_cov_mat @ delta
 
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
-    chi_bao = solve_triang(cho_bao, delta_bao)
+    chi_bao = delta_bao @ inv_cov_bao @ delta_bao
 
     delta_sn = mu_values - theory_mu(params)
     chi_sn = solve_triang(cho_sn, delta_sn)
@@ -137,7 +138,7 @@ bounds = np.array(
         (60.0, 75.0),  # H0
         (0.010, 0.030),  # ωb
         (0.01, 0.25),  # ωc
-        (-1.5, 0.0),  # w0
+        (-1.0, -1 / 3),  # w0
     ],
     dtype=np.float64,
 )
@@ -170,7 +171,7 @@ def main():
     from gelman_rubin import gelman_rubin
     from corner_plot import plot_corner_and_chains
     from sn.plotting import plot_predictions as plot_sn_predictions
-    from .plot_predictions import plot_bao_predictions
+    from bao.plot_predictions import plot_bao_predictions
 
     ndim = len(bounds)
     nwalkers = 150
@@ -214,6 +215,9 @@ def main():
 
     best_fit = np.percentile(samples, 50, axis=0)
 
+    wa_samples = -1.5 * (1 - samples[:, 4] ** 2) # wzCDM
+    wa_16, wa_50, wa_84 = np.percentile(wa_samples, one_sigma_contours)
+
     omh2_samples = samples[:, 2] + samples[:, 3] + Omnuh2
     om_samples = omh2_samples / (samples[:, 1] / 100) ** 2
     z_star_samples = cmb.z_star(wb=samples[:, 2], wm=omh2_samples)
@@ -230,6 +234,7 @@ def main():
     print(f"ωc: {Och2_50:.4f} +{(Och2_84 - Och2_50):.4f} -{(Och2_50 - Och2_16):.4f}")
     print(f"ωm: {Omh2_50:.4f} +{(Omh2_84 - Omh2_50):.4f} -{(Omh2_50 - Omh2_16):.4f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
+    print(f"wa: {wa_50:.3f} +{(wa_84 - wa_50):.3f} -{(wa_50 - wa_16):.3f}")
     print(f"r*: {cmb.rs_z(Ez, z_st_50, *best_fit[1:]):.2f} Mpc")
     print(f"z*: {z_st_50:.2f} +{(z_st_84 - z_st_50):.2f} -{(z_st_50 - z_st_16):.2f}")
     print(f"r_d: {cmb.rs_z(Ez, z_dr_50, *best_fit[1:]):.2f} Mpc")
@@ -310,66 +315,66 @@ Flat wcDM w(z) = w0
 H0: 67.60 +0.54 -0.53 km/s/Mpc
 Ωm: 0.3059 +0.0048 -0.0048
 ωb: 0.02241 +0.00013 -0.00013
-ωc: 0.1167 +0.0008 -0.0008
+ωc: 0.1167 +0.0008 -0.0009
 ωm: 0.1398 +0.0008 -0.0008
-w0: -0.969 +0.022 -0.022 (prior width 1.5: -1.5 to 0.0)
+w0: -0.969 +0.022 -0.022 (prior width 2/3: -4/3 to -2/3)
 wa: 0
 r*: 145.26 Mpc
 z*: 1089.60 +0.21 -0.21
 r_d: 147.91 Mpc
 z_d: 1059.95 +0.27 -0.28
-Chi squared: 1646.88
-Log evidence: -844.8 (Δ logZ = -2.3 in favour of ΛCDM)
+Chi squared: 1646.84
+Log evidence: -844.0 (Δ logZ = -1.5 in favour of ΛCDM)
 
 ** ACT DR6 + Planck **
-H0: 67.73 +0.54 -0.53 km/s/Mpc
-Ωm: 0.3056 +0.0048 -0.0047
-ωb: 0.02259 +0.00011 -0.00010
+H0: 67.72 +0.54 -0.53 km/s/Mpc
+Ωm: 0.3057 +0.0048 -0.0047
+ωb: 0.02259 +0.00010 -0.00011
 ωc: 0.1170 +0.0008 -0.0008
 ωm: 0.1402 +0.0008 -0.0008
-w0: -0.972 +0.021 -0.022 (prior width 1.5: -1.5 to 0.0)
+w0: -0.972 +0.021 -0.022 (prior width 2/3: -4/3 to -2/3)
 wa: 0
 r*: 145.06 Mpc
 z*: 1089.35 +0.17 -0.17
 r_d: 147.66 Mpc
-z_d: 1060.22 +0.23 -0.23
-Chi squared: 1647.92
-Log evidence: -845.4 (Δ logZ = -2.4 in favour of ΛCDM)
+z_d: 1060.23 +0.23 -0.23
+Chi squared: 1647.91
+Log evidence: -844.6 (Δ logZ = -1.6 in favour of ΛCDM)
 """
 
 
 """
-Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
+Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
 
 ** Early time ΛCDM **
-H0: 67.19 +0.55 -0.55 km/s/Mpc
-Ωm: 0.3097 +0.0054 -0.0052
+H0: 67.17 +0.54 -0.55 km/s/Mpc
+Ωm: 0.3100 +0.0053 -0.0052
 ωb: 0.02241 +0.00012 -0.00012
 ωc: 0.1168 +0.0007 -0.0007
 ωm: 0.1398 +0.0007 -0.0007
-w0: -0.912 +0.040 -0.039 (prior width 1.5: -1.5 to 0.0)
-wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
+w0: -0.903 +0.041 -0.042 (prior width 2/3: -1 to -1/3)
+wa: -0.276 +0.116 -0.109
 r*: 145.25 Mpc
-z*: 1089.60 +0.19 -0.19
-r_d: 147.91 Mpc
-z_d: 1059.96 +0.27 -0.27
-Chi squared: 1643.97
-Log evidence: -842.8 (Δ logZ = -0.3 in favour of ΛCDM)
+z*: 1089.61 +0.19 -0.20
+r_d: 147.90 Mpc
+z_d: 1059.95 +0.27 -0.27
+Chi squared: 1643.73
+Log evidence: -841.8 (Δ logZ = 0.7 against ΛCDM)
 
 ** ACT DR6 + Planck **
-H0: 67.28 +0.55 -0.55 km/s/Mpc
-Ωm: 0.3097 +0.0053 -0.0053
+H0: 67.25 +0.54 -0.54 km/s/Mpc
+Ωm: 0.3100 +0.0052 -0.0052
 ωb: 0.02260 +0.00010 -0.00010
-ωc: 0.1169 +0.0007 -0.0007
+ωc: 0.1170 +0.0007 -0.0007
 ωm: 0.1402 +0.0007 -0.0007
-w0: -0.915 +0.039 -0.039 (prior width 1.5: -1.5 to 0.0)
-wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-r*: 145.07 Mpc
+w0: -0.906 +0.041 -0.041 (prior width 2/3: -1 to -1/3)
+wa: -0.270 +0.114 -0.109
+r*: 145.06 Mpc
 z*: 1089.35 +0.16 -0.16
-r_d: 147.67 Mpc
+r_d: 147.66 Mpc
 z_d: 1060.23 +0.23 -0.23
-Chi squared: 1644.92
-Log evidence: -843.3 (Δ logZ = -0.3 in favour of ΛCDM)
+Chi squared: 1644.69
+Log evidence: -842.4 (Δ logZ = 0.6 against ΛCDM)
 """
 
 
