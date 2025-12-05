@@ -16,7 +16,7 @@ OFFSET = 0
 OM = 1
 W0 = 2
 
-bounds = np.array([(-0.6, 0.6), (0.0, 1.0), (-1.5, 0.0)])  # ΔM, Ωm, w0
+bounds = np.array([(-0.6, 0.6), (0.0, 1.0), (-1.0, 0.0)])  # ΔM, Ωm, w0
 
 z_grid = np.linspace(0, np.max(z_values), num=1000)
 dx = np.diff(z_grid)
@@ -26,7 +26,7 @@ dx = np.diff(z_grid)
 def Ez(z, params):
     Om, w0 = params[OM], params[W0]
     cubed = (1 + z) ** 3
-    rho_de = (4 * cubed / (1 + 3 * cubed)) ** (4 * (1 + w0))
+    rho_de = (2 * cubed / (1 + w0 + (1 - w0) * cubed)) ** 2
     return np.sqrt(Om * cubed + (1 - Om) * rho_de)
 
 
@@ -82,27 +82,21 @@ def main():
     from gelman_rubin import gelman_rubin
     from log_evidence import log_evidence
     from corner_plot import plot_corner_and_chains
-    from .plotting import plot_predictions, print_color, plot_residuals
+    from sn.plotting import plot_predictions, print_color, plot_residuals
 
     n_dim = len(bounds)
-    n_walkers = 150
+    n_walkers = 200
     burn_in = 200
     n_steps = burn_in + 2000
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(n_walkers, n_dim))
+    moves = [
+        (emcee.moves.KDEMove(), 0.30),
+        (emcee.moves.DEMove(), 0.70),
+    ]
 
     with Pool(5) as pool:
-        sampler = emcee.EnsembleSampler(
-            n_walkers,
-            n_dim,
-            log_probability,
-            pool=pool,
-            moves=[
-                (emcee.moves.KDEMove(), 0.30),
-                (emcee.moves.DEMove(), 0.56),
-                (emcee.moves.DESnookerMove(), 0.14),
-            ],
-        )
+        sampler = emcee.EnsembleSampler(n_walkers, n_dim, log_probability, pool, moves)
         sampler.run_mcmc(initial_pos, n_steps, progress=True)
 
     try:
@@ -160,7 +154,7 @@ def main():
     sigma_mu = np.sqrt(np.diag(cov_matrix))
 
     plot_corner_and_chains(
-        labels=["$Δ_M$", "$Ω_m$", "$w_0$"],
+        labels=["$ΔM$", "$Ω_m$", "$w_0$"],
         flat_samples=samples,
         samples=chain_samples,
     )
@@ -170,7 +164,7 @@ def main():
         y=mu_vals,
         y_err=sigma_mu,
         y_model=predicted_distances,
-        label=f"Best fit: $Ω_m$={Om_50:.4f}",
+        label=f"$Ω_m$={Om_50:.4f}",
         x_scale="log",
     )
     plot_residuals(z_values=z_values, residuals=residuals, y_err=sigma_mu, bins=40)
@@ -214,17 +208,17 @@ Degs of freedom: 19
 
 ===============================
 
-Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
+Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
 
-ΔM: -0.052 +0.087/-0.088 mag
-Ωm: 0.299 +0.049/-0.049
-w0: -0.730 +0.150/-0.178
-wa: -(9/4) * (1 + w0)
+ΔM: -0.050 +0.089/-0.090
+Ωm: 0.298 +0.043/-0.049
+w0: -0.714 +0.143/-0.151 (prior width 1.0: -1.0 to 0.0)
+wa: -1.5 * (1 - w0^2)
 R-squared (%): 99.94
-RMSD (mag): 0.053
-Skewness of residuals: -1.063
-Chi squared: 21.6
-Log evidence: -16.4
+RMSD (mag): 0.054
+Skewness of residuals: -1.135
+Chi squared: 21.5
+Log evidence: -16.0
 Degs of freedom: 19
 
 ===============================
