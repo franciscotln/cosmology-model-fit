@@ -1,6 +1,5 @@
 from numba import njit
 import numpy as np
-from scipy.linalg import cho_factor, solve_triangular
 from scipy.constants import c as c0
 from y2025BAO.data import get_data
 
@@ -8,10 +7,10 @@ c = c0 / 1000  # Speed of light in km/s
 rd = 147.09  # Mpc, fixed
 
 legend, data, cov_matrix = get_data()
-cho = cho_factor(cov_matrix, lower=True)[0]
+inv_cov_bao = np.linalg.inv(cov_matrix)
 
 z_max = np.max(data["z"]) + 0.1
-z_grid = np.linspace(0, z_max, num=1200)
+z_grid = np.linspace(0, z_max, num=2500)
 dx = np.diff(z_grid)
 
 
@@ -21,7 +20,7 @@ def H_z(z, params):
     OL = 1 - Om
     one_plus_z = 1 + z
     cubed = one_plus_z**3
-    rho_de = (4 * cubed / (1 + 3 * cubed)) ** (4 * (1 + w0))
+    rho_de = (2 * cubed / (1 + w0 + (1 - w0) * cubed)) ** 2
     return 100 * h * np.sqrt(Om * cubed + OL * rho_de)
 
 
@@ -57,19 +56,19 @@ qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
 quantities = np.array([qty_map[q] for q in data["quantity"]], dtype=np.int32)
 
 
-def solve_triang(cho_L, delta):
-    y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
-    return np.dot(y, y)
-
-
+@njit
 def chi_squared(theta):
     delta_bao = data["value"] - bao_theory(data["z"], quantities, theta)
-    chi_bao = solve_triang(cho, delta_bao)
+    chi_bao = delta_bao @ inv_cov_bao @ delta_bao
     return chi_bao
 
 
 bounds = np.array(
-    [(0.50, 0.80), (0.0, 1.0), (-1.5, 0.0)],  # h  # Ωm  # w0
+    [
+        (0.50, 0.80),  # h
+        (0.1, 0.5),  # Ωm
+        (-1.0, 0.0),  # w0
+    ],
     dtype=np.float64,
 )
 
@@ -96,22 +95,21 @@ def log_probability(params):
 
 def main():
     import emcee
-    from .plot_predictions import plot_bao_predictions, plot_bao_residuals
+    from bao.plot_predictions import plot_bao_predictions, plot_bao_residuals
     from gelman_rubin import gelman_rubin
     from log_evidence import log_evidence
     from corner_plot import plot_corner_and_chains
 
     np.random.seed(42)
     n_dim = len(bounds)
-    n_walkers = 150
-    burn_in = 200
-    nsteps = 2000 + burn_in
+    n_walkers = 100
+    burn_in = 500
+    nsteps = 5000 + burn_in
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (n_walkers, n_dim))
     moves = [
         (emcee.moves.KDEMove(), 0.30),
-        (emcee.moves.DEMove(), 0.56),
-        (emcee.moves.DESnookerMove(), 0.14),
+        (emcee.moves.DEMove(), 0.70),
     ]
 
     sampler = emcee.EnsembleSampler(n_walkers, n_dim, log_probability, moves=moves)
@@ -185,8 +183,8 @@ h: 0.690 +0.005 -0.005
 w0: -1
 wa: 0
 Chi squared: 10.27
+Log evidence: -12.19
 Degs of freedom: 11
-Log evidence: -13.11
 R^2: 0.9987
 RMSD: 0.305
 
@@ -194,28 +192,27 @@ RMSD: 0.305
 
 Flat wCDM:
 rd: 147.09 Mpc (fixed)
-h: 0.679 +0.012 -0.011
+h: 0.678 +0.012 -0.011
 Ωm: 0.297 +0.009 -0.009
-w0: -0.916 +0.076 -0.079 (prior width 1.5: from -1.5 to 0.0)
-Chi squared: 9.13
+w0: -0.915 +0.076 -0.079 (prior width 1.0: from -1.4 to -0.4)
+Chi squared: 9.11
+Log evidence: -13.22
 Degs of freedom: 10
-Log evidence: -14.54
 R^2: 0.9989
 RMSD: 0.279
 
 ===============================
 
-Flat alternative: w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)**3)
+Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
 rd: 147.09 Mpc (fixed)
-h: 0.667 +0.017 -0.016
-Ωm: 0.310 +0.013 -0.012
-w0: -0.793 +0.142 -0.149
-wa: -(9/4) * (1 + w0)
-Chi squared: 8.33
-Log evidence: -13.53
+h: 0.665 +0.015 -0.015
+Ωm: 0.312 +0.012 -0.012
+w0: -0.767 +0.133 -0.132 (prior width 1.0: from -1.0 to 0.0) - left side truncated
+Chi squared: 8.29
+Log evidence: -12.19
 Degs of freedom: 10
 R^2: 0.9991
-RMSD: 0.263
+RMSD: 0.261
 
 ===============================
 
