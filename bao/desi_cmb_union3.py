@@ -411,6 +411,7 @@ Log evidence: -35.0 (Δ logZ = 1.9 against ΛCDM)
 Degs of freedom: 32
 
 Flat w(z) = w0 + wa * [(1 + z)^2 - 1] / [(1 + z)^2 + 1]
+rho(z) = rho0 * (1 + z)^[3 * (1 + w0 + wa)] * [2 * (1 + z)^2 / (1 + (1 + z)^2)]^(-3 * wa)
 
 ** Planck + ACT compression **
 H0: 66.11 +0.84 -0.82 km/s/Mpc
