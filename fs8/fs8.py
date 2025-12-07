@@ -1,16 +1,14 @@
+from numba import njit
 import numpy as np
 from scipy.integrate import quad, solve_ivp
-from scipy.linalg import cho_factor, solve_triangular
-from scipy.interpolate import interp1d
+from scipy.constants import c as c0
 import y2018fs8.data as fs8_data
-from numba import njit
 
+H0 = 70.0  # km/s/Mpc
+c = c0 / 1000  # km/s
 
-covariance = fs8_data.cov_mat
 data = fs8_data.data
-Om_fid = data["omega_fid"]
-
-cho_cov = cho_factor(covariance, lower=True)[0]
+inv_cov_mat = np.linalg.inv(fs8_data.cov_mat)
 
 
 @njit
@@ -20,77 +18,81 @@ def rho_de_z(z, w0):
 
 
 @njit
-def E(z, om, w0):
+def E(z, om, w0=-1):
     return np.sqrt(om * (1 + z) ** 3 + (1 - om) * rho_de_z(z, w0))
 
 
-def DM(z, om, w0):
-    integrand = lambda zp: 1 / E(zp, om, w0)
-    return quad(integrand, 0, z)[0]
+@njit
+def dE_da(z, om, w0=-1):
+    a = 1 / (1 + z)
+    dz = 0.001
+    Ez_plus = E(z + dz, om, w0)
+    Ez_minus = E(z - dz, om, w0)
+    dE_dz = (Ez_plus - Ez_minus) / (2 * dz)
+    return -dE_dz / a**2
 
 
-def compute_q(z, om, w0, om_fid):
-    return (E(z, om, w0) * DM(z, om, w0)) / (E(z, om_fid, -1) * DM(z, om_fid, -1))
+def DM(z, om, w0=-1):
+    return quad(lambda zp: c / E(zp, om, w0), 0, z)[0]
 
 
-def growth_deriv(y, a, om, w0):
-    if a < 1e-10:
-        return [0, 0]
+denominator_fiducial = E(data["z"], data["omega_fid"]) * np.array(
+    [DM(zi, om_fid) for zi, om_fid in zip(data["z"], data["omega_fid"])]
+)
+
+
+@njit
+def growth_ode(a, y, om, w0):
     z = 1 / a - 1
-    H = E(z, om, w0)
-    HH = H**2
+    E_val = E(z, om, w0)
+    dE_da_val = dE_da(z, om, w0)
 
-    # Compute d(H^2)/da including both matter and dark energy contributions
-    rho_de = rho_de_z(z, w0)
-    drho_de_da = -6 * (1 + w0) * a**2 * rho_de / ((1 + w0) * a**3 + (1 - w0))
-    dHHda = -3 * om / a**4 + (1 - om) * drho_de_da
+    delta, d_delta_da = y
 
-    Hprime = (1 / 2) * dHHda / H
-    ddelta = y[1]
-    ddeltada = -(3 / a + Hprime / H) * y[1] + (3 / 2) * (om / a**5) / HH * y[0]
-    return [ddelta, ddeltada]
+    source = (3 / 2) * (om / a**5) * (delta / E_val**2)
+    friction = -(3 / a + dE_da_val / E_val) * d_delta_da
+    d2_delta_da = friction + source
+
+    return [d_delta_da, d2_delta_da]
 
 
-a_vals = np.logspace(-3, 0, 1000)
+a_vals = np.logspace(-2.3, 0, 1000)
 
 
-def compute_fs8(zs, om, s8, w0):
+def compute_fs8(zs, om, sig8, w0):
     sol = solve_ivp(
-        fun=lambda a, y: growth_deriv(y, a, om, w0),
+        growth_ode,
         t_span=(a_vals[0], a_vals[-1]),
-        y0=[a_vals[0], 1.0],
+        y0=(a_vals[0], 1.0),
         t_eval=a_vals,
         rtol=1e-8,
         atol=1e-10,
+        args=(om, w0),
     )
-    delta = sol.y[0]
-    ddelta = sol.y[1]
+    delta, d_delta_da = sol.y
 
-    delta_func = interp1d(a_vals, delta)
-    ddelta_func = interp1d(a_vals, ddelta)
-    fs8 = np.empty(zs.size, dtype=np.float64)
-    for i, z in enumerate(zs):
-        a_z = 1 / (1 + z)
-        # f = d(ln delta)/d(ln a) = a * d(delta)/da / delta
-        f = a_z * ddelta_func(a_z) / delta_func(a_z)
-        # sigma8(z) = sigma8 * delta(z) / delta(z=0)
-        sigma8_z = s8 * delta_func(a_z) / delta_func(1.0)
-        fs8[i] = f * sigma8_z
-    return fs8
+    delta0 = np.interp(1.0, a_vals, delta)
+    # f = d(ln delta)/d(ln a) = (a / delta) * d(delta)/da
+    # sigma8(z) = sigma8 * delta(z) / delta(z=0)
+    a_z = 1 / (1 + zs)
+    delta_vals = np.interp(a_z, a_vals, delta)
+    f_vals = a_z * np.interp(a_z, a_vals, d_delta_da) / delta_vals
+    sigma8_zs = sig8 * delta_vals / delta0
 
-
-def solve_triang(cho_L, delta):
-    y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
-    return np.dot(y, y)
+    return f_vals * sigma8_zs
 
 
 def chi_squared(theta):
-    Om, s8, w0, f_err = theta
-    fs8_th = compute_fs8(data["z"], Om, s8, w0)
-    q = np.array([compute_q(zi, Om, w0, Omfi) for zi, Omfi in zip(data["z"], Om_fid)])
+    Om, sig8, w0, f_err = theta
+    fs8_theory = compute_fs8(data["z"], Om, sig8, w0)
+    q = (
+        E(data["z"], Om, w0)
+        * np.array([DM(z, Om, w0) for z in data["z"]])
+        / denominator_fiducial
+    )
     fs8_corr = data["fs8"] * q
-    delta = fs8_corr - fs8_th
-    return f_err**2 * solve_triang(cho_cov, delta)
+    delta = fs8_corr - fs8_theory
+    return f_err**2 * np.dot(delta, np.dot(inv_cov_mat, delta))
 
 
 N = len(data["z"])
@@ -136,19 +138,16 @@ def main():
     np.random.seed(42)
     ndim = len(bounds)
     nwalkers = 100
-    burn_in = 100
-    nsteps = 1200 + burn_in
+    burn_in = 250
+    nsteps = 2500 + burn_in
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
     moves = [
         (emcee.moves.KDEMove(), 0.30),
-        (emcee.moves.DEMove(), 0.56),
-        (emcee.moves.DESnookerMove(), 0.14),
+        (emcee.moves.DEMove(), 0.70),
     ]
 
     with Pool(8) as pool:
-        sampler = emcee.EnsembleSampler(
-            nwalkers, ndim, log_probability, pool=pool, moves=moves
-        )
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
 
     try:
@@ -170,15 +169,16 @@ def main():
         (f_16, f_50, f_84),
     ] = pct
 
-    # Power 0.14205 yields 0 correlation with Ωm
     S8_samples = samples[:, 1] * (samples[:, 0] / 0.3) ** 0.5
     S8_chains_samples = chains_samples[:, :, 1] * (chains_samples[:, :, 0] / 0.3) ** 0.5
 
     S8_16, S8_50, S8_84 = np.percentile(S8_samples, [15.9, 50, 84.1])
     best_fit = np.percentile(samples, 50, axis=0)
 
-    samples = np.hstack((S8_samples[:, None], samples))
-    chains_samples = np.dstack((S8_chains_samples, chains_samples))
+    samples = np.column_stack((S8_samples, samples))
+    chains_samples = np.concatenate(
+        (S8_chains_samples[:, :, np.newaxis], chains_samples), axis=2
+    )
 
     print(f"Ωm = {Om_50:.3f} +{Om_84-Om_50:.3f} -{Om_50-Om_16:.3f}")
     print(f"σ8 = {s8_50:.3f} +{s8_84-s8_50:.3f} -{s8_50-s8_16:.3f}")
@@ -193,8 +193,8 @@ def main():
     z_plot = np.linspace(0, np.max(data["z"]), 200)
     fs8_plot = compute_fs8(z_plot, *best_fit[0:-1])
 
-    q_vals = np.array(
-        [compute_q(zi, Om_50, w0_50, Omfi) for zi, Omfi in zip(data["z"], Om_fid)]
+    q_vals = E(data["z"], Om_50, w0_50) * (
+        np.array([DM(z, Om_50, w0_50) for z in data["z"]]) / denominator_fiducial
     )
     fs8_data_corrected = data["fs8"] * q_vals
     err_data_corrected = data["fs8_err"] * q_vals
@@ -230,22 +230,22 @@ chi2 = 64.30
 ===============================
 
 flat wCDM
-Ωm = 0.252 +0.022 -0.022
-σ8 = 0.864 +0.062 -0.047
-S8 = 0.796 +0.034 -0.033
-w0 = -0.77 +0.11 -0.12
-f = 1.32 +0.11 -0.11
-chi2 = 63.32
+Ωm = 0.252 +0.022 -0.023
+σ8 = 0.864 +0.066 -0.049
+S8 = 0.796 +0.036 -0.034
+w0 = -0.771 +0.121 -0.122 (prior: U(-1.4, 0.0))
+f = 1.32 +0.12 -0.11
+chi2 = 63.20
 62 deg of freedom
 
 ===============================
 
 flat wzCDM
-Ωm = 0.274 +0.019 -0.018
-σ8 = 0.830 +0.029 -0.026
-S8 = 0.795 +0.032 -0.030
-w0 = -0.679 +0.146 -0.152
-f = 1.32 +0.11 -0.11
-chi2 = 63.68
+Ωm = 0.274 +0.020 -0.019
+σ8 = 0.830 +0.031 -0.027
+S8 = 0.795 +0.033 -0.032
+w0 = -0.680 +0.149 -0.158 (prior: U(-1.0, 0.0))
+f = 1.32 +0.12 -0.12
+chi2 = 63.60
 62 deg of freedom
 """
