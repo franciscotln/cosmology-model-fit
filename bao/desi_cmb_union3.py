@@ -409,4 +409,38 @@ r_d: 147.53 Mpc
 Chi squared: 29.39
 Log evidence: -35.0 (Δ logZ = 1.9 against ΛCDM)
 Degs of freedom: 32
+
+Flat w(z) = w0 + wa * [(1 + z)^2 - 1] / [(1 + z)^2 + 1]
+
+** Planck + ACT compression **
+H0: 66.11 +0.84 -0.82 km/s/Mpc
+Ωm: 0.3251 +0.0087 -0.0085
+ωb: 0.02251 +0.00011 -0.00011
+ωc: 0.1189 +0.0010 -0.0010
+ωm: 0.1421 +0.0009 -0.0009
+w0: -0.706 +0.085 -0.083 (prior width 1.25: -1.25 to 0.0)
+wa: -0.784 +0.236 -0.250 (prior width 3.5: -2.5 to 1.0)
+z*: 1089.63 +0.19 -0.19
+r*: 144.61 Mpc
+z_d: 1060.18 +0.23 -0.23
+r_d: 147.23 Mpc
+Chi squared: 29.57
+Log evidence: -35.1 (Δ logZ = 2.2 against ΛCDM)
+Degs of freedom: 32
+
+** Early-time ΛCDM **
+H0: 66.00 +0.83 -0.83 km/s/Mpc
+Ωm: 0.3254 +0.0088 -0.0085
+ωb: 0.02225 +0.00013 -0.00013
+ωc: 0.1189 +0.0010 -0.0010
+ωm: 0.1417 +0.0009 -0.0009
+w0: -0.709 +0.086 -0.083 (prior width 1.25: -1.25 to 0.0)
+wa: -0.779 +0.240 -0.259 (prior width 3.5: -2.5 to 1.0)
+z*: 1089.99 +0.24 -0.24
+r*: 144.82 Mpc
+z_d: 1059.75 +0.28 -0.28
+r_d: 147.52 Mpc
+Chi squared: 29.36
+Log evidence: -34.8 (Δ logZ = 2.1 against ΛCDM)
+Degs of freedom: 32
 """
