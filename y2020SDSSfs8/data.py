@@ -4,5 +4,12 @@ import numpy as np
 # https://www.sdss4.org/science/final-bao-and-rsd-measurements
 
 pathname = "y2020SDSSfs8/raw/"
-data = np.genfromtxt(pathname + "fs8.csv", delimiter=",", names=True, dtype=np.float64)
+data = np.genfromtxt(
+    pathname + "fs8.csv",
+    delimiter=",",
+    names=True,
+    dtype=[("z", np.float64), ("value", np.float64), ("quantity", "U10")],
+)
 cov_mat = np.genfromtxt(pathname + "fs8_cov.dat", dtype=np.float64)
+
+Om_fid = 0.31  # for fs8 calculations
