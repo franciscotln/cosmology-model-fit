@@ -12,4 +12,7 @@ data = np.genfromtxt(
 )
 cov_mat = np.genfromtxt(pathname + "fs8_cov.dat", dtype=np.float64)
 
-Om_fid = 0.31  # for fs8 calculations
+Om_fid = 0.31
+h_fid = 0.676
+wb = 0.022
+sig8 = 0.8
