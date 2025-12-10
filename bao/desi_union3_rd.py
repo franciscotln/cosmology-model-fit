@@ -23,7 +23,7 @@ def Ez(z, params):
     Om, w0 = params[3], params[4]
     zp1 = 1 + z
     cubic = zp1**3
-    rho_de = (4 * cubic / (1 + 3 * cubic)) ** (4 * (1 + w0))
+    rho_de = (2 * zp1**3 / (1 + w0 + (1 - w0) * zp1**3)) ** 2
     return np.sqrt(Om * cubic + (1 - Om) * rho_de)
 
 
@@ -106,7 +106,7 @@ def main():
     prior.add_parameter("rd", dist=norm(loc=147.09, scale=0.26))  # Planck prior
     prior.add_parameter("H0", dist=(50.0, 85.0))
     prior.add_parameter("Ωm", dist=(0.1, 0.6))
-    prior.add_parameter("w0", dist=(-1.5, 0.0))
+    prior.add_parameter("w0", dist=(-1.0, -1 / 3))
 
     with Pool(8) as pool:
         sampler = Sampler(
@@ -190,11 +190,21 @@ Priors:
 rd N(147.09, 0.26)
 H0 U(50.0, 85.0)
 Ωm U(0.1, 0.6)
+
+wCDM:
+w0 U(-1.5, 0.0)
+
+wzCDM thawing quintessence:
+w0 U(-1.0, -1/3)
+
+w0waCDM:
 w0 U(-1.5, 0.0)
 wa U(-5.0, +3.0)
 
 *******************************
+"""
 
+"""
 Flat ΛCDM: w(z) = -1
 ΔM: -0.119 +0.090 -0.089 mag
 rd: 147.09 +0.26 -0.26 Mpc
@@ -222,15 +232,15 @@ Degs of freedom: 30
 
 ===============================
 
-Flat wzCDM: w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)**3)
+Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
 rd: 147.09 +0.26 -0.26 Mpc
-H0: 66.55 +0.86 -0.85 km/s/Mpc
-Ωm: 0.311 +0.009 -0.009
-ωm: 0.1380 +0.0029 -0.0029
-w0: -0.774 +0.074 -0.076
-wa: d w(z)/d z at z=0 = -(9/4) * (1 + w0)
-Chi squared: 30.1
-Log evidence: -26.8 (Δ logZ = 2.3 against ΛCDM)
+H0: 66.53 +0.86 -0.84 km/s/Mpc
+Ωm: 0.312 +0.009 -0.009
+ωm: 0.1381 +0.0029 -0.0029
+w0: -0.763 +0.074 -0.077
+wa: d w(z)/d z at z=0 = -1.5 * (1 - w0^2) = -0.627
+Chi squared: 30.0
+Log evidence: -25.9 (Δ logZ = 3.2 against ΛCDM)
 Degs of freedom: 30
 
 ===============================
