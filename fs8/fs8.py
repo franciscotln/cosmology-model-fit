@@ -1,14 +1,17 @@
 from numba import njit
 import numpy as np
-from scipy.integrate import quad, solve_ivp
+from scipy.integrate import solve_ivp
 from scipy.constants import c as c0
 import y2018fs8.data as fs8_data
 
-H0 = 70.0  # km/s/Mpc
 c = c0 / 1000  # km/s
 
 data = fs8_data.data
 inv_cov_mat = np.linalg.inv(fs8_data.cov_mat)
+
+z_max = np.max(data["z"]) + 0.1
+z_grid = np.linspace(0, z_max, num=4000)
+dx = np.diff(z_grid)
 
 
 @njit
@@ -25,15 +28,20 @@ def E(z, om, w0=-1):
 @njit
 def dE_da(z, om, w0=-1):
     a = 1 / (1 + z)
-    dz = 0.001
+    dz = 1e-05
     Ez_plus = E(z + dz, om, w0)
     Ez_minus = E(z - dz, om, w0)
     dE_dz = (Ez_plus - Ez_minus) / (2 * dz)
     return -dE_dz / a**2
 
 
+@njit
 def DM(z, om, w0=-1):
-    return quad(lambda zp: c / E(zp, om, w0), 0, z)[0]
+    dh_grid = c / E(z_grid, om, w0)
+    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    cum_dm = np.zeros(len(z_grid))
+    cum_dm[1:] = np.cumsum(dx * dy)
+    return np.interp(z, z_grid, cum_dm)
 
 
 denominator_fiducial = E(data["z"], data["omega_fid"]) * np.array(
@@ -84,14 +92,8 @@ def compute_fs8(zs, om, sig8, w0):
 
 def chi_squared(theta):
     Om, sig8, w0, f_err = theta
-    fs8_theory = compute_fs8(data["z"], Om, sig8, w0)
-    q = (
-        E(data["z"], Om, w0)
-        * np.array([DM(z, Om, w0) for z in data["z"]])
-        / denominator_fiducial
-    )
-    fs8_corr = data["fs8"] * q
-    delta = fs8_corr - fs8_theory
+    q = E(data["z"], Om, w0) * DM(data["z"], Om, w0) / denominator_fiducial
+    delta = data["fs8"] - compute_fs8(data["z"], Om, sig8, w0) / q
     return f_err**2 * np.dot(delta, np.dot(inv_cov_mat, delta))
 
 
@@ -134,6 +136,7 @@ def main():
     import emcee
     import matplotlib.pyplot as plt
     from corner_plot import plot_corner_and_chains
+    from log_evidence import log_evidence
 
     np.random.seed(42)
     ndim = len(bounds)
@@ -160,6 +163,8 @@ def main():
 
     samples = sampler.get_chain(discard=burn_in, flat=True)
     chains_samples = sampler.get_chain(discard=burn_in, flat=False)
+    log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
+    log_evd = log_evidence(samples, log_probs, log_probability, bounds)
 
     pct = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
     [
@@ -186,6 +191,7 @@ def main():
     print(f"w0 = {w0_50:.3f} +{w0_84-w0_50:.3f} -{w0_50-w0_16:.3f}")
     print(f"f = {f_50:.2f} +{f_84-f_50:.2f} -{f_50-f_16:.2f}")
     print(f"chi2 = {chi_squared(best_fit):.2f}")
+    print(f"log evidence = {log_evd:.1f}")
 
     labels = ["$S_8$", "$Ω_m$", "$\sigma_8$", "$w_0$", "$f_{err}$"]
     plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
@@ -193,8 +199,8 @@ def main():
     z_plot = np.linspace(0, np.max(data["z"]), 200)
     fs8_plot = compute_fs8(z_plot, *best_fit[0:-1])
 
-    q_vals = E(data["z"], Om_50, w0_50) * (
-        np.array([DM(z, Om_50, w0_50) for z in data["z"]]) / denominator_fiducial
+    q_vals = (
+        E(data["z"], Om_50, w0_50) * DM(data["z"], Om_50, w0_50) / denominator_fiducial
     )
     fs8_data_corrected = data["fs8"] * q_vals
     err_data_corrected = data["fs8_err"] * q_vals
@@ -206,7 +212,7 @@ def main():
         fmt=".",
         label="data",
     )
-    plt.plot(z_plot, fs8_plot, label="best-fit model", color="C1")
+    plt.plot(z_plot, fs8_plot, label="best-fit", color="C1")
     plt.xlabel("z")
     plt.ylabel(r"$f\sigma_8(z)$")
     plt.legend()
@@ -219,33 +225,45 @@ if __name__ == "__main__":
 
 """
 flat ΛCDM
-Ωm = 0.268 +0.020 -0.019
-σ8 = 0.789 +0.015 -0.014
-S8 = 0.745 +0.021 -0.020
+
+without f_err:
+Ωm = 0.277 +0.027 -0.025
+σ8 = 0.784 +0.019 -0.018
+S8 = 0.754 +0.028 -0.027
 w0: -1
-f = 1.30 +0.12 -0.11
-chi2 = 64.34
-63 degs of freedom
+f = 1
+chi2 = 38.74
+log evidence = -24.8
+
+---
+with f_err:
+Ωm = 0.276 +0.021 -0.020
+σ8 = 0.785 +0.015 -0.014
+S8 = 0.753 +0.021 -0.021
+w0: -1
+f = 1.29 +0.12 -0.11
+chi2 = 64.31
+log evidence = -23.3
 
 ===============================
 
 flat wCDM
-Ωm = 0.252 +0.022 -0.023
-σ8 = 0.864 +0.066 -0.049
-S8 = 0.796 +0.036 -0.034
-w0 = -0.771 +0.121 -0.122 (prior: U(-1.4, 0.0))
-f = 1.32 +0.12 -0.11
-chi2 = 63.20
-62 deg of freedom
+Ωm = 0.250 +0.025 -0.027
+σ8 = 0.892 +0.083 -0.058
+S8 = 0.819 +0.040 -0.036
+w0 = -0.698 +0.127 -0.128 (prior: U(-1.4, 0.0))
+f = 1.33 +0.12 -0.12
+chi2 = 63.38
+log evidence = -22.1
 
 ===============================
 
 flat wzCDM
-Ωm = 0.274 +0.020 -0.019
-σ8 = 0.830 +0.031 -0.027
-S8 = 0.795 +0.033 -0.032
-w0 = -0.680 +0.149 -0.158 (prior: U(-1.0, 0.0))
+Ωm = 0.282 +0.020 -0.019
+σ8 = 0.834 +0.031 -0.028
+S8 = 0.810 +0.034 -0.033
+w0 = -0.623 +0.150 -0.163 (prior: U(-1.0, 0.0))
 f = 1.32 +0.12 -0.12
-chi2 = 63.60
-62 deg of freedom
+chi2 = 63.53
+log evidence = -22.5
 """
