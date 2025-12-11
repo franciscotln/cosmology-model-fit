@@ -98,10 +98,13 @@ def chi_squared(theta):
 
 
 N = len(data["z"])
+logdet = np.linalg.slogdet(fs8_data.cov_mat)[1]
+norm_fact_1 = N * np.log(2 * np.pi) + logdet
 
 
 def log_likelihood(theta):
-    return -0.5 * chi_squared(theta) + N * np.log(theta[-1])
+    norm_fact = norm_fact_1 - 2 * N * np.log(theta[-1])
+    return -0.5 * (chi_squared(theta) + norm_fact)
 
 
 bounds = np.array(
@@ -191,13 +194,14 @@ def main():
     print(f"w0 = {w0_50:.3f} +{w0_84-w0_50:.3f} -{w0_50-w0_16:.3f}")
     print(f"f = {f_50:.2f} +{f_84-f_50:.2f} -{f_50-f_16:.2f}")
     print(f"chi2 = {chi_squared(best_fit):.2f}")
+    print(f"log likelihood = {log_likelihood(best_fit):.1f}")
     print(f"log evidence = {log_evd:.1f}")
 
     labels = ["$S_8$", "$Ω_m$", "$\sigma_8$", "$w_0$", "$f_{err}$"]
     plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
 
     z_plot = np.linspace(0, np.max(data["z"]), 200)
-    fs8_plot = compute_fs8(z_plot, *best_fit[0:-1])
+    fs8_plot = compute_fs8(z_plot, Om_50, s8_50, w0_50)
 
     q_vals = (
         E(data["z"], Om_50, w0_50) * DM(data["z"], Om_50, w0_50) / denominator_fiducial
@@ -233,7 +237,8 @@ S8 = 0.754 +0.028 -0.027
 w0: -1
 f = 1
 chi2 = 38.74
-log evidence = -24.8
+log likelihood = 96.5
+log evidence = 91.1
 degrees of freedom = 63
 
 ---
@@ -244,7 +249,8 @@ S8 = 0.753 +0.021 -0.021
 w0: -1
 f = 1.29 +0.12 -0.11
 chi2 = 64.31
-log evidence = -23.3
+log likelihood = 100.5
+log evidence = 92.6
 degrees of freedom = 62
 
 ===============================
@@ -256,7 +262,8 @@ S8 = 0.819 +0.040 -0.036
 w0 = -0.698 +0.127 -0.128 (prior: U(-1.4, 0.0))
 f = 1.33 +0.12 -0.12
 chi2 = 63.38
-log evidence = -22.1
+log likelihood = 103.0
+log evidence = 93.2
 degrees of freedom = 61
 
 ===============================
@@ -268,6 +275,7 @@ S8 = 0.810 +0.034 -0.033
 w0 = -0.623 +0.150 -0.163 (prior: U(-1.0, 0.0))
 f = 1.32 +0.12 -0.12
 chi2 = 63.53
-log evidence = -22.5
+log likelihood = 102.7
+log evidence = 93.4
 degrees of freedom = 61
 """
