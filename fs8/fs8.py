@@ -234,6 +234,7 @@ w0: -1
 f = 1
 chi2 = 38.74
 log evidence = -24.8
+degrees of freedom = 63
 
 ---
 with f_err:
@@ -244,6 +245,7 @@ w0: -1
 f = 1.29 +0.12 -0.11
 chi2 = 64.31
 log evidence = -23.3
+degrees of freedom = 62
 
 ===============================
 
@@ -255,6 +257,7 @@ w0 = -0.698 +0.127 -0.128 (prior: U(-1.4, 0.0))
 f = 1.33 +0.12 -0.12
 chi2 = 63.38
 log evidence = -22.1
+degrees of freedom = 61
 
 ===============================
 
@@ -266,4 +269,5 @@ w0 = -0.623 +0.150 -0.163 (prior: U(-1.0, 0.0))
 f = 1.32 +0.12 -0.12
 chi2 = 63.53
 log evidence = -22.5
+degrees of freedom = 61
 """
