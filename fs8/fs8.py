@@ -64,7 +64,8 @@ def growth_ode(a, y, om, w0):
     return [d_delta_da, d2_delta_da]
 
 
-a_vals = np.logspace(-2.3, 0, 1000)
+max_z = 200
+a_vals = np.logspace(np.log10(1 / (1 + max_z)), 0, 1000)
 
 
 def compute_fs8(zs, om, sig8, w0):
@@ -272,10 +273,10 @@ flat wzCDM
 Ωm = 0.282 +0.020 -0.019
 σ8 = 0.834 +0.031 -0.028
 S8 = 0.810 +0.034 -0.033
-w0 = -0.623 +0.150 -0.163 (prior: U(-1.0, 0.0))
+w0 = -0.622 +0.149 -0.163 (prior: U(-1.0, 0.0))
 f = 1.32 +0.12 -0.12
 chi2 = 63.53
 log likelihood = 102.7
-log evidence = 93.4
+log evidence = 92.8
 degrees of freedom = 61
 """
