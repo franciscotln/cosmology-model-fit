@@ -193,9 +193,10 @@ def main():
     print(f"chi2 = {chi_squared(best_fit):.2f}")
     print(f"log likelihood = {log_likelihood(best_fit):.1f}")
     print(f"log evidence = {log_evd:.1f}")
+    print(f"degs of freedom = {N - len(best_fit)}")
 
-    labels = ["$S_8$", "$Ω_m$", "$\sigma_8$"]  # , "$w_0$", "$f_{err}$"]
-    plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
+    labels = ["$S_8$", "$Ω_m$", "$\sigma_8$", "$w_0$", "$f_{err}$"]
+    plot_corner_and_chains(labels, samples, chains_samples)
 
     z_plot = np.linspace(0, np.max(data["z"]), 200)
     fs8_plot = fs8_theory(z_plot, Om_50, s8_50, w0_50)
@@ -225,50 +226,51 @@ flat ΛCDM
 
 without f_err:
 Ωm = 0.271 +0.027 -0.025
-σ8 = 0.786 +0.019 -0.018
-S8 = 0.746 +0.028 -0.027
+σ8 = 0.788 +0.019 -0.019
+S8 = 0.748 +0.028 -0.027
 w0: -1
 f = 1
-chi2 = 36.64
-log likelihood = 96.0
-log evidence = 90.6
-degrees of freedom = 62
+chi2 = 36.26
+log likelihood = 97.0
+log evidence = 91.6
+degrees of freedom = 63
 
 ---
+
 with f_err:
 Ωm = 0.270 +0.020 -0.019
-σ8 = 0.786 +0.014 -0.014
-S8 = 0.746 +0.021 -0.020
+σ8 = 0.788 +0.014 -0.014
+S8 = 0.748 +0.021 -0.020
 w0: -1
-f = 1.32 +0.12 -0.11
-chi2 = 63.37
-log likelihood = 100.5
-log evidence = 92.5
-degrees of freedom = 61
+f = 1.32 +0.12 -0.12
+chi2 = 63.29
+log likelihood = 101.6
+log evidence = 93.7
+degrees of freedom = 62
 
 ===============================
 
 flat wCDM
-Ωm = 0.249 +0.023 -0.025
-σ8 = 0.878 +0.078 -0.054
-S8 = 0.804 +0.040 -0.036
-w0 = -0.734 +0.129 -0.127 (prior: U(-1.4, 0.0))
+Ωm = 0.251 +0.023 -0.024
+σ8 = 0.875 +0.075 -0.054
+S8 = 0.804 +0.039 -0.036
+w0 = -0.744 +0.130 -0.131 (prior: U(-1.4, 0.0))
 f = 1.35 +0.12 -0.12
-chi2 = 62.28
-log likelihood = 102.5
-log evidence = 93.2
-degrees of freedom = 60
+chi2 = 62.40
+log likelihood = 103.5
+log evidence = 94.0
+degrees of freedom = 61
 
 ===============================
 
 flat wzCDM
 Ωm = 0.277 +0.020 -0.019
-σ8 = 0.829 +0.031 -0.027
+σ8 = 0.829 +0.030 -0.026
 S8 = 0.797 +0.034 -0.032
-w0 = -0.667 +0.153 -0.162 (prior: U(-1.0, 0.0))
+w0 = -0.679 +0.156 -0.161 (prior: U(-1.0, 0.0))
 f = 1.34 +0.12 -0.12
-chi2 = 62.50
-log likelihood = 102.1
-log evidence = 94.1
-degrees of freedom = 60
+chi2 = 62.64
+log likelihood = 103.1
+log evidence = 93.0
+degrees of freedom = 61
 """
