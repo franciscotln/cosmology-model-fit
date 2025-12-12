@@ -68,7 +68,7 @@ max_z = 200
 a_vals = np.logspace(np.log10(1 / (1 + max_z)), 0, 1000)
 
 
-def compute_fs8(zs, om, sig8, w0):
+def fs8_theory(z, om, sig8, w0):
     sol = solve_ivp(
         growth_ode,
         t_span=(a_vals[0], a_vals[-1]),
@@ -83,18 +83,14 @@ def compute_fs8(zs, om, sig8, w0):
     delta0 = np.interp(1.0, a_vals, delta)
     # f = d(ln delta)/d(ln a) = (a / delta) * d(delta)/da
     # sigma8(z) = sigma8 * delta(z) / delta(z=0)
-    a_z = 1 / (1 + zs)
-    delta_vals = np.interp(a_z, a_vals, delta)
-    f_vals = a_z * np.interp(a_z, a_vals, d_delta_da) / delta_vals
-    sigma8_zs = sig8 * delta_vals / delta0
-
-    return f_vals * sigma8_zs
+    a = 1 / (1 + z)
+    return a * np.interp(a, a_vals, d_delta_da) * sig8 / delta0
 
 
 def chi_squared(theta):
     Om, sig8, w0, f_err = theta
     q = E(data["z"], Om, w0) * DM(data["z"], Om, w0) / denominator_fiducial
-    delta = data["fs8"] - compute_fs8(data["z"], Om, sig8, w0) / q
+    delta = data["fs8"] - fs8_theory(data["z"], Om, sig8, w0) / q
     return f_err**2 * np.dot(delta, np.dot(inv_cov_mat, delta))
 
 
@@ -198,22 +194,18 @@ def main():
     print(f"log likelihood = {log_likelihood(best_fit):.1f}")
     print(f"log evidence = {log_evd:.1f}")
 
-    labels = ["$S_8$", "$Ω_m$", "$\sigma_8$", "$w_0$", "$f_{err}$"]
+    labels = ["$S_8$", "$Ω_m$", "$\sigma_8$"]  # , "$w_0$", "$f_{err}$"]
     plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
 
     z_plot = np.linspace(0, np.max(data["z"]), 200)
-    fs8_plot = compute_fs8(z_plot, Om_50, s8_50, w0_50)
+    fs8_plot = fs8_theory(z_plot, Om_50, s8_50, w0_50)
 
-    q_vals = (
-        E(data["z"], Om_50, w0_50) * DM(data["z"], Om_50, w0_50) / denominator_fiducial
-    )
-    fs8_data_corrected = data["fs8"] * q_vals
-    err_data_corrected = data["fs8_err"] * q_vals
+    q = E(data["z"], Om_50, w0_50) * DM(data["z"], Om_50, w0_50) / denominator_fiducial
 
     plt.errorbar(
         data["z"],
-        fs8_data_corrected,
-        yerr=err_data_corrected / f_50,
+        data["fs8"] * q,
+        yerr=data["fs8_err"] * q / f_50,
         fmt=".",
         label="data",
     )
@@ -232,51 +224,51 @@ if __name__ == "__main__":
 flat ΛCDM
 
 without f_err:
-Ωm = 0.277 +0.027 -0.025
-σ8 = 0.784 +0.019 -0.018
-S8 = 0.754 +0.028 -0.027
+Ωm = 0.271 +0.027 -0.025
+σ8 = 0.786 +0.019 -0.018
+S8 = 0.746 +0.028 -0.027
 w0: -1
 f = 1
-chi2 = 38.74
-log likelihood = 96.5
-log evidence = 91.1
-degrees of freedom = 63
+chi2 = 36.64
+log likelihood = 96.0
+log evidence = 90.6
+degrees of freedom = 62
 
 ---
 with f_err:
-Ωm = 0.276 +0.021 -0.020
-σ8 = 0.785 +0.015 -0.014
-S8 = 0.753 +0.021 -0.021
+Ωm = 0.270 +0.020 -0.019
+σ8 = 0.786 +0.014 -0.014
+S8 = 0.746 +0.021 -0.020
 w0: -1
-f = 1.29 +0.12 -0.11
-chi2 = 64.31
+f = 1.32 +0.12 -0.11
+chi2 = 63.37
 log likelihood = 100.5
-log evidence = 92.6
-degrees of freedom = 62
+log evidence = 92.5
+degrees of freedom = 61
 
 ===============================
 
 flat wCDM
-Ωm = 0.250 +0.025 -0.027
-σ8 = 0.892 +0.083 -0.058
-S8 = 0.819 +0.040 -0.036
-w0 = -0.698 +0.127 -0.128 (prior: U(-1.4, 0.0))
-f = 1.33 +0.12 -0.12
-chi2 = 63.38
-log likelihood = 103.0
+Ωm = 0.249 +0.023 -0.025
+σ8 = 0.878 +0.078 -0.054
+S8 = 0.804 +0.040 -0.036
+w0 = -0.734 +0.129 -0.127 (prior: U(-1.4, 0.0))
+f = 1.35 +0.12 -0.12
+chi2 = 62.28
+log likelihood = 102.5
 log evidence = 93.2
-degrees of freedom = 61
+degrees of freedom = 60
 
 ===============================
 
 flat wzCDM
-Ωm = 0.282 +0.020 -0.019
-σ8 = 0.834 +0.031 -0.028
-S8 = 0.810 +0.034 -0.033
-w0 = -0.622 +0.149 -0.163 (prior: U(-1.0, 0.0))
-f = 1.32 +0.12 -0.12
-chi2 = 63.53
-log likelihood = 102.7
-log evidence = 92.8
-degrees of freedom = 61
+Ωm = 0.277 +0.020 -0.019
+σ8 = 0.829 +0.031 -0.027
+S8 = 0.797 +0.034 -0.032
+w0 = -0.667 +0.153 -0.162 (prior: U(-1.0, 0.0))
+f = 1.34 +0.12 -0.12
+chi2 = 62.50
+log likelihood = 102.1
+log evidence = 94.1
+degrees of freedom = 60
 """
