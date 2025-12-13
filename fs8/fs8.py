@@ -216,6 +216,19 @@ def main():
     plt.legend()
     plt.show()
 
+    plt.errorbar(
+        data["z"],
+        q * data["fs8"] - fs8_theory(data["z"], Om_50, s8_50, w0_50),
+        yerr=data["fs8_err"] * q / f_50,
+        fmt=".",
+        label="residuals",
+    )
+    plt.axhline(0, color="k", ls="--")
+    plt.xlabel("z")
+    plt.ylabel("residuals")
+    plt.legend()
+    plt.show()
+
 
 if __name__ == "__main__":
     main()
