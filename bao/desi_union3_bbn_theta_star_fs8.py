@@ -146,7 +146,7 @@ def growth_ODE(a, y, *theta):
 a_vals = np.logspace(-3.037, 0, 1000, dtype=np.float64)
 
 
-def compute_fs8(z, theta):
+def fs8_theory(z, theta):
     sol = solve_ivp(
         growth_ODE,
         t_span=(a_vals[0], a_vals[-1]),
@@ -160,16 +160,12 @@ def compute_fs8(z, theta):
     delta, d_delta_da = sol.y
     delta0 = np.interp(1.0, a_vals, delta)
     sig8 = theta[-1]
+    a = 1 / (1 + z)
 
     # f = d(ln delta)/d(ln a) = (a / delta) * d(delta)/da
     # sigma8(z) = sigma8 * delta(z) / delta(z=0)
 
-    a_z = 1 / (1 + z)
-    delta_vals = np.interp(a_z, a_vals, delta)
-    f_vals = a_z * np.interp(a_z, a_vals, d_delta_da) / delta_vals
-    sigma8_vals = sig8 * delta_vals / delta0
-
-    return f_vals * sigma8_vals
+    return a * np.interp(a, a_vals, d_delta_da) * sig8 / delta0
 
 
 H0_fid = 67.6
@@ -187,7 +183,7 @@ for i in range(len(fs8_data["z"])):
 
 def chi2_fs8(theta):
     Fap = H_z(fs8_data["z"], theta) * DM_z(fs8_data["z"], theta) / fiducial_scaling
-    delta_fs8 = fs8_data["fs8"] - compute_fs8(fs8_data["z"], theta) / Fap
+    delta_fs8 = fs8_data["fs8"] - fs8_theory(fs8_data["z"], theta) / Fap
     return delta_fs8 @ inv_cov_fs8 @ delta_fs8
 
 
@@ -349,7 +345,7 @@ def main():
         fmt=".",
         label="data",
     )
-    plt.plot(z_plot, compute_fs8(z_plot, best_fit), label="best-fit")
+    plt.plot(z_plot, fs8_theory(z_plot, best_fit), label="best-fit")
     plt.xlabel("z")
     plt.ylabel(r"$f\sigma_8(z)$")
     plt.legend()
@@ -389,72 +385,96 @@ w0 + wa < 0 enforced
 """
 Flat ΛCDM  w(z) = -1
 ΔM: -0.129 +0.090 -0.089 mag
-H0: 68.38 +0.46 -0.46 km/s/Mpc
-ωb: 0.02212 +0.00053 -0.00053
+H0: 68.39 +0.46 -0.46 km/s/Mpc
+ωb: 0.02213 +0.00053 -0.00054
 ωc: 0.1163 +0.0008 -0.0008
 ωm: 0.1391 +0.0011 -0.0011
 Ωm: 0.297 +0.004 -0.004
-σ8: 0.775 +0.014 -0.014
-S8: 0.772 +0.014 -0.014
+σ8: 0.778 +0.014 -0.014
+S8: 0.774 +0.015 -0.014
 w0: -1
 wa: 0
-z_d: 1059.09 +1.25 -1.28
-r_d: 148.36 +0.70 -0.70 Mpc
+z_d: 1059.10 +1.25 -1.29
+r_d: 148.35 +0.70 -0.69 Mpc
 z*: 1089.93 +0.73 -0.70
 r*: 145.58 Mpc
 100 θ*: 1.04095
 q0: -0.554 +0.007 -0.007
 j0: 1
-Chi squared: 77.14
-Log Evidence: -54.27
+Chi squared: 76.75
+Log Evidence: -54.04
 Degrees of freedom: 95
+
+------
+
+Assuming an overestiation of all uncertainties in fs8 data by a factor f_err:
+ΔM: -0.127 +0.089 -0.089 mag
+H0: 68.44 +0.46 -0.46 km/s/Mpc
+ωb: 0.02215 +0.00053 -0.00053
+ωc: 0.1163 +0.0008 -0.0008
+ωm: 0.1391 +0.0011 -0.0011
+Ωm: 0.297 +0.004 -0.004
+σ8: 0.778 +0.011 -0.011
+S8: 0.774 +0.011 -0.011
+w0: -1
+wa: 0
+f_err: 1.313 +0.116 -0.114
+z_d: 1059.14 +1.26 -1.27
+r_d: 148.35 +0.69 -0.70 Mpc
+z*: 1089.89 +0.73 -0.70
+r*: 145.58 Mpc
+100 θ*: 1.04096
+q0: -0.555 +0.007 -0.006
+j0: 1
+Chi squared: 103.76
+Log Evidence: -52.19
+Degrees of freedom: 94
 
 ===============================
 
 Flat wCDM w(z) = w0
-ΔM: -0.168 +0.092 -0.091 mag
-H0: 66.93 +0.79 -0.78 km/s/Mpc
-ωb: 0.02233 +0.00054 -0.00054
+ΔM: -0.167 +0.092 -0.091 mag
+H0: 66.94 +0.79 -0.77 km/s/Mpc
+ωb: 0.02233 +0.00054 -0.00053
 ωc: 0.1140 +0.0014 -0.0014
 ωm: 0.1370 +0.0015 -0.0015
 Ωm: 0.306 +0.006 -0.006
-σ8: 0.789 +0.015 -0.015
-S8: 0.796 +0.018 -0.018
-w0: -0.924 +0.033 -0.033
-wa: 0
-z_d: 1059.40 +1.25 -1.27
-r_d: 148.77 +0.72 -0.72 Mpc
-z*: 1089.44 +0.74 -0.72
-r*: 146.05 Mpc
+σ8: 0.790 +0.015 -0.015
+S8: 0.798 +0.018 -0.018
+w0: -0.924 +0.033 -0.034
+z_d: 1059.39 +1.25 -1.26
+r_d: 148.76 +0.72 -0.72 Mpc
+z*: 1089.45 +0.74 -0.72
+r*: 146.04 Mpc
 100 θ*: 1.04092
-q0: -0.462 +0.040 -0.041
-j0: 0.775 +0.090 -0.081
-Chi squared: 71.85
-Log Evidence: -53.68 (Δ logZ = 0.59 against ΛCDM)
+q0: -0.462
+j0: 0.781
+Chi squared: 71.52
+Log Evidence: -53.48 (Δ logZ = 0.56 against ΛCDM)
 Degrees of freedom: 94
 
 ===============================
 
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
-ΔM: -0.179 +0.090 -0.091 mag
-H0: 66.23 +0.85 -0.83 km/s/Mpc
+ΔM: -0.178 +0.091 -0.091 mag
+H0: 66.25 +0.85 -0.83 km/s/Mpc
 ωb: 0.02232 +0.00053 -0.00053
 ωc: 0.1149 +0.0010 -0.0010
 ωm: 0.1379 +0.0012 -0.0012
 Ωm: 0.314 +0.007 -0.007
-σ8: 0.790 +0.015 -0.015
-S8: 0.808 +0.019 -0.019
-w0: -0.809 +0.062 -0.064
-wa: -0.518 +0.162 -0.145 [derived wa = -1.5 * (1 - w0^2)]
+σ8: 0.792 +0.015 -0.015
+S8: 0.810 +0.020 -0.019
+w0: -0.810 +0.062 -0.064
+wa: -0.515 +0.161 -0.146 [derived wa = -1.5 * (1 - w0^2)]
 z_d: 1059.45 +1.24 -1.26
-r_d: 148.53 +0.69 -0.69 Mpc
+r_d: 148.52 +0.69 -0.69 Mpc
 z*: 1089.53 +0.73 -0.69
-r*: 145.82 Mpc
+r*: 145.81 Mpc
 100 θ*: 1.04092
-q0: -0.332 +0.071 -0.074
-j0: -0.010 +0.296 -0.245
-Chi squared: 68.41
-Log Evidence: -51.43 (Δ logZ = 2.84 against ΛCDM)
+q0: -0.334 +0.071 -0.074
+j0: -0.005 +0.294 -0.246
+Chi squared: 68.13
+Log Evidence: -51.26 (Δ logZ = 2.78 against ΛCDM)
 Degrees of freedom: 94
 
 ===============================
