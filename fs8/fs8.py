@@ -216,9 +216,10 @@ def main():
     plt.legend()
     plt.show()
 
+    residuals = q * data["fs8"] - fs8_theory(data["z"], Om_50, s8_50, w0_50)
     plt.errorbar(
         data["z"],
-        q * data["fs8"] - fs8_theory(data["z"], Om_50, s8_50, w0_50),
+        residuals,
         yerr=data["fs8_err"] * q / f_50,
         fmt=".",
         label="residuals",
@@ -226,6 +227,12 @@ def main():
     plt.axhline(0, color="k", ls="--")
     plt.xlabel("z")
     plt.ylabel("residuals")
+    plt.legend()
+    plt.show()
+
+    plt.hist(residuals, bins=12, density=True)
+    plt.xlabel("residuals")
+    plt.ylabel("density")
     plt.legend()
     plt.show()
 
@@ -238,52 +245,52 @@ if __name__ == "__main__":
 flat ΛCDM
 
 without f_err:
-Ωm = 0.271 +0.027 -0.025
-σ8 = 0.788 +0.019 -0.019
-S8 = 0.748 +0.028 -0.027
+Ωm = 0.275 +0.027 -0.025
+σ8 = 0.789 +0.019 -0.018
+S8 = 0.755 +0.028 -0.027
 w0: -1
 f = 1
-chi2 = 36.26
-log likelihood = 97.0
-log evidence = 91.6
-degrees of freedom = 63
+chi2 = 34.70
+log likelihood = 94.0
+log evidence = 88.7
+degs of freedom = 61
 
 ---
 
 with f_err:
-Ωm = 0.270 +0.020 -0.019
-σ8 = 0.788 +0.014 -0.014
-S8 = 0.748 +0.021 -0.020
+Ωm = 0.274 +0.020 -0.019
+σ8 = 0.790 +0.014 -0.014
+S8 = 0.755 +0.021 -0.021
 w0: -1
-f = 1.32 +0.12 -0.12
-chi2 = 63.29
-log likelihood = 101.6
-log evidence = 93.7
-degrees of freedom = 62
+f = 1.33 +0.12 -0.12
+chi2 = 61.37
+log likelihood = 98.6
+log evidence = 90.8
+degs of freedom = 60
 
 ===============================
 
 flat wCDM
-Ωm = 0.251 +0.023 -0.024
-σ8 = 0.875 +0.075 -0.054
-S8 = 0.804 +0.039 -0.036
-w0 = -0.744 +0.130 -0.131 (prior: U(-1.4, 0.0))
-f = 1.35 +0.12 -0.12
-chi2 = 62.40
-log likelihood = 103.5
-log evidence = 94.0
-degrees of freedom = 61
+Ωm = 0.256 +0.023 -0.025
+σ8 = 0.870 +0.073 -0.052
+S8 = 0.807 +0.038 -0.036
+w0 = -0.756 +0.131 -0.134 (prior: U(-1.4, 0.0))
+f = 1.35 +0.13 -0.12
+chi2 = 60.31
+log likelihood = 100.3
+log evidence = 91.1
+degs of freedom = 59
 
 ===============================
 
 flat wzCDM
-Ωm = 0.277 +0.020 -0.019
-σ8 = 0.829 +0.030 -0.026
-S8 = 0.797 +0.034 -0.032
-w0 = -0.679 +0.156 -0.161 (prior: U(-1.0, 0.0))
+Ωm = 0.280 +0.020 -0.019
+σ8 = 0.826 +0.030 -0.025
+S8 = 0.798 +0.034 -0.031
+w0 = -0.705 +0.161 -0.159 (prior: U(-1.0, 0.0))
 f = 1.34 +0.12 -0.12
-chi2 = 62.64
-log likelihood = 103.1
-log evidence = 93.0
-degrees of freedom = 61
+chi2 = 60.44
+log likelihood = 99.8
+log evidence = 89.8
+degs of freedom = 59
 """
