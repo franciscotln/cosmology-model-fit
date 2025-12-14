@@ -36,8 +36,8 @@ def Omnu_z(z):
 
 @njit
 def Ode_z(z, w0, wa):
-    zp1 = 1 + z
-    return (4 * zp1**3 / (1 + 3 * zp1**3)) ** (4 * (1 + w0))
+    cubed = (1 + z) ** 3
+    return (2 * cubed / (1 + w0 + (1 - w0) * cubed)) ** 2
 
 
 @njit
@@ -141,7 +141,7 @@ def main():
     prior.add_parameter("H0", dist=(50.0, 90.0))
     prior.add_parameter("ωb", dist=(0.01, 0.03))
     prior.add_parameter("ωc", dist=(0.05, 0.3))
-    prior.add_parameter("w0", dist=(-1.5, 0.0))
+    prior.add_parameter("w0", dist=(-1.0, -1 / 3))
 
     with Pool(8) as pool:
         sampler = Sampler(
@@ -225,8 +225,6 @@ if __name__ == "__main__":
 
 
 """
-*******************************
-
 DESI DR2
 SNIa Union3
 (θ*, ωb) CMB Planck + ACT compression
@@ -236,10 +234,16 @@ Priors:
 H0 U(50.0, 90.0)
 ωb U(0.01, 0.03)
 ωc U(0.05, 0.3)
+
+wzCDM:
+w0 U(-1.0, -1/3)
+
+wCDM:
+w0 U(-1.2, -0.5)
+
+w0waCDM:
 w0 U(-1.5, 0.0)
 wa U(-3.0, 1.0)
-
-*******************************
 """
 
 """
@@ -260,33 +264,33 @@ Degs of freedom: 33
 ===============================
 
 Flat wCDM w(z) = w0
-H0: 66.87 +0.79 -0.77 km/s/Mpc
+H0: 66.87 +0.78 -0.77 km/s/Mpc
 ωb: 0.02250 +0.00011 -0.00011
-ωc: 0.1140 +0.0014 -0.0014
+ωc: 0.1141 +0.0014 -0.0014
 ωm: 0.1372 +0.0014 -0.0014
 Ωm: 0.307 +0.006 -0.006
 w0: -0.919 +0.034 -0.034
 wa: 0
-z_d: 1059.79 +0.28 -0.28
-r_d: 148.56 +0.42 -0.41 Mpc
+z_d: 1059.80 +0.28 -0.28
+r_d: 148.55 +0.42 -0.40 Mpc
 Chi squared: 33.97
-Log Evidence: -36.47 (Δ logZ = -0.06 in favour of ΛCDM)
+Log Evidence: -35.72 (Δ logZ = 0.69 against ΛCDM)
 Degs of freedom: 32
 
 ===============================
 
-Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)**3)
-H0: 66.20 +0.85 -0.84 km/s/Mpc
+Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
+H0: 66.18 +0.85 -0.84 km/s/Mpc
 ωb: 0.02250 +0.00011 -0.00011
-ωc: 0.1150 +0.0010 -0.0010
-ωm: 0.1381 +0.0010 -0.0010
-Ωm: 0.315 +0.008 -0.008
-w0: -0.812 +0.064 -0.064
-wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-z_d: 1059.86 +0.27 -0.27
-r_d: 148.30 +0.30 -0.30 Mpc
-Chi squared: 30.92
-Log Evidence: -34.34 (Δ logZ = 2.07 against ΛCDM)
+ωc: 0.1151 +0.0010 -0.0010
+ωm: 0.1382 +0.0010 -0.0010
+Ωm: 0.316 +0.008 -0.008
+w0: -0.799 +0.065 -0.067
+wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
+z_d: 1059.87 +0.27 -0.27
+r_d: 148.28 +0.30 -0.30 Mpc
+Chi squared: 30.76
+Log Evidence: -33.43 (Δ logZ = 2.98 against ΛCDM)
 Degs of freedom: 32
 
 ===============================

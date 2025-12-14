@@ -20,7 +20,7 @@ N_cc = len(z_cc_vals)
 c = c0 / 1000  # Speed of light in km/s
 
 z_max = max(np.max(z_sn_vals), np.max(bao_data["z"])) + 0.1
-z_grid = np.linspace(0, z_max, num=2000)
+z_grid = np.linspace(0, z_max, num=4000)
 dx = np.diff(z_grid)
 
 
@@ -29,7 +29,7 @@ def Ez(z, params):
     Om, w0 = params[4], params[5]
     zp1 = 1 + z
     cubed = zp1**3
-    rho_de = (4 * cubed / (1 + 3 * cubed)) ** (4 * (1 + w0))
+    rho_de = (2 * cubed / (1 + w0 + (1 - w0) * cubed)) ** 2
     return np.sqrt(Om * cubed + (1 - Om) * rho_de)
 
 
@@ -118,7 +118,7 @@ def main():
     from multiprocessing import Pool
     from sn.plotting import plot_predictions as plot_sn_predictions
     from cosmic_chronometers.plot_predictions import plot_cc_predictions
-    from .plot_predictions import plot_bao_predictions
+    from bao.plot_predictions import plot_bao_predictions
 
     prior = Prior()
     # f_cc: CC error rescaling (overestimated)
@@ -132,7 +132,7 @@ def main():
     # Ωm: matter density parameter today
     prior.add_parameter("Ωm", dist=(0.01, 0.70))
     # w0: dark energy equation of state today
-    prior.add_parameter("w0", dist=(-1.5, 0.0))
+    prior.add_parameter("w0", dist=(-1.0, -1 / 3))
 
     with Pool(5) as pool:
         sampler = Sampler(
@@ -217,8 +217,6 @@ if __name__ == "__main__":
 
 
 """
-*******************************
-
 BAO DESI DR2 + SN1a Union3 + Cosmic Chronometers
 
 Priors:
@@ -227,11 +225,19 @@ f_cc: U(0.01, 3.0)
 H0:   U(50.0, 85.0)
 rd:   U(120.0, 180.0)
 Ωm:   U(0.01, 0.70)
+
+wzCDM:
+w0: U(-1.0, -1/3)
+
+wCDM:
+w0: U(-1.2, -0.5)
+
+w0waCDM:
 w0:   U(-1.5, 0.0)
 wa:   U(-5.0, 3.0)
+"""
 
-*******************************
-
+"""
 Flat ΛCDM: w(z) = -1
 f_cc: 1.47 +0.19 -0.18
 ΔM: -0.119 +0.113 -0.116 mag
@@ -244,39 +250,39 @@ wa: 0
 Chi squared: 71.12
 Log evidence: -163.50
 Degrees of freedom: 63
+"""
 
-===============================
-
+"""
 Flat wCDM: w(z) = w0
-f_cc: 1.47 +0.18 -0.18
-ΔM: -0.159 +0.115 -0.116 mag
-H0: 67.1 +2.3 -2.3 km/s/Mpc
-r_d: 147.3 +5.0 -4.6 Mpc
-Ωm: 0.299 +0.009 -0.009
-ωm: 0.1344 +0.0244 -0.0224
-w0: -0.870 +0.050 -0.052
-wa: 0
-Chi squared: 64.50
-Log evidence: -162.83 (Δ logZ = 0.67 over ΛCDM)
-Degrees of freedom: 62
-
-===============================
-
-Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)**3)
 f_cc: 1.46 +0.19 -0.18
-ΔM: -0.166 +0.116 -0.117 mag
-H0: 66.6 +2.4 -2.4 km/s/Mpc
+ΔM: -0.158 +0.115 -0.116 mag
+H0: 67.1 +2.4 -2.3 km/s/Mpc
+r_d: 147.2 +5.0 -4.7 Mpc
+Ωm: 0.299 +0.009 -0.009
+ωm: 0.1345 +0.0234 -0.0206
+w0: -0.871 +0.051 -0.052
+wa: 0
+Chi squared: 64.44
+Log evidence: -162.06 (Δ logZ = 1.44 over ΛCDM)
+Degrees of freedom: 62
+"""
+
+"""
+Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
+f_cc: 1.46 +0.19 -0.18
+ΔM: -0.166 +0.115 -0.116 mag
+H0: 66.6 +2.3 -2.3 km/s/Mpc
 r_d: 147.2 +5.0 -4.7 Mpc
 Ωm: 0.312 +0.009 -0.009
-ωm: 0.1386 +0.0244 -0.0190
-w0: -0.784 +0.073 -0.076
-wa: d w(z)/d z at z=0 = -(9/4) * (1 + w0)
-Chi squared: 62.34
-Log evidence: -161.57 (Δ logZ = 1.93 over ΛCDM)
+ωm: 0.1386 +0.0228 -0.0193
+w0: -0.773 +0.073 -0.077
+wa: d w(z)/d z at z=0 = -1.5 * (1 - w0^2)
+Chi squared: 62.24
+Log evidence: -160.69 (Δ logZ = 2.81 over ΛCDM)
 Degrees of freedom: 62
+"""
 
-===============================
-
+"""
 Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
 f_cc: 1.45 +0.18 -0.18
 ΔM: -0.166 +0.115 -0.117 mag

@@ -137,7 +137,7 @@ def main():
         H_z=lambda z: H_z(z, best_fit["H0"], best_fit["Om"], best_fit["w0"]),
         z=z_cc_vals,
         H=H_cc_vals,
-        H_err=np.sqrt(np.diag(cov_matrix_cc)) * fcc_50,
+        H_err=np.sqrt(np.diag(cov_matrix_cc)) / fcc_50,
         label=legend_cc,
     )
     plot_sn_predictions(

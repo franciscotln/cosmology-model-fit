@@ -159,7 +159,7 @@ def main():
         H_z=lambda z: H_z(z, best_fit),
         z=z_values,
         H=H_values,
-        H_err=np.sqrt(np.diag(cov_matrix_cc)) * f_50,
+        H_err=np.sqrt(np.diag(cov_matrix_cc)) / f_50,
         label=f"{legend} $H_0$: {H0_50:.2f} ± {(H0_84 - H0_50):.2f} km/s/Mpc",
     )
     plot_corner_and_chains(

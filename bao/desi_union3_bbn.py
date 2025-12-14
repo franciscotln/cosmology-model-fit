@@ -43,7 +43,7 @@ def Ez(z, params):
     Om, w0 = params[1], params[3]
     zp1 = 1 + z
     cubed = zp1**3
-    rho_de = (4 * cubed / (1 + 3 * cubed)) ** (4 * (1 + w0))
+    rho_de = (2 * cubed / (1 + w0 + (1 - w0) * cubed)) ** 2
     return np.sqrt(Om * cubed + (1 - Om) * rho_de)
 
 
@@ -118,10 +118,8 @@ def q0(Om, w0=-1):
     return Om / 2 + (1 + 3 * w0) * (1 - Om) / 2
 
 
-def j0(Om, w0=-1, wa=0, model=None):
+def j0(Om, w0=-1, wa=0):
     """Calculate the jerk parameter at z=0."""
-    if model == "wzCDM":
-        wa = -(9 / 4) * (1 + w0)
     return 1 + (3 / 2) * (1 - Om) * (3 * w0 * (1 + w0) + wa)
 
 
@@ -138,7 +136,7 @@ def main():
     prior.add_parameter("H0", dist=(55, 80))
     prior.add_parameter("Ωm", dist=(0.10, 0.65))
     prior.add_parameter("ωb", dist=norm(loc=bbn.Obh2, scale=bbn.Obh2_sigma))
-    prior.add_parameter("w0", dist=(-1.3, -0.3))
+    prior.add_parameter("w0", dist=(-1.0, -1 / 3))
     prior.add_parameter("dM", dist=(-1.0, 1.0))
 
     with Pool(8) as pool:
@@ -175,15 +173,17 @@ def main():
     w0_16, w0_50, w0_84 = quantile(samples[:, 3], one_sigma_ci, weights=w)
     dM_16, dM_50, dM_84 = quantile(samples[:, 4], one_sigma_ci, weights=w)
 
+    wa_samples = -1.5 * (1 - samples[:, 3] ** 2)
     Omh2_samples = samples[:, 1] * (samples[:, 0] / 100) ** 2
     rd_samples = r_drag(samples[:, 2], Omh2_samples)
     q0_samples = q0(samples[:, 1], w0=samples[:, 3])
-    j0_samples = j0(samples[:, 1], w0=samples[:, 3], wa=-(9 / 4) * (1 + samples[:, 3]))
+    j0_samples = j0(samples[:, 1], w0=samples[:, 3], wa=wa_samples)
 
     Omh2_16, Omh2_50, Omh2_84 = quantile(Omh2_samples, one_sigma_ci, weights=w)
     rd_16, rd_50, rd_84 = quantile(rd_samples, one_sigma_ci, weights=w)
     q0_16, q0_50, q0_84 = quantile(q0_samples, one_sigma_ci, weights=w)
     j0_16, j0_50, j0_84 = quantile(j0_samples, one_sigma_ci, weights=w)
+    wa_16, wa_50, wa_84 = quantile(wa_samples, one_sigma_ci, weights=w)
 
     best_fit = [H0_50, Om_50, Obh2_50, w0_50, dM_50]
 
@@ -192,6 +192,7 @@ def main():
     print(f"ωb: {Obh2_50:.5f} +{(Obh2_84 - Obh2_50):.5f} -{(Obh2_50 - Obh2_16):.5f}")
     print(f"ωm: {Omh2_50:.5f} +{(Omh2_84 - Omh2_50):.5f} -{(Omh2_50 - Omh2_16):.5f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
+    print(f"wa: {wa_50:.3f} +{(wa_84 - wa_50):.3f} -{(wa_50 - wa_16):.3f}")
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f}")
     print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
     print(f"q0: {q0_50:.3f} +{(q0_84 - q0_50):.3f} -{(q0_50 - q0_16):.3f}")
@@ -221,7 +222,6 @@ if __name__ == "__main__":
     main()
 
 """
-*******************************
 DESI DR2 + Union3 + BBN Schöngerg2024
 
 Priors:
@@ -232,13 +232,15 @@ Om U(0.10, 0.65)
 ωb N(0.02218, 0.00055)
 dM U(-1.0, 1.0)
 
-wCDM and wzCDM:
+wCDM:
 w0 U(-1.3, -0.3)
+
+wzCDM:
+w0 U(-1.0, -1/3)
 
 w0waCDM:
 w0 U(-1.3, 0.0)
 wa U(-4.0, 2.0)
-*******************************
 """
 
 """
@@ -274,18 +276,18 @@ Degrees of freedom: 30
 
 ===============================
 
-Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
+Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
 H0: 65.4 +1.3 -1.3 km/s/Mpc
-Ωm: 0.3117 +0.0091 -0.0087
+Ωm: 0.3122 +0.0090 -0.0088
 ωb: 0.02219 +0.00055 -0.00055
-ωm: 0.13314 +0.00593 -0.00572
-w0: -0.775 +0.075 -0.076
-wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-r_d: 149.78 +1.84 -1.82 Mpc
-q0: -0.299 +0.080 -0.083
-j0: -0.065 +0.320 -0.278
-Chi squared: 30.07
-Log Evidence: -25.47 (Δ logZ = 2.64 against ΛCDM)
+ωm: 0.13346 +0.00598 -0.00568
+w0: -0.765 +0.074 -0.077
+wa: -0.622 +0.185 -0.161 [derived wa = -1.5 * (1 - w0**2)]
+r_d: 149.68 +1.84 -1.83 Mpc
+q0: -0.289 +0.080 -0.084
+j0: -0.198 +0.332 -0.266
+Chi squared: 29.96
+Log Evidence: -25.01 (Δ logZ = 3.10 against ΛCDM)
 Degrees of freedom: 30
 
 ===============================

@@ -17,8 +17,7 @@ dx = np.diff(z_grid)
 @njit
 def rho_de_z(z, w0):
     cubic = (1 + z) ** 3
-    # return (2 * cubic / (1 + w0 + (1 - w0) * cubic)) ** 2
-    return cubic ** (1 + w0)
+    return (2 * cubic / (1 + w0 + (1 - w0) * cubic)) ** 2
 
 
 @njit
