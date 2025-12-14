@@ -21,5 +21,11 @@ cov_mat = np.loadtxt(pathname + "fs8_cov.dat", dtype=np.float64)
 # arXiv:2110.08498v2
 # arXiv:2007.08999v2
 
-# covariance for the data points z = 0.3, 0.4, 0.5, 0.6 respectively
-# Taken from arXiv:1203.6565v2, section 5.1
+# Covariance for the data points z = 0.3, 0.4, 0.5, 0.6 respectively
+# taken from arXiv:1203.6565v2, section 5.1
+# estimated_corr = [
+#     [1.00, 0.84, 0.50, 0.15],
+#     [0.84, 1.00, 0.88, 0.50],
+#     [0.50, 0.88, 1.00, 0.92],
+#     [0.15, 0.50, 0.92, 1.00],
+# ]
