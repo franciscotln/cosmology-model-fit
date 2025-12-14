@@ -174,11 +174,15 @@ def main():
     fs_16, fs_50, fs_84 = quantile(samples[:, 4], one_sigma_ci, weights=w)
     w0_16, w0_50, w0_84 = quantile(samples[:, 5], one_sigma_ci, weights=w)
 
+    S8_samples = samples[:, 2] * np.sqrt(samples[:, 1] / 0.3)
+    S8_16, S8_50, S8_84 = quantile(S8_samples, one_sigma_ci, weights=w)
+
     best_fit = [H0_50, Om_50, sig8_50, fcc_50, fs_50, w0_50]
 
     print(f"H0: {H0_50:.1f} +{(H0_84 - H0_50):.1f} -{(H0_50 - H0_16):.1f} km/s/Mpc")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"σ8: {sig8_50:.3f} +{(sig8_84 - sig8_50):.3f} -{(sig8_50 - sig8_16):.3f}")
+    print(f"S8: {S8_50:.3f} +{(S8_84 - S8_50):.3f} -{(S8_50 - S8_16):.3f}")
     print(f"f_cc: {fcc_50:.2f} +{(fcc_84 - fcc_50):.2f} -{(fcc_50 - fcc_16):.2f}")
     print(f"f_fs8: {fs_50:.2f} +{(fs_84 - fs_50):.2f} -{(fs_50 - fs_16):.2f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
@@ -220,6 +224,7 @@ Flat ΛCDM: w(z) = -1
 H0: 70.2 +2.6 -2.7 km/s/Mpc
 Ωm: 0.283 +0.019 -0.017
 σ8: 0.786 +0.013 -0.013
+S8: 0.763
 f_cc: 1.46 +0.18 -0.18
 f_fs8: 1.33 +0.12 -0.12
 Chi squared: 93.80
@@ -233,6 +238,7 @@ Flat wCDM: w(z) = w0
 H0: 67.3 +3.1 -3.1 km/s/Mpc
 Ωm: 0.264 +0.022 -0.024
 σ8: 0.855 +0.064 -0.048
+S8: 0.802
 f_cc: 1.44 +0.18 -0.17
 f_fs8: 1.35 +0.13 -0.12
 w0: -0.781 +0.124 -0.131
@@ -247,6 +253,7 @@ Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
 H0: 67.9 +2.9 -2.9 km/s/Mpc
 Ωm: 0.287 +0.019 -0.018
 σ8: 0.814 +0.026 -0.022
+S8: 0.796
 f_cc: 1.43 +0.18 -0.17
 f_fs8: 1.35 +0.12 -0.12
 w0: -0.759 +0.155 -0.144
