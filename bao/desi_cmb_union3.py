@@ -16,7 +16,7 @@ inv_cov_sn = np.linalg.inv(cov_matrix_sn)
 inv_cov_bao = np.linalg.inv(bao_cov_matrix)
 
 z_max = max(np.max(z_sn_vals), np.max(bao_data["z"])) + 0.1
-z_grid = np.linspace(0, z_max, num=2500)
+z_grid = np.linspace(0, z_max, num=4000)
 dx = np.diff(z_grid)
 
 
@@ -35,8 +35,8 @@ def Omnu_z(z):
 
 @njit
 def Ode_z(z, w0, wa):
-    zp1 = 1 + z
-    return (2 * zp1**3 / (1 + w0 + (1 - w0) * zp1**3)) ** 2
+    a3 = 1 / (1 + z) ** 3
+    return 4 / ((1 + w0) * a3 + (1 - w0)) ** 2
 
 
 @njit
@@ -132,10 +132,10 @@ def chi_squared(params):
 bounds = np.array(
     [
         (-1.0, 1.0),  # ΔM
-        (60, 75),  # H0
+        (60.0, 75.0),  # H0
         (0.010, 0.030),  # ωb = Ωb * h^2
         (0.01, 0.25),  # ωc = Ωc * h^2
-        (-1.0, -0.2),  # w0
+        (-1.0, -1 / 3),  # w0
     ],
     dtype=np.float64,
 )
@@ -159,6 +159,11 @@ def log_probability(params):
     if np.isinf(lp):
         return -np.inf
     return lp + log_likelihood(params)
+
+
+def q0(Om, w0=-1):
+    """Calculate the deceleration parameter at z=0"""
+    return Om / 2 + (1 + 3 * w0) * (1 - Om) / 2
 
 
 def main():
@@ -199,14 +204,14 @@ def main():
     log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
     print("Gelman-Rubin:", gelman_rubin(chains_samples))
 
-    one_sigma_contours = [15.9, 50, 84.1]
+    one_sigma_ci = [15.9, 50, 84.1]
     [
         (dM_16, dM_50, dM_84),
         (H0_16, H0_50, H0_84),
         (Obh2_16, Obh2_50, Obh2_84),
         (Och2_16, Och2_50, Och2_84),
         (w0_16, w0_50, w0_84),
-    ] = np.percentile(samples, one_sigma_contours, axis=0).T
+    ] = np.percentile(samples, one_sigma_ci, axis=0).T
 
     best_fit = np.percentile(samples, 50, axis=0)
 
@@ -219,10 +224,13 @@ def main():
     Om_samples = Omh2_samples / (samples[:, 1] / 100) ** 2
     z_star_samples = cmb.z_star(samples[:, 2], Omh2_samples)
     z_drag_samples = cmb.z_drag(samples[:, 2], Omh2_samples)
-    Omh2_16, Omh2_50, Omh2_84 = np.percentile(Omh2_samples, one_sigma_contours)
-    Om_16, Om_50, Om_84 = np.percentile(Om_samples, one_sigma_contours)
-    z_st_16, z_st_50, z_st_84 = np.percentile(z_star_samples, one_sigma_contours)
-    z_dr_16, z_dr_50, z_dr_84 = np.percentile(z_drag_samples, one_sigma_contours)
+    q0_samples = q0(Om_samples, samples[:, 4])
+
+    Omh2_16, Omh2_50, Omh2_84 = np.percentile(Omh2_samples, one_sigma_ci)
+    Om_16, Om_50, Om_84 = np.percentile(Om_samples, one_sigma_ci)
+    z_st_16, z_st_50, z_st_84 = np.percentile(z_star_samples, one_sigma_ci)
+    z_dr_16, z_dr_50, z_dr_84 = np.percentile(z_drag_samples, one_sigma_ci)
+    q0_16, q0_50, q0_84 = np.percentile(q0_samples, one_sigma_ci)
 
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
@@ -235,6 +243,7 @@ def main():
     print(f"r*: {cmb.rs_z(Ez, z_st_50, *best_fit[1:]):.2f} Mpc")
     print(f"z_d: {z_dr_50:.2f} +{(z_dr_84 - z_dr_50):.2f} -{(z_dr_50 - z_dr_16):.2f}")
     print(f"r_d: {cmb.rs_z(Ez, z_dr_50, *best_fit[1:]):.2f} Mpc")
+    print(f"q0: {q0_50:.3f} +{(q0_84 - q0_50):.3f} -{(q0_50 - q0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Log evidence: {log_evd:.1f}")
     print(f"Degs of freedom: {degs_of_freedom}")
@@ -342,35 +351,37 @@ Degs of freedom: 33
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
 
 ** Planck + ACT compression **
-H0: 66.59 +0.82 -0.81 km/s/Mpc
-Ωm: 0.3158 +0.0076 -0.0075
+H0: 66.60 +0.90 -0.91 km/s/Mpc
+Ωm: 0.3158 +0.0078 -0.0074
 ωb: 0.02260 +0.00010 -0.00010
 ωc: 0.1168 +0.0007 -0.0007
 ωm: 0.1400 +0.0007 -0.0007
-w0: -0.856 +0.061 -0.061 (prior width 0.8: -1.0 to -0.2)
-wa: -0.401 +0.151 -0.164 [-1.5 * (1 - w0^2)]
+w0: -0.856 +0.061 -0.062 (prior width 0.8: -1.0 to -1/3; 2.32 sigma to the prior left edge)
+wa: -0.401 [derived: wa = -1.5 * (1 - w0^2)]
 z*: 1089.32 +0.16 -0.16
 r*: 145.10 Mpc
 z_d: 1060.24 +0.23 -0.23
 r_d: 147.69 Mpc
-Chi squared: 37.88
-Log evidence: -36.5 (Δ logZ = 0.8 against ΛCDM)
+q0: -0.379 +0.071 -0.072
+Chi squared: 37.87
+Log evidence: -36.3 (Δ logZ = 1.0 against ΛCDM)
 Degs of freedom: 33
 
 ** Early-time ΛCDM **
-H0: 66.48 +0.82 -0.82 km/s/Mpc
+H0: 66.48 +0.81 -0.82 km/s/Mpc
 Ωm: 0.3161 +0.0078 -0.0075
 ωb: 0.02242 +0.00012 -0.00012
 ωc: 0.1166 +0.0007 -0.0007
 ωm: 0.1397 +0.0007 -0.0007
-w0: -0.851 +0.063 -0.063 (prior width 0.8: -1.0 to -0.2)
-wa: -0.414 +0.155 -0.166 [-1.5 * (1 - w0^2)]
+w0: -0.850 +0.062 -0.063 (prior width 0.8: -1.0 to -1/3; 2.38 sigma to the prior left edge)
+wa: -0.416 [devired: wa = -1.5 * (1 - w0^2)]
 z*: 1089.57 +0.20 -0.20
 r*: 145.28 Mpc
 z_d: 1059.97 +0.27 -0.27
 r_d: 147.93 Mpc
-Chi squared: 36.80
-Log evidence: -35.8 (Δ logZ = 1.1 against ΛCDM)
+q0: -0.372 +0.072 -0.073
+Chi squared: 36.79
+Log evidence: -35.7 (Δ logZ = 1.2 against ΛCDM)
 Degs of freedom: 33
 """
 
