@@ -77,14 +77,14 @@ def main():
     from multiprocessing import Pool
 
     ndim = len(bounds)
-    nwalkers = 100
+    nwalkers = 200
     burn_in = 400
-    nsteps = 4000 + burn_in
+    nsteps = 2000 + burn_in
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
     moves = [
-        (emcee.moves.KDEMove(), 0.30),
-        (emcee.moves.DEMove(), 0.70),
+        (emcee.moves.KDEMove(), 0.20),
+        (emcee.moves.DEMove(), 0.80),
     ]
 
     with Pool(5) as pool:
@@ -191,18 +191,18 @@ Flat ΛCDM w(z) = -1
 *******************************
 
 plikHM TT, TE, EE + lowl + lowE compression (Planck 2019 - PR3)
-H0: 67.26 +0.60 -0.60 km/s/Mpc
+H0: 67.27 +0.61 -0.60 km/s/Mpc
 ωc: 0.1202 +0.0014 -0.0014
 ωb: 0.02236 +0.00015 -0.00015
-ωm: 0.14318 +0.00130 -0.00128
-Ωm: 0.3165 +0.0085 -0.0083
+ωm: 0.1432 +0.0013 -0.0013
+Ωm: 0.3164 +0.0085 -0.0083
 z_eq: 3407 +31 -31
 z*: 1089.95 +0.29 -0.29
 r*: 144.41 +0.30 -0.30 Mpc
-100 θ*: 1.04109 +0.00030 -0.00030
+100 θ*: 1.04109 +0.00030 -0.00031
 z_drag: 1059.92 +0.30 -0.30
 r_d: 147.06 +0.30 -0.30 Mpc
-Chi squared: 0.0003
+Chi squared: 0.0001
 
 ===============================
 
