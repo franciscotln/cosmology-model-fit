@@ -12,9 +12,8 @@ z_nr = cmb.z_nr
 sn_legend, z_cmb, z_hel, mu_vals, cov_matrix_sn = get_data()
 
 cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
-cho_cmb = cho_factor(cmb.covariance, lower=True)[0]
 
-z_grid = np.linspace(0, np.max(z_cmb) + 0.1, num=2000)
+z_grid = np.linspace(0, np.max(z_cmb) + 0.1, num=4000)
 dx = np.diff(z_grid)
 
 
@@ -32,6 +31,12 @@ def Omnu_z(z):
 
 
 @njit
+def Ode_z(z, w0, wa):
+    a3 = 1 / (1 + z) ** 3
+    return 4 / ((1 + w0) * a3 + (1 - w0)) ** 2
+
+
+@njit
 def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
     h = H0 / 100
     Obc = (Obh2 + Och2) / h**2
@@ -44,7 +49,7 @@ def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
     radiation_term = Or * zp1**4
     matter_term = Obc * zp1**3
     neutrino_term = Onu * Omnu_z(z)
-    dark_energy_term = Ode * (4 * zp1**3 / (1 + 3 * zp1**3)) ** (4 * (1 + w0))
+    dark_energy_term = Ode * Ode_z(z, w0, wa)
 
     return np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
 
@@ -83,10 +88,10 @@ def chi_squared(params):
 bounds = np.array(
     [
         (-0.7, 0.7),  # ΔM
-        (55, 75),  # H0
+        (55.0, 75.0),  # H0
         (0.010, 0.030),  # Ωb * h^2
         (0.01, 0.25),  # Ωc * h^2
-        (-1.5, 0.0),  # w0
+        (-1.0, 0.0),  # w0
     ],
     dtype=np.float64,
 )
@@ -119,7 +124,7 @@ def main():
     from log_evidence import log_evidence
     from corner_plot import plot_corner_and_chains
     from gelman_rubin import gelman_rubin
-    from .plotting import plot_predictions as plot_sn_predictions
+    from sn.plotting import plot_predictions as plot_sn_predictions
 
     ndim = len(bounds)
     nwalkers = 150
@@ -218,9 +223,9 @@ r*: 144.39 Mpc
 r_d: 147.02 Mpc
 Chi squared: 1632.68
 Log evidence: -834.5
+"""
 
-===============================
-
+"""
 Flat wCDM w(z) = w0
 H0: 66.67 +0.72 -0.72 km/s/Mpc
 Ωm: 0.320 +0.008 -0.008
@@ -235,25 +240,26 @@ r*: 144.53 Mpc
 r_d: 147.15 Mpc
 Chi squared: 1631.01
 Log evidence: -836.9
+"""
 
-===============================
-
-Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
-H0: 66.71 +0.64 -0.63 km/s/Mpc
+"""
+Flat w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
+H0: 66.67 +0.58 -0.61 km/s/Mpc
 Ωm: 0.320 +0.007 -0.007
-ωb: 0.02250 +0.00011 -0.00011
-ωc: 0.1192 +0.0012 -0.0012
-ωm: 0.1423 +0.0012 -0.0012
-w0: -0.937 +0.043 -0.043 (prior width 1.5: -1.5 - 0.0)
-wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-z*: 1089.66 +0.21 -0.21
-zd: 1060.18 +0.23 -0.23
-r*: 144.55 Mpc
-r_d: 147.17 Mpc
-Chi squared: 1630.50
-Log evidence: -836.1
+ωb: 0.02251 +0.00011 -0.00011
+ωc: 0.1191 +0.0012 -0.0012
+ωm: 0.1423 +0.0011 -0.0011
+w0: -0.927 +0.044 -0.040 (prior width 1.0: -1.0 - 0.0)
+wa: d w(z)/dz at z=0 = -(3/2) * (1 - w0^2)
+z*: 1089.65 +0.21 -0.21
+zd: 1060.18 +0.23 -0.24
+r*: 144.56 Mpc
+r_d: 147.18 Mpc
+Chi squared: 1630.48
+Log evidence: -835.6
+"""
 
-===============================
+"""
 Flat w(z) = w0 + wa * z / (1 + z)
 H0: 67.79 +0.96 -1.06 km/s/Mpc
 Ωm: 0.310 +0.011 -0.009

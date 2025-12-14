@@ -14,7 +14,7 @@ sn_legend, z_sn_vals, mu_vals, cov_matrix_sn = get_data()
 cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
 cho_cmb = cho_factor(cmb.covariance, lower=True)[0]
 
-z_grid = np.linspace(0, np.max(z_sn_vals) + 0.1, num=2000)
+z_grid = np.linspace(0, np.max(z_sn_vals) + 0.1, num=4000)
 dx = np.diff(z_grid)
 
 
@@ -32,6 +32,12 @@ def Omnu_z(z):
 
 
 @njit
+def Ode_z(z, w0, wa):
+    a3 = 1 / (1 + z) ** 3
+    return 4 / ((1 + w0) * a3 + (1 - w0)) ** 2
+
+
+@njit
 def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
     h = H0 / 100
     Onu = Omnuh2 / h**2
@@ -44,7 +50,7 @@ def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
     radiation_term = Or * zp1**4
     matter_term = Obc * zp1**3
     neutrino_term = Onu * Omnu_z(z)
-    dark_energy_term = Ode * (4 * zp1**3 / (1 + 3 * zp1**3)) ** (4 * (1 + w0))
+    dark_energy_term = Ode * Ode_z(z, w0, wa)
 
     return np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
 
@@ -83,10 +89,10 @@ def chi_squared(params):
 bounds = np.array(
     [
         (-1.0, 1.0),  # ΔM
-        (60, 75),  # H0
+        (60.0, 75.0),  # H0
         (0.010, 0.030),  # ωb
         (0.010, 0.250),  # ωc
-        (-1.5, 0.0),  # w0
+        (-1.0, 0.0),  # w0
     ],
     dtype=np.float64,
 )
@@ -115,7 +121,7 @@ def log_probability(params):
 def main():
     import emcee
     from multiprocessing import Pool
-    from .plotting import plot_predictions
+    from sn.plotting import plot_predictions
     from corner_plot import plot_corner_and_chains
     from gelman_rubin import gelman_rubin
     from log_evidence import log_evidence
@@ -212,7 +218,9 @@ Dataset: Union 3 Bins
 z range: 0.050 - 2.262
 Sample size: 22
 *******************************
+"""
 
+"""
 Flat ΛCDM w(z) = -1
 H0: 67.40 +0.48 -0.48 km/s/Mpc
 Ωm: 0.315 +0.007 -0.007
@@ -228,9 +236,9 @@ r_d: 147.02 Mpc
 Chi squared: 26.6
 Log Evidence: -28.6
 Degrees of freedom: 21
+"""
 
-===============================
-
+"""
 Flat wCDM w(z) = w0
 H0: 65.32 +1.23 -1.23 km/s/Mpc
 Ωm: 0.334 +0.013 -0.013
@@ -246,27 +254,27 @@ r_d: 147.15 Mpc
 Chi squared: 23.1
 Log Evidence: -29.5
 Degrees of freedom: 20
+"""
 
-===============================
-
-Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
-H0: 65.40 +1.07 -1.06 km/s/Mpc
+"""
+Flat w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
+H0: 65.39 +1.02 -1.04 km/s/Mpc
 Ωm: 0.333 +0.012 -0.011
-ωm: 0.14238 +0.00118 -0.00116
+ωm: 0.14240 +0.00117 -0.00116
 ωb: 0.02250 +0.00011 -0.00011
-ωc: 0.1192 +0.0012 -0.0012
-w0: -0.849 +0.075 -0.074 (prior width 1.5: -1.5 to 0.0)
-wa: d w(z)/d z at z=0 = -(9/4) * (1 + w0)
+ωc: 0.1193 +0.0012 -0.0012
+w0: -0.837 +0.075 -0.074 (prior width 1.0: -1.0 to 0.0)
+wa: d w(z)/d z at z=0 = -1.5 * (1 - w0^2) = -0.449
 z*: 1089.67 +0.21 -0.21
 z_drag: 1060.18 +0.23 -0.23
 r*: 144.54 Mpc
-r_d: 147.16 Mpc
-Chi squared: 22.3
-Log Evidence: -28.6
+r_d: 147.15 Mpc
+Chi squared: 22.2
+Log Evidence: -28.1
 Degrees of freedom: 20
+"""
 
-===============================
-
+"""
 Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
 H0: 66.62 +1.35 -1.42 km/s/Mpc
 Ωm: 0.321 +0.015 -0.013
