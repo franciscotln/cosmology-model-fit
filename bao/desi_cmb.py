@@ -30,11 +30,11 @@ def Omnu_z(z):
 
 @njit
 def Ode_z(z, w0, wa):
-    zp1 = 1 + z
-    return (4 * zp1**3 / (1 + 3 * zp1**3)) ** (4 * (1 + w0))  # wzCDM
+    a3 = 1 / (1 + z) ** 3
+    return 4 / ((1 + w0) * a3 + (1 - w0)) ** 2  # wzCDM
     # return 1  # ΛCDM
-    # return zp1 ** (3 * (1 + w0))  # wCDM
-    # return zp1 ** (3 * (1 + w0 + wa)) * np.exp(-3 * wa * z / zp1)  # w0waCDM
+    # return (1 + z) ** (3 * (1 + w0))  # wCDM
+    # return (1 + z) ** (3 * (1 + w0 + wa)) * np.exp(-3 * wa * z / (1 + z))  # w0waCDM
 
 
 @njit
@@ -116,7 +116,7 @@ bounds = np.array(
         (50, 80),  # H0
         (0.020, 0.024),  # ωb = Ωb * h^2
         (0.05, 0.30),  # ωc = Ωc * h^2
-        (-2.0, 0.0),  # w0
+        (-1.0, 0.0),  # w0
     ],
     dtype=np.float64,
 )
@@ -148,7 +148,7 @@ def main():
     from corner_plot import plot_corner_and_chains
     from gelman_rubin import gelman_rubin
     from log_evidence import log_evidence
-    from .plot_predictions import plot_bao_predictions
+    from bao.plot_predictions import plot_bao_predictions
 
     ndim = len(bounds)
     nwalkers = 200
@@ -270,19 +270,19 @@ Degs of freedom: 12
 """
 
 """
-Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
-H0: 68.14 +1.56 -1.48 km/s/Mpc
-ωb: 0.02238 +0.00013 -0.00013
-ωc: 0.1171 +0.0008 -0.0008
-ωm: 0.1401 +0.0008 -0.0008
-Ωm: 0.302 +0.013 -0.013
-w0: -0.982 +0.107 -0.110 (prior width 2.0: -2.0 to 0.0)
-wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-r*: 145.18 Mpc
-z*: 1089.67 +0.21 -0.21
-r_d: 147.85 +0.21 -0.21 Mpc
-Log Z: -21.44
-Chi squared: 13.49
+Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
+H0: 67.25 +0.81 -1.14 km/s/Mpc
+ωb: 0.02241 +0.00012 -0.00012
+ωc: 0.1168 +0.0007 -0.0007
+ωm: 0.1398 +0.0007 -0.0007
+Ωm: 0.309 +0.010 -0.007
+w0: -0.911 +0.087 -0.062 (prior width 1.0: -1.0 to 0.0; truncated posterior on the left)
+wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
+r*: 145.25 Mpc
+z*: 1089.60 +0.20 -0.20
+r_d: 147.91 +0.20 -0.19 Mpc
+Log Z: -20.61
+Chi squared: 13.90
 Degs of freedom: 12
 """
 
@@ -348,18 +348,19 @@ Degs of freedom: 12
 
 """
 Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
-H0: 68.43 +1.59 -1.50 km/s/Mpc
-ωb: 0.02254 +0.00013 -0.00013
-ωc: 0.1175 +0.0008 -0.0008
-ωm: 0.1407 +0.0008 -0.0008
-Ωm: 0.300 +0.013 -0.013
-w0: -0.998 +0.108 -0.111
-wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-r*: 144.95 Mpc
-z*: 1089.47 +0.21 -0.21
-r_d: 147.56 +0.22 -0.22 Mpc
-Log Z: -22.16
-Chi squared: 15.42
+Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
+H0: 67.39 +0.77 -1.10 km/s/Mpc
+ωb: 0.02257 +0.00013 -0.00013
+ωc: 0.1171 +0.0007 -0.0007
+ωm: 0.1404 +0.0007 -0.0007
+Ωm: 0.309 +0.010 -0.007
+w0: -0.917 +0.085 -0.058 (prior width 1.0: -1.0 to 0.0; truncated posterior on the left)
+wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
+r*: 145.03 Mpc
+z*: 1089.40 +0.20 -0.20
+r_d: 147.63 +0.20 -0.20 Mpc
+Log Z: -21.33
+Chi squared: 15.90
 Degs of freedom: 12
 """
 
