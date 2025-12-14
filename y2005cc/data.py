@@ -49,3 +49,8 @@ Current data from arXiv:2412.01994v1 and arXiv:2506.03836v1
 Covariance components: https://arxiv.org/pdf/2003.07362
 Covariance matrix construction: https://gitlab.com/mmoresco/CCcovariance/-/blob/master/examples/CC_covariance.ipynb
 """
+
+"""
+Latest measurement (arXiv:2512.02109v1):
+H(z=0.542) = 66 +82 -32 km/s/Mpc
+"""
