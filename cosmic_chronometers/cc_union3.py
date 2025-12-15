@@ -23,7 +23,7 @@ dx = np.diff(z_grid)
 @njit
 def Ez(z, Om, w0):
     zp1 = 1 + z
-    rho_de = ((4 * zp1**3) / (1 + 3 * zp1**3)) ** (4 * (1 + w0))
+    rho_de = (2 * zp1**3 / (1 + w0 + (1 - w0) * zp1**3)) ** 2
     return np.sqrt(Om * zp1**3 + (1 - Om) * rho_de)
 
 
@@ -82,7 +82,7 @@ def main():
     prior.add_parameter("dM", dist=(-1.0, 1.0))
     prior.add_parameter("H0", dist=(55.0, 85.0))
     prior.add_parameter("Om", dist=(0.1, 0.7))
-    prior.add_parameter("w0", dist=(-1.6, 0.0))
+    prior.add_parameter("w0", dist=(-1.0, 0.0))
 
     with Pool(6) as pool:
         sampler = Sampler(prior, log_likelihood, n_live=10_000, pool=pool, seed=42)
@@ -183,15 +183,15 @@ Degrees of freedom: 50
 
 ==============================
 
-Flat alternative: w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
-f_cc: 1.45 +0.18 -0.18
-ΔM: -0.180 +0.125 -0.123 mag
-H0: 66.2 +2.7 -2.6 km/s/Mpc
-Ωm: 0.322 +0.032 -0.032
-ωm: 0.1412 +0.0132 -0.0131
-w0: -0.82 +0.13 -0.14
-wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-Log evidence: -151.4
+Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
+f_cc: 1.45 +0.19 -0.18
+ΔM: -0.177 +0.123 -0.123 mag
+H0: 66.2 +2.6 -2.6 km/s/Mpc
+Ωm: 0.320 +0.029 -0.030
+ωm: 0.1402 +0.0123 -0.0124
+w0: -0.79 +0.12 -0.12 (truncated at -1, 1.75 sigma to the left of the mean)
+wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
+Log evidence: -151.0
 Degrees of freedom: 50
 
 ==============================
