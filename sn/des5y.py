@@ -12,7 +12,7 @@ cho = cho_factor(covmat, lower=True)[0]
 c = c0 / 1000  # Speed of light (km/s)
 H0 = 70  # Hubble constant (km/s/Mpc)
 
-z_grid = np.linspace(0, np.max(z_cmb_vals) + 0.1, num=2000)
+z_grid = np.linspace(0, np.max(z_cmb_vals) + 0.1, num=3000)
 dx = np.diff(z_grid)
 
 inv_a = 1 + z_grid
@@ -22,7 +22,7 @@ inv_a = 1 + z_grid
 def Ez(params):
     Om, w0 = params[1], params[2]
     Ode = 1 - Om
-    Rho_de = (4 * inv_a**3 / (1 + 3 * inv_a**3)) ** (4 * (1 + w0))
+    Rho_de = (2 * inv_a**3 / ((1 + w0) + (1 - w0) * inv_a**3)) ** 2
     return np.sqrt(Om * inv_a**3 + Ode * Rho_de)
 
 
@@ -55,7 +55,7 @@ def log_likelihood(params):
     return -0.5 * chi_squared(params)
 
 
-bounds = np.array([(-0.2, 0.2), (0, 0.8), (-2.0, 0.0)], dtype=np.float64)  # ΔM, Ωm, w0
+bounds = np.array([(-0.2, 0.2), (0, 0.8), (-1.0, 0.0)], dtype=np.float64)  # ΔM, Ωm, w0
 
 normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
 
@@ -80,16 +80,16 @@ def main():
     from corner_plot import plot_corner_and_chains
     from gelman_rubin import gelman_rubin
     from log_evidence import log_evidence
-    from .plotting import plot_predictions, print_color, plot_residuals
+    from sn.plotting import plot_predictions, print_color, plot_residuals
 
     ndim = len(bounds)
     nwalkers = 100
-    burn_in = 600
+    burn_in = 1000
     nsteps = burn_in + 4000
     initial_state = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
     moves = [
-        (emcee.moves.KDEMove(), 0.3),
-        (emcee.moves.DEMove(), 0.7),
+        (emcee.moves.KDEMove(), 0.2),
+        (emcee.moves.DEMove(), 0.8),
     ]
 
     with Pool(6) as pool:
@@ -202,15 +202,15 @@ Effective deg of freedom: 1711
 
 ==============================
 
-Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
-Ωm: 0.290 +0.036 -0.038
-w0: -0.83 +0.12 -0.13
-wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
+Flat w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
+Ωm: 0.287 +0.030 -0.035
+w0: -0.81 +0.11 -0.11
+wa: d w(z)/dz at z=0 = -(3/2) * (1 - w0^2)
 R-squared (%): 98.37
 RMSD (mag): 0.268
-Skewness of residuals: 3.216
-Chi squared: 1629.62
-Log evidence: -823.2
+Skewness of residuals: 3.217
+Chi squared: 1629.55
+Log evidence: -822.4
 Effective deg of freedom: 1711
 
 ==============================
