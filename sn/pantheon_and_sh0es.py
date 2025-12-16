@@ -13,18 +13,18 @@ cho = cho_factor(cov_matrix, lower=True)[0]
 
 c = 299792.458  # Speed of light (km/s)
 
-z_grid = np.linspace(0, np.max(z_values) + 0.1, num=1000)
+z_grid = np.linspace(0, np.max(z_values) + 0.1, num=3000)
 dx = np.diff(z_grid)
 
-one_plus_z = 1 + z_grid
-one_plus_z_hel = 1 + z_hel_values
+zp1 = 1 + z_grid
+zp1_hel = 1 + z_hel_values
 
 
 @njit
 def Ez(params):
     O_m, w0 = params[2], params[3]
-    rho_de = np.exp((1 + w0) * (1 - one_plus_z**-3))
-    return np.sqrt(O_m * one_plus_z**3 + (1 - O_m) * rho_de)
+    rho_de = (2 * zp1**3 / ((1 + w0) + (1 - w0) * zp1**3)) ** 2
+    return np.sqrt(O_m * zp1**3 + (1 - O_m) * rho_de)
 
 
 @njit
@@ -38,7 +38,7 @@ def DM_z(theta):
 
 @njit
 def model_mu(params):
-    return 25 + 5 * np.log10(one_plus_z_hel * DM_z(params))
+    return 25 + 5 * np.log10(zp1_hel * DM_z(params))
 
 
 def solve_triang(cho_L, delta):
@@ -60,9 +60,9 @@ def log_likelihood(params):
 bounds = np.array(
     [
         (-19.5, -19.0),  # M
-        (60, 85),  # H0
+        (60.0, 85.0),  # H0
         (0.1, 0.6),  # Ωm
-        (-2, 0),  # w0
+        (-1.0, 0.0),  # w0
     ]
 )
 
@@ -71,9 +71,9 @@ normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
 
 @njit
 def log_prior(params):
-    if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
-        return normalization
-    return -np.inf
+    if not np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
+        return -np.inf
+    return normalization
 
 
 def log_probability(params):
@@ -87,26 +87,20 @@ def main():
     import emcee
     from multiprocessing import Pool
     from corner_plot import plot_corner_and_chains
-    from .plotting import plot_predictions, print_color, plot_residuals
+    from sn.plotting import plot_predictions, print_color, plot_residuals
 
-    burn_in = 100
+    burn_in = 1000
     n_dim = len(bounds)
-    n_walkers = 500
-    n_steps = burn_in + 1000
+    n_walkers = 100
+    n_steps = burn_in + 4000
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(n_walkers, n_dim))
+    moves = [
+        (emcee.moves.KDEMove(), 0.2),
+        (emcee.moves.DEMove(), 0.8),
+    ]
 
     with Pool(6) as pool:
-        sampler = emcee.EnsembleSampler(
-            n_walkers,
-            n_dim,
-            log_probability,
-            pool=pool,
-            moves=[
-                (emcee.moves.KDEMove(), 0.5),
-                (emcee.moves.DEMove(), 0.4),
-                (emcee.moves.DESnookerMove(), 0.1),
-            ],
-        )
+        sampler = emcee.EnsembleSampler(n_walkers, n_dim, log_probability, pool, moves)
         sampler.run_mcmc(initial_pos, n_steps, progress=True)
 
     chains_samples = sampler.get_chain(discard=burn_in, flat=False)
@@ -116,6 +110,9 @@ def main():
         tau = sampler.get_autocorr_time()
         print_color("Autocorrelation time", tau)
         print_color("Acceptance fraction", np.mean(sampler.acceptance_fraction))
+        print_color(
+            "effective samples", n_dim * n_walkers * (n_steps - burn_in) / np.max(tau)
+        )
     except:
         print_color("Autocorrelation time", "Not available")
 
@@ -189,7 +186,7 @@ z range: 0.0012 - 2.2614
 Sample size: 1657
 *****************************
 
-ΛCDM
+ΛCDM w(z) = -1
 M: -19.24 +0.03/-0.03 mag
 H0 (km/s/Mpc): 73.5 +- 1.0
 Ωm: 0.332 +0.018/-0.018
@@ -203,7 +200,7 @@ Chi squared: 1452.02
 
 =============================
 
-wCDM
+wCDM w(z) = w0
 M: -19.24 +0.03/-0.03 mag
 H0 (km/s/Mpc): 73.5 +1.0/-1.0 km/s/Mpc
 Ωm: 0.301 +0.062/-0.075
@@ -217,15 +214,15 @@ Chi squared: 1451.70
 
 =============================
 
-Flat -1 + (1 + w0) / (1 + z)^3
-M: -19.243 +0.029/-0.030
-H0 (km/s/Mpc): 73.44 +1.04/-1.03
-Ωm: 0.316 +0.038/-0.038
-w0: -0.930 +0.129/-0.149
-wa: d w(z)/dz at z=0 = -3 * (1 + w0)
+Flat w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
+M: -19.243 +0.030/-0.029
+H0 (km/s/Mpc): 73.34 +1.04/-1.01
+Ωm: 0.300 +0.028/-0.033
+w0: -0.877 +0.101/-0.080
+wa: d w(z)/dz at z=0 = -1.5 * (1 - w0**2)
 R-squared (%): 99.78
 RMSD (mag): 0.153
-Skewness of residuals: 0.077
-kurtosis of residuals: 1.561
-Chi squared: 1451.69
+Skewness of residuals: 0.070
+kurtosis of residuals: 1.564
+Chi squared: 1451.86
 """

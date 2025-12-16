@@ -1,11 +1,12 @@
 from numba import njit
 import numpy as np
+from scipy.constants import c as c0
 from scipy.linalg import cho_factor, solve_triangular
 from y2022pantheonSHOES.data import get_data
 from y2005cc.data import get_data as get_cc_data
 from y2025BAO.data import get_data as get_bao_data
 
-c = 299792.458  # Speed of light in km/s
+c = c0 / 1000  # Speed of light in km/s
 
 cc_legend, z_cc_vals, H_cc_vals, cov_matrix_cc = get_cc_data()
 legend, z_sn_vals, z_sn_hel_vals, apparent_mag_values, cov_matrix_sn = get_data()
@@ -19,17 +20,17 @@ logdet_cc = np.linalg.slogdet(cov_matrix_cc)[1]
 N_cc = len(z_cc_vals)
 
 z_max = max(np.max(z_sn_vals), np.max(bao_data["z"])) + 0.1
-z_grid = np.linspace(0, z_max, num=1200)
+z_grid = np.linspace(0, z_max, num=3000)
 dx = np.diff(z_grid)
 
 
 @njit
 def Ez(z, params):
-    O_m, w0 = params[3], params[4]
+    Om, w0 = params[3], params[4]
     one_plus_z = 1 + z
     cubed = one_plus_z**3
-    rho_de = (4 * cubed / (1 + 3 * cubed)) ** (4 * (1 + w0))
-    return (O_m * cubed + (1 - O_m) * rho_de) ** 0.5
+    rho_de = (2 * cubed / ((1 + w0) + (1 - w0) * cubed)) ** 2
+    return (Om * cubed + (1 - Om) * rho_de) ** 0.5
 
 
 @njit
@@ -91,7 +92,7 @@ bounds = np.array(
         (-20.0, -19.0),  # M
         (115.0, 170.0),  # r_d
         (0.0, 1.0),  # Ωm
-        (-1.5, 0.0),  # w0
+        (-1.0, 0.0),  # w0
         (0.4, 2.5),  # f_cc
     ],
     dtype=np.float64,
@@ -147,18 +148,17 @@ def main():
     from gelman_rubin import gelman_rubin
     from log_evidence import log_evidence
     from sn.plotting import plot_predictions as plot_sn_predictions
-    from .plot_predictions import plot_bao_predictions
+    from bao.plot_predictions import plot_bao_predictions
 
     ndim = len(bounds)
-    nwalkers = 150
-    burn_in = 200
-    nsteps = 2400 + burn_in
+    nwalkers = 100
+    burn_in = 1000
+    nsteps = 4000 + burn_in
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
     moves = [
-        (emcee.moves.KDEMove(), 0.30),
-        (emcee.moves.DEMove(), 0.56),
-        (emcee.moves.DESnookerMove(), 0.14),
+        (emcee.moves.KDEMove(), 0.20),
+        (emcee.moves.DEMove(), 0.80),
     ]
 
     with Pool(6) as pool:
@@ -217,7 +217,7 @@ def main():
         y=apparent_mag_values - M_50,
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=sn_apparent_mag(best_fit) - M_50,
-        label=f"Best fit: $\Omega_m$={Om_50:.3f}, $H_0$={h0_50:.2f} km/s/Mpc",
+        label=f"$\Omega_m$={Om_50:.3f}, $H_0$={h0_50:.2f} km/s/Mpc",
         x_scale="log",
     )
     plot_corner_and_chains(
@@ -260,15 +260,20 @@ Degrees of freedom: 1630
 
 ===============================
 
-Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
-f_cc: 1.46 +0.19 -0.18
-H0: 67.81 +2.32 -2.29 km/s/Mpc
-M: -19.414 +0.071 -0.074 mag
-r_d: 147.03 +5.01 -4.67 Mpc
+Flat w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
+f_cc: 1.47 +0.19 -0.18
+H0: 67.86 +2.27 -2.30 km/s/Mpc
+M: -19.412 +0.070 -0.074 mag
+r_d: 146.92 +4.97 -4.62 Mpc
 Ωm: 0.305 +0.008 -0.008
-w0: -0.891 +0.052 -0.052
-wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-Chi squared: 1443.66
-Log Evidence: -855.2
+w0: -0.884 +0.052 -0.052 (prior -1.0 to 0.0)
+wa: d w(z)/dz at z=0 = -(3/2) * (1 - w0**2)
+Chi squared: 1443.75
+Log Evidence: -854.8
 Degrees of freedom: 1630
+
+===============================
+
+Flat w0waCDM:
+TODO
 """

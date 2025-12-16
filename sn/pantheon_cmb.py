@@ -12,7 +12,7 @@ z_nr = cmb.z_nr
 sn_legend, z_cmb, z_hel, mb_values, cov_matrix_sn = get_data()
 cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
 
-z_grid = np.linspace(0, np.max(z_cmb) + 0.1, num=2000)
+z_grid = np.linspace(0, np.max(z_cmb) + 0.1, num=3000)
 dx = np.diff(z_grid)
 
 
@@ -42,7 +42,7 @@ def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
     radiation_term = Or * zp1**4
     matter_term = Obc * zp1**3
     neutrino_term = Onu * Omnu_z(z)
-    dark_energy_term = Ode * (4 * zp1**3 / (1 + 3 * zp1**3)) ** (4 * (1 + w0))
+    dark_energy_term = Ode * (2 * zp1**3 / ((1 + w0) + (1 - w0) * zp1**3)) ** 2
 
     return np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
 
@@ -84,7 +84,7 @@ bounds = np.array(
         (60, 75),  # H0
         (0.010, 0.030),  # Ωb * h^2
         (0.010, 0.25),  # Ωc * h^2
-        (-1.5, 0.0),  # w0
+        (-1.0, 0.0),  # w0
     ],
     dtype=np.float64,
 )
@@ -114,13 +114,13 @@ def main():
     import emcee
     from multiprocessing import Pool
     from corner_plot import plot_corner_and_chains
-    from .plotting import plot_predictions as plot_sn_predictions
     from gelman_rubin import gelman_rubin
+    from sn.plotting import plot_predictions as plot_sn_predictions
 
     ndim = len(bounds)
     nwalkers = 150
-    burn_in = 250
-    nsteps = 2500 + burn_in
+    burn_in = 500
+    nsteps = 4000 + burn_in
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
     moves = [
@@ -236,20 +236,20 @@ Chi squared: 1402.71
 
 ===============================
 
-Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
-H0: 66.82 +0.70 -0.69 km/s/Mpc
-Ωm: 0.319 +0.008 -0.008
-ωm: 0.14244 +0.00117 -0.00115
+Flat w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
+H0: 66.74 +0.60 -0.64 km/s/Mpc
+Ωm: 0.320 +0.008 -0.007
+ωm: 0.14237 +0.00114 -0.00113
 ωb: 0.02250 +0.00011 -0.00011
-ωc: 0.11930 +0.00121 -0.00119
-w0: -0.947 +0.046 -0.046 (prior width 1.5: from -1.5 to 0.0)
-wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-M: -19.449 +0.017 -0.016 mag
-z*: 1089.68 +0.21 -0.21
-z_d: 1060.17 +0.24 -0.23
-r* = 144.53 Mpc
-rd: 147.15 +0.29 -0.29 Mpc
-Chi squared: 1402.60
+ωc: 0.11923 +0.00118 -0.00117
+w0: -0.935 +0.045 -0.039 (prior width 1.0: from -1.0 to 0.0)
+wa: d w(z)/dz at z=0 = -(3/2) * (1 - w0**2)
+M: -19.451 +0.015 -0.015 mag
+z*: 1089.67 +0.21 -0.21
+z_d: 1060.18 +0.23 -0.23
+r* = 144.54 Mpc
+rd: 147.16 +0.28 -0.29 Mpc
+Chi squared: 1402.77
 
 ===============================
 
