@@ -17,7 +17,7 @@ cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
 inv_cov_bao = np.linalg.inv(bao_cov_matrix)
 
 z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
-z_grid = np.linspace(0, z_max, num=2300)
+z_grid = np.linspace(0, z_max, num=3000)
 dx = np.diff(z_grid)
 
 
@@ -37,7 +37,7 @@ def Omnu_z(z):
 @njit
 def Ode_z(z, w0, wa):
     zp1 = 1 + z
-    return (4 * zp1**3 / (1 + 3 * zp1**3)) ** (4 * (1 + w0))  # wzCDM
+    return (2 * zp1**3 / ((1 + w0) + (1 - w0) * zp1**3)) ** 2  # wzCDM
     # return 1  # ΛCDM
     # return zp1 ** (3 * (1 + w0))  # wCDM
     # return zp1 ** (3 * (1 + w0 + wa)) * np.exp(-3 * wa * z / zp1)  # w0waCDM
@@ -84,8 +84,7 @@ def DM_z(z, params):
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size)
     cum_dm[1:] = np.cumsum(dx * dy)
-    dms = np.interp(z, z_grid, cum_dm)
-    return dms
+    return np.interp(z, z_grid, cum_dm)
 
 
 @njit
@@ -99,6 +98,7 @@ qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
 quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int64)
 
 
+@njit
 def bao_theory(z, qty, params):
     Obh2, Och2 = params[2], params[3]
     Omh2 = Obh2 + Och2 + Omnu_h2
@@ -138,7 +138,7 @@ bounds = np.array(
         (60.0, 75.0),  # H0
         (0.019, 0.025),  # ωb = Ωb * h^2
         (0.01, 0.25),  # ωc = Ωc * h^2
-        (-1.5, 0.0),  # w0
+        (-1.0, -1 / 3),  # w0
     ],
     dtype=np.float64,
 )
@@ -148,9 +148,9 @@ normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
 
 @njit
 def log_prior(params):
-    if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
-        return normalization
-    return -np.inf
+    if not np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
+        return -np.inf
+    return normalization
 
 
 def log_likelihood(params):
@@ -274,6 +274,14 @@ M  U(-20.0, -19.0)
 H0 U(60.0, 75.0)
 ωb U(0.019, 0.025)
 ωc U(0.01, 0.25)
+
+wCDM:
+w0 U(-1.5, 0.0)
+
+wzCDM (thawing quintessence):
+w0 U(-1.0, -1/3)
+
+w0waCDM:
 w0 U(-1.5, 0.0)
 wa U(-2.0, 1.0)
 with w0 + wa < 0 enforced
@@ -318,21 +326,21 @@ Degrees of freedom: 1601
 
 ===============================
 
-Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)**3)
-H0: 67.35 +0.60 -0.59 km/s/Mpc
+Flat w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
+H0: 67.32 +0.56 -0.57 km/s/Mpc
 ωb: 0.02240 +0.00012 -0.00012
 ωc: 0.1169 +0.0007 -0.0007
 ωm: 0.1399 +0.0007 -0.0007
-Ωm: 0.308 +0.006 -0.006
-w0: -0.925 +0.042 -0.042
+Ωm: 0.309 +0.006 -0.005
+w0: -0.917 +0.043 -0.042 (truncated at 1.92 sigma to the left of the mean)
 wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-M: -19.433 +0.013 -0.013
+M: -19.433 +0.012 -0.013
 z*: 1089.62 +0.20 -0.19
-r*: 145.24 Mpc
-z_d: 1059.94 +0.27 -0.27
-rd: 147.90 +0.20 -0.19 Mpc
-Chi squared: 1416.30
-Log evidence: -727.88
+z_d: 1059.95 +0.27 -0.27
+r*: 145.23 Mpc
+rd: 147.89 +0.19 -0.19 Mpc
+Chi squared: 1416.20
+Log evidence: -726.95
 Degrees of freedom: 1601
 
 ===============================
