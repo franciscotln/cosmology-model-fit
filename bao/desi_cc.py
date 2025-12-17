@@ -17,7 +17,7 @@ N_cc = len(z_cc_vals)
 c = c0 / 1000  # Speed of light in km/s
 
 z_max = np.max(data["z"]) + 0.1
-z_grid = np.linspace(0, z_max, num=1200)
+z_grid = np.linspace(0, z_max, num=4000)
 dx = np.diff(z_grid)
 
 
@@ -26,7 +26,7 @@ def Ez(z, params):
     O_m, w0 = params[3], params[4]
     one_plus_z = 1 + z
     cubic = one_plus_z**3
-    rho_de = (4 * cubic / (1 + 3 * cubic)) ** (4 * (1 + w0))
+    rho_de = (2 * cubic / (1 + w0 + (1 - w0) * cubic)) ** 2
     return np.sqrt(O_m * cubic + (1 - O_m) * rho_de)
 
 
@@ -90,10 +90,10 @@ def chi_squared(params):
 bounds = np.array(
     [
         (0.5, 2.5),  # f_cc
-        (45, 90),  # H0
-        (120, 175),  # r_d
+        (45.0, 90.0),  # H0
+        (120.0, 175.0),  # r_d
         (0.1, 0.7),  # Ωm
-        (-2.0, 0.0),  # w0
+        (-1.0, 0.0),  # w0
     ],
     dtype=np.float64,
 )
@@ -126,18 +126,19 @@ def main():
     from corner_plot import plot_corner_and_chains
     from multiprocessing import Pool
     from cosmic_chronometers.plot_predictions import plot_cc_predictions
-    from .plot_predictions import plot_bao_predictions
+    from gelman_rubin import gelman_rubin
+    from log_evidence import log_evidence
+    from bao.plot_predictions import plot_bao_predictions
 
     ndim = len(bounds)
-    nwalkers = 150
-    burn_in = 200
-    nsteps = 2000 + burn_in
+    nwalkers = 100
+    burn_in = 1000
+    nsteps = 4000 + burn_in
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
     moves = [
-        (emcee.moves.KDEMove(), 0.30),
-        (emcee.moves.DEMove(), 0.56),
-        (emcee.moves.DESnookerMove(), 0.14),
+        (emcee.moves.KDEMove(), 0.20),
+        (emcee.moves.DEMove(), 0.80),
     ]
 
     with Pool(5) as pool:
@@ -154,6 +155,10 @@ def main():
 
     chains_samples = sampler.get_chain(discard=burn_in, flat=False)
     samples = sampler.get_chain(discard=burn_in, flat=True)
+    log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
+
+    log_evd = log_evidence(samples, log_probs, log_probability, bounds)
+    print(f"Gelman-Rubin: {gelman_rubin(chains_samples)}")
 
     [
         (f_cc_16, f_cc_50, f_cc_84),
@@ -176,6 +181,7 @@ def main():
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"log likelihood: {log_likelihood(best_fit):.2f}")
+    print(f"Log evidence: {log_evd:.1f}")
     print(f"Degrees of freedom: {len(data['z']) + len(z_cc_vals) - len(best_fit)}")
 
     plot_bao_predictions(
@@ -209,41 +215,43 @@ Dataset: DESI 2025
 Flat ΛCDM
 f_cc: 1.47 +0.19 -0.18
 H0: 69.1 +2.3 -2.3 km/s/Mpc
-r_d: 146.9 +4.9 -4.6 Mpc
+r_d: 146.9 +5.0 -4.7 Mpc
 Ωm: 0.299 +0.009 -0.008
-ωm: 0.1424 +0.0095 -0.0091
+ωm: 0.1424 +0.0096 -0.0093
 w0: -1
 wa: 0
-Chi squared: 42.58
-log likelihood: -135.81
+Chi squared: 42.56
+log likelihood: -135.80
+Log evidence: -146.7
 Degrees of freedom: 42
 
 ===============================
 
 Flat wCDM
-f_cc: 1.47 +0.18 -0.17
+f_cc: 1.47 +0.19 -0.18
 H0: 67.9 +2.6 -2.5 km/s/Mpc
 r_d: 147.1 +5.0 -4.6 Mpc
 Ωm: 0.298 +0.009 -0.009
-ωm: 0.1375 +0.0105 -0.0103
-w0: -0.923 +0.075 -0.077
-wa: 0
-Chi squared: 41.34
+ωm: 0.1376 +0.0105 -0.0102
+w0: -0.922 +0.074 -0.078 (prior -1.4 to -0.4)
+Chi squared: 41.46
 log likelihood: -135.28
+Log evidence: -147.8
 Degrees of freedom: 41
 
 ===============================
 
-Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
-f_cc: 1.46 +0.18 -0.18
-H0: 67.0 +2.8 -2.8 km/s/Mpc
-r_d: 147.1 +5.0 -4.6 Mpc
-Ωm: 0.309 +0.012 -0.012
-ωm: 0.1390 +0.0098 -0.0094
-w0: -0.824 +0.141 -0.151
-wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-Chi squared: 40.65
-log likelihood: -135.07
+Flat w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
+f_cc: 1.46 +0.19 -0.18
+H0: 66.7 +2.6 -2.6 km/s/Mpc
+r_d: 147.2 +5.0 -4.7 Mpc
+Ωm: 0.312 +0.012 -0.011
+ωm: 0.1385 +0.0097 -0.0094
+w0: -0.793 +0.130 -0.123 (prior from -1.0 to 0.0. Posterior truncated at 1.68 sigma to the left of the mean )
+wa: d w(z)/dz at z=0 = -1.5 * (1 - w0**2)
+Chi squared: 40.64
+log likelihood: -135.10
+Log evidence: -146.9
 Degrees of freedom: 41
 
 ===============================
