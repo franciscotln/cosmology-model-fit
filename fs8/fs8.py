@@ -21,54 +21,56 @@ def rho_de_z(z, w0):
 
 
 @njit
-def E(z, om, w0=-1):
-    return np.sqrt(om * (1 + z) ** 3 + (1 - om) * rho_de_z(z, w0))
+def Ez(z, Om_eff, w0=-1):
+    return np.sqrt(Om_eff * (1 + z) ** 3 + (1 - Om_eff) * rho_de_z(z, w0))
 
 
 @njit
-def dE_da(z, om, w0=-1):
+def dE_da(z, Om_eff, w0=-1):
     a = 1 / (1 + z)
     dz = 1e-05
-    Ez_plus = E(z + dz, om, w0)
-    Ez_minus = E(z - dz, om, w0)
+    Ez_plus = Ez(z + dz, Om_eff, w0)
+    Ez_minus = Ez(z - dz, Om_eff, w0)
     dE_dz = (Ez_plus - Ez_minus) / (2 * dz)
     return -dE_dz / a**2
 
 
 @njit
-def DM(z, om, w0=-1):
-    dh_grid = c / E(z_grid, om, w0)
+def DM(z, Om_eff, w0=-1):
+    dh_grid = c / Ez(z_grid, Om_eff, w0)
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(len(z_grid))
     cum_dm[1:] = np.cumsum(dx * dy)
     return np.interp(z, z_grid, cum_dm)
 
 
-denominator_fiducial = E(data["z"], data["omega_fid"]) * np.array(
-    [DM(zi, om_fid) for zi, om_fid in zip(data["z"], data["omega_fid"])]
-)
+denominator_fiducial = np.zeros(len(data["z"]), dtype=np.float64)
+for i in range(len(data["z"])):
+    z = data["z"][i]
+    om_fid = data["omega_fid"][i]
+    denominator_fiducial[i] = Ez(z, om_fid) * DM(z, om_fid)
 
 
 @njit
-def growth_ode(a, y, om, w0):
+def growth_ode(a, y, Om_eff, w0):
     z = 1 / a - 1
-    E_val = E(z, om, w0)
-    dE_da_val = dE_da(z, om, w0)
+    E_val = Ez(z, Om_eff, w0)
+    dE_da_val = dE_da(z, Om_eff, w0)
 
     delta, d_delta_da = y
 
-    source = (3 / 2) * (om / a**5) * (delta / E_val**2)
+    source = (3 / 2) * (Om_eff / a**5) * (delta / E_val**2)
     friction = -(3 / a + dE_da_val / E_val) * d_delta_da
     d2_delta_da = friction + source
 
     return [d_delta_da, d2_delta_da]
 
 
-max_z = 1000
-a_vals = np.logspace(np.log10(1 / (1 + max_z)), 0, 10_000)
+max_z = 100
+a_vals = np.logspace(np.log10(1 / (1 + max_z)), 0, 1000)
 
 
-def fs8_theory(z, om, sig8, w0):
+def fs8_theory(z, Om_eff, sig8, w0):
     sol = solve_ivp(
         growth_ode,
         t_span=(a_vals[0], a_vals[-1]),
@@ -76,7 +78,7 @@ def fs8_theory(z, om, sig8, w0):
         t_eval=a_vals,
         rtol=1e-8,
         atol=1e-10,
-        args=(om, w0),
+        args=(Om_eff, w0),
     )
     delta, d_delta_da = sol.y
 
@@ -88,9 +90,9 @@ def fs8_theory(z, om, sig8, w0):
 
 
 def chi_squared(theta):
-    Om, sig8, w0, f_err = theta
-    q = E(data["z"], Om, w0) * DM(data["z"], Om, w0) / denominator_fiducial
-    delta = data["fs8"] - fs8_theory(data["z"], Om, sig8, w0) / q
+    Om_eff, sig8, w0, f_err = theta
+    q = Ez(data["z"], Om_eff, w0) * DM(data["z"], Om_eff, w0) / denominator_fiducial
+    delta = data["fs8"] - fs8_theory(data["z"], Om_eff, sig8, w0) / q
     return f_err**2 * np.dot(delta, np.dot(inv_cov_mat, delta))
 
 
@@ -106,10 +108,10 @@ def log_likelihood(theta):
 
 bounds = np.array(
     [
-        (0.1, 0.6),  # Om
+        (0.1, 0.6),  # Ωm_eff: effective clustering matter density
         (0.2, 1.2),  # sigma8
         (-1.0, 0.0),  # w0
-        (0.5, 2.2),  # f_err: overstimation factor of the errors
+        (0.5, 2.2),  # f_err: overestimation factor of the errors
     ],
     dtype=np.float64,
 )
@@ -185,7 +187,7 @@ def main():
         (S8_chains_samples[:, :, np.newaxis], chains_samples), axis=2
     )
 
-    print(f"Ωm = {Om_50:.3f} +{Om_84-Om_50:.3f} -{Om_50-Om_16:.3f}")
+    print(f"Ωm_eff = {Om_50:.3f} +{Om_84-Om_50:.3f} -{Om_50-Om_16:.3f}")
     print(f"σ8 = {s8_50:.3f} +{s8_84-s8_50:.3f} -{s8_50-s8_16:.3f}")
     print(f"S8 = {S8_50:.3f} +{S8_84-S8_50:.3f} -{S8_50-S8_16:.3f}")
     print(f"w0 = {w0_50:.3f} +{w0_84-w0_50:.3f} -{w0_50-w0_16:.3f}")
@@ -201,7 +203,7 @@ def main():
     z_plot = np.linspace(0, np.max(data["z"]), 200)
     fs8_plot = fs8_theory(z_plot, Om_50, s8_50, w0_50)
 
-    q = E(data["z"], Om_50, w0_50) * DM(data["z"], Om_50, w0_50) / denominator_fiducial
+    q = Ez(data["z"], Om_50, w0_50) * DM(data["z"], Om_50, w0_50) / denominator_fiducial
 
     plt.errorbar(
         data["z"],
@@ -244,52 +246,52 @@ if __name__ == "__main__":
 flat ΛCDM
 
 without f_err:
-Ωm = 0.274 +0.027 -0.025
-σ8 = 0.787 +0.019 -0.018
-S8 = 0.753 +0.028 -0.027
+Ωm_eff = 0.249 +0.026 -0.024
+σ8 = 0.816 +0.020 -0.019
+S8 = 0.742 +0.028 -0.028
 w0: -1
 f = 1
-chi2 = 35.35
-log likelihood = 97.1
-log evidence = 91.7
+chi2 = 37.50
+log likelihood = 83.2
+log evidence = 77.8
 degs of freedom = 61
 
 ---
 
 with f_err:
-Ωm = 0.274 +0.020 -0.019
-σ8 = 0.788 +0.014 -0.014
-S8 = 0.752 +0.021 -0.021
+Ωm_eff = 0.274 +0.020 -0.019
+σ8 = 0.787 +0.014 -0.014
+S8 = 0.752 +0.022 -0.021
 w0: -1
 f = 1.32 +0.12 -0.12
-chi2 = 61.30
+chi2 = 61.41
 log likelihood = 101.5
-log evidence = 92.6
+log evidence = 93.7
 degs of freedom = 60
 
 ===============================
 
 flat wCDM
-Ωm = 0.254 +0.023 -0.024
-σ8 = 0.875 +0.071 -0.051
+Ωm_eff = 0.254 +0.023 -0.024
+σ8 = 0.876 +0.069 -0.051
 S8 = 0.809 +0.038 -0.035
-w0 = -0.743 +0.123 -0.123 (prior: U(-1.4, 0.0))
-f = 1.35 +0.12 -0.12
-chi2 = 60.40
+w0 = -0.741 +0.120 -0.122 (prior: U(-1.4, 0.0))
+f = 1.35 +0.13 -0.12
+chi2 = 60.29
 log likelihood = 103.6
-log evidence = 93.8
+log evidence = 94.4
 degs of freedom = 59
 
 ===============================
 
 flat wzCDM
-Ωm = 0.280 +0.020 -0.019
+Ωm_eff = 0.280 +0.020 -0.019
 σ8 = 0.828 +0.029 -0.026
-S8 = 0.800 +0.033 -0.031
-w0 = -0.687 +0.148 -0.155 (prior: U(-1.0, 0.0))
-f = 1.34 +0.12 -0.12
-chi2 = 60.59
+S8 = 0.801 +0.033 -0.032
+w0 = -0.684 +0.146 -0.155  (prior: U(-1.0, 0.0))
+f = 1.34 +0.13 -0.12
+chi2 = 60.37
 log likelihood = 103.1
-log evidence = 96.1
+log evidence = 94.4
 degs of freedom = 59
 """

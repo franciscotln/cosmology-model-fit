@@ -56,19 +56,22 @@ def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
 
 
 @njit
-def dE_da(z, theta):
+def Hz(z, theta):
+    H0, Obh2, Och2, w0 = theta[0:4]
+    return H0 * Ez(z, H0, Obh2, Och2, w0)
+
+
+@njit
+def dH_da(z, theta):
     a = 1 / (1 + z)
     dz = 1e-05
-    Ez_plus = Ez(z + dz, *theta)
-    Ez_minus = Ez(z - dz, *theta)
-    dE_dz = (Ez_plus - Ez_minus) / (2 * dz)
-    return -dE_dz / a**2
+    dH_dz = (Hz(z + dz, theta) - Hz(z - dz, theta)) / (2 * dz)
+    return -dH_dz / a**2
 
 
 @njit
 def DM(z, theta):
-    H0, Obh2, Och2, w0 = theta[0:4]
-    dh_grid = c / Ez(z_grid, H0, Obh2, Och2, w0)
+    dh_grid = c / Hz(z_grid, theta)
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(len(z_grid))
     cum_dm[1:] = np.cumsum(dx * dy)
@@ -81,33 +84,33 @@ params_fid = [H0_fid, Obh2_fid, 0.12, -1.0, 0.80, 1.0]
 denominator_fiducial = np.empty(len(data["z"]), dtype=np.float64)
 
 for i in range(len(data["z"])):
-    zi = data["z"][i]
+    z = data["z"][i]
     Om_fid = data["omega_fid"][i]
-    Och2_fid = Om_fid * (H0_fid / 100) ** 2 - Obh2_fid - Omnuh2
-    params_fid[2] = Och2_fid
-    denominator_fiducial[i] = Ez(zi, *params_fid[0:4]) * DM(zi, params_fid)
+    params_fid[2] = Om_fid * (H0_fid / 100) ** 2 - Obh2_fid - Omnuh2
+    denominator_fiducial[i] = Hz(z, params_fid) * DM(z, params_fid)
 
 
 @njit
 def growth_ode(a, y, *params):
-    h, Obh2, Och2 = params[0] / 100, params[1], params[2]
-    Om = (Obh2 + Och2) / h**2
+    H0, Obh2, Och2 = params[0], params[1], params[2]
+    h = H0 / 100
+    Obc = (Obh2 + Och2) / h**2
 
     z = 1 / a - 1
-    E_val = Ez(z, *params[0:4])
-    dE_da_val = dE_da(z, params[0:4])
+    H_val = Hz(z, params)
+    dH_da_val = dH_da(z, params)
 
     delta, d_delta_da = y
 
-    source = (3 / 2) * (Om / a**5) * (delta / E_val**2)
-    friction = -(3 / a + dE_da_val / E_val) * d_delta_da
+    source = (3 / 2) * (Obc / a**5) * delta * (H0 / H_val) ** 2
+    friction = -(3 / a + dH_da_val / H_val) * d_delta_da
     d2_delta_da = friction + source
 
     return [d_delta_da, d2_delta_da]
 
 
-max_z = 1000
-a_vals = np.logspace(np.log10(1 / (1 + max_z)), 0, 10_000)
+max_z = 1100
+a_vals = np.logspace(np.log10(1 / (1 + max_z)), 0, 11_000)
 
 
 def fs8_theory(z, params):
@@ -131,7 +134,7 @@ def fs8_theory(z, params):
 
 
 def chi_squared(theta):
-    q = Ez(data["z"], *theta[0:4]) * DM(data["z"], theta) / denominator_fiducial
+    q = Hz(data["z"], theta) * DM(data["z"], theta) / denominator_fiducial
     delta = data["fs8"] - fs8_theory(data["z"], theta) / q
     chi2_fs8 = theta[-1] ** 2 * np.dot(delta, np.dot(inv_cov_mat, delta))
 
@@ -195,7 +198,7 @@ def main():
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
     moves = [
         (emcee.moves.KDEMove(), 0.20),
-        (emcee.moves.DEMove(), 0.70),
+        (emcee.moves.DEMove(), 0.80),
     ]
 
     with Pool(8) as pool:
@@ -225,9 +228,10 @@ def main():
         (f_16, f_50, f_84),
     ] = pct
 
-    Omh2_samples = samples[:, 1] + samples[:, 2] + Omnuh2
+    Obch2_samples = samples[:, 1] + samples[:, 2]
+    Omh2_samples = Obch2_samples + Omnuh2
     Om_samples = Omh2_samples / (samples[:, 0] / 100) ** 2
-    S8_samples = samples[:, -2] * (Om_samples / 0.3) ** 0.5
+    S8_samples = 100 * samples[:, -2] * np.sqrt(Obch2_samples / 0.3) / samples[:, 0]
 
     Omh2_16, Omh2_50, Omh2_84 = np.percentile(Omh2_samples, [15.9, 50, 84.1])
     Om_16, Om_50, Om_84 = np.percentile(Om_samples, [15.9, 50, 84.1])
@@ -235,7 +239,7 @@ def main():
 
     best_fit = np.percentile(samples, 50, axis=0)
 
-    print(f"H0 = {H0_50:.2f} +{H0_84-H0_50:.2f} -{H0_50-H0_16:.2f}")
+    print(f"H0 = {H0_50:.2f} +{H0_84-H0_50:.2f} -{H0_50-H0_16:.2f} km/s/Mpc")
     print(f"Ωbh2 = {Obh2_50:.5f} +{Obh2_84-Obh2_50:.5f} -{Obh2_50-Obh2_16:.5f}")
     print(f"Ωch2 = {Och2_50:.5f} +{Och2_84-Och2_50:.5f} -{Och2_50-Och2_16:.5f}")
     print(f"Ωmh2 = {Omh2_50:.4f} +{Omh2_84-Omh2_50:.4f} -{Omh2_50-Omh2_16:.4f}")
@@ -262,7 +266,7 @@ def main():
     z_plot = np.linspace(0, np.max(data["z"]), 200)
     fs8_plot = fs8_theory(z_plot, best_fit)
 
-    q = Ez(data["z"], *best_fit[0:4]) * DM(data["z"], best_fit) / denominator_fiducial
+    q = Hz(data["z"], best_fit) * DM(data["z"], best_fit) / denominator_fiducial
 
     plt.errorbar(
         data["z"],
@@ -271,7 +275,7 @@ def main():
         fmt=".",
         label="data",
     )
-    plt.plot(z_plot, fs8_plot, label="best-fit", color="C1")
+    plt.plot(z_plot, fs8_plot, label="model", color="C1")
     plt.xlabel("z")
     plt.ylabel(r"$f\sigma_8(z)$")
     plt.legend()
@@ -303,50 +307,50 @@ if __name__ == "__main__":
 
 """
 flat ΛCDM
-H0 = 67.89 +0.47 -0.48
+H0 = 67.89 +0.48 -0.48 km/s/Mpc
 Ωbh2 = 0.02252 +0.00011 -0.00011
-Ωch2 = 0.11868 +0.00117 -0.00114
+Ωch2 = 0.11871 +0.00115 -0.00116
 Ωmh2 = 0.1419 +0.0011 -0.0011
 Ωm = 0.308 +0.007 -0.007
 σ8 = 0.775 +0.011 -0.011
-S8 = 0.785 +0.012 -0.012 (consistent within 1 sigma with both CMB-only and fσ8-only)
-f = 1.30 +0.12 -0.11
-chi2 = 62.47
+S8 = 0.783 +0.012 -0.012 (consistent within 1 sigma with both CMB-only and fσ8-only)
+f = 1.30 +0.12 -0.12
+chi2 = 62.58
 log likelihood = 100.0
-log evidence = 77.8
+log evidence = 78.7
 degs of freedom = 58
 
 ===============================
 
 flat wCDM
-H0 = 69.05 +1.95 -1.83
-Ωbh2 = 0.02251 +0.00011 -0.00011
-Ωch2 = 0.11890 +0.00122 -0.00119
+H0 = 69.05 +1.95 -1.81 km/s/Mpc
+Ωbh2 = 0.02252 +0.00011 -0.00011
+Ωch2 = 0.11891 +0.00122 -0.00119
 Ωmh2 = 0.1421 +0.0012 -0.0012
-Ωm = 0.298 +0.017 -0.016
+Ωm = 0.298 +0.016 -0.016
 σ8 = 0.770 +0.013 -0.013
-S8 = 0.767 +0.029 -0.030
-w0 = -1.041 +0.062 -0.066
-f = 1.29 +0.12 -0.11
-chi2 = 61.30
+S8 = 0.765 +0.029 -0.030
+w0 = -1.041 +0.062 -0.065
+f = 1.29 +0.12 -0.12
+chi2 = 61.58
 log likelihood = 100.1
-log evidence = 76.4
+log evidence = 75.3
 degs of freedom = 57
 
 ===============================
 
 flat wzCDM
-H0 = 68.21 +2.23 -2.05
+H0 = 68.21 +2.20 -2.03 km/s/Mpc
 Ωbh2 = 0.02252 +0.00011 -0.00011
 Ωch2 = 0.11875 +0.00120 -0.00118
 Ωmh2 = 0.1419 +0.0012 -0.0011
 Ωm = 0.305 +0.019 -0.019
 σ8 = 0.773 +0.014 -0.014
-S8 = 0.780 +0.035 -0.035
-w0 = -1.024 +0.149 -0.164
+S8 = 0.778 +0.034 -0.034
+w0 = -1.025 +0.148 -0.162
 f = 1.29 +0.12 -0.11
-chi2 = 61.59
-log likelihood = 100.0
-log evidence = 75.3
+chi2 = 61.45
+log likelihood = 99.9
+log evidence = 75.8
 degs of freedom = 57
 """
