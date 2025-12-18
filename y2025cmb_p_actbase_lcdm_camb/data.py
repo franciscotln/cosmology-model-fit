@@ -41,7 +41,7 @@ def Omega_r_h2(Neff=N_EFF):
 @njit
 def z_star(wb, wm):
     """arXiv:astro-ph/9510117v2 (eq-1)"""
-    SCALING_FID = 0.9981705753766743  # reproduces z* from mcsamples
+    SCALING_FID = 0.9981705753766743
 
     g1 = 0.0783 * wb**-0.238 / (1 + 39.5 * wb**0.763)
     g2 = 0.560 / (1 + 21.1 * wb**1.81)
@@ -95,7 +95,7 @@ def rs_z(Ez_func, z_lim, H0, Obh2, Och2, w0=-1, wa=0):
 
 
 def DM_z(Ez_func, z_lim, H0, Obh2, Och2, w0=-1, wa=0):
-    integral = quad(lambda z: 1 / Ez_func(z, H0, Obh2, Och2, w0, wa), 1e-8, z_lim)[0]
+    integral = quad(lambda z: 1 / Ez_func(z, H0, Obh2, Och2, w0, wa), 0.0, z_lim)[0]
     return integral * c / H0
 
 

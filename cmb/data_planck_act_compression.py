@@ -52,7 +52,7 @@ def rs_z(Ez_func, z_lim, H0, Obh2, Och2, w0=-1, wa=0):
 
 
 def DM_z(Ez_func, z_lim, H0, Obh2, Och2, w0=-1, wa=0):
-    integral = quad(lambda z: 1 / Ez_func(z, H0, Obh2, Och2, w0, wa), 1e-8, z_lim)[0]
+    integral = quad(lambda z: 1 / Ez_func(z, H0, Obh2, Och2, w0, wa), 0.0, z_lim)[0]
     return integral * c / H0
 
 
