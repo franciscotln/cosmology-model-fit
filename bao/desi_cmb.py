@@ -347,20 +347,19 @@ Degs of freedom: 12
 """
 
 """
-Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
-H0: 67.39 +0.77 -1.10 km/s/Mpc
+H0: 67.40 +0.76 -1.09 km/s/Mpc
 ωb: 0.02257 +0.00013 -0.00013
-ωc: 0.1171 +0.0007 -0.0007
+ωc: 0.1172 +0.0007 -0.0007
 ωm: 0.1404 +0.0007 -0.0007
 Ωm: 0.309 +0.010 -0.007
-w0: -0.917 +0.085 -0.058 (prior width 1.0: -1.0 to 0.0; truncated posterior on the left)
+w0: -0.918 +0.084 -0.057 (prior width 1.0: -1.0 to 0.0; truncated posterior on the left)
 wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
-r*: 145.03 Mpc
-z*: 1089.40 +0.20 -0.20
-r_d: 147.63 +0.20 -0.20 Mpc
-Log Z: -21.33
-Chi squared: 15.90
+r*: 145.01 Mpc
+z*: 1089.41 +0.20 -0.20
+r_d: 147.62 +0.20 -0.20 Mpc
+Log Z: -21.30
+Chi squared: 15.86
 Degs of freedom: 12
 """
 
