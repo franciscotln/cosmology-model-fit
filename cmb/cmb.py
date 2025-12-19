@@ -2,22 +2,8 @@ from numba import njit
 import numpy as np
 import cmb.data_planck_compression as cmb
 
-z_nr = cmb.z_nr
-Or_h2 = cmb.Omega_r_h2(2.044)
+Or_h2 = cmb.Or_h2
 Omnu_h2 = cmb.Omnu_h2
-
-
-@njit
-def Omnu_z(z):
-    """
-    Computes the appox. evolution of massive neutrino
-    energy density with redshift
-    """
-    return (
-        (1 + z) ** 4
-        * (1 + ((1 + z_nr) / (1 + z)) ** 2) ** 0.5
-        * (1 + (1 + z_nr) ** 2) ** -0.5
-    )
 
 
 @njit
@@ -31,7 +17,7 @@ def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
     radiation_term = Or * (1 + z) ** 4
     matter_term = Obc * (1 + z) ** 3
     dark_energy_term = Ode
-    neutrino_term = Onu * Omnu_z(z)
+    neutrino_term = Onu * cmb.Omnu_z(z)
 
     return np.sqrt(radiation_term + matter_term + neutrino_term + dark_energy_term)
 
@@ -150,7 +136,7 @@ def main():
     print(f"ωb: {Obh2_50:.5f} +{(Obh2_84 - Obh2_50):.5f} -{(Obh2_50 - Obh2_16):.5f}")
     print(f"ωm: {Omh2_50:.5f} +{(Omh2_84 - Omh2_50):.5f} -{(Omh2_50 - Omh2_16):.5f}")
     print(f"Ωm: {Om_50:.4f} +{(Om_84 - Om_50):.4f} -{(Om_50 - Om_16):.4f}")
-    print(f"z_eq: {z_eq_50:.1f} +{(z_eq_84 - z_eq_50):.1f} -{(z_eq_50 - z_eq_16):.1f}")
+    print(f"z_eq: {z_eq_50:.0f} +{(z_eq_84 - z_eq_50):.0f} -{(z_eq_50 - z_eq_16):.0f}")
     print(f"z*: {z_st_50:.2f} +{(z_st_84 - z_st_50):.2f} -{(z_st_50 - z_st_16):.2f}")
     print(f"r*: {rs_50:.2f} +{(rst_84 - rs_50):.2f} -{(rs_50 - rst_16):.2f} Mpc")
     print(
@@ -223,34 +209,34 @@ Chi squared: 0.0000
 ===============================
 
 Early ΛCDM (arXiv:2302.12911v2)
-H0: 67.49 +0.59 -0.58 km/s/Mpc
+H0: 67.49 +0.58 -0.58 km/s/Mpc
 ωc: 0.1192 +0.0013 -0.0013
 ωb: 0.02223 +0.00015 -0.00015
 ωm: 0.1421 +0.0012 -0.0012
-Ωm: 0.3120 +0.0081 -0.0080
+Ωm: 0.3119 +0.0081 -0.0079
 z_eq: 3381 +29 -29
-z*: 1090.04 +0.28 -0.28
-r*: 144.74 +0.29 -0.28 Mpc
+z*: 1090.13 +0.28 -0.28
+r*: 144.75 +0.29 -0.28 Mpc
 100 θ*: 1.04103 +0.00026 -0.00026
 z_drag: 1059.72 +0.29 -0.29
 r_d: 147.46 +0.28 -0.28 Mpc
-Chi squared: 0.0004
+Chi squared: 0.0003
 
 ===============================
 
 ACT DR6 compression
-H0: 66.11 +0.79 -0.79 km/s/Mpc
-ωc: 0.1238 +0.0022 -0.0021
+H0: 66.11 +0.80 -0.78 km/s/Mpc
+ωc: 0.1238 +0.0021 -0.0021
 ωb: 0.02259 +0.00017 -0.00017
-ωm: 0.1470 +0.0022 -0.0021
-Ωm: 0.3364 +0.0131 -0.0124
-z_eq: 3499 +51 -50
-z*: 1089.96 +0.30 -0.29
+ωm: 0.14702 +0.00213 -0.00212
+Ωm: 0.336 +0.013 -0.013
+z_eq: 3499 +51 -51
+z*: 1089.96 +0.30 -0.30
 r*: 143.31 +0.54 -0.54 Mpc
 100 θ*: 1.04075 +0.00031 -0.00031
-z_drag: 1060.72 +0.39 -0.40
+z_drag: 1060.72 +0.40 -0.40
 r_d: 145.87 +0.56 -0.56 Mpc
-Chi squared: 0.0009
+Chi squared: 0.0001
 
 ===============================
 
@@ -259,12 +245,12 @@ H0: 67.62 +0.50 -0.50 km/s/Mpc
 ωc: 0.1193 +0.0012 -0.0012
 ωb: 0.02250 +0.00011 -0.00011
 ωm: 0.1425 +0.0012 -0.0012
-Ωm: 0.3115 +0.0072 -0.0070
+Ωm: 0.3116 +0.0072 -0.0070
 z_eq: 3390 +28 -28
-z*: 1089.68 +0.21 -0.21
+z*: 1089.68 +0.22 -0.21
 r*: 144.52 +0.29 -0.29 Mpc
 100 θ*: 1.04094 +0.00025 -0.00025
-z_drag: 1060.17 +0.24 -0.24
+z_drag: 1060.17 +0.23 -0.24
 r_d: 147.14 +0.29 -0.29 Mpc
-Chi squared: 0.0001
+Chi squared: 0.0006
 """

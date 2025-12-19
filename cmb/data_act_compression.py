@@ -25,17 +25,35 @@ inv_cov_mat = np.linalg.inv(covariance)
 
 N_EFF = 3.044
 TCMB = 2.7255  # K
-O_GAMMA_H2 = 2.4729e-05
+O_GAMMA_H2 = 2.472975328714087e-05
 
 T_nu0 = (4 / 11) ** (1 / 3) * TCMB  # K
 T_nu0_eV = T_nu0 * 8.617333262e-5  #  1.67639e-04 eV
 mnu_tot = 0.06  # total mass [eV]
-Omnu_h2 = mnu_tot / 93.14  # present-day Omega_nu*h^2
+Omnu_h2 = mnu_tot / (94.0641 / (N_EFF / 3.0) ** 0.75)  # present-day Omega_nu*h^2 (CAMB)
 z_nr = mnu_tot / (3.15 * T_nu0_eV)
+
+
+@njit
+def Omnu_z(z, n_eff=N_EFF):
+    """
+    Computes the appox. evolution of massive neutrino
+    energy density with redshift
+    """
+    zp1 = 1 + z
+    factor = (3.0 / n_eff) ** 1.75
+    return (
+        zp1**4
+        * np.sqrt(1 + factor * (1 + z_nr) ** 2 / zp1**2)
+        / np.sqrt(1 + factor * (1 + z_nr) ** 2)
+    )
 
 
 def Omega_r_h2(Neff=N_EFF):
     return O_GAMMA_H2 * (1 + 0.2271 * Neff)
+
+
+Or_h2 = Omega_r_h2(N_EFF - (N_EFF / 3))
 
 
 @njit
