@@ -29,7 +29,8 @@ O_GAMMA_H2 = 2.472975328714087e-05
 T_nu0 = (4 / 11) ** (1 / 3) * TCMB  # K
 T_nu0_eV = T_nu0 * 8.617333262e-5  #  1.67639e-04 eV
 mnu_tot = 0.06  # total mass [eV]
-Omnu_h2 = mnu_tot / (94.0708 / (N_EFF / 3.0) ** 0.75)  # present-day Omega_nu*h^2 (Cobaya)
+# present-day Omega_nu*h^2 (Cobaya)
+Omnu_h2 = mnu_tot / (94.0708 / (N_EFF / 3.0) ** 0.75)
 z_nr = mnu_tot / (3.15 * T_nu0_eV)
 
 
@@ -40,19 +41,24 @@ def Omega_r_h2(Neff=N_EFF):
 Or_h2 = Omega_r_h2(N_EFF - (N_EFF / 3))
 
 
+fact0 = (
+    (3.0 / N_EFF) ** (1 / 4)
+    * (mnu_tot / 94.0641)
+    * (8 / 7)
+    * (11 / 4) ** (4 / 3)
+    / O_GAMMA_H2
+)
+
+
 @njit
-def Omnu_z(z, n_eff=N_EFF):
+def Omnu_z(z):
     """
     Computes the appox. evolution of massive neutrino
     energy density with redshift
     """
     zp1 = 1 + z
-    factor = (3.0 / n_eff) ** 1.75
-    return (
-        zp1**4
-        * np.sqrt(1 + factor * (1 + z_nr) ** 2 / zp1**2)
-        / np.sqrt(1 + factor * (1 + z_nr) ** 2)
-    )
+    fact = 1.0 * fact0
+    return zp1**4 * np.sqrt(1 + fact**2 / zp1**2) / np.sqrt(1 + fact**2)
 
 
 def rs_z(Ez_func, z_lim, H0, Obh2, Och2, w0=-1, wa=0):
@@ -107,7 +113,7 @@ def r_drag(wb, wm):
 @njit
 def z_star(wb, wm):
     """arXiv:astro-ph/9510117v2 (eq-1)"""
-    SCALING_FID = 0.9982544553831552
+    SCALING_FID = 0.9982494654089482
 
     g1 = 0.0783 * wb**-0.238 / (1 + 39.5 * wb**0.763)
     g2 = 0.560 / (1 + 21.1 * wb**1.81)

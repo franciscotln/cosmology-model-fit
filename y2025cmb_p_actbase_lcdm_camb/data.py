@@ -38,22 +38,26 @@ def Omega_r_h2(Neff=N_EFF):
     return O_GAMMA_H2 * (1 + Neff * (7 / 8) * (4 / 11) ** (4 / 3))
 
 
+Or_h2 = Omega_r_h2(N_EFF - (N_EFF / 3))
+
+fact0 = (
+    (3.0 / N_EFF) ** (1 / 4)
+    * (mnu_tot / 94.0641)
+    * (8 / 7)
+    * (11 / 4) ** (4 / 3)
+    / O_GAMMA_H2
+)
+
+
 @njit
-def Omnu_z(z, n_eff=N_EFF):
+def Omnu_z(z):
     """
     Computes the appox. evolution of massive neutrino
     energy density with redshift
     """
     zp1 = 1 + z
-    factor = (3.0 / n_eff) ** 1.75
-    return (
-        zp1**4
-        * np.sqrt(1 + factor * (1 + z_nr) ** 2 / zp1**2)
-        / np.sqrt(1 + factor * (1 + z_nr) ** 2)
-    )
-
-
-Orh2 = Omega_r_h2(N_EFF - (N_EFF / 3))
+    fact = 1.0 * fact0
+    return zp1**4 * np.sqrt(1 + fact**2 / zp1**2) / np.sqrt(1 + fact**2)
 
 
 @njit
