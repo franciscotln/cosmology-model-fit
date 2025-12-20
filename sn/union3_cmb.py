@@ -5,30 +5,14 @@ from y2023union3.data import get_data
 import cmb.data_planck_act_compression as cmb
 
 c = cmb.c  # km/s
-Orh2 = cmb.Omega_r_h2(2.044)
+Orh2 = cmb.Or_h2
 Omnuh2 = cmb.Omnu_h2
-z_nr = cmb.z_nr
 
 sn_legend, z_sn_vals, mu_vals, cov_matrix_sn = get_data()
-
 cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
-cho_cmb = cho_factor(cmb.covariance, lower=True)[0]
 
 z_grid = np.linspace(0, np.max(z_sn_vals) + 0.1, num=4000)
 dx = np.diff(z_grid)
-
-
-@njit
-def Omnu_z(z):
-    """
-    Computes the appox. evolution of one massive
-    neutrino species energy density with redshift
-    """
-    return (
-        (1 + z) ** 4
-        * (1 + ((1 + z_nr) / (1 + z)) ** 2) ** 0.5
-        * (1 + (1 + z_nr) ** 2) ** -0.5
-    )
 
 
 @njit
@@ -49,7 +33,7 @@ def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
 
     radiation_term = Or * zp1**4
     matter_term = Obc * zp1**3
-    neutrino_term = Onu * Omnu_z(z)
+    neutrino_term = Onu * cmb.Omnu_z(z)
     dark_energy_term = Ode * Ode_z(z, w0, wa)
 
     return np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
@@ -258,17 +242,17 @@ Degrees of freedom: 20
 
 """
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
-H0: 65.39 +1.02 -1.04 km/s/Mpc
+H0: 65.38 +1.02 -1.04 km/s/Mpc
 Ωm: 0.333 +0.012 -0.011
-ωm: 0.14240 +0.00117 -0.00116
+ωm: 0.14238 +0.00116 -0.00115
 ωb: 0.02250 +0.00011 -0.00011
-ωc: 0.1193 +0.0012 -0.0012
+ωc: 0.1192 +0.0012 -0.0012
 w0: -0.837 +0.075 -0.074 (prior width 1.0: -1.0 to 0.0)
 wa: d w(z)/d z at z=0 = -1.5 * (1 - w0^2) = -0.449
 z*: 1089.67 +0.21 -0.21
 z_drag: 1060.18 +0.23 -0.23
 r*: 144.54 Mpc
-r_d: 147.15 Mpc
+r_d: 147.16 Mpc
 Chi squared: 22.2
 Log Evidence: -28.1
 Degrees of freedom: 20
