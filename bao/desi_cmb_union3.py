@@ -5,9 +5,8 @@ from y2025BAO.data import get_data as get_bao_data
 import cmb.data_early_lcdm_compression as cmb
 
 c = cmb.c  # km/s
-Orh2 = cmb.Omega_r_h2(2.044)  # 2 massless neutrinos at all times
+Orh2 = cmb.Or_h2
 Omnuh2 = cmb.Omnu_h2
-z_nr = cmb.z_nr
 
 sn_legend, z_sn_vals, mu_vals, cov_matrix_sn = get_data()
 bao_legend, bao_data, bao_cov_matrix = get_bao_data()
@@ -18,19 +17,6 @@ inv_cov_bao = np.linalg.inv(bao_cov_matrix)
 z_max = max(np.max(z_sn_vals), np.max(bao_data["z"])) + 0.1
 z_grid = np.linspace(0, z_max, num=4000)
 dx = np.diff(z_grid)
-
-
-@njit
-def Omnu_z(z):
-    """
-    Computes the appox. evolution of one massive
-    neutrino species energy density with redshift
-    """
-    return (
-        (1 + z) ** 4
-        * (1 + ((1 + z_nr) / (1 + z)) ** 2) ** 0.5
-        * (1 + (1 + z_nr) ** 2) ** -0.5
-    )
 
 
 @njit
@@ -51,7 +37,7 @@ def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
 
     radiation_term = Or * zp1**4
     matter_term = Obc * zp1**3
-    neutrino_term = Onu * Omnu_z(z)
+    neutrino_term = Onu * cmb.Omnu_z(z)
     dark_energy_term = Ode * Ode_z(z, w0, wa)
 
     return np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
@@ -351,37 +337,37 @@ Degs of freedom: 33
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
 
 ** Planck + ACT compression **
-H0: 66.60 +0.90 -0.91 km/s/Mpc
-Ωm: 0.3158 +0.0078 -0.0074
+H0: 66.59 +0.82 -0.82 km/s/Mpc
+Ωm: 0.3158 +0.0078 -0.0075
 ωb: 0.02260 +0.00010 -0.00010
 ωc: 0.1168 +0.0007 -0.0007
 ωm: 0.1400 +0.0007 -0.0007
-w0: -0.856 +0.061 -0.062 (prior width 0.8: -1.0 to -1/3; 2.32 sigma to the prior left edge)
+w0: -0.856 +0.062 -0.062 (prior width 0.8: -1.0 to -1/3; 2.32 sigma to the prior left edge)
 wa: -0.401 [derived: wa = -1.5 * (1 - w0^2)]
-z*: 1089.32 +0.16 -0.16
+z*: 1089.32 +0.17 -0.17
 r*: 145.10 Mpc
-z_d: 1060.24 +0.23 -0.23
-r_d: 147.69 Mpc
-q0: -0.379 +0.071 -0.072
-Chi squared: 37.87
+z_d: 1060.22 +0.23 -0.23
+r_d: 147.70 Mpc
+q0: -0.379 +0.072 -0.073
+Chi squared: 37.90
 Log evidence: -36.3 (Δ logZ = 1.0 against ΛCDM)
 Degs of freedom: 33
 
 ** Early-time ΛCDM **
-H0: 66.48 +0.81 -0.82 km/s/Mpc
-Ωm: 0.3161 +0.0078 -0.0075
+H0: 66.47 +0.83 -0.82 km/s/Mpc
+Ωm: 0.3161 +0.0078 -0.0076
 ωb: 0.02242 +0.00012 -0.00012
 ωc: 0.1166 +0.0007 -0.0007
 ωm: 0.1397 +0.0007 -0.0007
-w0: -0.850 +0.062 -0.063 (prior width 0.8: -1.0 to -1/3; 2.38 sigma to the prior left edge)
+w0: -0.850 +0.062 -0.064 (prior width 0.8: -1.0 to -1/3; 2.34 sigma to the prior left edge)
 wa: -0.416 [devired: wa = -1.5 * (1 - w0^2)]
-z*: 1089.57 +0.20 -0.20
-r*: 145.28 Mpc
-z_d: 1059.97 +0.27 -0.27
-r_d: 147.93 Mpc
-q0: -0.372 +0.072 -0.073
-Chi squared: 36.79
-Log evidence: -35.7 (Δ logZ = 1.2 against ΛCDM)
+z*: 1089.67 +0.18 -0.18
+r*: 145.27 Mpc
+z_d: 1059.93 +0.27 -0.27
+r_d: 147.94 Mpc
+q0: -0.372 +0.072 -0.075
+Chi squared: 36.71
+Log evidence: -35.6 (Δ logZ = 1.3 against ΛCDM)
 Degs of freedom: 33
 """
 
