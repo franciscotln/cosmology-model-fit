@@ -53,7 +53,7 @@ def Omnu_z(z):
     energy density with redshift
     """
     zp1 = 1 + z
-    fact = 1.00384 * fact0
+    fact = 1.003840881 * fact0
     return zp1**4 * np.sqrt(1 + fact**2 / zp1**2) / np.sqrt(1 + fact**2)
 
 
