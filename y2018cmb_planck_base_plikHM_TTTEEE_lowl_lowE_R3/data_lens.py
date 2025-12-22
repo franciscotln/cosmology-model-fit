@@ -37,7 +37,7 @@ def Omega_r_h2(Neff=N_EFF):
 
 Or_h2 = Omega_r_h2(N_EFF - (N_EFF / 3))
 
-fact0 = (
+fact = (
     (3.0 / N_EFF) ** (1 / 4)
     * (mnu_tot / 94.07)
     * (8 / 7)
@@ -53,7 +53,6 @@ def Omnu_z(z):
     energy density with redshift
     """
     zp1 = 1 + z
-    fact = 1.003840881 * fact0
     return zp1**4 * np.sqrt(1 + fact**2 / zp1**2) / np.sqrt(1 + fact**2)
 
 

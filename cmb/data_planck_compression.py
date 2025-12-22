@@ -22,8 +22,8 @@ covariance = np.array(
 inv_cov_mat = np.linalg.inv(covariance)
 
 N_EFF = 3.046
-TCMB = 2.7260  # K
-O_GAMMA_H2 = 2.4748e-05
+TCMB = 2.7255  # K
+O_GAMMA_H2 = 2.472975328714087e-05
 
 T_nu0 = (4 / 11) ** (1 / 3) * TCMB  # K
 T_nu0_eV = T_nu0 * 8.617333262e-5  #  1.67639e-04 eV
@@ -38,7 +38,7 @@ def Omega_r_h2(Neff=N_EFF):
 
 Or_h2 = Omega_r_h2(N_EFF - (N_EFF / 3))
 
-fact0 = (
+fact = (
     (3.0 / N_EFF) ** (1 / 4)
     * (mnu_tot / 94.07)
     * (8 / 7)
@@ -54,7 +54,6 @@ def Omnu_z(z):
     energy density with redshift
     """
     zp1 = 1 + z
-    fact = 1.003342626 * fact0
     return zp1**4 * np.sqrt(1 + fact**2 / zp1**2) / np.sqrt(1 + fact**2)
 
 
