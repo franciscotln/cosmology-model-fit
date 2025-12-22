@@ -90,9 +90,30 @@ def cmb_distances(Ez_func, H0, Ob_h2, Oc_h2, w0=-1, wa=0):
 
 
 @njit
+def z_star(wb, wm):
+    """arXiv:2106.00428v2 (eq A-4)"""
+
+    s0, s1, s2, b, m = (0.80002343, 0.80012394, 1.0059723, 1.0006208, 0.99987013)
+
+    wb = wb**b
+    wm = wm**m
+
+    return (
+        s0 * wm**-0.7316314841257655
+        + s1 * 391.6723594873167 * wb**0.9368102670600895 * wm**-0.35300106475765136
+        + s2 * 937.4224935298015 * wm**0.0192950634264157 * wb**-0.04285000485853785
+    )
+
+
+@njit
 def r_drag(wb, wm):
     """arXiv:2106.00428v2 (eq 8)"""
-    SCALING_FID = 1.0010481824509851
+
+    b = 1.0010628349671604
+    m = 1.0010628290940724
+
+    wb = wb**b
+    wm = wm**m
 
     a1 = 0.00257366
     a2 = 0.05032
@@ -107,28 +128,19 @@ def r_drag(wb, wm):
     term_A_denominator = (a1 * (wb**a2)) + (a3 * (wb**a4) * (wm**a5)) + (a6 * (wm**a7))
     term_A = 1.0 / term_A_denominator
     term_B = a8 / (wm**a9)
-    return SCALING_FID * (term_A - term_B)
-
-
-@njit
-def z_star(wb, wm):
-    """arXiv:astro-ph/9510117v2 (eq-1)"""
-    SCALING_FID = 0.9982494654089482
-
-    g1 = 0.0783 * wb**-0.238 / (1 + 39.5 * wb**0.763)
-    g2 = 0.560 / (1 + 21.1 * wb**1.81)
-    factor_1 = 1 + 0.00124 * wb**-0.738
-    factor_2 = 1 + g1 * wm**g2
-    return SCALING_FID * 1048 * factor_1 * factor_2
+    return term_A - term_B
 
 
 @njit
 def z_drag(wb, wm):
     """arXiv:2106.00428v2 (eq A2)"""
-    SCALING_FID = 1.0001949212793952
+    s0, s1, s2, b, m = (1.00006936, 1.00006936, 1.00006936, 0.99993064, 0.99999079)
+
+    wb = wb**b
+    wm = wm**m
 
     return (
-        SCALING_FID
-        * (1 + 428.169 * wb**0.256459 * wm**0.616388 + 925.56 * wm**0.751615)
+        s0
+        * (1 + s1 * 428.169 * wb**0.256459 * wm**0.616388 + s2 * 925.56 * wm**0.751615)
         * wm**-0.714129
     )
