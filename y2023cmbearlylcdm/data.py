@@ -42,7 +42,7 @@ Or_h2 = Omega_r_h2(N_EFF - (N_EFF / 3))
 
 fact0 = (
     (3.0 / N_EFF) ** (1 / 4)
-    * (mnu_tot / 94.0641)
+    * (mnu_tot / 94.0708)
     * (8 / 7)
     * (11 / 4) ** (4 / 3)
     / O_GAMMA_H2
