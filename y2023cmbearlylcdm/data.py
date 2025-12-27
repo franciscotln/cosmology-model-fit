@@ -22,16 +22,15 @@ inv_cov_mat = np.linalg.inv(covariance)
 
 c = c0 / 1000  # km/s
 
-N_EFF = 3.044
+k_B = 8.617333262e-5  # eV/K
 TCMB = 2.7255  # K
 O_GAMMA_H2 = 2.472975328714087e-05
 
-T_nu0 = (4 / 11) ** (1 / 3) * TCMB  # K
-T_nu0_eV = T_nu0 * 8.617333262e-5  #  1.67639e-04 eV
+N_EFF = 3.044
+T_nu0 = (4 / 11) ** (1 / 3) * (N_EFF / 3) ** (1 / 4) * TCMB  # K
+T_nu0_eV = T_nu0 * k_B  # eV
 mnu_tot = 0.06  # total mass [eV]
-# present-day Omega_nu*h^2 (Cobaya)
-Omnu_h2 = mnu_tot / (94.0708 / (N_EFF / 3.0) ** 0.75)
-z_nr = mnu_tot / (3.15 * T_nu0_eV)
+Omnu_h2 = mnu_tot / (94.07 / (N_EFF / 3.0) ** 0.75)
 
 
 def Omega_r_h2(Neff=N_EFF):
@@ -39,14 +38,6 @@ def Omega_r_h2(Neff=N_EFF):
 
 
 Or_h2 = Omega_r_h2(N_EFF - (N_EFF / 3))
-
-fact = (
-    (3.0 / N_EFF) ** (1 / 4)
-    * (mnu_tot / 94.0708)
-    * (8 / 7)
-    * (11 / 4) ** (4 / 3)
-    / O_GAMMA_H2
-)
 
 
 @njit
@@ -56,7 +47,10 @@ def Omnu_z(z):
     energy density with redshift
     """
     zp1 = 1 + z
-    return zp1**4 * np.sqrt(1 + fact**2 / zp1**2) / np.sqrt(1 + fact**2)
+    p = 1.8361771
+    base = -9.2941 * N_EFF + 141.4673
+    ratio = (1 + (base / zp1) ** p) / (1 + base**p)
+    return zp1**4 * ratio ** (1 / p)
 
 
 def rs_z(Ez_func, z_lim, H0, Obh2, Och2, w0=-1, wa=0):
@@ -87,25 +81,10 @@ def cmb_distances(Ez_func, H0, Ob_h2, Oc_h2, w0=-1, wa=0):
 
 
 @njit
-def z_drag(wb, wm):
-    """arXiv:2106.00428v2 (eq A2)"""
-    s0, s1, s2, b, m = (1.0002255, 1.00055381, 0.99954164, 0.99863415, 1.00286412)
-
-    wb = wb**b
-    wm = wm**m
-
-    return (
-        s0
-        * (1 + s1 * 428.169 * wb**0.256459 * wm**0.616388 + s2 * 925.56 * wm**0.751615)
-        * wm**-0.714129
-    )
-
-
-@njit
 def z_star(wb, wm):
     """arXiv:2106.00428v2 (eq A-4)"""
 
-    s0, s1, s2, b, m = (0.81353322, 0.82031443, 1.00446503, 1.02250069, 1.05773317)
+    s0, s1, s2, b, m = (0.85852057, 0.85543412, 1.00112447, 1.03168648, 0.98880959)
 
     wb = wb**b
     wm = wm**m
@@ -121,7 +100,7 @@ def z_star(wb, wm):
 def r_drag(wb, wm):
     """arXiv:2106.00428v2 (eq 8)"""
 
-    b, m = (1.00139956, 1.00073305)
+    b, m = (1.00137869, 1.0007536)
 
     wb = wb**b
     wm = wm**m
@@ -140,3 +119,18 @@ def r_drag(wb, wm):
     term_A = 1.0 / term_A_denominator
     term_B = a8 / (wm**a9)
     return term_A - term_B
+
+
+@njit
+def z_drag(wb, wm):
+    """arXiv:2106.00428v2 (eq A2)"""
+    s0, s1, s2, b, m = (0.99882683, 1.00371723, 1.00155821, 1.00215819, 1.01377142)
+
+    wb = wb**b
+    wm = wm**m
+
+    return (
+        s0
+        * (1 + s1 * 428.169 * wb**0.256459 * wm**0.616388 + s2 * 925.56 * wm**0.751615)
+        * wm**-0.714129
+    )
