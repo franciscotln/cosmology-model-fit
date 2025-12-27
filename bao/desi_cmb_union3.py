@@ -337,36 +337,36 @@ Degs of freedom: 33
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
 
 ** Planck + ACT compression **
-H0: 66.59 +0.82 -0.82 km/s/Mpc
-Ωm: 0.3158 +0.0078 -0.0075
+H0: 66.59 +0.81 -0.81 km/s/Mpc
+Ωm: 0.3158 +0.0077 -0.0075
 ωb: 0.02260 +0.00010 -0.00010
 ωc: 0.1168 +0.0007 -0.0007
 ωm: 0.1400 +0.0007 -0.0007
-w0: -0.856 +0.062 -0.062 (prior width 0.8: -1.0 to -1/3; 2.32 sigma to the prior left edge)
+w0: -0.856 +0.061 -0.062 (prior width 0.8: -1.0 to -1/3; 2.32 sigma to the prior left edge)
 wa: -0.401 [derived: wa = -1.5 * (1 - w0^2)]
-z*: 1089.32 +0.17 -0.17
+z*: 1089.31 +0.16 -0.16
 r*: 145.10 Mpc
 z_d: 1060.22 +0.23 -0.23
 r_d: 147.70 Mpc
-q0: -0.379 +0.072 -0.073
-Chi squared: 37.90
+q0: -0.379 +0.071 -0.073
+Chi squared: 37.92
 Log evidence: -36.3 (Δ logZ = 1.0 against ΛCDM)
 Degs of freedom: 33
 
 ** Early-time ΛCDM **
-H0: 66.47 +0.83 -0.82 km/s/Mpc
-Ωm: 0.3161 +0.0078 -0.0076
+H0: 66.48 +0.81 -0.82 km/s/Mpc
+Ωm: 0.3161 +0.0078 -0.0075
 ωb: 0.02242 +0.00012 -0.00012
 ωc: 0.1166 +0.0007 -0.0007
 ωm: 0.1397 +0.0007 -0.0007
-w0: -0.850 +0.062 -0.064 (prior width 0.8: -1.0 to -1/3; 2.34 sigma to the prior left edge)
+w0: -0.850 +0.062 -0.062 (prior width 0.8: -1.0 to -1/3; 2.34 sigma to the prior left edge)
 wa: -0.416 [devired: wa = -1.5 * (1 - w0^2)]
-z*: 1089.67 +0.18 -0.18
+z*: 1089.65 +0.19 -0.19
 r*: 145.27 Mpc
-z_d: 1059.93 +0.27 -0.27
+z_d: 1059.90 +0.27 -0.27
 r_d: 147.94 Mpc
-q0: -0.372 +0.072 -0.075
-Chi squared: 36.71
+q0: -0.372 +0.072 -0.073
+Chi squared: 36.72
 Log evidence: -35.6 (Δ logZ = 1.3 against ΛCDM)
 Degs of freedom: 33
 """
