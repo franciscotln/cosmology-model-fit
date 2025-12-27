@@ -23,15 +23,15 @@ covariance = np.array(
 )
 inv_cov_mat = np.linalg.inv(covariance)
 
-N_EFF = 3.044
+k_B = 8.617333262e-5  # eV/K
 TCMB = 2.7255  # K
 O_GAMMA_H2 = 2.472975328714087e-05
 
-T_nu0 = (4 / 11) ** (1 / 3) * TCMB  # K
-T_nu0_eV = T_nu0 * 8.617333262e-5  #  1.67639e-04 eV
+N_EFF = 3.044
+T_nu0 = (4 / 11) ** (1 / 3) * (N_EFF / 3) ** (1 / 4) * TCMB  # K
+T_nu0_eV = T_nu0 * k_B  # eV
 mnu_tot = 0.06  # total mass [eV]
-Omnu_h2 = mnu_tot / (94.0641 / (N_EFF / 3.0) ** 0.75)  # present-day Omega_nu*h^2
-z_nr = mnu_tot / (3.15 * T_nu0_eV)
+Omnu_h2 = mnu_tot / (94.0641 / (N_EFF / 3.0) ** 0.75)
 
 
 def Omega_r_h2(Neff=N_EFF):
@@ -39,14 +39,6 @@ def Omega_r_h2(Neff=N_EFF):
 
 
 Or_h2 = Omega_r_h2(N_EFF - (N_EFF / 3))
-
-fact = (
-    (3.0 / N_EFF) ** (1 / 4)
-    * (mnu_tot / 94.0641)
-    * (8 / 7)
-    * (11 / 4) ** (4 / 3)
-    / O_GAMMA_H2
-)
 
 
 @njit
@@ -56,7 +48,10 @@ def Omnu_z(z):
     energy density with redshift
     """
     zp1 = 1 + z
-    return zp1**4 * np.sqrt(1 + fact**2 / zp1**2) / np.sqrt(1 + fact**2)
+    p = 1.8361771
+    base = -9.2941 * N_EFF + 141.4673
+    ratio = (1 + (base / zp1) ** p) / (1 + base**p)
+    return zp1**4 * ratio ** (1 / p)
 
 
 @njit
