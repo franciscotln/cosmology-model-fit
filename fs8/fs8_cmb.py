@@ -5,9 +5,8 @@ import y2018fs8.data as fs8_data
 import cmb.data_planck_act_compression as cmb
 
 c = cmb.c  # km/s
-Orh2 = cmb.Omega_r_h2(2.044)
+Orh2 = cmb.Or_h2
 Omnuh2 = cmb.Omnu_h2
-z_nr = cmb.z_nr
 
 data = fs8_data.data
 inv_cov_mat = np.linalg.inv(fs8_data.cov_mat)
@@ -18,23 +17,10 @@ dx = np.diff(z_grid)
 
 
 @njit
-def Omnu_z(z):
-    """
-    Computes the appox. evolution of one massive
-    neutrino species energy density with redshift
-    """
-    return (
-        (1 + z) ** 4
-        * (1 + ((1 + z_nr) / (1 + z)) ** 2) ** 0.5
-        * (1 + (1 + z_nr) ** 2) ** -0.5
-    )
-
-
-@njit
 def Ode_z(z, w0, wa):
-    # a3 = 1 / (1 + z) ** 3
-    # return 4 / ((1 + w0) * a3 + (1 - w0)) ** 2
-    return (1 + z) ** (3 * (1 + w0))
+    a3 = 1 / (1 + z) ** 3
+    return 4 / ((1 + w0) * a3 + (1 - w0)) ** 2
+    # return (1 + z) ** (3 * (1 + w0))
 
 
 @njit
@@ -49,7 +35,7 @@ def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
 
     radiation_term = Or * zp1**4
     matter_term = Obc * zp1**3
-    neutrino_term = Onu * Omnu_z(z)
+    neutrino_term = Onu * cmb.Omnu_z(z)
     dark_energy_term = Ode * Ode_z(z, w0, wa)
 
     return np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
@@ -159,7 +145,8 @@ bounds = np.array(
         (50.0, 80.0),  # H0
         (0.01, 0.035),  # Ob * h^2
         (0.1, 0.35),  # Oc * h^2
-        (-1.5, -0.5),  # w0
+        # (-1.5, -0.5),  # w0
+        (-1.0, 0.0),  # w0
         (0.2, 1.2),  # sigma8
         (0.5, 2.2),  # f_err: overstimation factor of the errors
     ],
@@ -323,34 +310,34 @@ degs of freedom = 58
 ===============================
 
 flat wCDM
-H0 = 69.05 +1.95 -1.81 km/s/Mpc
+H0 = 69.06 +1.93 -1.84 km/s/Mpc
 Ωbh2 = 0.02252 +0.00011 -0.00011
-Ωch2 = 0.11891 +0.00122 -0.00119
-Ωmh2 = 0.1421 +0.0012 -0.0012
-Ωm = 0.298 +0.016 -0.016
+Ωch2 = 0.11891 +0.00119 -0.00119
+Ωmh2 = 0.1421 +0.0012 -0.0011
+Ωm = 0.298 +0.017 -0.016
 σ8 = 0.770 +0.013 -0.013
-S8 = 0.765 +0.029 -0.030
-w0 = -1.041 +0.062 -0.065
+S8 = 0.765 +0.030 -0.029
+w0 = -1.042 +0.062 -0.065
 f = 1.29 +0.12 -0.12
-chi2 = 61.58
+chi2 = 61.43
 log likelihood = 100.1
-log evidence = 75.3
+log evidence = 74.2
 degs of freedom = 57
 
 ===============================
 
 flat wzCDM
-H0 = 68.21 +2.20 -2.03 km/s/Mpc
-Ωbh2 = 0.02252 +0.00011 -0.00011
-Ωch2 = 0.11875 +0.00120 -0.00118
-Ωmh2 = 0.1419 +0.0012 -0.0011
-Ωm = 0.305 +0.019 -0.019
-σ8 = 0.773 +0.014 -0.014
-S8 = 0.778 +0.034 -0.034
-w0 = -1.025 +0.148 -0.162
+H0 = 66.61 +0.97 -1.40 km/s/Mpc
+Ωbh2 = 0.02253 +0.00011 -0.00011
+Ωch2 = 0.11851 +0.00117 -0.00116
+Ωmh2 = 0.1417 +0.0011 -0.0011
+Ωm = 0.320 +0.014 -0.011
+σ8 = 0.781 +0.012 -0.012
+S8 = 0.804 +0.025 -0.019
+w0 = -0.908 +0.102 -0.065
 f = 1.29 +0.12 -0.11
-chi2 = 61.45
-log likelihood = 99.9
-log evidence = 75.8
+chi2 = 62.59
+log likelihood = 99.5
+log evidence = 75.2
 degs of freedom = 57
 """
