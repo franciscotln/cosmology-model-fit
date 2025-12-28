@@ -42,16 +42,27 @@ Or_h2 = Omega_r_h2(N_EFF - (N_EFF / 3))
 
 
 @njit
+def _Omnu_comp(z, b):
+    p = 1.95648
+    zp1 = 1 + z
+    ratio = (zp1**p + b**p) / (1 + b**p)
+    return zp1**3 * ratio ** (1 / p)
+
+
+@njit
 def Omnu_z(z):
     """
-    Computes the appox. evolution of massive neutrino
-    energy density with redshift
+    ### Computes the appox. evolution of massive neutrino energy density with redshift.
+    - Two-fluid model for massive neutrinos: max relative error ~0.024% compared to
+    the exact fermi-dirac integral evaluation for N_EFF in the range 2.9 - 3.1 and
+    T_CMB = 2.7255K
     """
-    zp1 = 1 + z
-    p = 1.8361771
-    base = -9.2941 * N_EFF + 141.4673
-    ratio = (1 + (base / zp1) ** p) / (1 + base**p)
-    return zp1**4 * ratio ** (1 / p)
+
+    B1 = -6.69660 * N_EFF + 100.42089
+    B2 = 2.72486 * B1
+    W = 0.53757
+
+    return W * _Omnu_comp(z, B1) + (1 - W) * _Omnu_comp(z, B2)
 
 
 @njit
