@@ -1,38 +1,28 @@
 from numba import njit
 import numpy as np
-from scipy.constants import c as c0
-from scipy.linalg import cho_factor, solve_triangular
-import y2025cmb_p_actbase_lcdm_camb.data as cmb
+import y2023cmbearlylcdm.data as cmb
 from y2023union3.data import get_data as get_sn_data
 from y2025BAO.data import get_data as get_bao_data
 
-c = c0 / 1000  # Speed of light in km/s
-Orh2 = cmb.Omega_r_h2(2.044)
+c = cmb.c
+Orh2 = cmb.Or_h2
 Omnuh2 = cmb.Omnu_h2
-z_nr = cmb.z_nr
 
 sn_legend, z_cmb, mu_values, cov_matrix_sn = get_sn_data()
 bao_legend, bao_data, cov_matrix_bao = get_bao_data()
 
-cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
-cho_bao = cho_factor(cov_matrix_bao, lower=True)[0]
+inv_cov_sn = np.linalg.inv(cov_matrix_sn)
+inv_cov_bao = np.linalg.inv(cov_matrix_bao)
 
 z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
-z_grid = np.linspace(0, z_max, num=1200)
+z_grid = np.linspace(0, z_max, num=4000)
 dx = np.diff(z_grid)
 
 
 @njit
-def Omnu_z(z):
-    """
-    Computes the appox. evolution of one massive
-    neutrino species energy density with redshift
-    """
-    return (
-        (1 + z) ** 4
-        * (1 + ((1 + z_nr) / (1 + z)) ** 2) ** 0.5
-        * (1 + (1 + z_nr) ** 2) ** -0.5
-    )
+def Ode_z(z, w0, wa):
+    a3 = 1 / (1 + z) ** 3
+    return 4 / ((1 + w0) * a3 + (1 - w0)) ** 2
 
 
 @njit
@@ -47,8 +37,8 @@ def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
 
     radiation_term = Or * zp1**4
     matter_term = Obc * zp1**3
-    neutrino_term = Onu * Omnu_z(z)
-    dark_energy_term = Ode * (4 * zp1**3 / (1 + 3 * zp1**3)) ** (4 * (1 + w0))
+    neutrino_term = Onu * cmb.Omnu_z(z)
+    dark_energy_term = Ode * Ode_z(z, w0, wa)
 
     return np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
 
@@ -102,11 +92,6 @@ def theory_mu(params):
     return params[0] + 25 + 5 * np.log10(dL)
 
 
-def solve_triang(cho_L, delta):
-    y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
-    return np.dot(y, y)
-
-
 def chi_squared(params):
     dists = cmb.cmb_distances(Ez, *params[1:])
     rd = dists[1]
@@ -115,10 +100,10 @@ def chi_squared(params):
     chi2_rd = delta_cmb @ cmb.inv_cov_mat @ delta_cmb
 
     delta_sn = mu_values - theory_mu(params)
-    chi_sn = solve_triang(cho_sn, delta_sn)
+    chi_sn = delta_sn @ inv_cov_sn @ delta_sn
 
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, rd, params)
-    chi_bao = solve_triang(cho_bao, delta_bao)
+    chi_bao = delta_bao @ inv_cov_bao @ delta_bao
 
     return chi_sn + chi_bao + chi2_rd
 
@@ -129,7 +114,7 @@ bounds = np.array(
         (50.0, 90.0),  # H0
         (0.010, 0.030),  # Ob * h^2
         (0.05, 0.30),  # Ωc * h^2
-        (-1.5, 0.0),  # w0
+        (-1.0, -1 / 3),  # w0
     ],
     dtype=np.float64,
 )
@@ -158,11 +143,11 @@ def log_probability(params):
 def main():
     import emcee
     from multiprocessing import Pool
+    from sn.plotting import plot_predictions as plot_sn_predictions
+    from bao.plot_predictions import plot_bao_predictions
     from corner_plot import plot_corner_and_chains
     from log_evidence import log_evidence
-    from sn.plotting import plot_predictions as plot_sn_predictions
     from gelman_rubin import gelman_rubin
-    from .plot_predictions import plot_bao_predictions
 
     np.random.seed(42)
     ndim = len(bounds)
@@ -260,58 +245,58 @@ if __name__ == "__main__":
     main()
 
 """
-(100 θ*, r_drag)CMB Planck + ACT DR6
+(100 θ*, r_drag)CMB + DESI DR2 BAO + Union3 SnIa
 """
 
 """
 Flat ΛCDM w(z) = -1
 -- Early ΛCDM arXiv:2302.12911 --
-H0: 68.78 +0.43 -0.43 km/s/Mpc
-ωb: 0.02277 +0.00030 -0.00030
+H0: 68.77 +0.44 -0.43 km/s/Mpc
+ωb: 0.02276 +0.00030 -0.00029
 ωc: 0.1169 +0.0007 -0.0007
 ωm: 0.1403 +0.0006 -0.0006
-Ωm: 0.2965 +0.0047 -0.0047
+Ωm: 0.2966 +0.0047 -0.0047
 w0: -1
 wa: 0
 r_d: 147.49 +0.28 -0.28 Mpc
-z_d: 1060.79 +0.65 -0.65
-z*: 1089.13 +0.43 -0.42
-r*: 144.96 Mpc
-100 θ*: 1.04106
+z_d: 1060.71 +0.65 -0.65
+z*: 1089.25 +0.40 -0.39
+r*: 144.94 Mpc
+100 θ*: 1.04105
 Chi squared: 39.9
 Log evidence: -35.8
 Degrees of freedom: 33
 
 -- ATC DR6 --
-H0: 69.59 +0.52 -0.51 km/s/Mpc
+H0: 69.59 +0.52 -0.52 km/s/Mpc
 ωb: 0.02399 +0.00051 -0.00051
 ωc: 0.1173 +0.0008 -0.0008
-ωm: 0.1419 +0.0008 -0.0008
+ωm: 0.1419 +0.0009 -0.0008
 Ωm: 0.2930 +0.0048 -0.0047
 w0: -1
 wa: 0
-r_d: 146.05 +0.55 -0.55 Mpc
-z_d: 1063.39 +1.11 -1.11
-z*: 1087.65 +0.63 -0.61
+r_d: 146.05 +0.56 -0.55 Mpc
+z_d: 1063.31 +1.08 -1.10
+z*: 1087.66 +0.62 -0.60
 r*: 143.92 Mpc
-100 θ*: 1.04083
-Chi squared: 41.3
-Log evidence: -35.6
+100 θ*: 1.04082
+Chi squared: 41.4
+Log evidence: -35.7
 Degrees of freedom: 33
 
 -- ATC DR6 + Planck --
-H0: 68.95 +0.44 -0.44 km/s/Mpc
-ωb: 0.02304 +0.00030 -0.00031
+H0: 68.95 +0.44 -0.43 km/s/Mpc
+ωb: 0.02304 +0.00031 -0.00030
 ωc: 0.1169 +0.0007 -0.0007
 ωm: 0.1406 +0.0007 -0.0006
 Ωm: 0.2957 +0.0047 -0.0047
 w0: -1
 wa: 0
-r_d: 147.18 +0.29 -0.30 Mpc
-z_d: 1061.24 +0.66 -0.67
-z*: 1088.76 +0.43 -0.42
+r_d: 147.18 +0.29 -0.29 Mpc
+z_d: 1061.21 +0.65 -0.65
+z*: 1088.77 +0.41 -0.42
 r*: 144.74 Mpc
-100 θ*: 1.04097
+100 θ*: 1.04096
 Chi squared: 40.2
 Log evidence: -35.9
 Degrees of freedom: 33
@@ -373,56 +358,57 @@ Degrees of freedom: 32
 """
 
 """
-Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)**3)
+Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
 
 -- Early ΛCDM arXiv:2302.12911 --
-H0: 66.53 +0.84 -0.83 km/s/Mpc
-ωb: 0.02321 +0.00033 -0.00033
-ωc: 0.1152 +0.0009 -0.0009
+H0: 66.50 +0.84 -0.82 km/s/Mpc
+ωb: 0.02318 +0.00033 -0.00033
+ωc: 0.1153 +0.0009 -0.0009
 ωm: 0.1391 +0.0007 -0.0007
-Ωm: 0.3142 +0.0078 -0.0077
-w0: -0.800 +0.066 -0.066
+Ωm: 0.3146 +0.0078 -0.0077
+w0: -0.788 +0.065 -0.067 (prior width -2/3: -1.0 to -1/3)
+wa: d w(z)/d z at z=0 = -1.5 * (1 - w0**2)
 r_d: 147.44 +0.28 -0.28 Mpc
-z_d: 1061.67 +0.71 -0.71
-z*: 1088.43 +0.48 -0.47
-r*: 145.05 Mpc
+z_d: 1061.55 +0.70 -0.71
+z*: 1088.62 +0.44 -0.44
+r*: 145.03 Mpc
 100 θ*: 1.04100
-Chi squared: 30.5
-Log evidence: -33.4 (Δ logZ = 2.4 against ΛCDM)
+Chi squared: 30.4
+Log evidence: -32.5 (Δ logZ = 3.3 against ΛCDM)
 Degrees of freedom: 32
 
 -- ATC DR6 --
-H0: 67.18 +0.87 -0.86 km/s/Mpc
-ωb: 0.02461 +0.00055 -0.00055
+H0: 67.14 +0.87 -0.85 km/s/Mpc
+ωb: 0.02459 +0.00055 -0.00054
 ωc: 0.1155 +0.0009 -0.0009
-ωm: 0.1407 +0.0009 -0.0009
-Ωm: 0.3119 +0.0077 -0.0076
-w0: -0.783 +0.065 -0.065 (prior width 1.5: -1.5 to 0.0)
-wa: d w(z)/d z at z=0 = (9/4) * (1 + w0)
-r_d: 145.84 +0.56 -0.56 Mpc
-z_d: 1064.63 +1.17 -1.18
-z*: 1086.77 +0.67 -0.65
+ωm: 0.1408 +0.0009 -0.0009
+Ωm: 0.3123 +0.0077 -0.0076
+w0: -0.769 +0.065 -0.067 (prior width -2/3: -1.0 to -1/3)
+wa: d w(z)/d z at z=0 = -1.5 * (1 - w0**2)
+r_d: 145.85 +0.56 -0.56 Mpc
+z_d: 1064.48 +1.14 -1.14
+z*: 1086.82 +0.65 -0.63
 r*: 143.91 Mpc
-100 θ*: 1.04073
-Chi squared: 30.1
-Log evidence: -32.3 (Δ logZ = 3.3 against ΛCDM)
+100 θ*: 1.04075
+Chi squared: 30.0
+Log evidence: -31.5 (Δ logZ = 4.2 against ΛCDM)
 Degrees of freedom: 32
 
 -- ATC DR6 + Planck --
-H0: 66.66 +0.85 -0.83 km/s/Mpc
-ωb: 0.02349 +0.00034 -0.00034
-ωc: 0.1152 +0.0009 -0.0009
+H0: 66.63 +0.84 -0.83 km/s/Mpc
+ωb: 0.02348 +0.00034 -0.00033
+ωc: 0.1153 +0.0009 -0.0009
 ωm: 0.1394 +0.0008 -0.0008
-Ωm: 0.3137 +0.0077 -0.0077
-w0: -0.797 +0.065 -0.066 (prior width 1.5: -1.5 to 0.0)
-wa: d w(z)/d z at z=0 = (9/4) * (1 + w0)
+Ωm: 0.3140 +0.0077 -0.0076
+w0: -0.784 +0.065 -0.067 (prior width -2/3: -1.0 to -1/3)
+wa: d w(z)/d z at z=0 = -1.5 * (1 - w0**2)
 r_d: 147.13 +0.29 -0.29 Mpc
-z_d: 1062.14 +0.72 -0.72
-z*: 1088.05 +0.48 -0.47
+z_d: 1062.05 +0.70 -0.70
+z*: 1088.09 +0.46 -0.46
 r*: 144.83 Mpc
 100 θ*: 1.04093
-Chi squared: 30.4
-Log evidence: -33.3 (Δ logZ = 2.6 against ΛCDM)
+Chi squared: 30.3
+Log evidence: -32.4 (Δ logZ = 3.5 against ΛCDM)
 Degrees of freedom: 32
 """
 
@@ -478,187 +464,5 @@ r*: 144.63 Mpc
 100 θ*: 1.04095
 Chi squared: 29.2
 Log evidence: -34.5 (Δ logZ = 1.4 against ΛCDM)
-Degrees of freedom: 31
-"""
-
-
-"""
-(100 θ*, ωm)CMB Planck + ACT DR6
-
-Priors:
-U(-1.0, 1.0)  # ΔM
-U(60.0, 75.0)  # H0
-U(0.010, 0.045)  # Ob * h^2
-U(0.05, 0.30)  # Ωc * h^2
-U(-1.5, 0.0)  # w0
-U(-3.0, 1.5)  # wa
-"""
-
-"""
-Flat ΛCDM w(z) = -1
-ΔM: -0.098 +0.092 -0.092 mag
-H0: 69.40 +0.82 -0.84 km/s/Mpc
-ωb: 0.02379 +0.00093 -0.00095
-ωc: 0.1175 +0.0007 -0.0007
-ωm: 0.1419 +0.0011 -0.0011
-Ωm: 0.2946 +0.0060 -0.0057
-w0: -1
-wa: 0
-r_d: 146.22 +1.05 -1.01 Mpc
-z_d: 1062.95 +2.02 -2.14
-z*: 1087.88 +1.20 -1.09
-r*: 144.02 Mpc
-100 θ*: 1.04101
-Chi squared: 41.2
-Log evidence: -34.8
-Degrees of freedom: 33
-"""
-
-"""
-Flat wCDM w(z) = w0
-ΔM: -0.098 +0.091 -0.091 mag
-H0: 68.99 +0.77 -0.77 km/s/Mpc
-ωb: 0.02729 +0.00159 -0.00155
-ωc: 0.1146 +0.0013 -0.0013
-ωm: 0.1425 +0.0012 -0.0012
-Ωm: 0.2994 +0.0058 -0.0057
-w0: -0.875 +0.040 -0.041
-wa: 0
-r_d: 143.30 +1.40 -1.37 Mpc
-z_d: 1070.12 +3.04 -3.11
-z*: 1083.89 +1.62 -1.50
-r*: 142.13 Mpc
-100 θ*: 1.04093
-Chi squared: 32.2
-Log evidence: -33.1 (Δ logZ = 1.7 against ΛCDM)
-Degrees of freedom: 32
-"""
-
-"""
-Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)**3)
-ΔM: -0.128 +0.093 -0.092 mag
-H0: 67.70 +0.93 -0.91 km/s/Mpc
-ωb: 0.02568 +0.00106 -0.00109
-ωc: 0.1161 +0.0008 -0.0008
-ωm: 0.1424 +0.0011 -0.0011
-Ωm: 0.3107 +0.0078 -0.0076
-w0: -0.771 +0.067 -0.069
-wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-r_d: 144.57 +1.10 -1.05 Mpc
-z_d: 1066.92 +2.16 -2.29
-z*: 1085.63 +1.21 -1.10
-r*: 142.95 Mpc
-100 θ*: 1.04091
-Chi squared: 30.1
-Log evidence: -31.5 (Δ logZ = 3.3 against ΛCDM)
-Degrees of freedom: 32
-"""
-
-"""
-Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
-ΔM: -0.161 +0.098 -0.098 mag
-H0: 66.44 +1.55 -1.42 km/s/Mpc
-ωb: 0.02314 +0.00240 -0.00202
-ωc: 0.1184 +0.0017 -0.0021
-ωm: 0.1422 +0.0012 -0.0011
-Ωm: 0.3221 +0.0132 -0.0137
-w0: -0.713 +0.109 -0.102
-wa: -0.828 +0.472 -0.506
-r_d: 146.66 +1.94 -2.09 Mpc
-z_d: 1061.57 +5.09 -4.63
-z*: 1088.78 +2.90 -2.96
-r*: 144.27 Mpc
-100 θ*: 1.04086
-Chi squared: 29.6
-Log evidence: -32.8 (Δ logZ = 2.0 against ΛCDM)
-Degrees of freedom: 31
-"""
-
-
-"""
-(100 θ*, ωm, H0)CMB Planck + ACT DR6
-
-Priors:
-U(-1.0, 1.0)  # ΔM
-U(50.0, 90.0)  # H0
-U(0.010, 0.040)  # Ob * h^2
-U(0.05, 0.30)  # Ωc * h^2
-U(-1.5, 0.0)  # w0
-U(-3.0, 1.5)  # wa
-"""
-
-"""
-Flat ΛCDM w(z) = -1
-H0: 68.38 +0.27 -0.27 km/s/Mpc
-ωb: 0.02256 +0.00010 -0.00010
-ωc: 0.1175 +0.0007 -0.0007
-ωm: 0.1407 +0.0007 -0.0006
-Ωm: 0.3009 +0.0036 -0.0036
-w0: -1
-wa: 0
-r_d: 147.56 +0.19 -0.20 Mpc
-z_d: 1060.18 +0.24 -0.23
-z*: 1089.44 +0.16 -0.15
-r*: 144.95 Mpc
-100 θ*: 1.04111
-Chi squared: 42.9
-Log evidence: -38.7
-Degrees of freedom: 33
-"""
-
-"""
-Flat wCDM w(z) = w0
-H0: 68.10 +0.28 -0.28 km/s/Mpc
-ωb: 0.02622 +0.00133 -0.00128
-ωc: 0.1145 +0.0013 -0.0013
-ωm: 0.1414 +0.0007 -0.0007
-Ωm: 0.3048 +0.0039 -0.0038
-w0: -0.872 +0.040 -0.042
-wa: 0
-r_d: 144.42 +1.07 -1.07 Mpc
-z_d: 1067.94 +2.62 -2.61
-z*: 1084.94 +1.44 -1.39
-r*: 142.95 Mpc
-100 θ*: 1.04104
-Chi squared: 33.7
-Log evidence: -36.9 (Δ logZ = 1.8 against ΛCDM)
-Degrees of freedom: 32
-"""
-
-"""
-Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)**3)
-H0: 67.66 +0.34 -0.34 km/s/Mpc
-ωb: 0.02563 +0.00088 -0.00087
-ωc: 0.1161 +0.0008 -0.0008
-ωm: 0.1424 +0.0008 -0.0008
-Ωm: 0.3111 +0.0048 -0.0047
-w0: -0.770 +0.063 -0.063
-wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-r_d: 144.62 +0.82 -0.82 Mpc
-z_d: 1066.83 +1.78 -1.81
-z*: 1085.68 +0.98 -0.94
-r*: 142.98 Mpc
-100 θ*: 1.04095
-Chi squared: 30.1
-Log evidence: -34.6 (Δ logZ = 4.1 against ΛCDM)
-Degrees of freedom: 32
-"""
-
-"""
-Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
-H0: 67.52 +0.40 -0.39 km/s/Mpc
-ωb: 0.02456 +0.00137 -0.00123
-ωc: 0.1175 +0.0016 -0.0018
-ωm: 0.1427 +0.0009 -0.0009
-Ωm: 0.3131 +0.0056 -0.0056
-w0: -0.770 +0.070 -0.067
-wa: -0.552 +0.288 -0.318
-r_d: 145.36 +1.03 -1.06 Mpc
-z_d: 1064.66 +2.79 -2.62
-z*: 1086.97 +1.58 -1.63
-r*: 143.43 Mpc
-100 θ*: 1.04102
-Chi squared: 30.1
-Log evidence: -36.6 (Δ logZ = 2.1 against ΛCDM)
 Degrees of freedom: 31
 """
