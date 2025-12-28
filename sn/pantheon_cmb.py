@@ -5,28 +5,14 @@ from y2022pantheonSHOES.data import get_data
 import cmb.data_planck_act_compression as cmb
 
 c = cmb.c  # Speed of light in km/s
-Orh2 = cmb.Omega_r_h2(2.044)
+Orh2 = cmb.Or_h2
 Omnuh2 = cmb.Omnu_h2
-z_nr = cmb.z_nr
 
 sn_legend, z_cmb, z_hel, mb_values, cov_matrix_sn = get_data()
 cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
 
 z_grid = np.linspace(0, np.max(z_cmb) + 0.1, num=3000)
 dx = np.diff(z_grid)
-
-
-@njit
-def Omnu_z(z):
-    """
-    Computes the appox. evolution of one massive
-    neutrino species energy density with redshift
-    """
-    return (
-        (1 + z) ** 4
-        * (1 + ((1 + z_nr) / (1 + z)) ** 2) ** 0.5
-        * (1 + (1 + z_nr) ** 2) ** -0.5
-    )
 
 
 @njit
@@ -41,7 +27,7 @@ def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
 
     radiation_term = Or * zp1**4
     matter_term = Obc * zp1**3
-    neutrino_term = Onu * Omnu_z(z)
+    neutrino_term = Onu * cmb.Omnu_z(z)
     dark_energy_term = Ode * (2 * zp1**3 / ((1 + w0) + (1 - w0) * zp1**3)) ** 2
 
     return np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
@@ -237,19 +223,19 @@ Chi squared: 1402.71
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
-H0: 66.74 +0.60 -0.64 km/s/Mpc
+H0: 66.73 +0.61 -0.64 km/s/Mpc
 Ωm: 0.320 +0.008 -0.007
-ωm: 0.14237 +0.00114 -0.00113
+ωm: 0.14237 +0.00114 -0.00115
 ωb: 0.02250 +0.00011 -0.00011
-ωc: 0.11923 +0.00118 -0.00117
-w0: -0.935 +0.045 -0.039 (prior width 1.0: from -1.0 to 0.0)
+ωc: 0.11922 +0.00119 -0.00118
+w0: -0.936 +0.045 -0.039
 wa: d w(z)/dz at z=0 = -(3/2) * (1 - w0**2)
 M: -19.451 +0.015 -0.015 mag
 z*: 1089.67 +0.21 -0.21
 z_d: 1060.18 +0.23 -0.23
 r* = 144.54 Mpc
-rd: 147.16 +0.28 -0.29 Mpc
-Chi squared: 1402.77
+rd: 147.16 +0.29 -0.29 Mpc
+Chi squared: 1402.82
 
 ===============================
 
