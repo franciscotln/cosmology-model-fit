@@ -53,7 +53,7 @@ def Omnu_z(z):
     """
     ### Computes the appox. evolution of massive neutrino energy density with redshift.
     - Two-fluid model for massive neutrinos: max relative error ~0.024% compared to
-    the exact fermi-dirac integral evaluation for N_EFF in the range 2.9 - 3.1 and
+    the exact fermi-dirac integral evaluation for N_EFF in the range 2.98 - 3.1 and
     T_CMB = 2.7255K
     """
 
