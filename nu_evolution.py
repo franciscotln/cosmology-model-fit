@@ -52,7 +52,7 @@ def _Omnu_comp(z, b):
 @njit
 def Omnu_z(z):
     """
-    Two-fluid model for massive neutrinos (Neff in the range 2.90-3.12)
+    Two-fluid model for massive neutrinos (Neff in the range 2.90-3.12 and mnu_tot=0.06 eV)
     """
 
     B1 = 1.38103793 * N_EFF**2 - 14.98287611 * N_EFF + 112.84492554
