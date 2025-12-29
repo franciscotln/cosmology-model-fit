@@ -84,23 +84,49 @@ plt.grid(True, which="both", linestyle="--", alpha=0.6)
 plt.show()
 
 
+def _dlnOmnu_comp_dz(z, b):
+    p = 1.95648
+    zp1 = 1 + z
+    return 3.0 / zp1 + zp1 ** (p - 1) / (zp1**p + b**p)
+
+
+def dlnOmnu_dz(z):
+    B1 = 1.38103793 * N_EFF**2 - 14.98287611 * N_EFF + 112.84492554
+    B2 = 2.72486 * B1
+    W1 = 0.53757
+
+    return W1 * _dlnOmnu_comp_dz(z, B1) + (1 - W1) * _dlnOmnu_comp_dz(z, B2)
+
+
 def get_w(z):
     """
-    Equation of state parameter w(z) for massive neutrinos using the two-fluid approximation
+    Equation of state w(z) for massive neutrinos using the two-fluid approximation
+    """
+    return -1 + ((1 + z) / 3.0) * dlnOmnu_dz(z)
+
+
+def get_w_fermi(z):
+    """
+    Equation of state w(z) for massive neutrinos using the Fermi-Dirac integral
     """
     dz = 1e-5
-    d_rho_dz = (Omnu_z(z + dz) - Omnu_z(z - dz)) / (2 * dz)
+    m0 = mnu_tot / T_nu0_eV
+    Iyz = rho_nu_fermi(m0 / (1 + z))
 
-    rho = Omnu_z(z)
-    w_approx = -1 + ((1 + z) / 3.0) * (d_rho_dz / rho)
-    return w_approx
+    Iyz_plus = rho_nu_fermi(m0 / (1 + z + dz))
+    Iyz_minus = rho_nu_fermi(m0 / (1 + z - dz))
+    dI_dz = (Iyz_plus - Iyz_minus) / (2 * dz)
+
+    return 1 / 3 + ((1 + z) / 3.0) * (dI_dz / Iyz)
 
 
 plt.semilogx(z_range, get_w(z_range))
-plt.title("Approximated Equation of State w(z)")
+plt.semilogx(z_range, get_w_fermi(z_range), "--")
+plt.legend(["Two-Fluid Approximation", "Fermi-Dirac Integral"])
+plt.title("Equation of State w(z)")
 plt.ylabel("w(z)")
-plt.axhline(0, color="red", lw=0.5, ls="--")
-plt.axhline(1 / 3, color="red", lw=0.5, ls="--")
+plt.axhline(0, color="red", lw=1, ls="--")
+plt.axhline(1 / 3, color="red", lw=1, ls="--")
 plt.xlabel("z")
 plt.grid(True)
 plt.show()
