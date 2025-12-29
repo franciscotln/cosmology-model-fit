@@ -109,7 +109,7 @@ def get_w_fermi(z):
     """
     Equation of state w(z) for massive neutrinos using the Fermi-Dirac integral
     """
-    dz = 1e-5
+    dz = 1e-8
     m0 = mnu_tot / T_nu0_eV
     Iyz = rho_nu_fermi(m0 / (1 + z))
 
@@ -120,12 +120,12 @@ def get_w_fermi(z):
     return 1 / 3 + ((1 + z) / 3.0) * (dI_dz / Iyz)
 
 
-plt.semilogx(z_range, get_w(z_range))
-plt.semilogx(z_range, get_w_fermi(z_range), "--")
+plt.loglog(z_range, get_w(z_range))
+plt.loglog(z_range, get_w_fermi(z_range), "--")
 plt.legend(["Two-Fluid Approximation", "Fermi-Dirac Integral"])
 plt.title("Equation of State w(z)")
 plt.ylabel("w(z)")
-plt.axhline(0, color="red", lw=1, ls="--")
+plt.axhline(1e-5, color="red", lw=1, ls="--")
 plt.axhline(1 / 3, color="red", lw=1, ls="--")
 plt.xlabel("z")
 plt.grid(True)
