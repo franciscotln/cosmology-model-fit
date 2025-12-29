@@ -1,31 +1,17 @@
 from numba import njit
 import numpy as np
 from y2025BAO.data import get_data as get_bao_data
-import cmb.data_planck_compression as cmb
+import cmb.data_early_lcdm_compression as cmb
 
 c = cmb.c  # speed of light in km/s
-Or_h2 = cmb.Omega_r_h2(2.044)  # 2 relativistic species
+Or_h2 = cmb.Or_h2  # 2 relativistic species
 Omnu_h2 = cmb.Omnu_h2  # 1 massive species with m_nu = 0.06 eV
-z_nr = cmb.z_nr
 
 bao_legend, bao_data, bao_cov_matrix = get_bao_data()
 inv_cov_bao = np.linalg.inv(bao_cov_matrix)
 
-z_grid = np.linspace(0, np.max(bao_data["z"]) + 0.1, num=2500)
+z_grid = np.linspace(0, np.max(bao_data["z"]) + 0.1, num=4000)
 dx = np.diff(z_grid)
-
-
-@njit
-def Omnu_z(z):
-    """
-    Computes the appox. evolution of one massive
-    neutrino species energy density with redshift
-    """
-    return (
-        (1 + z) ** 4
-        * (1 + ((1 + z_nr) / (1 + z)) ** 2) ** 0.5
-        * (1 + (1 + z_nr) ** 2) ** -0.5
-    )
 
 
 @njit
@@ -49,7 +35,7 @@ def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
 
     radiation_term = Or * zp1**4
     matter_term = Obc * zp1**3
-    neutrino_term = Onu * Omnu_z(z)
+    neutrino_term = Onu * cmb.Omnu_z(z)
     dark_energy_term = Ode * Ode_z(z, w0, wa)
 
     return np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
@@ -237,52 +223,52 @@ CMB Compressed priors: (θ∗, ωb, ωbc)CMB Early Times ΛCDM
 
 """
 Flat ΛCDM w(z) = -1
-H0: 68.39 +0.30 -0.30 km/s/Mpc
+H0: 68.40 +0.30 -0.30 km/s/Mpc
 ωb: 0.02238 +0.00012 -0.00012
 ωc: 0.1172 +0.0007 -0.0007
 ωm: 0.1402 +0.0006 -0.0006
 Ωm: 0.300 +0.004 -0.004
 w0: -1
 wa: 0
-r*: 145.17 Mpc
-z*: 1089.68 +0.19 -0.19
-r_d: 147.84 +0.19 -0.19 Mpc
-Log Z: -19.48
-Chi squared: 13.58
+r*: 145.16 Mpc
+z*: 1089.76 +0.18 -0.18
+r_d: 147.83 +0.19 -0.19 Mpc
+Log Z: -19.44
+Chi squared: 13.49
 Degs of freedom: 13
 """
 
 """
 Flat wCDM w(z) = w0
-H0: 68.89 +0.97 -0.93 km/s/Mpc
+H0: 68.88 +0.97 -0.93 km/s/Mpc
 ωb: 0.02235 +0.00013 -0.00013
 ωc: 0.1176 +0.0009 -0.0009
 ωm: 0.1406 +0.0009 -0.0009
 Ωm: 0.296 +0.007 -0.007
 w0: -1.021 +0.038 -0.040 (prior width 2.0: -2.0 to 0.0)
 wa: 0
-r*: 145.09 Mpc
-z*: 1089.75 +0.23 -0.23
-r_d: 147.77 +0.23 -0.22 Mpc
-Log Z: -22.36
-Chi squared: 13.33
+r*: 145.08 Mpc
+z*: 1089.82 +0.22 -0.21
+r_d: 147.77 +0.22 -0.22 Mpc
+Log Z: -22.34
+Chi squared: 13.28
 Degs of freedom: 12
 """
 
 """
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
-H0: 67.25 +0.81 -1.14 km/s/Mpc
+H0: 67.25 +0.81 -1.13 km/s/Mpc
 ωb: 0.02241 +0.00012 -0.00012
 ωc: 0.1168 +0.0007 -0.0007
 ωm: 0.1398 +0.0007 -0.0007
-Ωm: 0.309 +0.010 -0.007
+Ωm: 0.310 +0.010 -0.007
 w0: -0.911 +0.087 -0.062 (prior width 1.0: -1.0 to 0.0; truncated posterior on the left)
 wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
-r*: 145.25 Mpc
-z*: 1089.60 +0.20 -0.20
-r_d: 147.91 +0.20 -0.19 Mpc
-Log Z: -20.61
-Chi squared: 13.90
+r*: 145.24 Mpc
+z*: 1089.68 +0.18 -0.19
+r_d: 147.91 +0.20 -0.20 Mpc
+Log Z: -20.59
+Chi squared: 13.88
 Degs of freedom: 12
 """
 

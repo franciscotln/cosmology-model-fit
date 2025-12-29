@@ -5,9 +5,8 @@ from y2023union3.data import get_data as get_sn_data
 from y2025BAO.data import get_data as get_bao_data
 
 c = cmb.c  # Speed of light in km/s
-Orh2 = cmb.Omega_r_h2(2.044)
+Orh2 = cmb.Or_h2
 Omnuh2 = cmb.Omnu_h2
-z_nr = cmb.z_nr
 
 sn_legend, z_sn_vals, mu_vals, cov_matrix_sn = get_sn_data()
 bao_legend, bao_data, cov_matrix_bao = get_bao_data()
@@ -17,27 +16,14 @@ inv_cov_bao = np.linalg.inv(cov_matrix_bao)
 inv_cov_cmb = np.linalg.inv(cmb.covariance[[0, 2], :][:, [0, 2]])
 
 z_max = max(np.max(z_sn_vals), np.max(bao_data["z"])) + 0.1
-z_grid = np.linspace(0, z_max, num=2500, dtype=np.float64)
+z_grid = np.linspace(0, z_max, num=4000, dtype=np.float64)
 dx = np.diff(z_grid)
 
 
 @njit
-def Omnu_z(z):
-    """
-    Computes the appox. evolution of one massive
-    neutrino species energy density with redshift
-    """
-    return (
-        (1 + z) ** 4
-        * (1 + ((1 + z_nr) / (1 + z)) ** 2) ** 0.5
-        * (1 + (1 + z_nr) ** 2) ** -0.5
-    )
-
-
-@njit
 def Ode_z(z, w0, wa):
-    zp1 = 1 + z
-    return (4 * zp1**3 / (1 + 3 * zp1**3)) ** (4 * (1 + w0))
+    cubed = (1 + z) ** 3
+    return (2 * cubed / (1 + w0 + (1 - w0) * cubed)) ** 2
 
 
 @njit
@@ -52,7 +38,7 @@ def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
 
     radiation_term = Or * zp1**4
     matter_term = Obc * zp1**3
-    neutrino_term = Onu * Omnu_z(z)
+    neutrino_term = Onu * cmb.Omnu_z(z)
     dark_energy_term = Ode * Ode_z(z, w0, wa)
 
     return np.sqrt(radiation_term + matter_term + neutrino_term + dark_energy_term)
@@ -138,7 +124,7 @@ def main():
     prior.add_parameter("H0", dist=(50.0, 90.0))
     prior.add_parameter("ωb", dist=(0.01, 0.04))
     prior.add_parameter("ωc", dist=(0.05, 0.3))
-    prior.add_parameter("w0", dist=(-1.3, -0.3))
+    prior.add_parameter("w0", dist=(-1.0, -1 / 3))
 
     with Pool(8) as pool:
         sampler = Sampler(
@@ -236,8 +222,11 @@ H0 U(50.0, 90.0)
 ωb U(0.01, 0.04)
 ωc U(0.05, 0.3)
 
-wCDM and wzCDM:
+wCDM:
 w0 U(-1.3, -0.3)
+
+wzCDM:
+w0 U(-1.0, -1/3)
 
 w0waCDM:
 w0 U(-1.3, 0.0)
@@ -249,49 +238,49 @@ w0 + wa < 0 enforced (account for that in the prior volume later)
 
 """
 Flat ΛCDM  w(z) = -1
-H0: 69.20 +0.84 -0.85 km/s/Mpc
-ωb: 0.02347 +0.00097 -0.00099
-ωc: 0.1174 +0.0007 -0.0007
+H0: 69.19 +0.84 -0.83 km/s/Mpc
+ωb: 0.02345 +0.00096 -0.00095
+ωc: 0.1175 +0.0006 -0.0007
 ωm: 0.1415 +0.0012 -0.0012
 Ωm: 0.296 +0.006 -0.006
 w0: -1
 wa: 0
-z_d: 1062.41 +2.14 -2.24
-r_d: 146.58 +1.09 -1.06 Mpc
-Chi squared: 40.83
-Log Evidence: -35.46
+z_d: 1062.31 +2.12 -2.17
+r_d: 146.58 +1.07 -1.05 Mpc
+Chi squared: 40.74
+Log Evidence: -35.44
 Degs of freedom: 33
 
 ===============================
 
 Flat wCDM w(z) = w0
-H0: 68.85 +0.79 -0.79 km/s/Mpc
-ωb: 0.02696 +0.00162 -0.00157
-ωc: 0.1146 +0.0012 -0.0013
+H0: 68.80 +0.79 -0.78 km/s/Mpc
+ωb: 0.02678 +0.00159 -0.00153
+ωc: 0.1147 +0.0012 -0.0013
 ωm: 0.1422 +0.0012 -0.0012
 Ωm: 0.300 +0.006 -0.006
-w0: -0.877 +0.040 -0.041
+w0: -0.880 +0.041 -0.041
 wa: 0
-z_d: 1069.62 +3.14 -3.18
-r_d: 143.63 +1.43 -1.41 Mpc
-Chi squared: 32.26
-Log Evidence: -33.51 (Δ logZ = 1.95 against ΛCDM)
+z_d: 1069.25 +3.11 -3.13
+r_d: 143.77 +1.41 -1.39 Mpc
+Chi squared: 32.33
+Log Evidence: -33.55 (Δ logZ = 1.89 against ΛCDM)
 Degs of freedom: 32
 
 ===============================
 
-Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)**3)
-H0: 67.58 +0.93 -0.92 km/s/Mpc
-ωb: 0.02537 +0.00110 -0.00111
-ωc: 0.1161 +0.0008 -0.0008
+Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
+H0: 67.51 +0.94 -0.92 km/s/Mpc
+ωb: 0.02523 +0.00107 -0.00108
+ωc: 0.1162 +0.0008 -0.0008
 ωm: 0.1421 +0.0012 -0.0012
-Ωm: 0.311 +0.008 -0.008
-w0: -0.776 +0.068 -0.068
-wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-z_d: 1066.45 +2.27 -2.36
-r_d: 144.89 +1.14 -1.10 Mpc
-Chi squared: 30.06
-Log Evidence: -31.93 (Δ logZ = 3.53 against ΛCDM)
+Ωm: 0.312 +0.008 -0.008
+w0: -0.765 +0.067 -0.070
+wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
+z_d: 1066.11 +2.23 -2.32
+r_d: 145.01 +1.12 -1.09 Mpc
+Chi squared: 29.96
+Log Evidence: -31.48 (Δ logZ = 3.96 against ΛCDM)
 Degs of freedom: 32
 
 ===============================
