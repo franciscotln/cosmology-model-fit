@@ -113,20 +113,23 @@ def get_w(z):
     return -1 + ((1 + z) / 3.0) * d_Omnu_z(z) / Omnu_z(z)
 
 
+def integrand_pressure(q, mz):
+    return (q**4 / np.sqrt(q**2 + mz**2)) / (np.exp(q) + 1)
+
+
 def get_w_fermi(z):
     """
     Equation of state w(z) for massive neutrinos using the Fermi-Dirac integral
     """
-    dz = 1e-8
     m0 = mnu_tot / T_nu0_eV
-    Iyz = rho_nu_fermi(m0 / (1 + z))
+    mz = m0 / (1 + z)
+    I_rho = quad(integrand, 0, 100, args=(mz,))[0]
+    I_press = quad(integrand_pressure, 0, 100, args=(mz,))[0]
+    w = (1.0 / 3.0) * (I_press / I_rho)
+    return w
 
-    Iyz_plus = rho_nu_fermi(m0 / (1 + z + dz))
-    Iyz_minus = rho_nu_fermi(m0 / (1 + z - dz))
-    dI_dz = (Iyz_plus - Iyz_minus) / (2 * dz)
 
-    return 1 / 3 + ((1 + z) / 3.0) * (dI_dz / Iyz)
-
+get_w_fermi = np.vectorize(get_w_fermi)
 
 w_approx = get_w(z_range)
 w_fermi = get_w_fermi(z_range)
