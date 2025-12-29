@@ -1,36 +1,25 @@
 from numba import njit
 import numpy as np
-from scipy.linalg import cho_factor, solve_triangular
 from y2025BAO.data import get_data as get_bao_data
-import cmb.data_planck_act_compression as cmb
+import cmb.data_planck_compression as cmb
 import y2024BBN.prior_lcdm_schoneberg as bbn
 
 c = cmb.c  # speed of light in km/s
-Or_h2 = cmb.Omega_r_h2(2.044)
+Or_h2 = cmb.Or_h2
 Omnu_h2 = cmb.Omnu_h2
-z_nr = cmb.z_nr
 
 bao_legend, bao_data, bao_cov_matrix = get_bao_data()
-cho_bao = cho_factor(bao_cov_matrix, lower=True)[0]
+inv_cov_sn = np.linalg.inv(bao_cov_matrix)
 
 z_max = np.max(bao_data["z"]) + 0.1
-z_grid = np.linspace(0, z_max, num=2000)
+z_grid = np.linspace(0, z_max, num=4000)
 dx = np.diff(z_grid)
-
-
-@njit
-def Omnu_z(z):
-    return (
-        (1 + z) ** 4
-        * (1 + ((1 + z_nr) / (1 + z)) ** 2) ** 0.5
-        * (1 + (1 + z_nr) ** 2) ** -0.5
-    )
 
 
 @njit
 def Ode_z(z, w0, wa):
     zp1 = 1 + z
-    return (4 * zp1**3 / (1 + 3 * zp1**3)) ** (4 * (1 + w0))
+    return (2 * zp1**3 / (1 + w0 + (1 - w0) * zp1**3)) ** 2
 
 
 @njit
@@ -45,7 +34,7 @@ def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
 
     radiation_term = Or * zp1**4
     matter_term = Obc * zp1**3
-    neutrino_term = Onu * Omnu_z(z)
+    neutrino_term = Onu * cmb.Omnu_z(z)
     dark_energy_term = Ode * Ode_z(z, w0, wa)
 
     return np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
@@ -96,17 +85,12 @@ def bao_theory(z, qty, params):
     return results / rd
 
 
-def solve_triang(cho_L, delta):
-    y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
-    return np.dot(y, y)
-
-
 def chi_squared(params):
     delta_thetastar = cmb.DISTANCE_PRIORS[1] - cmb.cmb_distances(Ez, *params)[1]
     chi2_thetastar = delta_thetastar**2 / cmb.covariance[1, 1]
 
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
-    chi_bao = solve_triang(cho_bao, delta_bao)
+    chi_bao = delta_bao @ inv_cov_sn @ delta_bao
 
     return chi2_thetastar + chi_bao
 
@@ -127,7 +111,7 @@ def main():
     prior.add_parameter("H0", dist=(50.0, 90.0))
     prior.add_parameter("ωb", dist=norm(loc=bbn.Obh2, scale=bbn.Obh2_sigma))
     prior.add_parameter("ωc", dist=(0.05, 0.30))
-    prior.add_parameter("w0", dist=(-1.5, 0.0))
+    prior.add_parameter("w0", dist=(-1.0, 0.0))
 
     with Pool(6) as pool:
         sampler = Sampler(
@@ -200,57 +184,57 @@ if __name__ == "__main__":
 
 """
 *******************************
-Dataset: DESI DR2 2024 + θ∗ + BBN
+Dataset: DESI DR2 2024 + θ∗ Planck + BBN
 *******************************
 
 Flat ΛCDM w(z) = -1
-rd: 148.35 +0.69 -0.70 Mpc
-H0: 68.49 +0.47 -0.47 km/s/Mpc
-ωb: 0.02217 +0.00054 -0.00053
-ωc: 0.1162 +0.0008 -0.0008
-ωm: 0.1390 +0.0011 -0.0011
-Ωm: 0.2963 +0.0046 -0.0045
+rd: 148.30 +0.71 -0.70 Mpc
+H0: 68.51 +0.48 -0.47 km/s/Mpc
+ωb: 0.02217 +0.00054 -0.00054
+ωc: 0.1163 +0.0009 -0.0009
+ωm: 0.1391 +0.0011 -0.0011
+Ωm: 0.2964 +0.0045 -0.0045
 w0: -1
 wa: 0
-r*: 145.60 Mpc
-z*: 1089.85 +0.72 -0.71
-100 θ*: 1.04095
-Chi squared: 10.30
-Log evidence: -15.2
+r*: 145.55 Mpc
+z*: 1089.84 +0.68 -0.65
+100 θ*: 1.04109
+Chi squared: 10.29
+Log evidence: -15.0
 
 ===============================
 
 Flat wCDM w(z) = w0
-rd: 148.54 +0.74 -0.74 Mpc
-H0: 67.77 +1.13 -1.09 km/s/Mpc
-ωb: 0.02223 +0.00054 -0.00054
-ωc: 0.1152 +0.0016 -0.0016
-ωm: 0.1381 +0.0017 -0.0017
-Ωm: 0.3008 +0.0076 -0.0077
-w0: -0.965 +0.047 -0.050
+rd: 148.48 +0.76 -0.75 Mpc
+H0: 67.81 +1.13 -1.09 km/s/Mpc
+ωb: 0.02223 +0.00054 -0.00055
+ωc: 0.1154 +0.0016 -0.0016
+ωm: 0.1383 +0.0017 -0.0017
+Ωm: 0.3007 +0.0076 -0.0077
+w0: -0.967 +0.048 -0.049
 wa: 0
-r*: 145.79 Mpc
-z*: 1089.68 +0.76 -0.73
-100 θ*: 1.04095
-Chi squared: 9.69
-Log evidence: -17.5
+r*: 145.74 Mpc
+z*: 1089.69 +0.72 -0.69
+100 θ*: 1.04107
+Chi squared: 9.71
+Log evidence: -17.3
 
 ===============================
 
-Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
-rd: 148.49 +0.71 -0.70 Mpc
-H0: 66.83 +1.62 -1.54 km/s/Mpc
-ωb: 0.02225 +0.00054 -0.00054
-ωc: 0.1153 +0.0012 -0.0012
+Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
+rd: 148.46 +0.71 -0.71 Mpc
+H0: 66.56 +1.23 -1.41 km/s/Mpc
+ωb: 0.02227 +0.00054 -0.00054
+ωc: 0.1153 +0.0010 -0.0011
 ωm: 0.1382 +0.0013 -0.0013
-Ωm: 0.3095 +0.0133 -0.0132
-w0: -0.873 +0.118 -0.120
-wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-r*: 145.75 Mpc
-z*: 1089.66 +0.74 -0.72
-100 θ*: 1.04094
-Chi squared: 8.98
-Log evidence: -16.3
+Ωm: 0.3122 +0.0124 -0.0104
+w0: -0.841 +0.109 -0.098
+wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
+r*: 145.73 Mpc
+z*: 1089.63 +0.68 -0.66
+100 θ*: 1.04099
+Chi squared: 9.04
+Log evidence: -15.8
 
 ===============================
 
