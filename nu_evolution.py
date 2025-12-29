@@ -84,25 +84,33 @@ plt.grid(True, which="both", linestyle="--", alpha=0.6)
 plt.show()
 
 
-def _dlnOmnu_comp_dz(z, b):
+def _d_Omnu_comp(z, b):
     p = 1.95648
     zp1 = 1 + z
-    return 3.0 / zp1 + zp1 ** (p - 1) / (zp1**p + b**p)
+
+    num = zp1**p + b**p
+    ratio = num / (1 + b**p)
+    f_z = zp1**3 * ratio ** (1 / p)
+
+    term1 = 3 / zp1
+    term2 = zp1 ** (p - 1) / num
+
+    return f_z * (term1 + term2)
 
 
-def dlnOmnu_dz(z):
+def d_Omnu_z(z):
     B1 = 1.38103793 * N_EFF**2 - 14.98287611 * N_EFF + 112.84492554
     B2 = 2.72486 * B1
     W1 = 0.53757
 
-    return W1 * _dlnOmnu_comp_dz(z, B1) + (1 - W1) * _dlnOmnu_comp_dz(z, B2)
+    return W1 * _d_Omnu_comp(z, B1) + (1 - W1) * _d_Omnu_comp(z, B2)
 
 
 def get_w(z):
     """
     Equation of state w(z) for massive neutrinos using the two-fluid approximation
     """
-    return -1 + ((1 + z) / 3.0) * dlnOmnu_dz(z)
+    return -1 + ((1 + z) / 3.0) * d_Omnu_z(z) / Omnu_z(z)
 
 
 def get_w_fermi(z):
@@ -120,13 +128,28 @@ def get_w_fermi(z):
     return 1 / 3 + ((1 + z) / 3.0) * (dI_dz / Iyz)
 
 
-plt.loglog(z_range, get_w(z_range))
-plt.loglog(z_range, get_w_fermi(z_range), "--")
+w_approx = get_w(z_range)
+w_fermi = get_w_fermi(z_range)
+
+plt.loglog(z_range, w_approx)
+plt.loglog(z_range, w_fermi, "--")
 plt.legend(["Two-Fluid Approximation", "Fermi-Dirac Integral"])
 plt.title("Equation of State w(z)")
 plt.ylabel("w(z)")
 plt.axhline(1e-5, color="red", lw=1, ls="--")
 plt.axhline(1 / 3, color="red", lw=1, ls="--")
+plt.xlabel("z")
+plt.grid(True)
+plt.show()
+
+p_approx = w_approx * approx
+p_fermi = w_fermi * fermi_dirac
+
+plt.loglog(z_range, p_approx)
+plt.loglog(z_range, p_fermi, "--")
+plt.legend(["Two-Fluid Approximation", "Fermi-Dirac Integral"])
+plt.title("Neutrino Pressure Evolution")
+plt.ylabel(r"$p_\nu(z)/\rho_{\nu,0}$")
 plt.xlabel("z")
 plt.grid(True)
 plt.show()
