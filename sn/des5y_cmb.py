@@ -5,9 +5,8 @@ from y2025DESdovekie.data import get_data
 import cmb.data_planck_act_compression as cmb
 
 c = cmb.c  # km/s
-Orh2 = cmb.Omega_r_h2(2.044)
+Orh2 = cmb.Or_h2
 Onuh2 = cmb.Omnu_h2
-z_nr = cmb.z_nr
 
 sn_legend, z_cmb, z_hel, mu_vals, cov_matrix_sn = get_data()
 
@@ -15,19 +14,6 @@ cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
 
 z_grid = np.linspace(0, np.max(z_cmb) + 0.1, num=4000)
 dx = np.diff(z_grid)
-
-
-@njit
-def Omnu_z(z):
-    """
-    Computes the appox. evolution of one massive
-    neutrino species energy density with redshift
-    """
-    return (
-        (1 + z) ** 4
-        * (1 + ((1 + z_nr) / (1 + z)) ** 2) ** 0.5
-        * (1 + (1 + z_nr) ** 2) ** -0.5
-    )
 
 
 @njit
@@ -48,7 +34,7 @@ def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
 
     radiation_term = Or * zp1**4
     matter_term = Obc * zp1**3
-    neutrino_term = Onu * Omnu_z(z)
+    neutrino_term = Onu * cmb.Omnu_z(z)
     dark_energy_term = Ode * Ode_z(z, w0, wa)
 
     return np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
@@ -133,8 +119,8 @@ def main():
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
     moves = [
-        (emcee.moves.KDEMove(), 0.30),
-        (emcee.moves.DEMove(), 0.70),
+        (emcee.moves.KDEMove(), 0.20),
+        (emcee.moves.DEMove(), 0.80),
     ]
 
     with Pool(5) as pool:
@@ -210,7 +196,7 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM w(z) = -1
-H0: 67.38 +0.45 -0.46 km/s/Mpc
+H0: 67.38 +0.46 -0.45 km/s/Mpc
 Ωm: 0.315 +0.007 -0.006
 ωb: 0.02247 +0.00011 -0.00011
 ωc: 0.1199 +0.0011 -0.0011
@@ -218,44 +204,43 @@ H0: 67.38 +0.45 -0.46 km/s/Mpc
 w0: -1
 wa: 0
 z*: 1089.77 +0.20 -0.20
-zd: 1060.15 +0.23 -0.23
+zd: 1060.16 +0.23 -0.23
 r*: 144.39 Mpc
-r_d: 147.02 Mpc
-Chi squared: 1632.68
+r_d: 147.01 Mpc
+Chi squared: 1632.67
 Log evidence: -834.5
 """
 
 """
 Flat wCDM w(z) = w0
-H0: 66.67 +0.72 -0.72 km/s/Mpc
-Ωm: 0.320 +0.008 -0.008
+H0: 66.66 +0.72 -0.72 km/s/Mpc
+Ωm: 0.321 +0.008 -0.008
 ωb: 0.02250 +0.00011 -0.00011
 ωc: 0.1193 +0.0012 -0.0012
 ωm: 0.1424 +0.0012 -0.0012
-w0: -0.967 +0.026 -0.026 (prior width 1.5: -1.5 - 0.0)
-wa: 0
+w0: -1.032 +0.026 -0.026 (prior width 2.0: -2.0 - 0.0)
 z*: 1089.68 +0.21 -0.21
-zd: 1060.17 +0.23 -0.24
+zd: 1060.17 +0.23 -0.23
 r*: 144.53 Mpc
 r_d: 147.15 Mpc
-Chi squared: 1631.01
-Log evidence: -836.9
+Chi squared: 1631.02
+Log evidence: -837.1
 """
 
 """
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
-H0: 66.67 +0.58 -0.61 km/s/Mpc
+H0: 66.66 +0.58 -0.61 km/s/Mpc
 Ωm: 0.320 +0.007 -0.007
 ωb: 0.02251 +0.00011 -0.00011
 ωc: 0.1191 +0.0012 -0.0012
 ωm: 0.1423 +0.0011 -0.0011
-w0: -0.927 +0.044 -0.040 (prior width 1.0: -1.0 - 0.0)
+w0: -0.927 +0.043 -0.040 (prior width 1.0: -1.0 - 0.0)
 wa: d w(z)/dz at z=0 = -(3/2) * (1 - w0^2)
 z*: 1089.65 +0.21 -0.21
-zd: 1060.18 +0.23 -0.24
+zd: 1060.18 +0.23 -0.23
 r*: 144.56 Mpc
 r_d: 147.18 Mpc
-Chi squared: 1630.48
+Chi squared: 1630.50
 Log evidence: -835.6
 """
 
