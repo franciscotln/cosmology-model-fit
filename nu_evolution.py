@@ -27,7 +27,7 @@ def integrand_density(q, z):
     return q**2 * (q**2 + mz**2) ** (1 / 2) / (np.exp(q) + 1)
 
 
-R0 = 1 / quad(integrand_density, 0, 100, args=(0,))[0]
+R0 = quad(integrand_density, 0, 100, args=(0,))[0]
 
 
 def Rho_nu_fermi_dirac(z):
@@ -35,7 +35,9 @@ def Rho_nu_fermi_dirac(z):
     Energy density rho(z) for massive neutrinos using the Fermi-Dirac integral
     """
     zp1 = 1.0 + z
-    return R0 * zp1**4 * quad(integrand_density, 0, 100, args=(z,))[0]
+
+    density = zp1**4 * quad(integrand_density, 0, 100, args=(z,))[0] / R0
+    return density
 
 
 @njit
@@ -50,7 +52,7 @@ def pressure_nu_fermi_dirac(z):
     Pressure p(z) for massive neutrinos using the Fermi-Dirac integral
     """
     zp1 = 1.0 + z
-    return (1 / 3) * R0 * zp1**4 * quad(integrand_pressure, 0, 100, args=(z,))[0]
+    return (1 / 3) * zp1**4 * quad(integrand_pressure, 0, 100, args=(z,))[0] / R0
 
 
 Rho_nu_fermi_dirac = np.vectorize(Rho_nu_fermi_dirac)
@@ -74,17 +76,23 @@ P = 1.95648
 
 
 def fluid_component(B, z):
-    zp1 = 1.0 + z
-    return ((1 + B**P / zp1**P) / (1 + B**P)) ** (1 / P)
+    Bz = B / (1.0 + z)
+    return (1 + Bz**P) ** (1 / P)
 
 
-def Rhonu_nu_fluid(z):
+R01 = fluid_component(B1, 0)
+R02 = fluid_component(B2, 0)
+
+
+def Rho_nu_fluid(z):
     """
-    Two-fluid model rho(z) for massive neutrinos (Neff in the range 2.90-3.12 and mnu_tot=0.06 eV)
+    Two-fluid energy density rho(z) for massive neutrinos
+    - (Neff in the range 2.90-3.12 and mnu_tot=0.06 eV)
     """
     zp1 = 1.0 + z
-    density1 = W1 * zp1**4 * fluid_component(B1, z)
-    density2 = W2 * zp1**4 * fluid_component(B2, z)
+
+    density1 = W1 * zp1**4 * fluid_component(B1, z) / R01
+    density2 = W2 * zp1**4 * fluid_component(B2, z) / R02
     return density1 + density2
 
 
@@ -97,23 +105,23 @@ def pressure_nu_fluid(z):
     coeff1 = zp1**P / (zp1**P + B1**P)
     coeff2 = zp1**P / (zp1**P + B2**P)
 
-    density1 = W1 * zp1**4 * fluid_component(B1, z)
-    density2 = W2 * zp1**4 * fluid_component(B2, z)
+    density1 = W1 * (1 / 3) * zp1**4 * fluid_component(B1, z) / R01
+    density2 = W2 * (1 / 3) * zp1**4 * fluid_component(B2, z) / R02
 
-    return (1 / 3) * (coeff1 * density1 + coeff2 * density2)
+    return coeff1 * density1 + coeff2 * density2
 
 
 def w_nu_fluid(z):
     """
     Equation of state w(z) for massive neutrinos using the two-fluid approximation
     """
-    return pressure_nu_fluid(z) / Rhonu_nu_fluid(z)
+    return pressure_nu_fluid(z) / Rho_nu_fluid(z)
 
 
 z_range = np.logspace(-3, 7, 10_000)
 
 rho_fermi_dirac = Rho_nu_fermi_dirac(z_range)
-rho_approx = Rhonu_nu_fluid(z_range)
+rho_approx = Rho_nu_fluid(z_range)
 
 rel_err = 100 * (rho_approx / rho_fermi_dirac - 1)
 max_err = np.max(np.abs(rel_err))
@@ -142,7 +150,7 @@ plt.xlabel("Scale Factor a")
 plt.grid(True)
 plt.show()
 
-plt.loglog(a_range, Rhonu_nu_fluid(zs), lw=2)
+plt.loglog(a_range, Rho_nu_fluid(zs), lw=2)
 plt.loglog(a_range, Rho_nu_fermi_dirac(zs), "--", lw=2)
 plt.legend(["Two-Fluid Approximation", "Fermi-Dirac Integral"])
 plt.xlabel("Scale Factor a")
