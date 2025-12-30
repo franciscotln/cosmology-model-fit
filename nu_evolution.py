@@ -11,6 +11,7 @@ T_nu0 = (4 / 11) ** (1 / 3) * TCMB * (N_EFF / 3) ** (1 / 4)
 T_nu0_eV = T_nu0 * k_B
 mnu_tot = 0.06
 m0 = mnu_tot / T_nu0_eV
+Omnu_h2 = mnu_tot / (94.0641 / (N_EFF / 3.0) ** 0.75)
 
 
 def O_gamma_h2(T_cmb):
@@ -80,7 +81,7 @@ def Rhonu_comp(z, B):
     return zp1**3 * ratio ** (1 / P)
 
 
-def Rhonu_z_approx(z):
+def Rhonu_z_fluid(z):
     """
     Two-fluid model rho(z) for massive neutrinos (Neff in the range 2.90-3.12 and mnu_tot=0.06 eV)
     """
@@ -89,7 +90,7 @@ def Rhonu_z_approx(z):
     return density1 + density2
 
 
-def pressure_nu_approx(z):
+def pressure_nu_fluid(z):
     """
     Pressure p(z) for massive neutrinos using the two-fluid approximation
     """
@@ -103,17 +104,17 @@ def pressure_nu_approx(z):
     return (1 / 3) * (coef1 * density1 + coef2 * density2)
 
 
-def w_nu_approx(z):
+def w_nu_fuild(z):
     """
     Equation of state w(z) for massive neutrinos using the two-fluid approximation
     """
-    return pressure_nu_approx(z) / Rhonu_z_approx(z)
+    return pressure_nu_fluid(z) / Rhonu_z_fluid(z)
 
 
 z_range = np.logspace(-3, 7, 10_000)
 
 rho_fermi_dirac = Rho_nu_fermi_dirac(z_range)
-rho_approx = Rhonu_z_approx(z_range)
+rho_approx = Rhonu_z_fluid(z_range)
 
 rel_err = 100 * (rho_approx / rho_fermi_dirac - 1)
 max_err = np.max(np.abs(rel_err))
@@ -133,7 +134,7 @@ plt.show()
 a_range = np.linspace(1e-07, 1, 2000)
 zs = 1 / a_range - 1
 
-plt.loglog(a_range, w_nu_approx(zs))
+plt.loglog(a_range, w_nu_fuild(zs))
 plt.loglog(a_range, w_nu_fermi_dirac(zs), "--")
 plt.legend(["Two-Fluid Approximation", "Fermi-Dirac Integral"])
 plt.title("Equation of State w(a)")
@@ -142,7 +143,7 @@ plt.xlabel("Scale Factor a")
 plt.grid(True)
 plt.show()
 
-plt.loglog(a_range, Rhonu_z_approx(zs), lw=2)
+plt.loglog(a_range, Rhonu_z_fluid(zs), lw=2)
 plt.loglog(a_range, Rho_nu_fermi_dirac(zs), "--", lw=2)
 plt.legend(["Two-Fluid Approximation", "Fermi-Dirac Integral"])
 plt.xlabel("Scale Factor a")
@@ -151,7 +152,7 @@ plt.title("Massive Neutrino Energy Density Evolution")
 plt.grid(True, which="both", linestyle="--", alpha=0.6)
 plt.show()
 
-plt.loglog(a_range, pressure_nu_approx(zs))
+plt.loglog(a_range, pressure_nu_fluid(zs))
 plt.loglog(a_range, pressure_nu_fermi_dirac(zs), "--")
 plt.legend(["Two-Fluid Approximation", "Fermi-Dirac Integral"])
 plt.title("Neutrino Pressure Evolution")
