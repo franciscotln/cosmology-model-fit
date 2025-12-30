@@ -74,9 +74,8 @@ def w_nu_fermi_dirac(z):
     return pressure_nu_fermi_dirac(z) / Rho_nu_fermi_dirac(z)
 
 
-# Analytical two-fluid approximation functions
-## Coefficients mnu_tot=0.06 eV and Neff in the range 2.90-3.12
-B1 = 1.38103793 * N_EFF**2 - 14.98287611 * N_EFF + 112.84492554
+# Analytical two-fluid approximation functions and coefficients
+B1 = 2.244376017e-01 * m0 - 3.36581842e-03
 B2 = 2.72486 * B1
 W1 = 0.53757
 W2 = 1.0 - W1
@@ -95,7 +94,7 @@ R02 = fluid_component(B2, 0)
 def Rho_nu_fluid(z):
     """
     Two-fluid energy density rho(z) for massive neutrinos
-    - (Neff in the range 2.90-3.12 and mnu_tot=0.06 eV)
+    - valid for m0 = mnu_tot / T_nu0 in the range 297 - 594
     """
     zp1 = 1.0 + z
 
