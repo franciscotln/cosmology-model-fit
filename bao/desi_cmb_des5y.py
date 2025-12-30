@@ -6,9 +6,8 @@ from y2025BAO.data import get_data as get_bao_data
 import cmb.data_planck_act_compression as cmb
 
 c = cmb.c  # km/s
-Orh2 = cmb.Omega_r_h2(2.044)
+Orh2 = cmb.Or_h2
 Omnuh2 = cmb.Omnu_h2
-z_nr = cmb.z_nr
 
 sn_legend, z_cmb, z_hel, mu_values, cov_matrix_sn = get_sn_data()
 bao_legend, bao_data, bao_cov_matrix = get_bao_data()
@@ -17,21 +16,8 @@ cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
 inv_cov_bao = np.linalg.inv(bao_cov_matrix)
 
 z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
-z_grid = np.linspace(0, z_max, num=2500)
+z_grid = np.linspace(0, z_max, num=4000)
 dx = np.diff(z_grid)
-
-
-@njit
-def Omnu_z(z):
-    """
-    Computes the appox. evolution of one massive
-    neutrino species energy density with redshift
-    """
-    return (
-        (1 + z) ** 4
-        * (1 + ((1 + z_nr) / (1 + z)) ** 2) ** 0.5
-        * (1 + (1 + z_nr) ** 2) ** -0.5
-    )
 
 
 @njit
@@ -55,7 +41,7 @@ def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
 
     radiation_term = Or * zp1**4
     matter_term = Obc * zp1**3
-    neutrino_term = Onu * Omnu_z(z)
+    neutrino_term = Onu * cmb.Omnu_z(z)
     dark_energy_term = Ode * Ode_z(z, w0, wa)
 
     return np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
@@ -180,8 +166,8 @@ def main():
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
     moves = [
-        (emcee.moves.KDEMove(), 0.30),
-        (emcee.moves.DEMove(), 0.70),
+        (emcee.moves.KDEMove(), 0.20),
+        (emcee.moves.DEMove(), 0.80),
     ]
 
     with Pool(8) as pool:
@@ -215,7 +201,7 @@ def main():
 
     best_fit = np.percentile(samples, 50, axis=0)
 
-    wa_samples = -1.5 * (1 - samples[:, 4] ** 2) # wzCDM
+    wa_samples = -1.5 * (1 - samples[:, 4] ** 2)  # wzCDM
     wa_16, wa_50, wa_84 = np.percentile(wa_samples, one_sigma_contours)
 
     omh2_samples = samples[:, 2] + samples[:, 3] + Omnuh2
@@ -242,6 +228,8 @@ def main():
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Log evidence: {log_evd:.1f}")
 
+    labels = ["$Δ_M$", "$H_0$", "$ω_b$", "$ω_c$", "$w_0$"]
+    plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
     plot_bao_predictions(
         theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
         data=bao_data,
@@ -256,11 +244,6 @@ def main():
         y_model=theory_mu(best_fit),
         label=f"$Ω_m$={Om_50:.3f}",
         x_scale="log",
-    )
-    plot_corner_and_chains(
-        labels=["$Δ_M$", "$H_0$", "$ω_b$", "$ω_c$", "$w_0$"],
-        flat_samples=samples,
-        samples=chains_samples,
     )
 
 
@@ -277,33 +260,33 @@ DESI DR2 + DES5Y + (R, π/θ*, ωb)CMB
 Flat ΛCDM w(z) = -1
 
 ** Early time ΛCDM **
-H0: 68.24 +0.29 -0.29 km/s/Mpc
+H0: 68.25 +0.29 -0.29 km/s/Mpc
 Ωm: 0.3016 +0.0037 -0.0037
 ωb: 0.02235 +0.00012 -0.00012
 ωc: 0.1175 +0.0006 -0.0006
 ωm: 0.1405 +0.0006 -0.0006
 w0: -1
 wa: 0
-r*: 145.11 Mpc
-z*: 1089.75 +0.19 -0.19
+r*: 145.09 Mpc
+z*: 1089.82 +0.17 -0.17
 r_d: 147.78 Mpc
-z_d: 1059.87 +0.27 -0.27
-Chi squared: 1648.91
-Log evidence: -842.5
+z_d: 1059.80 +0.27 -0.27
+Chi squared: 1648.82
+Log evidence: -842.4
 
 ** ACT DR6 + Planck **
 H0: 68.34 +0.27 -0.27 km/s/Mpc
-Ωm: 0.3015 +0.0036 -0.0035
+Ωm: 0.3015 +0.0036 -0.0036
 ωb: 0.02256 +0.00010 -0.00010
-ωc: 0.1176 +0.0006 -0.0006
+ωc: 0.1176 +0.0006 -0.0007
 ωm: 0.1408 +0.0006 -0.0006
 w0: -1
 wa: 0
-r*: 144.92 Mpc
-z*: 1089.45 +0.16 -0.15
+r*: 144.91 Mpc
+z*: 1089.44 +0.15 -0.15
 r_d: 147.52 Mpc
-z_d: 1060.20 +0.23 -0.24
-Chi squared: 1649.67
+z_d: 1060.19 +0.23 -0.23
+Chi squared: 1649.70
 Log evidence: -843.0
 """
 
@@ -312,33 +295,33 @@ Log evidence: -843.0
 Flat wcDM w(z) = w0
 
 ** Early time ΛCDM **
-H0: 67.60 +0.54 -0.53 km/s/Mpc
-Ωm: 0.3059 +0.0048 -0.0048
+H0: 67.61 +0.54 -0.53 km/s/Mpc
+Ωm: 0.3059 +0.0049 -0.0048
 ωb: 0.02241 +0.00013 -0.00013
-ωc: 0.1167 +0.0008 -0.0009
+ωc: 0.1168 +0.0008 -0.0008
 ωm: 0.1398 +0.0008 -0.0008
 w0: -0.969 +0.022 -0.022 (prior width 2/3: -4/3 to -2/3)
 wa: 0
-r*: 145.26 Mpc
-z*: 1089.60 +0.21 -0.21
+r*: 145.25 Mpc
+z*: 1089.68 +0.20 -0.20
 r_d: 147.91 Mpc
-z_d: 1059.95 +0.27 -0.28
-Chi squared: 1646.84
-Log evidence: -844.0 (Δ logZ = -1.5 in favour of ΛCDM)
+z_d: 1059.88 +0.28 -0.28
+Chi squared: 1646.78
+Log evidence: -843.9 (Δ logZ = -1.5 in favour of ΛCDM)
 
 ** ACT DR6 + Planck **
-H0: 67.72 +0.54 -0.53 km/s/Mpc
-Ωm: 0.3057 +0.0048 -0.0047
-ωb: 0.02259 +0.00010 -0.00011
+H0: 67.73 +0.54 -0.53 km/s/Mpc
+Ωm: 0.3056 +0.0048 -0.0047
+ωb: 0.02259 +0.00011 -0.00011
 ωc: 0.1170 +0.0008 -0.0008
 ωm: 0.1402 +0.0008 -0.0008
 w0: -0.972 +0.021 -0.022 (prior width 2/3: -4/3 to -2/3)
-wa: 0
+wa: -0.083 +0.064 -0.062
 r*: 145.06 Mpc
-z*: 1089.35 +0.17 -0.17
+z*: 1089.34 +0.17 -0.17
 r_d: 147.66 Mpc
-z_d: 1060.23 +0.23 -0.23
-Chi squared: 1647.91
+z_d: 1060.21 +0.23 -0.23
+Chi squared: 1647.95
 Log evidence: -844.6 (Δ logZ = -1.6 in favour of ΛCDM)
 """
 
@@ -347,33 +330,33 @@ Log evidence: -844.6 (Δ logZ = -1.6 in favour of ΛCDM)
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
 
 ** Early time ΛCDM **
-H0: 67.17 +0.54 -0.55 km/s/Mpc
-Ωm: 0.3100 +0.0053 -0.0052
+H0: 67.17 +0.54 -0.54 km/s/Mpc
+Ωm: 0.3100 +0.0053 -0.0051
 ωb: 0.02241 +0.00012 -0.00012
 ωc: 0.1168 +0.0007 -0.0007
-ωm: 0.1398 +0.0007 -0.0007
-w0: -0.903 +0.041 -0.042 (prior width 2/3: -1 to -1/3)
-wa: -0.276 +0.116 -0.109
-r*: 145.25 Mpc
-z*: 1089.61 +0.19 -0.20
+ωm: 0.1399 +0.0007 -0.0007
+w0: -0.904 +0.041 -0.041 (prior width 2/3: -1 to -1/3)
+wa: -0.275 +0.115 -0.109
+r*: 145.23 Mpc
+z*: 1089.69 +0.18 -0.18
 r_d: 147.90 Mpc
-z_d: 1059.95 +0.27 -0.27
-Chi squared: 1643.73
-Log evidence: -841.8 (Δ logZ = 0.7 against ΛCDM)
+z_d: 1059.88 +0.27 -0.27
+Chi squared: 1643.67
+Log evidence: -841.7 (Δ logZ = 0.7 against ΛCDM)
 
 ** ACT DR6 + Planck **
-H0: 67.25 +0.54 -0.54 km/s/Mpc
-Ωm: 0.3100 +0.0052 -0.0052
+H0: 67.25 +0.53 -0.54 km/s/Mpc
+Ωm: 0.3100 +0.0053 -0.0051
 ωb: 0.02260 +0.00010 -0.00010
-ωc: 0.1170 +0.0007 -0.0007
+ωc: 0.1169 +0.0007 -0.0007
 ωm: 0.1402 +0.0007 -0.0007
-w0: -0.906 +0.041 -0.041 (prior width 2/3: -1 to -1/3)
-wa: -0.270 +0.114 -0.109
+w0: -0.906 +0.041 -0.040 (prior width 2/3: -1 to -1/3)
+wa: -0.268 +0.112 -0.110
 r*: 145.06 Mpc
-z*: 1089.35 +0.16 -0.16
+z*: 1089.34 +0.16 -0.16
 r_d: 147.66 Mpc
-z_d: 1060.23 +0.23 -0.23
-Chi squared: 1644.69
+z_d: 1060.22 +0.23 -0.23
+Chi squared: 1644.74
 Log evidence: -842.4 (Δ logZ = 0.6 against ΛCDM)
 """
 
