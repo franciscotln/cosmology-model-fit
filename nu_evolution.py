@@ -27,6 +27,14 @@ def integrand_density(q, z):
     return q**2 * (q**2 + mz**2) ** (1 / 2) / (np.exp(q) + 1)
 
 
+"""
+There are two values of q (q1 = 2.0811166 and q2 = 4.5036711) for which the integrand becomes:
+Bz = B / (1 + z)
+return (1 + Bz**2) ** (1 / 2)
+
+where B1 = m0/q1 and B2 = m0/q2
+"""
+
 R0 = quad(integrand_density, 0, 100, args=(0,))[0]
 
 
@@ -153,7 +161,7 @@ plt.xlabel("Scale Factor a")
 plt.grid(True)
 plt.show()
 
-plt.loglog(a_range, Rho_nu_fluid(zs), lw=2)
+plt.loglog(a_range, Rho_nu_fluid(zs))
 plt.loglog(a_range, Rho_nu_fermi_dirac(zs), "--", lw=2)
 plt.legend(["Two-Fluid Approximation", "Fermi-Dirac Integral"])
 plt.xlabel("Scale Factor a")
