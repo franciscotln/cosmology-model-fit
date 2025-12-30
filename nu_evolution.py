@@ -102,8 +102,11 @@ def pressure_nu_fluid(z):
     """
     zp1 = 1.0 + z
 
-    coeff1 = zp1**P / (zp1**P + B1**P)
-    coeff2 = zp1**P / (zp1**P + B2**P)
+    B1z = B1 / zp1
+    B2z = B2 / zp1
+
+    coeff1 = 1 / (1 + B1z**P)
+    coeff2 = 1 / (1 + B2z**P)
 
     density1 = W1 * (1 / 3) * zp1**4 * fluid_component(B1, z) / R01
     density2 = W2 * (1 / 3) * zp1**4 * fluid_component(B2, z) / R02
