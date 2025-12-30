@@ -81,7 +81,7 @@ def Rhonu_comp(z, B):
     return zp1**3 * ratio ** (1 / P)
 
 
-def Rhonu_z_fluid(z):
+def Rhonu_nu_fluid(z):
     """
     Two-fluid model rho(z) for massive neutrinos (Neff in the range 2.90-3.12 and mnu_tot=0.06 eV)
     """
@@ -104,17 +104,17 @@ def pressure_nu_fluid(z):
     return (1 / 3) * (coef1 * density1 + coef2 * density2)
 
 
-def w_nu_fuild(z):
+def w_nu_fluid(z):
     """
     Equation of state w(z) for massive neutrinos using the two-fluid approximation
     """
-    return pressure_nu_fluid(z) / Rhonu_z_fluid(z)
+    return pressure_nu_fluid(z) / Rhonu_nu_fluid(z)
 
 
 z_range = np.logspace(-3, 7, 10_000)
 
 rho_fermi_dirac = Rho_nu_fermi_dirac(z_range)
-rho_approx = Rhonu_z_fluid(z_range)
+rho_approx = Rhonu_nu_fluid(z_range)
 
 rel_err = 100 * (rho_approx / rho_fermi_dirac - 1)
 max_err = np.max(np.abs(rel_err))
@@ -134,7 +134,7 @@ plt.show()
 a_range = np.linspace(1e-07, 1, 2000)
 zs = 1 / a_range - 1
 
-plt.loglog(a_range, w_nu_fuild(zs))
+plt.loglog(a_range, w_nu_fluid(zs))
 plt.loglog(a_range, w_nu_fermi_dirac(zs), "--")
 plt.legend(["Two-Fluid Approximation", "Fermi-Dirac Integral"])
 plt.title("Equation of State w(a)")
@@ -143,7 +143,7 @@ plt.xlabel("Scale Factor a")
 plt.grid(True)
 plt.show()
 
-plt.loglog(a_range, Rhonu_z_fluid(zs), lw=2)
+plt.loglog(a_range, Rhonu_nu_fluid(zs), lw=2)
 plt.loglog(a_range, Rho_nu_fermi_dirac(zs), "--", lw=2)
 plt.legend(["Two-Fluid Approximation", "Fermi-Dirac Integral"])
 plt.xlabel("Scale Factor a")
