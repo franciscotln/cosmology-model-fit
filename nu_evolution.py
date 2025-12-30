@@ -22,11 +22,11 @@ def O_gamma_h2(T_cmb):
 
 
 @njit
-def integrand_rho(q, mz):
-    return q**2 * np.sqrt(q**2 + mz**2) / (np.exp(q) + 1)
+def integrand_density(q, mz):
+    return q**2 * (q**2 + mz**2) ** (1 / 2) / (np.exp(q) + 1)
 
 
-rho_norm0 = quad(integrand_rho, 0, 100, args=(m0,))[0]
+rho_norm0 = quad(integrand_density, 0, 100, args=(m0,))[0]
 
 
 def Rho_nu_fermi_dirac(z):
@@ -34,12 +34,13 @@ def Rho_nu_fermi_dirac(z):
     Energy density rho(z) for massive neutrinos using the Fermi-Dirac integral
     """
     mz = m0 / (1 + z)
-    return (1.0 + z) ** 4 * quad(integrand_rho, 0, 100, args=(mz,))[0] / rho_norm0
+    return (1.0 + z) ** 4 * quad(integrand_density, 0, 100, args=(mz,))[0] / rho_norm0
 
 
 @njit
 def integrand_pressure(q, mz):
-    return q**2 * integrand_rho(q, mz) / (q**2 + mz**2)
+    coeff = q**2 / (q**2 + mz**2)
+    return coeff * integrand_density(q, mz)
 
 
 def pressure_nu_fermi_dirac(z):
@@ -75,18 +76,18 @@ W2 = 1.0 - W1
 P = 1.95648
 
 
-def Rhonu_comp(z, B):
+def fluid_component(z, B):
     zp1 = 1 + z
-    ratio = (zp1**P + B**P) / (1 + B**P)
-    return zp1**3 * ratio ** (1 / P)
+    ratio = (1 + (B / zp1) ** P) / (1 + B**P)
+    return zp1**4 * ratio ** (1 / P)
 
 
 def Rhonu_nu_fluid(z):
     """
     Two-fluid model rho(z) for massive neutrinos (Neff in the range 2.90-3.12 and mnu_tot=0.06 eV)
     """
-    density1 = W1 * Rhonu_comp(z, B1)
-    density2 = W2 * Rhonu_comp(z, B2)
+    density1 = W1 * fluid_component(z, B1)
+    density2 = W2 * fluid_component(z, B2)
     return density1 + density2
 
 
@@ -94,14 +95,14 @@ def pressure_nu_fluid(z):
     """
     Pressure p(z) for massive neutrinos using the two-fluid approximation
     """
-    density1 = W1 * Rhonu_comp(z, B1)
-    density2 = W2 * Rhonu_comp(z, B2)
+    density1 = W1 * fluid_component(z, B1)
+    density2 = W2 * fluid_component(z, B2)
 
     zp1 = 1 + z
 
-    coef1 = zp1**P / (zp1**P + B1**P)
-    coef2 = zp1**P / (zp1**P + B2**P)
-    return (1 / 3) * (coef1 * density1 + coef2 * density2)
+    coeff1 = zp1**P / (zp1**P + B1**P)
+    coeff2 = zp1**P / (zp1**P + B2**P)
+    return (1 / 3) * (coeff1 * density1 + coeff2 * density2)
 
 
 def w_nu_fluid(z):
