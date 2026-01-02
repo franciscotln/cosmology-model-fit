@@ -32,6 +32,7 @@ N_EFF = 3.044
 T_nu0 = (4 / 11) ** (1 / 3) * (N_EFF / 3) ** (1 / 4) * TCMB  # K
 T_nu0_eV = T_nu0 * k_B  # eV
 mnu_tot = 0.06  # total mass [eV]
+m0 = mnu_tot / T_nu0_eV
 Omnu_h2 = mnu_tot / (94.0641 / (N_EFF / 3.0) ** 0.75)
 
 
@@ -42,28 +43,45 @@ def Omega_r_h2(Neff=N_EFF):
 Or_h2 = Omega_r_h2(N_EFF - (N_EFF / 3))
 
 
+# 1 massive neutrino section
+def compute_B1(m0):
+    c1, c2, c3 = 5.44825524, 1.71881852, 4.4555633511
+    return m0 ** (1 + c2) / (c1 + c3 * m0**c2)
+
+
+def compute_B2(m0):
+    c1, c2, c3 = 5.44825524, 1.71881852, 4.4555633511
+    d1, d2, d3 = 2.22839301, 1.52373841, 2.72462085
+
+    return m0 ** (1 + c2 - d2) * (d1 + d3 * m0**d2) / (c1 + c3 * m0**c2)
+
+
+B1 = compute_B1(m0)
+B2 = compute_B2(m0)
+W1 = 0.53757
+W2 = 1.0 - W1
+P = 1.95648
+N1 = (1 + B1**P) ** (1 / P)
+N2 = (1 + B2**P) ** (1 / P)
+
+
 @njit
-def _Omnu_comp(z, b):
-    p = 1.95648
-    zp1 = 1 + z
-    ratio = (zp1**p + b**p) / (1 + b**p)
-    return zp1**3 * ratio ** (1 / p)
+def fluid_component(B, z):
+    Bz = B / (1.0 + z)
+    return (1 + Bz**P) ** (1 / P)
 
 
 @njit
 def Omnu_z(z):
     """
     ### Computes the appox. evolution of massive neutrino energy density with redshift.
-    - Two-fluid model for massive neutrinos: max relative error ~0.024% compared to
-    the exact fermi-dirac integral evaluation for N_EFF in the range 2.90 - 3.12 and
-    T_CMB = 2.7255K
+    - Two-fluid energy density rho(z) for massive neutrinos
+    - valid for m0 = mnu_tot / T_nu0 >= 100
     """
-
-    B1 = 1.38103793 * N_EFF**2 - 14.98287611 * N_EFF + 112.84492554
-    B2 = 2.72486 * B1
-    W = 0.53757
-
-    return W * _Omnu_comp(z, B1) + (1 - W) * _Omnu_comp(z, B2)
+    zp1 = 1.0 + z
+    density1 = W1 * fluid_component(B1, z) / N1
+    density2 = W2 * fluid_component(B2, z) / N2
+    return (density1 + density2) * zp1**4
 
 
 @njit

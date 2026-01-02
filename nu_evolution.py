@@ -75,8 +75,20 @@ def w_nu_fermi_dirac(z):
 
 
 # Analytical two-fluid approximation functions and coefficients
-B1 = 2.244376017e-01 * m0 - 3.36581842e-03
-B2 = 2.72486 * B1
+def compute_B1(m0):
+    c1, c2, c3 = 5.44825524, 1.71881852, 4.4555633511
+    return m0 ** (1 + c2) / (c1 + c3 * m0**c2)
+
+
+def compute_B2(m0):
+    c1, c2, c3 = 5.44825524, 1.71881852, 4.4555633511
+    d1, d2, d3 = 2.22839301, 1.52373841, 2.72462085
+
+    return m0 ** (1 + c2 - d2) * (d1 + d3 * m0**d2) / (c1 + c3 * m0**c2)
+
+
+B1 = compute_B1(m0)
+B2 = compute_B2(m0)
 W1 = 0.53757
 W2 = 1.0 - W1
 P = 1.95648
@@ -94,7 +106,7 @@ R02 = fluid_component(B2, 0)
 def Rho_nu_fluid(z):
     """
     Two-fluid energy density rho(z) for massive neutrinos
-    - valid for m0 = mnu_tot / T_nu0 in the range 297 - 594
+    - valid for m0 = mnu_tot / T_nu0 >= 100
     """
     zp1 = 1.0 + z
 
@@ -136,6 +148,7 @@ rho_approx = Rho_nu_fluid(z_range)
 rel_err = 100 * (rho_approx / rho_fermi_dirac - 1)
 max_err = np.max(np.abs(rel_err))
 print(f"Max rel diff: {max_err:.5f}%")  # 0.02385%
+print(f"RMS rel diff: {np.sqrt(np.mean((rel_err / 100) ** 2))}")  # 7.77092e-05
 
 plt.style.use("seaborn-v0_8-bright")
 
