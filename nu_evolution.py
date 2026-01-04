@@ -76,43 +76,55 @@ def w_nu_fermi_dirac(z):
 
 # Analytical two-fluid approximation functions and coefficients
 def compute_B1(m0):
-    c1, c2, c3 = 5.44825524, 1.71881852, 4.4555633511
-    return m0 ** (1 + c2) / (c1 + c3 * m0**c2)
+    return m0**0.99918671 / 1.16318070
 
 
 def compute_B2(m0):
-    c1, c2, c3 = 5.44825524, 1.71881852, 4.4555633511
-    d1, d2, d3 = 2.22839301, 1.52373841, 2.72462085
+    return m0**0.99972151 / 7.23392202
 
-    return m0 ** (1 + c2 - d2) * (d1 + d3 * m0**d2) / (c1 + c3 * m0**c2)
+
+def compute_B3(m0):
+    return m0**0.99960262 / 3.29578202
+
+
+def compute_W1(m0):
+    return m0**1.76287695 / (9.81495217 + 3.599578112 * m0**1.76168671)
+
+
+def compute_W2(m0):
+    return m0**2.20779182 / (-408.51056625 + 8.78920026 * m0**2.20906010)
 
 
 B1 = compute_B1(m0)
 B2 = compute_B2(m0)
-W1 = 0.53757
-W2 = 1.0 - W1
-P = 1.95648
+B3 = compute_B3(m0)
+W1 = compute_W1(m0)
+W2 = compute_W2(m0)
+W3 = 1.0 - W1 - W2
+P = 2.0
 
 
 def fluid_component(B, z):
     Bz = B / (1.0 + z)
-    return (1 + Bz**P) ** (1 / P)
+    return np.sqrt(1 + Bz**2)
 
 
 R01 = fluid_component(B1, 0)
 R02 = fluid_component(B2, 0)
+R03 = fluid_component(B3, 0)
 
 
 def Rho_nu_fluid(z):
     """
     Two-fluid energy density rho(z) for massive neutrinos
-    - valid for m0 = mnu_tot / T_nu0 >= 100
+    - valid for 200 <= m0 = mnu_tot / T_nu0 <= 3160
     """
     zp1 = 1.0 + z
 
-    density1 = W1 * zp1**4 * fluid_component(B1, z) / R01
-    density2 = W2 * zp1**4 * fluid_component(B2, z) / R02
-    return density1 + density2
+    density1 = W1 * fluid_component(B1, z) / R01
+    density2 = W2 * fluid_component(B2, z) / R02
+    density3 = W3 * fluid_component(B3, z) / R03
+    return zp1**4 * (density1 + density2 + density3)
 
 
 def pressure_nu_fluid(z):
@@ -123,14 +135,17 @@ def pressure_nu_fluid(z):
 
     B1z = B1 / zp1
     B2z = B2 / zp1
+    B3z = B3 / zp1
 
     coeff1 = 1 / (1 + B1z**P)
     coeff2 = 1 / (1 + B2z**P)
+    coeff3 = 1 / (1 + B3z**P)
 
-    density1 = W1 * (1 / 3) * zp1**4 * fluid_component(B1, z) / R01
-    density2 = W2 * (1 / 3) * zp1**4 * fluid_component(B2, z) / R02
+    density1 = W1 * fluid_component(B1, z) / R01
+    density2 = W2 * fluid_component(B2, z) / R02
+    density3 = W3 * fluid_component(B3, z) / R03
 
-    return coeff1 * density1 + coeff2 * density2
+    return zp1**4 * (coeff1 * density1 + coeff2 * density2 + coeff3 * density3) / 3
 
 
 def w_nu_fluid(z):
@@ -147,15 +162,15 @@ rho_approx = Rho_nu_fluid(z_range)
 
 rel_err = 100 * (rho_approx / rho_fermi_dirac - 1)
 max_err = np.max(np.abs(rel_err))
-print(f"Max rel diff: {max_err:.5f}%")  # 0.02385%
-print(f"RMS rel diff: {np.sqrt(np.mean((rel_err / 100) ** 2))}")  # 7.77092e-05
+print(f"Max rel diff: {max_err:.5f}%")  # 0.02479%
+print(f"RMS rel diff: {np.sqrt(np.mean((rel_err / 100) ** 2))}")  # 5.6022e-05
 
 plt.style.use("seaborn-v0_8-bright")
 
 plt.semilogx(z_range, rel_err, lw=2)
 plt.xlabel("Redshift z")
 plt.ylabel("Relative Difference (%)")
-plt.title(f"Two-Fluid Approximation Residuals\nMax Error: {max_err:.4f}%")
+plt.title(f"3-Fluid Approximation Residuals\nMax Error: {max_err:.4f}%")
 plt.grid(True, which="both", linestyle="--", alpha=0.6)
 plt.axhline(0, color="k", lw=0.5)
 plt.tight_layout()
@@ -166,7 +181,7 @@ zs = 1 / a_range - 1
 
 plt.loglog(a_range, w_nu_fluid(zs))
 plt.loglog(a_range, w_nu_fermi_dirac(zs), "--")
-plt.legend(["Two-Fluid Approximation", "Fermi-Dirac Integral"])
+plt.legend(["3-Fluid Approximation", "Fermi-Dirac Integral"])
 plt.title("Equation of State w(a)")
 plt.ylabel("w(a)")
 plt.xlabel("Scale Factor a")
@@ -175,7 +190,7 @@ plt.show()
 
 plt.loglog(a_range, Rho_nu_fluid(zs))
 plt.loglog(a_range, Rho_nu_fermi_dirac(zs), "--", lw=2)
-plt.legend(["Two-Fluid Approximation", "Fermi-Dirac Integral"])
+plt.legend(["3-Fluid Approximation", "Fermi-Dirac Integral"])
 plt.xlabel("Scale Factor a")
 plt.ylabel(r"$\rho_\nu(a)/\rho_{\nu,0}$")
 plt.title("Massive Neutrino Energy Density Evolution")
@@ -184,7 +199,7 @@ plt.show()
 
 plt.loglog(a_range, pressure_nu_fluid(zs))
 plt.loglog(a_range, pressure_nu_fermi_dirac(zs), "--")
-plt.legend(["Two-Fluid Approximation", "Fermi-Dirac Integral"])
+plt.legend(["3-Fluid Approximation", "Fermi-Dirac Integral"])
 plt.title("Neutrino Pressure Evolution")
 plt.ylabel(r"$p_\nu(z)/\rho_{\nu,0}$")
 plt.xlabel("Scale Factor a")
