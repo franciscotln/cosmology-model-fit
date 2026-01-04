@@ -101,7 +101,6 @@ B3 = compute_B3(m0)
 W1 = compute_W1(m0)
 W2 = compute_W2(m0)
 W3 = 1.0 - W1 - W2
-P = 2.0
 
 
 def fluid_component(B, z):
@@ -116,7 +115,7 @@ R03 = fluid_component(B3, 0)
 
 def Rho_nu_fluid(z):
     """
-    Two-fluid energy density rho(z) for massive neutrinos
+    3-fluid energy density rho(z) for massive neutrinos
     - valid for 200 <= m0 = mnu_tot / T_nu0 <= 3160
     """
     zp1 = 1.0 + z
@@ -137,9 +136,9 @@ def pressure_nu_fluid(z):
     B2z = B2 / zp1
     B3z = B3 / zp1
 
-    coeff1 = 1 / (1 + B1z**P)
-    coeff2 = 1 / (1 + B2z**P)
-    coeff3 = 1 / (1 + B3z**P)
+    coeff1 = 1 / (1 + B1z**2)
+    coeff2 = 1 / (1 + B2z**2)
+    coeff3 = 1 / (1 + B3z**2)
 
     density1 = W1 * fluid_component(B1, z) / R01
     density2 = W2 * fluid_component(B2, z) / R02
