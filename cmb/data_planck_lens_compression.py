@@ -42,43 +42,53 @@ Or_h2 = Omega_r_h2(N_EFF - (N_EFF / 3))
 
 # 1 massive neutrino section
 def compute_B1(m0):
-    c1, c2, c3 = 5.44825524, 1.71881852, 4.4555633511
-    return m0 ** (1 + c2) / (c1 + c3 * m0**c2)
+    return m0**0.99918671 / 1.16318070
 
 
 def compute_B2(m0):
-    c1, c2, c3 = 5.44825524, 1.71881852, 4.4555633511
-    d1, d2, d3 = 2.22839301, 1.52373841, 2.72462085
-
-    return m0 ** (1 + c2 - d2) * (d1 + d3 * m0**d2) / (c1 + c3 * m0**c2)
+    return m0**0.99972151 / 7.23392202
 
 
-B1 = compute_B1(m0)
-B2 = compute_B2(m0)
-W1 = 0.53757
-W2 = 1.0 - W1
-P = 1.95648
-N1 = (1 + B1**P) ** (1 / P)
-N2 = (1 + B2**P) ** (1 / P)
+def compute_B3(m0):
+    return m0**0.99960262 / 3.29578202
+
+
+def compute_W1(m0):
+    return m0**1.76287695 / (9.81495217 + 3.599578112 * m0**1.76168671)
+
+
+def compute_W2(m0):
+    return m0**2.20779182 / (-408.51056625 + 8.78920026 * m0**2.20906010)
 
 
 @njit
 def fluid_component(B, z):
     Bz = B / (1.0 + z)
-    return (1 + Bz**P) ** (1 / P)
+    return np.sqrt(1 + Bz**2)
+
+
+B1 = compute_B1(m0)
+B2 = compute_B2(m0)
+B3 = compute_B3(m0)
+W1 = compute_W1(m0)
+W2 = compute_W2(m0)
+W3 = 1.0 - W1 - W2
+N1 = fluid_component(B1, z=0)
+N2 = fluid_component(B2, z=0)
+N3 = fluid_component(B3, z=0)
 
 
 @njit
 def Omnu_z(z):
     """
-    ### Computes the appox. evolution of massive neutrino energy density with redshift.
-    - Two-fluid energy density rho(z) for massive neutrinos
-    - valid for m0 = mnu_tot / T_nu0 >= 100
+    3-fluid energy density rho(z) for massive neutrinos
+    - valid for 200 <= m0 = mnu_tot / T_nu0 <= 3160
     """
     zp1 = 1.0 + z
     density1 = W1 * fluid_component(B1, z) / N1
     density2 = W2 * fluid_component(B2, z) / N2
-    return (density1 + density2) * zp1**4
+    density3 = W3 * fluid_component(B3, z) / N3
+    return zp1**4 * (density1 + density2 + density3)
 
 
 @njit
