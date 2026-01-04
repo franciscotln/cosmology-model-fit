@@ -164,7 +164,7 @@ max_err = np.max(np.abs(rel_err))
 print(f"Max rel diff: {max_err:.5f}%")  # 0.02479%
 print(f"RMS rel diff: {np.sqrt(np.mean((rel_err / 100) ** 2))}")  # 5.6022e-05
 
-plt.style.use("seaborn-v0_8-bright")
+plt.style.use("bmh")
 
 plt.semilogx(z_range, rel_err, lw=2)
 plt.xlabel("Redshift z")
@@ -203,4 +203,66 @@ plt.title("Neutrino Pressure Evolution")
 plt.ylabel(r"$p_\nu(z)/\rho_{\nu,0}$")
 plt.xlabel("Scale Factor a")
 plt.grid(True)
+plt.show()
+
+
+def cs2g(z):
+    u = 1.0 + z
+    u2 = u**2
+
+    f1 = np.sqrt(1 + (B1 / u) ** 2)
+    f2 = np.sqrt(1 + (B2 / u) ** 2)
+    f3 = np.sqrt(1 + (B3 / u) ** 2)
+
+    C1, C2, C3 = W1 / R01, W2 / R02, W3 / R03
+
+    drho_dz = (
+        C1 * u * (4 * u2 + 3 * B1**2) / f1
+        + C2 * u * (4 * u2 + 3 * B2**2) / f2
+        + C3 * u * (4 * u2 + 3 * B3**2) / f3
+    )
+
+    dp_dz = (1.0 / 3.0) * (
+        C1 * u * (4 * u2 + 5 * B1**2) / f1**3
+        + C2 * u * (4 * u2 + 5 * B2**2) / f2**3
+        + C3 * u * (4 * u2 + 5 * B3**2) / f3**3
+    )
+
+    return dp_dz / drho_dz
+
+
+def cs2asp(z):
+    zp1 = 1.0 + z
+    B1z = B1 / zp1
+    B2z = B2 / zp1
+    B3z = B3 / zp1
+
+    density1 = W1 * fluid_component(B1, z) / R01
+    density2 = W2 * fluid_component(B2, z) / R02
+    density3 = W3 * fluid_component(B3, z) / R03
+    coeff1 = 1 / (1 + B1z**2)
+    coeff2 = 1 / (1 + B2z**2)
+    coeff3 = 1 / (1 + B3z**2)
+
+    numerator = (
+        density1
+        + density2
+        + density3
+        + (1 / 3) * (coeff1 * density1 + coeff2 * density2 + coeff3 * density3)
+    )
+    denominator = (density1 + density2 + density3) + (1 / 3) * (
+        density1 / coeff1 + density2 / coeff2 + density3 / coeff3
+    )
+
+    return (1 / 3) * (numerator / denominator)
+
+
+plt.plot(np.log(a_range), cs2asp(zs), label="asymptotic")
+plt.plot(np.log(a_range), cs2g(zs), label="adiabatic")
+plt.title("Neutrino Sound Speed Squared Evolution")
+plt.ylabel(r"$c_s^2(a)$")
+plt.legend()
+plt.xlim(-8, None)
+plt.xlabel("Scale Factor ln(a)")
+plt.grid(True, which="both", linestyle="--", alpha=0.6)
 plt.show()
