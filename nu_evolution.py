@@ -145,8 +145,8 @@ rho_approx = Rho_nu_fluid(z_range)
 
 rel_err = 100 * (rho_approx / rho_fermi_dirac - 1)
 max_err = np.max(np.abs(rel_err))
-print(f"Max rel diff: {max_err:.5f}%")  # 0.02465%
-print(f"RMS rel diff: {np.sqrt(np.mean((rel_err / 100) ** 2))}")  # 5.5750e-05
+print(f"Max rel diff: {max_err:.5f}%")  # 2.465e-02 %
+print(f"RMS rel diff: {np.sqrt(np.mean((rel_err) ** 2)):.5f}%")  # 5.575e-03 %
 
 plt.style.use("bmh")
 
