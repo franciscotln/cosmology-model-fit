@@ -27,14 +27,6 @@ def integrand_density(q, z):
     return q**2 * (q**2 + mz**2) ** (1 / 2) / (np.exp(q) + 1)
 
 
-"""
-There are two values of q (q1 = 2.0811166 and q2 = 4.5036711) for which the integrand becomes:
-Bz = B / (1 + z)
-return (1 + Bz**2) ** (1 / 2)
-
-where B1 = m0/q1 and B2 = m0/q2
-"""
-
 R0 = quad(integrand_density, 0, 100, args=(0,))[0]
 
 
@@ -74,25 +66,30 @@ def w_nu_fermi_dirac(z):
     return pressure_nu_fermi_dirac(z) / Rho_nu_fermi_dirac(z)
 
 
-# Analytical two-fluid approximation functions and coefficients
+# Analytical 3-fluid approximation functions and coefficients
 def compute_B1(m0):
-    return m0**0.99918671 / 1.16318070
+    return m0 / 1.167325  # 0.0005870975195 0.0009134094406
 
 
 def compute_B2(m0):
-    return m0**0.99972151 / 7.23392202
+    return m0 / 3.300477
 
 
 def compute_B3(m0):
-    return m0**0.99960262 / 3.29578202
+    return m0 / 7.242405
 
 
 def compute_W1(m0):
-    return m0**1.76287695 / (9.81495217 + 3.599578112 * m0**1.76168671)
+    return m0**1.01332889 / (2.68619785e-01 + 9.67156949 * m0**1.01336957)
 
 
 def compute_W2(m0):
-    return m0**2.20779182 / (-408.51056625 + 8.78920026 * m0**2.20906010)
+    return m0**1.14064929 / (-4.95116795e-02 + 1.57136277 * m0**1.14063642)
+
+
+def fluid_component(B, z):
+    Bz = B / (1.0 + z)
+    return np.sqrt(1 + Bz**2)
 
 
 B1 = compute_B1(m0)
@@ -101,57 +98,44 @@ B3 = compute_B3(m0)
 W1 = compute_W1(m0)
 W2 = compute_W2(m0)
 W3 = 1.0 - W1 - W2
-
-
-def fluid_component(B, z):
-    Bz = B / (1.0 + z)
-    return np.sqrt(1 + Bz**2)
-
-
-R01 = fluid_component(B1, 0)
-R02 = fluid_component(B2, 0)
-R03 = fluid_component(B3, 0)
+f1_0 = fluid_component(B1, 0)
+f2_0 = fluid_component(B2, 0)
+f3_0 = fluid_component(B3, 0)
+normalization = W1 * f1_0 + W2 * f2_0 + W3 * f3_0
 
 
 def Rho_nu_fluid(z):
     """
     3-fluid energy density rho(z) for massive neutrinos
-    - valid for 200 <= m0 = mnu_tot / T_nu0 <= 3160
+    - valid for 200 <= m0 = mnu_tot / T_nu0 <= 4000
     """
-    zp1 = 1.0 + z
-
-    density1 = W1 * fluid_component(B1, z) / R01
-    density2 = W2 * fluid_component(B2, z) / R02
-    density3 = W3 * fluid_component(B3, z) / R03
-    return zp1**4 * (density1 + density2 + density3)
+    f1 = fluid_component(B1, z)
+    f2 = fluid_component(B2, z)
+    f3 = fluid_component(B3, z)
+    density = W1 * f1 + W2 * f2 + W3 * f3
+    return (1 + z) ** 4 * density / normalization
 
 
 def pressure_nu_fluid(z):
     """
-    Pressure p(z) for massive neutrinos using the two-fluid approximation
+    Pressure p(z) for massive neutrinos using the 3-fluid approximation
     """
-    zp1 = 1.0 + z
+    f1 = fluid_component(B1, z)
+    f2 = fluid_component(B2, z)
+    f3 = fluid_component(B3, z)
+    pressure = W1 / f1 + W2 / f2 + W3 / f3
 
-    B1z = B1 / zp1
-    B2z = B2 / zp1
-    B3z = B3 / zp1
-
-    coeff1 = 1 / (1 + B1z**2)
-    coeff2 = 1 / (1 + B2z**2)
-    coeff3 = 1 / (1 + B3z**2)
-
-    density1 = W1 * fluid_component(B1, z) / R01
-    density2 = W2 * fluid_component(B2, z) / R02
-    density3 = W3 * fluid_component(B3, z) / R03
-
-    return zp1**4 * (coeff1 * density1 + coeff2 * density2 + coeff3 * density3) / 3
+    return (1 / 3) * (1 + z) ** 4 * pressure / normalization
 
 
 def w_nu_fluid(z):
     """
     Equation of state w(z) for massive neutrinos using the two-fluid approximation
     """
-    return pressure_nu_fluid(z) / Rho_nu_fluid(z)
+    f1 = fluid_component(B1, z)
+    f2 = fluid_component(B2, z)
+    f3 = fluid_component(B3, z)
+    return (1 / 3) * (W1 / f1 + W2 / f2 + W3 / f3) / (W1 * f1 + W2 * f2 + W3 * f3)
 
 
 z_range = np.logspace(-3, 7, 10_000)
@@ -161,8 +145,8 @@ rho_approx = Rho_nu_fluid(z_range)
 
 rel_err = 100 * (rho_approx / rho_fermi_dirac - 1)
 max_err = np.max(np.abs(rel_err))
-print(f"Max rel diff: {max_err:.5f}%")  # 0.02479%
-print(f"RMS rel diff: {np.sqrt(np.mean((rel_err / 100) ** 2))}")  # 5.6022e-05
+print(f"Max rel diff: {max_err:.5f}%")  # 0.02465%
+print(f"RMS rel diff: {np.sqrt(np.mean((rel_err / 100) ** 2))}")  # 5.5750e-05
 
 plt.style.use("bmh")
 
@@ -207,52 +191,38 @@ plt.show()
 
 
 def cs2g(z):
-    u = 1.0 + z
-    u2 = u**2
+    zp1 = 1.0 + z
+    Bz1_sqr = (B1 / zp1) ** 2
+    Bz2_sqr = (B2 / zp1) ** 2
+    Bz3_sqr = (B3 / zp1) ** 2
 
-    f1 = np.sqrt(1 + (B1 / u) ** 2)
-    f2 = np.sqrt(1 + (B2 / u) ** 2)
-    f3 = np.sqrt(1 + (B3 / u) ** 2)
+    f1 = np.sqrt(1 + Bz1_sqr)
+    f2 = np.sqrt(1 + Bz2_sqr)
+    f3 = np.sqrt(1 + Bz3_sqr)
 
-    C1, C2, C3 = W1 / R01, W2 / R02, W3 / R03
-
-    drho_dz = (
-        C1 * u * (4 * u2 + 3 * B1**2) / f1
-        + C2 * u * (4 * u2 + 3 * B2**2) / f2
-        + C3 * u * (4 * u2 + 3 * B3**2) / f3
+    drho_dz_over_zp1_cubed = (
+        W1 * (4 + 3 * Bz1_sqr) / f1
+        + W2 * (4 + 3 * Bz2_sqr) / f2
+        + W3 * (4 + 3 * Bz3_sqr) / f3
     )
 
-    dp_dz = (1.0 / 3.0) * (
-        C1 * u * (4 * u2 + 5 * B1**2) / f1**3
-        + C2 * u * (4 * u2 + 5 * B2**2) / f2**3
-        + C3 * u * (4 * u2 + 5 * B3**2) / f3**3
+    dp_dz_over_zp1_cubed = (1 / 3) * (
+        W1 * (4 + 5 * Bz1_sqr) / f1**3
+        + W2 * (4 + 5 * Bz2_sqr) / f2**3
+        + W3 * (4 + 5 * Bz3_sqr) / f3**3
     )
 
-    return dp_dz / drho_dz
+    return dp_dz_over_zp1_cubed / drho_dz_over_zp1_cubed
 
 
 def cs2asp(z):
-    zp1 = 1.0 + z
-    B1z = B1 / zp1
-    B2z = B2 / zp1
-    B3z = B3 / zp1
+    f1 = fluid_component(B1, z)
+    f2 = fluid_component(B2, z)
+    f3 = fluid_component(B3, z)
 
-    density1 = W1 * fluid_component(B1, z) / R01
-    density2 = W2 * fluid_component(B2, z) / R02
-    density3 = W3 * fluid_component(B3, z) / R03
-    coeff1 = 1 / (1 + B1z**2)
-    coeff2 = 1 / (1 + B2z**2)
-    coeff3 = 1 / (1 + B3z**2)
-
-    numerator = (
-        density1
-        + density2
-        + density3
-        + (1 / 3) * (coeff1 * density1 + coeff2 * density2 + coeff3 * density3)
-    )
-    denominator = (density1 + density2 + density3) + (1 / 3) * (
-        density1 / coeff1 + density2 / coeff2 + density3 / coeff3
-    )
+    density = W1 * f1 + W2 * f2 + W3 * f3
+    numerator = density + (1 / 3) * (W1 / f1 + W2 / f2 + W3 / f3)
+    denominator = density + (1 / 3) * (W1 * f1**3 + W2 * f2**3 + W3 * f3**3)
 
     return (1 / 3) * (numerator / denominator)
 
