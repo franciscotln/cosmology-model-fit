@@ -68,7 +68,7 @@ def w_nu_fermi_dirac(z):
 
 # Analytical 3-fluid approximation functions and coefficients
 def compute_B1(m0):
-    return m0 / 1.167325  # 0.0005870975195 0.0009134094406
+    return m0 / 1.167325
 
 
 def compute_B2(m0):
