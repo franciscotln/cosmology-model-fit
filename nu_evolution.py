@@ -68,23 +68,23 @@ def w_nu_fermi_dirac(z):
 
 # Analytical 3-fluid approximation functions and coefficients
 def compute_B1(m0):
-    return m0 / 1.167325
+    return m0**0.99910745 / 1.15925821
 
 
 def compute_B2(m0):
-    return m0 / 3.300477
+    return m0**0.99910745 / 3.27763017
 
 
 def compute_B3(m0):
-    return m0 / 7.242405
+    return m0**0.99910745 / 7.1922173
 
 
 def compute_W1(m0):
-    return m0**1.01332889 / (2.68619785e-01 + 9.67156949 * m0**1.01336957)
+    return m0**0.00273145 / 9.882117212
 
 
-def compute_W2(m0):
-    return m0**1.14064929 / (-4.95116795e-02 + 1.57136277 * m0**1.14063642)
+def compute_W3(m0):
+    return m0**-0.00292493 / 3.7568053119
 
 
 def fluid_component(B, z):
@@ -96,8 +96,8 @@ B1 = compute_B1(m0)
 B2 = compute_B2(m0)
 B3 = compute_B3(m0)
 W1 = compute_W1(m0)
-W2 = compute_W2(m0)
-W3 = 1.0 - W1 - W2
+W3 = compute_W3(m0)
+W2 = 1.0 - W1 - W3
 f1_0 = fluid_component(B1, 0)
 f2_0 = fluid_component(B2, 0)
 f3_0 = fluid_component(B3, 0)
@@ -107,7 +107,7 @@ normalization = W1 * f1_0 + W2 * f2_0 + W3 * f3_0
 def Rho_nu_fluid(z):
     """
     3-fluid energy density rho(z) for massive neutrinos
-    - valid for 200 <= m0 = mnu_tot / T_nu0 <= 4000
+    - valid for m0 = mnu_tot / T_nu0>= 100
     """
     f1 = fluid_component(B1, z)
     f2 = fluid_component(B2, z)
@@ -145,8 +145,8 @@ rho_approx = Rho_nu_fluid(z_range)
 
 rel_err = 100 * (rho_approx / rho_fermi_dirac - 1)
 max_err = np.max(np.abs(rel_err))
-print(f"Max rel diff: {max_err:.5f}%")  # 2.465e-02 %
-print(f"RMS rel diff: {np.sqrt(np.mean((rel_err) ** 2)):.5f}%")  # 5.575e-03 %
+print(f"Max rel diff: {max_err:.5f}%")  # 2.445e-02 %
+print(f"RMS rel diff: {np.sqrt(np.mean((rel_err) ** 2)):.6f}%")  # 5.528e-03 %
 
 plt.style.use("bmh")
 
@@ -159,7 +159,7 @@ plt.axhline(0, color="k", lw=0.5)
 plt.tight_layout()
 plt.show()
 
-a_range = np.linspace(1e-07, 1, 2000)
+a_range = np.linspace(1e-07, 1, 4000)
 zs = 1 / a_range - 1
 
 plt.loglog(a_range, w_nu_fluid(zs))
