@@ -83,7 +83,6 @@ normalization = W1 * f1_0 + W2 * f2_0 + W3 * f3_0
 def Omnu_z(z):
     """
     3-fluid energy density rho(z) for massive neutrinos
-    - valid for m0 = mnu_tot / T_nu0 > 100
     """
     zp1 = 1.0 + z
     density1 = W1 * fluid_component(B1, z)
