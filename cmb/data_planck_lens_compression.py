@@ -42,23 +42,23 @@ Or_h2 = Omega_r_h2(N_EFF - (N_EFF / 3))
 
 # 1 massive neutrino section
 def compute_B1(m0):
-    return m0**0.99918671 / 1.16318070
+    return m0**0.99910745 / 1.15925821
 
 
 def compute_B2(m0):
-    return m0**0.99972151 / 7.23392202
+    return m0**0.99910745 / 3.27763017
 
 
 def compute_B3(m0):
-    return m0**0.99960262 / 3.29578202
+    return m0**0.99910745 / 7.1922173
 
 
 def compute_W1(m0):
-    return m0**1.76287695 / (9.81495217 + 3.599578112 * m0**1.76168671)
+    return m0**0.00273145 / 9.882117212
 
 
-def compute_W2(m0):
-    return m0**2.20779182 / (-408.51056625 + 8.78920026 * m0**2.20906010)
+def compute_W3(m0):
+    return m0**-0.00292493 / 3.7568053119
 
 
 @njit
@@ -71,24 +71,25 @@ B1 = compute_B1(m0)
 B2 = compute_B2(m0)
 B3 = compute_B3(m0)
 W1 = compute_W1(m0)
-W2 = compute_W2(m0)
-W3 = 1.0 - W1 - W2
-N1 = fluid_component(B1, z=0)
-N2 = fluid_component(B2, z=0)
-N3 = fluid_component(B3, z=0)
+W3 = compute_W3(m0)
+W2 = 1.0 - W1 - W3
+f1_0 = fluid_component(B1, 0)
+f2_0 = fluid_component(B2, 0)
+f3_0 = fluid_component(B3, 0)
+normalization = W1 * f1_0 + W2 * f2_0 + W3 * f3_0
 
 
 @njit
 def Omnu_z(z):
     """
     3-fluid energy density rho(z) for massive neutrinos
-    - valid for 200 <= m0 = mnu_tot / T_nu0 <= 3160
+    - valid for m0 = mnu_tot / T_nu0 > 100
     """
     zp1 = 1.0 + z
-    density1 = W1 * fluid_component(B1, z) / N1
-    density2 = W2 * fluid_component(B2, z) / N2
-    density3 = W3 * fluid_component(B3, z) / N3
-    return zp1**4 * (density1 + density2 + density3)
+    density1 = W1 * fluid_component(B1, z)
+    density2 = W2 * fluid_component(B2, z)
+    density3 = W3 * fluid_component(B3, z)
+    return zp1**4 * (density1 + density2 + density3) / normalization
 
 
 @njit
