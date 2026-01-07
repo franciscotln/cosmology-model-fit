@@ -44,23 +44,23 @@ Or_h2 = Omega_r_h2(N_EFF - (N_EFF / 3))
 
 # 1 massive neutrino section
 def compute_B1(m0):
-    return m0**0.99910745 / 1.15925821
+    return m0**0.99877359 / 1.13497121
 
 
 def compute_B2(m0):
-    return m0**0.99910745 / 3.27763017
+    return m0**0.99877359 / 3.23490176
 
 
 def compute_B3(m0):
-    return m0**0.99910745 / 7.1922173
+    return m0**0.99877359 / 7.13084298
 
 
 def compute_W1(m0):
-    return m0**0.00273145 / 9.882117212
+    return (m0 / 1000) ** 0.00377374 / 10.20460242
 
 
-def compute_W3(m0):
-    return m0**-0.00292493 / 3.7568053119
+def compute_W2(m0):
+    return (m0 / 1000) ** 0.00109726 / 1.57582916
 
 
 @njit
@@ -73,8 +73,8 @@ B1 = compute_B1(m0)
 B2 = compute_B2(m0)
 B3 = compute_B3(m0)
 W1 = compute_W1(m0)
-W3 = compute_W3(m0)
-W2 = 1.0 - W1 - W3
+W2 = compute_W2(m0)
+W3 = 1.0 - W1 - W2
 f1_0 = fluid_component(B1, 0)
 f2_0 = fluid_component(B2, 0)
 f3_0 = fluid_component(B3, 0)
