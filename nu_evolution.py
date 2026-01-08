@@ -21,217 +21,228 @@ def O_gamma_h2(T_cmb):
     return rho_gamma / rho_crit_h2
 
 
-@njit
-def integrand_density(q, z):
-    mz = m0 / (1.0 + z)
-    return q**2 * (q**2 + mz**2) ** (1 / 2) / (np.exp(q) + 1)
+# Analytical 5-node approximation functions and coefficients
+def compute_nodes(m0):
+    return m0 / np.array([0.5554855, 1.52077029, 3.12302226, 5.71996287, 10.09243889])
 
 
-R0 = quad(integrand_density, 0, 100, args=(0,))[0]
+def compute_weight(m0, coeffs):
+    a, b, c, d = coeffs
+    return a + b / (m0**d + c)
 
 
-def Rho_nu_fermi_dirac(z):
-    """
-    Energy density rho(z) for massive neutrinos using the Fermi-Dirac integral
-    """
-    zp1 = 1.0 + z
-
-    density = zp1**4 * quad(integrand_density, 0, 100, args=(z,))[0] / R0
-    return density
-
-
-@njit
-def integrand_pressure(q, z):
-    mz = m0 / (1.0 + z)
-    coeff = q**2 / (q**2 + mz**2)
-    return coeff * integrand_density(q, z)
+def compute_weights(m0):
+    w1_coeffs = (7.92827793e-03, -3.19058802e-03, 178.754821, 1.61644550)
+    w2_coeffs = (0.137866439, 2.27856337e-02, 173.860696, 1.60725939)
+    w3_coeffs = (0.456512842, -4.76472630e-02, 165.916077, 1.59366999)
+    w4_coeffs = (0.353930679, 4.07026316e-02, 154.215273, 1.57547094)
+    w1 = compute_weight(m0, w1_coeffs)
+    w2 = compute_weight(m0, w2_coeffs)
+    w3 = compute_weight(m0, w3_coeffs)
+    w4 = compute_weight(m0, w4_coeffs)
+    w5 = 1.0 - w1 - w2 - w3 - w4
+    return np.array([w1, w2, w3, w4, w5])
 
 
-def pressure_nu_fermi_dirac(z):
-    """
-    Pressure p(z) for massive neutrinos using the Fermi-Dirac integral
-    """
-    zp1 = 1.0 + z
-    return (1 / 3) * zp1**4 * quad(integrand_pressure, 0, 100, args=(z,))[0] / R0
+if __name__ == "__main__":
 
+    @njit
+    def integrand_density(q, z):
+        mz = m0 / (1.0 + z)
+        return q**2 * (q**2 + mz**2) ** (1 / 2) / (np.exp(q) + 1)
 
-Rho_nu_fermi_dirac = np.vectorize(Rho_nu_fermi_dirac)
-pressure_nu_fermi_dirac = np.vectorize(pressure_nu_fermi_dirac)
+    R0 = quad(integrand_density, 0, 100, args=(0,))[0]
 
+    def Rho_nu_fermi_dirac(z):
+        """
+        Energy density rho(z) for massive neutrinos using the Fermi-Dirac integral
+        """
+        zp1 = 1.0 + z
 
-def w_nu_fermi_dirac(z):
-    """
-    Equation of state w(z) for massive neutrinos using the Fermi-Dirac integral
-    """
-    return pressure_nu_fermi_dirac(z) / Rho_nu_fermi_dirac(z)
+        density = zp1**4 * quad(integrand_density, 0, 100, args=(z,))[0] / R0
+        return density
 
+    @njit
+    def integrand_pressure(q, z):
+        mz = m0 / (1.0 + z)
+        coeff = q**2 / (q**2 + mz**2)
+        return coeff * integrand_density(q, z)
 
-# Analytical 3-fluid approximation functions and coefficients
-def compute_B1(m0):
-    return m0**0.99877359 / 1.13497121
+    def pressure_nu_fermi_dirac(z):
+        """
+        Pressure p(z) for massive neutrinos using the Fermi-Dirac integral
+        """
+        zp1 = 1.0 + z
+        return (1 / 3) * zp1**4 * quad(integrand_pressure, 0, 100, args=(z,))[0] / R0
 
+    Rho_nu_fermi_dirac = np.vectorize(Rho_nu_fermi_dirac)
+    pressure_nu_fermi_dirac = np.vectorize(pressure_nu_fermi_dirac)
 
-def compute_B2(m0):
-    return m0**0.99877359 / 3.23490176
+    def w_nu_fermi_dirac(z):
+        """
+        Equation of state w(z) for massive neutrinos using the Fermi-Dirac integral
+        """
+        return pressure_nu_fermi_dirac(z) / Rho_nu_fermi_dirac(z)
 
+    B_sqr = compute_nodes(m0) ** 2
+    W = compute_weights(m0)
+    f_0 = np.sqrt(1 + B_sqr)
+    normalization = W @ f_0
 
-def compute_B3(m0):
-    return m0**0.99877359 / 7.13084298
+    def Rho_nu_fluid(z):
+        """
+        Energy density rho(z) for massive neutrinos using the 5-node approximation
+        """
+        zp1 = 1.0 + z
+        Bz_sqr = B_sqr[:, None] / zp1**2
+        f = np.sqrt(1 + Bz_sqr)
+        return zp1**4 * W.dot(f) / normalization
 
+    def pressure_nu_fluid(z):
+        """
+        Pressure p(z) for massive neutrinos using the 5-node approximation
+        """
+        zp1 = 1.0 + z
+        Bz_sqr = B_sqr[:, None] / zp1**2
+        f = np.sqrt(1 + Bz_sqr)
+        return (1 / 3) * zp1**4 * W.dot(1 / f) / normalization
 
-def compute_W1(m0):
-    return (m0 / 1000) ** 0.00377374 / 10.20460242
+    def w_nu_fluid(z):
+        """
+        Equation of state w(z) for massive neutrinos using the 5-node approximation
+        """
+        zp1 = 1.0 + z
+        Bz_sqr = B_sqr[:, None] / zp1**2
+        f = np.sqrt(1 + Bz_sqr)
+        return (1 / 3) * W.dot(1 / f) / W.dot(f)
 
+    z_range = np.logspace(-3, 7, 10_000)
 
-def compute_W2(m0):
-    return (m0 / 1000) ** 0.00109726 / 1.57582916
+    rho_fermi_dirac = Rho_nu_fermi_dirac(z_range)
+    rho_approx = Rho_nu_fluid(z_range)
 
+    rel_err = 100 * (rho_approx / rho_fermi_dirac - 1)
+    max_err = np.max(np.abs(rel_err))
+    print(f"Max rel diff: {max_err:.5f}%")  # 1.39e-03 %
+    print(f"RMS rel diff: {np.sqrt(np.mean((rel_err) ** 2)):.6f}%")  # 8.03e-04 %
 
-def fluid_component(B, z):
-    Bz = B / (1.0 + z)
-    return np.sqrt(1 + Bz**2)
+    plt.style.use("bmh")
 
+    plt.semilogx(z_range, rel_err, lw=2)
+    plt.xlabel("Redshift z")
+    plt.ylabel("Relative Difference (%)")
+    plt.title(f"5-node Approximation Residuals\nMax Error: {max_err:.4f}%")
+    plt.grid(True, which="both", linestyle="--", alpha=0.6)
+    plt.axhline(0, color="k", lw=0.5)
+    plt.tight_layout()
+    plt.show()
 
-B1 = compute_B1(m0)
-B2 = compute_B2(m0)
-B3 = compute_B3(m0)
-W1 = compute_W1(m0)
-W2 = compute_W2(m0)
-W3 = 1.0 - W1 - W2
-f1_0 = fluid_component(B1, 0)
-f2_0 = fluid_component(B2, 0)
-f3_0 = fluid_component(B3, 0)
-normalization = W1 * f1_0 + W2 * f2_0 + W3 * f3_0
+    a_range = np.linspace(1e-07, 1, 4000)
+    zs = 1 / a_range - 1
 
+    plt.loglog(a_range, w_nu_fluid(zs))
+    plt.loglog(a_range, w_nu_fermi_dirac(zs), "--")
+    plt.legend(["5-node Approximation", "Fermi-Dirac Integral"])
+    plt.title("Equation of State w(a)")
+    plt.ylabel("w(a)")
+    plt.xlabel("Scale Factor a")
+    plt.grid(True)
+    plt.show()
 
-def Rho_nu_fluid(z):
-    """
-    3-fluid energy density rho(z) for massive neutrinos
-    """
-    f1 = fluid_component(B1, z)
-    f2 = fluid_component(B2, z)
-    f3 = fluid_component(B3, z)
-    density = W1 * f1 + W2 * f2 + W3 * f3
-    return (1 + z) ** 4 * density / normalization
+    plt.loglog(a_range, Rho_nu_fluid(zs))
+    plt.loglog(a_range, Rho_nu_fermi_dirac(zs), "--", lw=2)
+    plt.legend(["5-node Approximation", "Fermi-Dirac Integral"])
+    plt.xlabel("Scale Factor a")
+    plt.ylabel(r"$\rho_\nu(a)/\rho_{\nu,0}$")
+    plt.title("Massive Neutrino Energy Density Evolution")
+    plt.grid(True, which="both", linestyle="--", alpha=0.6)
+    plt.show()
 
+    plt.loglog(a_range, pressure_nu_fluid(zs))
+    plt.loglog(a_range, pressure_nu_fermi_dirac(zs), "--")
+    plt.legend(["5-node Approximation", "Fermi-Dirac Integral"])
+    plt.title("Neutrino Pressure Evolution")
+    plt.ylabel(r"$p_\nu(z)/\rho_{\nu,0}$")
+    plt.xlabel("Scale Factor a")
+    plt.grid(True)
+    plt.show()
 
-def pressure_nu_fluid(z):
-    """
-    Pressure p(z) for massive neutrinos using the 3-fluid approximation
-    """
-    f1 = fluid_component(B1, z)
-    f2 = fluid_component(B2, z)
-    f3 = fluid_component(B3, z)
-    pressure = W1 / f1 + W2 / f2 + W3 / f3
+    # Sound speed (fermi-dirac: adiabatic)
+    @njit
+    def drho_dz_integrand_fermi(q, z):
+        zp1 = 1.0 + z
+        mz = m0 / zp1
+        dm_dz = -m0 / (zp1**2)
 
-    return (1 / 3) * (1 + z) ** 4 * pressure / normalization
+        term1 = q**2 * np.sqrt(q**2 + mz**2) / (np.exp(q) + 1)
+        term2 = (q**2 * mz / np.sqrt(q**2 + mz**2)) * dm_dz / (np.exp(q) + 1)
 
+        return 4 * term1 / zp1 + term2
 
-def w_nu_fluid(z):
-    """
-    Equation of state w(z) for massive neutrinos using the two-fluid approximation
-    """
-    f1 = fluid_component(B1, z)
-    f2 = fluid_component(B2, z)
-    f3 = fluid_component(B3, z)
-    return (1 / 3) * (W1 / f1 + W2 / f2 + W3 / f3) / (W1 * f1 + W2 * f2 + W3 * f3)
+    @njit
+    def dpressure_dz_integrand_fermi(q, z):
+        zp1 = 1.0 + z
+        mz = m0 / zp1
+        dm_dz = -m0 / (zp1**2)
 
+        common = q**4 / (np.exp(q) + 1)
+        term1 = (1 / 3) * common / np.sqrt(q**2 + mz**2)
+        term2 = (1 / 3) * common * (-mz * dm_dz) / (q**2 + mz**2) ** 1.5
 
-z_range = np.logspace(-3, 7, 10_000)
+        return 4 * term1 / zp1 + term2
 
-rho_fermi_dirac = Rho_nu_fermi_dirac(z_range)
-rho_approx = Rho_nu_fluid(z_range)
+    def cs2_adiab_fermi(z):
+        dp_dz = quad(dpressure_dz_integrand_fermi, 0, 100, args=(z,))[0]
+        drho_dz = quad(drho_dz_integrand_fermi, 0, 100, args=(z,))[0]
 
-rel_err = 100 * (rho_approx / rho_fermi_dirac - 1)
-max_err = np.max(np.abs(rel_err))
-print(f"Max rel diff: {max_err:.5f}%")  # 2.445e-02 %
-print(f"RMS rel diff: {np.sqrt(np.mean((rel_err) ** 2)):.6f}%")  # 5.528e-03 %
+        return dp_dz / drho_dz
 
-plt.style.use("bmh")
+    cs2_adiab_fermi = np.vectorize(cs2_adiab_fermi)
 
-plt.semilogx(z_range, rel_err, lw=2)
-plt.xlabel("Redshift z")
-plt.ylabel("Relative Difference (%)")
-plt.title(f"3-Fluid Approximation Residuals\nMax Error: {max_err:.4f}%")
-plt.grid(True, which="both", linestyle="--", alpha=0.6)
-plt.axhline(0, color="k", lw=0.5)
-plt.tight_layout()
-plt.show()
+    # Sound speed (adiabatic)
+    def cs2_adiab(z):
+        zp1_sqr = (1.0 + z) ** 2
+        Bz_sqr = B_sqr[:, None] / zp1_sqr
+        f = np.sqrt(1 + Bz_sqr)
 
-a_range = np.linspace(1e-07, 1, 4000)
-zs = 1 / a_range - 1
+        dp_dz_over_zp1_cube = (1 / 3) * W.dot((4 + 5 * Bz_sqr) / f**3)
+        drho_dz_over_zp1_cube = W.dot((4 + 3 * Bz_sqr) / f)
+        return dp_dz_over_zp1_cube / drho_dz_over_zp1_cube
 
-plt.loglog(a_range, w_nu_fluid(zs))
-plt.loglog(a_range, w_nu_fermi_dirac(zs), "--")
-plt.legend(["3-Fluid Approximation", "Fermi-Dirac Integral"])
-plt.title("Equation of State w(a)")
-plt.ylabel("w(a)")
-plt.xlabel("Scale Factor a")
-plt.grid(True)
-plt.show()
+    # Sound speed (asymtotic)
+    def cs2_asympt(z):
+        zp1_sqr = (1.0 + z) ** 2
+        Bz_sqr = Bz_sqr = B_sqr[:, None] / zp1_sqr
+        f = np.sqrt(1 + Bz_sqr)
 
-plt.loglog(a_range, Rho_nu_fluid(zs))
-plt.loglog(a_range, Rho_nu_fermi_dirac(zs), "--", lw=2)
-plt.legend(["3-Fluid Approximation", "Fermi-Dirac Integral"])
-plt.xlabel("Scale Factor a")
-plt.ylabel(r"$\rho_\nu(a)/\rho_{\nu,0}$")
-plt.title("Massive Neutrino Energy Density Evolution")
-plt.grid(True, which="both", linestyle="--", alpha=0.6)
-plt.show()
+        density = W.dot(f)
+        pressure = (1 / 3) * W.dot(1 / f)
+        numerator = density + pressure
+        denominator = density + (1 / 3) * W.dot(f**3)
 
-plt.loglog(a_range, pressure_nu_fluid(zs))
-plt.loglog(a_range, pressure_nu_fermi_dirac(zs), "--")
-plt.legend(["3-Fluid Approximation", "Fermi-Dirac Integral"])
-plt.title("Neutrino Pressure Evolution")
-plt.ylabel(r"$p_\nu(z)/\rho_{\nu,0}$")
-plt.xlabel("Scale Factor a")
-plt.grid(True)
-plt.show()
+        return (1 / 3) * (numerator / denominator)
 
+    approx_cs2_asympt = cs2_asympt(zs)
+    approx_cs2_adiab = cs2_adiab(zs)
+    exact_cs2_adiab = cs2_adiab_fermi(zs)
 
-def cs2g(z):
-    zp1 = 1.0 + z
-    Bz1_sqr = (B1 / zp1) ** 2
-    Bz2_sqr = (B2 / zp1) ** 2
-    Bz3_sqr = (B3 / zp1) ** 2
+    plt.plot(np.log(a_range), approx_cs2_asympt, label="asymptotic")
+    plt.plot(np.log(a_range), approx_cs2_adiab, label="adiabatic")
+    plt.title("Neutrino Sound Speed Squared Evolution")
+    plt.ylabel(r"$c_s^2(a)$")
+    plt.legend()
+    plt.xlim(-8, None)
+    plt.xlabel("Scale Factor ln(a)")
+    plt.grid(True, which="both", linestyle="--", alpha=0.6)
+    plt.show()
 
-    f1 = np.sqrt(1 + Bz1_sqr)
-    f2 = np.sqrt(1 + Bz2_sqr)
-    f3 = np.sqrt(1 + Bz3_sqr)
-
-    drho_dz_over_zp1_cubed = (
-        W1 * (4 + 3 * Bz1_sqr) / f1
-        + W2 * (4 + 3 * Bz2_sqr) / f2
-        + W3 * (4 + 3 * Bz3_sqr) / f3
-    )
-
-    dp_dz_over_zp1_cubed = (1 / 3) * (
-        W1 * (4 + 5 * Bz1_sqr) / f1**3
-        + W2 * (4 + 5 * Bz2_sqr) / f2**3
-        + W3 * (4 + 5 * Bz3_sqr) / f3**3
-    )
-
-    return dp_dz_over_zp1_cubed / drho_dz_over_zp1_cubed
-
-
-def cs2asp(z):
-    f1 = fluid_component(B1, z)
-    f2 = fluid_component(B2, z)
-    f3 = fluid_component(B3, z)
-
-    density = W1 * f1 + W2 * f2 + W3 * f3
-    numerator = density + (1 / 3) * (W1 / f1 + W2 / f2 + W3 / f3)
-    denominator = density + (1 / 3) * (W1 * f1**3 + W2 * f2**3 + W3 * f3**3)
-
-    return (1 / 3) * (numerator / denominator)
-
-
-plt.plot(np.log(a_range), cs2asp(zs), label="asymptotic")
-plt.plot(np.log(a_range), cs2g(zs), label="adiabatic")
-plt.title("Neutrino Sound Speed Squared Evolution")
-plt.ylabel(r"$c_s^2(a)$")
-plt.legend()
-plt.xlim(-8, None)
-plt.xlabel("Scale Factor ln(a)")
-plt.grid(True, which="both", linestyle="--", alpha=0.6)
-plt.show()
+    plt.plot(np.log(a_range), approx_cs2_adiab, label="adiabatic approximation")
+    plt.plot(np.log(a_range), exact_cs2_adiab, "--", label="adiabatic exact")
+    plt.title("Neutrino Sound Speed Squared Evolution")
+    plt.ylabel(r"$c_s^2(a)$")
+    plt.legend()
+    plt.xlim(-8, None)
+    plt.xlabel("Scale Factor ln(a)")
+    plt.grid(True, which="both", linestyle="--", alpha=0.6)
+    plt.tight_layout()
+    plt.show()

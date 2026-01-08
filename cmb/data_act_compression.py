@@ -9,6 +9,7 @@ import numpy as np
 from scipy.integrate import quad
 from scipy.constants import c as c0
 from numba import njit
+import nu_evolution as neutrino
 
 c = c0 / 1000  # km/s
 
@@ -43,54 +44,28 @@ Or_h2 = Omega_r_h2(N_EFF - (N_EFF / 3))
 
 
 # 1 massive neutrino section
-def compute_B1(m0):
-    return m0**0.99877359 / 1.13497121
-
-
-def compute_B2(m0):
-    return m0**0.99877359 / 3.23490176
-
-
-def compute_B3(m0):
-    return m0**0.99877359 / 7.13084298
-
-
-def compute_W1(m0):
-    return (m0 / 1000) ** 0.00377374 / 10.20460242
-
-
-def compute_W2(m0):
-    return (m0 / 1000) ** 0.00109726 / 1.57582916
-
-
-@njit
-def fluid_component(B, z):
-    Bz = B / (1.0 + z)
-    return np.sqrt(1 + Bz**2)
-
-
-B1 = compute_B1(m0)
-B2 = compute_B2(m0)
-B3 = compute_B3(m0)
-W1 = compute_W1(m0)
-W2 = compute_W2(m0)
-W3 = 1.0 - W1 - W2
-f1_0 = fluid_component(B1, 0)
-f2_0 = fluid_component(B2, 0)
-f3_0 = fluid_component(B3, 0)
-normalization = W1 * f1_0 + W2 * f2_0 + W3 * f3_0
+B_sqr = neutrino.compute_nodes(m0) ** 2
+W = neutrino.compute_weights(m0)
+f_0 = np.sqrt(1 + B_sqr)
+normalization = W @ f_0
 
 
 @njit
 def Omnu_z(z):
     """
-    3-fluid energy density rho(z) for massive neutrinos
+    Energy density rho(z) for massive neutrinos using the 5-node approximation
     """
-    zp1 = 1.0 + z
-    density1 = W1 * fluid_component(B1, z)
-    density2 = W2 * fluid_component(B2, z)
-    density3 = W3 * fluid_component(B3, z)
-    return zp1**4 * (density1 + density2 + density3) / normalization
+    zp1_sqr = (1.0 + z) ** 2
+    f0 = np.sqrt(1 + B_sqr[0] / zp1_sqr)
+    f1 = np.sqrt(1 + B_sqr[1] / zp1_sqr)
+    f2 = np.sqrt(1 + B_sqr[2] / zp1_sqr)
+    f3 = np.sqrt(1 + B_sqr[3] / zp1_sqr)
+    f4 = np.sqrt(1 + B_sqr[4] / zp1_sqr)
+    return (
+        (1.0 + z) ** 4
+        * (W[0] * f0 + W[1] * f1 + W[2] * f2 + W[3] * f3 + W[4] * f4)
+        / normalization
+    )
 
 
 @njit
