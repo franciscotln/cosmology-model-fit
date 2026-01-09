@@ -54,8 +54,6 @@ def compute_rho0(m0, qs, ws):
 
 
 if __name__ == "__main__":
-    qs = compute_qs(m0)
-    rho0 = compute_rho0(m0, qs, weights)
 
     @njit
     def integrand_density(q, z):
@@ -94,6 +92,9 @@ if __name__ == "__main__":
         Equation of state w(z) for massive neutrinos using the Fermi-Dirac integral
         """
         return pressure_nu_fermi_dirac(z) / Rho_nu_fermi_dirac(z)
+
+    qs = compute_qs(m0)
+    rho0 = compute_rho0(m0, qs, weights)
 
     def Rho_nu_fluid(z):
         """
