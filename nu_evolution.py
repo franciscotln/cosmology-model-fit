@@ -1,8 +1,5 @@
 import numpy as np
-from scipy.integrate import quad
 from scipy import constants as sc
-from numba import njit
-import matplotlib.pyplot as plt
 
 k_B = sc.k / sc.e  # Boltzmann constant in eV/K
 N_EFF = 3.044
@@ -54,6 +51,9 @@ def compute_rho0(m0, qs, ws):
 
 
 if __name__ == "__main__":
+    from scipy.integrate import quad
+    from numba import njit
+    import matplotlib.pyplot as plt
 
     @njit
     def integrand_density(q, z):
@@ -94,6 +94,7 @@ if __name__ == "__main__":
         return pressure_nu_fermi_dirac(z) / Rho_nu_fermi_dirac(z)
 
     qs = compute_qs(m0)
+    qs_sq = qs**2
     rho0 = compute_rho0(m0, qs, weights)
 
     def Rho_nu_fluid(z):
@@ -103,11 +104,11 @@ if __name__ == "__main__":
         zp1 = 1.0 + z
         mz_sq = (m0 / zp1) ** 2
 
-        f1 = np.sqrt(qs[0] ** 2 + mz_sq)
-        f2 = np.sqrt(qs[1] ** 2 + mz_sq)
-        f3 = np.sqrt(qs[2] ** 2 + mz_sq)
-        f4 = np.sqrt(qs[3] ** 2 + mz_sq)
-        f5 = np.sqrt(qs[4] ** 2 + mz_sq)
+        f1 = np.sqrt(qs_sq[0] + mz_sq)
+        f2 = np.sqrt(qs_sq[1] + mz_sq)
+        f3 = np.sqrt(qs_sq[2] + mz_sq)
+        f4 = np.sqrt(qs_sq[3] + mz_sq)
+        f5 = np.sqrt(qs_sq[4] + mz_sq)
         weighted_sum = w1 * f1 + w2 * f2 + w3 * f3 + w4 * f4 + w5 * f5
         return zp1**4 * weighted_sum / rho0
 
@@ -117,25 +118,30 @@ if __name__ == "__main__":
         """
         zp1 = 1.0 + z
         mz_sq = (m0 / zp1) ** 2
-        f1 = np.sqrt(qs[0] ** 2 + mz_sq)
-        f2 = np.sqrt(qs[1] ** 2 + mz_sq)
-        f3 = np.sqrt(qs[2] ** 2 + mz_sq)
-        f4 = np.sqrt(qs[3] ** 2 + mz_sq)
-        f5 = np.sqrt(qs[4] ** 2 + mz_sq)
-        weighted_sum = w1 * f1 + w2 * f2 + w3 * f3 + w4 * f4 + w5 * f5
-        weighted_sum_inv = mz_sq * (w1 / f1 + w2 / f2 + w3 / f3 + w4 / f4 + w5 / f5)
-        return (1 / 3) * zp1**4 * (weighted_sum - weighted_sum_inv) / rho0
+        f1 = np.sqrt(qs_sq[0] + mz_sq)
+        f2 = np.sqrt(qs_sq[1] + mz_sq)
+        f3 = np.sqrt(qs_sq[2] + mz_sq)
+        f4 = np.sqrt(qs_sq[3] + mz_sq)
+        f5 = np.sqrt(qs_sq[4] + mz_sq)
+        weighted_sum = (
+            w1 * qs_sq[0] / f1
+            + w2 * qs_sq[1] / f2
+            + w3 * qs_sq[2] / f3
+            + w4 * qs_sq[3] / f4
+            + w5 * qs_sq[4] / f5
+        )
+        return (1 / 3) * zp1**4 * weighted_sum / rho0
 
     def w_nu_fluid(z):
         """
         Equation of state w(z) for massive neutrinos using the 5-node approximation
         """
         mz_sq = (m0 / (1.0 + z)) ** 2
-        f1 = np.sqrt(qs[0] ** 2 + mz_sq)
-        f2 = np.sqrt(qs[1] ** 2 + mz_sq)
-        f3 = np.sqrt(qs[2] ** 2 + mz_sq)
-        f4 = np.sqrt(qs[3] ** 2 + mz_sq)
-        f5 = np.sqrt(qs[4] ** 2 + mz_sq)
+        f1 = np.sqrt(qs_sq[0] + mz_sq)
+        f2 = np.sqrt(qs_sq[1] + mz_sq)
+        f3 = np.sqrt(qs_sq[2] + mz_sq)
+        f4 = np.sqrt(qs_sq[3] + mz_sq)
+        f5 = np.sqrt(qs_sq[4] + mz_sq)
         numerator = w1 / f1 + w2 / f2 + w3 / f3 + w4 / f4 + w5 / f5
         denominator = w1 * f1 + w2 * f2 + w3 * f3 + w4 * f4 + w5 * f5
         return (1 / 3) - (1 / 3) * mz_sq * numerator / denominator
@@ -161,7 +167,7 @@ if __name__ == "__main__":
     plt.tight_layout()
     plt.show()
 
-    a_range = np.linspace(1e-07, 1, 4000)
+    a_range = np.linspace(2.86e-04, 1, 4000)
     zs = 1 / a_range - 1
 
     plt.loglog(a_range, w_nu_fluid(zs))
@@ -230,21 +236,20 @@ if __name__ == "__main__":
         f1 = np.sqrt(qs[0] ** 2 + mz_sq)
         f2 = np.sqrt(qs[1] ** 2 + mz_sq)
         f3 = np.sqrt(qs[2] ** 2 + mz_sq)
-        f4 = np.sqrt(qs[3] ** 2 + mz_sq)
-        f5 = np.sqrt(qs[4] ** 2 + mz_sq)
-        num1 = (4 * qs[0] ** 4 + 5 * qs[0] ** 2 * mz_sq) / f1**3
-        num2 = (4 * qs[1] ** 4 + 5 * qs[1] ** 2 * mz_sq) / f2**3
-        num3 = (4 * qs[2] ** 4 + 5 * qs[2] ** 2 * mz_sq) / f3**3
-        num4 = (4 * qs[3] ** 4 + 5 * qs[3] ** 2 * mz_sq) / f4**3
-        num5 = (4 * qs[4] ** 4 + 5 * qs[4] ** 2 * mz_sq) / f5**3
-
+        f4 = np.sqrt(qs_sq[3] + mz_sq)
+        f5 = np.sqrt(qs_sq[4] + mz_sq)
+        num1 = (4 * qs_sq[0] ** 2 + 5 * qs_sq[0] * mz_sq) / f1**3
+        num2 = (4 * qs_sq[1] ** 2 + 5 * qs_sq[1] * mz_sq) / f2**3
+        num3 = (4 * qs_sq[2] ** 2 + 5 * qs_sq[2] * mz_sq) / f3**3
+        num4 = (4 * qs_sq[3] ** 2 + 5 * qs_sq[3] * mz_sq) / f4**3
+        num5 = (4 * qs_sq[4] ** 2 + 5 * qs_sq[4] * mz_sq) / f5**3
         numerator = w1 * num1 + w2 * num2 + w3 * num3 + w4 * num4 + w5 * num5
 
-        den1 = (4 * qs[0] ** 2 + 3 * mz_sq) / f1
-        den2 = (4 * qs[1] ** 2 + 3 * mz_sq) / f2
-        den3 = (4 * qs[2] ** 2 + 3 * mz_sq) / f3
-        den4 = (4 * qs[3] ** 2 + 3 * mz_sq) / f4
-        den5 = (4 * qs[4] ** 2 + 3 * mz_sq) / f5
+        den1 = (4 * qs_sq[0] + 3 * mz_sq) / f1
+        den2 = (4 * qs_sq[1] + 3 * mz_sq) / f2
+        den3 = (4 * qs_sq[2] + 3 * mz_sq) / f3
+        den4 = (4 * qs_sq[3] + 3 * mz_sq) / f4
+        den5 = (4 * qs_sq[4] + 3 * mz_sq) / f5
 
         denominator = w1 * den1 + w2 * den2 + w3 * den3 + w4 * den4 + w5 * den5
 
@@ -253,20 +258,20 @@ if __name__ == "__main__":
     # Sound speed (asymtotic)
     def cs2_asympt(z):
         mz_sq = (m0 / (1.0 + z)) ** 2
-        f1 = np.sqrt(qs[0] ** 2 + mz_sq)
-        f2 = np.sqrt(qs[1] ** 2 + mz_sq)
-        f3 = np.sqrt(qs[2] ** 2 + mz_sq)
-        f4 = np.sqrt(qs[3] ** 2 + mz_sq)
-        f5 = np.sqrt(qs[4] ** 2 + mz_sq)
+        f1 = np.sqrt(qs_sq[0] + mz_sq)
+        f2 = np.sqrt(qs_sq[1] + mz_sq)
+        f3 = np.sqrt(qs_sq[2] + mz_sq)
+        f4 = np.sqrt(qs_sq[3] + mz_sq)
+        f5 = np.sqrt(qs_sq[4] + mz_sq)
         sum_rho = w1 * f1 + w2 * f2 + w3 * f3 + w4 * f4 + w5 * f5
         sum2 = w1 / f1 + w2 / f2 + w3 / f3 + w4 / f4 + w5 / f5
         sum_pressure = (1 / 3) * (sum_rho - mz_sq * sum2)
         sum3 = (
-            w1 * f1**3 / qs[0] ** 2
-            + w2 * f2**3 / qs[1] ** 2
-            + w3 * f3**3 / qs[2] ** 2
-            + w4 * f4**3 / qs[3] ** 2
-            + w5 * f5**3 / qs[4] ** 2
+            w1 * f1**3 / qs_sq[0]
+            + w2 * f2**3 / qs_sq[1]
+            + w3 * f3**3 / qs_sq[2]
+            + w4 * f4**3 / qs_sq[3]
+            + w5 * f5**3 / qs_sq[4]
         )
         return (sum_rho + sum_pressure) / (3 * sum_rho + sum3)
 
@@ -279,7 +284,6 @@ if __name__ == "__main__":
     plt.title("Neutrino Sound Speed Squared Evolution")
     plt.ylabel(r"$c_s^2(a)$")
     plt.legend()
-    plt.xlim(-8, None)
     plt.xlabel("Scale Factor ln(a)")
     plt.grid(True, which="both", linestyle="--", alpha=0.6)
     plt.show()
@@ -289,7 +293,6 @@ if __name__ == "__main__":
     plt.title("Neutrino Sound Speed Squared Evolution")
     plt.ylabel(r"$c_s^2(a)$")
     plt.legend()
-    plt.xlim(-8, None)
     plt.xlabel("Scale Factor ln(a)")
     plt.grid(True, which="both", linestyle="--", alpha=0.6)
     plt.tight_layout()
