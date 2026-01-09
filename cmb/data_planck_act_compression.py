@@ -49,7 +49,6 @@ B_sqr = neutrino.compute_nodes(m0) ** 2
 W = neutrino.compute_weights(m0)
 f0 = np.sqrt(1 + B_sqr)
 normalization = W @ f0
-N_NODES = len(B_sqr)
 
 
 @njit
@@ -58,10 +57,12 @@ def Omnu_z(z):
     Energy density rho(z) for massive neutrinos using the 5-node approximation
     """
     zp1_sqr = (1.0 + z) ** 2
-    weighted_sum = 0.0
-    for i in range(N_NODES):
-        f_i = np.sqrt(1 + B_sqr[i] / zp1_sqr)
-        weighted_sum += W[i] * f_i
+    f_0 = np.sqrt(1 + B_sqr[0] / zp1_sqr)
+    f_1 = np.sqrt(1 + B_sqr[1] / zp1_sqr)
+    f_2 = np.sqrt(1 + B_sqr[2] / zp1_sqr)
+    f_3 = np.sqrt(1 + B_sqr[3] / zp1_sqr)
+    f_4 = np.sqrt(1 + B_sqr[4] / zp1_sqr)
+    weighted_sum = W[0] * f_0 + W[1] * f_1 + W[2] * f_2 + W[3] * f_3 + W[4] * f_4
     return (1.0 + z) ** 4 * weighted_sum / normalization
 
 

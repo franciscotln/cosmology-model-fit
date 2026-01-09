@@ -354,15 +354,15 @@ Log evidence: -36.3 (Δ logZ = 1.0 against ΛCDM)
 Degs of freedom: 33
 
 ** Early-time ΛCDM **
-H0: 66.48 +0.82 -0.82 km/s/Mpc
-Ωm: 0.3161 +0.0078 -0.0075
+H0: 66.48 +0.82 -0.81 km/s/Mpc
+Ωm: 0.3161 +0.0078 -0.0076
 ωb: 0.02242 +0.00012 -0.00012
 ωc: 0.1166 +0.0007 -0.0007
 ωm: 0.1397 +0.0007 -0.0007
-w0: -0.850 +0.063 -0.063 (prior width 0.8: -1.0 to -1/3; 2.34 sigma to the prior left edge)
+w0: -0.850 +0.062 -0.063 (prior width 0.8: -1.0 to -1/3; 2.34 sigma to the prior left edge)
 wa: -0.416 [devired: wa = -1.5 * (1 - w0^2)]
 z*: 1089.65 +0.19 -0.19
-r*: 145.28 Mpc
+r*: 145.27 Mpc
 z_d: 1059.90 +0.27 -0.27
 r_d: 147.94 Mpc
 q0: -0.372 +0.072 -0.074
