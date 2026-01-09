@@ -42,10 +42,9 @@ Or_h2 = Omega_r_h2(N_EFF - (N_EFF / 3))
 
 
 # 1 massive neutrino section
-B_sqr = neutrino.compute_nodes(m0) ** 2
-W = neutrino.compute_weights(m0)
-f0 = np.sqrt(1 + B_sqr)
-normalization = W @ f0
+qs = neutrino.compute_qs(m0)
+ws = neutrino.weights
+rho0 = neutrino.compute_rho0(m0, qs, ws)
 
 
 @njit
@@ -53,14 +52,17 @@ def Omnu_z(z):
     """
     Energy density rho(z) for massive neutrinos using the 5-node approximation
     """
-    zp1_sqr = (1.0 + z) ** 2
-    f_0 = np.sqrt(1 + B_sqr[0] / zp1_sqr)
-    f_1 = np.sqrt(1 + B_sqr[1] / zp1_sqr)
-    f_2 = np.sqrt(1 + B_sqr[2] / zp1_sqr)
-    f_3 = np.sqrt(1 + B_sqr[3] / zp1_sqr)
-    f_4 = np.sqrt(1 + B_sqr[4] / zp1_sqr)
-    weighted_sum = W[0] * f_0 + W[1] * f_1 + W[2] * f_2 + W[3] * f_3 + W[4] * f_4
-    return (1.0 + z) ** 4 * weighted_sum / normalization
+    zp1 = 1.0 + z
+    mz_sq = (m0 / zp1) ** 2
+    qs_sq = qs**2
+
+    f1 = np.sqrt(qs_sq[0] + mz_sq)
+    f2 = np.sqrt(qs_sq[1] + mz_sq)
+    f3 = np.sqrt(qs_sq[2] + mz_sq)
+    f4 = np.sqrt(qs_sq[3] + mz_sq)
+    f5 = np.sqrt(qs_sq[4] + mz_sq)
+    weighted_sum = ws[0] * f1 + ws[1] * f2 + ws[2] * f3 + ws[3] * f4 + ws[4] * f5
+    return zp1**4 * weighted_sum / rho0
 
 
 @njit

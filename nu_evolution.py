@@ -22,29 +22,40 @@ def O_gamma_h2(T_cmb):
 
 
 # Analytical 5-node approximation functions and coefficients
-def compute_nodes(m0):
-    return m0 / np.array([0.5554855, 1.52077029, 3.12302226, 5.71996287, 10.09243889])
-
-
-def compute_weight(m0, coeffs):
+def compute_q(m0, coeffs):
     a, b, c, d = coeffs
     return a + b / (m0**d + c)
 
 
-def compute_weights(m0):
-    w1_coeffs = (7.92827793e-03, -3.19058802e-03, 178.754821, 1.61644550)
-    w2_coeffs = (0.137866439, 2.27856337e-02, 173.860696, 1.60725939)
-    w3_coeffs = (0.456512842, -4.76472630e-02, 165.916077, 1.59366999)
-    w4_coeffs = (0.353930679, 4.07026316e-02, 154.215273, 1.57547094)
-    w1 = compute_weight(m0, w1_coeffs)
-    w2 = compute_weight(m0, w2_coeffs)
-    w3 = compute_weight(m0, w3_coeffs)
-    w4 = compute_weight(m0, w4_coeffs)
-    w5 = 1.0 - w1 - w2 - w3 - w4
-    return np.array([w1, w2, w3, w4, w5])
+def compute_qs(m0):
+    q1_coeff = (0.51957627, -0.32910932, 61.69757151, 1.63862403)
+    q2_coeff = (1.44003027, 0.17654758, 53.81878899, 1.61796254)
+    q3_coeff = (2.98730669, -0.16983842, 43.27196182, 1.58886079)
+    q4_coeff = (5.51950997, 0.28214179, 27.888305, 1.54510734)
+    q5_coeff = (9.82342901, -1.06024333, 13.63432832, 1.49484095)
+    q1 = compute_q(m0, q1_coeff)
+    q2 = compute_q(m0, q2_coeff)
+    q3 = compute_q(m0, q3_coeff)
+    q4 = compute_q(m0, q4_coeff)
+    q5 = compute_q(m0, q5_coeff)
+    return np.array([q1, q2, q3, q4, q5])
+
+
+w1, w2, w3, w4 = 0.03801, 0.26266, 0.46544, 0.21715
+w5 = 1.0 - w1 - w2 - w3 - w4
+weights = np.array([w1, w2, w3, w4, w5])
+
+
+def compute_rho0(m0, qs, ws):
+    rho0 = 0.0
+    for i in range(len(qs)):
+        rho0 += ws[i] * np.sqrt(qs[i] ** 2 + m0**2)
+    return rho0
 
 
 if __name__ == "__main__":
+    qs = compute_qs(m0)
+    rho0 = compute_rho0(m0, qs, weights)
 
     @njit
     def integrand_density(q, z):
@@ -84,37 +95,49 @@ if __name__ == "__main__":
         """
         return pressure_nu_fermi_dirac(z) / Rho_nu_fermi_dirac(z)
 
-    B_sqr = compute_nodes(m0) ** 2
-    W = compute_weights(m0)
-    f_0 = np.sqrt(1 + B_sqr)
-    normalization = W @ f_0
-
     def Rho_nu_fluid(z):
         """
         Energy density rho(z) for massive neutrinos using the 5-node approximation
         """
         zp1 = 1.0 + z
-        Bz_sqr = B_sqr[:, None] / zp1**2
-        f = np.sqrt(1 + Bz_sqr)
-        return zp1**4 * W.dot(f) / normalization
+        mz_sq = (m0 / zp1) ** 2
+
+        f1 = np.sqrt(qs[0] ** 2 + mz_sq)
+        f2 = np.sqrt(qs[1] ** 2 + mz_sq)
+        f3 = np.sqrt(qs[2] ** 2 + mz_sq)
+        f4 = np.sqrt(qs[3] ** 2 + mz_sq)
+        f5 = np.sqrt(qs[4] ** 2 + mz_sq)
+        weighted_sum = w1 * f1 + w2 * f2 + w3 * f3 + w4 * f4 + w5 * f5
+        return zp1**4 * weighted_sum / rho0
 
     def pressure_nu_fluid(z):
         """
         Pressure p(z) for massive neutrinos using the 5-node approximation
         """
         zp1 = 1.0 + z
-        Bz_sqr = B_sqr[:, None] / zp1**2
-        f = np.sqrt(1 + Bz_sqr)
-        return (1 / 3) * zp1**4 * W.dot(1 / f) / normalization
+        mz_sq = (m0 / zp1) ** 2
+        f1 = np.sqrt(qs[0] ** 2 + mz_sq)
+        f2 = np.sqrt(qs[1] ** 2 + mz_sq)
+        f3 = np.sqrt(qs[2] ** 2 + mz_sq)
+        f4 = np.sqrt(qs[3] ** 2 + mz_sq)
+        f5 = np.sqrt(qs[4] ** 2 + mz_sq)
+        weighted_sum = w1 * f1 + w2 * f2 + w3 * f3 + w4 * f4 + w5 * f5
+        weighted_sum_inv = mz_sq * (w1 / f1 + w2 / f2 + w3 / f3 + w4 / f4 + w5 / f5)
+        return (1 / 3) * zp1**4 * (weighted_sum - weighted_sum_inv) / rho0
 
     def w_nu_fluid(z):
         """
         Equation of state w(z) for massive neutrinos using the 5-node approximation
         """
-        zp1 = 1.0 + z
-        Bz_sqr = B_sqr[:, None] / zp1**2
-        f = np.sqrt(1 + Bz_sqr)
-        return (1 / 3) * W.dot(1 / f) / W.dot(f)
+        mz_sq = (m0 / (1.0 + z)) ** 2
+        f1 = np.sqrt(qs[0] ** 2 + mz_sq)
+        f2 = np.sqrt(qs[1] ** 2 + mz_sq)
+        f3 = np.sqrt(qs[2] ** 2 + mz_sq)
+        f4 = np.sqrt(qs[3] ** 2 + mz_sq)
+        f5 = np.sqrt(qs[4] ** 2 + mz_sq)
+        numerator = w1 / f1 + w2 / f2 + w3 / f3 + w4 / f4 + w5 / f5
+        denominator = w1 * f1 + w2 * f2 + w3 * f3 + w4 * f4 + w5 * f5
+        return (1 / 3) - (1 / 3) * mz_sq * numerator / denominator
 
     z_range = np.logspace(-3, 7, 10_000)
 
@@ -123,8 +146,8 @@ if __name__ == "__main__":
 
     rel_err = 100 * (rho_approx / rho_fermi_dirac - 1)
     max_err = np.max(np.abs(rel_err))
-    print(f"Max rel diff: {max_err:.5f}%")  # 1.39e-03 %
-    print(f"RMS rel diff: {np.sqrt(np.mean((rel_err) ** 2)):.6f}%")  # 8.03e-04 %
+    print(f"Max rel diff: {max_err:.5f}%")  # 9.8e-04 %
+    print(f"RMS rel diff: {np.sqrt(np.mean((rel_err) ** 2)):.6f}%")  # 5.63e-04 %
 
     plt.style.use("bmh")
 
@@ -201,26 +224,50 @@ if __name__ == "__main__":
 
     # Sound speed (adiabatic)
     def cs2_adiab(z):
-        zp1_sqr = (1.0 + z) ** 2
-        Bz_sqr = B_sqr[:, None] / zp1_sqr
-        f = np.sqrt(1 + Bz_sqr)
+        mz_sq = (m0 / (1.0 + z)) ** 2
 
-        dp_dz_over_zp1_cube = (1 / 3) * W.dot((4 + 5 * Bz_sqr) / f**3)
-        drho_dz_over_zp1_cube = W.dot((4 + 3 * Bz_sqr) / f)
-        return dp_dz_over_zp1_cube / drho_dz_over_zp1_cube
+        f1 = np.sqrt(qs[0] ** 2 + mz_sq)
+        f2 = np.sqrt(qs[1] ** 2 + mz_sq)
+        f3 = np.sqrt(qs[2] ** 2 + mz_sq)
+        f4 = np.sqrt(qs[3] ** 2 + mz_sq)
+        f5 = np.sqrt(qs[4] ** 2 + mz_sq)
+        num1 = (4 * qs[0] ** 4 + 5 * qs[0] ** 2 * mz_sq) / f1**3
+        num2 = (4 * qs[1] ** 4 + 5 * qs[1] ** 2 * mz_sq) / f2**3
+        num3 = (4 * qs[2] ** 4 + 5 * qs[2] ** 2 * mz_sq) / f3**3
+        num4 = (4 * qs[3] ** 4 + 5 * qs[3] ** 2 * mz_sq) / f4**3
+        num5 = (4 * qs[4] ** 4 + 5 * qs[4] ** 2 * mz_sq) / f5**3
+
+        numerator = w1 * num1 + w2 * num2 + w3 * num3 + w4 * num4 + w5 * num5
+
+        den1 = (4 * qs[0] ** 2 + 3 * mz_sq) / f1
+        den2 = (4 * qs[1] ** 2 + 3 * mz_sq) / f2
+        den3 = (4 * qs[2] ** 2 + 3 * mz_sq) / f3
+        den4 = (4 * qs[3] ** 2 + 3 * mz_sq) / f4
+        den5 = (4 * qs[4] ** 2 + 3 * mz_sq) / f5
+
+        denominator = w1 * den1 + w2 * den2 + w3 * den3 + w4 * den4 + w5 * den5
+
+        return (1 / 3) * (numerator / denominator)
 
     # Sound speed (asymtotic)
     def cs2_asympt(z):
-        zp1_sqr = (1.0 + z) ** 2
-        Bz_sqr = Bz_sqr = B_sqr[:, None] / zp1_sqr
-        f = np.sqrt(1 + Bz_sqr)
-
-        density = W.dot(f)
-        pressure = (1 / 3) * W.dot(1 / f)
-        numerator = density + pressure
-        denominator = density + (1 / 3) * W.dot(f**3)
-
-        return (1 / 3) * (numerator / denominator)
+        mz_sq = (m0 / (1.0 + z)) ** 2
+        f1 = np.sqrt(qs[0] ** 2 + mz_sq)
+        f2 = np.sqrt(qs[1] ** 2 + mz_sq)
+        f3 = np.sqrt(qs[2] ** 2 + mz_sq)
+        f4 = np.sqrt(qs[3] ** 2 + mz_sq)
+        f5 = np.sqrt(qs[4] ** 2 + mz_sq)
+        sum_rho = w1 * f1 + w2 * f2 + w3 * f3 + w4 * f4 + w5 * f5
+        sum2 = w1 / f1 + w2 / f2 + w3 / f3 + w4 / f4 + w5 / f5
+        sum_pressure = (1 / 3) * (sum_rho - mz_sq * sum2)
+        sum3 = (
+            w1 * f1**3 / qs[0] ** 2
+            + w2 * f2**3 / qs[1] ** 2
+            + w3 * f3**3 / qs[2] ** 2
+            + w4 * f4**3 / qs[3] ** 2
+            + w5 * f5**3 / qs[4] ** 2
+        )
+        return (sum_rho + sum_pressure) / (3 * sum_rho + sum3)
 
     approx_cs2_asympt = cs2_asympt(zs)
     approx_cs2_adiab = cs2_adiab(zs)
