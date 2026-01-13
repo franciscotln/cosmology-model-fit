@@ -103,13 +103,11 @@ if __name__ == "__main__":
         """
         zp1 = 1.0 + z
         mz_sq = (m0 / zp1) ** 2
+        weighted_sum = 0.0
+        for i in range(len(qs_sq)):
+            fi = np.sqrt(qs_sq[i] + mz_sq)
+            weighted_sum += weights[i] * fi
 
-        f1 = np.sqrt(qs_sq[0] + mz_sq)
-        f2 = np.sqrt(qs_sq[1] + mz_sq)
-        f3 = np.sqrt(qs_sq[2] + mz_sq)
-        f4 = np.sqrt(qs_sq[3] + mz_sq)
-        f5 = np.sqrt(qs_sq[4] + mz_sq)
-        weighted_sum = w1 * f1 + w2 * f2 + w3 * f3 + w4 * f4 + w5 * f5
         return zp1**4 * weighted_sum / rho0
 
     def pressure_nu_fluid(z):
@@ -118,18 +116,11 @@ if __name__ == "__main__":
         """
         zp1 = 1.0 + z
         mz_sq = (m0 / zp1) ** 2
-        f1 = np.sqrt(qs_sq[0] + mz_sq)
-        f2 = np.sqrt(qs_sq[1] + mz_sq)
-        f3 = np.sqrt(qs_sq[2] + mz_sq)
-        f4 = np.sqrt(qs_sq[3] + mz_sq)
-        f5 = np.sqrt(qs_sq[4] + mz_sq)
-        weighted_sum = (
-            w1 * qs_sq[0] / f1
-            + w2 * qs_sq[1] / f2
-            + w3 * qs_sq[2] / f3
-            + w4 * qs_sq[3] / f4
-            + w5 * qs_sq[4] / f5
-        )
+        weighted_sum = 0.0
+        for i in range(len(qs_sq)):
+            fi = np.sqrt(qs_sq[i] + mz_sq)
+            weighted_sum += weights[i] * qs_sq[i] / fi
+
         return (1 / 3) * zp1**4 * weighted_sum / rho0
 
     def w_nu_fluid(z):
@@ -137,13 +128,12 @@ if __name__ == "__main__":
         Equation of state w(z) for massive neutrinos using the 5-node approximation
         """
         mz_sq = (m0 / (1.0 + z)) ** 2
-        f1 = np.sqrt(qs_sq[0] + mz_sq)
-        f2 = np.sqrt(qs_sq[1] + mz_sq)
-        f3 = np.sqrt(qs_sq[2] + mz_sq)
-        f4 = np.sqrt(qs_sq[3] + mz_sq)
-        f5 = np.sqrt(qs_sq[4] + mz_sq)
-        numerator = w1 / f1 + w2 / f2 + w3 / f3 + w4 / f4 + w5 / f5
-        denominator = w1 * f1 + w2 * f2 + w3 * f3 + w4 * f4 + w5 * f5
+        numerator = 0.0
+        denominator = 0.0
+        for i in range(len(qs_sq)):
+            fi = np.sqrt(qs_sq[i] + mz_sq)
+            numerator += weights[i] / fi
+            denominator += weights[i] * fi
         return (1 / 3) - (1 / 3) * mz_sq * numerator / denominator
 
     z_range = np.logspace(-3, 7, 10_000)
@@ -232,48 +222,31 @@ if __name__ == "__main__":
     # Sound speed (adiabatic)
     def cs2_adiab(z):
         mz_sq = (m0 / (1.0 + z)) ** 2
-
-        f1 = np.sqrt(qs[0] ** 2 + mz_sq)
-        f2 = np.sqrt(qs[1] ** 2 + mz_sq)
-        f3 = np.sqrt(qs[2] ** 2 + mz_sq)
-        f4 = np.sqrt(qs_sq[3] + mz_sq)
-        f5 = np.sqrt(qs_sq[4] + mz_sq)
-        num1 = (4 * qs_sq[0] ** 2 + 5 * qs_sq[0] * mz_sq) / f1**3
-        num2 = (4 * qs_sq[1] ** 2 + 5 * qs_sq[1] * mz_sq) / f2**3
-        num3 = (4 * qs_sq[2] ** 2 + 5 * qs_sq[2] * mz_sq) / f3**3
-        num4 = (4 * qs_sq[3] ** 2 + 5 * qs_sq[3] * mz_sq) / f4**3
-        num5 = (4 * qs_sq[4] ** 2 + 5 * qs_sq[4] * mz_sq) / f5**3
-        numerator = w1 * num1 + w2 * num2 + w3 * num3 + w4 * num4 + w5 * num5
-
-        den1 = (4 * qs_sq[0] + 3 * mz_sq) / f1
-        den2 = (4 * qs_sq[1] + 3 * mz_sq) / f2
-        den3 = (4 * qs_sq[2] + 3 * mz_sq) / f3
-        den4 = (4 * qs_sq[3] + 3 * mz_sq) / f4
-        den5 = (4 * qs_sq[4] + 3 * mz_sq) / f5
-
-        denominator = w1 * den1 + w2 * den2 + w3 * den3 + w4 * den4 + w5 * den5
+        numerator = 0.0
+        denominator = 0.0
+        for i in range(len(qs_sq)):
+            fi = np.sqrt(qs_sq[i] + mz_sq)
+            num_i = (4 * qs_sq[i] ** 2 + 5 * qs_sq[i] * mz_sq) / fi**3
+            den_i = (4 * qs_sq[i] + 3 * mz_sq) / fi
+            numerator += weights[i] * num_i
+            denominator += weights[i] * den_i
 
         return (1 / 3) * (numerator / denominator)
 
     # Sound speed (asymtotic)
     def cs2_asympt(z):
         mz_sq = (m0 / (1.0 + z)) ** 2
-        f1 = np.sqrt(qs_sq[0] + mz_sq)
-        f2 = np.sqrt(qs_sq[1] + mz_sq)
-        f3 = np.sqrt(qs_sq[2] + mz_sq)
-        f4 = np.sqrt(qs_sq[3] + mz_sq)
-        f5 = np.sqrt(qs_sq[4] + mz_sq)
-        sum_rho = w1 * f1 + w2 * f2 + w3 * f3 + w4 * f4 + w5 * f5
-        sum2 = w1 / f1 + w2 / f2 + w3 / f3 + w4 / f4 + w5 / f5
-        sum_pressure = (1 / 3) * (sum_rho - mz_sq * sum2)
-        sum3 = (
-            w1 * f1**3 / qs_sq[0]
-            + w2 * f2**3 / qs_sq[1]
-            + w3 * f3**3 / qs_sq[2]
-            + w4 * f4**3 / qs_sq[3]
-            + w5 * f5**3 / qs_sq[4]
-        )
-        return (sum_rho + sum_pressure) / (3 * sum_rho + sum3)
+        sum_rho = 0.0
+        sum1 = 0.0
+        sum2 = 0.0
+        for i in range(len(qs_sq)):
+            fi = np.sqrt(qs_sq[i] + mz_sq)
+            sum_rho += weights[i] * fi
+            sum1 += weights[i] / fi
+            sum2 += weights[i] * fi**3 / qs_sq[i]
+
+        sum_pressure = (1 / 3) * (sum_rho - mz_sq * sum1)
+        return (sum_rho + sum_pressure) / (3 * sum_rho + sum2)
 
     approx_cs2_asympt = cs2_asympt(zs)
     approx_cs2_adiab = cs2_adiab(zs)
