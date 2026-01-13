@@ -7,6 +7,7 @@ from numba import njit
 import numpy as np
 from scipy.integrate import quad
 from scipy.constants import c as c0
+import nu_evolution as neutrino
 
 
 DISTANCE_PRIORS = np.array([1.0410274, 147.46], dtype=np.float64)
@@ -30,6 +31,7 @@ N_EFF = 3.044
 T_nu0 = (4 / 11) ** (1 / 3) * (N_EFF / 3) ** (1 / 4) * TCMB  # K
 T_nu0_eV = T_nu0 * k_B  # eV
 mnu_tot = 0.06  # total mass [eV]
+m0 = mnu_tot / T_nu0_eV
 Omnu_h2 = mnu_tot / (94.07 / (N_EFF / 3.0) ** 0.75)
 
 
@@ -39,29 +41,25 @@ def Omega_r_h2(Neff=N_EFF):
 
 Or_h2 = Omega_r_h2(N_EFF - (N_EFF / 3))
 
-
-@njit
-def _Omnu_comp(z, b):
-    p = 1.95648
-    zp1 = 1 + z
-    ratio = (zp1**p + b**p) / (1 + b**p)
-    return zp1**3 * ratio ** (1 / p)
+qs = neutrino.compute_qs(m0)
+ws = neutrino.weights
+rho0 = neutrino.compute_rho0(m0, qs, ws)
+N_NODES = len(qs)
 
 
 @njit
 def Omnu_z(z):
     """
-    ### Computes the appox. evolution of massive neutrino energy density with redshift.
-    - Two-fluid model for massive neutrinos: max relative error ~0.024% compared to
-    the exact fermi-dirac integral evaluation for N_EFF in the range 2.90 - 3.12 and
-    T_CMB = 2.7255K
+    Energy density rho(z) for massive neutrinos using the 5-node approximation
     """
-
-    B1 = 1.38103793 * N_EFF**2 - 14.98287611 * N_EFF + 112.84492554
-    B2 = 2.72486 * B1
-    W = 0.53757
-
-    return W * _Omnu_comp(z, B1) + (1 - W) * _Omnu_comp(z, B2)
+    zp1 = 1.0 + z
+    mz_sq = (m0 / zp1) ** 2
+    qs_sq = qs**2
+    weighted_sum = 0.0
+    for i in range(N_NODES):
+        fi = np.sqrt(qs_sq[i] + mz_sq)
+        weighted_sum += ws[i] * fi
+    return zp1**4 * weighted_sum / rho0
 
 
 def rs_z(Ez_func, z_lim, H0, Obh2, Och2, w0=-1, wa=0):
@@ -95,8 +93,7 @@ def cmb_distances(Ez_func, H0, Ob_h2, Oc_h2, w0=-1, wa=0):
 def z_star(wb, wm):
     """arXiv:2106.00428v2 (eq A-4)"""
 
-    s1, s2, b, m = (0.72314928, 1.00880342, 1.01224091, 1.15661317)
-
+    s1, s2, b, m = (0.73100465, 1.00846211, 1.01539551, 1.16509864)
     wb = wb**b
     wm = wm**m
 
@@ -135,7 +132,7 @@ def r_drag(wb, wm):
 @njit
 def z_drag(wb, wm):
     """arXiv:2106.00428v2 (eq A2)"""
-    s1, s2, b, m = (1.00272401, 1.00043175, 1.00323178, 1.00764938)
+    s1, s2, b, m = (1.00276779, 0.99970462, 1.00160686, 0.99210251)
 
     wb = wb**b
     wm = wm**m
