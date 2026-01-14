@@ -1,21 +1,4 @@
 import numpy as np
-from scipy import constants as sc
-
-k_B = sc.k / sc.e  # Boltzmann constant in eV/K
-N_EFF = 3.044
-TCMB = 2.7255
-T_nu0 = (4 / 11) ** (1 / 3) * TCMB * (N_EFF / 3) ** (1 / 4)
-T_nu0_eV = T_nu0 * k_B
-mnu_tot = 0.06
-m0 = mnu_tot / T_nu0_eV
-Omnu_h2 = mnu_tot / (94.0641 / (N_EFF / 3.0) ** 0.75)
-
-
-def O_gamma_h2(T_cmb):
-    rho_gamma = (np.pi**2 / 15.0) * (sc.k * T_cmb) ** 4 / (sc.hbar**3 * sc.c**3)
-    H100 = 100.0 * 1000.0 / (1e6 * sc.parsec)
-    rho_crit_h2 = 3.0 * H100**2 / (8.0 * np.pi * sc.G) * sc.c**2
-    return rho_gamma / rho_crit_h2
 
 
 # Analytical 5-node approximation functions and coefficients
@@ -25,35 +8,47 @@ def compute_q(m0, coeffs):
 
 
 def compute_qs(m0):
-    q1_coeff = (0.51957626, -0.32971882, 61.81645189, 1.63914879)
-    q2_coeff = (1.44003028, 0.18098045, 55.20830625, 1.62412241)
-    q3_coeff = (2.98731126, -0.15154978, 38.50221716, 1.54532306)
-    q4_coeff = (5.51951238, 0.27573416, 27.23306, 1.5435091)
-    q5_coeff = (9.82330637, -1.14831159, 14.84585003, 1.55585284)
-    q1 = compute_q(m0, q1_coeff)
-    q2 = compute_q(m0, q2_coeff)
-    q3 = compute_q(m0, q3_coeff)
-    q4 = compute_q(m0, q4_coeff)
-    q5 = compute_q(m0, q5_coeff)
-    return np.array([q1, q2, q3, q4, q5])
+    q1 = compute_q(m0, (0.51957626, -0.32971882, 61.81645189, 1.63914879))
+    q2 = compute_q(m0, (1.44003028, +0.18098045, 55.20830625, 1.62412241))
+    q3 = compute_q(m0, (2.98731126, -0.15154978, 38.50221716, 1.54532306))
+    q4 = compute_q(m0, (5.51951238, +0.27573416, 27.23306000, 1.54350910))
+    q5 = compute_q(m0, (9.82330637, -1.14831159, 14.84585003, 1.55585284))
+    return np.array([q1, q2, q3, q4, q5], dtype=np.float64)
 
 
-w1, w2, w3, w4 = 0.0380051, 0.262676, 0.46542, 0.217161
-w5 = 1.0 - w1 - w2 - w3 - w4
-weights = np.array([w1, w2, w3, w4, w5])
+# Sum weights = 1.0
+weights = np.array([0.0380051, 0.262676, 0.46542, 0.217161, 0.0167379])
 
 
-def compute_rho0(m0, qs, ws):
+def compute_rho0(m0):
+    qs = compute_qs(m0)
     rho0 = 0.0
     for i in range(len(qs)):
-        rho0 += ws[i] * np.sqrt(qs[i] ** 2 + m0**2)
+        rho0 += weights[i] * np.sqrt(qs[i] ** 2 + m0**2)
     return rho0
 
 
 if __name__ == "__main__":
     from scipy.integrate import quad
     from numba import njit
+    from scipy import constants as sc
     import matplotlib.pyplot as plt
+
+    k_B = sc.k / sc.e  # Boltzmann constant in eV/K
+    N_EFF = 3.044
+    TCMB = 2.7255
+    T_nu0 = (4 / 11) ** (1 / 3) * TCMB * (N_EFF / 3) ** (1 / 4)
+    T_nu0_eV = T_nu0 * k_B
+    mnu_tot = 0.06
+    mnu_tot = 0.06
+    m0 = mnu_tot / T_nu0_eV
+    Omnu_h2 = mnu_tot / (94.0641 / (N_EFF / 3.0) ** 0.75)
+
+    def O_gamma_h2(T_cmb):
+        rho_gamma = (np.pi**2 / 15.0) * (sc.k * T_cmb) ** 4 / (sc.hbar**3 * sc.c**3)
+        H100 = 100.0 * 1000.0 / (1e6 * sc.parsec)
+        rho_crit_h2 = 3.0 * H100**2 / (8.0 * np.pi * sc.G) * sc.c**2
+        return rho_gamma / rho_crit_h2
 
     @njit
     def integrand_density(q, z):
@@ -95,7 +90,7 @@ if __name__ == "__main__":
 
     qs = compute_qs(m0)
     qs_sq = qs**2
-    rho0 = compute_rho0(m0, qs, weights)
+    rho0 = compute_rho0(m0)
 
     def Rho_nu_fluid(z):
         """
