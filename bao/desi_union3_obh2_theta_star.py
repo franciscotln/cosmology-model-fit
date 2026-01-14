@@ -5,9 +5,8 @@ from y2023union3.data import get_data as get_sn_data
 from y2025BAO.data import get_data as get_bao_data
 
 c = cmb.c  # Speed of light in km/s
-Orh2 = cmb.Omega_r_h2(2.044)
+Orh2 = cmb.Or_h2
 Omnuh2 = cmb.Omnu_h2
-z_nr = cmb.z_nr
 
 sn_legend, z_sn_vals, mu_vals, cov_matrix_sn = get_sn_data()
 bao_legend, bao_data, cov_matrix_bao = get_bao_data()
@@ -17,21 +16,8 @@ inv_cov_bao = np.linalg.inv(cov_matrix_bao)
 inv_cov_cmb = np.linalg.inv(cmb.covariance[1:, 1:])
 
 z_max = max(np.max(z_sn_vals), np.max(bao_data["z"])) + 0.1
-z_grid = np.linspace(0, z_max, num=2500, dtype=np.float64)
+z_grid = np.linspace(0, z_max, num=4000, dtype=np.float64)
 dx = np.diff(z_grid)
-
-
-@njit
-def Omnu_z(z):
-    """
-    Computes the appox. evolution of one massive
-    neutrino species energy density with redshift
-    """
-    return (
-        (1 + z) ** 4
-        * (1 + ((1 + z_nr) / (1 + z)) ** 2) ** 0.5
-        * (1 + (1 + z_nr) ** 2) ** -0.5
-    )
 
 
 @njit
@@ -52,7 +38,7 @@ def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
 
     radiation_term = Or * zp1**4
     matter_term = Obc * zp1**3
-    neutrino_term = Onu * Omnu_z(z)
+    neutrino_term = Onu * cmb.Omnu_z(z)
     dark_energy_term = Ode * Ode_z(z, w0, wa)
 
     return np.sqrt(radiation_term + matter_term + neutrino_term + dark_energy_term)
@@ -248,49 +234,49 @@ wa U(-3.0, 1.0)
 
 """
 Flat ΛCDM  w(z) = -1
-H0: 68.59 +0.30 -0.29 km/s/Mpc
+H0: 68.59 +0.30 -0.30 km/s/Mpc
 ωb: 0.02249 +0.00011 -0.00011
 ωc: 0.1166 +0.0008 -0.0008
 ωm: 0.1397 +0.0008 -0.0008
 Ωm: 0.297 +0.004 -0.004
 w0: -1
 wa: 0
-z_d: 1059.97 +0.27 -0.27
-r_d: 147.87 +0.27 -0.26 Mpc
+z_d: 1059.96 +0.27 -0.26
+r_d: 147.87 +0.26 -0.27 Mpc
 Chi squared: 39.69
-Log Evidence: -36.41
+Log Evidence: -36.40
 Degs of freedom: 33
 
 ===============================
 
 Flat wCDM w(z) = w0
-H0: 66.87 +0.78 -0.77 km/s/Mpc
+H0: 66.87 +0.78 -0.78 km/s/Mpc
 ωb: 0.02250 +0.00011 -0.00011
-ωc: 0.1141 +0.0014 -0.0014
+ωc: 0.1140 +0.0014 -0.0014
 ωm: 0.1372 +0.0014 -0.0014
 Ωm: 0.307 +0.006 -0.006
 w0: -0.919 +0.034 -0.034
 wa: 0
-z_d: 1059.80 +0.28 -0.28
-r_d: 148.55 +0.42 -0.40 Mpc
-Chi squared: 33.97
-Log Evidence: -35.72 (Δ logZ = 0.69 against ΛCDM)
+z_d: 1059.78 +0.28 -0.28
+r_d: 148.56 +0.41 -0.41 Mpc
+Chi squared: 33.96
+Log Evidence: -35.71 (Δ logZ = 0.69 against ΛCDM)
 Degs of freedom: 32
 
 ===============================
 
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
-H0: 66.18 +0.85 -0.84 km/s/Mpc
+H0: 66.18 +0.86 -0.84 km/s/Mpc
 ωb: 0.02250 +0.00011 -0.00011
-ωc: 0.1151 +0.0010 -0.0010
+ωc: 0.1150 +0.0010 -0.0010
 ωm: 0.1382 +0.0010 -0.0010
 Ωm: 0.316 +0.008 -0.008
-w0: -0.799 +0.065 -0.067
+w0: -0.800 +0.064 -0.066
 wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
-z_d: 1059.87 +0.27 -0.27
+z_d: 1059.85 +0.27 -0.27
 r_d: 148.28 +0.30 -0.30 Mpc
-Chi squared: 30.76
-Log Evidence: -33.43 (Δ logZ = 2.98 against ΛCDM)
+Chi squared: 30.75
+Log Evidence: -33.42 (Δ logZ = 2.98 against ΛCDM)
 Degs of freedom: 32
 
 ===============================
