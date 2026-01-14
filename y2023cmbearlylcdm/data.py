@@ -41,7 +41,9 @@ def Omega_r_h2(Neff=N_EFF):
 
 Or_h2 = Omega_r_h2(N_EFF - (N_EFF / 3))
 
+# 1 massive neutrino section
 qs = neutrino.compute_qs(m0)
+qs_sq = qs**2
 ws = neutrino.weights
 rho0 = neutrino.compute_rho0(m0, qs, ws)
 N_NODES = len(qs)
@@ -54,11 +56,12 @@ def Omnu_z(z):
     """
     zp1 = 1.0 + z
     mz_sq = (m0 / zp1) ** 2
-    qs_sq = qs**2
-    weighted_sum = 0.0
-    for i in range(N_NODES):
-        fi = np.sqrt(qs_sq[i] + mz_sq)
-        weighted_sum += ws[i] * fi
+    f0 = np.sqrt(qs_sq[0] + mz_sq)
+    f1 = np.sqrt(qs_sq[1] + mz_sq)
+    f2 = np.sqrt(qs_sq[2] + mz_sq)
+    f3 = np.sqrt(qs_sq[3] + mz_sq)
+    f4 = np.sqrt(qs_sq[4] + mz_sq)
+    weighted_sum = f0 * ws[0] + f1 * ws[1] + f2 * ws[2] + f3 * ws[3] + f4 * ws[4]
     return zp1**4 * weighted_sum / rho0
 
 
@@ -123,7 +126,7 @@ def r_drag(wb, wm):
     a8 = 32.7525
     a9 = 0.315473
 
-    term_A_denominator = (a1 * (wb**a2)) + (a3 * (wb**a4) * (wm**a5)) + (a6 * (wm**a7))
+    term_A_denominator = a1 * wb**a2 + a3 * wb**a4 * wm**a5 + a6 * wm**a7
     term_A = 1.0 / term_A_denominator
     term_B = a8 / (wm**a9)
     return term_A - term_B

@@ -10,6 +10,7 @@ import numpy as np
 from scipy.integrate import quad
 from scipy.constants import c as c0
 from numba import njit
+import nu_evolution as neutrino
 
 c = c0 / 1000  # km/s
 
@@ -31,6 +32,7 @@ N_EFF = 3.044
 T_nu0 = (4 / 11) ** (1 / 3) * (N_EFF / 3) ** (1 / 4) * TCMB  # K
 T_nu0_eV = T_nu0 * k_B  # eV
 mnu_tot = 0.06  # total mass [eV]
+m0 = mnu_tot / T_nu0_eV
 Omnu_h2 = mnu_tot / (94.0641 / (N_EFF / 3.0) ** 0.75)
 
 
@@ -41,28 +43,28 @@ def Omega_r_h2(Neff=N_EFF):
 Or_h2 = Omega_r_h2(N_EFF - (N_EFF / 3))
 
 
-@njit
-def _Omnu_comp(z, b):
-    p = 1.95648
-    zp1 = 1 + z
-    ratio = (zp1**p + b**p) / (1 + b**p)
-    return zp1**3 * ratio ** (1 / p)
+# 1 massive neutrino section
+qs = neutrino.compute_qs(m0)
+qs_sq = qs**2
+ws = neutrino.weights
+rho0 = neutrino.compute_rho0(m0, qs, ws)
+N_NODES = len(qs)
 
 
 @njit
 def Omnu_z(z):
     """
-    ### Computes the appox. evolution of massive neutrino energy density with redshift.
-    - Two-fluid model for massive neutrinos: max relative error ~0.024% compared to
-    the exact fermi-dirac integral evaluation for N_EFF in the range 2.90 - 3.12 and
-    T_CMB = 2.7255K
+    Energy density rho(z) for massive neutrinos using the 5-node approximation
     """
-
-    B1 = 1.38103793 * N_EFF**2 - 14.98287611 * N_EFF + 112.84492554
-    B2 = 2.72486 * B1
-    W = 0.53757
-
-    return W * _Omnu_comp(z, B1) + (1 - W) * _Omnu_comp(z, B2)
+    zp1 = 1.0 + z
+    mz_sq = (m0 / zp1) ** 2
+    f0 = np.sqrt(qs_sq[0] + mz_sq)
+    f1 = np.sqrt(qs_sq[1] + mz_sq)
+    f2 = np.sqrt(qs_sq[2] + mz_sq)
+    f3 = np.sqrt(qs_sq[3] + mz_sq)
+    f4 = np.sqrt(qs_sq[4] + mz_sq)
+    weighted_sum = f0 * ws[0] + f1 * ws[1] + f2 * ws[2] + f3 * ws[3] + f4 * ws[4]
+    return zp1**4 * weighted_sum / rho0
 
 
 @njit
