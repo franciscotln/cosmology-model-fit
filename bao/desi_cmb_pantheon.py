@@ -6,9 +6,8 @@ from y2022pantheonSHOES.data import get_data
 from y2025BAO.data import get_data as get_bao_data
 
 c = cmb.c  # km/s
-Or_h2 = cmb.Omega_r_h2(2.044)
+Or_h2 = cmb.Or_h2
 Omnu_h2 = cmb.Omnu_h2
-z_nr = cmb.z_nr
 
 sn_legend, z_cmb, z_hel, mb_values, cov_matrix_sn = get_data()
 bao_legend, bao_data, bao_cov_matrix = get_bao_data()
@@ -19,19 +18,6 @@ inv_cov_bao = np.linalg.inv(bao_cov_matrix)
 z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
 z_grid = np.linspace(0, z_max, num=3000)
 dx = np.diff(z_grid)
-
-
-@njit
-def Omnu_z(z):
-    """
-    Computes the appox. evolution of one massive
-    neutrino species energy density with redshift
-    """
-    return (
-        (1 + z) ** 4
-        * (1 + ((1 + z_nr) / (1 + z)) ** 2) ** 0.5
-        * (1 + (1 + z_nr) ** 2) ** -0.5
-    )
 
 
 @njit
@@ -55,7 +41,7 @@ def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
 
     radiation_term = Or * zp1**4
     matter_term = Obc * zp1**3
-    neutrino_term = Onu * Omnu_z(z)
+    neutrino_term = Onu * cmb.Omnu_z(z)
     dark_energy_term = Ode * Ode_z(z, w0, wa)
 
     return np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
@@ -276,7 +262,7 @@ H0 U(60.0, 75.0)
 ωc U(0.01, 0.25)
 
 wCDM:
-w0 U(-1.5, 0.0)
+w0 U(-1.5, -0.5)
 
 wzCDM (thawing quintessence):
 w0 U(-1.0, -1/3)
@@ -308,39 +294,39 @@ Degrees of freedom: 1602
 ===============================
 
 Flat wCDM w(z) = w0
-H0: 67.75 +0.59 -0.58 km/s/Mpc
+H0: 67.75 +0.58 -0.57 km/s/Mpc
 ωb: 0.02240 +0.00013 -0.00013
-ωc: 0.1168 +0.0008 -0.0009
+ωc: 0.1169 +0.0008 -0.0009
 ωm: 0.1399 +0.0008 -0.0008
 Ωm: 0.305 +0.005 -0.005
 w0: -0.975 +0.024 -0.024
 wa: 0
 M: -19.427 +0.014 -0.014
-z*: 1089.62 +0.22 -0.21
-z_d: 1059.94 +0.28 -0.28
-r*: 145.24 Mpc
+z*: 1089.70 +0.20 -0.20
+z_d: 1059.88 +0.27 -0.27
+r*: 145.23 Mpc
 rd: 147.90 +0.21 -0.21 Mpc
-Chi squared: 1418.34
-Log evidence: -729.46
+Chi squared: 1418.23
+Log evidence: -729.01
 Degrees of freedom: 1601
 
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
-H0: 67.32 +0.56 -0.57 km/s/Mpc
+H0: 67.32 +0.55 -0.58 km/s/Mpc
 ωb: 0.02240 +0.00012 -0.00012
 ωc: 0.1169 +0.0007 -0.0007
 ωm: 0.1399 +0.0007 -0.0007
 Ωm: 0.309 +0.006 -0.005
-w0: -0.917 +0.043 -0.042 (truncated at 1.92 sigma to the left of the mean)
+w0: -0.916 +0.044 -0.042 (truncated at 2.0 sigma to the left of the mean)
 wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
 M: -19.433 +0.012 -0.013
-z*: 1089.62 +0.20 -0.19
-z_d: 1059.95 +0.27 -0.27
-r*: 145.23 Mpc
+z*: 1089.70 +0.18 -0.18
+z_d: 1059.88 +0.27 -0.27
+r*: 145.22 Mpc
 rd: 147.89 +0.19 -0.19 Mpc
-Chi squared: 1416.20
-Log evidence: -726.95
+Chi squared: 1416.12
+Log evidence: -726.93
 Degrees of freedom: 1601
 
 ===============================
