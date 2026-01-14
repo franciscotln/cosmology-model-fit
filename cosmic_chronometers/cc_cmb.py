@@ -5,26 +5,12 @@ import cmb.data_planck_act_compression as cmb
 from y2005cc.data import get_data
 
 c = cmb.c  # Speed of light in km/s
-Orh2 = cmb.Omega_r_h2(2.044)
+Orh2 = cmb.Or_h2
 Onuh2 = cmb.Omnu_h2
-z_nr = cmb.z_nr
 
 legend, z_values, H_values, cov_matrix_cc = get_data()
 cho_cc = cho_factor(cov_matrix_cc)
 logdet = np.linalg.slogdet(cov_matrix_cc)[1]
-
-
-@njit
-def Omnu_z(z):
-    """
-    Computes the appox. evolution of one massive
-    neutrino species energy density with redshift
-    """
-    return (
-        (1 + z) ** 4
-        * (1 + ((1 + z_nr) / (1 + z)) ** 2) ** 0.5
-        * (1 + (1 + z_nr) ** 2) ** -0.5
-    )
 
 
 @njit
@@ -39,7 +25,7 @@ def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
 
     radiation_term = Or * zp1**4
     matter_term = Obc * zp1**3
-    neutrino_term = Onu * Omnu_z(z)
+    neutrino_term = Onu * cmb.Omnu_z(z)
     dark_energy_term = Ode
 
     return np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
@@ -105,18 +91,13 @@ def main():
     burn_in = 500
     nsteps = 3500 + burn_in
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
+    moves = [
+        (emcee.moves.KDEMove(), 0.30),
+        (emcee.moves.DEMove(), 0.70),
+    ]
 
     with Pool(5) as pool:
-        sampler = emcee.EnsembleSampler(
-            nwalkers,
-            ndim,
-            log_probability,
-            pool=pool,
-            moves=[
-                (emcee.moves.KDEMove(), 0.30),
-                (emcee.moves.DEMove(), 0.70),
-            ],
-        )
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
         sampler.run_mcmc(initial_pos, nsteps, progress=True)
 
     try:
@@ -186,10 +167,10 @@ Flat ΛCDM
 
 f: 1.50 +0.19 -0.18
 H0: 67.60 +0.50 -0.49
-Ωm: 0.3118 +0.0071 -0.0069
+Ωm: 0.3119 +0.0071 -0.0070
 ωb: 0.02249 +0.00011 -0.00011
-ωc: 0.11937 +0.00121 -0.00120
-Chi squared: 33.27
+ωc: 0.11938 +0.00119 -0.00121
+Chi squared: 33.34
 Log likelihood: -130.57
 Log evidence: -147.01 (Δ logZ = 3.32 compared to fixed f)
 Degs of freedom: 32
