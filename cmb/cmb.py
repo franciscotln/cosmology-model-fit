@@ -49,9 +49,9 @@ def log_likelihood(params):
     zstar = cmb.z_star(Obh2, Omh2)
     rs_star = cmb.rs_z(Ez, zstar, *params)
     DM_star = cmb.DM_z(Ez, zstar, *params)
-    R = 100 * np.sqrt(Omh2) * DM_star / c  # shift parameter
     thetastar = rs_star / DM_star
     lA = np.pi / thetastar
+    R = 100 * np.sqrt(Omh2) * DM_star / c  # shift parameter
 
     delta = cmb.DISTANCE_PRIORS - np.array([R, lA, Obh2])
     log_like = -0.5 * (delta @ cmb.inv_cov_mat @ delta)
@@ -74,9 +74,9 @@ def main():
     from getdist import MCSamples, plots
 
     ndim = len(bounds)
-    nwalkers = 200
-    burn_in = 400
-    nsteps = 2000 + burn_in
+    nwalkers = 160
+    burn_in = 500
+    nsteps = 2500 + burn_in
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
     moves = [
@@ -113,9 +113,9 @@ def main():
             "ω_b",
             "ω_c",
             r"100\theta_*",
-            r"r_*",
+            "r_*",
             r"D_{\rm{M_*}}/{\rm{Gpc}}",
-            r"z_*",
+            "z_*",
         ],
         label="CMB Compressed likelihood",
     )
@@ -144,7 +144,21 @@ def main():
 
     g = plots.getSubplotPlotter()
     g.triangle_plot(
-        samples, filled=True, title_limit=1, contour_colors=["C0"], color=["C0"]
+        samples,
+        params=[
+            "thetastar",
+            "H0",
+            "omegam",
+            "DAstar",
+            "rstar",
+            "zstar",
+            "zdrag",
+            "rdrag",
+        ],
+        filled=True,
+        title_limit=1,
+        contour_colors=["C0"],
+        color=["C0"],
     )
     plt.show()
 
@@ -161,7 +175,7 @@ Flat ΛCDM w(z) = -1
 *******************************
 
 plikHM TT, TE, EE + lowl + lowE compression (Planck 2019 - PR3)
-H0: 67.27 ± 0.61 km/s/Mpc
+H0: 67.27 ± 0.60 km/s/Mpc
 ωc: 0.1202 ± 0.0014
 ωb: 0.02236 ± 0.00015
 ωm: 0.1432 ± 0.0013
@@ -169,20 +183,20 @@ H0: 67.27 ± 0.61 km/s/Mpc
 z_eq: 3407 ± 31
 z*: 1089.95 ± 0.27
 r*: 144.38 ± 0.30 Mpc
-100 θ*: 1.04109 ± 0.00030
+100 θ*: 1.04109 ± 0.00031
 DM*: 13.87 ± 0.03 Gpc
 z_drag: 1059.93 ± 0.30
-r_d: 147.05 ± 0.30 Mpc
-Chi squared: 0.0003
+r_d: 147.05 ± 0.29 Mpc
+Chi squared: 0.0001
 
 ===============================
 
 plikHM TT, TE, EE + lowl + lowE + Lensing compression (Planck 2019 - PR3)
-H0: 67.36 ± 0.54 km/s/Mpc
+H0: 67.36 ± 0.53 km/s/Mpc
 ωc: 0.1200 ± 0.0012
 ωb: 0.02237 ± 0.00015
 ωm: 0.1430 ± 0.0011
-Ωm: 0.3152 ± 0.0073
+Ωm: 0.3153 ± 0.0073
 z_eq: 3402 ± 27
 z*: 1089.92 ± 0.25
 r*: 144.43 ± 0.26 Mpc
@@ -190,12 +204,12 @@ r*: 144.43 ± 0.26 Mpc
 DM*: 13.87 ± 0.02 Gpc
 z_drag: 1059.94 ± 0.30
 r_d: 147.09 ± 0.27 Mpc
-Chi squared: 0.0004
+Chi squared: 0.0006
 
 ===============================
 
 Early ΛCDM (arXiv:2302.12911v2)
-H0: 67.50 ± 0.59 km/s/Mpc
+H0: 67.49 ± 0.59 km/s/Mpc
 ωc: 0.1192 ± 0.0013
 ωb: 0.02223 ± 0.00015
 ωm: 0.1421 ± 0.0012
@@ -207,7 +221,7 @@ r*: 144.75 ± 0.29 Mpc
 DM*: 13.90 ± 0.03 Gpc
 z_drag: 1059.65 ± 0.29
 r_d: 147.46 ± 0.28 Mpc
-Chi squared: 0.0003
+Chi squared: 0.0000
 
 ===============================
 
@@ -218,7 +232,7 @@ H0: 66.11 ± 0.79 km/s/Mpc
 ωm: 0.1471 ± 0.0021
 Ωm: 0.337 ± 0.013
 z_eq: 3500 ± 51
-z*: 1089.96 ± 0.30
+z*: 1089.97 ± 0.30
 r*: 143.30 ± 0.54 Mpc
 100 θ*: 1.04075 ± 0.00031
 DM*: 13.77 ± 0.05 Gpc
@@ -233,11 +247,11 @@ H0: 67.62 ± 0.50 km/s/Mpc
 ωc: 0.1193 ± 0.0012
 ωb: 0.02250 ± 0.00011
 ωm: 0.1425 ± 0.0012
-Ωm: 0.3116 ± 0.0071
+Ωm: 0.3117 ± 0.0071
 z_eq: 3390 ± 28
-z*: 1089.68 ± 0.22
+z*: 1089.68 ± 0.21
 r*: 144.52 ± 0.29 Mpc
-100 θ*: 1.04094 ± 0.00026
+100 θ*: 1.04094 ± 0.00025
 DM*: 13.88 ± 0.03 Gpc
 z_drag: 1060.17 ± 0.23
 r_d: 147.14 ± 0.29 Mpc
