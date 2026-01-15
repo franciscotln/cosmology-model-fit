@@ -107,7 +107,7 @@ def main():
     samples = MCSamples(
         samples=chain_list,
         loglikes=loglikes_list,
-        names=["H0", "Obh2", "Och2", "thetastar", "rstar", "DAstar", "zstar"],
+        names=["H0", "obh2", "och2", "thetastar", "rstar", "DAstar", "zstar"],
         labels=[
             "H_0",
             "ω_b",
@@ -120,19 +120,23 @@ def main():
         label="CMB Compressed likelihood",
     )
     samples.addDerived(
-        samples["Obh2"] + samples["Och2"] + Omnu_h2, name="Omh2", label="ω_m"
+        samples["obh2"] + samples["och2"] + Omnu_h2, name="omegamh2", label="ω_m"
     )
     samples.addDerived(
-        samples["Omh2"] / (samples["H0"] / 100) ** 2, name="omegam", label="Ω_m"
+        samples["omegamh2"] / (samples["H0"] / 100) ** 2, name="omegam", label="Ω_m"
     )
     samples.addDerived(
-        cmb.z_drag(samples["Obh2"], samples["Omh2"]), name="zdrag", label=r"z_{drag}"
+        cmb.z_drag(samples["obh2"], samples["omegamh2"]),
+        name="zdrag",
+        label=r"z_{drag}",
     )
     samples.addDerived(
-        cmb.r_drag(samples["Obh2"], samples["Omh2"]), name="rdrag", label=r"r_{drag}"
+        cmb.r_drag(samples["obh2"], samples["omegamh2"]),
+        name="rdrag",
+        label=r"r_{drag}",
     )
     samples.addDerived(
-        -1 + (samples["Obh2"] + samples["Och2"]) / cmb.Omega_r_h2(),
+        -1 + (samples["obh2"] + samples["och2"]) / cmb.Omega_r_h2(),
         name="zeq",
         label=r"z_{eq}",
     )
