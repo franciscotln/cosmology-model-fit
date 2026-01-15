@@ -42,11 +42,10 @@ Or_h2 = Omega_r_h2(N_EFF - (N_EFF / 3))
 
 
 # 1 massive neutrino section
+rho0 = neutrino.compute_rho0(m0)
 qs = neutrino.compute_qs(m0)
 qs_sq = qs**2
 ws = neutrino.weights
-rho0 = neutrino.compute_rho0(m0)
-N_NODES = len(qs)
 
 
 @njit
