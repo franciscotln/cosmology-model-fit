@@ -4,8 +4,8 @@ from y2025BAO.data import get_data as get_bao_data
 import cmb.data_early_lcdm_compression as cmb
 
 c = cmb.c  # speed of light in km/s
-Or_h2 = cmb.Or_h2  # 2 relativistic species
-Omnu_h2 = cmb.Omnu_h2  # 1 massive species with m_nu = 0.06 eV
+Or_h2 = cmb.Or_h2 
+Omnu_h2 = cmb.Omnu_h2
 
 bao_legend, bao_data, bao_cov_matrix = get_bao_data()
 inv_cov_bao = np.linalg.inv(bao_cov_matrix)
@@ -224,7 +224,7 @@ CMB Compressed priors: (θ∗, ωb, ωbc)CMB Early Times ΛCDM
 """
 Flat ΛCDM w(z) = -1
 H0: 68.40 +0.30 -0.30 km/s/Mpc
-ωb: 0.02238 +0.00012 -0.00012
+ωb: 0.02237 +0.00012 -0.00012
 ωc: 0.1172 +0.0007 -0.0007
 ωm: 0.1402 +0.0006 -0.0006
 Ωm: 0.300 +0.004 -0.004
@@ -240,34 +240,34 @@ Degs of freedom: 13
 
 """
 Flat wCDM w(z) = w0
-H0: 68.88 +0.97 -0.93 km/s/Mpc
+H0: 68.88 +0.97 -0.94 km/s/Mpc
 ωb: 0.02235 +0.00013 -0.00013
 ωc: 0.1176 +0.0009 -0.0009
 ωm: 0.1406 +0.0009 -0.0009
-Ωm: 0.296 +0.007 -0.007
-w0: -1.021 +0.038 -0.040 (prior width 2.0: -2.0 to 0.0)
+Ωm: 0.296 +0.007 -0.008
+w0: -1.021 +0.038 -0.040 (prior width 1.0: -1.5 to -0.5)
 wa: 0
 r*: 145.08 Mpc
-z*: 1089.82 +0.22 -0.21
+z*: 1089.83 +0.22 -0.21
 r_d: 147.77 +0.22 -0.22 Mpc
-Log Z: -22.34
+Log Z: -21.65
 Chi squared: 13.28
 Degs of freedom: 12
 """
 
 """
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
-H0: 67.25 +0.81 -1.13 km/s/Mpc
+H0: 67.24 +0.82 -1.13 km/s/Mpc
 ωb: 0.02241 +0.00012 -0.00012
 ωc: 0.1168 +0.0007 -0.0007
 ωm: 0.1398 +0.0007 -0.0007
 Ωm: 0.310 +0.010 -0.007
-w0: -0.911 +0.087 -0.062 (prior width 1.0: -1.0 to 0.0; truncated posterior on the left)
+w0: -0.910 +0.087 -0.062 (prior width 1.0: -1.0 to 0.0; truncated posterior on the left)
 wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
 r*: 145.24 Mpc
 z*: 1089.68 +0.18 -0.19
 r_d: 147.91 +0.20 -0.20 Mpc
-Log Z: -20.59
+Log Z: -20.58
 Chi squared: 13.88
 Degs of freedom: 12
 """
@@ -294,58 +294,58 @@ Degs of freedom: 11
 """
 *******************************
 Dataset: DESI DR2 2024
-CMB Compressed priors: (R, lA = π / θ*, ωb)CMB Planck PR3
+CMB Compressed priors: (R, lA = π / θ*, ωb)CMB Planck PR3 with lensing
 *******************************
 """
 
 """
 Flat ΛCDM w(z) = -1
-H0: 68.46 +0.30 -0.30 km/s/Mpc
-ωb: 0.02254 +0.00012 -0.00012
-ωc: 0.1175 +0.0007 -0.0007
-ωm: 0.1407 +0.0007 -0.0007
-Ωm: 0.300 +0.004 -0.004
+H0: 68.42 +0.29 -0.29 km/s/Mpc
+ωb: 0.02254 +0.00013 -0.00013
+ωc: 0.1177 +0.0006 -0.0006
+ωm: 0.1409 +0.0006 -0.0006
+Ωm: 0.301 +0.004 -0.004
 w0: -1
 wa: 0
-r*: 144.95 Mpc
-z*: 1089.47 +0.19 -0.19
-r_d: 147.56 +0.20 -0.20 Mpc
-Log Z: -20.17
-Chi squared: 15.42
+r*: 144.89 Mpc
+z*: 1089.50 +0.18 -0.18
+r_d: 147.50 +0.19 -0.19 Mpc
+Log Z: -20.39
+Chi squared: 15.81
 Degs of freedom: 13
 """
 
 """
 Flat wCDM w(z) = w0
-H0: 69.15 +0.98 -0.94 km/s/Mpc
+H0: 69.25 +0.97 -0.93 km/s/Mpc
 ωb: 0.02250 +0.00013 -0.00013
-ωc: 0.1181 +0.0009 -0.0010
-ωm: 0.1412 +0.0009 -0.0009
-Ωm: 0.295 +0.007 -0.008
-w0: -1.030 +0.038 -0.040
+ωc: 0.1183 +0.0009 -0.0009
+ωm: 0.1414 +0.0008 -0.0008
+Ωm: 0.295 +0.007 -0.007
+w0: -1.035 +0.037 -0.039
 wa: 0
-r*: 144.84 Mpc
-z*: 1089.57 +0.23 -0.23
-r_d: 147.46 +0.23 -0.23 Mpc
-Log Z: -22.91
-Chi squared: 14.95
+r*: 144.78 Mpc
+z*: 1089.61 +0.21 -0.21
+r_d: 147.40 +0.22 -0.22 Mpc
+Log Z: -22.34
+Chi squared: 15.08
 Degs of freedom: 12
 """
 
 """
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
-H0: 67.40 +0.76 -1.09 km/s/Mpc
+H0: 67.44 +0.71 -1.05 km/s/Mpc
 ωb: 0.02257 +0.00013 -0.00013
-ωc: 0.1172 +0.0007 -0.0007
-ωm: 0.1404 +0.0007 -0.0007
-Ωm: 0.309 +0.010 -0.007
-w0: -0.918 +0.084 -0.057 (prior width 1.0: -1.0 to 0.0; truncated posterior on the left)
+ωc: 0.1174 +0.0007 -0.0007
+ωm: 0.1406 +0.0007 -0.0007
+Ωm: 0.309 +0.009 -0.007
+w0: -0.925 +0.081 -0.053 (prior width 1.0: -1.0 to 0.0; truncated posterior on the left)
 wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
-r*: 145.01 Mpc
-z*: 1089.41 +0.20 -0.20
-r_d: 147.62 +0.20 -0.20 Mpc
-Log Z: -21.30
-Chi squared: 15.86
+r*: 144.95 Mpc
+z*: 1089.44 +0.18 -0.18
+r_d: 147.56 +0.20 -0.20 Mpc
+Log Z: -21.56
+Chi squared: 16.43
 Degs of freedom: 12
 """
 
