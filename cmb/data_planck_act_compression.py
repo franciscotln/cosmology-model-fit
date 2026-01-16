@@ -13,8 +13,9 @@ import nu_evolution as neutrino
 
 c = c0 / 1000  # km/s
 
-# R, lA = π / θ*, ωb = Ωb h^2
 DISTANCE_PRIORS = np.array([1.74795802, 301.803306, 0.0224962530], dtype=np.float64)
+"""Compressed Planck + ACT DR6 priors: (R, lA = π / θ*, ωb)"""
+
 covariance = np.array(
     [
         [1.54911112e-05, 1.03997132e-04, -2.10953275e-07],
@@ -41,7 +42,7 @@ def Omega_r_h2(Neff=N_EFF):
     return O_GAMMA_H2 * (1 + Neff * (7 / 8) * (4 / 11) ** (4 / 3))
 
 
-Or_h2 = Omega_r_h2(N_EFF - (N_EFF / 3))
+Or_h2 = Omega_r_h2(2 * N_EFF / 3)
 
 
 # 1 massive neutrino section
@@ -126,25 +127,25 @@ _EZ_FUNC = None
 
 
 @njit
-def rs_integ(a, Rb, H0, Obh2, Och2, w0, wa):
+def _rs_integ(a, Rb, H0, Obh2, Och2, w0, wa):
     Ez = _EZ_FUNC(1 / a - 1, H0, Obh2, Och2, w0, wa)
     denom = H0 * a**2 * Ez * np.sqrt(3 * (1 + Rb * a))
     return c / denom
 
 
-def rs_z(Ez_func, z_lim, H0, Obh2, Och2, w0=-1, wa=0):
+def rs_z(Ez_func, z_lim, H0, Obh2, Och2, w0=-1.0, wa=0.0):
     global _EZ_FUNC
     _EZ_FUNC = Ez_func
 
     Rb = 3 * Obh2 / (4 * O_GAMMA_H2)
     args = (Rb, H0, Obh2, Och2, w0, wa)
-    res = quad(rs_integ, 1e-08, 1 / (1 + z_lim), args=args)[0]
+    res = quad(_rs_integ, 1e-08, 1 / (1 + z_lim), args=args)[0]
     _EZ_FUNC = None
     return res
 
 
 @njit
-def DM_Integ(z, H0, Obh2, Och2, w0, wa):
+def _DM_integ(z, H0, Obh2, Och2, w0, wa):
     return (c / H0) / _EZ_FUNC(z, H0, Obh2, Och2, w0, wa)
 
 
@@ -153,12 +154,12 @@ def DM_z(Ez_func, z_lim, H0, Obh2, Och2, w0=-1.0, wa=0.0):
     _EZ_FUNC = Ez_func
 
     args = (H0, Obh2, Och2, w0, wa)
-    res = quad(DM_Integ, 0.0, z_lim, args=args)[0]
+    res = quad(_DM_integ, 0.0, z_lim, args=args)[0]
     _EZ_FUNC = None
     return res
 
 
-def cmb_distances(Ez_func, H0, Ob_h2, Oc_h2, w0=-1, wa=0):
+def cmb_distances(Ez_func, H0, Ob_h2, Oc_h2, w0=-1.0, wa=0.0):
     """
     returns (R, lA = π / θ*, ωb)
     """
