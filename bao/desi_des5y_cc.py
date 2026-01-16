@@ -2,17 +2,20 @@ from numba import njit
 import numpy as np
 from scipy.constants import c as c0
 from scipy.linalg import cho_factor, solve_triangular
-from y2024DES.data import effective_sample_size as sn_sample, get_data as get_sn_data
 from y2005cc.data import get_data as get_cc_data
 from y2025BAO.data import get_data as get_bao_data
+from y2025DESdovekie.data import (
+    effective_sample_size as sn_sample,
+    get_data as get_sn_data,
+)
 
 cc_legend, z_cc_vals, H_cc_vals, cov_matrix_cc = get_cc_data()
 sn_legend, z_sn_vals, z_sn_hel_vals, mu_values, cov_matrix_sn = get_sn_data()
 bao_legend, bao_data, cov_matrix_bao = get_bao_data()
 
 cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
-cho_bao = cho_factor(cov_matrix_bao, lower=True)[0]
-cho_cc = cho_factor(cov_matrix_cc, lower=True)[0]
+inv_cov_bao = np.linalg.inv(cov_matrix_bao)
+inv_cov_cc = np.linalg.inv(cov_matrix_cc)
 
 logdet_cc = np.linalg.slogdet(cov_matrix_cc)[1]
 N_cc = len(z_cc_vals)
@@ -20,17 +23,23 @@ N_cc = len(z_cc_vals)
 c = c0 / 1000  # km/s
 
 z_max = max(np.max(z_sn_vals), np.max(bao_data["z"])) + 0.1
-z_grid = np.linspace(0, z_max, num=1200)
+z_grid = np.linspace(0, z_max, num=4000)
 dx = np.diff(z_grid)
+
+
+@njit
+def rho_de(z, w0=-1.0, wa=0.0):
+    cubed = (1.0 + z) ** 3
+    return (2 * cubed / (1.0 + w0 + (1.0 - w0) * cubed)) ** 2  # wzCDM
+    # return 1.0  # ΛCDM
+    # return cubed ** (1.0 + w0)  # wCDM
+    # return cubed ** (1.0 + w0 + wa) * np.exp(-3 * wa * z / (1.0 + z))  # w0waCDM
 
 
 @njit
 def Ez(z, theta):
     Om, w0 = theta[4], theta[5]
-    one_plus_z = 1 + z
-    cubed = one_plus_z**3
-    rho_de = (4 * cubed / (1 + 3 * cubed)) ** (4 * (1 + w0))
-    return np.sqrt(Om * cubed + (1 - Om) * rho_de)
+    return np.sqrt(Om * (1.0 + z) ** 3 + (1 - Om) * rho_de(z, w0))
 
 
 @njit
@@ -87,8 +96,9 @@ def bao_theory(z, qty, theta):
 
 
 def solve_triang(cho_L, delta):
+    # much faster than direct inversion for large matrices
     y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
-    return np.dot(y, y)
+    return y @ y
 
 
 def chi_squared(theta):
@@ -96,10 +106,10 @@ def chi_squared(theta):
     chi_sn = solve_triang(cho_sn, delta_sn)
 
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, theta)
-    chi_bao = solve_triang(cho_bao, delta_bao)
+    chi_bao = delta_bao @ inv_cov_bao @ delta_bao
 
     delta_cc = H_cc_vals - H_z(z_cc_vals, theta)
-    chi_cc = solve_triang(cho_cc, delta_cc) * theta[0] ** 2
+    chi_cc = theta[0] ** 2 * (delta_cc @ inv_cov_cc @ delta_cc)
 
     return chi_sn + chi_bao + chi_cc
 
@@ -111,7 +121,7 @@ bounds = np.array(
         (50.0, 80.0),  # H0: Hubble constant at present
         (110.0, 175.0),  # r_d: sound horizon at drag epoch
         (0.2, 0.7),  # Ωm: matter density parameter at present
-        (-1.5, 0.0),  # w0: dark energy equation of state at present
+        (-1.0, -1 / 3),  # w0: dark energy equation of state at present
     ],
     dtype=np.float64,
 )
@@ -145,19 +155,18 @@ def main():
     from corner_plot import plot_corner_and_chains
     from sn.plotting import plot_predictions as plot_sn_predictions
     from cosmic_chronometers.plot_predictions import plot_cc_predictions
-    from .plot_predictions import plot_bao_predictions
+    from bao.plot_predictions import plot_bao_predictions
     from log_evidence import log_evidence
 
+    np.random.seed(42)
     ndim = len(bounds)
     nwalkers = 150
     burn_in = 200
     nsteps = 2000 + burn_in
-    np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
     moves = [
-        (emcee.moves.KDEMove(), 0.30),
-        (emcee.moves.DEMove(), 0.56),
-        (emcee.moves.DESnookerMove(), 0.14),
+        (emcee.moves.KDEMove(), 0.20),
+        (emcee.moves.DEMove(), 0.80),
     ]
 
     with Pool(8) as pool:
@@ -200,6 +209,8 @@ def main():
     print(f"Log evidence: {log_evd:.2f}")
     print(f"Degrees of freedom: {deg_of_freedom}")
 
+    labels = ["$f_{CCH}$", "ΔM", "$H_0$", "$r_d$", "$Ω_m$", "$w_0$"]
+    plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
     plot_bao_predictions(
         theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
         data=bao_data,
@@ -219,13 +230,8 @@ def main():
         y=mu_values,
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=mu_theory(best_fit),
-        label=rf"Best fit: $H_0$={h0_50:.1f} km/s/Mpc, $Ω_m$={Om_50:.3f}",
+        label=f"$Ω_m$={Om_50:.3f}",
         x_scale="log",
-    )
-    plot_corner_and_chains(
-        labels=["$f_{CCH}$", "ΔM", "$H_0$", "$r_d$", "$Ω_m$", "$w_0$"],
-        flat_samples=samples,
-        samples=chains_samples,
     )
 
 
@@ -235,53 +241,45 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM: w(z) = -1
-f_cc: 1.48 +0.19 -0.18
-H0: 68.2 +2.3 -2.3 km/s/Mpc
-r_d: 147.3 +4.9 -4.7 Mpc
-Ωm: 0.311 +0.008 -0.008
+f_cc: 1.47 +0.19 -0.18
+ΔM: -0.054 +0.070 -0.072 mag
+H0: 68.5 +2.3 -2.3 km/s/Mpc
+r_d: 147.2 +4.9 -4.6 Mpc
+Ωm: 0.307 +0.008 -0.007
 w0: -1
 wa: 0
-Chi squared: 1691.25
-Log evidence: -975.24
-Degrees of freedom: 1776
+Chi squared: 1677.55
+Log evidence: -968.38
+Degrees of freedom: 1755
 
 ===============================
 
 Flat wCDM: w(z) = w0
-f_cc: 1.47 +0.18 -0.18
-H0: 67.2 +2.2 -2.3 km/s/Mpc
-r_d: 147.2 +4.9 -4.7 Mpc
-Ωm: 0.299 +0.009 -0.009
-w0: -0.875 +0.038 -0.038 (prior width 1.5: -1.5 to 0.0)
+f_cc: 1.47 +0.19 -0.18
+H0: 67.8 +2.3 -2.3 km/s/Mpc
+r_d: 147.1 +5.1 -4.6 Mpc
+Ωm: 0.298 +0.009 -0.009
+w0: -0.912 +0.037 -0.038 (prior width 1.0: -1.5 to -0.5)
 wa: 0
-Chi squared: 1680.50
-Log evidence: -972.85 (Δ logZ = 2.39 against ΛCDM)
-Degrees of freedom: 1775
+Chi squared: 1671.84
+Log evidence: -968.00 (Δ logZ = 0.38 against ΛCDM)
+Degrees of freedom: 1754
 
 ===============================
 
 Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
 f_cc: 1.46 +0.18 -0.18
-ΔM: -0.062 +0.071 -0.073 mag
-H0: 67.0 +2.3 -2.3 km/s/Mpc
-r_d: 147.2 +5.0 -4.7 Mpc
-Ωm: 0.309 +0.008 -0.008
-w0: -0.821 +0.050 -0.050
-wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-Chi squared: 1678.54
-Log evidence: -971.72 (Δ logZ = 3.52 against ΛCDM)
-Degrees of freedom: 1775
+H0: 67.7 +2.3 -2.3 km/s/Mpc
+r_d: 147.0 +5.0 -4.6 Mpc
+Ωm: 0.305 +0.008 -0.007
+w0: -0.866 +0.050 -0.052 (prior width 2/3: -1 to -1/3) truncated at 2.58 sigma to the left of the mean
+wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
+Chi squared: 1670.75
+Log evidence: -966.81 (Δ logZ = 1.57 against ΛCDM)
+Degrees of freedom: 1754
 
 ===============================
 
 Flat w0waCDM: w(z) = w0 + wa * z / (1 + z)
-f_cc: 1.46 +0.18 -0.18
-H0: 67.1 +2.2 -2.3 km/s/Mpc
-r_d: 147.0 +5.0 -4.6 Mpc
-Ωm: 0.321 +0.013 -0.016
-w0: -0.796 +0.073 -0.068 (prior width 1.5: -1.5 to 0.0)
-wa: -0.658 +0.466 -0.458 (prior width 4.5: -3.0 to 1.5)
-Chi squared: 1677.92
-Log evidence: -972.99 (Δ logZ = 2.25 against ΛCDM)
-Degrees of freedom: 1774
+TODO
 """

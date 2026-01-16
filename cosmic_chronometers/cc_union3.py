@@ -16,14 +16,15 @@ cho_cc = cho_factor(cov_matrix_cc, lower=True)[0]
 
 c = c0 / 1000  # Speed of light in km/s
 
-z_grid = np.linspace(0, np.max(z_sn_vals), num=1000)
+z_grid = np.linspace(0, np.max(z_sn_vals), num=4000)
 dx = np.diff(z_grid)
 
 
 @njit
 def Ez(z, Om, w0):
     zp1 = 1 + z
-    rho_de = (2 * zp1**3 / (1 + w0 + (1 - w0) * zp1**3)) ** 2
+    # rho_de = (2 * zp1**3 / (1 + w0 + (1 - w0) * zp1**3)) ** 2
+    rho_de = zp1 ** (3.0 * (1.0 + w0))
     return np.sqrt(Om * zp1**3 + (1 - Om) * rho_de)
 
 
@@ -172,12 +173,13 @@ Degrees of freedom: 51
 
 Flat wCDM: w(z) = w0
 f_cc: 1.45 +0.19 -0.18
-H0: 66.4 +2.7 -2.7 km/s/Mpc
-Ωm: 0.305 +0.047 -0.055
-ωm: 0.1344 +0.0188 -0.0223
-w0: -0.85 +0.12 -0.14
+ΔM: -0.179 +0.124 -0.124 mag
+H0: 66.4 +2.7 -2.6 km/s/Mpc
+Ωm: 0.306 +0.047 -0.055
+ωm: 0.1344 +0.0189 -0.0224
+w0: -0.85 +0.13 -0.14
 wa: 0
-Chi squared: 54.29
+Chi squared: 54.20
 Log evidence: -151.7
 Degrees of freedom: 50
 
@@ -185,12 +187,13 @@ Degrees of freedom: 50
 
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
 f_cc: 1.45 +0.19 -0.18
-ΔM: -0.177 +0.123 -0.123 mag
-H0: 66.2 +2.6 -2.6 km/s/Mpc
+ΔM: -0.175 +0.122 -0.123 mag
+H0: 66.3 +2.6 -2.6 km/s/Mpc
 Ωm: 0.320 +0.029 -0.030
-ωm: 0.1402 +0.0123 -0.0124
-w0: -0.79 +0.12 -0.12 (truncated at -1, 1.75 sigma to the left of the mean)
+ωm: 0.1403 +0.0122 -0.0125
+w0: -0.80 +0.12 -0.12 (truncated at -1, 1.67 sigma to the left of the mean)
 wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
+Chi squared: 53.63
 Log evidence: -151.0
 Degrees of freedom: 50
 
