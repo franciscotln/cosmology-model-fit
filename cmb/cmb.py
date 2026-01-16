@@ -98,21 +98,18 @@ def main():
 
     samples_list = sampler.get_chain(discard=burn_in, flat=False)
     blobs_list = sampler.get_blobs(discard=burn_in, flat=False)
-    full_samples = np.concatenate([samples_list, blobs_list], axis=2)
-    log_prob_list = sampler.get_log_prob(discard=burn_in, flat=False)
-
-    chain_list = [full_samples[:, i, :] for i in range(full_samples.shape[1])]
-    loglikes_list = [-log_prob_list[:, i] for i in range(log_prob_list.shape[1])]
+    chain_list = np.concatenate([samples_list, blobs_list], axis=2).swapaxes(0, 1)
+    loglikes_list = -1.0 * sampler.get_log_prob(discard=burn_in, flat=False).T
 
     samples = MCSamples(
         samples=chain_list,
         loglikes=loglikes_list,
-        names=["H0", "obh2", "och2", "thetastar", "rstar", "DAstar", "zstar"],
+        names=["H0", "ombh2", "omch2", "thetastar", "rstar", "DAstar", "zstar"],
         labels=[
             "H_0",
             "ω_b",
             "ω_c",
-            r"100\theta_*",
+            "100θ_*",
             "r_*",
             r"D_{\rm{M_*}}/{\rm{Gpc}}",
             "z_*",
@@ -120,23 +117,23 @@ def main():
         label="CMB Compressed likelihood",
     )
     samples.addDerived(
-        samples["obh2"] + samples["och2"] + Omnu_h2, name="omegamh2", label="ω_m"
+        samples["ombh2"] + samples["omch2"] + Omnu_h2, name="omegamh2", label="ω_m"
     )
     samples.addDerived(
         samples["omegamh2"] / (samples["H0"] / 100) ** 2, name="omegam", label="Ω_m"
     )
     samples.addDerived(
-        cmb.z_drag(samples["obh2"], samples["omegamh2"]),
+        cmb.z_drag(samples["ombh2"], samples["omegamh2"]),
         name="zdrag",
         label=r"z_{drag}",
     )
     samples.addDerived(
-        cmb.r_drag(samples["obh2"], samples["omegamh2"]),
+        cmb.r_drag(samples["ombh2"], samples["omegamh2"]),
         name="rdrag",
         label=r"r_{drag}",
     )
     samples.addDerived(
-        -1 + (samples["obh2"] + samples["och2"]) / cmb.Omega_r_h2(),
+        -1 + (samples["ombh2"] + samples["omch2"]) / cmb.Omega_r_h2(),
         name="zeq",
         label=r"z_{eq}",
     )
