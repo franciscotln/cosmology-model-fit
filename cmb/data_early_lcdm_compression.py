@@ -65,20 +65,40 @@ def Omnu_z(z):
     return zp1**4 * weighted_sum / rho0
 
 
+_EZ_FUNC = None
+
+
+@njit
+def rs_integ(a, Rb, H0, Obh2, Och2, w0, wa):
+    Ez = _EZ_FUNC(1 / a - 1, H0, Obh2, Och2, w0, wa)
+    denom = H0 * a**2 * Ez * np.sqrt(3 * (1 + Rb * a))
+    return c / denom
+
+
 def rs_z(Ez_func, z_lim, H0, Obh2, Och2, w0=-1, wa=0):
+    global _EZ_FUNC
+    _EZ_FUNC = Ez_func
+
     Rb = 3 * Obh2 / (4 * O_GAMMA_H2)
-
-    def integrand(a):
-        Ez = Ez_func(1 / a - 1, H0, Obh2, Och2, w0, wa)
-        denom = a**2 * Ez * np.sqrt(3 * (1 + Rb * a))
-        return 1 / denom
-
-    return (c / H0) * quad(integrand, 1e-08, 1 / (1 + z_lim))[0]
+    args = (Rb, H0, Obh2, Och2, w0, wa)
+    res = quad(rs_integ, 1e-08, 1 / (1 + z_lim), args=args)[0]
+    _EZ_FUNC = None
+    return res
 
 
-def DM_z(Ez_func, z_lim, H0, Obh2, Och2, w0=-1, wa=0):
-    integral = quad(lambda z: 1 / Ez_func(z, H0, Obh2, Och2, w0, wa), 0.0, z_lim)[0]
-    return integral * c / H0
+@njit
+def DM_Integ(z, H0, Obh2, Och2, w0, wa):
+    return (c / H0) / _EZ_FUNC(z, H0, Obh2, Och2, w0, wa)
+
+
+def DM_z(Ez_func, z_lim, H0, Obh2, Och2, w0=-1.0, wa=0.0):
+    global _EZ_FUNC
+    _EZ_FUNC = Ez_func
+
+    args = (H0, Obh2, Och2, w0, wa)
+    res = quad(DM_Integ, 0.0, z_lim, args=args)[0]
+    _EZ_FUNC = None
+    return res
 
 
 def cmb_distances(Ez_func, H0, Ob_h2, Oc_h2, w0=-1, wa=0):

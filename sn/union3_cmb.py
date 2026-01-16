@@ -1,6 +1,5 @@
 from numba import njit
 import numpy as np
-from scipy.linalg import cho_factor, solve_triangular
 from y2023union3.data import get_data
 import cmb.data_planck_act_compression as cmb
 
@@ -9,7 +8,7 @@ Orh2 = cmb.Or_h2
 Omnuh2 = cmb.Omnu_h2
 
 sn_legend, z_sn_vals, mu_vals, cov_matrix_sn = get_data()
-cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
+inv_cov_sn = np.linalg.inv(cov_matrix_sn)
 
 z_grid = np.linspace(0, np.max(z_sn_vals) + 0.1, num=4000)
 dx = np.diff(z_grid)
@@ -55,17 +54,12 @@ def mu_theory(params):
     return params[0] + 25 + 5 * np.log10(dL)
 
 
-def solve_triang(cho_L, delta):
-    y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
-    return np.dot(y, y)
-
-
 def chi_squared(params):
-    delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez, *params[1:])
-    chi2_cmb = np.dot(delta, np.dot(cmb.inv_cov_mat, delta))
+    delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez, *params[1:])
+    chi2_cmb = delta_cmb @ cmb.inv_cov_mat @ delta_cmb
 
     delta_sn = mu_vals - mu_theory(params)
-    chi_sn = solve_triang(cho_sn, delta_sn)
+    chi_sn = delta_sn @ inv_cov_sn @ delta_sn
 
     return chi2_cmb + chi_sn
 
@@ -224,19 +218,19 @@ Degrees of freedom: 21
 
 """
 Flat wCDM w(z) = w0
-H0: 65.31 +1.24 -1.23 km/s/Mpc
-Ωm: 0.334 +0.014 -0.013
-ωm: 0.14244 +0.00118 -0.00116
+H0: 65.31 +1.22 -1.23 km/s/Mpc
+Ωm: 0.334 +0.013 -0.013
+ωm: 0.14244 +0.00118 -0.00117
 ωb: 0.02250 +0.00011 -0.00011
 ωc: 0.1193 +0.0012 -0.0012
-w0: -0.922 +0.043 -0.043 (prior width 1.5: -1.5 to 0.0)
+w0: -0.922 +0.043 -0.043 (prior width 1.0: -1.5 to -0.5)
 wa: 0
 z*: 1089.68 +0.22 -0.21
 z_drag: 1060.17 +0.23 -0.23
 r*: 144.53 Mpc
-r_d: 147.15 Mpc
+r_d: 147.14 Mpc
 Chi squared: 23.1
-Log Evidence: -29.5
+Log Evidence: -29.1
 Degrees of freedom: 20
 """
 
@@ -244,15 +238,15 @@ Degrees of freedom: 20
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
 H0: 65.38 +1.03 -1.05 km/s/Mpc
 Ωm: 0.333 +0.012 -0.011
-ωm: 0.14239 +0.00117 -0.00115
+ωm: 0.14239 +0.00116 -0.00116
 ωb: 0.02250 +0.00011 -0.00011
-ωc: 0.1193 +0.0012 -0.0012
-w0: -0.838 +0.076 -0.074 (prior width 1.0: -1.0 to 0.0)
+ωc: 0.1192 +0.0012 -0.0012
+w0: -0.837 +0.075 -0.074 (prior width 1.0: -1.0 to 0.0)
 wa: d w(z)/d z at z=0 = -1.5 * (1 - w0^2) = -0.447
 z*: 1089.67 +0.21 -0.21
-z_drag: 1060.18 +0.23 -0.23
+z_drag: 1060.17 +0.23 -0.23
 r*: 144.54 Mpc
-r_d: 147.15 Mpc
+r_d: 147.16 Mpc
 Chi squared: 22.2
 Log Evidence: -28.1
 Degrees of freedom: 20
