@@ -1,26 +1,22 @@
 from numba import njit
 import numpy as np
-from scipy.constants import c as c0
-from scipy.linalg import cho_factor, cho_solve
 from y2025BAO.data import get_data
 import y2024BBN.prior_lcdm_schoneberg as bbn
-from cmb.data_planck_compression import r_drag
+from cmb.data_planck_compression import r_drag, c
 
 legend, data, cov_matrix = get_data()
-cho = cho_factor(cov_matrix)
+inv_cov = np.linalg.inv(cov_matrix)
 
-z_grid = np.linspace(0, np.max(data["z"]) + 0.1, num=2300)
+z_grid = np.linspace(0, np.max(data["z"]) + 0.1, num=3000)
 dx = np.diff(z_grid)
-
-c = c0 / 1000  # km/s
 
 
 @njit
 def Ez(z, params):
     Om, w0 = params[1], params[3]
-    cubic = (1 + z) ** 3
-    rho_de = (4 * cubic / (1 + 3 * cubic)) ** (4 * (1 + w0))
-    return np.sqrt(Om * cubic + (1 - Om) * rho_de)
+    cubic = (1.0 + z) ** 3
+    rho_de = (2 * cubic / (1 + w0 + (1 - w0) * cubic)) ** 2
+    return np.sqrt(Om * cubic + (1.0 - Om) * rho_de)
 
 
 @njit
@@ -56,7 +52,7 @@ quantities = np.array([qty_map[q] for q in data["quantity"]], dtype=np.int32)
 @njit
 def bao_theory(z, qty, params):
     h, Om, Obh2 = params[0] / 100, params[1], params[2]
-    rd = r_drag(wb=Obh2, wm=Om * h**2)
+    rd = r_drag(Obh2, Om * h**2)
     DV_mask = qty == 0
     DM_mask = qty == 1
     DH_mask = qty == 2
@@ -68,11 +64,11 @@ def bao_theory(z, qty, params):
 
 
 def chi_squared(params):
-    bbn_delta = (bbn.Obh2 - params[2]) / bbn.Obh2_sigma
-    bbn_chi2 = bbn_delta**2
+    bbn_delta = bbn.Obh2 - params[2]
+    bbn_chi2 = (bbn_delta / bbn.Obh2_sigma) ** 2
 
     delta = data["value"] - bao_theory(data["z"], quantities, params)
-    bao_chi2 = delta.dot(cho_solve(cho, delta, check_finite=False))
+    bao_chi2 = delta @ inv_cov @ delta
     return bao_chi2 + bbn_chi2
 
 
@@ -81,7 +77,7 @@ bounds = np.array(
         (55, 75),  # H0
         (0.17, 0.50),  # Ωm
         (0.016, 0.030),  # Ωb h^2
-        (-2.0, 0.0),  # w0
+        (-1.0, -1 / 3),  # w0
     ],
     dtype=np.float64,
 )
@@ -120,8 +116,8 @@ def main():
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
     moves = [
-        (emcee.moves.KDEMove(), 0.30),
-        (emcee.moves.DEMove(), 0.70),
+        (emcee.moves.KDEMove(bw_method="silverman"), 0.25),
+        (emcee.moves.DEMove(), 0.75),
     ]
 
     with Pool(5) as pool:
@@ -132,7 +128,7 @@ def main():
         tau = sampler.get_autocorr_time()
         print("auto-correlation time", tau)
         print("acceptance fraction", np.mean(sampler.acceptance_fraction))
-        print("effective samples", ndim * nwalkers * nsteps / np.max(tau))
+        print("effective samples", ndim * nwalkers * (nsteps - burn_in) / np.max(tau))
     except emcee.autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
 
@@ -170,16 +166,13 @@ def main():
     print(f"R^2: {r2:.4f}")
     print(f"RMSD: {np.sqrt(np.mean(residuals**2)):.3f}")
 
+    labels = ["$H_0$", "$Ω_m$", "$ω_b$", "$w_0$"]
+    plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
     plot_bao_predictions(
         theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
         data=data,
         errors=np.sqrt(np.diag(cov_matrix)),
         title=f"{legend}: $Ω_m$={Om_50:.4f}",
-    )
-    plot_corner_and_chains(
-        labels=["$H_0$", "$Ω_m$", "$ω_b$", "$w_0$"],
-        flat_samples=samples,
-        samples=chains_samples,
     )
 
 
@@ -222,16 +215,16 @@ RMSD: 0.281
 
 ===============================
 
-Flat alternative: w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
-H0: 65.54 +2.39 -2.20 km/s/Mpc
-ωb: 0.02219 +0.00055 -0.00055
-ωm: 0.13346 +0.00713 -0.00672
-Ωm: 0.3105 +0.0130 -0.0130
-w0: -0.796 +0.146 -0.156
-wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-r_d: 149.84 +2.10 -2.12 Mpc
-Chi squared: 8.34
+Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
+H0: 65.31 +1.92 -2.03 km/s/Mpc
+ωb: 0.02218 +0.00055 -0.00055
+ωm: 0.13304 +0.00630 -0.00637
+Ωm: 0.3124 +0.0122 -0.0116
+w0: -0.768 +0.132 -0.130
+wa: d w(z)/dz at z=0 = -(3/2) * (1 - w0^2)
+r_d: 149.97 +1.99 -1.93 Mpc
+Chi squared: 8.29
 Degs of freedom: 10
-R^2: 0.9990
-RMSD: 0.264
+R^2: 0.9991
+RMSD: 0.262
 """

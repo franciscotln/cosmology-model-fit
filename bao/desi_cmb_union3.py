@@ -21,8 +21,8 @@ dx = np.diff(z_grid)
 
 @njit
 def Ode_z(z, w0, wa):
-    a3 = 1 / (1 + z) ** 3
-    return 4 / ((1 + w0) * a3 + (1 - w0)) ** 2
+    a3 = 1 / (1.0 + z) ** 3
+    return 4 / ((1.0 + w0) * a3 + (1.0 - w0)) ** 2
 
 
 @njit
@@ -33,7 +33,7 @@ def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
     Obc = (Obh2 + Och2) / h**2
     Ode = 1.0 - Obc - Or - Onu
 
-    zp1 = 1 + z
+    zp1 = 1.0 + z
 
     radiation_term = Or * zp1**4
     matter_term = Obc * zp1**3
@@ -78,7 +78,7 @@ quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int32
 def bao_theory(z, qty, params):
     Obh2, Och2 = params[2], params[3]
     Omh2 = Obh2 + Och2 + Omnuh2
-    rd = cmb.r_drag(wb=Obh2, wm=Omh2)
+    rd = cmb.r_drag(Obh2, Omh2)
 
     results = np.empty(z.size, dtype=np.float64)
     DV_mask = qty == 0
@@ -92,8 +92,8 @@ def bao_theory(z, qty, params):
 
 @njit
 def mu_theory(params):
-    dL = (1 + z_sn_vals) * DM_z(z_sn_vals, params)
-    return params[0] + 25 + 5 * np.log10(dL)
+    dL = (1.0 + z_sn_vals) * DM_z(z_sn_vals, params)
+    return params[0] + 25.0 + 5 * np.log10(dL)
 
 
 @njit
@@ -147,7 +147,7 @@ def log_probability(params):
     return lp + log_likelihood(params)
 
 
-def q0(Om, w0=-1):
+def q0(Om, w0=-1.0):
     """Calculate the deceleration parameter at z=0"""
     return Om / 2 + (1 + 3 * w0) * (1 - Om) / 2
 
@@ -169,7 +169,7 @@ def main():
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
     moves = [
-        (emcee.moves.KDEMove(), 0.20),
+        (emcee.moves.KDEMove(bw_method="silverman"), 0.20),
         (emcee.moves.DEMove(), 0.80),
     ]
 
@@ -234,6 +234,8 @@ def main():
     print(f"Log evidence: {log_evd:.1f}")
     print(f"Degs of freedom: {degs_of_freedom}")
 
+    labels = ["$Δ_M$", "$H_0$", "$ω_b$", "$ω_c$", "$w_0$"]
+    plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
     plot_bao_predictions(
         theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
         data=bao_data,
@@ -248,11 +250,6 @@ def main():
         y_model=mu_theory(best_fit),
         label=f"$Ω_m$={Om_50:.3f}",
         x_scale="log",
-    )
-    plot_corner_and_chains(
-        labels=["$Δ_M$", "$H_0$", "$ω_b$", "$ω_c$", "$w_0$"],
-        flat_samples=samples,
-        samples=chains_samples,
     )
 
 
@@ -300,35 +297,37 @@ Degs of freedom: 34
 Flat wCDM w(z) = w0
 
 ** Planck + ACT compression **
-H0: 67.79 +0.71 -0.69 km/s/Mpc
-Ωm: 0.3052 +0.0059 -0.0059
+H0: 67.79 +0.70 -0.70 km/s/Mpc
+Ωm: 0.3052 +0.0060 -0.0059
 ωb: 0.02259 +0.00011 -0.00011
 ωc: 0.1170 +0.0009 -0.0009
-ωm: 0.1403 +0.0008 -0.0008
+ωm: 0.1402 +0.0008 -0.0008
 w0: -0.974 +0.028 -0.028 (prior width 0.8: -1.3 to -0.5)
 wa: 0
-z*: 1089.36 +0.18 -0.18
+z*: 1089.35 +0.18 -0.17
 r*: 145.05 Mpc
-z_d: 1060.22 +0.23 -0.23
+z_d: 1060.21 +0.23 -0.23
 r_d: 147.65 Mpc
-Chi squared: 41.98
-Log evidence: -39.3 (Δ logZ = -2.0 in favour of ΛCDM)
+q0: -0.516 +0.036 -0.037
+Chi squared: 42.02
+Log evidence: -39.4 (Δ logZ = -2.1 in favour of ΛCDM)
 Degs of freedom: 33
 
 ** Early-time ΛCDM **
-H0: 67.62 +0.71 -0.69 km/s/Mpc
-Ωm: 0.3057 +0.0060 -0.0059
+H0: 67.62 +0.71 -0.70 km/s/Mpc
+Ωm: 0.3058 +0.0060 -0.0060
 ωb: 0.02241 +0.00013 -0.00013
 ωc: 0.1168 +0.0009 -0.0009
 ωm: 0.1398 +0.0008 -0.0008
-w0: -0.969 +0.028 -0.029 (prior width 0.8: -1.3 to -0.5)
+w0: -0.969 +0.029 -0.029 (prior width 0.8: -1.3 to -0.5)
 wa: 0
-z*: 1089.60 +0.22 -0.22
-r*: 145.25 Mpc
-z_d: 1059.95 +0.28 -0.28
+z*: 1089.69 +0.21 -0.21
+r*: 145.24 Mpc
+z_d: 1059.89 +0.28 -0.28
 r_d: 147.91 Mpc
-Chi squared: 40.92
-Log evidence: -38.7 (Δ logZ = -1.8 in favour of ΛCDM)
+q0: -0.509 +0.037 -0.038
+Chi squared: 40.85
+Log evidence: -38.6 (Δ logZ = -1.7 in favour of ΛCDM)
 Degs of freedom: 33
 """
 
@@ -337,8 +336,8 @@ Degs of freedom: 33
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
 
 ** Planck + ACT compression **
-H0: 66.59 +0.82 -0.81 km/s/Mpc
-Ωm: 0.3158 +0.0077 -0.0075
+H0: 66.60 +0.81 -0.81 km/s/Mpc
+Ωm: 0.3157 +0.0077 -0.0074
 ωb: 0.02260 +0.00010 -0.00010
 ωc: 0.1168 +0.0007 -0.0007
 ωm: 0.1400 +0.0007 -0.0007
@@ -346,27 +345,27 @@ w0: -0.856 +0.062 -0.062 (prior width 0.8: -1.0 to -1/3; 2.32 sigma to the prior
 wa: -0.401 [derived: wa = -1.5 * (1 - w0^2)]
 z*: 1089.31 +0.16 -0.16
 r*: 145.10 Mpc
-z_d: 1060.22 +0.23 -0.23
+z_d: 1060.22 +0.22 -0.23
 r_d: 147.70 Mpc
-q0: -0.378 +0.072 -0.073
+q0: -0.379 +0.071 -0.073
 Chi squared: 37.92
 Log evidence: -36.3 (Δ logZ = 1.0 against ΛCDM)
 Degs of freedom: 33
 
 ** Early-time ΛCDM **
-H0: 66.48 +0.82 -0.81 km/s/Mpc
-Ωm: 0.3161 +0.0077 -0.0075
+H0: 66.48 +0.82 -0.82 km/s/Mpc
+Ωm: 0.3161 +0.0078 -0.0076
 ωb: 0.02242 +0.00012 -0.00012
 ωc: 0.1166 +0.0007 -0.0007
 ωm: 0.1397 +0.0007 -0.0007
 w0: -0.850 +0.062 -0.063 (prior width 0.8: -1.0 to -1/3; 2.34 sigma to the prior left edge)
 wa: -0.416 [devired: wa = -1.5 * (1 - w0^2)]
-z*: 1089.65 +0.19 -0.18
+z*: 1089.65 +0.19 -0.19
 r*: 145.27 Mpc
 z_d: 1059.91 +0.27 -0.27
-r_d: 147.94 Mpc
+r_d: 147.93 Mpc
 q0: -0.372 +0.072 -0.074
-Chi squared: 36.72
+Chi squared: 36.73
 Log evidence: -35.6 (Δ logZ = 1.3 against ΛCDM)
 Degs of freedom: 33
 """
