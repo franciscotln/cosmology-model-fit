@@ -11,7 +11,7 @@ import nu_evolution as neutrino
 c = c0 / 1000  # km/s
 
 DISTANCE_PRIORS = np.array([1.75063846, 301.760701, 0.0223597502], dtype=np.float64)
-"""Compressed Planck + Lensing priors: (R, lA = π / θ*, ωb)"""
+"""Compressed Planck priors: (R, lA = π / θ*, ωb)"""
 
 covariance = np.array(
     [

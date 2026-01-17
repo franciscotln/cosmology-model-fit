@@ -19,9 +19,8 @@ logdet_cc = np.linalg.slogdet(cov_matrix_cc)[1]
 N_cc = len(z_cc_vals)
 
 c = c0 / 1000  # km/s
-Or_h2 = cmb.Omega_r_h2(2.044)
+Or_h2 = cmb.Or_h2
 Omnu_h2 = cmb.Omnu_h2
-z_nr = cmb.z_nr
 
 z_max = max(np.max(z_sn_vals), np.max(bao_data["z"])) + 0.1
 z_grid = np.linspace(0, z_max, num=2000)
@@ -29,25 +28,13 @@ dx = np.diff(z_grid)
 
 
 @njit
-def Omnu_z(z):
-    """
-    Computes the appox. evolution of one massive
-    neutrino species energy density with redshift
-    """
-    return (
-        (1 + z) ** 4
-        * (1 + ((1 + z_nr) / (1 + z)) ** 2) ** 0.5
-        * (1 + (1 + z_nr) ** 2) ** -0.5
-    )
-
-
-@njit
-def Ode_z(z, w0=-1, wa=0):
-    zp1 = 1 + z
-    # return 1  # ΛCDM
-    # return zp1 ** (3 * (1 + w0))  # wCDM
-    return (4 * zp1**3 / (1 + 3 * zp1**3)) ** (4 * (1 + w0))  # wzCDM
-    # return zp1 ** (3 * (1 + w0 + wa)) * np.exp(-3 * wa * z / zp1)  # w0waCDM
+def Ode_z(z, w0, wa):
+    zp1 = 1.0 + z
+    cubed = zp1**3
+    # return 1.0  # ΛCDM
+    # return cubed ** (1 + w0)  # wCDM
+    return (2 * cubed / (1 + w0 + (1 - w0) * cubed)) ** 2  # wzCDM
+    # return cubed ** (1 + w0 + wa) * np.exp(-3 * wa * z / zp1)  # w0waCDM
 
 
 @njit
@@ -58,11 +45,9 @@ def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
     Obc = (Obh2 + Och2) / h**2
     Ode = 1.0 - Obc - Or - Onu
 
-    zp1 = 1 + z
-
-    radiation_term = Or * zp1**4
-    matter_term = Obc * zp1**3
-    neutrino_term = Onu * Omnu_z(z)
+    radiation_term = Or * (1.0 + z) ** 4
+    matter_term = Obc * (1.0 + z) ** 3
+    neutrino_term = Onu * cmb.Omnu_z(z)
     dark_energy_term = Ode * Ode_z(z, w0, wa)
 
     return np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
@@ -169,16 +154,11 @@ def main():
     # Ωc x h^2: cold dark matter density param today
     prior.add_parameter("ωc", dist=(0.05, 0.30))
     # w0: dark energy equation of state today
-    prior.add_parameter("w0", dist=(-1.5, 0.0))
+    prior.add_parameter("w0", dist=(-1.0, -1 / 3))
 
     with Pool(8) as pool:
         sampler = Sampler(
-            prior,
-            log_likelihood,
-            n_live=10_000,
-            pool=pool,
-            seed=42,
-            pass_dict=False,
+            prior, log_likelihood, n_live=10_000, pool=pool, seed=42, pass_dict=False
         )
         sampler.run(verbose=True)
 
@@ -264,31 +244,38 @@ if __name__ == "__main__":
 
 
 """
-*******************************
-
 Priors:
 f_cc U(0.2, 3.0)
 ΔM U(-1.0, +1.0)
 H0 U(50.0, 85.0)
 ωb U(0.003, 0.050)
 ωc U(0.05, 0.30)
+
+wCDM:
+w0 U(-1.5, -0.5)
+
+wzCDM:
+w0 U(-1.0, -1 / 3)
+
+w0waCDM:
 w0 U(-1.5, 0.0)
 wa U(-3.5, +2.0)
+w0 + wa < 0 enforced
+"""
 
-*******************************
-
+"""
 Flat ΛCDM: w(z) = -1
-f_cc: 1.49 +0.19 -0.18
-ΔM: -0.150 +0.100 -0.098 mag
-H0: 67.7 +1.5 -1.3 km/s/Mpc
+f_cc: 1.48 +0.19 -0.18
+ΔM: -0.150 +0.100 -0.099 mag
+H0: 67.7 +1.5 -1.4 km/s/Mpc
 ωb: 0.0212 +0.0021 -0.0019 Mpc
-ωc: 0.1162 +0.0011 -0.0010
-ωm: 0.1380 +0.0030 -0.0026
-Ωm: 0.301 +0.008 -0.007
+ωc: 0.1162 +0.0012 -0.0010
+ωm: 0.1380 +0.0031 -0.0026
+Ωm: 0.301 +0.008 -0.008
 w0: -1
 wa: 0
-r_d: 149.5 +2.4 -2.6 Mpc
-Chi squared: 72.40
+r_d: 149.5 +2.5 -2.6 Mpc
+Chi squared: 72.22
 Log evidence: -166.49
 Degrees of freedom: 64
 
@@ -296,34 +283,34 @@ Degrees of freedom: 64
 
 Flat wCDM: w(z) = w0
 f_cc: 1.47 +0.19 -0.18
-ΔM: -0.113 +0.103 -0.102 mag
-H0: 68.5 +1.7 -1.5 km/s/Mpc
+ΔM: -0.114 +0.102 -0.102 mag
+H0: 68.5 +1.7 -1.6 km/s/Mpc
 ωb: 0.0260 +0.0032 -0.0030 Mpc
 ωc: 0.1146 +0.0017 -0.0016
-ωm: 0.1412 +0.0043 -0.0037
+ωm: 0.1411 +0.0043 -0.0037
 Ωm: 0.301 +0.007 -0.007
-w0: -0.888 +0.041 -0.041 (prior width 1.5: -1.5 to 0.0)
+w0: -0.888 +0.041 -0.042
 wa: 0
-r_d: 144.6 +3.3 -3.5 Mpc
-Chi squared: 65.38
-Log evidence: -165.78 (Δ logZ = 0.71 against ΛCDM)
+r_d: 144.7 +3.3 -3.5 Mpc
+Chi squared: 65.35
+Log evidence: -165.37 (Δ logZ = 1.12 against ΛCDM)
 Degrees of freedom: 63
 
 ===============================
 
-Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
-f_cc: 1.47 +0.18 -0.17
-ΔM: -0.140 +0.101 -0.100 mag
+Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
+f_cc: 1.47 +0.18 -0.18
+ΔM: -0.142 +0.100 -0.099 mag
 H0: 67.3 +1.6 -1.5 km/s/Mpc
-ωb: 0.0247 +0.0027 -0.0025 Mpc
+ωb: 0.0246 +0.0027 -0.0024 Mpc
 ωc: 0.1159 +0.0016 -0.0013
-ωm: 0.1412 +0.0041 -0.0034
+ωm: 0.1411 +0.0041 -0.0034
 Ωm: 0.312 +0.009 -0.008
-w0: -0.789 +0.070 -0.070 (prior width 1.5: -1.5 to 0.0)
-wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-r_d: 145.6 +2.9 -3.2 Mpc
-Chi squared: 63.27
-Log evidence: -164.24 (Δ logZ = 2.25 against ΛCDM)
+w0: -0.777 +0.069 -0.072
+wa: d w(z)/dz at z=0 = -(3/2) * (1 - w0^2)
+r_d: 145.8 +2.9 -3.1 Mpc
+Chi squared: 63.19
+Log evidence: -163.37 (Δ logZ = 3.12 against ΛCDM)
 Degrees of freedom: 63
 
 ===============================
@@ -336,89 +323,10 @@ H0: 65.9 +2.1 -1.8 km/s/Mpc
 ωc: 0.1179 +0.0018 -0.0021
 ωm: 0.1402 +0.0037 -0.0029
 Ωm: 0.323 +0.015 -0.015
-w0: -0.739 +0.107 -0.100 (prior width 1.5: -1.5 to 0.0)
-wa: -0.750 +0.457 -0.499 (prior width 5.5: -3.5 to 2.0)
+w0: -0.739 +0.107 -0.100
+wa: -0.750 +0.457 -0.499
 r_d: 148.2 +3.4 -3.8 Mpc
 Chi squared: 62.73
 Log evidence: -166.02 (Δ logZ = 0.47 against ΛCDM)
-Degrees of freedom: 62
-"""
-
-"""
-*******************************
-
-Adding a BBN prior on ωb: N(loc=0.02218, scale=0.00055)
-
-Priors:
-f_cc U(0.2, 3.0)
-ΔM U(-1.0, +1.0)
-H0 U(50.0, 85.0)
-ωb N(0.02218, 0.00055)
-ωc U(0.05, 0.30)
-w0 U(-1.5, 0.0)
-wa U(-3.5, +2.0)
-
-*******************************
-
-Flat ΛCDM: w(z) = -1
-f_cc: 1.49 +0.18 -0.18
-H0: 68.3 +0.5 -0.5 km/s/Mpc
-ωb: 0.0221 +0.0005 -0.0005 Mpc
-ωc: 0.1165 +0.0008 -0.0008
-ωm: 0.1392 +0.0011 -0.0011
-Ωm: 0.298 +0.004 -0.004
-w0: -1
-wa: 0
-r_d: 148.3 +0.7 -0.7 Mpc
-Chi squared: 72.73
-Log evidence: -164.43
-Degrees of freedom: 64
-
-===============================
-
-Flat wCDM: w(z) = w0
-f_cc: 1.49 +0.19 -0.18
-H0: 66.8 +0.8 -0.8 km/s/Mpc
-ωb: 0.0223 +0.0005 -0.0005 Mpc
-ωc: 0.1141 +0.0014 -0.0014
-ωm: 0.1370 +0.0015 -0.0015
-Ωm: 0.307 +0.006 -0.006
-w0: -0.922 +0.034 -0.034
-wa: 0
-r_d: 148.8 +0.7 -0.7 Mpc
-Chi squared: 67.37
-Log evidence: -164.71 (Δ logZ = -0.28 in favour of ΛCDM)
-Degrees of freedom: 63
-
-===============================
-
-Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)**3)
-f_cc: 1.49 +0.19 -0.18
-H0: 66.1 +0.9 -0.9 km/s/Mpc
-ωb: 0.0223 +0.0005 -0.0005 Mpc
-ωc: 0.1150 +0.0010 -0.0010
-ωm: 0.1379 +0.0012 -0.0012
-Ωm: 0.315 +0.008 -0.008
-w0: -0.820 +0.063 -0.064
-wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-r_d: 148.5 +0.7 -0.7 Mpc
-Chi squared: 64.38
-Log evidence: -162.72 (Δ logZ = 1.71 against ΛCDM)
-Degrees of freedom: 63
-
-===============================
-
-Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
-f_cc: 1.47 +0.18 -0.18
-H0: 66.0 +0.9 -0.9 km/s/Mpc
-ωb: 0.0222 +0.0005 -0.0005 Mpc
-ωc: 0.1177 +0.0017 -0.0020
-ωm: 0.1405 +0.0018 -0.0020
-Ωm: 0.322 +0.010 -0.009
-w0: -0.739 +0.098 -0.095
-wa: -0.739 +0.359 -0.379
-r_d: 148.0 +0.8 -0.8 Mpc
-Chi squared: 62.32
-Log evidence: -164.07 (Δ logZ = 0.36 against ΛCDM)
 Degrees of freedom: 62
 """

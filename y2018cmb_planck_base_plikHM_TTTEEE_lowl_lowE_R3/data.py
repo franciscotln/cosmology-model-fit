@@ -12,8 +12,9 @@ import nu_evolution as neutrino
 
 c = c0 / 1000  # km/s
 
-# 100 x θ*, rdrag
 DISTANCE_PRIORS = np.array([1.0410875, 147.0515917], dtype=np.float64)
+"""Compressed Planck priors: (100 θ*, rdrag)"""
+
 covariance = np.array(
     [
         [9.29868316e-08, 2.01530071e-05],
@@ -38,7 +39,7 @@ def Omega_r_h2(Neff=N_EFF):
     return O_GAMMA_H2 * (1 + Neff * (7 / 8) * (4 / 11) ** (4 / 3))
 
 
-Or_h2 = Omega_r_h2(N_EFF - (N_EFF / 3))
+Or_h2 = Omega_r_h2(2 * N_EFF / 3)
 
 
 # 1 massive neutrino section
@@ -119,25 +120,45 @@ def z_drag(wb, wm):
     ) * wm**-0.714129
 
 
-def rs_z(Ez_func, z_lim, H0, Obh2, Och2, w0=-1, wa=0):
+_EZ_FUNC = None
+
+
+@njit
+def _rs_integ(a, Rb, H0, Obh2, Och2, w0, wa):
+    Ez = _EZ_FUNC(1 / a - 1, H0, Obh2, Och2, w0, wa)
+    denom = H0 * a**2 * Ez * np.sqrt(3 * (1 + Rb * a))
+    return c / denom
+
+
+def rs_z(Ez_func, z_lim, H0, Obh2, Och2, w0=-1.0, wa=0.0):
+    global _EZ_FUNC
+    _EZ_FUNC = Ez_func
+
     Rb = 3 * Obh2 / (4 * O_GAMMA_H2)
-
-    def integrand(a):
-        Ez = Ez_func(1 / a - 1, H0, Obh2, Och2, w0, wa)
-        denom = a**2 * Ez * np.sqrt(3 * (1 + Rb * a))
-        return 1 / denom
-
-    return (c / H0) * quad(integrand, 1e-09, 1 / (1 + z_lim))[0]
+    args = (Rb, H0, Obh2, Och2, w0, wa)
+    res = quad(_rs_integ, 1e-08, 1 / (1 + z_lim), args=args)[0]
+    _EZ_FUNC = None
+    return res
 
 
-def DM_z(Ez_func, z_lim, H0, Obh2, Och2, w0=-1, wa=0):
-    integral = quad(lambda z: 1 / Ez_func(z, H0, Obh2, Och2, w0, wa), 0.0, z_lim)[0]
-    return integral * c / H0
+@njit
+def _DM_integ(z, H0, Obh2, Och2, w0, wa):
+    return (c / H0) / _EZ_FUNC(z, H0, Obh2, Och2, w0, wa)
 
 
-def cmb_distances(Ez_func, H0, Ob_h2, Oc_h2, w0=-1, wa=0):
+def DM_z(Ez_func, z_lim, H0, Obh2, Och2, w0=-1.0, wa=0.0):
+    global _EZ_FUNC
+    _EZ_FUNC = Ez_func
+
+    args = (H0, Obh2, Och2, w0, wa)
+    res = quad(_DM_integ, 0.0, z_lim, args=args)[0]
+    _EZ_FUNC = None
+    return res
+
+
+def cmb_distances(Ez_func, H0, Ob_h2, Oc_h2, w0=-1.0, wa=0.0):
     """
-    returns (100 x θ*, rdrag)
+    returns (100 θ*, rdrag)
     """
     Om_h2 = Oc_h2 + Ob_h2 + Omnu_h2
     rs_drag = r_drag(Ob_h2, Om_h2)
