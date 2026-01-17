@@ -27,5 +27,9 @@ def plot_corner_and_chains(labels, flat_samples, samples):
         plt.plot(samples[:, :, n], alpha=0.3)
         plt.ylabel(labels[n])
         plt.xlim(0, None)
+        mean_path = np.mean(samples[:, :, n], axis=1)
+        plt.plot(mean_path, color="black", lw=1.5, label="mean" if n == 0 else "")
+        if n == 0:
+            plt.legend()
     plt.tight_layout()
     plt.show()
