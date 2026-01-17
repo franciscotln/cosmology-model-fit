@@ -7,9 +7,8 @@ from y2025DESdovekie.data import get_data, effective_sample_size as sn_size
 from y2025BAO.data import get_data as get_bao_data
 
 c = cmb.c  # Speed of light in km/s
-Orh2 = cmb.Omega_r_h2(2.044)
+Orh2 = cmb.Or_h2
 Omnu_h2 = cmb.Omnu_h2
-z_nr = cmb.z_nr
 
 sn_legend, z_cmb, z_hel, mu_values, cov_matrix_sn = get_data()
 bao_legend, bao_data, cov_matrix_bao = get_bao_data()
@@ -18,42 +17,29 @@ cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
 inv_cov_bao = np.linalg.inv(cov_matrix_bao)
 
 z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
-z_grid = np.linspace(0, z_max, num=2300)
+z_grid = np.linspace(0, z_max, num=3000)
 dx = np.diff(z_grid)
 
 
 @njit
-def Omnu_z(z):
-    """
-    Computes the appox. evolution of one massive
-    neutrino species energy density with redshift
-    """
-    return (
-        (1 + z) ** 4
-        * (1 + ((1 + z_nr) / (1 + z)) ** 2) ** 0.5
-        * (1 + (1 + z_nr) ** 2) ** -0.5
-    )
-
-
-@njit
 def Ode_z(z, w0, wa):
-    zp1 = 1 + z
-    return (4 * zp1**3 / (1 + 3 * zp1**3)) ** (4 * (1 + w0))
+    zp1 = 1.0 + z
+    return (2 * zp1**3 / (1 + w0 + (1 - w0) * zp1**3)) ** 2
 
 
 @njit
-def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
+def Ez(z, H0, Obh2, Och2, w0=-1.0, wa=0.0):
     h = H0 / 100
     Onu = Omnu_h2 / h**2
     Or = Orh2 / h**2
     Obc = (Obh2 + Och2) / h**2
     Ode = 1.0 - Obc - Or - Onu
 
-    zp1 = 1 + z
+    zp1 = 1.0 + z
 
     radiation_term = Or * zp1**4
     matter_term = Obc * zp1**3
-    neutrino_term = Onu * Omnu_z(z)
+    neutrino_term = Onu * cmb.Omnu_z(z)
     dark_energy_term = Ode * Ode_z(z, w0, wa)
 
     return np.sqrt(radiation_term + matter_term + neutrino_term + dark_energy_term)
@@ -93,7 +79,7 @@ quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int64
 @njit
 def bao_theory(z, qty, theta):
     Obh2, Och2 = theta[2], theta[3]
-    rd = cmb.r_drag(wb=Obh2, wm=Obh2 + Och2 + Omnu_h2)
+    rd = cmb.r_drag(Obh2, Obh2 + Och2 + Omnu_h2)
 
     DV_mask = qty == 0
     DM_mask = qty == 1
@@ -107,13 +93,13 @@ def bao_theory(z, qty, theta):
 
 @njit
 def theory_mu(theta):
-    dL = (1 + z_hel) * DM_z(z_cmb, theta)
-    return theta[0] + 25 + 5 * np.log10(dL)
+    dL = (1.0 + z_hel) * DM_z(z_cmb, theta)
+    return theta[0] + 25.0 + 5 * np.log10(dL)
 
 
 def solve_triang(cho_L, delta):
     y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
-    return np.dot(y, y)
+    return y @ y
 
 
 def chi_squared(theta):
@@ -138,7 +124,7 @@ bounds = np.array(
         (50.0, 90.0),  # H0
         (0.010, 0.030),  # ωb = Ωb * h^2
         (0.05, 0.30),  # ωc = Ωc * h^2
-        (-1.5, 0.0),  # w0
+        (-1.0, -1 / 3),  # w0
     ],
     dtype=np.float64,
 )
@@ -175,13 +161,13 @@ def main():
 
     ndim = len(bounds)
     nwalkers = 100
-    burn_in = 350
-    nsteps = 3500 + burn_in
+    burn_in = 500
+    nsteps = 2500 + burn_in
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
     moves = [
-        (emcee.moves.KDEMove(), 0.30),
-        (emcee.moves.DEMove(), 0.70),
+        (emcee.moves.KDEMove(bw_method="silverman"), 0.25),
+        (emcee.moves.DEMove(), 0.75),
     ]
 
     with Pool(8) as pool:
@@ -303,20 +289,20 @@ Degrees of freedom: 1724
 
 ===============================
 
-Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
-H0: 67.05 +0.61 -0.61 km/s/Mpc
+Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
+H0: 67.04 +0.62 -0.61 km/s/Mpc
 ωb: 0.02225 +0.00054 -0.00053
 ωc: 0.1154 +0.0009 -0.0009
-ωm: 0.1383 +0.0012 -0.0011
+ωm: 0.1383 +0.0011 -0.0012
 Ωm: 0.308 +0.005 -0.005
-w0: -0.888 +0.041 -0.041
-wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-r_d: 148.47 +0.69 -0.69 Mpc
-z*: 1089.67 +0.73 -0.70
+w0: -0.879 +0.043 -0.043 (prior width 2/3: -1.0 to -1/3)
+wa: d w(z)/dz at z=0 = -(3/2) * (1 - w0^2)
+r_d: 148.47 +0.70 -0.69 Mpc
+z*: 1089.64 +0.70 -0.68
 r*: 145.74 Mpc
-100 θ*: 1.04095
-Chi squared: 1639.00
-Log Evidence: -839.45 (Δ logZ 1.00 against of ΛCDM)
+100 θ*: 1.04094
+Chi squared: 1638.87
+Log Evidence: -838.52 (Δ logZ 1.93 against of ΛCDM)
 Degrees of freedom: 1724
 
 ===============================

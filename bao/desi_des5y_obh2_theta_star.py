@@ -6,41 +6,42 @@ from y2025DESdovekie.data import get_data, effective_sample_size as sn_size
 from y2025BAO.data import get_data as get_bao_data
 
 c = cmb.c  # Speed of light in km/s
-Orh2 = cmb.Omega_r_h2(2.044)
+Or_h2 = cmb.Or_h2
 Omnu_h2 = cmb.Omnu_h2
 
 sn_legend, z_cmb, z_hel, mu_values, cov_matrix_sn = get_data()
 bao_legend, bao_data, cov_matrix_bao = get_bao_data()
 
 cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
-cho_bao = cho_factor(cov_matrix_bao, lower=True)[0]
-
-"""
-Planck + ACT compressed priors for π/θ* and ωb, without the shift parameter R (arXiv:1808.05724v1)
-"""
-cho_cmb = cho_factor(cmb.covariance[1:, 1:], lower=True)[0]
+inv_cov_bao = np.linalg.inv(cov_matrix_bao)
 
 z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
-z_grid = np.linspace(0, z_max, num=1200)
+z_grid = np.linspace(0, z_max, num=3000)
 dx = np.diff(z_grid)
 
 
 @njit
-def Ez(z, Obc, Or, w0=-1, wa=0):
-    Ol = 1 - Obc - Or
-    zp1 = 1 + z
-    cubic = zp1**3
-    rho_de = (4 * cubic / (1 + 3 * cubic)) ** (4 * (1 + w0))
-    return np.sqrt(Or * zp1**4 + Obc * cubic + Ol * rho_de)
+def Ez(z, H0, Obh2, Och2, w0=-1.0, wa=0.0):
+    h = H0 / 100
+    Onu = Omnu_h2 / h**2
+    Or = Or_h2 / h**2
+    Ombc = (Obh2 + Och2) / h**2
+    Ode = 1.0 - Ombc - Or - Onu
+
+    zp1 = 1.0 + z
+
+    radiation_term = Or * zp1**4
+    matter_term = Ombc * zp1**3
+    neutrino_term = Onu * cmb.Omnu_z(z)
+    dark_energy_term = Ode * (2 * zp1**3 / (1 + w0 + (1 - w0) * zp1**3)) ** 2
+
+    return np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
 
 
 @njit
 def H_z(z, theta):
     H0, Obh2, Och2, w0 = theta[1:]
-    h = H0 / 100
-    Obc = (Obh2 + Och2 + Omnu_h2) / h**2
-    Or = Orh2 / h**2
-    return H0 * Ez(z, Obc, Or, w0)
+    return H0 * Ez(z, H0, Obh2, Och2, w0)
 
 
 @njit
@@ -71,7 +72,7 @@ quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int64
 @njit
 def bao_theory(z, qty, theta):
     Obh2, Och2 = theta[2], theta[3]
-    rd = cmb.r_drag(wb=Obh2, wm=Obh2 + Och2 + Omnu_h2)
+    rd = cmb.r_drag(Obh2, Obh2 + Och2 + Omnu_h2)
 
     DV_mask = qty == 0
     DM_mask = qty == 1
@@ -85,24 +86,24 @@ def bao_theory(z, qty, theta):
 
 @njit
 def theory_mu(theta):
-    dL = (1 + z_hel) * DM_z(z_cmb, theta)
-    return theta[0] + 25 + 5 * np.log10(dL)
+    dL = (1.0 + z_hel) * DM_z(z_cmb, theta)
+    return theta[0] + 25.0 + 5 * np.log10(dL)
 
 
 def solve_triang(cho_L, delta):
     y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
-    return np.dot(y, y)
+    return y @ y
 
 
 def chi_squared(theta):
     delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez, *theta[1:])
-    chi2_cmb = solve_triang(cho_cmb, delta_cmb[1:])
+    chi2_cmb = delta_cmb[1:] @ cmb.inv_cov_mat[1:, 1:] @ delta_cmb[1:]
 
     delta_sn = mu_values - theory_mu(theta)
     chi_sn = solve_triang(cho_sn, delta_sn)
 
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, theta)
-    chi_bao = solve_triang(cho_bao, delta_bao)
+    chi_bao = delta_bao @ inv_cov_bao @ delta_bao
 
     return chi_sn + chi_bao + chi2_cmb
 
@@ -112,8 +113,8 @@ bounds = np.array(
         (-0.4, 0.4),  # ΔM nuisance magnitude offset
         (50.0, 90.0),  # H0
         (0.010, 0.030),  # ωb = Ωb * h^2
-        (0.05, 0.3),  # ωc = Ωc * h^2
-        (-1.5, 0.0),  # w0
+        (0.05, 0.30),  # ωc = Ωc * h^2
+        (-1.0, -1 / 3),  # w0
     ],
     dtype=np.float64,
 )
@@ -144,20 +145,19 @@ def main():
     from multiprocessing import Pool
     from corner_plot import plot_corner_and_chains
     from sn.plotting import plot_predictions as plot_sn_predictions
-    from .plot_predictions import plot_bao_predictions
+    from bao.plot_predictions import plot_bao_predictions
     from log_evidence import log_evidence
     from gelman_rubin import gelman_rubin
 
     ndim = len(bounds)
     nwalkers = 150
-    burn_in = 200
-    nsteps = 2000 + burn_in
+    burn_in = 500
+    nsteps = 2500 + burn_in
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
     moves = [
-        (emcee.moves.KDEMove(), 0.30),
-        (emcee.moves.DEMove(), 0.56),
-        (emcee.moves.DESnookerMove(), 0.14),
+        (emcee.moves.KDEMove(bw_method="silverman"), 0.25),
+        (emcee.moves.DEMove(), 0.75),
     ]
 
     with Pool(8) as pool:
@@ -168,7 +168,7 @@ def main():
         tau = sampler.get_autocorr_time()
         print("auto-correlation time", tau)
         print("acceptance fraction:", np.mean(sampler.acceptance_fraction))
-        print("effective samples", ndim * nwalkers * nsteps / np.max(tau))
+        print("effective samples", ndim * nwalkers * (nsteps - burn_in) / np.max(tau))
     except emcee.autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
 
@@ -214,6 +214,8 @@ def main():
     print(f"Log Evidence: {log_evd:.2f}")
     print(f"Degrees of freedom: {2 + bao_data['value'].size + sn_size - len(best_fit)}")
 
+    labels = ["$Δ_M$", "$H_0$", "$ω_b$", "$ω_c$", "$w_0$"]
+    plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
     plot_bao_predictions(
         theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
         data=bao_data,
@@ -229,11 +231,6 @@ def main():
         label=f"Model: $Ω_m$={Om_50:.3f}",
         x_scale="log",
     )
-    plot_corner_and_chains(
-        labels=["$Δ_M$", "$H_0$", "$ω_b$", "$ω_c$", "$w_0$"],
-        flat_samples=samples,
-        samples=chains_samples,
-    )
 
 
 if __name__ == "__main__":
@@ -248,86 +245,83 @@ DESI DR2 + DES5Y + (π/θ*, ωb)CMB from Planck + ACT
 
 """
 Flat ΛCDM  w(z) = -1
-
-H0: 68.53 +0.28 -0.28 km/s/Mpc
+H0: 68.53 +0.29 -0.29 km/s/Mpc
 Ωm: 0.298 +0.004 -0.004
-ωb: 0.02249 +0.00011 -0.00011
+ωb: 0.02249 +0.00010 -0.00010
 ωc: 0.1168 +0.0008 -0.0008
 ωm: 0.1399 +0.0008 -0.0008
 w0: -1
 wa: 0
-z_d: 1059.98 +0.26 -0.26
+z_d: 1059.97 +0.23 -0.23
 r_d: 147.82 Mpc
-z*: 1089.47 +0.15 -0.15
+z*: 1089.46 +0.14 -0.14
 r*: 145.19 Mpc
 shift R: 1.740
 100 θ*: 1.04096
-Chi squared: 1646.85
-Log Evidence: -842.00
+Chi squared: 1646.86
+Log Evidence: -842.20
 Degrees of freedom: 1725
 """
 
 
 """
 Flat wCDM w(z) = w0
-
-H0: 67.30 +0.56 -0.56 km/s/Mpc
+H0: 67.29 +0.57 -0.57 km/s/Mpc
 Ωm: 0.304 +0.005 -0.005
-ωb: 0.02250 +0.00011 -0.00011
-ωc: 0.1145 +0.0012 -0.0012
-ωm: 0.1377 +0.0012 -0.0012
-w0: -0.937 +0.025 -0.025 (prior width 1.5: -1.5 to 0.0)
+ωb: 0.02250 +0.00010 -0.00010
+ωc: 0.1145 +0.0012 -0.0013
+ωm: 0.1377 +0.0012 -0.0013
+w0: -0.937 +0.025 -0.025 (prior width 1.0: -1.5 to -0.5)
 wa: 0
-z_d: 1059.83 +0.27 -0.27
+z_d: 1059.81 +0.24 -0.24
 r_d: 148.43 Mpc
-z*: 1089.26 +0.17 -0.18
+z*: 1089.24 +0.17 -0.17
 r*: 145.78 Mpc
 shift R: 1.733
-100 θ*: 1.04093
+100 θ*: 1.04092
 Chi squared: 1640.50
-Log Evidence: -842.05 (Δ logZ = -0.05 in favour of ΛCDM)
+Log Evidence: -841.83 (Δ logZ = 0.37 against of ΛCDM)
 Degrees of freedom: 1724
 """
 
 
 """
-Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
-
-H0: 67.18 +0.54 -0.54 km/s/Mpc
+Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
+H0: 67.17 +0.55 -0.55 km/s/Mpc
 Ωm: 0.307 +0.005 -0.005
-ωb: 0.02250 +0.00011 -0.00011
+ωb: 0.02250 +0.00010 -0.00010
 ωc: 0.1155 +0.0009 -0.0009
 ωm: 0.1386 +0.0009 -0.0009
-w0: -0.885 +0.040 -0.040 (prior width 1.5: -1.5 to 0.0)
+w0: -0.876 +0.042 -0.043 (prior width 2/3: -1.0 to -1/3)
 wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-z_d: 1059.90 +0.26 -0.26
-r_d: 148.18 Mpc
-z*: 1089.35 +0.16 -0.16
-r*: 145.54 Mpc
+z_d: 1059.89 +0.23 -0.23
+r_d: 148.17 Mpc
+z*: 1089.33 +0.15 -0.15
+r*: 145.52 Mpc
 shift R: 1.736
 100 θ*: 1.04094
-Chi squared: 1638.87
-Log Evidence: -840.75 (Δ logZ = 1.25 against ΛCDM)
+Chi squared: 1638.75
+Log Evidence: -840.02 (Δ logZ = 2.18 against ΛCDM)
+Degrees of freedom: 1724
 """
 
 
 """
 Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
-
-H0: 67.34 +0.54 -0.54 km/s/Mpc
-Ωm: 0.310 +0.006 -0.006
-ωb: 0.02250 +0.00011 -0.00011
-ωc: 0.1173 +0.0017 -0.0019
-ωm: 0.1404 +0.0017 -0.0019
-w0: -0.850 +0.059 -0.058 (prior width 1.5: -1.5 to 0.0)
-wa: -0.436 +0.266 -0.277 (prior width 3.5: -2.5 to 1.0)
-z_d: 1060.02 +0.28 -0.28
+H0: 67.33 +0.56 -0.57 km/s/Mpc
+Ωm: 0.309 +0.006 -0.006
+ωb: 0.02250 +0.00010 -0.00010
+ωc: 0.1173 +0.0018 -0.0020
+ωm: 0.1404 +0.0018 -0.0020
+w0: -0.850 +0.064 -0.061 (prior width 1.0: -1.5 to -0.5)
+wa: -0.439 +0.283 -0.301 (prior width 3.5: -2.0 to 1.5)
+z_d: 1060.01 +0.26 -0.27
 r_d: 147.69 Mpc
-z*: 1089.50 +0.20 -0.21
-r*: 145.06 Mpc
+z*: 1089.49 +0.21 -0.23
+r*: 145.05 Mpc
 shift R: 1.742
-100 θ*: 1.04090
-Chi squared: 1638.27
-Log Evidence: -842.36 (Δ logZ = -0.36 in favour of ΛCDM)
+100 θ*: 1.04088
+Chi squared: 1638.32
+Log Evidence: -842.01 (Δ logZ = 0.19 against of ΛCDM)
 Degrees of freedom: 1723
 """

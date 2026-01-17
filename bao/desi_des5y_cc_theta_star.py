@@ -1,6 +1,5 @@
 from numba import njit
 import numpy as np
-from scipy.constants import c as c0
 from scipy.linalg import cho_factor, solve_triangular
 import cmb.data_planck_act_compression as cmb
 from y2025DESdovekie.data import (
@@ -15,52 +14,49 @@ sn_legend, z_sn_vals, z_sn_hel_vals, mu_values, cov_matrix_sn = get_sn_data()
 bao_legend, bao_data, cov_matrix_bao = get_bao_data()
 
 cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
-cho_bao = cho_factor(cov_matrix_bao, lower=True)[0]
-cho_cc = cho_factor(cov_matrix_cc, lower=True)[0]
+inv_cov_bao = np.linalg.inv(cov_matrix_bao)
+inv_cov_cc = np.linalg.inv(cov_matrix_cc)
 
 logdet_cc = np.linalg.slogdet(cov_matrix_cc)[1]
 N_cc = len(z_cc_vals)
 
-c = c0 / 1000  # km/s
-Orh2 = cmb.Omega_r_h2(2.044)
+c = cmb.c  # km/s
+Orh2 = cmb.Or_h2
 Omnu_h2 = cmb.Omnu_h2
 
 z_max = max(np.max(z_sn_vals), np.max(bao_data["z"])) + 0.1
-z_grid = np.linspace(0, z_max, num=2000)
+z_grid = np.linspace(0, z_max, num=4000)
 dx = np.diff(z_grid)
 
 
 @njit
-def Ez(z, Obc, Or, w0=-1, wa=0):
-    Ol = 1 - Obc - Or
-    inv_a = 1 + z
-    cubic = inv_a**3
-    rho_de = (4 * cubic / (1 + 3 * cubic)) ** (4 * (1 + w0))
-    return np.sqrt(Or * inv_a**4 + Obc * cubic + Ol * rho_de)
+def Ode_z(z, w0, wa):
+    zp1 = 1.0 + z
+    return (2 * zp1**3 / (1 + w0 + (1 - w0) * zp1**3)) ** 2
 
 
 @njit
-def DM(theta):
-    dh_grid = DH_z(z_grid, theta)
-    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
-    cum_dm = np.zeros(z_grid.size)
-    cum_dm[1:] = np.cumsum(dx * dy)
-    return cum_dm
+def Ez(z, H0, Obh2, Och2, w0=-1.0, wa=0.0):
+    h = H0 / 100
+    Onu = Omnu_h2 / h**2
+    Or = Orh2 / h**2
+    Obc = (Obh2 + Och2) / h**2
+    Ode = 1.0 - Obc - Or - Onu
 
+    zp1 = 1.0 + z
 
-@njit
-def mu_theory(theta):
-    dL = (1 + z_sn_hel_vals) * np.interp(z_sn_vals, z_grid, DM(theta))
-    return theta[1] + 25 + 5 * np.log10(dL)
+    radiation_term = Or * zp1**4
+    matter_term = Obc * zp1**3
+    neutrino_term = Onu * cmb.Omnu_z(z)
+    dark_energy_term = Ode * Ode_z(z, w0, wa)
+
+    return np.sqrt(radiation_term + matter_term + neutrino_term + dark_energy_term)
 
 
 @njit
 def H_z(z, theta):
     H0, Obh2, Och2, w0 = theta[2:]
-    h = H0 / 100
-    Obc = (Obh2 + Och2 + Omnu_h2) / h**2
-    Or = Orh2 / h**2
-    return H0 * Ez(z, Obc, Or, w0)
+    return H0 * Ez(z, H0, Obh2, Och2, w0)
 
 
 @njit
@@ -70,7 +66,11 @@ def DH_z(z, theta):
 
 @njit
 def DM_z(z, theta):
-    return np.interp(z, z_grid, DM(theta))
+    dh_grid = DH_z(z_grid, theta)
+    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    cum_dm = np.zeros(z_grid.size)
+    cum_dm[1:] = np.cumsum(dx * dy)
+    return np.interp(z, z_grid, cum_dm)
 
 
 @njit
@@ -87,7 +87,7 @@ quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int32
 @njit
 def bao_theory(z, qty, theta):
     Obh2, Och2 = theta[3], theta[4]
-    rd = cmb.r_drag(wb=Obh2, wm=Obh2 + Och2 + Omnu_h2)
+    rd = cmb.r_drag(Obh2, Obh2 + Och2 + Omnu_h2)
 
     DV_mask = qty == 0
     DM_mask = qty == 1
@@ -99,24 +99,29 @@ def bao_theory(z, qty, theta):
     return results / rd
 
 
+@njit
+def mu_theory(theta):
+    dL = (1.0 + z_sn_hel_vals) * DM_z(z_sn_vals, theta)
+    return theta[1] + 25.0 + 5 * np.log10(dL)
+
+
 def solve_triang(cho_L, delta):
     y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
-    return np.dot(y, y)
+    return y @ y
 
 
 def chi_squared(theta):
     delta = (cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez, *theta[2:]))[1]
-    thetastar_err = cmb.covariance[1, 1] ** 0.5
-    chi_theta_star = (delta / thetastar_err) ** 2
+    chi_theta_star = delta**2 / cmb.covariance[1, 1]
 
     delta_sn = mu_values - mu_theory(theta)
     chi_sn = solve_triang(cho_sn, delta_sn)
 
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, theta)
-    chi_bao = solve_triang(cho_bao, delta_bao)
+    chi_bao = delta_bao @ inv_cov_bao @ delta_bao
 
     delta_cc = H_cc_vals - H_z(z_cc_vals, theta)
-    chi_cc = solve_triang(cho_cc, delta_cc) * theta[0] ** 2
+    chi_cc = delta_cc @ inv_cov_cc @ delta_cc * theta[0] ** 2
 
     return chi_theta_star + chi_sn + chi_bao + chi_cc
 
@@ -128,7 +133,7 @@ bounds = np.array(
         (50.0, 85.0),  # H0: Hubble constant at present
         (0.005, 0.035),  # Ωb x h^2: baryon density parameter
         (0.05, 0.30),  # Ωc x h^2: cold dark matter density parameter at present
-        (-1.5, 0.0),  # w0: dark energy equation of state at present
+        (-1.0, -1 / 3),  # w0: dark energy equation of state at present
     ],
     dtype=np.float64,
 )
@@ -162,18 +167,18 @@ def main():
     from corner_plot import plot_corner_and_chains
     from sn.plotting import plot_predictions as plot_sn_predictions
     from cosmic_chronometers.plot_predictions import plot_cc_predictions
-    from .plot_predictions import plot_bao_predictions
+    from bao.plot_predictions import plot_bao_predictions
     from log_evidence import log_evidence
 
     ndim = len(bounds)
     nwalkers = 150
-    burn_in = 250
+    burn_in = 500
     nsteps = 2500 + burn_in
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
     moves = [
-        (emcee.moves.KDEMove(), 0.30),
-        (emcee.moves.DEMove(), 0.70),
+        (emcee.moves.KDEMove(bw_method="silverman"), 0.25),
+        (emcee.moves.DEMove(), 0.75),
     ]
 
     with Pool(8) as pool:
@@ -226,6 +231,8 @@ def main():
     print(f"Log evidence: {log_evd:.2f}")
     print(f"Degrees of freedom: {deg_of_freedom}")
 
+    labels = ["$f_{CCH}$", "ΔM", "$H_0$", "$ω_b$", "$ω_c$", "$w_0$"]
+    plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
     plot_bao_predictions(
         theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
         data=bao_data,
@@ -248,11 +255,6 @@ def main():
         label=rf"$Ω_m$={Om_50:.3f}",
         x_scale="log",
     )
-    plot_corner_and_chains(
-        labels=["$f_{CCH}$", "ΔM", "$H_0$", "$ω_b$", "$ω_c$", "$w_0$"],
-        flat_samples=samples,
-        samples=chains_samples,
-    )
 
 
 if __name__ == "__main__":
@@ -261,17 +263,17 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM: w(z) = -1
-f_cc: 1.48 +0.18 -0.18
+f_cc: 1.48 +0.19 -0.17
 H0: 67.3 +1.4 -1.2 km/s/Mpc
-ωb: 0.0207 +0.0019 -0.0018 Mpc
-ωc: 0.1162 +0.0011 -0.0009
-ωm: 0.1375 +0.0028 -0.0024
-Ωm: 0.304 +0.007 -0.007
+ωb: 0.0207 +0.0020 -0.0018 Mpc
+ωc: 0.1162 +0.0011 -0.0010
+ωm: 0.1375 +0.0029 -0.0025
+Ωm: 0.303 +0.007 -0.007
 w0: -1
 wa: 0
-r_d: 150.1 +2.3 -2.4 Mpc
-Chi squared: 1678.87
-Log evidence: -971.53
+r_d: 150.0 +2.3 -2.5 Mpc
+Chi squared: 1678.70
+Log evidence: -971.51
 Degrees of freedom: 1756
 
 ===============================
@@ -279,31 +281,31 @@ Degrees of freedom: 1756
 Flat wCDM: w(z) = w0
 f_cc: 1.48 +0.18 -0.18
 H0: 68.7 +1.6 -1.5 km/s/Mpc
-ωb: 0.0253 +0.0031 -0.0028 Mpc
+ωb: 0.0252 +0.0031 -0.0028 Mpc
 ωc: 0.1152 +0.0016 -0.0014
-ωm: 0.1410 +0.0043 -0.0035
+ωm: 0.1409 +0.0042 -0.0035
 Ωm: 0.299 +0.007 -0.007
-w0: -0.917 +0.031 -0.032 (prior width 1.5: -1.5 to 0.0)
+w0: -0.917 +0.032 -0.032 (prior width 1.0: -1.5 to -0.5)
 wa: 0
-r_drag: 145.25 +3.22 -3.39 Mpc
-Chi squared: 1672.53
-Log evidence: -971.25 (Δ logZ = 0.28 over ΛCDM)
+r_d: 145.3 +3.2 -3.4 Mpc
+Chi squared: 1672.68
+Log evidence: -970.83 (Δ logZ = 0.68 over ΛCDM)
 Degrees of freedom: 1755
 
 ===============================
 
-Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
+Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
 f_cc: 1.48 +0.18 -0.18
 H0: 68.0 +1.5 -1.4 km/s/Mpc
 ωb: 0.0240 +0.0026 -0.0023 Mpc
-ωc: 0.1161 +0.0015 -0.0012
-ωm: 0.1408 +0.0039 -0.0033
-Ωm: 0.304 +0.007 -0.007
-w0: -0.872 +0.046 -0.047 (prior width 1.5: -1.5 to 0.0)
-wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-r_d: 146.3 +2.8 -3.0 Mpc
-Chi squared: 1671.80
-Log evidence: -970.45 (Δ logZ = 1.08 over ΛCDM)
+ωc: 0.1161 +0.0015 -0.0013
+ωm: 0.1407 +0.0039 -0.0033
+Ωm: 0.305 +0.007 -0.007
+w0: -0.863 +0.047 -0.049 (prior width 2/3: -1.0 to -1/3)
+wa: d w(z)/dz at z=0 = -(3/2) * (1 - w0^2)
+r_d: 146.4 +2.8 -3.0 Mpc
+Chi squared: 1671.65
+Log evidence: -969.56 (Δ logZ = 1.95 over ΛCDM)
 Degrees of freedom: 1755
 
 ===============================
@@ -312,5 +314,4 @@ Flat w0waCDM: w(z) = w0 + wa * z / (1 + z)
 TODO
 w0: (prior width 1.5: -1.5 to 0.0)
 wa: (prior width 5.0: -3.0 to 2.0)
-Log evidence was 2.49 over ΛCDM, now probably 0.0
 """

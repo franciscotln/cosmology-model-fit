@@ -1,7 +1,5 @@
 from numba import njit
 import numpy as np
-from scipy.constants import c as c0
-from scipy.linalg import cho_factor, solve_triangular
 import cmb.data_planck_act_compression as cmb
 from y2023union3.data import get_data as get_sn_data
 from y2005cc.data import get_data as get_cc_data
@@ -11,19 +9,19 @@ cc_legend, z_cc_vals, H_cc_vals, cov_matrix_cc = get_cc_data()
 sn_legend, z_sn_vals, mu_values, cov_matrix_sn = get_sn_data()
 bao_legend, bao_data, cov_matrix_bao = get_bao_data()
 
-cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
-cho_bao = cho_factor(cov_matrix_bao, lower=True)[0]
-cho_cc = cho_factor(cov_matrix_cc, lower=True)[0]
+inv_cov_sn = np.linalg.inv(cov_matrix_sn)
+inv_cov_bao = np.linalg.inv(cov_matrix_bao)
+inv_cov_cc = np.linalg.inv(cov_matrix_cc)
 
 logdet_cc = np.linalg.slogdet(cov_matrix_cc)[1]
 N_cc = len(z_cc_vals)
 
-c = c0 / 1000  # km/s
+c = cmb.c  # km/s
 Or_h2 = cmb.Or_h2
 Omnu_h2 = cmb.Omnu_h2
 
 z_max = max(np.max(z_sn_vals), np.max(bao_data["z"])) + 0.1
-z_grid = np.linspace(0, z_max, num=2000)
+z_grid = np.linspace(0, z_max, num=4000)
 dx = np.diff(z_grid)
 
 
@@ -40,14 +38,14 @@ def Ode_z(z, w0, wa):
 @njit
 def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
     h = H0 / 100
-    Onu = Omnu_h2 / h**2
+    Omnu = Omnu_h2 / h**2
     Or = Or_h2 / h**2
-    Obc = (Obh2 + Och2) / h**2
-    Ode = 1.0 - Obc - Or - Onu
+    Ombc = (Obh2 + Och2) / h**2
+    Ode = 1.0 - Ombc - Or - Omnu
 
     radiation_term = Or * (1.0 + z) ** 4
-    matter_term = Obc * (1.0 + z) ** 3
-    neutrino_term = Onu * cmb.Omnu_z(z)
+    matter_term = Ombc * (1.0 + z) ** 3
+    neutrino_term = Omnu * cmb.Omnu_z(z)
     dark_energy_term = Ode * Ode_z(z, w0, wa)
 
     return np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
@@ -105,24 +103,19 @@ def mu_theory(theta):
     return theta[1] + 25 + 5 * np.log10(dL)
 
 
-def solve_triang(cho_L, delta):
-    y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
-    return np.dot(y, y)
-
-
 def chi_squared(theta):
     delta = (cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez, *theta[2:]))[1]
-    thetastar_err = cmb.covariance[1, 1] ** 0.5
-    chi_theta_star = (delta / thetastar_err) ** 2
+    thetastar_cov = cmb.covariance[1, 1]
+    chi_theta_star = delta**2 / thetastar_cov
 
     delta_sn = mu_values - mu_theory(theta)
-    chi_sn = solve_triang(cho_sn, delta_sn)
+    chi_sn = delta_sn @ inv_cov_sn @ delta_sn
 
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, theta)
-    chi_bao = solve_triang(cho_bao, delta_bao)
+    chi_bao = delta_bao @ inv_cov_bao @ delta_bao
 
     delta_cc = H_cc_vals - H_z(z_cc_vals, theta)
-    chi_cc = solve_triang(cho_cc, delta_cc) * theta[0] ** 2
+    chi_cc = delta_cc @ inv_cov_cc @ delta_cc * theta[0] ** 2
 
     return chi_theta_star + chi_sn + chi_bao + chi_cc
 
@@ -300,16 +293,16 @@ Degrees of freedom: 63
 
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
 f_cc: 1.47 +0.18 -0.18
-ΔM: -0.142 +0.100 -0.099 mag
+ΔM: -0.142 +0.102 -0.100 mag
 H0: 67.3 +1.6 -1.5 km/s/Mpc
-ωb: 0.0246 +0.0027 -0.0024 Mpc
-ωc: 0.1159 +0.0016 -0.0013
-ωm: 0.1411 +0.0041 -0.0034
-Ωm: 0.312 +0.009 -0.008
+ωb: 0.0246 +0.0027 -0.0025 Mpc
+ωc: 0.1159 +0.0015 -0.0013
+ωm: 0.1411 +0.0040 -0.0034
+Ωm: 0.312 +0.008 -0.008
 w0: -0.777 +0.069 -0.072
 wa: d w(z)/dz at z=0 = -(3/2) * (1 - w0^2)
 r_d: 145.8 +2.9 -3.1 Mpc
-Chi squared: 63.19
+Chi squared: 63.22
 Log evidence: -163.37 (Δ logZ = 3.12 against ΛCDM)
 Degrees of freedom: 63
 

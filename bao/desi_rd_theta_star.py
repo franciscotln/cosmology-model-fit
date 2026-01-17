@@ -1,53 +1,39 @@
 from numba import njit
 import numpy as np
-from scipy.constants import c as c0
 from y2025BAO.data import get_data as get_bao_data
 import y2025cmb_p_actbase_lcdm_camb.data as cmb
 
-c = c0 / 1000  # Speed of light in km/s
-Orh2 = cmb.Omega_r_h2(2.044)
+c = cmb.c  # Speed of light in km/s
+Orh2 = cmb.Or_h2
 Omnu_h2 = cmb.Omnu_h2
-z_nr = cmb.z_nr
 
 bao_legend, bao_data, bao_cov_matrix = get_bao_data()
 inv_cov_bao = np.linalg.inv(bao_cov_matrix)
 
-z_grid = np.linspace(0, np.max(bao_data["z"]) + 0.1, num=2500)
+z_grid = np.linspace(0, np.max(bao_data["z"]) + 0.1, num=3000)
 dx = np.diff(z_grid)
 
 
 @njit
-def Omnu_z(z):
-    """
-    Computes the appox. evolution of one massive
-    neutrino species energy density with redshift
-    """
-    return (
-        (1 + z) ** 4
-        * (1 + ((1 + z_nr) / (1 + z)) ** 2) ** 0.5
-        * (1 + (1 + z_nr) ** 2) ** -0.5
-    )
-
-
-@njit
 def Ode_z(z, w0, wa):
-    zp1 = 1 + z
-    return (2 * zp1**3 / (1 + w0 + (1 - w0) * zp1**3)) ** 2
+    zp1 = 1.0 + z
+    return (2 * zp1**3 / (1 + w0 + (1 - w0) * zp1**3)) ** 2  # wzCDM
+    # return zp1 ** (3 * (1.0 + w0))  # wCDM
 
 
 @njit
-def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
+def Ez(z, H0, Obh2, Och2, w0=-1.0, wa=0.0):
     h = H0 / 100
     Onu = Omnu_h2 / h**2
     Or = Orh2 / h**2
     Obc = (Obh2 + Och2) / h**2
     Ode = 1.0 - Obc - Or - Onu
 
-    zp1 = 1 + z
+    zp1 = 1.0 + z
 
     radiation_term = Or * zp1**4
     matter_term = Obc * zp1**3
-    neutrino_term = Onu * Omnu_z(z)
+    neutrino_term = Onu * cmb.Omnu_z(z)
     dark_energy_term = Ode * Ode_z(z, w0, wa)
 
     return np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
@@ -154,8 +140,8 @@ def main():
     nsteps = 3000 + burn_in
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
     moves = [
-        (emcee.moves.KDEMove(), 0.30),
-        (emcee.moves.DEMove(), 0.70),
+        (emcee.moves.KDEMove(bw_method="silverman"), 0.20),
+        (emcee.moves.DEMove(), 0.80),
     ]
     with Pool(5) as pool:
         sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
@@ -200,16 +186,13 @@ def main():
     print(f"Log Evidence: {log_evd:.2f}")
     print(f"Degs of freedom: {1 + len(bao_data['z']) - len(best_fit)}")
 
+    labels = ["$H_0$", "$ω_b$", "$ω_c$", "$w_0$"]
+    plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
     plot_bao_predictions(
         theory_predictions=lambda z, qty: bao_theory(z, qty, rd_best, best_fit),
         data=bao_data,
         errors=np.sqrt(np.diag(bao_cov_matrix)),
         title=bao_legend,
-    )
-    plot_corner_and_chains(
-        labels=["$H_0$", "$ω_b$", "$ω_c$", "$w_0$"],
-        flat_samples=samples,
-        samples=chains_samples,
     )
 
 
@@ -241,33 +224,33 @@ Degs of freedom: 11
 ===============================
 
 Flat wCDM w(z) = w0
-H0: 68.18 +0.98 -0.98 km/s/Mpc
-ωb: 0.02352 +0.00050 -0.00048
+H0: 68.18 +0.97 -0.97 km/s/Mpc
+ωb: 0.02351 +0.00050 -0.00047
 ωc: 0.11511 +0.00159 -0.00170
-w0: -0.945 +0.051 -0.052
+w0: -0.945 +0.050 -0.052 (prior width 1.0: -1.5 to -0.5)
 wa: 0
 ωm: 0.1393 +0.0012 -0.0013
-Ωm: 0.2996 +0.0073 -0.0074
+Ωm: 0.2995 +0.0073 -0.0074
 rdrag: 147.13 Mpc
-100 θ*: 1.04091
-Chi squared: 9.31
-Log Evidence: -19.24
+100 θ*: 1.04092
+Chi squared: 9.30
+Log Evidence: -19.46
 Degs of freedom: 10
 
 ===============================
 
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
-H0: 66.90 +1.39 -1.39 km/s/Mpc
-ωb: 0.02345 +0.00036 -0.00035
-ωc: 0.11543 +0.00100 -0.00105
-w0: -0.809 +0.114 -0.108 (prior width 0.8: -1.0 to -0.2)
+H0: 66.92 +1.39 -1.39 km/s/Mpc
+ωb: 0.02344 +0.00036 -0.00035
+ωc: 0.11543 +0.00098 -0.00106
+w0: -0.809 +0.112 -0.108 (prior width 0.8: -1.0 to -0.2)
 wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
-ωm: 0.1395 +0.0008 -0.0008
-Ωm: 0.3118 +0.0125 -0.0113
+ωm: 0.1395 +0.0008 -0.0009
+Ωm: 0.3116 +0.0125 -0.0112
 rdrag: 147.13 Mpc
-100 θ*: 1.04083
-Chi squared: 8.68
-Log Evidence: -17.98
+100 θ*: 1.04087
+Chi squared: 8.54
+Log Evidence: -17.99
 Degs of freedom: 10
 
 ===============================
