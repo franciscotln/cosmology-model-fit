@@ -8,15 +8,15 @@ Omnu_h2 = cmb.Omnu_h2
 
 
 @njit
-def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
+def Ez(z, H0, Obh2, Och2, w0=-1.0, wa=0.0):
     h = H0 / 100
     Onu = Omnu_h2 / h**2
     Or = Or_h2 / h**2
     Obc = (Obh2 + Och2) / h**2
     Ode = 1.0 - Obc - Or - Onu
 
-    radiation_term = Or * (1 + z) ** 4
-    matter_term = Obc * (1 + z) ** 3
+    radiation_term = Or * (1.0 + z) ** 4
+    matter_term = Obc * (1.0 + z) ** 3
     dark_energy_term = Ode
     neutrino_term = Onu * cmb.Omnu_z(z)
 
