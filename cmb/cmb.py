@@ -104,19 +104,13 @@ def main():
     chain_list = np.concatenate([samples_list, blobs_list], axis=2).swapaxes(0, 1)
     loglikes_list = -1.0 * sampler.get_log_prob(discard=burn_in, flat=False).T
 
+    names = ["H0", "ombh2", "omch2", "thetastar", "rstar", "DAstar", "zstar"]
+    labels = ["H_0", "ω_b", "ω_c", "100θ_*", "r_*", r"D_{\rm{M_*}}/{\rm{Gpc}}", "z_*"]
     samples = MCSamples(
         samples=chain_list,
         loglikes=loglikes_list,
-        names=["H0", "ombh2", "omch2", "thetastar", "rstar", "DAstar", "zstar"],
-        labels=[
-            "H_0",
-            "ω_b",
-            "ω_c",
-            "100θ_*",
-            "r_*",
-            r"D_{\rm{M_*}}/{\rm{Gpc}}",
-            "z_*",
-        ],
+        names=names,
+        labels=labels,
         label="CMB Compressed likelihood",
     )
     samples.addDerived(
