@@ -8,11 +8,11 @@ cc_legend, z_cc_vals, H_cc_vals, cov_matrix_cc = get_cc_data()
 sn_legend, z_cmb, z_hel, observed_mu_vals, cov_matrix_sn = get_data()
 
 cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
-cho_cc = cho_factor(cov_matrix_cc, lower=True)[0]
+inv_cov_cc = np.linalg.inv(cov_matrix_cc)
 logdet_cc = np.linalg.slogdet(cov_matrix_cc)[1]
 N_cc = len(z_cc_vals)
 
-grid = np.linspace(0, np.max(z_cmb) + 0.1, num=1000)
+grid = np.linspace(0, np.max(z_cmb) + 0.1, num=3000)
 dx = np.diff(grid)
 
 c = 299792.458  # Speed of light in km/s
@@ -21,9 +21,14 @@ c = 299792.458  # Speed of light in km/s
 @njit
 def Ez(z, params):
     Om, w0 = params[3], params[4]
-    cubed = (1 + z) ** 3
-    rho_de = ((4 * cubed) / (1 + 3 * cubed)) ** (4 * (1 + w0))
+    cubed = (1.0 + z) ** 3
+    rho_de = (2 * cubed / (1 + w0 + (1 - w0) * cubed)) ** 2
     return np.sqrt(Om * cubed + (1 - Om) * rho_de)
+
+
+@njit
+def H_z(z, params):
+    return params[2] * Ez(z, params)
 
 
 @njit
@@ -35,14 +40,12 @@ def DM_z(z, params):
     return np.interp(z, grid, cum_dm)
 
 
+mu_z_term = 25.0 + 5 * np.log10(1.0 + z_hel)
+
+
 @njit
 def theory_mu(params):
-    return params[1] + 25 + 5 * np.log10((1 + z_hel) * DM_z(z_cmb, params))
-
-
-@njit
-def H_z(z, params):
-    return params[2] * Ez(z, params)
+    return params[1] + mu_z_term + 5 * np.log10(DM_z(z_cmb, params))
 
 
 bounds = np.array(
@@ -51,7 +54,7 @@ bounds = np.array(
         (-0.5, 0.5),  # ΔM
         (50.0, 85.0),  # H0
         (0.05, 0.6),  # Ωm
-        (-2.0, 0.0),  # w0
+        (-1.0, -1 / 3),  # w0
     ],
     dtype=np.float64,
 )
@@ -67,7 +70,7 @@ def chi_squared(params):
     chi_sn = solve_triang(cho_sn, delta_sn)
 
     delta_cc = H_cc_vals - H_z(z_cc_vals, params)
-    chi_cc = params[0] ** 2 * solve_triang(cho_cc, delta_cc)
+    chi_cc = params[0] ** 2 * delta_cc.dot(np.dot(inv_cov_cc, delta_cc))
 
     return chi_sn + chi_cc
 
@@ -110,13 +113,15 @@ def main():
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
     moves = [
-        (emcee.moves.KDEMove(), 0.30),
-        (emcee.moves.DEMove(), 0.70),
+        (emcee.moves.KDEMove(bw_method="silverman"), 0.25),
+        (emcee.moves.DEMove(), 0.75),
     ]
 
     with Pool(6) as pool:
         sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
-        sampler.run_mcmc(initial_pos, nsteps, progress=True)
+        sampler.run_mcmc(
+            initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#ff5a00"}
+        )
 
     try:
         tau = sampler.get_autocorr_time()
@@ -151,6 +156,8 @@ def main():
     print(f"Log evidence: {log_evd:.1f}")
     print(f"Degrees of freedom: {deg_of_freedom}")
 
+    labels = ["$f_{CCH}$", "$Δ_M$", "$H_0$", "$Ω_m$", "$w_0$"]
+    plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
     plot_cc_predictions(
         H_z=lambda z: H_z(z, best_fit),
         z=z_cc_vals,
@@ -166,11 +173,6 @@ def main():
         y_model=theory_mu(best_fit),
         label=f"$Ω_m$={Om_50:.3f}, $H_0$={h0_50:.1f} km/s/Mpc",
         x_scale="log",
-    )
-    plot_corner_and_chains(
-        labels=["$f_{CCH}$", "$Δ_M$", "$H_0$", "$Ω_m$", "$w_0$"],
-        flat_samples=samples,
-        samples=chains_samples,
     )
 
 
@@ -193,25 +195,26 @@ Degrees of freedom: 1743
 
 Flat wCDM: w(z) = w0
 f_cc: 1.46 +0.19 -0.18
-ΔM: -0.063 +0.082 -0.082 mag
-H0: 67.6 +2.6 -2.5 km/s/Mpc
+ΔM: -0.062 +0.081 -0.083 mag
+H0: 67.6 +2.5 -2.5 km/s/Mpc
 Ωm: 0.305 +0.038 -0.043
-w0: -0.926 +0.100 -0.108
+w0: -0.927 +0.101 -0.108 (prior width 1: -1.5 to -0.5)
 wa: 0
-Chi squared: 1662.34
-Log evidence: -958.8
+Chi squared: 1662.49
+Log evidence: -958.1
 Degrees of freedom: 1742
 
 ==============================
 
-Flat alternative: w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
+Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
 f_cc: 1.46 +0.19 -0.18
-H0: 67.7 +2.5 -2.5 km/s/Mpc
-Ωm: 0.309 +0.026 -0.027
-w0: -0.898 +0.098 -0.109
-wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-Chi squared: 1661.93
-Log evidence: -958.6
+ΔM: -0.049 +0.076 -0.078 mag
+H0: 67.8 +2.5 -2.4 km/s/Mpc
+Ωm: 0.305 +0.021 -0.024
+w0: -0.870 +0.088 -0.079 (prior width 2/3: -1 to -1/3)
+wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
+Chi squared: 1661.78
+Log evidence: -957.4
 Degrees of freedom: 1742
 
 ==============================

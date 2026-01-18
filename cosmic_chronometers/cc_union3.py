@@ -23,8 +23,7 @@ dx = np.diff(z_grid)
 @njit
 def Ez(z, Om, w0):
     zp1 = 1 + z
-    # rho_de = (2 * zp1**3 / (1 + w0 + (1 - w0) * zp1**3)) ** 2
-    rho_de = zp1 ** (3.0 * (1.0 + w0))
+    rho_de = (2 * zp1**3 / (1 + w0 + (1 - w0) * zp1**3)) ** 2
     return np.sqrt(Om * zp1**3 + (1 - Om) * rho_de)
 
 
