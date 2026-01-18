@@ -86,15 +86,18 @@ def main():
 
     with Pool(5) as pool:
         sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
-        sampler.run_mcmc(initial_pos, nsteps, progress=True)
+        sampler.run_mcmc(
+            initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#ff5a00"}
+        )
 
     try:
         tau = sampler.get_autocorr_time()
+        effective_samples = np.floor(ndim * nwalkers * (nsteps - burn_in) / np.max(tau))
         print("auto-correlation time", tau)
-        print("acceptance fraction", np.mean(sampler.acceptance_fraction))
-        print("effective samples", ndim * nwalkers * (nsteps - burn_in) / np.max(tau))
+        print("avg acceptance fraction", np.mean(sampler.acceptance_fraction))
+        print("effective samples", effective_samples)
     except emcee.autocorr.AutocorrError as e:
-        print("Autocorrelation time could not be computed", e)
+        print("autocorrelation time could not be computed", e)
 
     samples_list = sampler.get_chain(discard=burn_in, flat=False)
     blobs_list = sampler.get_blobs(discard=burn_in, flat=False)
