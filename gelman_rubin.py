@@ -2,36 +2,19 @@ import numpy as np
 
 
 def gelman_rubin(chains):
-    nwalkers, nsamples, ndim = chains.shape
-    M = nwalkers  # Number of chains
-    N = nsamples  # Number of samples per chain
+    # chains shape: (nwalkers, nsamples, ndim)
+    M, N, D = chains.shape
 
-    rhat = np.zeros(ndim)
+    # 1. Within-chain variance (W)
+    # Calculate variance along the sample axis (axis=1)
+    vars = np.var(chains, axis=1, ddof=1)  # shape: (M, D)
+    W = np.mean(vars, axis=0)  # shape: (D,)
 
-    # Calculate R-hat for each dimension (parameter)
-    for i in range(ndim):
-        samples = chains[:, :, i]
+    # 2. Between-chain variance (B)
+    means = np.mean(chains, axis=1)  # shape: (M, D)
+    B = N * np.var(means, axis=0, ddof=1)  # shape: (D,)
 
-        # 1. Calculate within-chain variance (W)
-        # s_j^2: variance of chain j (calculated with ddof=1)
-        chain_vars = np.var(samples, axis=1, ddof=1)
-        # W = (1/M) * sum(s_j^2)
-        W = np.mean(chain_vars)
+    # 3. Estimated variance
+    var_hat = ((N - 1) / N) * W + (1 / N) * B
 
-        # 2. Calculate between-chain variance (B)
-        # bar(theta)_j: mean of chain j
-        chain_means = np.mean(samples, axis=1)
-        # bar(theta): grand mean across all chains and steps (used by np.var)
-        # B/N = variance of chain means (calculated with ddof=1)
-        # B = N * var(chain_means)
-        B = N * np.var(chain_means, ddof=1)
-
-        # 3. Calculate estimated marginal posterior variance (var_hat)
-        # var_hat = ((N-1)/N) * W + (1/N) * B
-        var_hat = ((N - 1) / N) * W + (1 / N) * B
-
-        # 4. Calculate R-hat (Gelman-Rubin statistic)
-        # rhat = sqrt(var_hat / W)
-        rhat[i] = np.sqrt(var_hat / W)
-
-    return rhat
+    return np.sqrt(var_hat / W)
