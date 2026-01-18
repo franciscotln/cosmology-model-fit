@@ -62,7 +62,7 @@ def log_likelihood(params):
 def log_probability(params):
     lp = log_prior(params)
     if np.isinf(lp):
-        return -np.inf, np.array([1.0, 1.0, 1.0, 1.0])
+        return -np.inf, np.empty(4)
     ll, blobs = log_likelihood(params)
     return lp + ll, blobs
 
@@ -94,8 +94,8 @@ def main():
         tau = sampler.get_autocorr_time()
         effective_samples = np.floor(ndim * nwalkers * (nsteps - burn_in) / np.max(tau))
         print("auto-correlation time", tau)
-        print("avg acceptance fraction", np.mean(sampler.acceptance_fraction))
-        print("effective samples", effective_samples)
+        print(f"avg acceptance fraction {np.mean(sampler.acceptance_fraction):.3f}")
+        print(f"effective samples {effective_samples:.0f}")
     except emcee.autocorr.AutocorrError as e:
         print("autocorrelation time could not be computed", e)
 
