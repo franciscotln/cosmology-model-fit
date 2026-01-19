@@ -1,20 +1,20 @@
 from numba import njit
 import numpy as np
 from scipy.constants import c as c0
-from scipy.linalg import cho_factor, solve_triangular
+from interpolator import interp_cubic
 from y2023union3.data import get_data as get_sn_data
 from y2025BAO.data import get_data as get_bao_data
 
 sn_legend, z_sn_vals, mu_vals, cov_matrix_sn = get_sn_data()
 bao_legend, bao_data, bao_cov_matrix = get_bao_data()
 
-cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
-cho_bao = cho_factor(bao_cov_matrix, lower=True)[0]
+inv_cov_sn = np.linalg.inv(cov_matrix_sn)
+inv_cov_bao = np.linalg.inv(bao_cov_matrix)
 
 c = c0 / 1000  # Speed of light in km/s
 
 z_max = max(np.max(z_sn_vals), np.max(bao_data["z"])) + 0.1
-z_grid = np.linspace(0, z_max, num=2000)
+z_grid = np.linspace(0, z_max, num=3000)
 dx = np.diff(z_grid)
 
 
@@ -29,8 +29,8 @@ def Ez(z, params):
 
 @njit
 def mu_theory(params):
-    dL = (1 + z_sn_vals) * DM_z(z_sn_vals, params)
-    return params[0] + 25 + 5 * np.log10(dL)
+    dL = (1.0 + z_sn_vals) * DM_z(z_sn_vals, params)
+    return params[0] + 25.0 + 5 * np.log10(dL)
 
 
 @njit
@@ -49,7 +49,7 @@ def DM_z(z, params):
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size)
     cum_dm[1:] = np.cumsum(dx * dy)
-    return np.interp(z, z_grid, cum_dm)
+    return interp_cubic(z, z_grid, cum_dm)
 
 
 @njit
@@ -75,16 +75,12 @@ def bao_theory(z, qty, params):
     return results / params[1]
 
 
-def solve_triang(cho_L, delta):
-    y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
-    return np.dot(y, y)
-
-
+@njit
 def chi_squared(params):
     delta_sn = mu_vals - mu_theory(params)
-    chi_sn = solve_triang(cho_sn, delta_sn)
+    chi_sn = delta_sn @ inv_cov_sn @ delta_sn
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
-    chi_bao = solve_triang(cho_bao, delta_bao)
+    chi_bao = delta_bao @ inv_cov_bao @ delta_bao
     return chi_sn + chi_bao
 
 
@@ -234,10 +230,10 @@ Degs of freedom: 30
 
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
 rd: 147.09 +0.26 -0.26 Mpc
-H0: 66.53 +0.86 -0.84 km/s/Mpc
+H0: 66.53 +0.85 -0.85 km/s/Mpc
 Ωm: 0.312 +0.009 -0.009
 ωm: 0.1381 +0.0029 -0.0029
-w0: -0.763 +0.074 -0.077
+w0: -0.763 +0.073 -0.076
 wa: d w(z)/d z at z=0 = -1.5 * (1 - w0^2) = -0.627
 Chi squared: 30.0
 Log evidence: -25.9 (Δ logZ = 3.2 against ΛCDM)

@@ -1,10 +1,11 @@
 from numba import njit
 import numpy as np
+from interpolator import interp_cubic
 from y2025BAO.data import get_data as get_bao_data
 import cmb.data_early_lcdm_compression as cmb
 
 c = cmb.c  # speed of light in km/s
-Or_h2 = cmb.Or_h2 
+Or_h2 = cmb.Or_h2
 Omnu_h2 = cmb.Omnu_h2
 
 bao_legend, bao_data, bao_cov_matrix = get_bao_data()
@@ -16,22 +17,22 @@ dx = np.diff(z_grid)
 
 @njit
 def Ode_z(z, w0, wa):
-    a3 = 1 / (1 + z) ** 3
-    return 4 / ((1 + w0) * a3 + (1 - w0)) ** 2  # wzCDM
+    a3 = (1.0 + z) ** -3
+    return 4 / ((1.0 + w0) * a3 + (1.0 - w0)) ** 2  # wzCDM
     # return 1  # ΛCDM
     # return (1 + z) ** (3 * (1 + w0))  # wCDM
     # return (1 + z) ** (3 * (1 + w0 + wa)) * np.exp(-3 * wa * z / (1 + z))  # w0waCDM
 
 
 @njit
-def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
+def Ez(z, H0, Obh2, Och2, w0=-1.0, wa=0.0):
     h = H0 / 100
     Onu = Omnu_h2 / h**2
     Or = Or_h2 / h**2
     Obc = (Obh2 + Och2) / h**2
     Ode = 1.0 - Obc - Or - Onu
 
-    zp1 = 1 + z
+    zp1 = 1.0 + z
 
     radiation_term = Or * zp1**4
     matter_term = Obc * zp1**3
@@ -58,7 +59,7 @@ def DM_z(z, params):
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size)
     cum_dm[1:] = np.cumsum(dx * dy)
-    return np.interp(z, z_grid, cum_dm)
+    return interp_cubic(z, z_grid, cum_dm)
 
 
 @njit
@@ -99,7 +100,7 @@ def chi_squared(params):
 
 bounds = np.array(
     [
-        (50, 80),  # H0
+        (50.0, 80.0),  # H0
         (0.020, 0.024),  # ωb = Ωb * h^2
         (0.05, 0.30),  # ωc = Ωc * h^2
         (-1.0, 0.0),  # w0
@@ -138,18 +139,20 @@ def main():
 
     ndim = len(bounds)
     nwalkers = 200
-    burn_in = 400
-    nsteps = 4000 + burn_in
+    burn_in = 500
+    nsteps = 2500 + burn_in
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
     moves = [
-        (emcee.moves.KDEMove(), 0.30),
+        (emcee.moves.KDEMove(bw_method="silverman"), 0.30),
         (emcee.moves.DEMove(), 0.70),
     ]
 
     with Pool(6) as pool:
         sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
-        sampler.run_mcmc(initial_pos, nsteps, progress=True)
+        sampler.run_mcmc(
+            initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#ff7f0e"}
+        )
 
     try:
         tau = sampler.get_autocorr_time()
@@ -198,16 +201,13 @@ def main():
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Degs of freedom: {degs_of_freedom}")
 
+    labels = ["$H_0$", "$ω_b$", "$ω_c$", "$w_0$"]
+    plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
     plot_bao_predictions(
         theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
         data=bao_data,
         errors=np.sqrt(np.diag(bao_cov_matrix)),
         title=bao_legend,
-    )
-    plot_corner_and_chains(
-        labels=["$H_0$", "$ω_b$", "$ω_c$", "$w_0$"],
-        flat_samples=samples,
-        samples=chains_samples,
     )
 
 
@@ -257,18 +257,18 @@ Degs of freedom: 12
 
 """
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
-H0: 67.24 +0.82 -1.13 km/s/Mpc
+H0: 67.25 +0.82 -1.14 km/s/Mpc
 ωb: 0.02241 +0.00012 -0.00012
 ωc: 0.1168 +0.0007 -0.0007
 ωm: 0.1398 +0.0007 -0.0007
-Ωm: 0.310 +0.010 -0.007
-w0: -0.910 +0.087 -0.062 (prior width 1.0: -1.0 to 0.0; truncated posterior on the left)
+Ωm: 0.309 +0.010 -0.007
+w0: -0.911 +0.087 -0.062 (prior width 1.0: -1.0 to 0.0; truncated posterior on the left)
 wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
 r*: 145.24 Mpc
 z*: 1089.68 +0.18 -0.19
 r_d: 147.91 +0.20 -0.20 Mpc
-Log Z: -20.58
-Chi squared: 13.88
+Log Z: -20.59
+Chi squared: 13.87
 Degs of freedom: 12
 """
 

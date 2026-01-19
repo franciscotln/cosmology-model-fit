@@ -1,6 +1,7 @@
 from numba import njit
 import numpy as np
 from scipy.constants import c as c0
+from interpolator import interp_cubic
 from y2025BAO.data import get_data as get_bao_data
 
 c = c0 / 1000  # Speed of light in km/s
@@ -9,7 +10,7 @@ bao_legend, bao_data, bao_cov_matrix = get_bao_data()
 
 inv_cov_mat = np.linalg.inv(bao_cov_matrix)
 
-z_grid = np.linspace(0, np.max(bao_data["z"]) + 0.1, num=2000)
+z_grid = np.linspace(0, np.max(bao_data["z"]) + 0.1, num=3000)
 dx = np.diff(z_grid)
 
 
@@ -17,9 +18,9 @@ dx = np.diff(z_grid)
 def Ez(z, params):
     h, Omh2, w0 = params[1] / 100, params[2], params[3]
     Om = Omh2 / h**2
-    zp1 = 1 + z
+    zp1 = 1.0 + z
     cubic = zp1**3
-    rho_de = (4 * cubic / (1 + 3 * cubic)) ** (4 * (1 + w0))
+    rho_de = (2 * cubic / (1.0 + w0 + (1.0 - w0) * cubic)) ** 2
     return np.sqrt(Om * cubic + (1 - Om) * rho_de)
 
 
@@ -39,7 +40,7 @@ def DM_z(z, params):
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size)
     cum_dm[1:] = np.cumsum(dx * dy)
-    return np.interp(z, z_grid, cum_dm)
+    return interp_cubic(z, z_grid, cum_dm)
 
 
 @njit
@@ -81,14 +82,13 @@ def main():
     from scipy.stats import norm
     import matplotlib.pyplot as plt
     from multiprocessing import Pool
-    from sn.plotting import plot_predictions as plot_sn_predictions
     from bao.plot_predictions import plot_bao_predictions
 
     prior = Prior()
     prior.add_parameter("rd", dist=(120, 160))
     prior.add_parameter("H0", dist=(50.0, 85.0))
     prior.add_parameter("ωm", dist=norm(loc=0.1430, scale=0.0011))  # Planck prior
-    prior.add_parameter("w0", dist=(-1.6, 0.0))
+    prior.add_parameter("w0", dist=(-1.0, -1 / 3))  # wzCDM
 
     with Pool(8) as pool:
         sampler = Sampler(
@@ -110,23 +110,6 @@ def main():
 
     best_fit = [rd_50, H0_50, Omh2_50, w0_50]
 
-    corner(
-        samples,
-        weights=w,
-        labels=prior.keys,
-        quantiles=one_sigma_ci,
-        show_titles=True,
-        title_fmt=".4f",
-        bins=100,
-        fill_contours=False,
-        plot_datapoints=False,
-        smooth=2.0,
-        smooth1d=2.0,
-        levels=(0.393, 0.864),
-        range=np.repeat(0.9999, len(prior.keys)),
-    )
-    plt.show()
-
     degs_of_freedom = len(bao_data["z"]) - len(best_fit)
 
     print(f"rd: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
@@ -144,6 +127,22 @@ def main():
         errors=np.sqrt(np.diag(bao_cov_matrix)),
         title=bao_legend,
     )
+    corner(
+        samples,
+        weights=w,
+        labels=prior.keys,
+        quantiles=one_sigma_ci,
+        show_titles=True,
+        title_fmt=".4f",
+        bins=100,
+        fill_contours=False,
+        plot_datapoints=False,
+        smooth=2.0,
+        smooth1d=2.0,
+        levels=(0.393, 0.864),
+        range=np.repeat(0.9999, len(prior.keys)),
+    )
+    plt.show()
 
 
 if __name__ == "__main__":
@@ -159,11 +158,21 @@ Priors:
 rd U(120, 160)
 H0 U(50.0, 85.0)
 ωm N(0.1430, 0.0011)
+
+wCDM:
+w0 U(-1.5, -0.5)
+
+wzCDM:
+w0 U(-1.0, -1/3)
+
+w0waCDM:
 w0 U(-1.6, 0.0)
 wa U(-5.0, +3.0)
 
 *******************************
+"""
 
+"""
 Flat ΛCDM: w(z) = -1
 rd: 146.44 +1.34 -1.31 Mpc
 H0: 69.34 +1.04 -1.03 km/s/Mpc
@@ -178,28 +187,27 @@ Degs of freedom: 10
 ===============================
 
 Flat wCDM: w(z) = w0
-rd: 144.02 +2.67 -2.96 Mpc
-H0: 69.42 +1.08 -1.07 km/s/Mpc
+rd: 143.98 +2.71 -2.93 Mpc
+H0: 69.42 +1.07 -1.06 km/s/Mpc
 Ωm: 0.297 +0.009 -0.009
 ωm: 0.1430 +0.0011 -0.0011
-w0: -0.915 +0.076 -0.081
+w0: -0.914 +0.076 -0.079
 wa: 0
-Chi squared: 9.2
-Log evidence: -12.9
+Chi squared: 9.1
+Log evidence: -12.5
 Degs of freedom: 9
 
 ===============================
 
-Flat wzCDM: w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)**3)
-rd: 144.71 +1.91 -1.93 Mpc
-H0: 67.93 +1.48 -1.41 km/s/Mpc
-Ωm: 0.310 +0.013 -0.013
+Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
+rd: 144.60 +1.69 -1.81 Mpc
+H0: 67.72 +1.32 -1.32 km/s/Mpc
+Ωm: 0.312 +0.012 -0.011
 ωm: 0.1430 +0.0011 -0.0011
-w0: -0.797 +0.146 -0.156
-wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
+w0: -0.770 +0.131 -0.130
+wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
 Chi squared: 8.3
-Log evidence: -12.0
-Degs of freedom: 9
+Log evidence: -11.2
 
 ===============================
 

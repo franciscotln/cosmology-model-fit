@@ -1,6 +1,7 @@
 from numba import njit
 import numpy as np
 import cmb.data_planck_act_compression as cmb
+from interpolator import interp_cubic
 from y2023union3.data import get_data as get_sn_data
 from y2025BAO.data import get_data as get_bao_data
 
@@ -22,19 +23,19 @@ dx = np.diff(z_grid)
 
 @njit
 def Ode_z(z, w0, wa):
-    cubed = (1 + z) ** 3
-    return (2 * cubed / (1 + w0 + (1 - w0) * cubed)) ** 2
+    cubed = (1.0 + z) ** 3
+    return (2 * cubed / (1.0 + w0 + (1.0 - w0) * cubed)) ** 2
 
 
 @njit
-def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
+def Ez(z, H0, Obh2, Och2, w0=-1.0, wa=0.0):
     h = H0 / 100
     Onu = Omnuh2 / h**2
     Or = Orh2 / h**2
     Obc = (Obh2 + Och2) / h**2
     Ode = 1.0 - Obc - Or - Onu
 
-    zp1 = 1 + z
+    zp1 = 1.0 + z
 
     radiation_term = Or * zp1**4
     matter_term = Obc * zp1**3
@@ -46,8 +47,8 @@ def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
 
 @njit
 def theory_mu(theta):
-    dL = (1 + z_sn_vals) * DM_z(z_sn_vals, theta)
-    return theta[0] + 25 + 5 * np.log10(dL)
+    dL = (1.0 + z_sn_vals) * DM_z(z_sn_vals, theta)
+    return theta[0] + 25.0 + 5 * np.log10(dL)
 
 
 @njit
@@ -67,7 +68,7 @@ def DM_z(z, theta):
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size, dtype=np.float64)
     cum_dm[1:] = np.cumsum(dx * dy)
-    return np.interp(z, z_grid, cum_dm)
+    return interp_cubic(z, z_grid, cum_dm)
 
 
 @njit
@@ -96,18 +97,24 @@ def bao_theory(z, qty, theta):
     return results / rd
 
 
+@njit
+def chi2_sn(theta):
+    delta_sn = mu_vals - theory_mu(theta)
+    return delta_sn @ inv_cov_sn @ delta_sn
+
+
+@njit
+def chi2_bao(theta):
+    delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, theta)
+    return delta_bao @ inv_cov_bao @ delta_bao
+
+
 def chi_squared(theta):
     # Planck + ACT compressed priors for π/θ* and ωb,
     # without the shift parameter R (arXiv:1808.05724v1)
     delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez, *theta[1:])
     chi_cmb = delta_cmb[1:] @ inv_cov_cmb @ delta_cmb[1:]
-
-    delta_sn = mu_vals - theory_mu(theta)
-    chi_sn = delta_sn @ inv_cov_sn @ delta_sn
-
-    delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, theta)
-    chi_bao = delta_bao @ inv_cov_bao @ delta_bao
-    return chi_sn + chi_bao + chi_cmb
+    return chi2_sn(theta) + chi2_bao(theta) + chi_cmb
 
 
 def log_likelihood(theta):
@@ -266,12 +273,12 @@ Degs of freedom: 32
 ===============================
 
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
-H0: 66.18 +0.86 -0.84 km/s/Mpc
+H0: 66.17 +0.86 -0.83 km/s/Mpc
 ωb: 0.02250 +0.00011 -0.00011
 ωc: 0.1150 +0.0010 -0.0010
 ωm: 0.1382 +0.0010 -0.0010
 Ωm: 0.316 +0.008 -0.008
-w0: -0.800 +0.064 -0.066
+w0: -0.799 +0.064 -0.067
 wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
 z_d: 1059.85 +0.27 -0.27
 r_d: 148.28 +0.30 -0.30 Mpc
