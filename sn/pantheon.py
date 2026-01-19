@@ -3,26 +3,27 @@ import numpy as np
 import scipy.stats as stats
 from scipy.linalg import cho_factor, solve_triangular
 from scipy.constants import c as c0
+from interpolator import interp_quad
 from y2022pantheonSHOES.data import get_data
 
-legend, z_cmb_vals, z_hel_vals, apparent_mag_values, cov_matrix = get_data()
+legend, z_cmb, z_hel, apparent_mag_vals, cov_matrix = get_data()
 
 c = c0 / 1000  # Speed of light (km/s)
 H0 = 70.0  # Hubble constant (km/s/Mpc)
 
 cho = cho_factor(cov_matrix, lower=True)[0]
 
-z_grid = np.linspace(0, np.max(z_cmb_vals) + 0.1, num=1000)
+z_grid = np.linspace(0, np.max(z_cmb) + 0.1, num=3000)
 dx = np.diff(z_grid)
 
-cubed = (1 + z_grid) ** 3
+cubed = (1.0 + z_grid) ** 3
 
 
 @njit
 def Ez(params):
     Om, w0 = params[1], params[2]
-    rho_de = (4 * cubed / (1 + 3 * cubed)) ** (4 * (1 + w0))
-    return np.sqrt(Om * cubed + (1 - Om) * rho_de)
+    rho_de = (2 * cubed / ((1.0 + w0) + (1.0 - w0) * cubed)) ** 2
+    return np.sqrt(Om * cubed + (1.0 - Om) * rho_de)
 
 
 @njit
@@ -31,13 +32,13 @@ def DM_z(params):
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size, dtype=np.float64)
     cum_dm[1:] = np.cumsum(dx * dy)
-    return np.interp(z_cmb_vals, z_grid, cum_dm)
+    return interp_quad(z_cmb, z_grid, cum_dm)
 
 
 @njit
 def apparent_mag(params):
-    dL = (1 + z_hel_vals) * DM_z(params)
-    return params[0] + 25 + 5 * np.log10(dL)
+    dL = (1.0 + z_hel) * DM_z(params)
+    return params[0] + 25.0 + 5 * np.log10(dL)
 
 
 def solve_triang(cho_L, delta):
@@ -46,7 +47,7 @@ def solve_triang(cho_L, delta):
 
 
 def chi_squared(params):
-    delta = apparent_mag_values - apparent_mag(params)
+    delta = apparent_mag_vals - apparent_mag(params)
     return solve_triang(cho, delta)
 
 
@@ -57,8 +58,8 @@ def log_likelihood(params):
 bounds = np.array(
     [
         (-20.0, -19.0),  # M
-        (0.0, 1.0),  # Ωm
-        (-2.0, 0.0),  # w0
+        (0.0, 0.7),  # Ωm
+        (-1.0, -1 / 3),  # w0
     ],
     dtype=np.float64,
 )
@@ -86,25 +87,26 @@ def main():
     from gelman_rubin import gelman_rubin
     from log_evidence import log_evidence
     from corner_plot import plot_corner_and_chains
-    from .plotting import plot_predictions, print_color, plot_residuals
+    from sn.plotting import plot_predictions, print_color, plot_residuals
 
-    burn_in = 200
+    burn_in = 500
     n_dim = len(bounds)
     n_walkers = 150
-    n_steps = burn_in + 2000
+    n_steps = burn_in + 2500
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(n_walkers, n_dim))
     moves = [
-        (emcee.moves.KDEMove(), 0.30),
-        (emcee.moves.DEMove(), 0.56),
-        (emcee.moves.DESnookerMove(), 0.14),
+        (emcee.moves.KDEMove(bw_method="silverman"), 0.30),
+        (emcee.moves.DEMove(), 0.70),
     ]
 
     with Pool(5) as pool:
         sampler = emcee.EnsembleSampler(
             n_walkers, n_dim, log_probability, pool=pool, moves=moves
         )
-        sampler.run_mcmc(initial_pos, n_steps, progress=True)
+        sampler.run_mcmc(
+            initial_pos, n_steps, progress=True, progress_kwargs={"colour": "#ff7f0e"}
+        )
 
     chains_samples = sampler.get_chain(discard=burn_in, flat=False)
     samples = sampler.get_chain(discard=burn_in, flat=True)
@@ -131,15 +133,15 @@ def main():
     best_fit = np.percentile(samples, 50, axis=0)
 
     predicted_apparent_mag = apparent_mag(best_fit)
-    residuals = apparent_mag_values - predicted_apparent_mag
+    residuals = apparent_mag_vals - predicted_apparent_mag
 
     skewness = stats.skew(residuals)
     kurtosis = stats.kurtosis(residuals)
 
     # Calculate R-squared
-    average_distance_modulus = np.mean(apparent_mag_values)
+    average_distance_modulus = np.mean(apparent_mag_vals)
     ss_res = np.sum(residuals**2)
-    ss_tot = np.sum((apparent_mag_values - average_distance_modulus) ** 2)
+    ss_tot = np.sum((apparent_mag_vals - average_distance_modulus) ** 2)
     r_squared = 1 - (ss_res / ss_tot)
 
     # Calculate root mean square deviation
@@ -150,7 +152,7 @@ def main():
     w0_label = f"{w0_50:.3f} +{w0_84-w0_50:.3f}/-{w0_50-w0_16:.3f}"
 
     print_color("Dataset", legend)
-    print_color("z range", f"{z_cmb_vals[0]:.4f} - {z_cmb_vals[-1]:.4f}")
+    print_color("z range", f"{z_cmb[0]:.4f} - {z_cmb[-1]:.4f}")
     print_color("M", M_label)
     print_color("Ωm", omega_label)
     print_color("w0", w0_label)
@@ -158,26 +160,23 @@ def main():
     print_color("RMSD (mag)", f"{rmsd:.3f}")
     print_color("Skewness of residuals", f"{skewness:.3f}")
     print_color("kurtosis of residuals", f"{kurtosis:.3f}")
-    print_color("Degs of freedom", len(z_cmb_vals) - len(best_fit))
+    print_color("Degs of freedom", len(z_cmb) - len(best_fit))
     print_color("Chi squared", f"{chi_squared(best_fit):.2f}")
     print_color("Log Evidence", f"{log_evd:.1f}")
 
-    plot_corner_and_chains(
-        labels=["$M_0$", "$Ω_m$", "$w_0$"],
-        flat_samples=samples,
-        samples=chains_samples,
-    )
+    labels = ["$M_0$", "$Ω_m$", "$w_0$"]
+    plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
     plot_predictions(
         legend=legend,
-        x=z_cmb_vals,
-        y=apparent_mag_values - M0_50,
+        x=z_cmb,
+        y=apparent_mag_vals - M0_50,
         y_err=np.sqrt(np.diag(cov_matrix)),
         y_model=predicted_apparent_mag - M0_50,
-        label=f"Best fit: $Ω_m$={Om_50:.3f}, $M$={M0_50:.3f}",
+        label=f"$Ω_m$={Om_50:.3f}, $M$={M0_50:.3f}",
         x_scale="log",
     )
     plot_residuals(
-        z_values=z_cmb_vals,
+        z_values=z_cmb,
         residuals=residuals,
         y_err=np.sqrt(np.diag(cov_matrix)),
         bins=40,
@@ -196,47 +195,47 @@ Sample size: 1590
 *****************************
 
 ΛCDM
-M: -19.351 +0.007/-0.007 mag
+M: -19.351 +0.007/-0.007
 Ωm: 0.332 +0.018/-0.018
 w0: -1
 wa: 0
-R-squared: 99.74 %
+R-squared (%): 99.74
 RMSD (mag): 0.153
 Skewness of residuals: 0.090
 kurtosis of residuals: 1.582
 Degs of freedom: 1588
-chi squared: 1402.92
-Log Evidence: -709.2
+Chi squared: 1402.92
+Log Evidence: -708.9
 
 =============================
 
 wCDM
-M: -19.347 +0.009/-0.009 mag
-Ωm: 0.292 +0.063/-0.074
-w0: -0.901 +0.137/-0.156
+M: -19.347 +0.009/-0.009
+Ωm: 0.292 +0.064/-0.078
+w0: -0.901 +0.142/-0.159 (prior width 1: -1.5 to -0.5)
 wa: 0
-R-squared: 99.74 %
+R-squared (%): 99.74
 RMSD (mag): 0.154
 Skewness of residuals: 0.079
 kurtosis of residuals: 1.589
 Degs of freedom: 1587
-chi squared: 1402.48
-Log Evidence: -710.6
+Chi squared: 1402.47
+Log Evidence: -709.5
 
 =============================
 
-Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
-M: -19.347 +0.009/-0.009
-Ωm: 0.313 +0.040/-0.040
-w0: -0.925 +0.125/-0.144
-wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
+Flat w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
+M: -19.344 +0.008/-0.008
+Ωm: 0.299 +0.028/-0.034
+w0: -0.873 +0.103/-0.084 (prior width 2/3: -1.0 to -1/3)
+wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
 R-squared (%): 99.74
-RMSD (mag): 0.153
-Skewness of residuals: 0.081
-kurtosis of residuals: 1.589
+RMSD (mag): 0.154
+Skewness of residuals: 0.074
+kurtosis of residuals: 1.592
 Degs of freedom: 1587
-Chi squared: 1402.55
-Log Evidence: -710.8
+Chi squared: 1402.68
+Log Evidence: -709.3
 
 =============================
 
