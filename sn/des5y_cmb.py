@@ -1,6 +1,7 @@
 from numba import njit
 import numpy as np
 from scipy.linalg import cho_factor, solve_triangular
+from interpolator import interp_cubic
 from y2025DESdovekie.data import get_data
 import cmb.data_planck_act_compression as cmb
 
@@ -12,7 +13,7 @@ sn_legend, z_cmb, z_hel, mu_vals, cov_matrix_sn = get_data()
 
 cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
 
-z_grid = np.linspace(0, np.max(z_cmb) + 0.1, num=4000)
+z_grid = np.linspace(0, np.max(z_cmb) + 0.1, num=3000)
 dx = np.diff(z_grid)
 
 
@@ -47,7 +48,7 @@ def DM_z(z, theta):
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size)
     cum_dm[1:] = np.cumsum(dx * dy)
-    return np.interp(z, z_grid, cum_dm)
+    return interp_cubic(z, z_grid, cum_dm)
 
 
 @njit
@@ -229,9 +230,9 @@ Log evidence: -837.1
 
 """
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
-H0: 66.66 +0.59 -0.60 km/s/Mpc
+H0: 66.67 +0.59 -0.60 km/s/Mpc
 Ωm: 0.320 +0.007 -0.007
-ωb: 0.02250 +0.00011 -0.00011
+ωb: 0.02251 +0.00011 -0.00011
 ωc: 0.1191 +0.0012 -0.0012
 ωm: 0.1423 +0.0011 -0.0011
 w0: -0.927 +0.044 -0.040 (prior width 1.0: -1.0 - 0.0)

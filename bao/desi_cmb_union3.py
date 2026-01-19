@@ -1,5 +1,6 @@
 from numba import njit
 import numpy as np
+from interpolator import interp_cubic
 from y2023union3.data import get_data
 from y2025BAO.data import get_data as get_bao_data
 import cmb.data_early_lcdm_compression as cmb
@@ -26,7 +27,7 @@ def Ode_z(z, w0, wa):
 
 
 @njit
-def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
+def Ez(z, H0, Obh2, Och2, w0=-1.0, wa=0.0):
     h = H0 / 100
     Onu = Omnuh2 / h**2
     Or = Orh2 / h**2
@@ -60,7 +61,7 @@ def DM_z(z, params):
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size)
     cum_dm[1:] = np.cumsum(dx * dy)
-    return np.interp(z, z_grid, cum_dm)
+    return interp_cubic(z, z_grid, cum_dm)
 
 
 @njit
@@ -175,7 +176,9 @@ def main():
 
     with Pool(6) as pool:
         sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
-        sampler.run_mcmc(initial_pos, nsteps, progress=True)
+        sampler.run_mcmc(
+            initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#ff7f0e"}
+        )
 
     try:
         tau = sampler.get_autocorr_time()
@@ -353,8 +356,8 @@ Log evidence: -36.3 (Δ logZ = 1.0 against ΛCDM)
 Degs of freedom: 33
 
 ** Early-time ΛCDM **
-H0: 66.48 +0.82 -0.82 km/s/Mpc
-Ωm: 0.3161 +0.0078 -0.0076
+H0: 66.47 +0.82 -0.81 km/s/Mpc
+Ωm: 0.3162 +0.0077 -0.0075
 ωb: 0.02242 +0.00012 -0.00012
 ωc: 0.1166 +0.0007 -0.0007
 ωm: 0.1397 +0.0007 -0.0007
@@ -365,7 +368,7 @@ r*: 145.27 Mpc
 z_d: 1059.91 +0.27 -0.27
 r_d: 147.93 Mpc
 q0: -0.372 +0.072 -0.074
-Chi squared: 36.73
+Chi squared: 36.72
 Log evidence: -35.6 (Δ logZ = 1.3 against ΛCDM)
 Degs of freedom: 33
 """

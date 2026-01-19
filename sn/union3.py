@@ -1,15 +1,15 @@
 from numba import njit
 import numpy as np
-from scipy.linalg import cho_factor, solve_triangular
 from scipy.constants import c as c0
+from interpolator import interp_cubic
 from y2023union3.data import get_data
 
 legend, z_values, mu_vals, cov_matrix = get_data()
 
-cho = cho_factor(cov_matrix, lower=True)[0]
+inv_cov = np.linalg.inv(cov_matrix)
 
-C = c0 / 1000  # Speed of light (km/s)
-H0 = 70  # Hubble constant (km/s/Mpc)
+c = c0 / 1000  # Speed of light (km/s)
+H0 = 70.0  # Hubble constant (km/s/Mpc)
 
 # params indices
 OFFSET = 0
@@ -18,7 +18,7 @@ W0 = 2
 
 bounds = np.array([(-0.6, 0.6), (0.0, 1.0), (-1.0, 0.0)])  # ΔM, Ωm, w0
 
-z_grid = np.linspace(0, np.max(z_values), num=1000)
+z_grid = np.linspace(0, np.max(z_values), num=3000)
 dx = np.diff(z_grid)
 
 
@@ -32,11 +32,11 @@ def Ez(z, params):
 
 @njit
 def DM_z(z, params):
-    dh_grid = (C / H0) / Ez(z_grid, params)
+    dh_grid = (c / H0) / Ez(z_grid, params)
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size)
     cum_dm[1:] = np.cumsum(dx * dy)
-    return np.interp(z, z_grid, cum_dm)
+    return interp_cubic(z, z_grid, cum_dm)
 
 
 @njit
@@ -45,15 +45,13 @@ def mu_theory(params):
     return params[OFFSET] + 25 + 5 * np.log10(dL)
 
 
-def solve_triang(cho_L, delta):
-    y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
-    return np.dot(y, y)
-
-
+@njit
 def chi_squared(params):
-    return solve_triang(cho, mu_vals - mu_theory(params))
+    delta = mu_vals - mu_theory(params)
+    return delta @ inv_cov @ delta
 
 
+@njit
 def log_likelihood(params):
     return -0.5 * chi_squared(params)
 
@@ -91,13 +89,15 @@ def main():
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(n_walkers, n_dim))
     moves = [
-        (emcee.moves.KDEMove(), 0.30),
+        (emcee.moves.KDEMove(bw_method="silverman"), 0.30),
         (emcee.moves.DEMove(), 0.70),
     ]
 
     with Pool(5) as pool:
         sampler = emcee.EnsembleSampler(n_walkers, n_dim, log_probability, pool, moves)
-        sampler.run_mcmc(initial_pos, n_steps, progress=True)
+        sampler.run_mcmc(
+            initial_pos, n_steps, progress=True, progress_kwargs={"colour": "#00ff00"}
+        )
 
     try:
         tau = sampler.get_autocorr_time()
@@ -210,11 +210,11 @@ Degs of freedom: 19
 
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
 
-Ωm: 0.298 +0.043/-0.049
-w0: -0.714 +0.143/-0.151 (prior width 1.0: -1.0 to 0.0)
+Ωm: 0.298 +0.044/-0.048
+w0: -0.716 +0.142/-0.151 (prior width 1.0: -1.0 to 0.0)
 wa: -1.5 * (1 - w0^2)
 R-squared (%): 99.94
-RMSD (mag): 0.054
+RMSD (mag): 0.053
 Skewness of residuals: -1.135
 Chi squared: 21.5
 Log evidence: -16.0

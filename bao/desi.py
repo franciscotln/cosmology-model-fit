@@ -1,6 +1,7 @@
 from numba import njit
 import numpy as np
 from scipy.constants import c as c0
+from interpolator import interp_cubic
 from y2025BAO.data import get_data
 
 c = c0 / 1000  # Speed of light in km/s
@@ -10,17 +11,17 @@ legend, data, cov_matrix = get_data()
 inv_cov_bao = np.linalg.inv(cov_matrix)
 
 z_max = np.max(data["z"]) + 0.1
-z_grid = np.linspace(0, z_max, num=2500)
+z_grid = np.linspace(0, z_max, num=3000)
 dx = np.diff(z_grid)
 
 
 @njit
 def H_z(z, params):
     h, Om, w0 = params
-    OL = 1 - Om
-    one_plus_z = 1 + z
+    OL = 1.0 - Om
+    one_plus_z = 1.0 + z
     cubed = one_plus_z**3
-    rho_de = (2 * cubed / (1 + w0 + (1 - w0) * cubed)) ** 2
+    rho_de = (2 * cubed / (1.0 + w0 + (1.0 - w0) * cubed)) ** 2
     return 100 * h * np.sqrt(Om * cubed + OL * rho_de)
 
 
@@ -43,11 +44,11 @@ def bao_theory(z, qty, theta):
 
     results = np.empty(z.size, dtype=np.float64)
 
-    results[DH_mask] = np.interp(z[DH_mask], z_grid, dh_grid)
-    results[DM_mask] = np.interp(z[DM_mask], z_grid, dm_grid)
+    results[DH_mask] = interp_cubic(z[DH_mask], z_grid, dh_grid)
+    results[DM_mask] = interp_cubic(z[DM_mask], z_grid, dm_grid)
 
-    dh_at_z = np.interp(z[DV_mask], z_grid, dh_grid)
-    dm_at_z = np.interp(z[DV_mask], z_grid, dm_grid)
+    dh_at_z = interp_cubic(z[DV_mask], z_grid, dh_grid)
+    dm_at_z = interp_cubic(z[DV_mask], z_grid, dm_grid)
     results[DV_mask] = (z[DV_mask] * dh_at_z * dm_at_z**2) ** (1 / 3)
     return results / rd
 
@@ -108,12 +109,14 @@ def main():
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (n_walkers, n_dim))
     moves = [
-        (emcee.moves.KDEMove(), 0.30),
+        (emcee.moves.KDEMove(bw_method="silverman"), 0.30),
         (emcee.moves.DEMove(), 0.70),
     ]
 
     sampler = emcee.EnsembleSampler(n_walkers, n_dim, log_probability, moves=moves)
-    sampler.run_mcmc(initial_pos, nsteps, progress=True)
+    sampler.run_mcmc(
+        initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#FF5733"}
+    )
 
     try:
         tau = sampler.get_autocorr_time()
@@ -153,6 +156,8 @@ def main():
     print(f"R^2: {r2:.4f}")
     print(f"RMSD: {np.sqrt(np.mean(residuals**2)):.3f}")
 
+    labels = ["$h$", "$Ω_m$", "$w_0$"]
+    plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chain_samples)
     plot_bao_predictions(
         theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
         data=data,
@@ -160,11 +165,6 @@ def main():
         title=legend,
     )
     plot_bao_residuals(data, residuals, np.sqrt(np.diag(cov_matrix)))
-    plot_corner_and_chains(
-        labels=["$h$", "$Ω_m$", "$w_0$"],
-        flat_samples=samples,
-        samples=chain_samples,
-    )
 
 
 if __name__ == "__main__":
@@ -207,7 +207,7 @@ Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
 rd: 147.09 Mpc (fixed)
 h: 0.665 +0.015 -0.015
 Ωm: 0.312 +0.012 -0.012
-w0: -0.767 +0.133 -0.132 (prior width 1.0: from -1.0 to 0.0) - left side truncated
+w0: -0.767 +0.133 -0.131 (prior width 1.0: from -1.0 to 0.0) - left side truncated
 Chi squared: 8.29
 Log evidence: -12.19
 Degs of freedom: 10

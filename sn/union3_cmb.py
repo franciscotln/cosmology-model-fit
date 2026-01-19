@@ -1,5 +1,6 @@
 from numba import njit
 import numpy as np
+from interpolator import interp_cubic
 from y2023union3.data import get_data
 import cmb.data_planck_act_compression as cmb
 
@@ -10,7 +11,7 @@ Omnuh2 = cmb.Omnu_h2
 sn_legend, z_sn_vals, mu_vals, cov_matrix_sn = get_data()
 inv_cov_sn = np.linalg.inv(cov_matrix_sn)
 
-z_grid = np.linspace(0, np.max(z_sn_vals) + 0.1, num=4000)
+z_grid = np.linspace(0, np.max(z_sn_vals) + 0.1, num=3000)
 dx = np.diff(z_grid)
 
 
@@ -45,7 +46,7 @@ def DM_z(z, params):
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size)
     cum_dm[1:] = np.cumsum(dx * dy)
-    return np.interp(z, z_grid, cum_dm)
+    return interp_cubic(z, z_grid, cum_dm)
 
 
 @njit
@@ -236,15 +237,15 @@ Degrees of freedom: 20
 
 """
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
-H0: 65.38 +1.03 -1.05 km/s/Mpc
+H0: 65.39 +1.03 -1.04 km/s/Mpc
 Ωm: 0.333 +0.012 -0.011
 ωm: 0.14239 +0.00116 -0.00116
 ωb: 0.02250 +0.00011 -0.00011
 ωc: 0.1192 +0.0012 -0.0012
-w0: -0.837 +0.075 -0.074 (prior width 1.0: -1.0 to 0.0)
+w0: -0.838 +0.075 -0.074 (prior width 1.0: -1.0 to 0.0)
 wa: d w(z)/d z at z=0 = -1.5 * (1 - w0^2) = -0.447
 z*: 1089.67 +0.21 -0.21
-z_drag: 1060.17 +0.23 -0.23
+z_drag: 1060.18 +0.23 -0.23
 r*: 144.54 Mpc
 r_d: 147.16 Mpc
 Chi squared: 22.2
