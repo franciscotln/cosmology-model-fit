@@ -2,6 +2,7 @@ from numba import njit
 import numpy as np
 from scipy.integrate import solve_ivp
 from scipy.constants import c as c0
+from interpolator import interp_quad
 import y2018fs8.data as fs8_data
 
 c = c0 / 1000  # km/s
@@ -36,19 +37,20 @@ def dE_da(z, Om_eff, w0=-1):
 
 
 @njit
-def DM(z, Om_eff, w0=-1):
+def DM(z, Om_eff, w0):
     dh_grid = c / Ez(z_grid, Om_eff, w0)
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(len(z_grid))
     cum_dm[1:] = np.cumsum(dx * dy)
-    return np.interp(z, z_grid, cum_dm)
+    return interp_quad(z, z_grid, cum_dm)
 
 
 denominator_fiducial = np.zeros(len(data["z"]), dtype=np.float64)
 for i in range(len(data["z"])):
     z = data["z"][i]
     om_fid = data["omega_fid"][i]
-    denominator_fiducial[i] = Ez(z, om_fid) * DM(z, om_fid)
+    w0_fid = -1.0
+    denominator_fiducial[i] = Ez(z, om_fid, w0_fid) * DM(z, om_fid, w0_fid)
 
 
 @njit
@@ -147,13 +149,15 @@ def main():
     nsteps = 2500 + burn_in
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
     moves = [
-        (emcee.moves.KDEMove(), 0.30),
+        (emcee.moves.KDEMove(bw_method="silverman"), 0.30),
         (emcee.moves.DEMove(), 0.70),
     ]
 
     with Pool(8) as pool:
         sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
-        sampler.run_mcmc(initial_pos, nsteps, progress=True)
+        sampler.run_mcmc(
+            initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#ff5a00"}
+        )
 
     try:
         tau = sampler.get_autocorr_time()
@@ -287,11 +291,11 @@ degs of freedom = 59
 flat wzCDM
 Ωm_eff = 0.280 +0.020 -0.019
 σ8 = 0.828 +0.029 -0.026
-S8 = 0.801 +0.033 -0.032
-w0 = -0.684 +0.146 -0.155  (prior: U(-1.0, 0.0))
-f = 1.34 +0.13 -0.12
-chi2 = 60.37
+S8 = 0.800 +0.033 -0.031
+w0 = -0.685 +0.147 -0.155 (prior: U(-1.0, 0.0))
+f = 1.34 +0.12 -0.12
+chi2 = 60.50
 log likelihood = 103.1
-log evidence = 94.4
+log evidence = 94.0
 degs of freedom = 59
 """
