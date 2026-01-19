@@ -127,19 +127,19 @@ _EZ_FUNC = None
 
 
 @njit
-def _rs_integ(a, Rb, H0, Obh2, Och2, w0, wa):
-    Ez = _EZ_FUNC(1 / a - 1, H0, Obh2, Och2, w0, wa)
-    denom = H0 * a**2 * Ez * np.sqrt(3 * (1 + Rb * a))
-    return c / denom
+def _rs_integ(z, H0, Obh2, Och2, w0, wa):
+    Rb = 3 * Obh2 / (4 * O_GAMMA_H2)
+    Ez = _EZ_FUNC(z, H0, Obh2, Och2, w0, wa)
+    cs = c / np.sqrt(3 * (1 + Rb / (1.0 + z)))
+    return cs / (H0 * Ez)
 
 
 def rs_z(Ez_func, z_lim, H0, Obh2, Och2, w0=-1.0, wa=0.0):
     global _EZ_FUNC
     _EZ_FUNC = Ez_func
 
-    Rb = 3 * Obh2 / (4 * O_GAMMA_H2)
-    args = (Rb, H0, Obh2, Och2, w0, wa)
-    res = quad(_rs_integ, 1e-08, 1 / (1 + z_lim), args=args)[0]
+    args = (H0, Obh2, Och2, w0, wa)
+    res = quad(_rs_integ, z_lim, 1e8, args=args)[0]
     _EZ_FUNC = None
     return res
 

@@ -137,18 +137,10 @@ def main():
     samples.updateBaseStatistics()
 
     g = plots.getSubplotPlotter()
+    params = ["thetastar", "H0", "omegam", "DAstar", "rstar", "zstar", "zdrag", "rdrag"]
     g.triangle_plot(
         samples,
-        params=[
-            "thetastar",
-            "H0",
-            "omegam",
-            "DAstar",
-            "rstar",
-            "zstar",
-            "zdrag",
-            "rdrag",
-        ],
+        params=params,
         filled=True,
         title_limit=1,
         contour_colors=["C0"],
@@ -203,19 +195,19 @@ Chi squared: 0.0008
 ===============================
 
 Early ΛCDM (arXiv:2302.12911v2)
-H0: 67.49 ± 0.59 km/s/Mpc
+H0: 67.47 ± 0.58 km/s/Mpc
 ωc: 0.1192 ± 0.0013
 ωb: 0.02223 ± 0.00015
 ωm: 0.1421 ± 0.0012
-Ωm: 0.3120 ± 0.0080
-z_eq: 3380 ± 29
-z*: 1090.12 ± 0.27
-r*: 144.75 ± 0.29 Mpc
+Ωm: 0.3122 ± 0.0080
+z_eq: 3381 ± 29
+z*: 1090.05 ± 0.27
+r*: 144.75 ± 0.28 Mpc
 100 θ*: 1.04103 ± 0.00026
-DM*: 13.90 ± 0.03 Gpc
-z_drag: 1059.65 ± 0.29
+DM*: 13.91 ± 0.03 Gpc
+z_drag: 1059.57 ± 0.29
 r_d: 147.46 ± 0.28 Mpc
-Chi squared: 0.0000
+Chi squared: 0.0015
 
 ===============================
 
