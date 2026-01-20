@@ -1,6 +1,9 @@
 from numba import njit
 import numpy as np
-import y2023cmbearlylcdm.data as cmb
+from interpolator import interp_quad
+
+# import y2023cmbearlylcdm.data as cmb
+import y2018cmb_planck_base_plikHM_TTTEEE_lowl_lowE_R3.data_lens as cmb
 from y2023union3.data import get_data as get_sn_data
 from y2025BAO.data import get_data as get_bao_data
 
@@ -21,19 +24,19 @@ dx = np.diff(z_grid)
 
 @njit
 def Ode_z(z, w0, wa):
-    a3 = 1 / (1 + z) ** 3
-    return 4 / ((1 + w0) * a3 + (1 - w0)) ** 2
+    a3 = (1.0 + z) ** -3
+    return 4 / ((1.0 + w0) * a3 + (1.0 - w0)) ** 2
 
 
 @njit
-def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
+def Ez(z, H0, Obh2, Och2, w0=-1.0, wa=0.0):
     h = H0 / 100
     Onu = Omnuh2 / h**2
     Or = Orh2 / h**2
     Obc = (Obh2 + Och2) / h**2
     Ode = 1.0 - Obc - Or - Onu
 
-    zp1 = 1 + z
+    zp1 = 1.0 + z
 
     radiation_term = Or * zp1**4
     matter_term = Obc * zp1**3
@@ -60,7 +63,7 @@ def DM_z(z, theta):
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size)
     cum_dm[1:] = np.cumsum(dx * dy)
-    return np.interp(z, z_grid, cum_dm)
+    return interp_quad(z, z_grid, cum_dm)
 
 
 @njit
@@ -88,8 +91,8 @@ def bao_theory(z, qty, rd, params):
 
 @njit
 def theory_mu(params):
-    dL = (1 + z_cmb) * DM_z(z_cmb, params)
-    return params[0] + 25 + 5 * np.log10(dL)
+    dL = (1.0 + z_cmb) * DM_z(z_cmb, params)
+    return params[0] + 25.0 + 5 * np.log10(dL)
 
 
 def chi_squared(params):
@@ -105,7 +108,8 @@ def chi_squared(params):
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, rd, params)
     chi_bao = delta_bao @ inv_cov_bao @ delta_bao
 
-    return chi_sn + chi_bao + chi2_rd
+    # blobs: (100 θ*, rdrag)
+    return chi_sn + chi_bao + chi2_rd, dists
 
 
 bounds = np.array(
@@ -130,14 +134,16 @@ def log_prior(params):
 
 
 def log_likelihood(params):
-    return -0.5 * chi_squared(params)
+    chi2, blobs = chi_squared(params)
+    return -0.5 * chi2, blobs
 
 
 def log_probability(params):
     lp = log_prior(params)
     if np.isinf(lp):
-        return -np.inf
-    return lp + log_likelihood(params)
+        return -np.inf, np.empty(2)
+    ll, blobs = log_likelihood(params)
+    return lp + ll, blobs
 
 
 def main():
@@ -163,7 +169,9 @@ def main():
 
     with Pool(6) as pool:
         sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
-        sampler.run_mcmc(initial_pos, nsteps, progress=True)
+        sampler.run_mcmc(
+            initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#ff5a00"}
+        )
 
     try:
         tau = sampler.get_autocorr_time()
@@ -175,8 +183,9 @@ def main():
 
     chains_samples = sampler.get_chain(discard=burn_in, flat=False)
     samples = sampler.get_chain(discard=burn_in, flat=True)
+    blobs = sampler.get_blobs(discard=burn_in, flat=True)
     log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
-    log_evd = log_evidence(samples, log_probs, log_probability, bounds)
+    log_evd = log_evidence(samples, log_probs, lambda p: log_probability(p)[0], bounds)
     print("Gelman-Rubin:", gelman_rubin(chains_samples))
 
     one_sigma_ci = [15.9, 50, 84.1]
@@ -190,11 +199,15 @@ def main():
     ] = pct
 
     best_fit = np.percentile(samples, 50, axis=0)
-    theta_100 = cmb.cmb_distances(Ez, *best_fit[1:])[0]
+    deg_of_freedom = (
+        len(cmb.DISTANCE_PRIORS) + len(bao_data["z"]) + len(z_cmb) - len(best_fit)
+    )
+
+    theta_samples = blobs[:, 0]
+    rd_samples = blobs[:, 1]
 
     omh2_samples = samples[:, 2] + samples[:, 3] + Omnuh2
     Om_samples = omh2_samples / (samples[:, 1] / 100) ** 2
-    rd_samples = cmb.r_drag(samples[:, 2], omh2_samples)
     zd_samples = cmb.z_drag(samples[:, 2], omh2_samples)
     zst_samples = cmb.z_star(samples[:, 2], omh2_samples)
     omh2_16, omh2_50, omh2_84 = np.percentile(omh2_samples, one_sigma_ci)
@@ -202,6 +215,7 @@ def main():
     rd_16, rd_50, rd_84 = np.percentile(rd_samples, one_sigma_ci)
     zd_16, zd_50, zd_84 = np.percentile(zd_samples, one_sigma_ci)
     zst_16, zst_50, zst_84 = np.percentile(zst_samples, one_sigma_ci)
+    theta_16, theta_50, theta_84 = np.percentile(theta_samples, one_sigma_ci)
 
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
@@ -214,10 +228,12 @@ def main():
     print(f"z_d: {zd_50:.2f} +{(zd_84 - zd_50):.2f} -{(zd_50 - zd_16):.2f}")
     print(f"z*: {zst_50:.2f} +{(zst_84 - zst_50):.2f} -{(zst_50 - zst_16):.2f}")
     print(f"r*: {cmb.rs_z(Ez, zst_50, *best_fit[1:]):.2f} Mpc")
-    print(f"100 θ*: {theta_100:.5f}")
-    print(f"Chi squared: {chi_squared(best_fit):.1f}")
+    print(
+        f"100 θ*: {theta_50:.5f} +{(theta_84 - theta_50):.5f} -{(theta_50 - theta_16):.5f}"
+    )
+    print(f"Chi squared: {chi_squared(best_fit)[0]:.1f}")
     print(f"Log evidence: {log_evd:.1f}")
-    print(f"Degrees of freedom: {2 + len(bao_data['z']) + len(z_cmb) - len(best_fit)}")
+    print(f"Degrees of freedom: {deg_of_freedom}")
 
     labels = ["$Δ_M$", "$H_0$", "$ω_b$", "$ω_c$", "$w_0$"]
     plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
@@ -297,6 +313,21 @@ r*: 144.74 Mpc
 Chi squared: 40.2
 Log evidence: -35.9
 Degrees of freedom: 33
+
+-- Planck + Lensing 2018 --
+H0: 68.97 +0.43 -0.43 km/s/Mpc
+ωb: 0.02304 +0.00029 -0.00028
+ωc: 0.1171 +0.0007 -0.0007
+ωm: 0.1408 +0.0006 -0.0006
+Ωm: 0.2959 +0.0047 -0.0046
+r_d: 147.12 +0.26 -0.26 Mpc
+z_d: 1061.26 +0.62 -0.62
+z*: 1088.85 +0.38 -0.38
+r*: 144.67 Mpc
+100 θ*: 1.04113 +0.00031 -0.00031
+Chi squared: 40.1
+Log evidence: -35.7
+Degrees of freedom: 33
 """
 
 """
@@ -352,60 +383,93 @@ r*: 144.93 Mpc
 Chi squared: 33.2
 Log evidence: -34.8 (Δ logZ = 1.1 against ΛCDM)
 Degrees of freedom: 32
+
+-- Planck + Lensing 2018 --
+H0: 67.44 +0.71 -0.71 km/s/Mpc
+ωb: 0.02379 +0.00043 -0.00042
+ωc: 0.1142 +0.0014 -0.0015
+ωm: 0.1386 +0.0011 -0.0011
+Ωm: 0.3048 +0.0058 -0.0058
+w0: -0.905 +0.036 -0.036 (prior width 1.0: -1.5 to -0.5)
+wa: 0
+r_d: 147.07 +0.26 -0.26 Mpc
+z_d: 1062.73 +0.87 -0.86
+z*: 1087.74 +0.58 -0.58
+r*: 144.85 Mpc
+100 θ*: 1.04108 +0.00030 -0.00031
+Chi squared: 33.3
+Log evidence: -34.8 (Δ logZ = 0.9 against ΛCDM)
+Degrees of freedom: 32
 """
 
 """
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
 
 -- Early ΛCDM arXiv:2302.12911 --
-H0: 66.51 +0.84 -0.83 km/s/Mpc
+H0: 66.51 +0.84 -0.82 km/s/Mpc
 ωb: 0.02318 +0.00033 -0.00033
 ωc: 0.1153 +0.0009 -0.0009
 ωm: 0.1392 +0.0007 -0.0007
 Ωm: 0.3146 +0.0078 -0.0077
-w0: -0.790 +0.066 -0.067 (prior width -2/3: -1.0 to -1/3)
+w0: -0.789 +0.066 -0.067 (prior width -2/3: -1 to -1/3)
 wa: d w(z)/d z at z=0 = -1.5 * (1 - w0^2)
 r_d: 147.44 +0.28 -0.28 Mpc
-z_d: 1061.54 +0.71 -0.70
+z_d: 1061.55 +0.70 -0.71
 z*: 1088.63 +0.45 -0.44
 r*: 145.03 Mpc
-100 θ*: 1.04100
+100 θ*: 1.04101 +0.00026 -0.00026
 Chi squared: 30.4
 Log evidence: -32.5 (Δ logZ = 3.3 against ΛCDM)
 Degrees of freedom: 32
 
 -- ATC DR6 --
-H0: 67.15 +0.87 -0.85 km/s/Mpc
+H0: 67.15 +0.87 -0.84 km/s/Mpc
 ωb: 0.02459 +0.00054 -0.00054
 ωc: 0.1156 +0.0009 -0.0009
 ωm: 0.1408 +0.0009 -0.0009
 Ωm: 0.3123 +0.0077 -0.0076
-w0: -0.771 +0.065 -0.067 (prior width -2/3: -1.0 to -1/3)
+w0: -0.771 +0.065 -0.066 (prior width -2/3: -1.0 to -1/3)
 wa: d w(z)/d z at z=0 = -1.5 * (1 - w0**2)
 r_d: 145.85 +0.55 -0.55 Mpc
 z_d: 1064.46 +1.12 -1.14
 z*: 1086.83 +0.65 -0.62
 r*: 143.91 Mpc
-100 θ*: 1.04074
+100 θ*: 1.04074 +0.00031 -0.00031
 Chi squared: 30.0
 Log evidence: -31.5 (Δ logZ = 4.2 against ΛCDM)
 Degrees of freedom: 32
 
 -- ATC DR6 + Planck --
 H0: 66.62 +0.84 -0.82 km/s/Mpc
-ωb: 0.02347 +0.00034 -0.00033
+ωb: 0.02348 +0.00034 -0.00033
 ωc: 0.1153 +0.0009 -0.0009
 ωm: 0.1394 +0.0008 -0.0008
 Ωm: 0.3141 +0.0077 -0.0077
 w0: -0.784 +0.065 -0.067 (prior width -2/3: -1.0 to -1/3)
 wa: d w(z)/d z at z=0 = -1.5 * (1 - w0**2)
 r_d: 147.13 +0.29 -0.29 Mpc
-z_d: 1062.05 +0.70 -0.69
+z_d: 1062.05 +0.70 -0.70
 z*: 1088.09 +0.46 -0.46
 r*: 144.83 Mpc
-100 θ*: 1.04091
+100 θ*: 1.04093 +0.00025 -0.00025
 Chi squared: 30.3
 Log evidence: -32.4 (Δ logZ = 3.5 against ΛCDM)
+Degrees of freedom: 32
+
+-- Planck + Lensing 2018 --
+H0: 66.67 +0.83 -0.83 km/s/Mpc
+ωb: 0.02346 +0.00032 -0.00032
+ωc: 0.1155 +0.0009 -0.0009
+ωm: 0.1396 +0.0008 -0.0007
+Ωm: 0.3142 +0.0078 -0.0075
+w0: -0.786 +0.065 -0.067
+r_d: 147.08 +0.26 -0.26 Mpc
+z_d: 1062.10 +0.67 -0.67
+z*: 1088.22 +0.43 -0.42
+r*: 144.76 Mpc
+100 θ*: 1.04109 +0.00030 -0.00031
+Chi squared: 30.3
+Log evidence: -32.3 (Δ logZ = 3.4 against ΛCDM)
 Degrees of freedom: 32
 """
 
