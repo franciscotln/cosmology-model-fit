@@ -125,8 +125,8 @@ _EZ_FUNC = None
 
 @njit
 def _rs_integ(z, H0, Obh2, Och2, w0, wa):
-    Rb = 3 * Obh2 / (4 * O_GAMMA_H2)
-    cs = c / np.sqrt(3 * (1 + Rb / (1.0 + z)))
+    Rb = (3 / 4) * (Obh2 / O_GAMMA_H2) / (1.0 + z)
+    cs = c / np.sqrt(3 * (1.0 + Rb))
     Hz = H0 * _EZ_FUNC(z, H0, Obh2, Och2, w0, wa)
     return cs / Hz
 
