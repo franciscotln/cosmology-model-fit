@@ -70,11 +70,11 @@ _EZ_FUNC = None
 
 
 @njit
-def _rs_integ(a, H0, Obh2, Och2, w0, wa):
+def _rs_integ(z, H0, Obh2, Och2, w0, wa):
     Rb = 3 * Obh2 / (4 * O_GAMMA_H2)
-    Ez = _EZ_FUNC(1 / a - 1, H0, Obh2, Och2, w0, wa)
-    denom = H0 * a**2 * Ez * np.sqrt(3 * (1 + Rb * a))
-    return c / denom
+    Hz = H0 * _EZ_FUNC(z, H0, Obh2, Och2, w0, wa)
+    cs = c / np.sqrt(3 * (1 + Rb / (1.0 + z)))
+    return cs / Hz
 
 
 def rs_z(Ez_func, z_lim, H0, Obh2, Och2, w0=-1.0, wa=0.0):
@@ -82,7 +82,7 @@ def rs_z(Ez_func, z_lim, H0, Obh2, Och2, w0=-1.0, wa=0.0):
     _EZ_FUNC = Ez_func
 
     args = (H0, Obh2, Och2, w0, wa)
-    res = quad(_rs_integ, 1e-08, 1 / (1 + z_lim), args=args)[0]
+    res = quad(_rs_integ, z_lim, np.inf, args=args)[0]
     _EZ_FUNC = None
     return res
 
@@ -120,7 +120,7 @@ def cmb_distances(Ez_func, H0, Ob_h2, Oc_h2, w0=-1.0, wa=0.0):
 def z_star(wb, wm):
     """arXiv:2106.00428v2 (eq A-4)"""
 
-    s1, s2, b, m = (0.73100465, 1.00846211, 1.01539551, 1.16509864)
+    s1, s2, b, m = (0.75717491, 1.00737989, 1.02737182, 1.20432292)
     wb = wb**b
     wm = wm**m
 
@@ -135,7 +135,7 @@ def z_star(wb, wm):
 def r_drag(wb, wm):
     """arXiv:2106.00428v2 (eq 8)"""
 
-    b, m = (1.00137869, 1.0007536)
+    b, m = (1.00140649, 1.00072621)
 
     wb = wb**b
     wm = wm**m
@@ -159,7 +159,7 @@ def r_drag(wb, wm):
 @njit
 def z_drag(wb, wm):
     """arXiv:2106.00428v2 (eq A2)"""
-    s1, s2, b, m = (1.00276779, 0.99970462, 1.00160686, 0.99210251)
+    s1, s2, b, m = (1.00329735, 0.99968141, 1.00232108, 0.9893333)
 
     wb = wb**b
     wm = wm**m

@@ -1,6 +1,6 @@
 from numba import njit
 import numpy as np
-import cmb.data_early_lcdm_compression as cmb
+import cmb.data_planck_compression as cmb
 
 c = cmb.c  # km/s
 Or_h2 = cmb.Or_h2
@@ -53,7 +53,7 @@ def log_likelihood(params):
     lA = np.pi / thetastar
     R = 100 * np.sqrt(Omh2) * DM_star / c  # shift parameter
 
-    delta = cmb.DISTANCE_PRIORS - np.array([thetastar, Obh2, Omh2])
+    delta = cmb.DISTANCE_PRIORS - np.array([R, lA, Obh2])
     log_like = -0.5 * (delta @ cmb.inv_cov_mat @ delta)
     # blobs: (100 θ*, r*, DM* in Gpc, z*)
     return log_like, np.array([100 * thetastar, rs_star, DM_star / 1000, zstar])
@@ -195,19 +195,19 @@ Chi squared: 0.0008
 ===============================
 
 Early ΛCDM (arXiv:2302.12911v2)
-H0: 67.50 ± 0.58 km/s/Mpc
+H0: 67.49 ± 0.58 km/s/Mpc
 ωc: 0.1192 ± 0.0013
 ωb: 0.02223 ± 0.00015
 ωm: 0.1421 ± 0.0012
-Ωm: 0.3120 ± 0.0080
+Ωm: 0.3121 ± 0.0080
 z_eq: 3380 ± 29
 z*: 1090.12 ± 0.27
-r*: 144.75 ± 0.28 Mpc
+r*: 144.74 ± 0.28 Mpc
 100 θ*: 1.04103 ± 0.00026
 DM*: 13.90 ± 0.03 Gpc
-z_drag: 1059.565 ± 0.29
+z_drag: 1059.66 ± 0.29
 r_d: 147.46 ± 0.28 Mpc
-Chi squared: 0.0003
+Chi squared: 0.0005
 
 ===============================
 
