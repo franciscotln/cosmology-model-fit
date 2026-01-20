@@ -129,9 +129,9 @@ _EZ_FUNC = None
 @njit
 def _rs_integ(z, H0, Obh2, Och2, w0, wa):
     Rb = 3 * Obh2 / (4 * O_GAMMA_H2)
-    Ez = _EZ_FUNC(z, H0, Obh2, Och2, w0, wa)
     cs = c / np.sqrt(3 * (1 + Rb / (1.0 + z)))
-    return cs / (H0 * Ez)
+    Hz = H0 * _EZ_FUNC(z, H0, Obh2, Och2, w0, wa)
+    return cs / Hz
 
 
 def rs_z(Ez_func, z_lim, H0, Obh2, Och2, w0=-1.0, wa=0.0):
@@ -139,7 +139,7 @@ def rs_z(Ez_func, z_lim, H0, Obh2, Och2, w0=-1.0, wa=0.0):
     _EZ_FUNC = Ez_func
 
     args = (H0, Obh2, Och2, w0, wa)
-    res = quad(_rs_integ, z_lim, 1e8, args=args)[0]
+    res = quad(_rs_integ, z_lim, np.inf, args=args)[0]
     _EZ_FUNC = None
     return res
 
