@@ -1,9 +1,7 @@
 from numba import njit
 import numpy as np
 from interpolator import interp_quad
-
-# import y2023cmbearlylcdm.data as cmb
-import y2018cmb_planck_base_plikHM_TTTEEE_lowl_lowE_R3.data_lens as cmb
+import y2023cmbearlylcdm.data as cmb
 from y2023union3.data import get_data as get_sn_data
 from y2025BAO.data import get_data as get_bao_data
 
