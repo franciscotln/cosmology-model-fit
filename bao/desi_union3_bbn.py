@@ -1,6 +1,7 @@
 from numba import njit
 import numpy as np
 from scipy.constants import c as c0
+from interpolator import interp_quad
 import y2024BBN.prior_lcdm_schoneberg as bbn
 from y2023union3.data import get_data as get_sn_data
 from y2025BAO.data import get_data as get_bao_data
@@ -15,7 +16,7 @@ inv_cov_sn = np.linalg.inv(cov_matrix_sn)
 inv_cov_bao = np.linalg.inv(bao_cov_matrix)
 
 z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
-z_grid = np.linspace(0, z_max, num=2300)
+z_grid = np.linspace(0, z_max, num=4000)
 dx = np.diff(z_grid)
 
 
@@ -32,7 +33,7 @@ def r_drag(wb, wm):
     a8 = 32.7525
     a9 = 0.315473
 
-    term_A_denominator = (a1 * (wb**a2)) + (a3 * (wb**a4) * (wm**a5)) + (a6 * (wm**a7))
+    term_A_denominator = a1 * wb**a2 + a3 * wb**a4 * wm**a5 + a6 * wm**a7
     term_A = 1.0 / term_A_denominator
     term_B = a8 / (wm**a9)
     return term_A - term_B
@@ -41,10 +42,10 @@ def r_drag(wb, wm):
 @njit
 def Ez(z, params):
     Om, w0 = params[1], params[3]
-    zp1 = 1 + z
+    zp1 = 1.0 + z
     cubed = zp1**3
-    rho_de = (2 * cubed / (1 + w0 + (1 - w0) * cubed)) ** 2
-    return np.sqrt(Om * cubed + (1 - Om) * rho_de)
+    rho_de = (2 * cubed / (1.0 + w0 + (1.0 - w0) * cubed)) ** 2
+    return np.sqrt(Om * cubed + (1.0 - Om) * rho_de)
 
 
 @njit
@@ -63,7 +64,7 @@ def DM_z(z, theta):
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size)
     cum_dm[1:] = np.cumsum(dx * dy)
-    return np.interp(z, z_grid, cum_dm)
+    return interp_quad(z, z_grid, cum_dm)
 
 
 @njit
@@ -94,8 +95,8 @@ def bao_theory(z, qty, params):
 
 @njit
 def theory_mu(params):
-    dL = (1 + z_cmb) * DM_z(z_cmb, params)
-    return params[-1] + 25 + 5 * np.log10(dL)
+    dL = (1.0 + z_cmb) * DM_z(z_cmb, params)
+    return params[-1] + 25.0 + 5 * np.log10(dL)
 
 
 @njit
@@ -113,14 +114,14 @@ def log_likelihood(params):
     return -0.5 * chi_squared(params)
 
 
-def q0(Om, w0=-1):
+def q0(Om, w0=-1.0):
     """Calculate the deceleration parameter at z=0."""
-    return Om / 2 + (1 + 3 * w0) * (1 - Om) / 2
+    return Om / 2 + (1.0 + 3 * w0) * (1.0 - Om) / 2
 
 
-def j0(Om, w0=-1, wa=0):
+def j0(Om, w0=-1.0, wa=0.0):
     """Calculate the jerk parameter at z=0."""
-    return 1 + (3 / 2) * (1 - Om) * (3 * w0 * (1 + w0) + wa)
+    return 1.0 + (3 / 2) * (1.0 - Om) * (3 * w0 * (1.0 + w0) + wa)
 
 
 def main():
@@ -150,30 +151,13 @@ def main():
 
     one_sigma_ci = [0.159, 0.5, 0.841]
 
-    corner(
-        samples,
-        weights=w,
-        labels=prior.keys,
-        quantiles=one_sigma_ci,
-        show_titles=True,
-        title_fmt=".4f",
-        bins=100,
-        fill_contours=False,
-        plot_datapoints=False,
-        smooth=2.0,
-        smooth1d=2.0,
-        levels=(0.393, 0.864),
-        range=np.repeat(0.9999, len(prior.keys)),
-    )
-    plt.show()
-
     H0_16, H0_50, H0_84 = quantile(samples[:, 0], one_sigma_ci, weights=w)
     Om_16, Om_50, Om_84 = quantile(samples[:, 1], one_sigma_ci, weights=w)
     Obh2_16, Obh2_50, Obh2_84 = quantile(samples[:, 2], one_sigma_ci, weights=w)
     w0_16, w0_50, w0_84 = quantile(samples[:, 3], one_sigma_ci, weights=w)
     dM_16, dM_50, dM_84 = quantile(samples[:, 4], one_sigma_ci, weights=w)
 
-    wa_samples = -1.5 * (1 - samples[:, 3] ** 2)
+    wa_samples = -1.5 * (1.0 - samples[:, 3] ** 2)
     Omh2_samples = samples[:, 1] * (samples[:, 0] / 100) ** 2
     rd_samples = r_drag(samples[:, 2], Omh2_samples)
     q0_samples = q0(samples[:, 1], w0=samples[:, 3])
@@ -201,6 +185,22 @@ def main():
     print(f"Log Evidence: {sampler.log_z:.2f}")
     print(f"Degrees of freedom: {len(bao_data['z']) + len(z_cmb) - len(best_fit)}")
 
+    corner(
+        samples,
+        weights=w,
+        labels=prior.keys,
+        quantiles=one_sigma_ci,
+        show_titles=True,
+        title_fmt=".4f",
+        bins=100,
+        fill_contours=False,
+        plot_datapoints=False,
+        smooth=2.0,
+        smooth1d=2.0,
+        levels=(0.393, 0.864),
+        range=np.repeat(0.9999, len(prior.keys)),
+    )
+    plt.show()
     plot_bao_predictions(
         theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
         data=bao_data,
@@ -246,12 +246,13 @@ wa U(-4.0, 2.0)
 """
 Flat ΛCDM w(z) = -1
 H0: 68.8 +0.6 -0.6 km/s/Mpc
-Ωm: 0.3040 +0.0084 -0.0081
+Ωm: 0.3041 +0.0085 -0.0083
 ωb: 0.02219 +0.00055 -0.00055
-ωm: 0.14388 +0.00506 -0.00487
+ωm: 0.14387 +0.00514 -0.00487
 w0: -1
 wa: 0
-r_d: 146.87 +1.54 -1.52 Mpc
+ΔM: -0.115 +0.091 -0.092
+r_d: 146.87 +1.55 -1.55 Mpc
 q0: -0.544 +0.013 -0.012
 j0: 1
 Chi squared: 38.82
@@ -262,30 +263,32 @@ Degrees of freedom: 31
 
 Flat wCDM w(z) = w0
 H0: 65.1 +1.6 -1.6 km/s/Mpc
-Ωm: 0.2980 +0.0091 -0.0091
-ωb: 0.02218 +0.00055 -0.00055
-ωm: 0.12646 +0.00845 -0.00851
-w0: -0.868 +0.051 -0.052
+Ωm: 0.2980 +0.0091 -0.0090
+ωb: 0.02219 +0.00055 -0.00055
+ωm: 0.12643 +0.00851 -0.00840
+w0: -0.867 +0.051 -0.051
 wa: 0
-r_d: 151.70 +2.71 -2.53 Mpc
-q0: -0.413 +0.051 -0.052
-j0: 0.324 +0.252 -0.236
-Chi squared: 32.15
-Log Evidence: -26.91 (Δ logZ = 1.20 against ΛCDM)
+ΔM: -0.223 +0.101 -0.101
+r_d: 151.70 +2.69 -2.55 Mpc
+q0: -0.413 +0.050 -0.051
+j0: 0.636
+Chi squared: 32.14
+Log Evidence: -26.92 (Δ logZ = 1.19 against ΛCDM)
 Degrees of freedom: 30
 
 ===============================
 
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
-H0: 65.4 +1.3 -1.3 km/s/Mpc
-Ωm: 0.3122 +0.0090 -0.0088
-ωb: 0.02219 +0.00055 -0.00055
-ωm: 0.13346 +0.00598 -0.00568
+H0: 65.4 +1.3 -1.2 km/s/Mpc
+Ωm: 0.3121 +0.0090 -0.0088
+ωb: 0.02219 +0.00055 -0.00054
+ωm: 0.13345 +0.00597 -0.00566
 w0: -0.765 +0.074 -0.077
-wa: -0.622 +0.185 -0.161 [derived wa = -1.5 * (1 - w0**2)]
-r_d: 149.68 +1.84 -1.83 Mpc
-q0: -0.289 +0.080 -0.084
-j0: -0.198 +0.332 -0.266
+wa: -0.622 +0.185 -0.162 [derived wa = -1.5 * (1 - w0**2)]
+ΔM: -0.202 +0.094 -0.096
+r_d: 149.70 +1.81 -1.82 Mpc
+q0: -0.289 +0.080 -0.083
+j0: -0.199 +0.332 -0.267
 Chi squared: 29.96
 Log Evidence: -25.01 (Δ logZ = 3.10 against ΛCDM)
 Degrees of freedom: 30
