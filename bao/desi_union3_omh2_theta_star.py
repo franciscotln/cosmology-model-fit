@@ -22,13 +22,13 @@ dx = np.diff(z_grid)
 
 
 @njit
-def Ode_z(z, w0, wa):
+def Ode_z(z, w0):
     cubed = (1.0 + z) ** 3
     return (2 * cubed / (1.0 + w0 + (1.0 - w0) * cubed)) ** 2
 
 
 @njit
-def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
+def Ez(z, H0, Obh2, Och2, w0):
     h = H0 / 100
     Onu = Omnuh2 / h**2
     Or = Orh2 / h**2
@@ -40,7 +40,7 @@ def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
     radiation_term = Or * zp1**4
     matter_term = Obc * zp1**3
     neutrino_term = Onu * cmb.Omnu_z(z)
-    dark_energy_term = Ode * Ode_z(z, w0, wa)
+    dark_energy_term = Ode * Ode_z(z, w0)
 
     return np.sqrt(radiation_term + matter_term + neutrino_term + dark_energy_term)
 
@@ -98,9 +98,8 @@ def theory_mu(theta):
 
 def chi_squared(theta):
     delta_cmb = (
-        cmb.DISTANCE_PRIORS[[0, 2]]
-        - cmb.cmb_distances(Ez, theta[2], theta[3], theta)[[0, 2]]
-    )
+        cmb.DISTANCE_PRIORS - cmb.cmb_distances(H_z, theta[2], theta[3], theta)
+    )[[0, 2]]
     chi_cmb = delta_cmb @ inv_cov_cmb @ delta_cmb
 
     delta_sn = mu_vals - theory_mu(theta)
@@ -275,15 +274,15 @@ Degs of freedom: 32
 
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
 H0: 67.51 +0.93 -0.92 km/s/Mpc
-ωb: 0.02523 +0.00107 -0.00108
+ωb: 0.02524 +0.00107 -0.00108
 ωc: 0.1162 +0.0008 -0.0008
 ωm: 0.1421 +0.0012 -0.0012
 Ωm: 0.312 +0.008 -0.008
-w0: -0.765 +0.067 -0.070
+w0: -0.765 +0.067 -0.069
 wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
-z_d: 1066.11 +2.21 -2.32
-r_d: 145.00 +1.12 -1.08 Mpc
-Chi squared: 29.96
+z_d: 1066.12 +2.22 -2.31
+r_d: 144.99 +1.12 -1.08 Mpc
+Chi squared: 29.97
 Log Evidence: -31.49 (Δ logZ = 3.94 against ΛCDM)
 Degs of freedom: 32
 
