@@ -1,6 +1,7 @@
 from numba import njit
 import numpy as np
 from scipy.linalg import cho_factor, solve_triangular
+from interpolator import interp_quad
 from y2022pantheonSHOES.data import get_data
 import cmb.data_planck_act_compression as cmb
 
@@ -16,7 +17,7 @@ dx = np.diff(z_grid)
 
 
 @njit
-def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
+def Ez(z, H0, Obh2, Och2, w0):
     h = H0 / 100
     Onu = Omnuh2 / h**2
     Or = Orh2 / h**2
@@ -45,13 +46,13 @@ def DM_z(z, params):
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size)
     cum_dm[1:] = np.cumsum(dx * dy)
-    return np.interp(z, z_grid, cum_dm)
+    return interp_quad(z, z_grid, cum_dm)
 
 
 @njit
 def apparent_mag(params):
-    dL = (1 + z_hel) * DM_z(z_cmb, params)
-    return params[0] + 25 + 5 * np.log10(dL)
+    dL = (1.0 + z_hel) * DM_z(z_cmb, params)
+    return params[0] + 25.0 + 5 * np.log10(dL)
 
 
 def solve_triang(cho_L, delta):
@@ -61,7 +62,7 @@ def solve_triang(cho_L, delta):
 
 def chi_squared(params):
     delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(H_z, params[2], params[3], params)
-    chi2_cmb = np.dot(delta, np.dot(cmb.inv_cov_mat, delta))
+    chi2_cmb = delta @ cmb.inv_cov_mat @ delta
 
     delta_sn = mb_values - apparent_mag(params)
     chi_sn = solve_triang(cho_sn, delta_sn)
@@ -71,13 +72,12 @@ def chi_squared(params):
 
 bounds = np.array(
     [
-        (-20, -19),  # M
-        (60, 75),  # H0
+        (-20.0, -19.0),  # M
+        (60.0, 75.0),  # H0
         (0.010, 0.030),  # Ωb * h^2
         (0.010, 0.25),  # Ωc * h^2
         (-1.0, 0.0),  # w0
-    ],
-    dtype=np.float64,
+    ]
 )
 
 normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
@@ -115,13 +115,15 @@ def main():
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
     moves = [
-        (emcee.moves.KDEMove(), 0.30),
+        (emcee.moves.KDEMove(bw_method="silverman"), 0.30),
         (emcee.moves.DEMove(), 0.70),
     ]
 
     with Pool(6) as pool:
         sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
-        sampler.run_mcmc(initial_pos, nsteps, progress=True)
+        sampler.run_mcmc(
+            initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#ff5a00"}
+        )
 
     try:
         tau = sampler.get_autocorr_time()
@@ -173,6 +175,8 @@ def main():
     print(f"rd: {r_d_50:.2f} +{(r_d_84 - r_d_50):.2f} -{(r_d_50 - r_d_16):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
 
+    labels = ["M", "$H_0$", "$ω_b$", "$ω_c$", "$w_0$"]
+    plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains)
     plot_sn_predictions(
         legend=sn_legend,
         x=z_cmb,
@@ -181,11 +185,6 @@ def main():
         y_model=apparent_mag(best_fit) - M_50,
         label=f"$Ω_m$={Om_50:.3f}",
         x_scale="log",
-    )
-    plot_corner_and_chains(
-        labels=["M", "$H_0$", "$ω_b$", "$ω_c$", "$w_0$"],
-        flat_samples=samples,
-        samples=chains,
     )
 
 
@@ -228,19 +227,19 @@ Chi squared: 1402.70
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
-H0: 66.73 +0.61 -0.64 km/s/Mpc
+H0: 66.73 +0.60 -0.64 km/s/Mpc
 Ωm: 0.320 +0.008 -0.007
 ωm: 0.14236 +0.00115 -0.00113
 ωb: 0.02250 +0.00011 -0.00011
-ωc: 0.11922 +0.00118 -0.00117
-w0: -0.936 +0.045 -0.039 (prior width 1.0: from -1.0 to 0.0)
+ωc: 0.11921 +0.00119 -0.00117
+w0: -0.935 +0.045 -0.038 (prior width 1.0: from -1.0 to 0.0)
 wa: d w(z)/dz at z=0 = -1.5 * (1 - w0**2)
 M: -19.451 +0.015 -0.016 mag
 z*: 1089.67 +0.21 -0.21
 z_d: 1060.18 +0.23 -0.23
-r* = 144.54 Mpc
+r* = 144.55 Mpc
 rd: 147.16 +0.29 -0.29 Mpc
-Chi squared: 1402.81
+Chi squared: 1402.80
 
 ===============================
 
