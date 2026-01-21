@@ -22,7 +22,7 @@ dx = np.diff(z_grid)
 
 
 @njit
-def Ode_z(z, w0, wa):
+def Ode_z(z, w0):
     zp1 = 1.0 + z
     return (2 * zp1**3 / (1 + w0 + (1 - w0) * zp1**3)) ** 2  # wzCDM
     # return 1  # ΛCDM
@@ -31,19 +31,19 @@ def Ode_z(z, w0, wa):
 
 
 @njit
-def Ez(z, H0, Obh2, Och2, w0=-1.0, wa=0.0):
+def Ez(z, H0, Obh2, Och2, w0):
     h = H0 / 100
     Onu = Omnuh2 / h**2
     Or = Orh2 / h**2
     Obc = (Obh2 + Och2) / h**2
     Ode = 1.0 - Obc - Or - Onu
 
-    zp1 = 1 + z
+    zp1 = 1.0 + z
 
     radiation_term = Or * zp1**4
     matter_term = Obc * zp1**3
     neutrino_term = Onu * cmb.Omnu_z(z)
-    dark_energy_term = Ode * Ode_z(z, w0, wa)
+    dark_energy_term = Ode * Ode_z(z, w0)
 
     return np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
 
@@ -259,7 +259,7 @@ DESI DR2 + DES5Y + (R, π/θ*, ωb)CMB
 """
 
 """
-Flat ΛCDM w(z) = -1
+Flat ΛCDM: w(z) = -1
 
 ** Early time ΛCDM **
 H0: 68.25 +0.29 -0.29 km/s/Mpc
@@ -294,7 +294,7 @@ Log evidence: -843.0
 
 
 """
-Flat wcDM w(z) = w0
+Flat wCDM: w(z) = w0
 
 ** Early time ΛCDM **
 H0: 67.61 +0.54 -0.53 km/s/Mpc
@@ -332,39 +332,39 @@ Log evidence: -844.6 (Δ logZ = -1.6 in favour of ΛCDM)
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
 
 ** Early time ΛCDM **
-H0: 67.17 +0.54 -0.54 km/s/Mpc
+H0: 67.17 +0.53 -0.54 km/s/Mpc
 Ωm: 0.3100 +0.0053 -0.0051
 ωb: 0.02241 +0.00012 -0.00012
 ωc: 0.1168 +0.0007 -0.0007
 ωm: 0.1399 +0.0007 -0.0007
-w0: -0.904 +0.041 -0.041 (prior width 2/3: -1 to -1/3)
-wa: -0.275 +0.115 -0.109
-r*: 145.23 Mpc
+w0: -0.903 +0.041 -0.041 (prior width 2/3: -1 to -1/3)
+wa: -0.276 +0.114 -0.108
+r*: 145.24 Mpc
 z*: 1089.69 +0.18 -0.18
-r_d: 147.90 Mpc
-z_d: 1059.88 +0.27 -0.27
-Chi squared: 1643.67
-Log evidence: -841.7 (Δ logZ = 0.7 against ΛCDM)
+r_d: 147.91 Mpc
+z_d: 1059.89 +0.27 -0.27
+Chi squared: 1643.70
+Log evidence: -841.8 (Δ logZ = 0.6 against ΛCDM)
 
 ** ACT DR6 + Planck **
-H0: 67.25 +0.53 -0.54 km/s/Mpc
-Ωm: 0.3100 +0.0053 -0.0051
+H0: 67.26 +0.54 -0.54 km/s/Mpc
+Ωm: 0.3099 +0.0053 -0.0051
 ωb: 0.02260 +0.00010 -0.00010
 ωc: 0.1169 +0.0007 -0.0007
 ωm: 0.1402 +0.0007 -0.0007
-w0: -0.906 +0.041 -0.040 (prior width 2/3: -1 to -1/3)
-wa: -0.268 +0.112 -0.110
-r*: 145.06 Mpc
-z*: 1089.34 +0.16 -0.16
-r_d: 147.66 Mpc
+w0: -0.906 +0.041 -0.041 (prior width 2/3: -1 to -1/3)
+wa: -0.268 +0.113 -0.110
+r*: 145.07 Mpc
+z*: 1089.33 +0.16 -0.16
+r_d: 147.67 Mpc
 z_d: 1060.22 +0.23 -0.23
-Chi squared: 1644.74
+Chi squared: 1644.75
 Log evidence: -842.4 (Δ logZ = 0.6 against ΛCDM)
 """
 
 
 """
-Flat w(z) = w0 + wa * z / (1 + z)
+Flat w0waCDM: w(z) = w0 + wa * z / (1 + z)
 
 ** Early time ΛCDM **
 H0: 67.31 +0.55 -0.54 km/s/Mpc
