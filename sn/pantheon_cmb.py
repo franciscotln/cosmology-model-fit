@@ -23,20 +23,25 @@ def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
     Obc = (Obh2 + Och2) / h**2
     Ode = 1.0 - Obc - Or - Onu
 
-    zp1 = 1 + z
+    zp1 = 1.0 + z
 
     radiation_term = Or * zp1**4
     matter_term = Obc * zp1**3
     neutrino_term = Onu * cmb.Omnu_z(z)
-    dark_energy_term = Ode * (2 * zp1**3 / ((1 + w0) + (1 - w0) * zp1**3)) ** 2
+    dark_energy_term = Ode * (2 * zp1**3 / ((1.0 + w0) + (1.0 - w0) * zp1**3)) ** 2
 
     return np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
 
 
 @njit
-def DM_z(z, params):
+def H_z(z, params):
     H0, Obh2, Och2, w0 = params[1:]
-    dh_grid = (c / H0) / Ez(z_grid, H0, Obh2, Och2, w0)
+    return H0 * Ez(z, H0, Obh2, Och2, w0)
+
+
+@njit
+def DM_z(z, params):
+    dh_grid = c / H_z(z_grid, params)
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size)
     cum_dm[1:] = np.cumsum(dx * dy)
@@ -55,7 +60,7 @@ def solve_triang(cho_L, delta):
 
 
 def chi_squared(params):
-    delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez, *params[1:])
+    delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(H_z, params[2], params[3], params)
     chi2_cmb = np.dot(delta, np.dot(cmb.inv_cov_mat, delta))
 
     delta_sn = mb_values - apparent_mag(params)
@@ -106,7 +111,7 @@ def main():
     ndim = len(bounds)
     nwalkers = 150
     burn_in = 500
-    nsteps = 4000 + burn_in
+    nsteps = 2500 + burn_in
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
     moves = [
@@ -164,7 +169,7 @@ def main():
     print(f"M: {M_50:.3f} +{(M_84 - M_50):.3f} -{(M_50 - M_16):.3f} mag")
     print(f"z*: {z_st_50:.2f} +{(z_st_84 - z_st_50):.2f} -{(z_st_50 - z_st_16):.2f}")
     print(f"z_d: {z_d_50:.2f} +{(z_d_84 - z_d_50):.2f} -{(z_d_50 - z_d_16):.2f}")
-    print(f"r* = {cmb.rs_z(Ez, z_st_50, *best_fit[1:]):.2f} Mpc")
+    print(f"r* = {cmb.rs_z(H_z, z_st_50, Obh2_50, best_fit):.2f} Mpc")
     print(f"rd: {r_d_50:.2f} +{(r_d_84 - r_d_50):.2f} -{(r_d_50 - r_d_16):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
 

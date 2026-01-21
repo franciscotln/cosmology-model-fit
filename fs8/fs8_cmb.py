@@ -1,6 +1,7 @@
 from numba import njit
 import numpy as np
 from scipy.integrate import solve_ivp
+from interpolator import interp_quad
 import y2018fs8.data as fs8_data
 import cmb.data_planck_act_compression as cmb
 
@@ -61,7 +62,7 @@ def DM(z, theta):
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(len(z_grid))
     cum_dm[1:] = np.cumsum(dx * dy)
-    return np.interp(z, z_grid, cum_dm)
+    return interp_quad(z, z_grid, cum_dm)
 
 
 H0_fid = 67.6
@@ -124,7 +125,7 @@ def chi_squared(theta):
     delta = data["fs8"] - fs8_theory(data["z"], theta) / q
     chi2_fs8 = theta[-1] ** 2 * np.dot(delta, np.dot(inv_cov_mat, delta))
 
-    delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez, *theta[0:4])
+    delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Hz, theta[1], theta[2], theta)
     chi2_cmb = np.dot(delta_cmb, np.dot(cmb.inv_cov_mat, delta_cmb))
 
     return chi2_fs8 + chi2_cmb
@@ -145,7 +146,6 @@ bounds = np.array(
         (50.0, 80.0),  # H0
         (0.01, 0.035),  # Ob * h^2
         (0.1, 0.35),  # Oc * h^2
-        # (-1.5, -0.5),  # w0
         (-1.0, 0.0),  # w0
         (0.2, 1.2),  # sigma8
         (0.5, 2.2),  # f_err: overstimation factor of the errors

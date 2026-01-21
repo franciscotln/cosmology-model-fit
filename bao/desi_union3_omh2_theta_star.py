@@ -1,6 +1,7 @@
 from numba import njit
 import numpy as np
 import cmb.data_early_lcdm_compression as cmb
+from interpolator import interp_quad
 from y2023union3.data import get_data as get_sn_data
 from y2025BAO.data import get_data as get_bao_data
 
@@ -22,8 +23,8 @@ dx = np.diff(z_grid)
 
 @njit
 def Ode_z(z, w0, wa):
-    cubed = (1 + z) ** 3
-    return (2 * cubed / (1 + w0 + (1 - w0) * cubed)) ** 2
+    cubed = (1.0 + z) ** 3
+    return (2 * cubed / (1.0 + w0 + (1.0 - w0) * cubed)) ** 2
 
 
 @njit
@@ -34,7 +35,7 @@ def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
     Obc = (Obh2 + Och2) / h**2
     Ode = 1.0 - Obc - Or - Onu
 
-    zp1 = 1 + z
+    zp1 = 1.0 + z
 
     radiation_term = Or * zp1**4
     matter_term = Obc * zp1**3
@@ -61,7 +62,7 @@ def DM_z(z, theta):
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size, dtype=np.float64)
     cum_dm[1:] = np.cumsum(dx * dy)
-    return np.interp(z, z_grid, cum_dm)
+    return interp_quad(z, z_grid, cum_dm)
 
 
 @njit
@@ -91,12 +92,15 @@ def bao_theory(z, qty, theta):
 
 @njit
 def theory_mu(theta):
-    dL = (1 + z_sn_vals) * DM_z(z_sn_vals, theta)
-    return theta[0] + 25 + 5 * np.log10(dL)
+    dL = (1.0 + z_sn_vals) * DM_z(z_sn_vals, theta)
+    return theta[0] + 25.0 + 5 * np.log10(dL)
 
 
 def chi_squared(theta):
-    delta_cmb = cmb.DISTANCE_PRIORS[[0, 2]] - cmb.cmb_distances(Ez, *theta[1:])[[0, 2]]
+    delta_cmb = (
+        cmb.DISTANCE_PRIORS[[0, 2]]
+        - cmb.cmb_distances(Ez, theta[2], theta[3], theta)[[0, 2]]
+    )
     chi_cmb = delta_cmb @ inv_cov_cmb @ delta_cmb
 
     delta_sn = mu_vals - theory_mu(theta)

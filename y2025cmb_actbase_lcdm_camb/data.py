@@ -122,51 +122,49 @@ def z_drag(wb, wm):
     ) * wm**-0.714129
 
 
-_EZ_FUNC = None
+_HZ_FUNC = None
 
 
 @njit
-def _rs_integ(a, H0, Obh2, Och2, w0, wa):
-    Rb = 3 * Obh2 / (4 * O_GAMMA_H2)
-    Ez = _EZ_FUNC(1 / a - 1, H0, Obh2, Och2, w0, wa)
-    denom = H0 * a**2 * Ez * np.sqrt(3 * (1 + Rb * a))
-    return c / denom
+def _rs_integ(z, Obh2, params):
+    Rb = (3 / 4) * (Obh2 / O_GAMMA_H2) / (1.0 + z)
+    cs = c / np.sqrt(3 * (1.0 + Rb))
+    Hz = _HZ_FUNC(z, params)
+    return cs / Hz
 
 
-def rs_z(Ez_func, z_lim, H0, Obh2, Och2, w0=-1.0, wa=0.0):
-    global _EZ_FUNC
-    _EZ_FUNC = Ez_func
+def rs_z(Hz_fun, z_lim, Obh2, params):
+    global _HZ_FUNC
+    _HZ_FUNC = Hz_fun
 
-    args = (H0, Obh2, Och2, w0, wa)
-    res = quad(_rs_integ, 1e-08, 1 / (1 + z_lim), args=args)[0]
-    _EZ_FUNC = None
+    args = (Obh2, params)
+    res = quad(_rs_integ, z_lim, np.inf, args=args)[0]
+    _HZ_FUNC = None
     return res
 
 
 @njit
-def _DM_integ(z, H0, Obh2, Och2, w0, wa):
-    return (c / H0) / _EZ_FUNC(z, H0, Obh2, Och2, w0, wa)
+def _DM_integ(z, params):
+    return c / _HZ_FUNC(z, params)
 
 
-def DM_z(Ez_func, z_lim, H0, Obh2, Och2, w0=-1.0, wa=0.0):
-    global _EZ_FUNC
-    _EZ_FUNC = Ez_func
+def DM_z(Hz_fun, z_lim, params):
+    global _HZ_FUNC
+    _HZ_FUNC = Hz_fun
 
-    args = (H0, Obh2, Och2, w0, wa)
-    res = quad(_DM_integ, 0.0, z_lim, args=args)[0]
-    _EZ_FUNC = None
+    res = quad(_DM_integ, 0.0, z_lim, args=(params,))[0]
+    _HZ_FUNC = None
     return res
 
 
-def cmb_distances(Ez_func, H0, Ob_h2, Oc_h2, w0=-1.0, wa=0.0):
+def cmb_distances(Hz_fun, Ob_h2, Oc_h2, params):
     """
     returns (100 θ*, r_drag)
     """
     Om_h2 = Oc_h2 + Ob_h2 + Omnu_h2
-    rs_drag = r_drag(wb=Ob_h2, wm=Om_h2)
-    zstar = z_star(wb=Ob_h2, wm=Om_h2)
-
-    rs_star = rs_z(Ez_func, zstar, H0, Ob_h2, Oc_h2, w0, wa)
-    DM_star = DM_z(Ez_func, zstar, H0, Ob_h2, Oc_h2, w0, wa)
+    rs_drag = r_drag(Ob_h2, Om_h2)
+    zstar = z_star(Ob_h2, Om_h2)
+    rs_star = rs_z(Hz_fun, zstar, Ob_h2, params)
+    DM_star = DM_z(Hz_fun, zstar, params)
     thetastar = rs_star / DM_star
     return np.array([100 * thetastar, rs_drag], dtype=np.float64)

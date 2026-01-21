@@ -54,7 +54,9 @@ def chi_squared(params):
         delta_cc, cho_solve(cho_cc, delta_cc, check_finite=False)
     )
 
-    delta_cm = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez, *params[1:])
+    delta_cm = cmb.DISTANCE_PRIORS - cmb.cmb_distances(
+        H_z, params[2], params[3], params
+    )
     chi2_cmb = np.dot(delta_cm, np.dot(cmb.inv_cov_mat, delta_cm))
     return chi2_cc + chi2_cmb
 
@@ -167,10 +169,11 @@ Flat ΛCDM
 
 f: 1.50 +0.19 -0.18
 H0: 67.60 +0.50 -0.49
-Ωm: 0.3119 +0.0071 -0.0070
-ωb: 0.02249 +0.00011 -0.00011
-ωc: 0.11938 +0.00119 -0.00121
-Chi squared: 33.34
+Ωm: 0.3118 +0.0071 -0.0070
+ωb: 0.02250 +0.00011 -0.00011
+ωc: 0.11936 +0.00120 -0.00119
+f: 1.50 +0.19 -0.18
+Chi squared: 33.31
 Log likelihood: -130.57
 Log evidence: -147.01 (Δ logZ = 3.32 compared to fixed f)
 Degs of freedom: 32

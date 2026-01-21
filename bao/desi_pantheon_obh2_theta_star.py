@@ -2,6 +2,7 @@ from numba import njit
 import numpy as np
 from scipy.linalg import cho_factor, solve_triangular
 import cmb.data_early_lcdm_compression as cmb
+from interpolator import interp_quad
 from y2022pantheonSHOES.data import get_data
 from y2025BAO.data import get_data as get_bao_data
 
@@ -61,7 +62,7 @@ def DM_z(z, theta):
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size)
     cum_dm[1:] = np.cumsum(dx * dy)
-    return np.interp(z, z_grid, cum_dm)
+    return interp_quad(z, z_grid, cum_dm)
 
 
 @njit
@@ -103,7 +104,7 @@ def solve_triang(cho_L, delta):
 
 
 def chi_squared(theta):
-    cmb_observables = cmb.cmb_distances(Ez, *theta[1:])[[0, 1]]
+    cmb_observables = cmb.cmb_distances(H_z, theta[2], theta[3], theta)[[0, 1]]
     delta_cmb = cmb_compressed_priors - cmb_observables
     chi2_cmb = delta_cmb @ cmb_inv_cov @ delta_cmb
 
@@ -168,7 +169,9 @@ def main():
 
     with Pool(8) as pool:
         sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
-        sampler.run_mcmc(initial_pos, nsteps, progress=True)
+        sampler.run_mcmc(
+            initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#ff7f0e"}
+        )
 
     try:
         tau = sampler.get_autocorr_time()
@@ -208,7 +211,7 @@ def main():
     print(f"ωc: {Och2_50:.5f} +{(Och2_84 - Och2_50):.5f} -{(Och2_50 - Och2_16):.5f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"z_d: {zd_50:.2f} +{(zd_84 - zd_50):.2f} -{(zd_50 - zd_16):.2f}")
-    print(f"r_d: {cmb.rs_z(Ez, zd_50, *best_fit[1:]):.2f} Mpc")
+    print(f"r_d: {cmb.rs_z(H_z, zd_50, Obh2_50, best_fit):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Log Evidence: {log_evd:.2f}")
     print(f"Degs of freedom: {2 + len(bao_data['z']) + len(z_cmb) - len(best_fit)}")

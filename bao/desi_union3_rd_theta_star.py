@@ -94,7 +94,7 @@ def theory_mu(params):
 
 
 def chi_squared(params):
-    dists = cmb.cmb_distances(Ez, *params[1:])
+    dists = cmb.cmb_distances(H_z, params[2], params[3], params)
     rd = dists[1]
 
     delta_cmb = cmb.DISTANCE_PRIORS - dists
@@ -117,8 +117,7 @@ bounds = np.array(
         (0.010, 0.030),  # Ob * h^2
         (0.05, 0.30),  # Ωc * h^2
         (-1.0, -1 / 3),  # w0
-    ],
-    dtype=np.float64,
+    ]
 )
 
 normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
@@ -225,7 +224,7 @@ def main():
     print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
     print(f"z_d: {zd_50:.2f} +{(zd_84 - zd_50):.2f} -{(zd_50 - zd_16):.2f}")
     print(f"z*: {zst_50:.2f} +{(zst_84 - zst_50):.2f} -{(zst_50 - zst_16):.2f}")
-    print(f"r*: {cmb.rs_z(Ez, zst_50, *best_fit[1:]):.2f} Mpc")
+    print(f"r*: {cmb.rs_z(H_z, zst_50, Obh2_50, best_fit):.2f} Mpc")
     print(
         f"100 θ*: {theta_50:.5f} +{(theta_84 - theta_50):.5f} -{(theta_50 - theta_16):.5f}"
     )

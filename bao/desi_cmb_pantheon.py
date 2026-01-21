@@ -2,6 +2,7 @@ from numba import njit
 import numpy as np
 from scipy.linalg import cho_factor, solve_triangular
 import cmb.data_early_lcdm_compression as cmb
+from interpolator import interp_quad
 from y2022pantheonSHOES.data import get_data
 from y2025BAO.data import get_data as get_bao_data
 
@@ -22,15 +23,15 @@ dx = np.diff(z_grid)
 
 @njit
 def Ode_z(z, w0, wa):
-    zp1 = 1 + z
-    return (2 * zp1**3 / ((1 + w0) + (1 - w0) * zp1**3)) ** 2  # wzCDM
+    zp1 = 1.0 + z
+    return (2 * zp1**3 / ((1.0 + w0) + (1.0 - w0) * zp1**3)) ** 2  # wzCDM
     # return 1  # ΛCDM
     # return zp1 ** (3 * (1 + w0))  # wCDM
     # return zp1 ** (3 * (1 + w0 + wa)) * np.exp(-3 * wa * z / zp1)  # w0waCDM
 
 
 @njit
-def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
+def Ez(z, H0, Obh2, Och2, w0=-1.0, wa=0.0):
     h = H0 / 100
     Onu = Omnu_h2 / h**2
     Or = Or_h2 / h**2
@@ -49,8 +50,8 @@ def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
 
 @njit
 def apparent_mag(params):
-    dL = (1 + z_hel) * DM_z(z_cmb, params)
-    return params[0] + 25 + 5 * np.log10(dL)
+    dL = (1.0 + z_hel) * DM_z(z_cmb, params)
+    return params[0] + 25.0 + 5 * np.log10(dL)
 
 
 @njit
@@ -70,7 +71,7 @@ def DM_z(z, params):
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size)
     cum_dm[1:] = np.cumsum(dx * dy)
-    return np.interp(z, z_grid, cum_dm)
+    return interp_quad(z, z_grid, cum_dm)
 
 
 @njit
@@ -106,11 +107,13 @@ def solve_triang(cho_L, delta):
 
 
 def chi_squared(params):
-    delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez, *params[1:])
-    chi2_cmb = np.dot(delta_cmb, np.dot(cmb.inv_cov_mat, delta_cmb))
+    delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(
+        H_z, params[2], params[3], params
+    )
+    chi2_cmb = delta_cmb @ cmb.inv_cov_mat @ delta_cmb
 
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
-    chi_bao = np.dot(delta_bao, np.dot(inv_cov_bao, delta_bao))
+    chi_bao = delta_bao @ inv_cov_bao @ delta_bao
 
     delta_sn = mb_values - apparent_mag(params)
     chi_sn = solve_triang(cho_sn, delta_sn)
@@ -125,8 +128,7 @@ bounds = np.array(
         (0.019, 0.025),  # ωb = Ωb * h^2
         (0.01, 0.25),  # ωc = Ωc * h^2
         (-1.0, -1 / 3),  # w0
-    ],
-    dtype=np.float64,
+    ]
 )
 
 normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
@@ -165,13 +167,15 @@ def main():
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
     moves = [
-        (emcee.moves.KDEMove(), 0.30),
+        (emcee.moves.KDEMove(bw_method="silverman"), 0.30),
         (emcee.moves.DEMove(), 0.70),
     ]
 
     with Pool(6) as pool:
         sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
-        sampler.run_mcmc(initial_pos, nsteps, progress=True)
+        sampler.run_mcmc(
+            initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#ff7f0e"}
+        )
 
     try:
         tau = sampler.get_autocorr_time()
@@ -221,7 +225,7 @@ def main():
     print(f"M: {M_50:.3f} +{(M_84 - M_50):.3f} -{(M_50 - M_16):.3f}")
     print(f"z*: {zst_50:.2f} +{(zst_84 - zst_50):.2f} -{(zst_50 - zst_16):.2f}")
     print(f"z_d: {zdr_50:.2f} +{(zdr_84 - zdr_50):.2f} -{(zdr_50 - zdr_16):.2f}")
-    print(f"r*: {cmb.rs_z(Ez, zst_50, *best_fit[1:]):.2f} Mpc")
+    print(f"r*: {cmb.rs_z(H_z, zst_50, Obh2_50, best_fit):.2f} Mpc")
     print(f"rd: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Log evidence: {log_evd:.2f}")

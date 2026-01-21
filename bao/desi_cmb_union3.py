@@ -1,6 +1,6 @@
 from numba import njit
 import numpy as np
-from interpolator import interp_cubic
+from interpolator import interp_quad
 from y2023union3.data import get_data
 from y2025BAO.data import get_data as get_bao_data
 import cmb.data_early_lcdm_compression as cmb
@@ -22,7 +22,7 @@ dx = np.diff(z_grid)
 
 @njit
 def Ode_z(z, w0, wa):
-    a3 = 1 / (1.0 + z) ** 3
+    a3 = (1.0 + z) ** -3
     return 4 / ((1.0 + w0) * a3 + (1.0 - w0)) ** 2
 
 
@@ -61,7 +61,7 @@ def DM_z(z, params):
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size)
     cum_dm[1:] = np.cumsum(dx * dy)
-    return interp_cubic(z, z_grid, cum_dm)
+    return interp_quad(z, z_grid, cum_dm)
 
 
 @njit
@@ -110,7 +110,9 @@ def chi2_bao(params):
 
 
 def chi_squared(params):
-    delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez, *params[1:])
+    delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(
+        H_z, params[2], params[3], params
+    )
     chi2_cmb = delta_cmb @ cmb.inv_cov_mat @ delta_cmb
 
     return chi2_cmb + chi2_bao(params) + chi2_sn(params)
@@ -123,8 +125,7 @@ bounds = np.array(
         (0.010, 0.030),  # ωb = Ωb * h^2
         (0.01, 0.25),  # ωc = Ωc * h^2
         (-1.0, -1 / 3),  # w0
-    ],
-    dtype=np.float64,
+    ]
 )
 
 normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
@@ -229,9 +230,9 @@ def main():
     print(f"ωm: {Omh2_50:.4f} +{(Omh2_84 - Omh2_50):.4f} -{(Omh2_50 - Omh2_16):.4f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"z*: {z_st_50:.2f} +{(z_st_84 - z_st_50):.2f} -{(z_st_50 - z_st_16):.2f}")
-    print(f"r*: {cmb.rs_z(Ez, z_st_50, *best_fit[1:]):.2f} Mpc")
+    print(f"r*: {cmb.rs_z(H_z, z_st_50, Obh2_50, best_fit):.2f} Mpc")
     print(f"z_d: {z_dr_50:.2f} +{(z_dr_84 - z_dr_50):.2f} -{(z_dr_50 - z_dr_16):.2f}")
-    print(f"r_d: {cmb.rs_z(Ez, z_dr_50, *best_fit[1:]):.2f} Mpc")
+    print(f"r_d: {cmb.rs_z(H_z, z_dr_50, Obh2_50, best_fit):.2f} Mpc")
     print(f"q0: {q0_50:.3f} +{(q0_84 - q0_50):.3f} -{(q0_50 - q0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Log evidence: {log_evd:.1f}")
@@ -356,20 +357,20 @@ Log evidence: -36.3 (Δ logZ = 1.0 against ΛCDM)
 Degs of freedom: 33
 
 ** Early-time ΛCDM **
-H0: 66.47 +0.82 -0.81 km/s/Mpc
-Ωm: 0.3162 +0.0077 -0.0075
+H0: 66.48 +0.81 -0.81 km/s/Mpc
+Ωm: 0.3161 +0.0077 -0.0075
 ωb: 0.02242 +0.00012 -0.00012
 ωc: 0.1166 +0.0007 -0.0007
 ωm: 0.1397 +0.0007 -0.0007
 w0: -0.850 +0.062 -0.063 (prior width 0.8: -1.0 to -1/3; 2.34 sigma to the prior left edge)
 wa: -0.416 [devired: wa = -1.5 * (1 - w0^2)]
-z*: 1089.65 +0.19 -0.19
-r*: 145.27 Mpc
+z*: 1089.65 +0.19 -0.18
+r*: 145.28 Mpc
 z_d: 1059.91 +0.27 -0.27
-r_d: 147.93 Mpc
-q0: -0.372 +0.072 -0.074
-Chi squared: 36.72
-Log evidence: -35.6 (Δ logZ = 1.3 against ΛCDM)
+r_d: 147.94 Mpc
+q0: -0.372 +0.072 -0.073
+Chi squared: 36.76
+Log evidence: -35.7 (Δ logZ = 1.2 against ΛCDM)
 Degs of freedom: 33
 """
 

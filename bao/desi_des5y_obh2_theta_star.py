@@ -2,6 +2,7 @@ from numba import njit
 import numpy as np
 from scipy.linalg import cho_factor, solve_triangular
 import cmb.data_planck_act_compression as cmb
+from interpolator import interp_quad
 from y2025DESdovekie.data import get_data, effective_sample_size as sn_size
 from y2025BAO.data import get_data as get_bao_data
 
@@ -55,7 +56,7 @@ def DM_z(z, theta):
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size)
     cum_dm[1:] = np.cumsum(dx * dy)
-    return np.interp(z, z_grid, cum_dm)
+    return interp_quad(z, z_grid, cum_dm)
 
 
 @njit
@@ -96,7 +97,7 @@ def solve_triang(cho_L, delta):
 
 
 def chi_squared(theta):
-    delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez, *theta[1:])
+    delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(H_z, theta[2], theta[3], theta)
     chi2_cmb = delta_cmb[1:] @ cmb.inv_cov_mat[1:, 1:] @ delta_cmb[1:]
 
     delta_sn = mu_values - theory_mu(theta)
@@ -115,8 +116,7 @@ bounds = np.array(
         (0.010, 0.030),  # ωb = Ωb * h^2
         (0.05, 0.30),  # ωc = Ωc * h^2
         (-1.0, -1 / 3),  # w0
-    ],
-    dtype=np.float64,
+    ]
 )
 
 normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
@@ -162,7 +162,9 @@ def main():
 
     with Pool(8) as pool:
         sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
-        sampler.run_mcmc(initial_pos, nsteps, progress=True)
+        sampler.run_mcmc(
+            initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#ff7f0e"}
+        )
 
     try:
         tau = sampler.get_autocorr_time()
@@ -195,7 +197,7 @@ def main():
     Om_16, Om_50, Om_84 = np.percentile(Om_samples, [15.9, 50, 84.1])
     zd_16, zd_50, zd_84 = np.percentile(zd_samples, [15.9, 50, 84.1])
     z_st_16, z_st_50, z_st_84 = np.percentile(z_st_samples, [15.9, 50, 84.1])
-    R, lA = cmb.cmb_distances(Ez, *best_fit[1:])[:2]
+    R, lA = cmb.cmb_distances(H_z, Obh2_50, Och2_50, best_fit)[0:2]
 
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
@@ -205,9 +207,9 @@ def main():
     print(f"ωm: {Omh2_50:.4f} +{(Omh2_84 - Omh2_50):.4f} -{(Omh2_50 - Omh2_16):.4f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"z_d: {zd_50:.2f} +{(zd_84 - zd_50):.2f} -{(zd_50 - zd_16):.2f}")
-    print(f"r_d: {cmb.rs_z(Ez, zd_50, *best_fit[1:]):.2f} Mpc")
+    print(f"r_d: {cmb.rs_z(H_z, zd_50, Obh2_50, best_fit):.2f} Mpc")
     print(f"z*: {z_st_50:.2f} +{(z_st_84 - z_st_50):.2f} -{(z_st_50 - z_st_16):.2f}")
-    print(f"r*: {cmb.rs_z(Ez, z_st_50, *best_fit[1:]):.2f} Mpc")
+    print(f"r*: {cmb.rs_z(H_z, z_st_50, Obh2_50, best_fit):.2f} Mpc")
     print(f"shift R: {R:.3f}")
     print(f"100 θ*: {100 * np.pi / lA:.5f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")

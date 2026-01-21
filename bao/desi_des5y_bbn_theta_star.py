@@ -2,6 +2,7 @@ from numba import njit
 import numpy as np
 from scipy.linalg import cho_factor, solve_triangular
 import cmb.data_planck_act_compression as cmb
+from interpolator import interp_quad
 import y2024BBN.prior_lcdm_schoneberg as bbn
 from y2025DESdovekie.data import get_data, effective_sample_size as sn_size
 from y2025BAO.data import get_data as get_bao_data
@@ -24,7 +25,7 @@ dx = np.diff(z_grid)
 @njit
 def Ode_z(z, w0, wa):
     zp1 = 1.0 + z
-    return (2 * zp1**3 / (1 + w0 + (1 - w0) * zp1**3)) ** 2
+    return (2 * zp1**3 / (1.0 + w0 + (1.0 - w0) * zp1**3)) ** 2
 
 
 @njit
@@ -62,7 +63,7 @@ def DM_z(z, theta):
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size)
     cum_dm[1:] = np.cumsum(dx * dy)
-    return np.interp(z, z_grid, cum_dm)
+    return interp_quad(z, z_grid, cum_dm)
 
 
 @njit
@@ -103,7 +104,9 @@ def solve_triang(cho_L, delta):
 
 
 def chi_squared(theta):
-    delta_lA = (cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez, *theta[1:]))[1]
+    delta_lA = (
+        cmb.DISTANCE_PRIORS - cmb.cmb_distances(H_z, theta[2], theta[3], theta)
+    )[1]
     chi2_lA = delta_lA**2 / cmb.covariance[1, 1]
 
     delta_bbn = bbn.Obh2 - theta[2]
@@ -125,8 +128,7 @@ bounds = np.array(
         (0.010, 0.030),  # ωb = Ωb * h^2
         (0.05, 0.30),  # ωc = Ωc * h^2
         (-1.0, -1 / 3),  # w0
-    ],
-    dtype=np.float64,
+    ]
 )
 
 normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
@@ -172,7 +174,9 @@ def main():
 
     with Pool(8) as pool:
         sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
-        sampler.run_mcmc(initial_pos, nsteps, progress=True)
+        sampler.run_mcmc(
+            initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#ff7f0e"}
+        )
 
     try:
         tau = sampler.get_autocorr_time()
@@ -219,8 +223,10 @@ def main():
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
     print(f"z*: {zst_50:.2f} +{(zst_84 - zst_50):.2f} -{(zst_50 - zst_16):.2f}")
-    print(f"r*: {cmb.rs_z(Ez, zst_50, *best_fit[1:]):.2f} Mpc")
-    print(f"100 θ*: {100 * np.pi / cmb.cmb_distances(Ez, *best_fit[1:])[1]:.5f}")
+    print(f"r*: {cmb.rs_z(H_z, zst_50, Obh2_50, best_fit):.2f} Mpc")
+    print(
+        f"100 θ*: {100 * np.pi / cmb.cmb_distances(H_z, Obh2_50, Och2_50, best_fit)[1]:.5f}"
+    )
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Log Evidence: {log_evd:.2f}")
     print(f"Degrees of freedom: {degs_of_freedom}")

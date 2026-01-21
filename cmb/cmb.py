@@ -5,10 +5,11 @@ import cmb.data_planck_compression as cmb
 c = cmb.c  # km/s
 Or_h2 = cmb.Or_h2
 Omnu_h2 = cmb.Omnu_h2
+Omnu_z = cmb.Omnu_z
 
 
 @njit
-def Ez(z, H0, Obh2, Och2, w0=-1.0, wa=0.0):
+def Ez(z, H0, Obh2, Och2):
     h = H0 / 100
     Onu = Omnu_h2 / h**2
     Or = Or_h2 / h**2
@@ -18,9 +19,15 @@ def Ez(z, H0, Obh2, Och2, w0=-1.0, wa=0.0):
     radiation_term = Or * (1.0 + z) ** 4
     matter_term = Obc * (1.0 + z) ** 3
     dark_energy_term = Ode
-    neutrino_term = Onu * cmb.Omnu_z(z)
+    neutrino_term = Onu * Omnu_z(z)
 
     return np.sqrt(radiation_term + matter_term + neutrino_term + dark_energy_term)
+
+
+@njit
+def Hz(z, params):
+    H0, Obh2, Och2 = params
+    return H0 * Ez(z, H0, Obh2, Och2)
 
 
 bounds = np.array(
@@ -46,8 +53,8 @@ def log_likelihood(params):
     Omh2 = Obh2 + Och2 + Omnu_h2
 
     zstar = cmb.z_star(Obh2, Omh2)
-    rs_star = cmb.rs_z(Ez, zstar, *params)
-    DM_star = cmb.DM_z(Ez, zstar, *params)
+    rs_star = cmb.rs_z(Hz, zstar, Obh2, params)
+    DM_star = cmb.DM_z(Hz, zstar, params)
     thetastar = rs_star / DM_star
     lA = np.pi / thetastar
     R = 100 * np.sqrt(Omh2) * DM_star / c  # shift parameter

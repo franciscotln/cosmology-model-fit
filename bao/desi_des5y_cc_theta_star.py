@@ -2,6 +2,7 @@ from numba import njit
 import numpy as np
 from scipy.linalg import cho_factor, solve_triangular
 import cmb.data_planck_act_compression as cmb
+from interpolator import interp_quad
 from y2025DESdovekie.data import (
     effective_sample_size as sn_size,
     get_data as get_sn_data,
@@ -70,7 +71,7 @@ def DM_z(z, theta):
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size)
     cum_dm[1:] = np.cumsum(dx * dy)
-    return np.interp(z, z_grid, cum_dm)
+    return interp_quad(z, z_grid, cum_dm)
 
 
 @njit
@@ -111,7 +112,7 @@ def solve_triang(cho_L, delta):
 
 
 def chi_squared(theta):
-    delta = (cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez, *theta[2:]))[1]
+    delta = (cmb.DISTANCE_PRIORS - cmb.cmb_distances(H_z, theta[3], theta[4], theta))[1]
     chi_theta_star = delta**2 / cmb.covariance[1, 1]
 
     delta_sn = mu_values - mu_theory(theta)
@@ -134,8 +135,7 @@ bounds = np.array(
         (0.005, 0.035),  # Ωb x h^2: baryon density parameter
         (0.05, 0.30),  # Ωc x h^2: cold dark matter density parameter at present
         (-1.0, -1 / 3),  # w0: dark energy equation of state at present
-    ],
-    dtype=np.float64,
+    ]
 )
 
 normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
@@ -183,7 +183,9 @@ def main():
 
     with Pool(8) as pool:
         sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
-        sampler.run_mcmc(initial_pos, nsteps, progress=True)
+        sampler.run_mcmc(
+            initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#ff7f0e"}
+        )
 
     try:
         tau = sampler.get_autocorr_time()

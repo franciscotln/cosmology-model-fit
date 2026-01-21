@@ -112,7 +112,7 @@ def chi2_bao(theta):
 def chi_squared(theta):
     # Planck + ACT compressed priors for π/θ* and ωb,
     # without the shift parameter R (arXiv:1808.05724v1)
-    delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez, *theta[1:])
+    delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(H_z, theta[2], theta[3], theta)
     chi_cmb = delta_cmb[1:] @ inv_cov_cmb @ delta_cmb[1:]
     return chi2_sn(theta) + chi2_bao(theta) + chi_cmb
 

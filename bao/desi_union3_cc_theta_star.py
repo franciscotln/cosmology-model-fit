@@ -1,6 +1,7 @@
 from numba import njit
 import numpy as np
 import cmb.data_planck_act_compression as cmb
+from interpolator import interp_quad
 from y2023union3.data import get_data as get_sn_data
 from y2005cc.data import get_data as get_cc_data
 from y2025BAO.data import get_data as get_bao_data
@@ -31,7 +32,7 @@ def Ode_z(z, w0, wa):
     cubed = zp1**3
     # return 1.0  # ΛCDM
     # return cubed ** (1 + w0)  # wCDM
-    return (2 * cubed / (1 + w0 + (1 - w0) * cubed)) ** 2  # wzCDM
+    return (2 * cubed / (1.0 + w0 + (1.0 - w0) * cubed)) ** 2  # wzCDM
     # return cubed ** (1 + w0 + wa) * np.exp(-3 * wa * z / zp1)  # w0waCDM
 
 
@@ -68,7 +69,7 @@ def DM_z(z, theta):
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size)
     cum_dm[1:] = np.cumsum(dx * dy)
-    return np.interp(z, z_grid, cum_dm)
+    return interp_quad(z, z_grid, cum_dm)
 
 
 @njit
@@ -99,12 +100,12 @@ def bao_theory(z, qty, theta):
 
 @njit
 def mu_theory(theta):
-    dL = (1 + z_sn_vals) * DM_z(z_sn_vals, theta)
-    return theta[1] + 25 + 5 * np.log10(dL)
+    dL = (1.0 + z_sn_vals) * DM_z(z_sn_vals, theta)
+    return theta[1] + 25.0 + 5 * np.log10(dL)
 
 
 def chi_squared(theta):
-    delta = (cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez, *theta[2:]))[1]
+    delta = (cmb.DISTANCE_PRIORS - cmb.cmb_distances(H_z, theta[3], theta[4], theta))[1]
     thetastar_cov = cmb.covariance[1, 1]
     chi_theta_star = delta**2 / thetastar_cov
 

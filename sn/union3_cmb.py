@@ -17,8 +17,8 @@ dx = np.diff(z_grid)
 
 @njit
 def Ode_z(z, w0, wa):
-    a3 = 1 / (1 + z) ** 3
-    return 4 / ((1 + w0) * a3 + (1 - w0)) ** 2
+    a3 = (1.0 + z) ** -3
+    return 4 / ((1.0 + w0) * a3 + (1.0 - w0)) ** 2
 
 
 @njit
@@ -29,7 +29,7 @@ def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
     Obc = (Obh2 + Och2) / h**2
     Ode = 1.0 - Obc - Or - Onu
 
-    zp1 = 1 + z
+    zp1 = 1.0 + z
 
     radiation_term = Or * zp1**4
     matter_term = Obc * zp1**3
@@ -40,9 +40,14 @@ def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
 
 
 @njit
-def DM_z(z, params):
+def Hz(z, params):
     H0, Obh2, Och2, w0 = params[1:]
-    dh_grid = (c / H0) / Ez(z_grid, H0, Obh2, Och2, w0)
+    return H0 * Ez(z, H0, Obh2, Och2, w0)
+
+
+@njit
+def DM_z(z, params):
+    dh_grid = c / Hz(z_grid, params)
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size)
     cum_dm[1:] = np.cumsum(dx * dy)
@@ -56,7 +61,9 @@ def mu_theory(params):
 
 
 def chi_squared(params):
-    delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez, *params[1:])
+    delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(
+        Hz, params[2], params[3], params
+    )
     chi2_cmb = delta_cmb @ cmb.inv_cov_mat @ delta_cmb
 
     delta_sn = mu_vals - mu_theory(params)
@@ -112,13 +119,15 @@ def main():
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
     moves = [
-        (emcee.moves.KDEMove(), 0.30),
+        (emcee.moves.KDEMove(bw_method="silverman"), 0.30),
         (emcee.moves.DEMove(), 0.70),
     ]
 
     with Pool(5) as pool:
         sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
-        sampler.run_mcmc(initial_pos, nsteps, progress=True)
+        sampler.run_mcmc(
+            initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#ff7f0e"}
+        )
 
     try:
         tau = sampler.get_autocorr_time()
@@ -166,8 +175,8 @@ def main():
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"z*: {z_st_50:.2f} +{(z_st_84 - z_st_50):.2f} -{(z_st_50 - z_st_16):.2f}")
     print(f"z_drag: {z_d_50:.2f} +{(z_d_84 - z_d_50):.2f} -{(z_d_50 - z_d_16):.2f}")
-    print(f"r*: {cmb.rs_z(Ez, z_st_50, *best_fit[1:]):.2f} Mpc")
-    print(f"r_d: {cmb.rs_z(Ez, z_d_50, *best_fit[1:]):.2f} Mpc")
+    print(f"r*: {cmb.rs_z(Hz, z_st_50, Obh2_50, best_fit):.2f} Mpc")
+    print(f"r_d: {cmb.rs_z(Hz, z_d_50, Obh2_50, best_fit):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.1f}")
     print(f"Log Evidence: {log_evd:.1f}")
     print(f"Degrees of freedom: {degrees_of_freedom}")

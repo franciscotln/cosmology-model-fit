@@ -24,7 +24,7 @@ def Ode_z(z, w0, wa):
 
 
 @njit
-def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
+def Ez(z, H0, Obh2, Och2, w0=-1.0, wa=0.0):
     h = H0 / 100
     Obc = (Obh2 + Och2) / h**2
     Onu = Onuh2 / h**2
@@ -42,9 +42,14 @@ def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
 
 
 @njit
-def DM_z(z, theta):
+def H_z(z, theta):
     H0, Obh2, Och2, w0 = theta[1:]
-    dh_grid = (c / H0) / Ez(z_grid, H0, Obh2, Och2, w0)
+    return H0 * Ez(z, H0, Obh2, Och2, w0)
+
+
+@njit
+def DM_z(z, theta):
+    dh_grid = c / H_z(z_grid, theta)
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size)
     cum_dm[1:] = np.cumsum(dx * dy)
@@ -63,7 +68,7 @@ def solve_triang(cho_L, delta):
 
 
 def chi_squared(params):
-    delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez, *params[1:])
+    delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(H_z, params[2], params[3], params)
     chi2_cmb = np.dot(delta, np.dot(cmb.inv_cov_mat, delta))
 
     delta_sn = mu_vals - theory_mu(params)
@@ -171,8 +176,8 @@ def main():
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"z*: {z_st_50:.2f} +{(z_st_84 - z_st_50):.2f} -{(z_st_50 - z_st_16):.2f}")
     print(f"zd: {z_dr_50:.2f} +{(z_dr_84 - z_dr_50):.2f} -{(z_dr_50 - z_dr_16):.2f}")
-    print(f"r*: {cmb.rs_z(Ez, z_st_50, *best_fit[1:]):.2f} Mpc")
-    print(f"r_d: {cmb.rs_z(Ez, z_dr_50, *best_fit[1:]):.2f} Mpc")
+    print(f"r*: {cmb.rs_z(H_z, z_st_50, Obh2_50, best_fit):.2f} Mpc")
+    print(f"r_d: {cmb.rs_z(H_z, z_dr_50, Obh2_50, best_fit):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Log evidence: {log_evd:.1f}")
 

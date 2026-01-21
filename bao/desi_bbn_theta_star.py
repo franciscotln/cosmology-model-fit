@@ -86,7 +86,9 @@ def bao_theory(z, qty, params):
 
 
 def chi_squared(params):
-    delta_thetastar = cmb.DISTANCE_PRIORS[1] - cmb.cmb_distances(Ez, *params)[1]
+    delta_thetastar = (
+        cmb.DISTANCE_PRIORS[1] - cmb.cmb_distances(H_z, params[1], params[2], params)[1]
+    )
     chi2_thetastar = delta_thetastar**2 / cmb.covariance[1, 1]
 
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
@@ -147,9 +149,11 @@ def main():
     print(f"ωm: {Omh2_50:.4f} +{(Omh2_84 - Omh2_50):.4f} -{(Omh2_50 - Omh2_16):.4f}")
     print(f"Ωm: {Om_50:.4f} +{(Om_84 - Om_50):.4f} -{(Om_50 - Om_16):.4f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
-    print(f"r*: {cmb.rs_z(Ez, zst_50, *best_fit):.2f} Mpc")
+    print(f"r*: {cmb.rs_z(H_z, zst_50, Obh2_50, best_fit):.2f} Mpc")
     print(f"z*: {zst_50:.2f} +{(zst_84 - zst_50):.2f} -{(zst_50 - zst_16):.2f}")
-    print(f"100 θ*: {100 * np.pi / (cmb.cmb_distances(Ez, *best_fit)[1]):.5f}")
+    print(
+        f"100 θ*: {100 * np.pi / (cmb.cmb_distances(H_z, Obh2_50, Och2_50, best_fit)[1]):.5f}"
+    )
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Log evidence: {sampler.log_z:.1f}")
 

@@ -1,5 +1,6 @@
 from numba import njit
 import numpy as np
+from interpolator import interp_quad
 from y2025BAO.data import get_data as get_bao_data
 import y2025cmb_p_actbase_lcdm_camb.data as cmb
 
@@ -56,7 +57,7 @@ def DM_z(z, params):
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size)
     cum_dm[1:] = np.cumsum(dx * dy)
-    return np.interp(z, z_grid, cum_dm)
+    return interp_quad(z, z_grid, cum_dm)
 
 
 @njit
@@ -83,7 +84,7 @@ def bao_theory(z, qty, rd, params):
 
 
 def chi_squared(params):
-    distances = cmb.cmb_distances(Ez, *params)
+    distances = cmb.cmb_distances(H_z, params[1], params[2], params)
     rd = distances[1]
     delta_cmb = cmb.DISTANCE_PRIORS - distances
     chi2_cmb = delta_cmb @ cmb.inv_cov_mat @ delta_cmb
@@ -100,8 +101,7 @@ bounds = np.array(
         (0.010, 0.030),  # Obh2
         (0.01, 0.3),  # Och2
         (-1.0, -0.2),  # w0
-    ],
-    dtype=np.float64,
+    ]
 )
 
 normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
@@ -145,7 +145,9 @@ def main():
     ]
     with Pool(5) as pool:
         sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
-        sampler.run_mcmc(initial_pos, nsteps, progress=True)
+        sampler.run_mcmc(
+            initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#ff7f0e"}
+        )
 
     try:
         tau = sampler.get_autocorr_time()
@@ -171,7 +173,7 @@ def main():
     Om_50 = np.percentile(Om_samples, 50)
     Om_err = np.diff(np.percentile(Om_samples, [15.9, 50, 84.1]))
 
-    thetastar_best, rd_best = cmb.cmb_distances(Ez, *best_fit)
+    thetastar_best, rd_best = cmb.cmb_distances(H_z, best_fit[1], best_fit[2], best_fit)
 
     print("Gelman-Rubin:", gelman_rubin(chains_samples))
     print(f"H0: {best_fit[0]:.2f} +{H0_err[0]:.2f} -{H0_err[0]:.2f} km/s/Mpc")

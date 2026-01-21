@@ -89,7 +89,9 @@ def bao_theory(z, qty, params):
 
 
 def chi_squared(params):
-    delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Ez, *params)
+    delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(
+        H_z, params[1], params[2], params
+    )
     chi2_cmb = delta_cmb @ cmb.inv_cov_mat @ delta_cmb
 
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
@@ -104,8 +106,7 @@ bounds = np.array(
         (0.020, 0.024),  # ωb = Ωb * h^2
         (0.05, 0.30),  # ωc = Ωc * h^2
         (-1.0, 0.0),  # w0
-    ],
-    dtype=np.float64,
+    ]
 )
 
 normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
@@ -194,7 +195,7 @@ def main():
     print(f"ωm: {Omh2_50:.4f} +{(Omh2_84 - Omh2_50):.4f} -{(Omh2_50 - Omh2_16):.4f}")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
-    print(f"r*: {cmb.rs_z(Ez, z_st_50, *best_fit):.2f} Mpc")
+    print(f"r*: {cmb.rs_z(H_z, z_st_50, Obh2_50, best_fit):.2f} Mpc")
     print(f"z*: {z_st_50:.2f} +{(z_st_84 - z_st_50):.2f} -{(z_st_50 - z_st_16):.2f}")
     print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
     print(f"Log Z: {log_evidence(samples, log_probs, log_probability, bounds):.2f}")

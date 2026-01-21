@@ -1,6 +1,7 @@
 from numba import njit
 import numpy as np
 from scipy.linalg import cho_factor, solve_triangular
+from interpolator import interp_quad
 import y2023cmbearlylcdm.data as cmb
 from y2025DESdovekie.data import get_data, effective_sample_size as sn_size
 from y2025BAO.data import get_data as get_bao_data
@@ -61,7 +62,7 @@ def DM_z(z, theta):
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size)
     cum_dm[1:] = np.cumsum(dx * dy)
-    return np.interp(z, z_grid, cum_dm)
+    return interp_quad(z, z_grid, cum_dm)
 
 
 @njit
@@ -93,7 +94,7 @@ def solve_triang(cho_L, delta):
 
 
 def chi_squared(params):
-    dists = cmb.cmb_distances(Ez, *params[1:])
+    dists = cmb.cmb_distances(H_z, params[2], params[3], params)
     rd = dists[1]
 
     delta_cmb = cmb.DISTANCE_PRIORS - dists
@@ -115,8 +116,7 @@ bounds = np.array(
         (0.010, 0.030),  # Ob * h^2
         (0.05, 0.3),  # Ωm * h^2
         (-1.0, -1 / 3),  # w0
-    ],
-    dtype=np.float64,
+    ]
 )
 
 normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
@@ -163,7 +163,9 @@ def main():
 
     with Pool(6) as pool:
         sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
-        sampler.run_mcmc(initial_pos, nsteps, progress=True)
+        sampler.run_mcmc(
+            initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#ff7f0e"}
+        )
 
     try:
         tau = sampler.get_autocorr_time()
@@ -189,7 +191,7 @@ def main():
     ] = pct
 
     best_fit = np.percentile(samples, 50, axis=0)
-    theta_100, rd = cmb.cmb_distances(Ez, *best_fit[1:])
+    theta_100, rd = cmb.cmb_distances(H_z, Obh2_50, Och2_50, best_fit)
 
     omh2_samples = samples[:, 2] + samples[:, 3] + Omnu_h2
     Om_samples = omh2_samples / (samples[:, 1] / 100) ** 2

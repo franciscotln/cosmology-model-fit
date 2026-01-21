@@ -1,6 +1,7 @@
 from numba import njit
 import numpy as np
 import cmb.data_planck_act_compression as cmb
+from interpolator import interp_quad
 import y2024BBN.prior_lcdm_schoneberg as bbn
 from y2023union3.data import get_data as get_sn_data
 from y2025BAO.data import get_data as get_bao_data
@@ -22,8 +23,8 @@ dx = np.diff(z_grid)
 
 @njit
 def Ode_z(z, w0, wa):
-    zp1 = 1 + z
-    return (2 * zp1**3 / (1 + w0 + (1 - w0) * zp1**3)) ** 2
+    zp1 = 1.0 + z
+    return (2 * zp1**3 / (1.0 + w0 + (1.0 - w0) * zp1**3)) ** 2
 
 
 @njit
@@ -34,7 +35,7 @@ def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
     Obc = (Obh2 + Och2) / h**2
     Ode = 1.0 - Obc - Or - Onu
 
-    zp1 = 1 + z
+    zp1 = 1.0 + z
 
     radiation_term = Or * zp1**4
     matter_term = Obc * zp1**3
@@ -61,7 +62,7 @@ def DM_z(z, theta):
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size)
     cum_dm[1:] = np.cumsum(dx * dy)
-    return np.interp(z, z_grid, cum_dm)
+    return interp_quad(z, z_grid, cum_dm)
 
 
 @njit
@@ -92,8 +93,8 @@ def bao_theory(z, qty, theta):
 
 @njit
 def theory_mu(theta):
-    dL = (1 + z_sn_vals) * DM_z(z_sn_vals, theta)
-    return theta[0] + 25 + 5 * np.log10(dL)
+    dL = (1.0 + z_sn_vals) * DM_z(z_sn_vals, theta)
+    return theta[0] + 25.0 + 5 * np.log10(dL)
 
 
 @njit
@@ -109,7 +110,9 @@ def chi2_bao(theta):
 
 
 def chi_squared(theta):
-    delta_lA = cmb.DISTANCE_PRIORS[1] - cmb.cmb_distances(Ez, *theta[1:])[1]
+    delta_lA = (
+        cmb.DISTANCE_PRIORS[1] - cmb.cmb_distances(H_z, theta[2], theta[3], theta)[1]
+    )
     chi2_lA = delta_lA**2 / cmb.covariance[1, 1]
     return chi2_sn(theta) + chi2_bao(theta) + chi2_lA
 
@@ -194,8 +197,10 @@ def main():
     print(f"z_d: {zd_50:.2f} +{(zd_84 - zd_50):.2f} -{(zd_50 - zd_16):.2f}")
     print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
     print(f"z*: {zst_50:.2f} +{(zst_84 - zst_50):.2f} -{(zst_50 - zst_16):.2f}")
-    print(f"r*: {cmb.rs_z(Ez, zst_50, *best_fit[1:]):.2f} Mpc")
-    print(f"100 θ*: {100 * np.pi / cmb.cmb_distances(Ez, *best_fit[1:])[1]:.5f}")
+    print(f"r*: {cmb.rs_z(Ez, zst_50, Obh2_50, best_fit):.2f} Mpc")
+    print(
+        f"100 θ*: {100 * np.pi / cmb.cmb_distances(H_z, Obh2_50, Och2_50, best_fit)[1]:.5f}"
+    )
     print(f"q0: {q0_50:.3f} +{(q0_84 - q0_50):.3f} -{(q0_50 - q0_16):.3f}")
     print(f"j0: {j0_50:.3f} +{(j0_84 - j0_50):.3f} -{(j0_50 - j0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
