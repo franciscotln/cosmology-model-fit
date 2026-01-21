@@ -59,10 +59,9 @@ def log_likelihood(params):
 bounds = np.array(
     [
         (-0.2, 0.2),  # ΔM
-        (0, 0.8),  # Ωm
+        (0.0, 0.8),  # Ωm
         (-1.0, 0.0),  # w0
-    ],
-    dtype=np.float64,
+    ]
 )
 
 normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
