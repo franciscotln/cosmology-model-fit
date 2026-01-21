@@ -5,10 +5,10 @@ from scipy.interpolate import interp1d
 
 # values from DESI DR2 + rd_Planck + DES5Y
 Rho_de_0 = 1  # normalised
-H0 = 66.52  # Hubble constant in km/s/Mpc
+H0 = 66.53  # Hubble constant in km/s/Mpc
 Om = 0.312
 Or = 4.1835e-05 / (H0 / 100) ** 2  # Radiation density
-w0 = -0.834  # Equation of state parameter from fit
+w0 = -0.763  # Equation of state parameter from fit
 
 a_min = 1e-8
 a_max = 5
@@ -16,13 +16,13 @@ N_a = 5000
 a_vals = np.linspace(a_min, a_max, N_a)
 
 
-w_de = lambda a: -1 + 4 * (1 + w0) * a**3 / (3 + a**3)
+w_de = lambda a: -1 + 2 * (1 + w0) * a**3 / ((1.0 + w0) * a**3 + 1.0 - w0)
 
-Rho_de = lambda a: Rho_de_0 * (4 / (3 + a**3)) ** (4 * (1 + w0))
+Rho_de = lambda a: Rho_de_0 * 4 / ((1.0 + w0) * a**3 + 1.0 - w0) ** 2
 
 H = (
     lambda a: H0
-    * (Om * a**-3 + Or * a**-4 + (1 - Om - Or) * Rho_de(a) / Rho_de_0) ** 0.5
+    * (Om * a**-3 + Or * a**-4 + (1.0 - Om - Or) * Rho_de(a) / Rho_de_0) ** 0.5
 )
 
 # Kinetic and Potential energy density split (properly normalized)
@@ -150,9 +150,7 @@ plt.legend()
 plt.grid(True, alpha=0.3)
 plt.show()
 
-
-phi_of_t_quad = lambda t: 1.41310997e-05 * t * (t + 1)
-
+phi_of_t_quad = lambda t: 1e-05 * (1.72544112 * t**2 + 1.04011185 * t - 3.41793028)
 
 plt.figure(figsize=(8, 5))
 plt.plot(t_plot_range, 1e3 * phi_of_t(t_plot_range), label=r"$\phi(t)$", linewidth=2)
