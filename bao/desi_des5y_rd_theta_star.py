@@ -1,7 +1,7 @@
 from numba import njit
 import numpy as np
 from scipy.linalg import cho_factor, solve_triangular
-from interpolator import interp_quad
+from interpolator import interp_pchip
 import y2023cmbearlylcdm.data as cmb
 from y2025DESdovekie.data import get_data, effective_sample_size as sn_size
 from y2025BAO.data import get_data as get_bao_data
@@ -62,7 +62,7 @@ def DM_z(z, theta):
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size)
     cum_dm[1:] = np.cumsum(dx * dy)
-    return interp_quad(z, z_grid, cum_dm)
+    return interp_pchip(z, z_grid, cum_dm)
 
 
 @njit

@@ -3,29 +3,66 @@ from numba import njit
 
 
 @njit
-def interp_quad(x, xp, fp):
-    x = np.asarray(x)
-    idx = np.searchsorted(xp, x) - 1
-    i = np.minimum(np.maximum(idx, 0), len(xp) - 3)
-    x0, x1, x2 = xp[i], xp[i + 1], xp[i + 2]
-    y0, y1, y2 = fp[i], fp[i + 1], fp[i + 2]
-    term0 = y0 * ((x - x1) * (x - x2)) / ((x0 - x1) * (x0 - x2))
-    term1 = y1 * ((x - x0) * (x - x2)) / ((x1 - x0) * (x1 - x2))
-    term2 = y2 * ((x - x0) * (x - x1)) / ((x2 - x0) * (x2 - x1))
+def _pchip_slopes(x, y):
+    n = len(x)
+    d = np.zeros(n)
 
-    return term0 + term1 + term2
+    h = np.empty(n - 1)
+    delta = np.empty(n - 1)
+
+    for i in range(n - 1):
+        h[i] = x[i + 1] - x[i]
+        delta[i] = (y[i + 1] - y[i]) / h[i]
+
+    # interior points
+    for i in range(1, n - 1):
+        if delta[i - 1] * delta[i] > 0.0:
+            w1 = 2.0 * h[i] + h[i - 1]
+            w2 = h[i] + 2.0 * h[i - 1]
+            d[i] = (w1 + w2) / (w1 / delta[i - 1] + w2 / delta[i])
+        else:
+            d[i] = 0.0
+
+    # endpoints (one-sided, shape-preserving)
+    d[0] = delta[0]
+    d[-1] = delta[-1]
+
+    return d
 
 
 @njit
-def interp_cubic(x, xp, fp):
-    x = np.asarray(x)
-    idx = np.searchsorted(xp, x) - 2
-    i = np.minimum(np.maximum(idx, 0), len(xp) - 4)
-    x0, x1, x2, x3 = xp[i], xp[i + 1], xp[i + 2], xp[i + 3]
-    y0, y1, y2, y3 = fp[i], fp[i + 1], fp[i + 2], fp[i + 3]
-    t0 = y0 * ((x - x1) * (x - x2) * (x - x3)) / ((x0 - x1) * (x0 - x2) * (x0 - x3))
-    t1 = y1 * ((x - x0) * (x - x2) * (x - x3)) / ((x1 - x0) * (x1 - x2) * (x1 - x3))
-    t2 = y2 * ((x - x0) * (x - x1) * (x - x3)) / ((x2 - x0) * (x2 - x1) * (x2 - x3))
-    t3 = y3 * ((x - x0) * (x - x1) * (x - x2)) / ((x3 - x0) * (x3 - x1) * (x3 - x2))
+def _pchip_interp(xq, x, y, d):
+    out = np.empty_like(xq, dtype=np.float64)
 
-    return t0 + t1 + t2 + t3
+    for k in range(len(xq)):
+        xi = xq[k]
+
+        if xi <= x[0]:
+            out[k] = y[0]
+            continue
+        if xi >= x[-1]:
+            out[k] = y[-1]
+            continue
+
+        i = np.searchsorted(x, xi) - 1
+
+        h = x[i + 1] - x[i]
+        t = (xi - x[i]) / h
+
+        t2 = t * t
+        t3 = t2 * t
+
+        h00 = 2 * t3 - 3 * t2 + 1
+        h10 = t3 - 2 * t2 + t
+        h01 = -2 * t3 + 3 * t2
+        h11 = t3 - t2
+
+        out[k] = h00 * y[i] + h10 * h * d[i] + h01 * y[i + 1] + h11 * h * d[i + 1]
+
+    return out
+
+
+@njit
+def interp_pchip(xq, x, y):
+    d = _pchip_slopes(x, y)
+    return _pchip_interp(xq, x, y, d)

@@ -2,7 +2,7 @@ from numba import njit
 import numpy as np
 from scipy.integrate import solve_ivp
 from scipy.constants import c as c0
-from interpolator import interp_quad
+from interpolator import interp_pchip
 import y2018fs8.data as fs8_data
 
 c = c0 / 1000  # km/s
@@ -42,7 +42,7 @@ def DM(z, Om_eff, w0):
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(len(z_grid))
     cum_dm[1:] = np.cumsum(dx * dy)
-    return interp_quad(z, z_grid, cum_dm)
+    return interp_pchip(z, z_grid, cum_dm)
 
 
 denominator_fiducial = np.zeros(len(data["z"]), dtype=np.float64)
@@ -114,8 +114,7 @@ bounds = np.array(
         (0.2, 1.2),  # sigma8
         (-1.0, 0.0),  # w0
         (0.5, 2.2),  # f_err: overestimation factor of the errors
-    ],
-    dtype=np.float64,
+    ]
 )
 
 normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))

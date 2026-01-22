@@ -3,7 +3,7 @@ import numpy as np
 from scipy.constants import c as c0
 import scipy.stats as stats
 from scipy.linalg import cho_factor, solve_triangular
-from interpolator import interp_cubic
+from interpolator import interp_pchip
 from y2025DESdovekie.data import get_data, effective_sample_size
 
 legend, z_cmb, z_hel, mu_vals, covmat = get_data()
@@ -33,7 +33,7 @@ def DM_z(z, params):
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size)
     cum_dm[1:] = np.cumsum(dx * dy)
-    return interp_cubic(z, z_grid, cum_dm)
+    return interp_pchip(z, z_grid, cum_dm)
 
 
 @njit

@@ -1,7 +1,7 @@
 from numba import njit
 import numpy as np
 from scipy.constants import c as c0
-from interpolator import interp_cubic
+from interpolator import interp_pchip
 from y2023union3.data import get_data
 
 legend, z_values, mu_vals, cov_matrix = get_data()
@@ -36,7 +36,7 @@ def DM_z(z, params):
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size)
     cum_dm[1:] = np.cumsum(dx * dy)
-    return interp_cubic(z, z_grid, cum_dm)
+    return interp_pchip(z, z_grid, cum_dm)
 
 
 @njit
@@ -96,7 +96,7 @@ def main():
     with Pool(5) as pool:
         sampler = emcee.EnsembleSampler(n_walkers, n_dim, log_probability, pool, moves)
         sampler.run_mcmc(
-            initial_pos, n_steps, progress=True, progress_kwargs={"colour": "#00ff00"}
+            initial_pos, n_steps, progress=True, progress_kwargs={"colour": "#ff5733"}
         )
 
     try:

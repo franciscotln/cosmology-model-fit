@@ -1,7 +1,7 @@
 from numba import njit
 import numpy as np
 from scipy.integrate import solve_ivp
-from interpolator import interp_quad
+from interpolator import interp_pchip
 import y2018fs8.data as fs8_data
 import cmb.data_planck_act_compression as cmb
 
@@ -62,7 +62,7 @@ def DM(z, theta):
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(len(z_grid))
     cum_dm[1:] = np.cumsum(dx * dy)
-    return interp_quad(z, z_grid, cum_dm)
+    return interp_pchip(z, z_grid, cum_dm)
 
 
 H0_fid = 67.6
@@ -149,8 +149,7 @@ bounds = np.array(
         (-1.0, 0.0),  # w0
         (0.2, 1.2),  # sigma8
         (0.5, 2.2),  # f_err: overstimation factor of the errors
-    ],
-    dtype=np.float64,
+    ]
 )
 
 normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))

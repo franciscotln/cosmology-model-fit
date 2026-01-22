@@ -1,7 +1,7 @@
 from numba import njit
 import numpy as np
 from scipy.linalg import cho_factor, solve_triangular
-from interpolator import interp_cubic
+from interpolator import interp_pchip
 from y2025DESdovekie.data import get_data
 import cmb.data_planck_act_compression as cmb
 
@@ -53,7 +53,7 @@ def DM_z(z, theta):
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size)
     cum_dm[1:] = np.cumsum(dx * dy)
-    return interp_cubic(z, z_grid, cum_dm)
+    return interp_pchip(z, z_grid, cum_dm)
 
 
 @njit
@@ -84,8 +84,7 @@ bounds = np.array(
         (0.010, 0.030),  # Ωb * h^2
         (0.01, 0.25),  # Ωc * h^2
         (-1.0, 0.0),  # w0
-    ],
-    dtype=np.float64,
+    ]
 )
 
 

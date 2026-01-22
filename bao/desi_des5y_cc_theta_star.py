@@ -2,7 +2,7 @@ from numba import njit
 import numpy as np
 from scipy.linalg import cho_factor, solve_triangular
 import cmb.data_planck_act_compression as cmb
-from interpolator import interp_quad
+from interpolator import interp_pchip
 from y2025DESdovekie.data import (
     effective_sample_size as sn_size,
     get_data as get_sn_data,
@@ -71,7 +71,7 @@ def DM_z(z, theta):
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size)
     cum_dm[1:] = np.cumsum(dx * dy)
-    return interp_quad(z, z_grid, cum_dm)
+    return interp_pchip(z, z_grid, cum_dm)
 
 
 @njit

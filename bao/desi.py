@@ -1,7 +1,7 @@
 from numba import njit
 import numpy as np
 from scipy.constants import c as c0
-from interpolator import interp_cubic
+from interpolator import interp_pchip
 from y2025BAO.data import get_data
 
 c = c0 / 1000  # Speed of light in km/s
@@ -44,11 +44,11 @@ def bao_theory(z, qty, theta):
 
     results = np.empty(z.size, dtype=np.float64)
 
-    results[DH_mask] = interp_cubic(z[DH_mask], z_grid, dh_grid)
-    results[DM_mask] = interp_cubic(z[DM_mask], z_grid, dm_grid)
+    results[DH_mask] = interp_pchip(z[DH_mask], z_grid, dh_grid)
+    results[DM_mask] = interp_pchip(z[DM_mask], z_grid, dm_grid)
 
-    dh_at_z = interp_cubic(z[DV_mask], z_grid, dh_grid)
-    dm_at_z = interp_cubic(z[DV_mask], z_grid, dm_grid)
+    dh_at_z = interp_pchip(z[DV_mask], z_grid, dh_grid)
+    dm_at_z = interp_pchip(z[DV_mask], z_grid, dm_grid)
     results[DV_mask] = (z[DV_mask] * dh_at_z * dm_at_z**2) ** (1 / 3)
     return results / rd
 
@@ -69,8 +69,7 @@ bounds = np.array(
         (0.50, 0.80),  # h
         (0.1, 0.5),  # Ωm
         (-1.0, 0.0),  # w0
-    ],
-    dtype=np.float64,
+    ]
 )
 
 normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))

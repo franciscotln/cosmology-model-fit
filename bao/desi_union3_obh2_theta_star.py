@@ -1,7 +1,7 @@
 from numba import njit
 import numpy as np
 import cmb.data_planck_act_compression as cmb
-from interpolator import interp_cubic
+from interpolator import interp_pchip
 from y2023union3.data import get_data as get_sn_data
 from y2025BAO.data import get_data as get_bao_data
 
@@ -68,7 +68,7 @@ def DM_z(z, theta):
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size, dtype=np.float64)
     cum_dm[1:] = np.cumsum(dx * dy)
-    return interp_cubic(z, z_grid, cum_dm)
+    return interp_pchip(z, z_grid, cum_dm)
 
 
 @njit
@@ -273,16 +273,16 @@ Degs of freedom: 32
 ===============================
 
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
-H0: 66.17 +0.86 -0.83 km/s/Mpc
+H0: 66.17 +0.85 -0.84 km/s/Mpc
 ωb: 0.02250 +0.00011 -0.00011
 ωc: 0.1150 +0.0010 -0.0010
 ωm: 0.1382 +0.0010 -0.0010
 Ωm: 0.316 +0.008 -0.008
-w0: -0.799 +0.064 -0.067
+w0: -0.799 +0.063 -0.067
 wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
 z_d: 1059.85 +0.27 -0.27
-r_d: 148.28 +0.30 -0.30 Mpc
-Chi squared: 30.75
+r_d: 148.29 +0.30 -0.30 Mpc
+Chi squared: 30.74
 Log Evidence: -33.42 (Δ logZ = 2.98 against ΛCDM)
 Degs of freedom: 32
 
