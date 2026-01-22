@@ -2,6 +2,7 @@ from numba import njit
 import numpy as np
 from scipy.constants import c as c0
 from scipy.linalg import cho_factor, solve_triangular
+from interpolator import interp_pchip
 import y2024BBN.prior_lcdm_schoneberg as bbn
 from y2025DESdovekie.data import get_data, effective_sample_size as sn_size
 from y2025BAO.data import get_data as get_bao_data
@@ -16,7 +17,7 @@ cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
 cho_bao = cho_factor(bao_cov_matrix, lower=True)[0]
 
 z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
-z_grid = np.linspace(0, z_max, num=2000)
+z_grid = np.linspace(0, z_max, num=3000)
 dx = np.diff(z_grid)
 
 
@@ -46,16 +47,16 @@ def r_drag(wb, wm):
 @njit
 def Ez(z, params):
     Om, w0 = params[1], params[3]
-    Ode = 1 - Om
-    one_plus_z = 1 + z
+    Ode = 1.0 - Om
+    one_plus_z = 1.0 + z
     cubed = one_plus_z**3
-    rho_de = (4 * cubed / (1 + 3 * cubed)) ** (4 * (1 + w0))
+    rho_de = (2 * cubed / (1.0 + w0 + (1.0 - w0) * cubed)) ** 2
     return np.sqrt(Om * cubed + Ode * rho_de)
 
 
 def theory_mu(params):
-    dL = (1 + z_hel) * DM_z(z_cmb, params)
-    return params[-1] + 25 + 5 * np.log10(dL)
+    dL = (1.0 + z_hel) * DM_z(z_cmb, params)
+    return params[-1] + 25.0 + 5 * np.log10(dL)
 
 
 @njit
@@ -74,7 +75,7 @@ def DM_z(z, theta):
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size)
     cum_dm[1:] = np.cumsum(dx * dy)
-    return np.interp(z, z_grid, cum_dm)
+    return interp_pchip(z, z_grid, cum_dm)
 
 
 @njit
@@ -135,7 +136,7 @@ def main():
     prior.add_parameter("H0", dist=(55, 80))
     prior.add_parameter("Om", dist=(0.10, 0.65))
     prior.add_parameter("ωb", dist=norm(loc=bbn.Obh2, scale=bbn.Obh2_sigma))
-    prior.add_parameter("w0", dist=(-1.5, 0.0))
+    prior.add_parameter("w0", dist=(-1.0, -1 / 3))
     prior.add_parameter("dM", dist=(-0.5, 0.5))
 
     with Pool(8) as pool:
@@ -218,9 +219,17 @@ Priors:
 H0 U(55, 80)
 Om U(0.10, 0.65)
 ωb N(bbn.Obh2, bbn.Obh2_sigma)
-w0 U(-1.5, 0.0)
-w0 U(-4.0, 2.5)
 dM U(-0.5, 0.5)
+
+wCDM:
+w0 U(-1.5, -0.5)
+
+wzCDM:
+w0 U(-1.0, -1/3)
+
+w0waCDM:
+w0 U(-1.5, 0.0)
+wa U(-4.0, 2.5)
 
 *******************************
 
@@ -242,26 +251,28 @@ Flat wCDM w(z) = w0
 H0: 66.3 +1.2 -1.2 km/s/Mpc
 Ωm: 0.2975 +0.0086 -0.0086
 ωb: 0.02218 +0.00055 -0.00055
-ωm: 0.13067 +0.00749 -0.00729
+ωm: 0.13065 +0.00757 -0.00734
 w0: -0.910 +0.037 -0.038
 wa: 0
-r_d: 150.48 +2.29 -2.24 Mpc
+ΔM: -0.106 +0.034 -0.034
+r_d: 150.49 +2.30 -2.26 Mpc
 Chi squared: 1639.50
-Log Evidence: -833.60 (Δ logZ = 0.05 against ΛCDM)
+Log Evidence: -833.20 (Δ logZ = 0.45 against ΛCDM)
 Degrees of freedom: 1722
 
 ===============================
 
-Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
+Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
 H0: 66.8 +1.0 -1.0 km/s/Mpc
-Ωm: 0.3045 +0.0078 -0.0075
-ωb: 0.02218 +0.00055 -0.00055
-ωm: 0.13566 +0.00580 -0.00545
-w0: -0.870 +0.049 -0.050
-wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-r_d: 149.07 +1.76 -1.77 Mpc
-Chi squared: 1638.54
-Log Evidence: -832.82 (Δ logZ = 0.83 against ΛCDM)
+Ωm: 0.3048 +0.0078 -0.0075
+ωb: 0.02218 +0.00055 -0.00054
+ωm: 0.13582 +0.00571 -0.00543
+w0: -0.861 +0.051 -0.052
+wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
+ΔM: -0.083 +0.025 -0.025
+r_d: 149.03 +1.75 -1.74 Mpc
+Chi squared: 1638.46
+Log Evidence: -831.95 (Δ logZ = 1.70 against ΛCDM)
 Degrees of freedom: 1722
 
 ===============================
