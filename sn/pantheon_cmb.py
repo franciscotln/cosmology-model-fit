@@ -40,6 +40,9 @@ def H_z(z, params):
     return H0 * Ez(z, H0, Obh2, Och2, w0)
 
 
+cmb.set_HZ(H_z)
+
+
 @njit
 def DM_z(z, params):
     dh_grid = c / H_z(z_grid, params)
@@ -61,7 +64,7 @@ def solve_triang(cho_L, delta):
 
 
 def chi_squared(params):
-    delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(H_z, params[2], params[3], params)
+    delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(params[2], params[3], params)
     chi2_cmb = delta @ cmb.inv_cov_mat @ delta
 
     delta_sn = mb_values - apparent_mag(params)
@@ -171,7 +174,7 @@ def main():
     print(f"M: {M_50:.3f} +{(M_84 - M_50):.3f} -{(M_50 - M_16):.3f} mag")
     print(f"z*: {z_st_50:.2f} +{(z_st_84 - z_st_50):.2f} -{(z_st_50 - z_st_16):.2f}")
     print(f"z_d: {z_d_50:.2f} +{(z_d_84 - z_d_50):.2f} -{(z_d_50 - z_d_16):.2f}")
-    print(f"r* = {cmb.rs_z(H_z, z_st_50, Obh2_50, best_fit):.2f} Mpc")
+    print(f"r* = {cmb.rs_z(z_st_50, Obh2_50, best_fit):.2f} Mpc")
     print(f"rd: {r_d_50:.2f} +{(r_d_84 - r_d_50):.2f} -{(r_d_50 - r_d_16):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
 

@@ -57,6 +57,9 @@ def H_z(z, params):
     return H0 * Ez(z, H0, Obh2, Och2, w0)
 
 
+cmb.set_HZ(H_z)
+
+
 @njit
 def DH_z(z, params):
     return c / H_z(z, params)
@@ -112,7 +115,7 @@ def chi2_bao(theta):
 def chi_squared(theta):
     # Planck + ACT compressed priors for π/θ* and ωb,
     # without the shift parameter R (arXiv:1808.05724v1)
-    delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(H_z, theta[2], theta[3], theta)
+    delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(theta[2], theta[3], theta)
     chi_cmb = delta_cmb[1:] @ inv_cov_cmb @ delta_cmb[1:]
     return chi2_sn(theta) + chi2_bao(theta) + chi_cmb
 

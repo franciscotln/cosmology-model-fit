@@ -60,6 +60,9 @@ def H_z(z, params):
     return H0 * Ez(z, H0, Obh2, Och2, w0)
 
 
+cmb.set_HZ(H_z)
+
+
 @njit
 def DH_z(z, params):
     return c / H_z(z, params)
@@ -107,9 +110,7 @@ def solve_triang(cho_L, delta):
 
 
 def chi_squared(params):
-    delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(
-        H_z, params[2], params[3], params
-    )
+    delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(params[2], params[3], params)
     chi2_cmb = delta_cmb @ cmb.inv_cov_mat @ delta_cmb
 
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
@@ -225,7 +226,7 @@ def main():
     print(f"M: {M_50:.3f} +{(M_84 - M_50):.3f} -{(M_50 - M_16):.3f}")
     print(f"z*: {zst_50:.2f} +{(zst_84 - zst_50):.2f} -{(zst_50 - zst_16):.2f}")
     print(f"z_d: {zdr_50:.2f} +{(zdr_84 - zdr_50):.2f} -{(zdr_50 - zdr_16):.2f}")
-    print(f"r*: {cmb.rs_z(H_z, zst_50, Obh2_50, best_fit):.2f} Mpc")
+    print(f"r*: {cmb.rs_z(zst_50, Obh2_50, best_fit):.2f} Mpc")
     print(f"rd: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Log evidence: {log_evd:.2f}")

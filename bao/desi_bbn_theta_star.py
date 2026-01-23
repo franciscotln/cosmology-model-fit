@@ -47,6 +47,9 @@ def H_z(z, params):
     return H0 * Ez(z, H0, Obh2, Och2, w0)
 
 
+cmb.set_HZ(H_z)
+
+
 @njit
 def DH_z(z, params):
     return c / H_z(z, params)
@@ -88,7 +91,7 @@ def bao_theory(z, qty, params):
 
 def chi_squared(params):
     delta_thetastar = (
-        cmb.DISTANCE_PRIORS[1] - cmb.cmb_distances(H_z, params[1], params[2], params)[1]
+        cmb.DISTANCE_PRIORS[1] - cmb.cmb_distances(params[1], params[2], params)[1]
     )
     chi2_thetastar = delta_thetastar**2 / cmb.covariance[1, 1]
 
@@ -150,10 +153,10 @@ def main():
     print(f"ωm: {Omh2_50:.4f} +{(Omh2_84 - Omh2_50):.4f} -{(Omh2_50 - Omh2_16):.4f}")
     print(f"Ωm: {Om_50:.4f} +{(Om_84 - Om_50):.4f} -{(Om_50 - Om_16):.4f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
-    print(f"r*: {cmb.rs_z(H_z, zst_50, Obh2_50, best_fit):.2f} Mpc")
+    print(f"r*: {cmb.rs_z(zst_50, Obh2_50, best_fit):.2f} Mpc")
     print(f"z*: {zst_50:.2f} +{(zst_84 - zst_50):.2f} -{(zst_50 - zst_16):.2f}")
     print(
-        f"100 θ*: {100 * np.pi / (cmb.cmb_distances(H_z, Obh2_50, Och2_50, best_fit)[1]):.5f}"
+        f"100 θ*: {100 * np.pi / (cmb.cmb_distances(Obh2_50, Och2_50, best_fit)[1]):.5f}"
     )
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Log evidence: {sampler.log_z:.1f}")
@@ -228,17 +231,17 @@ Log evidence: -17.3
 
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
 rd: 148.46 +0.71 -0.71 Mpc
-H0: 66.56 +1.23 -1.41 km/s/Mpc
+H0: 66.55 +1.24 -1.42 km/s/Mpc
 ωb: 0.02227 +0.00054 -0.00054
 ωc: 0.1153 +0.0010 -0.0011
 ωm: 0.1382 +0.0013 -0.0013
-Ωm: 0.3122 +0.0124 -0.0104
-w0: -0.841 +0.109 -0.098
+Ωm: 0.3123 +0.0124 -0.0104
+w0: -0.841 +0.109 -0.097
 wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
 r*: 145.73 Mpc
 z*: 1089.63 +0.68 -0.66
-100 θ*: 1.04099
-Chi squared: 9.04
+100 θ*: 1.04098
+Chi squared: 9.05
 Log evidence: -15.8
 
 ===============================

@@ -50,6 +50,9 @@ def H_z(z, params):
     return H0 * Ez(z, H0, Obh2, Och2, w0)
 
 
+cmb.set_HZ(H_z)
+
+
 @njit
 def DH_z(z, params):
     return c / H_z(z, params)
@@ -110,9 +113,7 @@ def chi2_bao(params):
 
 
 def chi_squared(params):
-    delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(
-        H_z, params[2], params[3], params
-    )
+    delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(params[2], params[3], params)
     chi2_cmb = delta_cmb @ cmb.inv_cov_mat @ delta_cmb
 
     return chi2_cmb + chi2_bao(params) + chi2_sn(params)
@@ -230,9 +231,9 @@ def main():
     print(f"ωm: {Omh2_50:.4f} +{(Omh2_84 - Omh2_50):.4f} -{(Omh2_50 - Omh2_16):.4f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"z*: {z_st_50:.2f} +{(z_st_84 - z_st_50):.2f} -{(z_st_50 - z_st_16):.2f}")
-    print(f"r*: {cmb.rs_z(H_z, z_st_50, Obh2_50, best_fit):.2f} Mpc")
+    print(f"r*: {cmb.rs_z(z_st_50, Obh2_50, best_fit):.2f} Mpc")
     print(f"z_d: {z_dr_50:.2f} +{(z_dr_84 - z_dr_50):.2f} -{(z_dr_50 - z_dr_16):.2f}")
-    print(f"r_d: {cmb.rs_z(H_z, z_dr_50, Obh2_50, best_fit):.2f} Mpc")
+    print(f"r_d: {cmb.rs_z(z_dr_50, Obh2_50, best_fit):.2f} Mpc")
     print(f"q0: {q0_50:.3f} +{(q0_84 - q0_50):.3f} -{(q0_50 - q0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Log evidence: {log_evd:.1f}")

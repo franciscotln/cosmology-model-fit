@@ -30,6 +30,8 @@ def Hz(z, params):
     return H0 * Ez(z, H0, Obh2, Och2)
 
 
+cmb.set_HZ(Hz)
+
 bounds = np.array(
     [
         (60.0, 75.0),  # H0
@@ -53,8 +55,8 @@ def log_likelihood(params):
     Omh2 = Obh2 + Och2 + Omnu_h2
 
     zstar = cmb.z_star(Obh2, Omh2)
-    rs_star = cmb.rs_z(Hz, zstar, Obh2, params)
-    DM_star = cmb.DM_z(Hz, zstar, params)
+    rs_star = cmb.rs_z(zstar, Obh2, params)
+    DM_star = cmb.DM_z(zstar, params)
     thetastar = rs_star / DM_star
     lA = np.pi / thetastar
     R = 100 * np.sqrt(Omh2) * DM_star / c  # shift parameter

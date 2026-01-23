@@ -45,6 +45,9 @@ def Hz(z, params):
     return H0 * Ez(z, H0, Obh2, Och2, w0)
 
 
+cmb.set_HZ(Hz)
+
+
 @njit
 def DM_z(z, params):
     dh_grid = c / Hz(z_grid, params)
@@ -61,9 +64,7 @@ def mu_theory(params):
 
 
 def chi_squared(params):
-    delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(
-        Hz, params[2], params[3], params
-    )
+    delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(params[2], params[3], params)
     chi2_cmb = delta_cmb @ cmb.inv_cov_mat @ delta_cmb
 
     delta_sn = mu_vals - mu_theory(params)
@@ -174,8 +175,8 @@ def main():
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"z*: {z_st_50:.2f} +{(z_st_84 - z_st_50):.2f} -{(z_st_50 - z_st_16):.2f}")
     print(f"z_drag: {z_d_50:.2f} +{(z_d_84 - z_d_50):.2f} -{(z_d_50 - z_d_16):.2f}")
-    print(f"r*: {cmb.rs_z(Hz, z_st_50, Obh2_50, best_fit):.2f} Mpc")
-    print(f"r_d: {cmb.rs_z(Hz, z_d_50, Obh2_50, best_fit):.2f} Mpc")
+    print(f"r*: {cmb.rs_z(z_st_50, Obh2_50, best_fit):.2f} Mpc")
+    print(f"r_d: {cmb.rs_z(z_d_50, Obh2_50, best_fit):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.1f}")
     print(f"Log Evidence: {log_evd:.1f}")
     print(f"Degrees of freedom: {degrees_of_freedom}")

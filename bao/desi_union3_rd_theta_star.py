@@ -50,6 +50,9 @@ def H_z(z, params):
     return H0 * Ez(z, H0, Obh2, Och2, w0)
 
 
+cmb.set_HZ(H_z)
+
+
 @njit
 def DH_z(z, params):
     return c / H_z(z, params)
@@ -94,7 +97,7 @@ def theory_mu(params):
 
 
 def chi_squared(params):
-    dists = cmb.cmb_distances(H_z, params[2], params[3], params)
+    dists = cmb.cmb_distances(params[2], params[3], params)
     rd = dists[1]
 
     delta_cmb = cmb.DISTANCE_PRIORS - dists
@@ -224,7 +227,7 @@ def main():
     print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
     print(f"z_d: {zd_50:.2f} +{(zd_84 - zd_50):.2f} -{(zd_50 - zd_16):.2f}")
     print(f"z*: {zst_50:.2f} +{(zst_84 - zst_50):.2f} -{(zst_50 - zst_16):.2f}")
-    print(f"r*: {cmb.rs_z(H_z, zst_50, Obh2_50, best_fit):.2f} Mpc")
+    print(f"r*: {cmb.rs_z(zst_50, Obh2_50, best_fit):.2f} Mpc")
     print(
         f"100 θ*: {theta_50:.5f} +{(theta_84 - theta_50):.5f} -{(theta_50 - theta_16):.5f}"
     )

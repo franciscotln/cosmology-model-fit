@@ -51,6 +51,9 @@ def H_z(z, theta):
     return H0 * Ez(z, H0, Obh2, Och2, w0)
 
 
+cmb.set_HZ(H_z)
+
+
 @njit
 def DH_z(z, params):
     return c / H_z(z, params)
@@ -94,7 +97,7 @@ def solve_triang(cho_L, delta):
 
 
 def chi_squared(params):
-    dists = cmb.cmb_distances(H_z, params[2], params[3], params)
+    dists = cmb.cmb_distances(params[2], params[3], params)
     rd = dists[1]
 
     delta_cmb = cmb.DISTANCE_PRIORS - dists
@@ -191,7 +194,7 @@ def main():
     ] = pct
 
     best_fit = np.percentile(samples, 50, axis=0)
-    theta_100, rd = cmb.cmb_distances(H_z, Obh2_50, Och2_50, best_fit)
+    theta_100, rd = cmb.cmb_distances(Obh2_50, Och2_50, best_fit)
 
     omh2_samples = samples[:, 2] + samples[:, 3] + Omnu_h2
     Om_samples = omh2_samples / (samples[:, 1] / 100) ** 2

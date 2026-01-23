@@ -46,6 +46,9 @@ def H_z(z, params):
     return H0 * Ez(z, H0, Obh2, Och2, w0)
 
 
+cmb.set_HZ(H_z)
+
+
 @njit
 def DH_z(z, params):
     return c / H_z(z, params)
@@ -84,7 +87,7 @@ def bao_theory(z, qty, rd, params):
 
 
 def chi_squared(params):
-    distances = cmb.cmb_distances(H_z, params[1], params[2], params)
+    distances = cmb.cmb_distances(params[1], params[2], params)
     rd = distances[1]
     delta_cmb = cmb.DISTANCE_PRIORS - distances
     chi2_cmb = delta_cmb @ cmb.inv_cov_mat @ delta_cmb
@@ -173,7 +176,7 @@ def main():
     Om_50 = np.percentile(Om_samples, 50)
     Om_err = np.diff(np.percentile(Om_samples, [15.9, 50, 84.1]))
 
-    thetastar_best, rd_best = cmb.cmb_distances(H_z, best_fit[1], best_fit[2], best_fit)
+    thetastar_best, rd_best = cmb.cmb_distances(best_fit[1], best_fit[2], best_fit)
 
     print("Gelman-Rubin:", gelman_rubin(chains_samples))
     print(f"H0: {best_fit[0]:.2f} +{H0_err[0]:.2f} -{H0_err[0]:.2f} km/s/Mpc")

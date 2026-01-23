@@ -1,6 +1,5 @@
 from numba import njit
 import numpy as np
-from scipy.linalg import cho_factor, cho_solve
 import cmb.data_planck_act_compression as cmb
 from y2005cc.data import get_data
 
@@ -9,19 +8,19 @@ Orh2 = cmb.Or_h2
 Onuh2 = cmb.Omnu_h2
 
 legend, z_values, H_values, cov_matrix_cc = get_data()
-cho_cc = cho_factor(cov_matrix_cc)
+inv_cov_cc = np.linalg.inv(cov_matrix_cc)
 logdet = np.linalg.slogdet(cov_matrix_cc)[1]
 
 
 @njit
-def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
+def Ez(z, H0, Obh2, Och2):
     h = H0 / 100
     Obc = (Obh2 + Och2) / h**2
     Onu = Onuh2 / h**2
     Or = Orh2 / h**2
     Ode = 1.0 - Obc - Or - Onu
 
-    zp1 = 1 + z
+    zp1 = 1.0 + z
 
     radiation_term = Or * zp1**4
     matter_term = Obc * zp1**3
@@ -37,10 +36,13 @@ def H_z(z, params):
     return H0 * Ez(z, H0, Obh2, Och2)
 
 
+cmb.set_HZ(H_z)
+
+
 bounds = np.array(
     [
         (0.30, 2.75),  # f_cc
-        (50, 85),  # H0
+        (50.0, 85.0),  # H0
         (0.0210, 0.0235),  # Ωb * h^2
         (0.05, 0.30),  # Ωc * h^2
     ]
@@ -49,14 +51,10 @@ bounds = np.array(
 
 def chi_squared(params):
     delta_cc = H_values - H_z(z_values, params)
-    chi2_cc = params[0] ** 2 * np.dot(
-        delta_cc, cho_solve(cho_cc, delta_cc, check_finite=False)
-    )
+    chi2_cc = params[0] ** 2 * delta_cc @ inv_cov_cc @ delta_cc
 
-    delta_cm = cmb.DISTANCE_PRIORS - cmb.cmb_distances(
-        H_z, params[2], params[3], params
-    )
-    chi2_cmb = np.dot(delta_cm, np.dot(cmb.inv_cov_mat, delta_cm))
+    delta_cm = cmb.DISTANCE_PRIORS - cmb.cmb_distances(params[2], params[3], params)
+    chi2_cmb = delta_cm @ cmb.inv_cov_mat @ delta_cm
     return chi2_cc + chi2_cmb
 
 
@@ -93,13 +91,15 @@ def main():
     nsteps = 3500 + burn_in
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
     moves = [
-        (emcee.moves.KDEMove(), 0.30),
-        (emcee.moves.DEMove(), 0.70),
+        (emcee.moves.KDEMove(bw_method="silverman"), 0.20),
+        (emcee.moves.DEMove(), 0.80),
     ]
 
     with Pool(5) as pool:
         sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
-        sampler.run_mcmc(initial_pos, nsteps, progress=True)
+        sampler.run_mcmc(
+            initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#ff7f0e"}
+        )
 
     try:
         tau = sampler.get_autocorr_time()
@@ -169,10 +169,10 @@ Flat ΛCDM
 f: 1.50 +0.19 -0.18
 H0: 67.60 +0.50 -0.49
 Ωm: 0.3118 +0.0071 -0.0070
-ωb: 0.02250 +0.00011 -0.00011
-ωc: 0.11936 +0.00120 -0.00119
+ωb: 0.02249 +0.00011 -0.00011
+ωc: 0.11936 +0.00121 -0.00119
 f: 1.50 +0.19 -0.18
-Chi squared: 33.31
+Chi squared: 33.33
 Log likelihood: -130.57
 Log evidence: -147.01 (Δ logZ = 3.32 compared to fixed f)
 Degs of freedom: 32

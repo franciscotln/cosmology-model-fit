@@ -125,36 +125,29 @@ def z_drag(wb, wm):
 _HZ_FUNC = None
 
 
-@njit
-def _rs_integ(z, Obh2, params):
-    Rb = (3 / 4) * (Obh2 / O_GAMMA_H2) / (1.0 + z)
-    cs = c / np.sqrt(3 * (1.0 + Rb))
-    Hz = _HZ_FUNC(z, params)
-    return cs / Hz
-
-
-def rs_z(Hz_fun, z_lim, Obh2, params):
+def set_HZ(Hz_fun):
     global _HZ_FUNC
     _HZ_FUNC = Hz_fun
 
-    args = (Obh2, params)
-    res = quad(_rs_integ, z_lim, np.inf, args=args)[0]
-    _HZ_FUNC = None
-    return res
-
 
 @njit
-def _DM_integ(z, params):
+def _DH(z, params):
     return c / _HZ_FUNC(z, params)
 
 
-def DM_z(Hz_fun, z_lim, params):
-    global _HZ_FUNC
-    _HZ_FUNC = Hz_fun
+@njit
+def _rs_integ(z, Obh2, params):
+    Rb = (3 / 4) * (Obh2 / O_GAMMA_H2) / (1.0 + z)
+    return _DH(z, params) / np.sqrt(3 * (1.0 + Rb))
 
-    res = quad(_DM_integ, 0.0, z_lim, args=(params,))[0]
-    _HZ_FUNC = None
-    return res
+
+def rs_z(z_lim, Obh2, params):
+    args = (Obh2, params)
+    return quad(_rs_integ, z_lim, np.inf, args=args)[0]
+
+
+def DM_z(z_lim, params):
+    return quad(_DH, 0.0, z_lim, args=(params,))[0]
 
 
 def cmb_distances(Hz_fun, Ob_h2, Oc_h2, params):

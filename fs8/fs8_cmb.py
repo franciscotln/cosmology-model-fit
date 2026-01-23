@@ -48,6 +48,9 @@ def Hz(z, theta):
     return H0 * Ez(z, H0, Obh2, Och2, w0)
 
 
+cmb.set_HZ(Hz)
+
+
 @njit
 def dH_da(z, theta):
     a = 1 / (1 + z)
@@ -126,8 +129,8 @@ def chi_squared(theta):
     delta = data["fs8"] - fs8_theory(data["z"], theta) / q
     chi2_fs8 = theta[-1] ** 2 * np.dot(delta, np.dot(inv_cov_mat, delta))
 
-    delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(Hz, theta[1], theta[2], theta)
-    chi2_cmb = np.dot(delta_cmb, np.dot(cmb.inv_cov_mat, delta_cmb))
+    delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(theta[1], theta[2], theta)
+    chi2_cmb = delta_cmb @ cmb.inv_cov_mat @ delta_cmb
 
     return chi2_fs8 + chi2_cmb
 

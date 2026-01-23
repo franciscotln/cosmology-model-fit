@@ -51,6 +51,9 @@ def H_z(z, theta):
     return H0 * Ez(z, H0, Obh2, Och2, w0)
 
 
+cmb.set_HZ(H_z)
+
+
 @njit
 def DH_z(z, params):
     return c / H_z(z, params)
@@ -104,7 +107,7 @@ def solve_triang(cho_L, delta):
 
 
 def chi_squared(theta):
-    cmb_observables = cmb.cmb_distances(H_z, theta[2], theta[3], theta)[[0, 1]]
+    cmb_observables = cmb.cmb_distances(theta[2], theta[3], theta)[[0, 1]]
     delta_cmb = cmb_compressed_priors - cmb_observables
     chi2_cmb = delta_cmb @ cmb_inv_cov @ delta_cmb
 
@@ -211,7 +214,7 @@ def main():
     print(f"ωc: {Och2_50:.5f} +{(Och2_84 - Och2_50):.5f} -{(Och2_50 - Och2_16):.5f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"z_d: {zd_50:.2f} +{(zd_84 - zd_50):.2f} -{(zd_50 - zd_16):.2f}")
-    print(f"r_d: {cmb.rs_z(H_z, zd_50, Obh2_50, best_fit):.2f} Mpc")
+    print(f"r_d: {cmb.rs_z(zd_50, Obh2_50, best_fit):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Log Evidence: {log_evd:.2f}")
     print(f"Degs of freedom: {2 + len(bao_data['z']) + len(z_cmb) - len(best_fit)}")

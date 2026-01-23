@@ -16,7 +16,7 @@ dx = np.diff(z_grid)
 
 
 @njit
-def Ode_z(z, w0, wa):
+def Ode_z(z, w0):
     a3 = (1.0 + z) ** -3
     return 4 / ((1.0 + w0) * a3 + (1.0 - w0)) ** 2  # wzCDM
     # return 1  # ΛCDM
@@ -25,7 +25,7 @@ def Ode_z(z, w0, wa):
 
 
 @njit
-def Ez(z, H0, Obh2, Och2, w0=-1.0, wa=0.0):
+def Ez(z, H0, Obh2, Och2, w0):
     h = H0 / 100
     Onu = Omnu_h2 / h**2
     Or = Or_h2 / h**2
@@ -37,7 +37,7 @@ def Ez(z, H0, Obh2, Och2, w0=-1.0, wa=0.0):
     radiation_term = Or * zp1**4
     matter_term = Obc * zp1**3
     neutrino_term = Onu * cmb.Omnu_z(z)
-    dark_energy_term = Ode * Ode_z(z, w0, wa)
+    dark_energy_term = Ode * Ode_z(z, w0)
 
     return np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
 
@@ -46,6 +46,9 @@ def Ez(z, H0, Obh2, Och2, w0=-1.0, wa=0.0):
 def H_z(z, params):
     H0, Obh2, Och2, w0 = params
     return H0 * Ez(z, H0, Obh2, Och2, w0)
+
+
+cmb.set_HZ(H_z)
 
 
 @njit
@@ -89,9 +92,7 @@ def bao_theory(z, qty, params):
 
 
 def chi_squared(params):
-    delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(
-        H_z, params[1], params[2], params
-    )
+    delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(params[1], params[2], params)
     chi2_cmb = delta_cmb @ cmb.inv_cov_mat @ delta_cmb
 
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
@@ -195,7 +196,7 @@ def main():
     print(f"ωm: {Omh2_50:.4f} +{(Omh2_84 - Omh2_50):.4f} -{(Omh2_50 - Omh2_16):.4f}")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
-    print(f"r*: {cmb.rs_z(H_z, z_st_50, Obh2_50, best_fit):.2f} Mpc")
+    print(f"r*: {cmb.rs_z(z_st_50, Obh2_50, best_fit):.2f} Mpc")
     print(f"z*: {z_st_50:.2f} +{(z_st_84 - z_st_50):.2f} -{(z_st_50 - z_st_16):.2f}")
     print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
     print(f"Log Z: {log_evidence(samples, log_probs, log_probability, bounds):.2f}")
@@ -258,18 +259,18 @@ Degs of freedom: 12
 
 """
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
-H0: 67.25 +0.82 -1.14 km/s/Mpc
+H0: 67.25 +0.81 -1.14 km/s/Mpc
 ωb: 0.02241 +0.00012 -0.00012
 ωc: 0.1168 +0.0007 -0.0007
 ωm: 0.1398 +0.0007 -0.0007
-Ωm: 0.309 +0.010 -0.007
-w0: -0.911 +0.087 -0.062 (prior width 1.0: -1.0 to 0.0; truncated posterior on the left)
+Ωm: 0.309 +0.010 -0.008
+w0: -0.911 +0.088 -0.061 (prior width 1.0: -1.0 to 0.0; truncated posterior on the left)
 wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
 r*: 145.24 Mpc
-z*: 1089.68 +0.18 -0.19
+z*: 1089.69 +0.18 -0.19
 r_d: 147.91 +0.20 -0.20 Mpc
-Log Z: -20.59
-Chi squared: 13.87
+Log Z: -20.60
+Chi squared: 13.91
 Degs of freedom: 12
 """
 

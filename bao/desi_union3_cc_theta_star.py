@@ -58,6 +58,9 @@ def H_z(z, theta):
     return H0 * Ez(z, H0, Obh2, Och2, w0)
 
 
+cmb.set_HZ(H_z)
+
+
 @njit
 def DH_z(z, theta):
     return c / H_z(z, theta)
@@ -105,7 +108,7 @@ def mu_theory(theta):
 
 
 def chi_squared(theta):
-    delta = (cmb.DISTANCE_PRIORS - cmb.cmb_distances(H_z, theta[3], theta[4], theta))[1]
+    delta = (cmb.DISTANCE_PRIORS - cmb.cmb_distances(theta[3], theta[4], theta))[1]
     thetastar_cov = cmb.covariance[1, 1]
     chi_theta_star = delta**2 / thetastar_cov
 

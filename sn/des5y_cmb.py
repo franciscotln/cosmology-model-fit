@@ -18,25 +18,25 @@ dx = np.diff(z_grid)
 
 
 @njit
-def Ode_z(z, w0, wa):
+def Ode_z(z, w0):
     a3 = 1 / (1 + z) ** 3
-    return 4 / ((1 + w0) * a3 + (1 - w0)) ** 2
+    return 4 / ((1.0 + w0) * a3 + (1.0 - w0)) ** 2
 
 
 @njit
-def Ez(z, H0, Obh2, Och2, w0=-1.0, wa=0.0):
+def Ez(z, H0, Obh2, Och2, w0):
     h = H0 / 100
     Obc = (Obh2 + Och2) / h**2
     Onu = Onuh2 / h**2
     Or = Orh2 / h**2
     Ode = 1.0 - Obc - Or - Onu
 
-    zp1 = 1 + z
+    zp1 = 1.0 + z
 
     radiation_term = Or * zp1**4
     matter_term = Obc * zp1**3
     neutrino_term = Onu * cmb.Omnu_z(z)
-    dark_energy_term = Ode * Ode_z(z, w0, wa)
+    dark_energy_term = Ode * Ode_z(z, w0)
 
     return np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
 
@@ -45,6 +45,9 @@ def Ez(z, H0, Obh2, Och2, w0=-1.0, wa=0.0):
 def H_z(z, theta):
     H0, Obh2, Och2, w0 = theta[1:]
     return H0 * Ez(z, H0, Obh2, Och2, w0)
+
+
+cmb.set_HZ(H_z)
 
 
 @njit
@@ -68,7 +71,7 @@ def solve_triang(cho_L, delta):
 
 
 def chi_squared(params):
-    delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(H_z, params[2], params[3], params)
+    delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(params[2], params[3], params)
     chi2_cmb = np.dot(delta, np.dot(cmb.inv_cov_mat, delta))
 
     delta_sn = mu_vals - theory_mu(params)
@@ -175,8 +178,8 @@ def main():
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"z*: {z_st_50:.2f} +{(z_st_84 - z_st_50):.2f} -{(z_st_50 - z_st_16):.2f}")
     print(f"zd: {z_dr_50:.2f} +{(z_dr_84 - z_dr_50):.2f} -{(z_dr_50 - z_dr_16):.2f}")
-    print(f"r*: {cmb.rs_z(H_z, z_st_50, Obh2_50, best_fit):.2f} Mpc")
-    print(f"r_d: {cmb.rs_z(H_z, z_dr_50, Obh2_50, best_fit):.2f} Mpc")
+    print(f"r*: {cmb.rs_z(z_st_50, Obh2_50, best_fit):.2f} Mpc")
+    print(f"r_d: {cmb.rs_z(z_dr_50, Obh2_50, best_fit):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Log evidence: {log_evd:.1f}")
 

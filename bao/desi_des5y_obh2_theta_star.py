@@ -45,6 +45,9 @@ def H_z(z, theta):
     return H0 * Ez(z, H0, Obh2, Och2, w0)
 
 
+cmb.set_HZ(H_z)
+
+
 @njit
 def DH_z(z, params):
     return c / H_z(z, params)
@@ -97,7 +100,7 @@ def solve_triang(cho_L, delta):
 
 
 def chi_squared(theta):
-    delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(H_z, theta[2], theta[3], theta)
+    delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(theta[2], theta[3], theta)
     chi2_cmb = delta_cmb[1:] @ cmb.inv_cov_mat[1:, 1:] @ delta_cmb[1:]
 
     delta_sn = mu_values - theory_mu(theta)
@@ -197,7 +200,7 @@ def main():
     Om_16, Om_50, Om_84 = np.percentile(Om_samples, [15.9, 50, 84.1])
     zd_16, zd_50, zd_84 = np.percentile(zd_samples, [15.9, 50, 84.1])
     z_st_16, z_st_50, z_st_84 = np.percentile(z_st_samples, [15.9, 50, 84.1])
-    R, lA = cmb.cmb_distances(H_z, Obh2_50, Och2_50, best_fit)[0:2]
+    R, lA = cmb.cmb_distances(Obh2_50, Och2_50, best_fit)[0:2]
 
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
@@ -207,9 +210,9 @@ def main():
     print(f"ωm: {Omh2_50:.4f} +{(Omh2_84 - Omh2_50):.4f} -{(Omh2_50 - Omh2_16):.4f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"z_d: {zd_50:.2f} +{(zd_84 - zd_50):.2f} -{(zd_50 - zd_16):.2f}")
-    print(f"r_d: {cmb.rs_z(H_z, zd_50, Obh2_50, best_fit):.2f} Mpc")
+    print(f"r_d: {cmb.rs_z(zd_50, Obh2_50, best_fit):.2f} Mpc")
     print(f"z*: {z_st_50:.2f} +{(z_st_84 - z_st_50):.2f} -{(z_st_50 - z_st_16):.2f}")
-    print(f"r*: {cmb.rs_z(H_z, z_st_50, Obh2_50, best_fit):.2f} Mpc")
+    print(f"r*: {cmb.rs_z(z_st_50, Obh2_50, best_fit):.2f} Mpc")
     print(f"shift R: {R:.3f}")
     print(f"100 θ*: {100 * np.pi / lA:.5f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")

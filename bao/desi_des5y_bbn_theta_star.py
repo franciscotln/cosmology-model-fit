@@ -52,6 +52,9 @@ def H_z(z, theta):
     return H0 * Ez(z, H0, Obh2, Och2, w0)
 
 
+cmb.set_HZ(H_z)
+
+
 @njit
 def DH_z(z, params):
     return c / H_z(z, params)
@@ -104,9 +107,7 @@ def solve_triang(cho_L, delta):
 
 
 def chi_squared(theta):
-    delta_lA = (
-        cmb.DISTANCE_PRIORS - cmb.cmb_distances(H_z, theta[2], theta[3], theta)
-    )[1]
+    delta_lA = (cmb.DISTANCE_PRIORS - cmb.cmb_distances(theta[2], theta[3], theta))[1]
     chi2_lA = delta_lA**2 / cmb.covariance[1, 1]
 
     delta_bbn = bbn.Obh2 - theta[2]
@@ -223,9 +224,9 @@ def main():
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
     print(f"z*: {zst_50:.2f} +{(zst_84 - zst_50):.2f} -{(zst_50 - zst_16):.2f}")
-    print(f"r*: {cmb.rs_z(H_z, zst_50, Obh2_50, best_fit):.2f} Mpc")
+    print(f"r*: {cmb.rs_z(zst_50, Obh2_50, best_fit):.2f} Mpc")
     print(
-        f"100 θ*: {100 * np.pi / cmb.cmb_distances(H_z, Obh2_50, Och2_50, best_fit)[1]:.5f}"
+        f"100 θ*: {100 * np.pi / cmb.cmb_distances(Obh2_50, Och2_50, best_fit)[1]:.5f}"
     )
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Log Evidence: {log_evd:.2f}")
