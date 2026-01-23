@@ -59,7 +59,7 @@ def DH_z(z, params):
 def DM_z(z, params):
     dh_grid = DH_z(z_grid, params)
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
-    cum_dm = np.zeros(z_grid.size)
+    cum_dm = np.zeros(z_grid.size, dtype=np.float64)
     cum_dm[1:] = np.cumsum(dx * dy)
     return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
@@ -151,7 +151,7 @@ def log_probability(params):
 
 def q0(Om, w0=-1.0):
     """Calculate the deceleration parameter at z=0"""
-    return Om / 2 + (1 + 3 * w0) * (1 - Om) / 2
+    return Om / 2 + (1.0 + 3 * w0) * (1.0 - Om) / 2
 
 
 def main():

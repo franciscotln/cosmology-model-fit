@@ -51,7 +51,7 @@ def H_z(z, theta):
 def DM_z(z, theta):
     dh_grid = c / H_z(z_grid, theta)
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
-    cum_dm = np.zeros(z_grid.size)
+    cum_dm = np.zeros(z_grid.size, dtype=np.float64)
     cum_dm[1:] = np.cumsum(dx * dy)
     return interp_hermite(z, z_grid, cum_dm, dh_grid)
 

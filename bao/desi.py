@@ -35,7 +35,7 @@ def bao_theory(z, qty, theta):
     dh_grid = DH_z(z_grid, theta)
 
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
-    dm_grid = np.zeros(z_grid.size)
+    dm_grid = np.zeros(z_grid.size, dtype=np.float64)
     dm_grid[1:] = np.cumsum(dx * dy)
 
     DV_mask = qty == 0

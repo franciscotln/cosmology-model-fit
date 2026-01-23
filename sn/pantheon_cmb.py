@@ -12,8 +12,8 @@ Omnuh2 = cmb.Omnu_h2
 sn_legend, z_cmb, z_hel, mb_values, cov_matrix_sn = get_data()
 cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
 
-z_grid = np.linspace(0, np.max(z_cmb) + 0.1, num=4000)
-dx = np.diff(z_grid)
+z_grid = np.linspace(0, np.max(z_cmb) + 0.1, num=3000)
+dz = np.diff(z_grid)
 
 
 @njit
@@ -44,8 +44,8 @@ def H_z(z, params):
 def DM_z(z, params):
     dh_grid = c / H_z(z_grid, params)
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
-    cum_dm = np.zeros(z_grid.size)
-    cum_dm[1:] = np.cumsum(dx * dy)
+    cum_dm = np.zeros(z_grid.size, dtype=np.float64)
+    cum_dm[1:] = np.cumsum(dz * dy)
     return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
@@ -115,8 +115,8 @@ def main():
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
     moves = [
-        (emcee.moves.KDEMove(bw_method="silverman"), 0.30),
-        (emcee.moves.DEMove(), 0.70),
+        (emcee.moves.KDEMove(bw_method="silverman"), 0.25),
+        (emcee.moves.DEMove(), 0.75),
     ]
 
     with Pool(6) as pool:
@@ -227,18 +227,18 @@ Chi squared: 1402.70
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
-H0: 66.73 +0.60 -0.64 km/s/Mpc
+H0: 66.74 +0.60 -0.64 km/s/Mpc
 Ωm: 0.320 +0.008 -0.007
-ωm: 0.14236 +0.00115 -0.00113
+ωm: 0.14235 +0.00116 -0.00113
 ωb: 0.02250 +0.00011 -0.00011
 ωc: 0.11921 +0.00119 -0.00117
-w0: -0.935 +0.045 -0.038 (prior width 1.0: from -1.0 to 0.0)
+w0: -0.936 +0.045 -0.038 (prior width 1.0: from -1.0 to 0.0)
 wa: d w(z)/dz at z=0 = -1.5 * (1 - w0**2)
-M: -19.451 +0.015 -0.016 mag
+M: -19.451 +0.015 -0.015 mag
 z*: 1089.67 +0.21 -0.21
-z_d: 1060.18 +0.23 -0.23
+z_d: 1060.17 +0.23 -0.23
 r* = 144.55 Mpc
-rd: 147.16 +0.29 -0.29 Mpc
+rd: 147.17 +0.29 -0.29 Mpc
 Chi squared: 1402.80
 
 ===============================
