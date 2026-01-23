@@ -2,6 +2,7 @@ from numba import njit
 import numpy as np
 from scipy.constants import c as c0
 from scipy.linalg import cho_factor, solve_triangular
+from interpolator import interp_hermite
 from y2005cc.data import get_data as get_cc_data
 from y2025BAO.data import get_data as get_bao_data
 from y2025DESdovekie.data import (
@@ -23,7 +24,7 @@ N_cc = len(z_cc_vals)
 c = c0 / 1000  # km/s
 
 z_max = max(np.max(z_sn_vals), np.max(bao_data["z"])) + 0.1
-z_grid = np.linspace(0, z_max, num=4000)
+z_grid = np.linspace(0, z_max, num=3000)
 dx = np.diff(z_grid)
 
 
@@ -43,21 +44,6 @@ def Ez(z, theta):
 
 
 @njit
-def DM(theta):
-    dh_grid = DH_z(z_grid, theta)
-    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
-    cum_dm = np.zeros(z_grid.size)
-    cum_dm[1:] = np.cumsum(dx * dy)
-    return cum_dm
-
-
-@njit
-def mu_theory(theta):
-    dL = (1 + z_sn_hel_vals) * np.interp(z_sn_vals, z_grid, DM(theta))
-    return theta[1] + 25 + 5 * np.log10(dL)
-
-
-@njit
 def H_z(z, theta):
     return theta[2] * Ez(z, theta)
 
@@ -69,7 +55,11 @@ def DH_z(z, theta):
 
 @njit
 def DM_z(z, theta):
-    return np.interp(z, z_grid, DM(theta))
+    dh_grid = DH_z(z_grid, theta)
+    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    cum_dm = np.zeros(z_grid.size, dtype=np.float64)
+    cum_dm[1:] = np.cumsum(dx * dy)
+    return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
 @njit
@@ -93,6 +83,12 @@ def bao_theory(z, qty, theta):
     results[DM_mask] = DM_z(z[DM_mask], theta)
     results[DV_mask] = DV_z(z[DV_mask], theta)
     return results / theta[3]
+
+
+@njit
+def mu_theory(theta):
+    dL = (1.0 + z_sn_hel_vals) * DM_z(z_sn_vals, theta)
+    return theta[1] + 25.0 + 5 * np.log10(dL)
 
 
 def solve_triang(cho_L, delta):
@@ -122,8 +118,7 @@ bounds = np.array(
         (110.0, 175.0),  # r_d: sound horizon at drag epoch
         (0.2, 0.7),  # Ωm: matter density parameter at present
         (-1.0, -1 / 3),  # w0: dark energy equation of state at present
-    ],
-    dtype=np.float64,
+    ]
 )
 
 normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
@@ -161,17 +156,19 @@ def main():
     np.random.seed(42)
     ndim = len(bounds)
     nwalkers = 150
-    burn_in = 200
-    nsteps = 2000 + burn_in
+    burn_in = 500
+    nsteps = 2500 + burn_in
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
     moves = [
-        (emcee.moves.KDEMove(), 0.20),
+        (emcee.moves.KDEMove(bw_method="silverman"), 0.20),
         (emcee.moves.DEMove(), 0.80),
     ]
 
     with Pool(8) as pool:
         sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
-        sampler.run_mcmc(initial_pos, nsteps, progress=True)
+        sampler.run_mcmc(
+            initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#ff7f0e"}
+        )
 
     try:
         tau = sampler.get_autocorr_time()
@@ -267,15 +264,16 @@ Degrees of freedom: 1754
 
 ===============================
 
-Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
-f_cc: 1.46 +0.18 -0.18
+Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
+f_cc: 1.46 +0.19 -0.18
+ΔM: -0.055 +0.070 -0.073 mag
 H0: 67.7 +2.3 -2.3 km/s/Mpc
-r_d: 147.0 +5.0 -4.6 Mpc
-Ωm: 0.305 +0.008 -0.007
-w0: -0.866 +0.050 -0.052 (prior width 2/3: -1 to -1/3) truncated at 2.58 sigma to the left of the mean
+r_d: 147.1 +5.0 -4.6 Mpc
+Ωm: 0.306 +0.008 -0.007
+w0: -0.866 +0.051 -0.051 (prior width 2/3: -1 to -1/3) truncated at 2.58 sigma to the left of the mean
 wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
 Chi squared: 1670.75
-Log evidence: -966.81 (Δ logZ = 1.57 against ΛCDM)
+Log evidence: -966.79 (Δ logZ = 1.59 against ΛCDM)
 Degrees of freedom: 1754
 
 ===============================

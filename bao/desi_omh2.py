@@ -1,7 +1,7 @@
 from numba import njit
 import numpy as np
 from scipy.constants import c as c0
-from interpolator import interp_pchip
+from interpolator import interp_hermite
 from y2025BAO.data import get_data as get_bao_data
 
 c = c0 / 1000  # Speed of light in km/s
@@ -38,9 +38,9 @@ def DH_z(z, params):
 def DM_z(z, params):
     dh_grid = DH_z(z_grid, params)
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
-    cum_dm = np.zeros(z_grid.size)
+    cum_dm = np.zeros(z_grid.size, dtype=np.float64)
     cum_dm[1:] = np.cumsum(dx * dy)
-    return interp_pchip(z, z_grid, cum_dm)
+    return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
 @njit

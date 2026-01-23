@@ -2,7 +2,7 @@ from numba import njit
 import numpy as np
 from scipy.integrate import solve_ivp
 import cmb.data_planck_act_compression as cmb
-from interpolator import interp_pchip
+from interpolator import interp_hermite, interp_pchip
 import y2024BBN.prior_lcdm_schoneberg as bbn
 from y2023union3.data import get_data as get_sn_data
 from y2025BAO.data import get_data as get_bao_data
@@ -22,30 +22,30 @@ inv_cov_sn = np.linalg.inv(cov_matrix_sn)
 inv_cov_bao = np.linalg.inv(cov_matrix_bao)
 
 z_max = max(np.max(z_sn_vals), np.max(bao_data["z"]), np.max(fs8_data["z"])) + 0.1
-z_grid = np.linspace(0, z_max, num=4000)
+z_grid = np.linspace(0, z_max, num=3000)
 dx = np.diff(z_grid)
 
 
 @njit
-def Ode_z(z, w0, wa):
-    zp1 = 1 + z
-    return (2 * zp1**3 / (1 + w0 + (1 - w0) * zp1**3)) ** 2
+def Ode_z(z, w0):
+    zp1 = 1.0 + z
+    return (2 * zp1**3 / (1.0 + w0 + (1.0 - w0) * zp1**3)) ** 2
 
 
 @njit
-def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
+def Ez(z, H0, Obh2, Och2, w0):
     h = H0 / 100
     Onu = Omnuh2 / h**2
     Or = Orh2 / h**2
     Obc = (Obh2 + Och2) / h**2
     Ode = 1.0 - Obc - Or - Onu
 
-    zp1 = 1 + z
+    zp1 = 1.0 + z
 
     radiation_term = Or * zp1**4
     matter_term = Obc * zp1**3
     neutrino_term = Onu * cmb.Omnu_z(z)
-    dark_energy_term = Ode * Ode_z(z, w0, wa)
+    dark_energy_term = Ode * Ode_z(z, w0)
 
     return np.sqrt(radiation_term + matter_term + neutrino_term + dark_energy_term)
 
@@ -53,7 +53,7 @@ def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
 @njit
 def H_z(z, theta):
     H0, Obh2, Och2, w0, _ = theta[1:]
-    return H0 * Ez(z, H0, Obh2, Och2, w0, 0.0)
+    return H0 * Ez(z, H0, Obh2, Och2, w0)
 
 
 @njit
@@ -65,9 +65,9 @@ def DH_z(z, params):
 def DM_z(z, theta):
     dh_grid = DH_z(z_grid, theta)
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
-    cum_dm = np.zeros(z_grid.size)
+    cum_dm = np.zeros(z_grid.size, dtype=np.float64)
     cum_dm[1:] = np.cumsum(dx * dy)
-    return interp_pchip(z, z_grid, cum_dm)
+    return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
 @njit
@@ -145,14 +145,14 @@ def fs8_theory(z, theta):
     )
 
     delta, d_delta_da = sol.y
-    delta0 = np.interp(1.0, a_vals, delta)
+    delta0 = interp_hermite(np.array([1.0]), a_vals, delta, d_delta_da)[0]
     sig8 = theta[-1]
     a = 1 / (1 + z)
 
     # f = d(ln delta)/d(ln a) = (a / delta) * d(delta)/da
     # sigma8(z) = sigma8 * delta(z) / delta(z=0)
 
-    return a * np.interp(a, a_vals, d_delta_da) * sig8 / delta0
+    return sig8 * a * interp_pchip(a, a_vals, d_delta_da) / delta0
 
 
 H0_fid = 67.6
@@ -165,7 +165,8 @@ for i in range(len(fs8_data["z"])):
     Om_fid = fs8_data["omega_fid"][i]
     Och2_fid = Om_fid * (H0_fid / 100) ** 2 - Obh2_fid - Omnuh2
     params_fid[3] = Och2_fid
-    fiducial_scaling[i] = H_z(zi, params_fid) * DM_z(zi, params_fid)
+    DM_i = DM_z(np.array([zi]), params_fid)[0]
+    fiducial_scaling[i] = H_z(zi, params_fid) * DM_i
 
 
 def chi2_fs8(theta):
@@ -200,12 +201,12 @@ def log_likelihood(theta):
 
 def q0(Om, w0=-1):
     """Calculate the deceleration parameter at z=0"""
-    return Om / 2 + (1 + 3 * w0) * (1 - Om) / 2
+    return Om / 2 + (1.0 + 3 * w0) * (1.0 - Om) / 2
 
 
 def j0(Om, w0=-1, wa=0):
     """Calculate the jerk parameter at z=0"""
-    return 1 + (3 / 2) * (1 - Om) * (3 * w0 * (1 + w0) + wa)
+    return 1.0 + (3 / 2) * (1.0 - Om) * (3 * w0 * (1.0 + w0) + wa)
 
 
 def main():
@@ -219,7 +220,7 @@ def main():
 
     prior = Prior()
     prior.add_parameter("ΔM", dist=(-1.0, 1.0))
-    prior.add_parameter("H0", dist=(50, 90))
+    prior.add_parameter("H0", dist=(50.0, 90.0))
     prior.add_parameter("ωb", dist=norm(loc=bbn.Obh2, scale=bbn.Obh2_sigma))
     prior.add_parameter("ωc", dist=(0.05, 0.30))
     prior.add_parameter("w0", dist=(-1.0, -1 / 3))
@@ -324,7 +325,7 @@ def main():
         x_scale="log",
     )
 
-    z_plot = np.linspace(0, np.max(fs8_data["z"]), 200)
+    z_fs8_smoot = np.linspace(0, np.max(fs8_data["z"]), 200)
     Fap = (
         H_z(fs8_data["z"], best_fit) * DM_z(fs8_data["z"], best_fit) / fiducial_scaling
     )
@@ -336,7 +337,7 @@ def main():
         fmt=".",
         label="data",
     )
-    plt.plot(z_plot, fs8_theory(z_plot, best_fit), label="best-fit")
+    plt.plot(z_fs8_smoot, fs8_theory(z_fs8_smoot, best_fit), label="best-fit")
     plt.xlabel("z")
     plt.ylabel(r"$f\sigma_8(z)$")
     plt.legend()
@@ -423,25 +424,25 @@ Degrees of freedom: 92
 ===============================
 
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
-ΔM: -0.179 +0.091 -0.091 mag
-H0: 66.21 +0.84 -0.82 km/s/Mpc
+ΔM: -0.179 +0.092 -0.091 mag
+H0: 66.22 +0.85 -0.83 km/s/Mpc
 ωb: 0.02232 +0.00053 -0.00053
 ωc: 0.1149 +0.0010 -0.0010
-ωm: 0.1379 +0.0012 -0.0012
+ωm: 0.1378 +0.0012 -0.0012
 Ωm: 0.314 +0.007 -0.007
 σ8: 0.794 +0.015 -0.015
 S8: 0.813 +0.020 -0.019
 w0: -0.808 +0.062 -0.063
-wa: -0.520 +0.159 -0.144 [derived wa = -1.5 * (1 - w0^2)]
-z_d: 1059.44 +1.24 -1.26
-r_d: 148.53 +0.70 -0.69 Mpc
-z*: 1089.54 +0.73 -0.69
-r*: 145.81 Mpc
+wa: -0.520 +0.160 -0.144 [derived wa = -1.5 * (1 - w0^2)]
+z_d: 1059.44 +1.22 -1.25
+r_d: 148.54 +0.70 -0.70 Mpc
+z*: 1089.50 +0.70 -0.67
+r*: 145.83 Mpc
 100 θ*: 1.04091
 q0: -0.331 +0.070 -0.073
-j0: -0.013 +0.291 -0.243
-Chi squared: 66.71
-Log Evidence: -50.56 (Δ logZ = 2.89 against ΛCDM)
+j0: -0.013 +0.292 -0.243
+Chi squared: 66.68
+Log Evidence: -50.55 (Δ logZ = 2.90 against ΛCDM)
 Degrees of freedom: 92
 
 ===============================

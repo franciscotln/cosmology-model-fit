@@ -1,7 +1,7 @@
 from numba import njit
 import numpy as np
 import cmb.data_planck_act_compression as cmb
-from interpolator import interp_pchip
+from interpolator import interp_hermite
 from y2023union3.data import get_data as get_sn_data
 from y2005cc.data import get_data as get_cc_data
 from y2025BAO.data import get_data as get_bao_data
@@ -27,7 +27,7 @@ dx = np.diff(z_grid)
 
 
 @njit
-def Ode_z(z, w0, wa):
+def Ode_z(z, w0):
     zp1 = 1.0 + z
     cubed = zp1**3
     # return 1.0  # ΛCDM
@@ -37,7 +37,7 @@ def Ode_z(z, w0, wa):
 
 
 @njit
-def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
+def Ez(z, H0, Obh2, Och2, w0):
     h = H0 / 100
     Omnu = Omnu_h2 / h**2
     Or = Or_h2 / h**2
@@ -47,7 +47,7 @@ def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
     radiation_term = Or * (1.0 + z) ** 4
     matter_term = Ombc * (1.0 + z) ** 3
     neutrino_term = Omnu * cmb.Omnu_z(z)
-    dark_energy_term = Ode * Ode_z(z, w0, wa)
+    dark_energy_term = Ode * Ode_z(z, w0)
 
     return np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
 
@@ -67,9 +67,9 @@ def DH_z(z, theta):
 def DM_z(z, theta):
     dh_grid = DH_z(z_grid, theta)
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
-    cum_dm = np.zeros(z_grid.size)
+    cum_dm = np.zeros(z_grid.size, dtype=np.float64)
     cum_dm[1:] = np.cumsum(dx * dy)
-    return interp_pchip(z, z_grid, cum_dm)
+    return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
 @njit
