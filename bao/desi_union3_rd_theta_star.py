@@ -21,13 +21,13 @@ dx = np.diff(z_grid)
 
 
 @njit
-def Ode_z(z, w0, wa):
+def Ode_z(z, w0):
     a3 = (1.0 + z) ** -3
     return 4 / ((1.0 + w0) * a3 + (1.0 - w0)) ** 2
 
 
 @njit
-def Ez(z, H0, Obh2, Och2, w0=-1.0, wa=0.0):
+def Ez(z, H0, Obh2, Och2, w0):
     h = H0 / 100
     Onu = Omnuh2 / h**2
     Or = Orh2 / h**2
@@ -39,7 +39,7 @@ def Ez(z, H0, Obh2, Och2, w0=-1.0, wa=0.0):
     radiation_term = Or * zp1**4
     matter_term = Obc * zp1**3
     neutrino_term = Onu * cmb.Omnu_z(z)
-    dark_energy_term = Ode * Ode_z(z, w0, wa)
+    dark_energy_term = Ode * Ode_z(z, w0)
 
     return np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
 
