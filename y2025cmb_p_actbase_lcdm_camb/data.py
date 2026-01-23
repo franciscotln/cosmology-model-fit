@@ -150,14 +150,14 @@ def DM_z(z_lim, params):
     return quad(_DH, 0.0, z_lim, args=(params,))[0]
 
 
-def cmb_distances(Hz_fun, Ob_h2, Oc_h2, params):
+def cmb_distances(Ob_h2, Oc_h2, params):
     """
     returns (100 θ*, r_drag)
     """
     Om_h2 = Oc_h2 + Ob_h2 + Omnu_h2
     rs_drag = r_drag(Ob_h2, Om_h2)
     zstar = z_star(Ob_h2, Om_h2)
-    rs_star = rs_z(Hz_fun, zstar, Ob_h2, params)
-    DM_star = DM_z(Hz_fun, zstar, params)
+    rs_star = rs_z(zstar, Ob_h2, params)
+    DM_star = DM_z(zstar, params)
     thetastar = rs_star / DM_star
     return np.array([100 * thetastar, rs_drag], dtype=np.float64)
