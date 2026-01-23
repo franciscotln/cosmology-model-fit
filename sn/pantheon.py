@@ -3,7 +3,7 @@ import numpy as np
 import scipy.stats as stats
 from scipy.linalg import cho_factor, solve_triangular
 from scipy.constants import c as c0
-from interpolator import interp_pchip
+from interpolator import interp_hermite
 from y2022pantheonSHOES.data import get_data
 
 legend, z_cmb, z_hel, apparent_mag_vals, cov_matrix = get_data()
@@ -32,7 +32,7 @@ def DM_z(params):
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size, dtype=np.float64)
     cum_dm[1:] = np.cumsum(dx * dy)
-    return interp_pchip(z_cmb, z_grid, cum_dm)
+    return interp_hermite(z_cmb, z_grid, cum_dm, dh_grid)
 
 
 @njit

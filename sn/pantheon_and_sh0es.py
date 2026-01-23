@@ -2,6 +2,7 @@ from numba import njit
 import numpy as np
 import scipy.stats as stats
 from scipy.linalg import cho_factor, solve_triangular
+from interpolator import interp_hermite
 from y2022pantheonSHOES.data_shoes import get_data
 
 legend, z_values, z_hel_values, apparent_mag_values, cepheid_distances, cov_matrix = (
@@ -16,15 +17,15 @@ c = 299792.458  # Speed of light (km/s)
 z_grid = np.linspace(0, np.max(z_values) + 0.1, num=3000)
 dx = np.diff(z_grid)
 
-zp1 = 1 + z_grid
-zp1_hel = 1 + z_hel_values
+zp1 = 1.0 + z_grid
+zp1_hel = 1.0 + z_hel_values
 
 
 @njit
 def Ez(params):
     O_m, w0 = params[2], params[3]
-    rho_de = (2 * zp1**3 / ((1 + w0) + (1 - w0) * zp1**3)) ** 2
-    return np.sqrt(O_m * zp1**3 + (1 - O_m) * rho_de)
+    rho_de = (2 * zp1**3 / ((1.0 + w0) + (1.0 - w0) * zp1**3)) ** 2
+    return np.sqrt(O_m * zp1**3 + (1.0 - O_m) * rho_de)
 
 
 @njit
@@ -33,12 +34,12 @@ def DM_z(theta):
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size)
     cum_dm[1:] = np.cumsum(dx * dy)
-    return np.interp(z_values, z_grid, cum_dm)
+    return interp_hermite(z_values, z_grid, cum_dm, dh_grid)
 
 
 @njit
 def model_mu(params):
-    return 25 + 5 * np.log10(zp1_hel * DM_z(params))
+    return 25.0 + 5.0 * np.log10(zp1_hel * DM_z(params))
 
 
 def solve_triang(cho_L, delta):
@@ -89,19 +90,21 @@ def main():
     from corner_plot import plot_corner_and_chains
     from sn.plotting import plot_predictions, print_color, plot_residuals
 
-    burn_in = 1000
+    burn_in = 500
     n_dim = len(bounds)
-    n_walkers = 100
-    n_steps = burn_in + 4000
+    n_walkers = 150
+    n_steps = burn_in + 2500
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(n_walkers, n_dim))
     moves = [
-        (emcee.moves.KDEMove(), 0.2),
+        (emcee.moves.KDEMove(bw_method="silverman"), 0.2),
         (emcee.moves.DEMove(), 0.8),
     ]
 
     with Pool(6) as pool:
         sampler = emcee.EnsembleSampler(n_walkers, n_dim, log_probability, pool, moves)
-        sampler.run_mcmc(initial_pos, n_steps, progress=True)
+        sampler.run_mcmc(
+            initial_pos, n_steps, progress=True, progress_kwargs={"colour": "#ff5a00"}
+        )
 
     chains_samples = sampler.get_chain(discard=burn_in, flat=False)
     samples = sampler.get_chain(discard=burn_in, flat=True)
@@ -159,11 +162,8 @@ def main():
 
     sigma_mu = np.sqrt(cov_matrix.diagonal())
 
-    plot_corner_and_chains(
-        labels=["M", "$H_0$", "$Ω_m$", "$w_0$"],
-        flat_samples=samples,
-        samples=chains_samples,
-    )
+    labels = ["M", "$H_0$", "$Ω_m$", "$w_0$"]
+    plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
     plot_predictions(
         legend=legend,
         x=z_values,

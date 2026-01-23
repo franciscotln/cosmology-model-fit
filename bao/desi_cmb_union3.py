@@ -1,6 +1,6 @@
 from numba import njit
 import numpy as np
-from interpolator import interp_pchip
+from interpolator import interp_hermite
 from y2023union3.data import get_data
 from y2025BAO.data import get_data as get_bao_data
 import cmb.data_early_lcdm_compression as cmb
@@ -16,7 +16,7 @@ inv_cov_sn = np.linalg.inv(cov_matrix_sn)
 inv_cov_bao = np.linalg.inv(bao_cov_matrix)
 
 z_max = max(np.max(z_sn_vals), np.max(bao_data["z"])) + 0.1
-z_grid = np.linspace(0, z_max, num=4000)
+z_grid = np.linspace(0, z_max, 3000)
 dx = np.diff(z_grid)
 
 
@@ -61,7 +61,7 @@ def DM_z(z, params):
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size)
     cum_dm[1:] = np.cumsum(dx * dy)
-    return interp_pchip(z, z_grid, cum_dm)
+    return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
 @njit
@@ -357,20 +357,20 @@ Log evidence: -36.3 (Δ logZ = 1.0 against ΛCDM)
 Degs of freedom: 33
 
 ** Early-time ΛCDM **
-H0: 66.48 +0.81 -0.81 km/s/Mpc
-Ωm: 0.3161 +0.0077 -0.0075
+H0: 66.48 +0.82 -0.82 km/s/Mpc
+Ωm: 0.3161 +0.0078 -0.0075
 ωb: 0.02242 +0.00012 -0.00012
 ωc: 0.1166 +0.0007 -0.0007
 ωm: 0.1397 +0.0007 -0.0007
 w0: -0.850 +0.062 -0.063 (prior width 0.8: -1.0 to -1/3; 2.34 sigma to the prior left edge)
 wa: -0.416 [devired: wa = -1.5 * (1 - w0^2)]
-z*: 1089.65 +0.19 -0.18
+z*: 1089.65 +0.19 -0.19
 r*: 145.28 Mpc
 z_d: 1059.91 +0.27 -0.27
 r_d: 147.94 Mpc
 q0: -0.372 +0.072 -0.073
 Chi squared: 36.76
-Log evidence: -35.6 (Δ logZ = 1.3 against ΛCDM)
+Log evidence: -35.7 (Δ logZ = 1.2 against ΛCDM)
 Degs of freedom: 33
 """
 

@@ -1,7 +1,7 @@
 from numba import njit
 import numpy as np
 from scipy.constants import c as c0
-from interpolator import interp_pchip
+from interpolator import interp_hermite
 from y2023union3.data import get_data
 
 legend, z_values, mu_vals, cov_matrix = get_data()
@@ -18,15 +18,15 @@ W0 = 2
 
 bounds = np.array([(-0.6, 0.6), (0.0, 1.0), (-1.0, 0.0)])  # ΔM, Ωm, w0
 
-z_grid = np.linspace(0, np.max(z_values), num=3000)
+z_grid = np.linspace(0, np.max(z_values) + 0.1, num=2000)
 dx = np.diff(z_grid)
 
 
 @njit
 def Ez(z, params):
     Om, w0 = params[OM], params[W0]
-    cubed = (1 + z) ** 3
-    rho_de = (2 * cubed / (1 + w0 + (1 - w0) * cubed)) ** 2
+    cubed = (1.0 + z) ** 3
+    rho_de = (2 * cubed / (1.0 + w0 + (1.0 - w0) * cubed)) ** 2
     return np.sqrt(Om * cubed + (1 - Om) * rho_de)
 
 
@@ -36,13 +36,13 @@ def DM_z(z, params):
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size)
     cum_dm[1:] = np.cumsum(dx * dy)
-    return interp_pchip(z, z_grid, cum_dm)
+    return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
 @njit
 def mu_theory(params):
-    dL = (1 + z_values) * DM_z(z_values, params)
-    return params[OFFSET] + 25 + 5 * np.log10(dL)
+    dL = (1.0 + z_values) * DM_z(z_values, params)
+    return params[OFFSET] + 25.0 + 5 * np.log10(dL)
 
 
 @njit
@@ -83,9 +83,9 @@ def main():
     from sn.plotting import plot_predictions, print_color, plot_residuals
 
     n_dim = len(bounds)
-    n_walkers = 200
-    burn_in = 200
-    n_steps = burn_in + 2000
+    n_walkers = 150
+    burn_in = 500
+    n_steps = burn_in + 2500
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(n_walkers, n_dim))
     moves = [
@@ -112,6 +112,7 @@ def main():
     samples = sampler.get_chain(discard=burn_in, flat=True)
     chain_samples = sampler.get_chain(discard=burn_in, flat=False)
     log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
+    log_evd = log_evidence(samples, log_probs, log_probability, bounds)
     print_color("Gelman-Rubin R-hat:", gelman_rubin(chain_samples))
 
     one_sigma_ci = [15.9, 50, 84.1]
@@ -145,19 +146,13 @@ def main():
     print_color("RMSD (mag)", f"{rmsd:.3f}")
     print_color("Skewness of residuals", f"{skew(residuals):.3f}")
     print_color("Chi squared", f"{chi_squared(best_fit_params):.1f}")
-    print_color(
-        "Log evidence",
-        f"{log_evidence(samples, log_probs, log_probability, bounds):.1f}",
-    )
+    print_color("Log evidence", f"{log_evd:.1f}")
     print_color("Degs of freedom", len(z_values) - len(best_fit_params))
 
     sigma_mu = np.sqrt(np.diag(cov_matrix))
 
-    plot_corner_and_chains(
-        labels=["$ΔM$", "$Ω_m$", "$w_0$"],
-        flat_samples=samples,
-        samples=chain_samples,
-    )
+    labels = ["$ΔM$", "$Ω_m$", "$w_0$"]
+    plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chain_samples)
     plot_predictions(
         legend=legend,
         x=z_values,
@@ -210,12 +205,12 @@ Degs of freedom: 19
 
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
 
-Ωm: 0.298 +0.044/-0.048
-w0: -0.716 +0.142/-0.151 (prior width 1.0: -1.0 to 0.0)
+Ωm: 0.297 +0.044/-0.048
+w0: -0.714 +0.142/-0.151 (prior width 1.0: -1.0 to 0.0)
 wa: -1.5 * (1 - w0^2)
 R-squared (%): 99.94
-RMSD (mag): 0.053
-Skewness of residuals: -1.135
+RMSD (mag): 0.054
+Skewness of residuals: -1.154
 Chi squared: 21.5
 Log evidence: -16.0
 Degs of freedom: 19
