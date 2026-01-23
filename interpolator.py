@@ -5,8 +5,10 @@ from numba import njit
 @njit
 def _pchip_slopes(x, y):
     n = len(x)
-    d = np.zeros(n)
+    if n < 2:
+        return np.zeros(n)
 
+    d = np.zeros(n)
     h = np.empty(n - 1)
     delta = np.empty(n - 1)
 
@@ -14,7 +16,12 @@ def _pchip_slopes(x, y):
         h[i] = x[i + 1] - x[i]
         delta[i] = (y[i + 1] - y[i]) / h[i]
 
-    # interior points
+    if n == 2:
+        d[0] = delta[0]
+        d[1] = delta[0]
+        return d
+
+    # --- Interior points (Weighted Harmonic Mean) ---
     for i in range(1, n - 1):
         if delta[i - 1] * delta[i] > 0.0:
             w1 = 2.0 * h[i] + h[i - 1]
@@ -23,9 +30,32 @@ def _pchip_slopes(x, y):
         else:
             d[i] = 0.0
 
-    # endpoints (one-sided, shape-preserving)
-    d[0] = delta[0]
-    d[-1] = delta[-1]
+    # --- Start Point (d[0]) ---
+    # Non-centered three-point formula
+    d0 = ((2 * h[0] + h[1]) * delta[0] - h[0] * delta[1]) / (h[0] + h[1])
+
+    # Check for sign change or overshoot
+    if np.sign(d0) != np.sign(delta[0]):
+        d[0] = 0.0
+    elif (np.sign(delta[0]) != np.sign(delta[1])) and (abs(d0) > abs(3 * delta[0])):
+        d[0] = 3 * delta[0]
+    else:
+        d[0] = d0
+
+    # --- End Point (d[n-1]) ---
+    # Non-centered three-point formula for the end
+    dn = ((2 * h[n - 2] + h[n - 3]) * delta[n - 2] - h[n - 2] * delta[n - 3]) / (
+        h[n - 2] + h[n - 3]
+    )
+
+    if np.sign(dn) != np.sign(delta[n - 2]):
+        d[n - 1] = 0.0
+    elif (np.sign(delta[n - 2]) != np.sign(delta[n - 3])) and (
+        abs(dn) > abs(3 * delta[n - 2])
+    ):
+        d[n - 1] = 3 * delta[n - 2]
+    else:
+        d[n - 1] = dn
 
     return d
 

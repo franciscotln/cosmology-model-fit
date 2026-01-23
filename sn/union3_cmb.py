@@ -11,18 +11,18 @@ Omnuh2 = cmb.Omnu_h2
 sn_legend, z_sn_vals, mu_vals, cov_matrix_sn = get_data()
 inv_cov_sn = np.linalg.inv(cov_matrix_sn)
 
-z_grid = np.linspace(0, np.max(z_sn_vals) + 0.1, num=3000)
+z_grid = np.linspace(0, np.max(z_sn_vals) + 0.1, num=1500)
 dx = np.diff(z_grid)
 
 
 @njit
-def Ode_z(z, w0, wa):
+def Ode_z(z, w0):
     a3 = (1.0 + z) ** -3
     return 4 / ((1.0 + w0) * a3 + (1.0 - w0)) ** 2
 
 
 @njit
-def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
+def Ez(z, H0, Obh2, Och2, w0):
     h = H0 / 100
     Onu = Omnuh2 / h**2
     Or = Orh2 / h**2
@@ -34,7 +34,7 @@ def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
     radiation_term = Or * zp1**4
     matter_term = Obc * zp1**3
     neutrino_term = Onu * cmb.Omnu_z(z)
-    dark_energy_term = Ode * Ode_z(z, w0, wa)
+    dark_energy_term = Ode * Ode_z(z, w0)
 
     return np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
 
@@ -113,8 +113,8 @@ def main():
 
     ndim = len(bounds)
     nwalkers = 150
-    burn_in = 400
-    nsteps = 4000 + burn_in
+    burn_in = 500
+    nsteps = 3000 + burn_in
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
     moves = [
@@ -180,6 +180,8 @@ def main():
     print(f"Log Evidence: {log_evd:.1f}")
     print(f"Degrees of freedom: {degrees_of_freedom}")
 
+    labels = ["$Δ_M$", "$H_0$", "$ω_b$", "$ω_c$", "$w_0$"]
+    plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
     plot_predictions(
         legend=sn_legend,
         x=z_sn_vals,
@@ -188,11 +190,6 @@ def main():
         y_model=mu_theory(best_fit),
         label=f"$Ω_m$={Om_50:.3f}",
         x_scale="log",
-    )
-    plot_corner_and_chains(
-        labels=["$Δ_M$", "$H_0$", "$ω_b$", "$ω_c$", "$w_0$"],
-        flat_samples=samples,
-        samples=chains_samples,
     )
 
 
@@ -219,7 +216,7 @@ wa: 0
 z*: 1089.76 +0.21 -0.21
 z_drag: 1060.16 +0.23 -0.23
 r*: 144.40 Mpc
-r_d: 147.02 Mpc
+r_d: 147.03 Mpc
 Chi squared: 26.6
 Log Evidence: -28.6
 Degrees of freedom: 21
@@ -227,9 +224,9 @@ Degrees of freedom: 21
 
 """
 Flat wCDM w(z) = w0
-H0: 65.31 +1.22 -1.23 km/s/Mpc
+H0: 65.31 +1.23 -1.23 km/s/Mpc
 Ωm: 0.334 +0.013 -0.013
-ωm: 0.14244 +0.00118 -0.00117
+ωm: 0.14242 +0.00118 -0.00117
 ωb: 0.02250 +0.00011 -0.00011
 ωc: 0.1193 +0.0012 -0.0012
 w0: -0.922 +0.043 -0.043 (prior width 1.0: -1.5 to -0.5)
@@ -237,7 +234,7 @@ wa: 0
 z*: 1089.68 +0.22 -0.21
 z_drag: 1060.17 +0.23 -0.23
 r*: 144.53 Mpc
-r_d: 147.14 Mpc
+r_d: 147.15 Mpc
 Chi squared: 23.1
 Log Evidence: -29.1
 Degrees of freedom: 20
