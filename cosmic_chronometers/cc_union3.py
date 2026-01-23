@@ -2,6 +2,7 @@ from numba import njit
 import numpy as np
 from scipy.constants import c as c0
 from scipy.linalg import cho_factor, solve_triangular
+from interpolator import interp_hermite
 from y2023union3.data import get_data as get_sn_data
 from y2005cc.data import get_data as get_cc_data
 
@@ -16,15 +17,15 @@ cho_cc = cho_factor(cov_matrix_cc, lower=True)[0]
 
 c = c0 / 1000  # Speed of light in km/s
 
-z_grid = np.linspace(0, np.max(z_sn_vals), num=4000)
+z_grid = np.linspace(0, np.max(z_sn_vals), num=2000)
 dx = np.diff(z_grid)
 
 
 @njit
 def Ez(z, Om, w0):
-    zp1 = 1 + z
-    rho_de = (2 * zp1**3 / (1 + w0 + (1 - w0) * zp1**3)) ** 2
-    return np.sqrt(Om * zp1**3 + (1 - Om) * rho_de)
+    zp1 = 1.0 + z
+    rho_de = (2 * zp1**3 / (1.0 + w0 + (1.0 - w0) * zp1**3)) ** 2
+    return np.sqrt(Om * zp1**3 + (1.0 - Om) * rho_de)
 
 
 @njit
@@ -36,15 +37,15 @@ def H_z(z, H0, Om, w0):
 def DM_z(z, H0, Om, w0):
     dh_grid = c / H_z(z_grid, H0, Om, w0)
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
-    cum_dm = np.zeros(z_grid.size)
+    cum_dm = np.zeros(z_grid.size, dtype=np.float64)
     cum_dm[1:] = np.cumsum(dx * dy)
-    return np.interp(z, z_grid, cum_dm)
+    return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
 @njit
 def mu_theory(dM, H0, Om, w0):
-    dL = (1 + z_sn_vals) * DM_z(z_sn_vals, H0, Om, w0)
-    return dM + 25 + 5 * np.log10(dL)
+    dL = (1.0 + z_sn_vals) * DM_z(z_sn_vals, H0, Om, w0)
+    return dM + 25.0 + 5 * np.log10(dL)
 
 
 def solve_triang(cho_L, delta):
@@ -189,10 +190,10 @@ f_cc: 1.45 +0.19 -0.18
 ΔM: -0.175 +0.122 -0.123 mag
 H0: 66.3 +2.6 -2.6 km/s/Mpc
 Ωm: 0.320 +0.029 -0.030
-ωm: 0.1403 +0.0122 -0.0125
+ωm: 0.1403 +0.0123 -0.0125
 w0: -0.80 +0.12 -0.12 (truncated at -1, 1.67 sigma to the left of the mean)
 wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
-Chi squared: 53.63
+Chi squared: 53.57
 Log evidence: -151.0
 Degrees of freedom: 50
 

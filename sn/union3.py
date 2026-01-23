@@ -34,7 +34,7 @@ def Ez(z, params):
 def DM_z(z, params):
     dh_grid = (c / H0) / Ez(z_grid, params)
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
-    cum_dm = np.zeros(z_grid.size)
+    cum_dm = np.zeros(z_grid.size, dtype=np.float64)
     cum_dm[1:] = np.cumsum(dx * dy)
     return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
@@ -89,8 +89,8 @@ def main():
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(n_walkers, n_dim))
     moves = [
-        (emcee.moves.KDEMove(bw_method="silverman"), 0.30),
-        (emcee.moves.DEMove(), 0.70),
+        (emcee.moves.KDEMove(bw_method="silverman"), 0.25),
+        (emcee.moves.DEMove(), 0.75),
     ]
 
     with Pool(5) as pool:
@@ -206,11 +206,11 @@ Degs of freedom: 19
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
 
 Ωm: 0.297 +0.044/-0.048
-w0: -0.714 +0.142/-0.151 (prior width 1.0: -1.0 to 0.0)
+w0: -0.713 +0.142/-0.152 (prior width 1.0: -1.0 to 0.0)
 wa: -1.5 * (1 - w0^2)
 R-squared (%): 99.94
 RMSD (mag): 0.054
-Skewness of residuals: -1.154
+Skewness of residuals: -1.156
 Chi squared: 21.5
 Log evidence: -16.0
 Degs of freedom: 19

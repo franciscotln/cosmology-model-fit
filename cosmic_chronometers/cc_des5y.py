@@ -1,6 +1,7 @@
 from numba import njit
 import numpy as np
 from scipy.linalg import cho_factor, solve_triangular
+from interpolator import interp_hermite
 from y2025DESdovekie.data import get_data, effective_sample_size
 from y2005cc.data import get_data as get_cc_data
 
@@ -35,9 +36,9 @@ def H_z(z, params):
 def DM_z(z, params):
     dh_grid = c / H_z(grid, params)
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
-    cum_dm = np.zeros(grid.size)
+    cum_dm = np.zeros(grid.size, dtype=np.float64)
     cum_dm[1:] = np.cumsum(dx * dy)
-    return np.interp(z, grid, cum_dm)
+    return interp_hermite(z, grid, cum_dm, dh_grid)
 
 
 mu_z_term = 25.0 + 5 * np.log10(1.0 + z_hel)

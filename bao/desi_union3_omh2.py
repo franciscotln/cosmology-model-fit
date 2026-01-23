@@ -1,6 +1,7 @@
 from numba import njit
 import numpy as np
 from scipy.constants import c as c0
+from interpolator import interp_hermite
 from y2023union3.data import get_data as get_sn_data
 from y2025BAO.data import get_data as get_bao_data
 
@@ -21,10 +22,10 @@ dx = np.diff(z_grid)
 def Ez(z, params):
     h, Omh2, w0 = params[2] / 100, params[3], params[4]
     Om = Omh2 / h**2
-    zp1 = 1 + z
+    zp1 = 1.0 + z
     cubic = zp1**3
-    rho_de = (2 * cubic / (1 + w0 + (1 - w0) * cubic)) ** 2
-    return np.sqrt(Om * cubic + (1 - Om) * rho_de)
+    rho_de = (2 * cubic / (1.0 + w0 + (1.0 - w0) * cubic)) ** 2
+    return np.sqrt(Om * cubic + (1.0 - Om) * rho_de)
 
 
 @njit
@@ -41,9 +42,9 @@ def DH_z(z, params):
 def DM_z(z, params):
     dh_grid = DH_z(z_grid, params)
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
-    cum_dm = np.zeros(z_grid.size)
+    cum_dm = np.zeros(z_grid.size, dtype=np.float64)
     cum_dm[1:] = np.cumsum(dx * dy)
-    return np.interp(z, z_grid, cum_dm)
+    return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
 @njit
@@ -71,8 +72,8 @@ def bao_theory(z, qty, params):
 
 @njit
 def mu_theory(params):
-    dL = (1 + z_sn_vals) * DM_z(z_sn_vals, params)
-    return params[0] + 25 + 5 * np.log10(dL)
+    dL = (1.0 + z_sn_vals) * DM_z(z_sn_vals, params)
+    return params[0] + 25.0 + 5 * np.log10(dL)
 
 
 @njit
@@ -198,7 +199,9 @@ w0 U(-1.5, 0.0)
 wa U(-5.0, +3.0)
 
 *******************************
+"""
 
+"""
 Flat ΛCDM: w(z) = -1
 rd: 147.25 +1.29 -1.29 Mpc
 H0: 68.63 +0.99 -0.97 km/s/Mpc
@@ -226,12 +229,12 @@ Degs of freedom: 30
 ===============================
 
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
-rd: 144.56 +1.60 -1.63 Mpc
-H0: 67.72 +1.00 -0.98 km/s/Mpc
+rd: 144.54 +1.60 -1.59 Mpc
+H0: 67.72 +1.02 -0.99 km/s/Mpc
 Ωm: 0.312 +0.009 -0.009
 ωm: 0.1430 +0.0011 -0.0011
-w0: -0.765 +0.074 -0.076
-wa: 0.622 +0.161 -0.184 [1.5 * (1 - w0^2)]
+w0: -0.764 +0.074 -0.077
+wa: -0.624 [1.5 * (1 - w0^2)]
 Chi squared: 30.0
 Log evidence: -25.0 (Δ logZ = 3.0 against ΛCDM)
 Degs of freedom: 30

@@ -1,5 +1,6 @@
 from numba import njit
 import numpy as np
+from interpolator import interp_hermite
 from y2025BAO.data import get_data
 import y2024BBN.prior_lcdm_schoneberg as bbn
 from cmb.data_planck_compression import r_drag, c
@@ -33,9 +34,9 @@ def DH_z(z, params):
 def DM_z(z, params):
     dh_grid = DH_z(z_grid, params)
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
-    cum_dm = np.zeros(z_grid.size)
+    cum_dm = np.zeros(z_grid.size, dtype=np.float64)
     cum_dm[1:] = np.cumsum(dx * dy)
-    return np.interp(z, z_grid, cum_dm)
+    return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
 @njit
@@ -216,13 +217,13 @@ RMSD: 0.281
 ===============================
 
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
-H0: 65.31 +1.92 -2.03 km/s/Mpc
+H0: 65.33 +1.91 -2.03 km/s/Mpc
 ωb: 0.02218 +0.00055 -0.00055
-ωm: 0.13304 +0.00630 -0.00637
-Ωm: 0.3124 +0.0122 -0.0116
-w0: -0.768 +0.132 -0.130
+ωm: 0.13308 +0.00627 -0.00634
+Ωm: 0.3123 +0.0122 -0.0115
+w0: -0.770 +0.132 -0.130
 wa: d w(z)/dz at z=0 = -(3/2) * (1 - w0^2)
-r_d: 149.97 +1.99 -1.93 Mpc
+r_d: 149.97 +1.99 -1.92 Mpc
 Chi squared: 8.29
 Degs of freedom: 10
 R^2: 0.9991

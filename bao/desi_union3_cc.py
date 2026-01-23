@@ -2,6 +2,7 @@ from numba import njit
 import numpy as np
 from scipy.linalg import cho_factor, solve_triangular
 from scipy.constants import c as c0
+from interpolator import interp_hermite
 from y2023union3.data import get_data
 from y2005cc.data import get_data as get_cc_data
 from y2025BAO.data import get_data as get_bao_data
@@ -20,37 +21,17 @@ N_cc = len(z_cc_vals)
 c = c0 / 1000  # Speed of light in km/s
 
 z_max = max(np.max(z_sn_vals), np.max(bao_data["z"])) + 0.1
-z_grid = np.linspace(0, z_max, num=4000)
+z_grid = np.linspace(0, z_max, num=3000)
 dx = np.diff(z_grid)
 
 
 @njit
 def Ez(z, params):
     Om, w0 = params[4], params[5]
-    zp1 = 1 + z
+    zp1 = 1.0 + z
     cubed = zp1**3
-    rho_de = (2 * cubed / (1 + w0 + (1 - w0) * cubed)) ** 2
-    return np.sqrt(Om * cubed + (1 - Om) * rho_de)
-
-
-@njit
-def DM(params):
-    dh_grid = DH_z(z_grid, params)
-    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
-    cum_dm = np.zeros(z_grid.size)
-    cum_dm[1:] = np.cumsum(dx * dy)
-    return cum_dm
-
-
-@njit
-def mu_theory(params):
-    dL = (1 + z_sn_vals) * np.interp(z_sn_vals, z_grid, DM(params))
-    return params[1] + 25 + 5 * np.log10(dL)
-
-
-@njit
-def DH_z(z, params):
-    return c / H_z(z, params)
+    rho_de = (2 * cubed / (1.0 + w0 + (1.0 - w0) * cubed)) ** 2
+    return np.sqrt(Om * cubed + (1.0 - Om) * rho_de)
 
 
 @njit
@@ -59,8 +40,17 @@ def H_z(z, params):
 
 
 @njit
+def DH_z(z, params):
+    return c / H_z(z, params)
+
+
+@njit
 def DM_z(z, params):
-    return np.interp(z, z_grid, DM(params))
+    dh_grid = DH_z(z_grid, params)
+    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    cum_dm = np.zeros(z_grid.size, dtype=np.float64)
+    cum_dm[1:] = np.cumsum(dx * dy)
+    return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
 @njit
@@ -84,6 +74,12 @@ def bao_theory(z, qty, params):
     results[DM_mask] = DM_z(z[DM_mask], params)
     results[DV_mask] = DV_z(z[DV_mask], params)
     return results / params[3]
+
+
+@njit
+def mu_theory(params):
+    dL = (1.0 + z_sn_vals) * DM_z(z_sn_vals, params)
+    return params[1] + 25.0 + 5 * np.log10(dL)
 
 
 def solve_triang(cho_L, delta):
@@ -269,15 +265,15 @@ Degrees of freedom: 62
 
 """
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
-f_cc: 1.46 +0.19 -0.18
+f_cc: 1.46 +0.18 -0.18
 ΔM: -0.166 +0.115 -0.116 mag
-H0: 66.6 +2.3 -2.3 km/s/Mpc
+H0: 66.5 +2.4 -2.3 km/s/Mpc
 r_d: 147.2 +5.0 -4.7 Mpc
 Ωm: 0.312 +0.009 -0.009
-ωm: 0.1386 +0.0228 -0.0193
-w0: -0.773 +0.073 -0.077
+ωm: 0.1385 +0.0229 -0.0193
+w0: -0.774 +0.073 -0.077
 wa: d w(z)/d z at z=0 = -1.5 * (1 - w0^2)
-Chi squared: 62.24
+Chi squared: 62.28
 Log evidence: -160.69 (Δ logZ = 2.81 over ΛCDM)
 Degrees of freedom: 62
 """

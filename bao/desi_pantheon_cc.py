@@ -2,6 +2,7 @@ from numba import njit
 import numpy as np
 from scipy.constants import c as c0
 from scipy.linalg import cho_factor, solve_triangular
+from interpolator import interp_hermite
 from y2022pantheonSHOES.data import get_data
 from y2005cc.data import get_data as get_cc_data
 from y2025BAO.data import get_data as get_bao_data
@@ -27,25 +28,10 @@ dx = np.diff(z_grid)
 @njit
 def Ez(z, params):
     Om, w0 = params[3], params[4]
-    one_plus_z = 1 + z
+    one_plus_z = 1.0 + z
     cubed = one_plus_z**3
     rho_de = (2 * cubed / ((1 + w0) + (1 - w0) * cubed)) ** 2
     return (Om * cubed + (1 - Om) * rho_de) ** 0.5
-
-
-@njit
-def DM(params):
-    dh_grid = DH_z(z_grid, params)
-    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
-    cum_dm = np.zeros(z_grid.size, dtype=np.float64)
-    cum_dm[1:] = np.cumsum(dx * dy)
-    return cum_dm
-
-
-@njit
-def sn_apparent_mag(params):
-    dL = (1 + z_sn_hel_vals) * np.interp(z_sn_vals, z_grid, DM(params))
-    return params[1] + 25 + 5 * np.log10(dL)
 
 
 @njit
@@ -60,7 +46,11 @@ def DH_z(z, params):
 
 @njit
 def DM_z(z, params):
-    return np.interp(z, z_grid, DM(params))
+    dh_grid = DH_z(z_grid, params)
+    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    cum_dm = np.zeros(z_grid.size, dtype=np.float64)
+    cum_dm[1:] = np.cumsum(dx * dy)
+    return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
 @njit
@@ -86,6 +76,12 @@ def bao_theory(z, qty, params):
     return results / params[2]
 
 
+@njit
+def sn_apparent_mag(params):
+    dL = (1.0 + z_sn_hel_vals) * DM_z(z_sn_vals, params)
+    return params[1] + 25.0 + 5 * np.log10(dL)
+
+
 bounds = np.array(
     [
         (40.0, 90.0),  # H0
@@ -94,8 +90,7 @@ bounds = np.array(
         (0.0, 1.0),  # Ωm
         (-1.0, 0.0),  # w0
         (0.4, 2.5),  # f_cc
-    ],
-    dtype=np.float64,
+    ]
 )
 
 
@@ -151,19 +146,21 @@ def main():
     from bao.plot_predictions import plot_bao_predictions
 
     ndim = len(bounds)
-    nwalkers = 100
-    burn_in = 1000
-    nsteps = 4000 + burn_in
+    nwalkers = 150
+    burn_in = 500
+    nsteps = 2500 + burn_in
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
     moves = [
-        (emcee.moves.KDEMove(), 0.20),
+        (emcee.moves.KDEMove(bw_method="silverman"), 0.20),
         (emcee.moves.DEMove(), 0.80),
     ]
 
     with Pool(6) as pool:
         sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
-        sampler.run_mcmc(initial_pos, nsteps, progress=True)
+        sampler.run_mcmc(
+            initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#FF5733"}
+        )
 
     try:
         tau = sampler.get_autocorr_time()
@@ -205,6 +202,8 @@ def main():
     print(f"Log Evidence: {log_evd:.1f}")
     print(f"Degrees of freedom: {deg_of_freedom}")
 
+    labels = ["$H_0$", "M", "$r_d$", "Ωm", "$w_0$", "$f_{CC}$"]
+    plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
     plot_bao_predictions(
         theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
         data=bao_data,
@@ -219,11 +218,6 @@ def main():
         y_model=sn_apparent_mag(best_fit) - M_50,
         label=f"$\Omega_m$={Om_50:.3f}, $H_0$={h0_50:.2f} km/s/Mpc",
         x_scale="log",
-    )
-    plot_corner_and_chains(
-        labels=["$H_0$", "M", "$r_d$", "Ωm", "$w_0$", "$f_{CC}$"],
-        flat_samples=samples,
-        samples=chains_samples,
     )
 
 
@@ -261,14 +255,14 @@ Degrees of freedom: 1630
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
-f_cc: 1.47 +0.19 -0.18
-H0: 67.86 +2.27 -2.30 km/s/Mpc
-M: -19.412 +0.070 -0.074 mag
-r_d: 146.92 +4.97 -4.62 Mpc
+f_cc: 1.46 +0.18 -0.18
+H0: 67.80 +2.31 -2.32 km/s/Mpc
+M: -19.414 +0.071 -0.074 mag
+r_d: 147.05 +4.99 -4.69 Mpc
 Ωm: 0.305 +0.008 -0.008
-w0: -0.884 +0.052 -0.052 (prior -1.0 to 0.0)
+w0: -0.885 +0.053 -0.052 (prior -1.0 to 0.0)
 wa: d w(z)/dz at z=0 = -(3/2) * (1 - w0**2)
-Chi squared: 1443.75
+Chi squared: 1443.63
 Log Evidence: -854.8
 Degrees of freedom: 1630
 

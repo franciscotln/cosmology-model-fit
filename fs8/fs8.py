@@ -2,7 +2,7 @@ from numba import njit
 import numpy as np
 from scipy.integrate import solve_ivp
 from scipy.constants import c as c0
-from interpolator import interp_pchip
+from interpolator import interp_hermite, interp_pchip
 import y2018fs8.data as fs8_data
 
 c = c0 / 1000  # km/s
@@ -40,9 +40,9 @@ def dE_da(z, Om_eff, w0=-1):
 def DM(z, Om_eff, w0):
     dh_grid = c / Ez(z_grid, Om_eff, w0)
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
-    cum_dm = np.zeros(len(z_grid))
+    cum_dm = np.zeros(len(z_grid), dtype=np.float64)
     cum_dm[1:] = np.cumsum(dx * dy)
-    return interp_pchip(z, z_grid, cum_dm)
+    return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
 denominator_fiducial = np.zeros(len(data["z"]), dtype=np.float64)
@@ -50,7 +50,8 @@ for i in range(len(data["z"])):
     z = data["z"][i]
     om_fid = data["omega_fid"][i]
     w0_fid = -1.0
-    denominator_fiducial[i] = Ez(z, om_fid, w0_fid) * DM(z, om_fid, w0_fid)
+    DM_i = DM(np.array([z]), om_fid, w0_fid)[0]
+    denominator_fiducial[i] = Ez(z, om_fid, w0_fid) * DM_i
 
 
 @njit
@@ -84,11 +85,11 @@ def fs8_theory(z, Om_eff, sig8, w0):
     )
     delta, d_delta_da = sol.y
 
-    delta0 = np.interp(1.0, a_vals, delta)
+    delta0 = interp_hermite(np.array([1.0]), a_vals, delta, d_delta_da)[0]
     # f = d(ln delta)/d(ln a) = (a / delta) * d(delta)/da
     # sigma8(z) = sigma8 * delta(z) / delta(z=0)
     a = 1 / (1 + z)
-    return a * np.interp(a, a_vals, d_delta_da) * sig8 / delta0
+    return sig8 * a * interp_pchip(a, a_vals, d_delta_da) / delta0
 
 
 def chi_squared(theta):
@@ -276,13 +277,13 @@ degs of freedom = 60
 
 flat wCDM
 Ωm_eff = 0.254 +0.023 -0.024
-σ8 = 0.876 +0.069 -0.051
+σ8 = 0.875 +0.072 -0.051
 S8 = 0.809 +0.038 -0.035
-w0 = -0.741 +0.120 -0.122 (prior: U(-1.4, 0.0))
-f = 1.35 +0.13 -0.12
-chi2 = 60.29
+w0 = -0.742 +0.124 -0.123 (prior: U(-1.4, 0.0))
+f = 1.35 +0.12 -0.12
+chi2 = 60.35
 log likelihood = 103.6
-log evidence = 94.4
+log evidence = 94.5
 degs of freedom = 59
 
 ===============================
@@ -290,11 +291,11 @@ degs of freedom = 59
 flat wzCDM
 Ωm_eff = 0.280 +0.020 -0.019
 σ8 = 0.828 +0.029 -0.026
-S8 = 0.800 +0.033 -0.031
-w0 = -0.685 +0.147 -0.155 (prior: U(-1.0, 0.0))
-f = 1.34 +0.12 -0.12
-chi2 = 60.50
+S8 = 0.800 +0.033 -0.032
+w0 = -0.686 +0.148 -0.155 (prior: U(-1.0, 0.0))
+f = 1.34 +0.13 -0.12
+chi2 = 60.52
 log likelihood = 103.1
-log evidence = 94.0
+log evidence = 94.2
 degs of freedom = 59
 """

@@ -2,6 +2,7 @@ from numba import njit
 import numpy as np
 from scipy.constants import c as c0
 from scipy.linalg import cho_factor, solve_triangular
+from interpolator import interp_hermite
 from y2025BAO.data import get_data as get_bao_data
 from y2022pantheonSHOES.data import get_data
 
@@ -15,22 +16,22 @@ c = c0 / 1000  # Speed of light in km/s
 rd = 147.09  # Mpc, fixed
 
 z_max = max(np.max(z_cmb), np.max(data["z"])) + 0.1
-z_grid = np.linspace(0, z_max, num=1200)
+z_grid = np.linspace(0, z_max, num=3000)
 dx = np.diff(z_grid)
 
 
 @njit
 def Ez(z, theta):
     Om, w0 = theta[2], theta[3]
-    one_plus_z = 1 + z
-    cubed = one_plus_z**3
-    rho_de = (4 * cubed / (1 + 3 * cubed)) ** (4 * (1 + w0))
-    return np.sqrt(Om * cubed + (1 - Om) * rho_de)
+    zp1 = 1.0 + z
+    cubed = zp1**3
+    rho_de = (2 * cubed / (1.0 + w0 + (1.0 - w0) * cubed)) ** 2
+    return np.sqrt(Om * cubed + (1.0 - Om) * rho_de)
 
 
 @njit
 def apparent_mag(theta):
-    dL = (1 + z_hel) * DM_z(z_cmb, theta)
+    dL = (1.0 + z_hel) * DM_z(z_cmb, theta)
     return theta[0] + 25 + 5 * np.log10(dL)
 
 
@@ -48,9 +49,9 @@ def DH_z(z, theta):
 def DM_z(z, theta):
     dh_grid = DH_z(z_grid, theta)
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
-    cum_dm = np.zeros(z_grid.size)
+    cum_dm = np.zeros(z_grid.size, dtype=np.float64)
     cum_dm[1:] = np.cumsum(dx * dy)
-    return np.interp(z, z_grid, cum_dm)
+    return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
 @njit
@@ -82,8 +83,7 @@ bounds = np.array(
         (50.0, 100.0),  # H0
         (0.2, 0.7),  # Ωm
         (-1.5, 0.0),  # w0
-    ],
-    dtype=np.float64,
+    ]
 )
 
 
@@ -137,14 +137,15 @@ def main():
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
     moves = [
-        (emcee.moves.KDEMove(), 0.30),
-        (emcee.moves.DEMove(), 0.56),
-        (emcee.moves.DESnookerMove(), 0.14),
+        (emcee.moves.KDEMove(bw_method="silverman"), 0.25),
+        (emcee.moves.DEMove(), 0.75),
     ]
 
     with Pool(6) as pool:
         sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
-        sampler.run_mcmc(initial_pos, nsteps, progress=True)
+        sampler.run_mcmc(
+            initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#FF5733"}
+        )
 
     try:
         tau = sampler.get_autocorr_time()
@@ -176,6 +177,8 @@ def main():
     print(f"Log evidence: {log_evd:.2f}")
     print(f"Degrees of freedom: {data['z'].size + z_cmb.size - len(best_fit)}")
 
+    labels = ["$M_0$", "$H_0$", "$Ω_m$", "$w_0$"]
+    plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
     plot_bao_predictions(
         theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
         data=data,
@@ -190,11 +193,6 @@ def main():
         y_model=apparent_mag(best_fit) - M_50,
         label=f"Best fit: $Ω_m$={Om_50:.3f}",
         x_scale="log",
-    )
-    plot_corner_and_chains(
-        labels=["$M_0$", "$H_0$", "$Ω_m$", "$w_0$"],
-        flat_samples=samples,
-        samples=chains_samples,
     )
 
 

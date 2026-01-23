@@ -2,6 +2,7 @@ from numba import njit
 import numpy as np
 from scipy.constants import c as c0
 from scipy.linalg import cho_factor, solve_triangular
+from interpolator import interp_hermite
 from y2005cc.data import get_data as get_cc_data
 from y2025BAO.data import get_data as get_bao_data
 
@@ -17,17 +18,17 @@ N_cc = len(z_cc_vals)
 c = c0 / 1000  # Speed of light in km/s
 
 z_max = np.max(data["z"]) + 0.1
-z_grid = np.linspace(0, z_max, num=4000)
+z_grid = np.linspace(0, z_max, num=3000)
 dx = np.diff(z_grid)
 
 
 @njit
 def Ez(z, params):
     O_m, w0 = params[3], params[4]
-    one_plus_z = 1 + z
+    one_plus_z = 1.0 + z
     cubic = one_plus_z**3
-    rho_de = (2 * cubic / (1 + w0 + (1 - w0) * cubic)) ** 2
-    return np.sqrt(O_m * cubic + (1 - O_m) * rho_de)
+    rho_de = (2 * cubic / (1.0 + w0 + (1.0 - w0) * cubic)) ** 2
+    return np.sqrt(O_m * cubic + (1.0 - O_m) * rho_de)
 
 
 @njit
@@ -44,9 +45,9 @@ def DH_z(z, params):
 def DM_z(z, theta):
     dh_grid = DH_z(z_grid, theta)
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
-    cum_dm = np.zeros(z_grid.size)
+    cum_dm = np.zeros(z_grid.size, dtype=np.float64)
     cum_dm[1:] = np.cumsum(dx * dy)
-    return np.interp(z, z_grid, cum_dm)
+    return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
 @njit
@@ -184,6 +185,8 @@ def main():
     print(f"Log evidence: {log_evd:.1f}")
     print(f"Degrees of freedom: {len(data['z']) + len(z_cc_vals) - len(best_fit)}")
 
+    labels = ["$f_{CCH}$", "$H_0$", "$r_d$", "$Ω_m$", "$w_0$"]
+    plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
     plot_bao_predictions(
         theory_predictions=lambda z, qty: theory_bao(z, qty, best_fit),
         data=data,
@@ -196,11 +199,6 @@ def main():
         H=H_cc_vals,
         H_err=np.sqrt(np.diag(cc_cov_matrix)) / f_cc_50,
         label=f"{cc_legend}: $H_0$={h0_50:.1f} km/s/Mpc",
-    )
-    plot_corner_and_chains(
-        labels=["$f_{CCH}$", "$H_0$", "$r_d$", "$Ω_m$", "$w_0$"],
-        flat_samples=samples,
-        samples=chains_samples,
     )
 
 
@@ -244,13 +242,13 @@ Degrees of freedom: 41
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
 f_cc: 1.46 +0.19 -0.18
 H0: 66.7 +2.6 -2.6 km/s/Mpc
-r_d: 147.2 +5.0 -4.7 Mpc
+r_d: 147.2 +5.1 -4.7 Mpc
 Ωm: 0.312 +0.012 -0.011
 ωm: 0.1385 +0.0097 -0.0094
 w0: -0.793 +0.130 -0.123 (prior from -1.0 to 0.0. Posterior truncated at 1.68 sigma to the left of the mean )
 wa: d w(z)/dz at z=0 = -1.5 * (1 - w0**2)
-Chi squared: 40.64
-log likelihood: -135.10
+Chi squared: 40.68
+log likelihood: -135.14
 Log evidence: -146.9
 Degrees of freedom: 41
 

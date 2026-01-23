@@ -2,6 +2,7 @@ from numba import njit
 import numpy as np
 from scipy.constants import c as c0
 from scipy.integrate import solve_ivp
+from interpolator import interp_hermite, interp_pchip
 from y2005cc.data import get_data
 import y2018fs8.data as fs8
 
@@ -43,9 +44,9 @@ def dH_da(z, params):
 def DM(z, params):
     dh_grid = c / H_z(z_grid, params)
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
-    cum_dm = np.zeros(len(z_grid))
+    cum_dm = np.zeros(len(z_grid), dtype=np.float64)
     cum_dm[1:] = np.cumsum(dx * dy)
-    return np.interp(z, z_grid, cum_dm)
+    return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
 denominator_fiducial = np.zeros(len(z_fs8), dtype=np.float64)
@@ -54,7 +55,8 @@ for i in range(len(z_fs8)):
     zi = z_fs8[i]
     Om_fid = fs8.data["omega_fid"][i]
     params = [67.5, Om_fid, 0.8, 1.0, 1.0, -1.0]
-    denominator_fiducial[i] = H_z(zi, params) * DM(zi, params)
+    DM_i = DM(np.array([zi]), params)[0]
+    denominator_fiducial[i] = H_z(zi, params) * DM_i
 
 
 @njit
@@ -90,11 +92,11 @@ def fs8_theory(z, params):
     delta, d_delta_da = sol.y
     sig8 = params[2]
 
-    delta0 = np.interp(1.0, a_vals, delta)
+    delta0 = interp_hermite(np.array([1.0]), a_vals, delta, d_delta_da)[0]
     # f = d(ln delta)/d(ln a) = (a / delta) * d(delta)/da
     # sigma8(z) = sigma8 * delta(z) / delta(z=0)
     a = 1 / (1 + z)
-    return a * np.interp(a, a_vals, d_delta_da) * sig8 / delta0
+    return sig8 * a * interp_pchip(a, a_vals, d_delta_da) / delta0
 
 
 def chi_squared(params):
@@ -251,14 +253,14 @@ Degs of freedom: 90
 -------------------------------
 
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
-H0: 67.6 +2.9 -2.8 km/s/Mpc
+H0: 67.7 +2.9 -2.9 km/s/Mpc
 Ωm: 0.288 +0.019 -0.018
-σ8: 0.816 +0.026 -0.023
-S8: 0.800 +0.031 -0.029
+σ8: 0.816 +0.027 -0.023
+S8: 0.799 +0.031 -0.028
 f_cc: 1.43 +0.18 -0.18
 f_fs8: 1.34 +0.12 -0.12
 w0: -0.736 +0.146 -0.146 (prior -1.0 to 0.0)
-Chi squared: 92.84
+Chi squared: 92.96
 Log likelihood: -28.53
 Log evidence: -41.2
 Degs of freedom: 90

@@ -49,15 +49,15 @@ def Hz(z, params):
 def DM_z(z, params):
     dh_grid = c / Hz(z_grid, params)
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
-    cum_dm = np.zeros(z_grid.size)
+    cum_dm = np.zeros(z_grid.size, dtype=np.float64)
     cum_dm[1:] = np.cumsum(dx * dy)
     return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
 @njit
 def mu_theory(params):
-    dL = (1 + z_sn_vals) * DM_z(z_sn_vals, params)
-    return params[0] + 25 + 5 * np.log10(dL)
+    dL = (1.0 + z_sn_vals) * DM_z(z_sn_vals, params)
+    return params[0] + 25.0 + 5 * np.log10(dL)
 
 
 def chi_squared(params):
@@ -118,8 +118,8 @@ def main():
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
     moves = [
-        (emcee.moves.KDEMove(bw_method="silverman"), 0.30),
-        (emcee.moves.DEMove(), 0.70),
+        (emcee.moves.KDEMove(bw_method="silverman"), 0.25),
+        (emcee.moves.DEMove(), 0.75),
     ]
 
     with Pool(5) as pool:
@@ -242,12 +242,12 @@ Degrees of freedom: 20
 
 """
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
-H0: 65.38 +1.03 -1.04 km/s/Mpc
+H0: 65.38 +1.02 -1.03 km/s/Mpc
 Ωm: 0.333 +0.012 -0.011
-ωm: 0.14238 +0.00117 -0.00116
+ωm: 0.14238 +0.00116 -0.00116
 ωb: 0.02250 +0.00011 -0.00011
 ωc: 0.1192 +0.0012 -0.0012
-w0: -0.837 +0.075 -0.074 (prior width 1.0: -1.0 to 0.0)
+w0: -0.837 +0.074 -0.074 (prior width 1.0: -1.0 to 0.0)
 wa: d w(z)/d z at z=0 = -1.5 * (1 - w0^2) = -0.447
 z*: 1089.67 +0.21 -0.21
 z_drag: 1060.18 +0.23 -0.23

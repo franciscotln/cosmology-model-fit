@@ -2,6 +2,7 @@ from numba import njit
 import numpy as np
 from scipy.constants import c as c0
 from scipy.linalg import cho_factor, solve_triangular
+from interpolator import interp_hermite
 from y2022pantheonSHOES.data import get_data as get_sn_data
 from y2005cc.data import get_data as get_cc_data
 from sn.plotting import plot_predictions as plot_sn_predictions
@@ -39,9 +40,9 @@ def H_z(z, params):
 def DM_z(z, params):
     dh_grid = c / H_z(z_grid, params)
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
-    cum_dm = np.zeros(z_grid.size)
+    cum_dm = np.zeros(z_grid.size, dtype=np.float64)
     cum_dm[1:] = np.cumsum(dx * dy)
-    return np.interp(z, z_grid, cum_dm)
+    return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
 @njit

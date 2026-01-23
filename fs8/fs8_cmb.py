@@ -1,7 +1,7 @@
 from numba import njit
 import numpy as np
 from scipy.integrate import solve_ivp
-from interpolator import interp_pchip
+from interpolator import interp_hermite, interp_pchip
 import y2018fs8.data as fs8_data
 import cmb.data_planck_act_compression as cmb
 
@@ -60,9 +60,9 @@ def dH_da(z, theta):
 def DM(z, theta):
     dh_grid = c / Hz(z_grid, theta)
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
-    cum_dm = np.zeros(len(z_grid))
+    cum_dm = np.zeros(len(z_grid), dtype=np.float64)
     cum_dm[1:] = np.cumsum(dx * dy)
-    return interp_pchip(z, z_grid, cum_dm)
+    return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
 H0_fid = 67.6
@@ -74,7 +74,8 @@ for i in range(len(data["z"])):
     z = data["z"][i]
     Om_fid = data["omega_fid"][i]
     params_fid[2] = Om_fid * (H0_fid / 100) ** 2 - Obh2_fid - Omnuh2
-    denominator_fiducial[i] = Hz(z, params_fid) * DM(z, params_fid)
+    DM_i = DM(np.array([z]), params_fid)[0]
+    denominator_fiducial[i] = Hz(z, params_fid) * DM_i
 
 
 @njit
@@ -113,11 +114,11 @@ def fs8_theory(z, params):
     delta, d_delta_da = sol.y
     sig8 = params[-2]
 
-    delta0 = np.interp(1.0, a_vals, delta)
+    delta0 = interp_hermite(np.array([1.0]), a_vals, delta, d_delta_da)[0]
     # f = d(ln delta)/d(ln a) = (a / delta) * d(delta)/da
     # sigma8(z) = sigma8 * delta(z) / delta(z=0)
     a = 1 / (1 + z)
-    return a * np.interp(a, a_vals, d_delta_da) * sig8 / delta0
+    return a * interp_pchip(a, a_vals, d_delta_da) * sig8 / delta0
 
 
 def chi_squared(theta):
