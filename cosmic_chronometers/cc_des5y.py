@@ -23,8 +23,8 @@ c = 299792.458  # Speed of light in km/s
 def Ez(z, params):
     Om, w0 = params[3], params[4]
     cubed = (1.0 + z) ** 3
-    rho_de = (2 * cubed / (1 + w0 + (1 - w0) * cubed)) ** 2
-    return np.sqrt(Om * cubed + (1 - Om) * rho_de)
+    rho_de = (2 * cubed / (1.0 + w0 + (1.0 - w0) * cubed)) ** 2
+    return np.sqrt(Om * cubed + (1.0 - Om) * rho_de)
 
 
 @njit

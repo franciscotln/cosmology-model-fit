@@ -13,31 +13,30 @@ data = fs8_data.data
 inv_cov_mat = np.linalg.inv(fs8_data.cov_mat)
 
 z_max = np.max(data["z"]) + 0.1
-z_grid = np.linspace(0, z_max, num=4000)
+z_grid = np.linspace(0, z_max, num=3000)
 dx = np.diff(z_grid)
 
 
 @njit
-def Ode_z(z, w0, wa):
-    a3 = 1 / (1 + z) ** 3
-    return 4 / ((1 + w0) * a3 + (1 - w0)) ** 2
-    # return (1 + z) ** (3 * (1 + w0))
+def Ode_z(z, w0):
+    a3 = 1 / (1.0 + z) ** 3
+    return 4 / ((1.0 + w0) * a3 + 1.0 - w0) ** 2
 
 
 @njit
-def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
+def Ez(z, H0, Obh2, Och2, w0):
     h = H0 / 100
     Obc = (Obh2 + Och2) / h**2
     Onu = Omnuh2 / h**2
     Or = Orh2 / h**2
     Ode = 1.0 - Obc - Or - Onu
 
-    zp1 = 1 + z
+    zp1 = 1.0 + z
 
     radiation_term = Or * zp1**4
     matter_term = Obc * zp1**3
     neutrino_term = Onu * cmb.Omnu_z(z)
-    dark_energy_term = Ode * Ode_z(z, w0, wa)
+    dark_energy_term = Ode * Ode_z(z, w0)
 
     return np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
 
@@ -53,7 +52,7 @@ cmb.set_HZ(Hz)
 
 @njit
 def dH_da(z, theta):
-    a = 1 / (1 + z)
+    a = 1 / (1.0 + z)
     dz = 1e-05
     dH_dz = (Hz(z + dz, theta) - Hz(z - dz, theta)) / (2 * dz)
     return -dH_dz / a**2
@@ -87,7 +86,7 @@ def growth_ode(a, y, *params):
     h = H0 / 100
     Obc = (Obh2 + Och2) / h**2
 
-    z = 1 / a - 1
+    z = 1 / a - 1.0
     H_val = Hz(z, params)
     dH_da_val = dH_da(z, params)
 
@@ -101,7 +100,7 @@ def growth_ode(a, y, *params):
 
 
 max_z = 1100
-a_vals = np.logspace(np.log10(1 / (1 + max_z)), 0, 11_000)
+a_vals = np.logspace(np.log10(1 / (1.0 + max_z)), 0, 11_000)
 
 
 def fs8_theory(z, params):
@@ -120,14 +119,14 @@ def fs8_theory(z, params):
     delta0 = interp_hermite(np.array([1.0]), a_vals, delta, d_delta_da)[0]
     # f = d(ln delta)/d(ln a) = (a / delta) * d(delta)/da
     # sigma8(z) = sigma8 * delta(z) / delta(z=0)
-    a = 1 / (1 + z)
+    a = 1 / (1.0 + z)
     return a * interp_pchip(a, a_vals, d_delta_da) * sig8 / delta0
 
 
 def chi_squared(theta):
     q = Hz(data["z"], theta) * DM(data["z"], theta) / denominator_fiducial
     delta = data["fs8"] - fs8_theory(data["z"], theta) / q
-    chi2_fs8 = theta[-1] ** 2 * np.dot(delta, np.dot(inv_cov_mat, delta))
+    chi2_fs8 = theta[-1] ** 2 * delta @ inv_cov_mat @ delta
 
     delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(theta[1], theta[2], theta)
     chi2_cmb = delta_cmb @ cmb.inv_cov_mat @ delta_cmb
@@ -187,13 +186,15 @@ def main():
     nsteps = 2600 + burn_in
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
     moves = [
-        (emcee.moves.KDEMove(), 0.20),
+        (emcee.moves.KDEMove(bw_method="silverman"), 0.20),
         (emcee.moves.DEMove(), 0.80),
     ]
 
     with Pool(8) as pool:
         sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
-        sampler.run_mcmc(initial_pos, nsteps, progress=True)
+        sampler.run_mcmc(
+            initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#ff7f0e"}
+        )
 
     try:
         tau = sampler.get_autocorr_time()

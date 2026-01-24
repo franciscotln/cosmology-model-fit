@@ -17,18 +17,18 @@ dx = np.diff(z_grid)
 
 @njit
 def rho_de_z(z, w0):
-    cubic = (1 + z) ** 3
-    return (2 * cubic / (1 + w0 + (1 - w0) * cubic)) ** 2
+    cubic = (1.0 + z) ** 3
+    return (2 * cubic / (1.0 + w0 + (1.0 - w0) * cubic)) ** 2
 
 
 @njit
-def Ez(z, Om_eff, w0=-1):
-    return np.sqrt(Om_eff * (1 + z) ** 3 + (1 - Om_eff) * rho_de_z(z, w0))
+def Ez(z, Om_eff, w0=-1.0):
+    return np.sqrt(Om_eff * (1.0 + z) ** 3 + (1.0 - Om_eff) * rho_de_z(z, w0))
 
 
 @njit
-def dE_da(z, Om_eff, w0=-1):
-    a = 1 / (1 + z)
+def dE_da(z, Om_eff, w0=-1.0):
+    a = 1 / (1.0 + z)
     dz = 1e-05
     Ez_plus = Ez(z + dz, Om_eff, w0)
     Ez_minus = Ez(z - dz, Om_eff, w0)
@@ -56,7 +56,7 @@ for i in range(len(data["z"])):
 
 @njit
 def growth_ode(a, y, Om_eff, w0):
-    z = 1 / a - 1
+    z = 1 / a - 1.0
     E_val = Ez(z, Om_eff, w0)
     dE_da_val = dE_da(z, Om_eff, w0)
 
@@ -70,7 +70,7 @@ def growth_ode(a, y, Om_eff, w0):
 
 
 max_z = 100
-a_vals = np.logspace(np.log10(1 / (1 + max_z)), 0, 1000)
+a_vals = np.logspace(np.log10(1 / (1.0 + max_z)), 0, 1000)
 
 
 def fs8_theory(z, Om_eff, sig8, w0):
@@ -88,7 +88,7 @@ def fs8_theory(z, Om_eff, sig8, w0):
     delta0 = interp_hermite(np.array([1.0]), a_vals, delta, d_delta_da)[0]
     # f = d(ln delta)/d(ln a) = (a / delta) * d(delta)/da
     # sigma8(z) = sigma8 * delta(z) / delta(z=0)
-    a = 1 / (1 + z)
+    a = 1 / (1.0 + z)
     return sig8 * a * interp_pchip(a, a_vals, d_delta_da) / delta0
 
 
@@ -149,8 +149,8 @@ def main():
     nsteps = 2500 + burn_in
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
     moves = [
-        (emcee.moves.KDEMove(bw_method="silverman"), 0.30),
-        (emcee.moves.DEMove(), 0.70),
+        (emcee.moves.KDEMove(bw_method="silverman"), 0.25),
+        (emcee.moves.DEMove(), 0.75),
     ]
 
     with Pool(8) as pool:
