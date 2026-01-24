@@ -104,7 +104,7 @@ def main():
             n_walkers, n_dim, log_probability, pool=pool, moves=moves
         )
         sampler.run_mcmc(
-            initial_pos, n_steps, progress=True, progress_kwargs={"colour": "#ff7f0e"}
+            initial_pos, n_steps, progress=True, progress_kwargs={"colour": "#ff5a00"}
         )
 
     chains_samples = sampler.get_chain(discard=burn_in, flat=False)

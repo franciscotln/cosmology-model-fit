@@ -114,7 +114,7 @@ def main():
 
     sampler = emcee.EnsembleSampler(n_walkers, n_dim, log_probability, moves=moves)
     sampler.run_mcmc(
-        initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#FF5733"}
+        initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#ff5a00"}
     )
 
     try:

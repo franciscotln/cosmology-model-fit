@@ -176,7 +176,7 @@ def main():
     with Pool(8) as pool:
         sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
         sampler.run_mcmc(
-            initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#ff7f0e"}
+            initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#ff5a00"}
         )
 
     try:
