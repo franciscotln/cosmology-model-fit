@@ -15,17 +15,17 @@ cho_bao = cho_factor(cov_matrix_bao, lower=True)[0]
 c = c0 / 1000  # Speed of light in km/s
 
 z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
-z_grid = np.linspace(0, z_max, num=2300)
-dx = np.diff(z_grid)
+z_grid = np.linspace(0, z_max, num=3000)
+dz = np.diff(z_grid)
 
 
 @njit
 def Ez(z, params):
     h, Omh2, w0 = params[2] / 100, params[3], params[4]
     Om = Omh2 / h**2
-    cubic = (1 + z) ** 3
-    rho_de = (4 * cubic / (1 + 3 * cubic)) ** (4 * (1 + w0))
-    return np.sqrt(Om * cubic + (1 - Om) * rho_de)
+    cubic = (1.0 + z) ** 3
+    rho_de = (2 * cubic / (1.0 + w0 + (1.0 - w0) * cubic)) ** 2
+    return np.sqrt(Om * cubic + (1.0 - Om) * rho_de)
 
 
 @njit
@@ -43,7 +43,7 @@ def DM_z(z, theta):
     dh_grid = DH_z(z_grid, theta)
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size, dtype=np.float64)
-    cum_dm[1:] = np.cumsum(dx * dy)
+    cum_dm[1:] = np.cumsum(dz * dy)
     return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
@@ -72,8 +72,8 @@ def bao_theory(z, qty, params):
 
 @njit
 def theory_mu(params):
-    dL = (1 + z_hel) * DM_z(z_cmb, params)
-    return params[0] + 25 + 5 * np.log10(dL)
+    dL = (1.0 + z_hel) * DM_z(z_cmb, params)
+    return params[0] + 25.0 + 5 * np.log10(dL)
 
 
 def solve_triang(cho_L, delta):
@@ -105,10 +105,10 @@ def main():
 
     prior = Prior()
     prior.add_parameter("ΔM", dist=(-0.5, +0.5))
-    prior.add_parameter("rd", dist=(120, 165))
+    prior.add_parameter("rd", dist=(120.0, 165.0))
     prior.add_parameter("H0", dist=(50.0, 90.0))
     prior.add_parameter("ωm", dist=norm(loc=0.1430, scale=0.0011))  # Planck prior
-    prior.add_parameter("w0", dist=(-1.5, 0.0))
+    prior.add_parameter("w0", dist=(-1.0, -1 / 3))
 
     with Pool(6) as pool:
         sampler = Sampler(
@@ -221,15 +221,15 @@ Degrees of freedom: 1722
 
 ===============================
 
-Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)**3)
-r_d: 145.14 +1.54 -1.52 Mpc
-H0: 68.56 +0.90 -0.89 km/s/Mpc
+Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
+r_d: 145.20 +1.51 -1.51 Mpc
+H0: 68.52 +0.90 -0.89 km/s/Mpc
 ωm: 0.1430 +0.0011 -0.0011
-Ωm: 0.304 +0.008 -0.008
-w0: -0.869 +0.049 -0.051
-wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
+Ωm: 0.305 +0.008 -0.007
+w0: -0.860 +0.051 -0.052
+wa: d w(z)/dz at z=0 = -(3/2) * (1 - w0^2)
 Chi squared: 1638.5
-Log evidence: -832.9 (Δ logZ = 0.9 against ΛCDM)
+Log evidence: -832.0 (Δ logZ = 1.8 against ΛCDM)
 Degrees of freedom: 1722
 
 ===============================
