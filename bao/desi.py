@@ -3,12 +3,16 @@ import numpy as np
 from scipy.constants import c as c0
 from interpolator import interp_pchip
 from y2025BAO.data import get_data
+from y2024DESBAO.data import get_data as get_des_data
 
 c = c0 / 1000  # Speed of light in km/s
 rd = 147.09  # Mpc, fixed
 
 legend, data, cov_matrix = get_data()
 inv_cov_bao = np.linalg.inv(cov_matrix)
+
+legend_des, data_des, cov_des = get_des_data()
+inv_cov_des = np.linalg.inv(cov_des)
 
 z_max = np.max(data["z"]) + 0.1
 z_grid = np.linspace(0, z_max, num=3000)
@@ -19,8 +23,8 @@ dx = np.diff(z_grid)
 def H_z(z, params):
     h, Om, w0 = params
     OL = 1.0 - Om
-    one_plus_z = 1.0 + z
-    cubed = one_plus_z**3
+    zp1 = 1.0 + z
+    cubed = zp1**3
     rho_de = (2 * cubed / (1.0 + w0 + (1.0 - w0) * cubed)) ** 2
     return 100 * h * np.sqrt(Om * cubed + OL * rho_de)
 
@@ -54,14 +58,17 @@ def bao_theory(z, qty, theta):
 
 
 qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
-quantities = np.array([qty_map[q] for q in data["quantity"]], dtype=np.int32)
+qty = np.array([qty_map[q] for q in data["quantity"]], dtype=np.int32)
+qty_des = np.array([qty_map[q] for q in data_des["quantity"]], dtype=np.int32)
 
 
 @njit
 def chi_squared(theta):
-    delta_bao = data["value"] - bao_theory(data["z"], quantities, theta)
+    delta_bao_des = data_des["value"] - bao_theory(data_des["z"], qty_des, theta)
+    delta_bao = data["value"] - bao_theory(data["z"], qty, theta)
     chi_bao = delta_bao @ inv_cov_bao @ delta_bao
-    return chi_bao
+    chi_bao_des = delta_bao_des @ inv_cov_des @ delta_bao_des
+    return chi_bao + chi_bao_des
 
 
 bounds = np.array(
@@ -140,8 +147,9 @@ def main():
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
     best_fit = np.percentile(samples, 50, axis=0)
+    degs_of_freedom = data["value"].size + data_des["value"].size - len(best_fit)
 
-    residuals = data["value"] - bao_theory(data["z"], quantities, best_fit)
+    residuals = data["value"] - bao_theory(data["z"], qty, best_fit)
     SS_res = np.sum(residuals**2)
     SS_tot = np.sum((data["value"] - np.mean(data["value"])) ** 2)
     r2 = 1 - SS_res / SS_tot
@@ -151,7 +159,7 @@ def main():
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Log evidence: {log_evd:.2f}")
-    print(f"Degs of freedom: {data['value'].size  - len(best_fit)}")
+    print(f"Degs of freedom: {degs_of_freedom}")
     print(f"R^2: {r2:.4f}")
     print(f"RMSD: {np.sqrt(np.mean(residuals**2)):.3f}")
 
@@ -163,6 +171,12 @@ def main():
         errors=np.sqrt(np.diag(cov_matrix)),
         title=legend,
     )
+    plot_bao_predictions(
+        theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
+        data=data_des,
+        errors=np.sqrt(np.diag(cov_des)),
+        title=legend_des,
+    )
     plot_bao_residuals(data, residuals, np.sqrt(np.diag(cov_matrix)))
 
 
@@ -172,17 +186,17 @@ if __name__ == "__main__":
 
 """
 *******************************
-Dataset: DESI DR2 2024
+Dataset: DESI DR2 2024 + DES6Y BAO
 *******************************
 
 Flat ΛCDM:
 rd: 147.09 Mpc (fixed)
-h: 0.690 +0.005 -0.005
-Ωm: 0.298 +0.009 -0.008
+h: 0.691 +0.005 -0.005
+Ωm: 0.297 +0.009 -0.008
 w0: -1
 wa: 0
-Chi squared: 10.27
-Log evidence: -12.19
+Chi squared: 10.79
+Log evidence: -12.46
 Degs of freedom: 11
 R^2: 0.9987
 RMSD: 0.305
@@ -191,12 +205,12 @@ RMSD: 0.305
 
 Flat wCDM:
 rd: 147.09 Mpc (fixed)
-h: 0.678 +0.012 -0.011
+h: 0.679 +0.012 -0.011
 Ωm: 0.297 +0.009 -0.009
-w0: -0.915 +0.076 -0.079 (prior width 1.0: from -1.4 to -0.4)
-Chi squared: 9.11
-Log evidence: -13.22
-Degs of freedom: 10
+w0: -0.916 +0.076 -0.080 (prior width 1.0: from -1.4 to -0.4)
+Chi squared: 9.66
+Log evidence: -13.49
+Degs of freedom: 11
 R^2: 0.9989
 RMSD: 0.279
 
@@ -204,12 +218,12 @@ RMSD: 0.279
 
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
 rd: 147.09 Mpc (fixed)
-h: 0.665 +0.015 -0.015
+h: 0.666 +0.014 -0.015
 Ωm: 0.312 +0.012 -0.012
-w0: -0.767 +0.133 -0.131 (prior width 1.0: from -1.0 to 0.0) - left side truncated
-Chi squared: 8.29
-Log evidence: -12.19
-Degs of freedom: 10
+w0: -0.767 +0.133 -0.130 (prior width 1.0: from -1.0 to 0.0) - left side truncated
+Chi squared: 8.81
+Log evidence: -12.45
+Degs of freedom: 11
 R^2: 0.9991
 RMSD: 0.261
 
