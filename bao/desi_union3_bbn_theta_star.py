@@ -5,6 +5,7 @@ from interpolator import interp_hermite
 import y2024BBN.prior_lcdm_schoneberg as bbn
 from y2023union3.data import get_data as get_sn_data
 from y2025BAO.data import get_data as get_bao_data
+from y2024DESBAO.data import get_data as get_bao_des_data
 
 c = cmb.c  # Speed of light in km/s
 Orh2 = cmb.Or_h2
@@ -12,9 +13,11 @@ Omnuh2 = cmb.Omnu_h2
 
 sn_legend, z_sn_vals, mu_values, cov_matrix_sn = get_sn_data()
 bao_legend, bao_data, cov_matrix_bao = get_bao_data()
+bao_des_legend, bao_des_data, cov_matrix_bao_des = get_bao_des_data()
 
 inv_cov_sn = np.linalg.inv(cov_matrix_sn)
 inv_cov_bao = np.linalg.inv(cov_matrix_bao)
+inv_cov_bao_des = np.linalg.inv(cov_matrix_bao_des)
 
 z_max = max(np.max(z_sn_vals), np.max(bao_data["z"])) + 0.1
 z_grid = np.linspace(0, z_max, num=4000)
@@ -22,13 +25,13 @@ dx = np.diff(z_grid)
 
 
 @njit
-def Ode_z(z, w0, wa):
+def Ode_z(z, w0):
     zp1 = 1.0 + z
     return (2 * zp1**3 / (1.0 + w0 + (1.0 - w0) * zp1**3)) ** 2
 
 
 @njit
-def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
+def Ez(z, H0, Obh2, Och2, w0):
     h = H0 / 100
     Onu = Omnuh2 / h**2
     Or = Orh2 / h**2
@@ -40,7 +43,7 @@ def Ez(z, H0, Obh2, Och2, w0=-1, wa=0):
     radiation_term = Or * zp1**4
     matter_term = Obc * zp1**3
     neutrino_term = Onu * cmb.Omnu_z(z)
-    dark_energy_term = Ode * Ode_z(z, w0, wa)
+    dark_energy_term = Ode * Ode_z(z, w0)
 
     return np.sqrt(radiation_term + matter_term + neutrino_term + dark_energy_term)
 
@@ -76,7 +79,8 @@ def DV_z(z, theta):
 
 
 qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
-quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int64)
+qty_desi = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int64)
+qty_des = np.array([qty_map[q] for q in bao_des_data["quantity"]], dtype=np.int64)
 
 
 @njit
@@ -108,8 +112,13 @@ def chi2_sn(theta):
 
 @njit
 def chi2_bao(theta):
-    delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, theta)
-    return delta_bao @ inv_cov_bao @ delta_bao
+    delta_bao_des = bao_des_data["value"] - bao_theory(
+        bao_des_data["z"], qty_des, theta
+    )
+    chi2_bao_des = delta_bao_des @ inv_cov_bao_des @ delta_bao_des
+    delta_bao = bao_data["value"] - bao_theory(bao_data["z"], qty_desi, theta)
+    chi2_bao = delta_bao @ inv_cov_bao @ delta_bao
+    return chi2_bao + chi2_bao_des
 
 
 def chi_squared(theta):
@@ -172,7 +181,6 @@ def main():
     rd_samples = cmb.r_drag(samples[:, 2], Omh2_samples)
     zd_samples = cmb.z_drag(samples[:, 2], Omh2_samples)
     zst_samples = cmb.z_star(samples[:, 2], Omh2_samples)
-    q0_samples = q0(Om_samples)
     q0_samples = q0(Om_samples, w0=samples[:, 4])
     j0_samples = j0(Om_samples, w0=samples[:, 4], wa=wa_samples)
 
@@ -231,6 +239,12 @@ def main():
         errors=np.sqrt(np.diag(cov_matrix_bao)),
         title=bao_legend,
     )
+    plot_bao_predictions(
+        theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
+        data=bao_des_data,
+        errors=np.sqrt(np.diag(cov_matrix_bao_des)),
+        title=bao_des_legend,
+    )
     plot_sn_predictions(
         legend=sn_legend,
         x=z_sn_vals,
@@ -273,65 +287,64 @@ w0 + wa < 0 enforced
 
 """
 Flat ΛCDM  w(z) = -1
-H0: 68.32 +0.47 -0.47 km/s/Mpc
-ωb: 0.02209 +0.00054 -0.00054
+H0: 68.34 +0.47 -0.46 km/s/Mpc
+ωb: 0.02209 +0.00054 -0.00053
 ωc: 0.1164 +0.0008 -0.0008
-ωm: 0.1392 +0.0011 -0.0011
-Ωm: 0.298 +0.004 -0.004
+ωm: 0.1391 +0.0011 -0.0011
+Ωm: 0.298 +0.005 -0.004
 w0: -1
 wa: 0
-z_d: 1059.03 +1.24 -1.26
-r_d: 148.37 +0.70 -0.71 Mpc
-z*: 1089.95 +0.71 -0.69
-r*: 145.59 Mpc
-100 θ*: 1.04095
+z_d: 1059.03 +1.24 -1.25
+r_d: 148.39 +0.70 -0.70 Mpc
+z*: 1089.94 +0.71 -0.68
+r*: 145.61 Mpc
+100 θ*: 1.04097
 q0: -0.553 +0.007 -0.007
 j0: 1
-Chi squared: 39.41
-Log Evidence: -32.01
-Degrees of freedom: 32
+Chi squared: 40.00
+Log Evidence: -32.32
+Degrees of freedom: 33
 
 ===============================
 
 Flat wCDM w(z) = w0
-H0: 66.78 +0.82 -0.80 km/s/Mpc
+H0: 66.80 +0.81 -0.81 km/s/Mpc
 ωb: 0.02229 +0.00054 -0.00054
-ωc: 0.1140 +0.0014 -0.0014
-ωm: 0.1370 +0.0015 -0.0015
+ωc: 0.1139 +0.0014 -0.0014
+ωm: 0.1369 +0.0015 -0.0015
 Ωm: 0.307 +0.006 -0.006
 w0: -0.921 +0.034 -0.035
-wa: 0
-z_d: 1059.30 +1.23 -1.25
-r_d: 148.80 +0.73 -0.73 Mpc
-z*: 1089.46 +0.73 -0.71
-r*: 146.07 Mpc
-100 θ*: 1.04092
+z_d: 1059.29 +1.23 -1.24
+r_d: 148.83 +0.73 -0.72 Mpc
+z*: 1089.45 +0.73 -0.70
+r*: 146.10 Mpc
+100 θ*: 1.04093
 q0: -0.457 +0.041 -0.043
-j0: 0.535 +0.197 -0.179
-Chi squared: 34.11
-Log Evidence: -31.38 (Δ logZ = 0.63 against ΛCDM)
-Degrees of freedom: 31
+j0: 0.772 +0.095 -0.084
+Chi squared: 34.68
+Log Evidence: -31.66 (Δ logZ = 0.66 against ΛCDM)
+Degrees of freedom: 32
 
 ===============================
 
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
-H0: 66.07 +0.89 -0.87 km/s/Mpc
+H0: 66.09 +0.88 -0.88 km/s/Mpc
 ωb: 0.02228 +0.00054 -0.00054
-ωc: 0.1150 +0.0010 -0.0010
-ωm: 0.1379 +0.0012 -0.0012
+ωc: 0.1149 +0.0010 -0.0010
+ωm: 0.1378 +0.0012 -0.0012
 Ωm: 0.316 +0.008 -0.008
-w0: -0.803 +0.065 -0.066
-wa: -0.533 +0.167 -0.151 [derived wa = -1.5 * (1 - w0^2)]
-z_d: 1059.36 +1.23 -1.25
-r_d: 148.55 +0.71 -0.70 Mpc
-z*: 1089.56 +0.71 -0.68
-r*: 145.82 Mpc
-100 θ*: 1.04091
-q0: -0.324 +0.074 -0.077
-j0: -0.034 +0.302 -0.252
-Chi squared: 30.90
-Log Evidence: -29.23 (Δ logZ = 2.78 against ΛCDM)
-Degrees of freedom: 31
+w0: -0.802 +0.065 -0.067
+wa: -0.535 +0.167 -0.149 [derived wa = -1.5 * (1 - w0^2)]
+z_d: 1059.35 +1.23 -1.25
+r_d: 148.57 +0.71 -0.70 Mpc
+z*: 1089.55 +0.71 -0.68
+r*: 145.85 Mpc
+100 θ*: 1.04093
+q0: -0.323 +0.073 -0.077
+j0: -0.038 +0.303 -0.249
+Chi squared: 31.42
+Log Evidence: -29.51 (Δ logZ = 2.81 against ΛCDM)
+Degrees of freedom: 32
 
 ===============================
 
