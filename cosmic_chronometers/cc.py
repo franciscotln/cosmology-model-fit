@@ -1,9 +1,10 @@
 from numba import njit
 import numpy as np
+from scipy.constants import c as c0
 from scipy.linalg import cho_factor, solve_triangular
 from y2005cc.data import get_data
 
-c = 299792.458  # Speed of light in km/s
+c = c0 / 1000  # Speed of light in km/s
 
 legend, z_values, H_values, cov_matrix = get_data()
 
@@ -14,7 +15,7 @@ logdet = np.linalg.slogdet(cov_matrix)[1]
 @njit
 def H_z(z, params):
     H0, Om = params[0], params[1]
-    return H0 * np.sqrt(Om * (1 + z) ** 3 + (1 - Om))
+    return H0 * np.sqrt(Om * (1.0 + z) ** 3 + (1.0 - Om))
 
 
 def solve_triang(cho_L, delta):
@@ -51,12 +52,7 @@ def main():
 
     with Pool(5) as pool:
         sampler = Sampler(
-            prior,
-            log_likelihood,
-            n_live=10_000,
-            pool=pool,
-            seed=42,
-            pass_dict=False,
+            prior, log_likelihood, n_live=10_000, pool=pool, seed=42, pass_dict=False
         )
         sampler.run(verbose=True)
 
@@ -112,8 +108,9 @@ if __name__ == "__main__":
 *******************************
 Results for data from
 https://arxiv.org/pdf/2307.09501
-and one data point from
+and 4 data points from
 https://arxiv.org/pdf/2506.03836
+https://arxiv.org/pdf/2511.02730v1
 *******************************
 
 Flat ΛCDM: w(z) = -1
@@ -121,34 +118,34 @@ Flat ΛCDM: w(z) = -1
 -------------------------------
 
 Varying f in U(0.3, 2.6):
-H0: 67.1 +3.7 -3.8
-Ωm: 0.328 +0.052 -0.043
-f: 1.46 +0.19 -0.18
-Chi squared: 31.33
-Log likelihood: -130.53
-Log evidence: -136.67 (Δ logZ = 1.74 compared to fixed f)
-Degs of freedom: 30
+H0: 66.6 +3.7 -3.7
+Ωm: 0.335 +0.051 -0.044
+f: 1.47 +0.18 -0.17
+Chi squared: 34.30
+Log likelihood: -141.63
+Log evidence: -147.83 (diff: -2.21 in evidence favouring the model with f)
+Degs of freedom: 33
 
 -------------------------------
 
 With fixed f = 1:
-H0: 66.6 +5.4 -5.5
-Ωm: 0.334 +0.079 -0.063
+H0: 66.2 +5.4 -5.4
+Ωm: 0.340 +0.079 -0.063
 f: 1
-Chi squared: 14.82
-Log likelihood: -134.65
-Log evidence: -138.41
-Degs of freedom: 31
+Chi squared: 15.92
+Log likelihood: -146.28
+Log evidence: -150.04
+Degs of freedom: 34
 
 *******************************
 
 Log likelihood ratio test:
 -2 * log(L0/L1) = -2 * log(L0) + 2 * log(L1)
--2 * (-134.65) + 2 * (-130.53) = 8.24
+-2 * (-146.28) + 2 * (-141.63) = 9.30
 
 Degrees of freedom = 1
-p-value = 0.0044
-We are 99.84% confident that the model with f is better than the one without f.
+p-value = 0.0023
+We are 99.77% confident that the model with f is better than the one without f.
 So the uncertainties in the H(z) dataset are overestimated and should be scaled down.
 2.5 sigma between f=1 and f=1.46
 """

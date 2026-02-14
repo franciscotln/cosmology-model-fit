@@ -25,7 +25,7 @@ class HubbleGaussianProcess(ExactGP):
     def __init__(self, train_x, train_y, likelihood):
         super(HubbleGaussianProcess, self).__init__(train_x, train_y, likelihood)
         self.covar_module = ScaleKernel(
-            RBFKernel(lengthscale_constraint=Interval(1.2 * z.max(), 3 * z.max()))
+            RBFKernel(lengthscale_constraint=Interval(z.max(), 3 * z.max()))
         )
         self.mean_module = ConstantMean()
 
