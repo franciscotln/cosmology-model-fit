@@ -30,8 +30,8 @@ def Ez(z, params):
     Om, w0 = params[3], params[4]
     one_plus_z = 1.0 + z
     cubed = one_plus_z**3
-    rho_de = (2 * cubed / ((1 + w0) + (1 - w0) * cubed)) ** 2
-    return (Om * cubed + (1 - Om) * rho_de) ** 0.5
+    rho_de = (2 * cubed / ((1.0 + w0) + (1.0 - w0) * cubed)) ** 2
+    return np.sqrt(Om * cubed + (1.0 - Om) * rho_de)
 
 
 @njit
@@ -227,44 +227,54 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM: w(z) = -1
-f_cc: 1.47 +0.19 -0.18
-H0: 68.61 +2.28 -2.26 km/s/Mpc
-M: -19.404 +0.071 -0.072 mag
-r_d: 147.15 +4.90 -4.63 Mpc
+f_cc: 1.48 +0.18 -0.17
+H0: 68.5 +2.3 -2.3 km/s/Mpc
+M: -19.406 +0.070 -0.072 mag
+r_d: 147.3 +4.9 -4.6 Mpc
 Ωm: 0.305 +0.008 -0.008
-w0: -1
-wa: 0
-Chi squared: 1448.45
-Log Evidence: -855.0
-Degrees of freedom: 1631
+Chi squared: 1451.44
+Log Evidence: -866.2
+Degrees of freedom: 1634
+
+===============================
+
+Flat ΛCDM: w(z) = -1, varying absolute magnitude M(z) = M0 + np.tanh(1.0 - z_sn_vals ** (0.1 * p))
+f_cc: 1.48 +0.18 -0.17
+H0: 69.0 +2.3 -2.3 km/s/Mpc
+M: -19.416 +0.070 -0.072 mag
+r_d: 147.0 +4.9 -4.6 Mpc
+Ωm: 0.299 +0.008 -0.008
+p: 0.103 +0.055 -0.054 (prior -0.15 to 0.40)
+Chi squared: 1447.41
+Log Evidence: -865.8
+Degrees of freedom: 1633
 
 ===============================
 
 Flat wCDM: w(z) = w0
-f_cc: 1.47 +0.18 -0.18
-H0: 67.82 +2.31 -2.27 km/s/Mpc
-M: -19.417 +0.072 -0.073 mag
-r_d: 147.10 +4.90 -4.66 Mpc
-Ωm: 0.298 +0.009 -0.008
-w0: -0.917 +0.040 -0.040
-wa: 0
-Chi squared: 1443.93
-Log Evidence: -855.6
-Degrees of freedom: 1630
+f_cc: 1.48 +0.18 -0.17
+H0: 67.70 +2.27 -2.26 km/s/Mpc
+M: -19.421 +0.070 -0.073 mag
+r_d: 147.33 +4.94 -4.59 Mpc
+Ωm: 0.299 +0.009 -0.009
+w0: -0.916 +0.040 -0.039 (prior -1.5 to -0.5)
+Chi squared: 1446.82
+Log Evidence: -866.3
+Degrees of freedom: 1633
 
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
-f_cc: 1.46 +0.18 -0.18
-H0: 67.80 +2.31 -2.32 km/s/Mpc
-M: -19.414 +0.071 -0.074 mag
-r_d: 147.05 +4.99 -4.69 Mpc
-Ωm: 0.305 +0.008 -0.008
-w0: -0.885 +0.053 -0.052 (prior -1.0 to 0.0)
+f_cc: 1.48 +0.18 -0.17
+H0: 67.71 +2.23 -2.27 km/s/Mpc
+M: -19.417 +0.069 -0.073 mag
+r_d: 147.20 +4.93 -4.57 Mpc
+Ωm: 0.306 +0.008 -0.008
+w0: -0.884 +0.053 -0.052 (prior -1.0 to 0.0)
 wa: d w(z)/dz at z=0 = -(3/2) * (1 - w0**2)
-Chi squared: 1443.63
-Log Evidence: -854.8
-Degrees of freedom: 1630
+Chi squared: 1446.78
+Log Evidence: -866.0
+Degrees of freedom: 1633
 
 ===============================
 
