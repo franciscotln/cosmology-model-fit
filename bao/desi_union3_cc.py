@@ -79,7 +79,8 @@ def bao_theory(z, qty, params):
 @njit
 def mu_theory(params):
     dL = (1.0 + z_sn_vals) * DM_z(z_sn_vals, params)
-    return params[1] + 25.0 + 5 * np.log10(dL)
+    Mz = params[1]  # + np.tanh(1.0 - z_sn_vals ** (0.1 * params[5]))
+    return Mz + 25.0 + 5 * np.log10(dL)
 
 
 def solve_triang(cho_L, delta):
@@ -108,7 +109,8 @@ def log_likelihood(params):
 
 
 def main():
-    from corner import corner, quantile
+    from corner import quantile
+    from getdist import plots, MCSamples
     import matplotlib.pyplot as plt
     from nautilus import Sampler, Prior
     from multiprocessing import Pool
@@ -118,7 +120,7 @@ def main():
 
     prior = Prior()
     # f_cc: CC error rescaling (overestimated)
-    prior.add_parameter("f_cc", dist=(0.01, 3.0))
+    prior.add_parameter("fcc", dist=(0.01, 3.0))
     # ΔM: magnitude offset
     prior.add_parameter("ΔM", dist=(-1.0, 1.0))
     # H0: Hubble constant at present
@@ -130,32 +132,25 @@ def main():
     # w0: dark energy equation of state today
     prior.add_parameter("w0", dist=(-1.0, -1 / 3))
 
-    with Pool(5) as pool:
+    with Pool(6) as pool:
         sampler = Sampler(
-            prior, log_likelihood, n_live=10_000, pool=pool, seed=42, pass_dict=False
+            prior, log_likelihood, n_live=4_000, pool=pool, seed=42, pass_dict=False
         )
         sampler.run(verbose=True)
 
     samples, log_w, log_l = sampler.posterior()
     w = np.exp(log_w)
 
-    one_sigma_ci = [0.159, 0.5, 0.841]
-    corner(
-        samples,
-        weights=w,
-        labels=prior.keys,
-        quantiles=one_sigma_ci,
-        show_titles=True,
-        title_fmt=".4f",
-        bins=100,
-        fill_contours=False,
-        plot_datapoints=False,
-        smooth=2.0,
-        smooth1d=2.0,
-        levels=(0.393, 0.864),
-        range=np.repeat(0.9999, len(prior.keys)),
+    labels = ["f_{cc}", "ΔM", "H_0", "rd", "Ω_m", "w_0"]
+    gd_samples = MCSamples(
+        samples=samples, weights=w, names=prior.keys, labels=labels, loglikes=log_l
+    )
+    plots.get_subplot_plotter().triangle_plot(
+        gd_samples, filled=True, title_limit=1, color=["blue"], contour_colors=["blue"]
     )
     plt.show()
+
+    one_sigma_ci = [0.159, 0.5, 0.841]
 
     fcc_16, fcc_50, fcc_84 = quantile(samples[:, 0], one_sigma_ci, weights=w)
     dM_16, dM_50, dM_84 = quantile(samples[:, 1], one_sigma_ci, weights=w)
@@ -235,51 +230,48 @@ wa:   U(-5.0, 3.0)
 
 """
 Flat ΛCDM: w(z) = -1
-f_cc: 1.47 +0.19 -0.18
-ΔM: -0.119 +0.113 -0.116 mag
-H0: 68.7 +2.3 -2.3 km/s/Mpc
-r_d: 147.1 +4.9 -4.6 Mpc
+f_cc: 1.48 +0.18 -0.17
+ΔM: -0.124 +0.115 -0.116 mag
+H0: 68.5 +2.3 -2.2 km/s/Mpc
+r_d: 147.3 +4.8 -4.6 Mpc
 Ωm: 0.305 +0.008 -0.008
-ωm: 0.1440 +0.0249 -0.0198
-w0: -1
-wa: 0
-Chi squared: 71.12
-Log evidence: -163.50
-Degrees of freedom: 63
+ωm: 0.1437 +0.0252 -0.0194
+Chi squared: 74.13
+Log evidence: -174.74
+Degrees of freedom: 66
 """
 
 """
-Flat wCDM: w(z) = w0
-f_cc: 1.46 +0.19 -0.18
-ΔM: -0.158 +0.115 -0.116 mag
-H0: 67.1 +2.4 -2.3 km/s/Mpc
-r_d: 147.2 +5.0 -4.7 Mpc
+f_cc: 1.48 +0.18 -0.17
+ΔM: -0.163 +0.115 -0.115 mag
+H0: 66.9 +2.3 -2.3 km/s/Mpc
+r_d: 147.5 +4.9 -4.7 Mpc
 Ωm: 0.299 +0.009 -0.009
-ωm: 0.1345 +0.0234 -0.0206
-w0: -0.871 +0.051 -0.052
-wa: 0
-Chi squared: 64.44
-Log evidence: -162.06 (Δ logZ = 1.44 over ΛCDM)
-Degrees of freedom: 62
+ωm: 0.1340 +0.0236 -0.0205
+w0: -0.869 +0.050 -0.051
+Chi squared: 67.46
+Log evidence: -173.22 (Δ logZ = 1.52 over ΛCDM)
+Degrees of freedom: 65
 """
 
 """
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
-f_cc: 1.46 +0.18 -0.18
-ΔM: -0.166 +0.115 -0.116 mag
-H0: 66.5 +2.4 -2.3 km/s/Mpc
-r_d: 147.2 +5.0 -4.7 Mpc
-Ωm: 0.312 +0.009 -0.009
-ωm: 0.1385 +0.0229 -0.0193
-w0: -0.774 +0.073 -0.077
+f_cc: 1.47 +0.18 -0.17
+ΔM: -0.169 +0.115 -0.117 mag
+H0: 66.4 +2.4 -2.3 km/s/Mpc
+r_d: 147.4 +5.0 -4.6 Mpc
+Ωm: 0.313 +0.009 -0.009
+ωm: 0.1382 +0.0227 -0.0191
+w0: -0.772 +0.074 -0.077
 wa: d w(z)/d z at z=0 = -1.5 * (1 - w0^2)
-Chi squared: 62.28
-Log evidence: -160.69 (Δ logZ = 2.81 over ΛCDM)
-Degrees of freedom: 62
+Chi squared: 65.26
+Log evidence: -171.86 (Δ logZ = 2.88 over ΛCDM)
+Degrees of freedom: 65
 """
 
 """
 Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
+TODO: re-run
 f_cc: 1.45 +0.18 -0.18
 ΔM: -0.166 +0.115 -0.117 mag
 H0: 66.4 +2.4 -2.4 km/s/Mpc
