@@ -158,44 +158,41 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM: w(z) = -1
-f_cc: 1.47 +0.18 -0.18
-ΔM: -0.203 +0.121 -0.123 mag
-H0: 65.9 +2.6 -2.6 km/s/Mpc
-Ωm: 0.349 +0.024 -0.023
-ωm: 0.1513 +0.0106 -0.0103
-w0: -1
-wa: 0
-Chi squared: 56.22
-Log evidence: -150.8
-Degrees of freedom: 51
+f_cc: 1.48 +0.18 -0.17
+ΔM: -0.209 +0.121 -0.120 mag
+H0: 65.7 +2.6 -2.5 km/s/Mpc
+Ωm: 0.350 +0.024 -0.023
+ωm: 0.1511 +0.0105 -0.0101
+Chi squared: 59.12
+Log evidence: -161.8
+Degrees of freedom: 54
 
 ==============================
 
 Flat wCDM: w(z) = w0
-f_cc: 1.45 +0.19 -0.18
-ΔM: -0.179 +0.124 -0.124 mag
-H0: 66.4 +2.7 -2.6 km/s/Mpc
-Ωm: 0.306 +0.047 -0.055
-ωm: 0.1344 +0.0189 -0.0224
-w0: -0.85 +0.13 -0.14
-wa: 0
-Chi squared: 54.20
-Log evidence: -151.7
-Degrees of freedom: 50
+f_cc: 1.47 +0.18 -0.17
+ΔM: -0.185 +0.122 -0.125 mag
+H0: 66.2 +2.7 -2.6 km/s/Mpc
+Ωm: 0.308 +0.047 -0.054
+ωm: 0.1347 +0.0186 -0.0220
+w0: -0.86 +0.13 -0.14
+Chi squared: 57.24
+Log evidence: -163.0
+Degrees of freedom: 53
 
 ==============================
 
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
-f_cc: 1.45 +0.19 -0.18
-ΔM: -0.175 +0.122 -0.123 mag
-H0: 66.3 +2.6 -2.6 km/s/Mpc
-Ωm: 0.320 +0.029 -0.030
-ωm: 0.1403 +0.0123 -0.0125
+f_cc: 1.47 +0.18 -0.17
+ΔM: -0.183 +0.122 -0.122 mag
+H0: 66.1 +2.6 -2.5 km/s/Mpc
+Ωm: 0.322 +0.029 -0.029
+ωm: 0.1405 +0.0120 -0.0123
 w0: -0.80 +0.12 -0.12 (truncated at -1, 1.67 sigma to the left of the mean)
 wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
-Chi squared: 53.57
-Log evidence: -151.0
-Degrees of freedom: 50
+Chi squared: 56.70
+Log evidence: -162.1
+Degrees of freedom: 53
 
 ==============================
 
