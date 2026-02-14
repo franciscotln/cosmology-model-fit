@@ -51,6 +51,13 @@ Covariance matrix construction: https://gitlab.com/mmoresco/CCcovariance/-/blob/
 """
 
 """
-Latest measurement (arXiv:2512.02109v1):
+Latest measurements
+
+(arXiv:2512.02109v1):
 H(z=0.542) = 66 +82 -32 km/s/Mpc
+
+(arXiv:2511.02730v1)
+H(z=0.46) = 88.48 ± 12.33
+H(z=0.67) = 119.45 ± 17.82
+H(z=0.83) = 108.28 ± 18.13
 """
