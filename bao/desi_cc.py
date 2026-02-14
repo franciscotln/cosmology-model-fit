@@ -211,50 +211,49 @@ Dataset: DESI 2025
 *******************************
 
 Flat ΛCDM
-f_cc: 1.47 +0.19 -0.18
-H0: 69.1 +2.3 -2.3 km/s/Mpc
-r_d: 146.9 +5.0 -4.7 Mpc
+f_cc: 1.48 +0.18 -0.17
+H0: 69.0 +2.3 -2.3 km/s/Mpc
+r_d: 147.1 +4.9 -4.6 Mpc
 Ωm: 0.299 +0.009 -0.008
-ωm: 0.1424 +0.0096 -0.0093
-w0: -1
-wa: 0
-Chi squared: 42.56
-log likelihood: -135.80
-Log evidence: -146.7
-Degrees of freedom: 42
+ωm: 0.1422 +0.0094 -0.0092
+Chi squared: 45.63
+log likelihood: -147.01
+Log evidence: -158.0
+Degrees of freedom: 45
 
 ===============================
 
 Flat wCDM
-f_cc: 1.47 +0.19 -0.18
-H0: 67.9 +2.6 -2.5 km/s/Mpc
-r_d: 147.1 +5.0 -4.6 Mpc
+f_cc: 1.47 +0.18 -0.17
+H0: 67.7 +2.5 -2.5 km/s/Mpc
+r_d: 147.3 +4.9 -4.7 Mpc
 Ωm: 0.298 +0.009 -0.009
-ωm: 0.1376 +0.0105 -0.0102
-w0: -0.922 +0.074 -0.078 (prior -1.4 to -0.4)
-Chi squared: 41.46
-log likelihood: -135.28
-Log evidence: -147.8
-Degrees of freedom: 41
+ωm: 0.1369 +0.0106 -0.0101
+w0: -0.917 +0.074 -0.078 (prior -1.4 to -0.4)
+Chi squared: 44.15
+log likelihood: -146.41
+Log evidence: -159.0
+Degrees of freedom: 44
 
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
-f_cc: 1.46 +0.19 -0.18
-H0: 66.7 +2.6 -2.6 km/s/Mpc
-r_d: 147.2 +5.1 -4.7 Mpc
+f_cc: 1.47 +0.18 -0.17
+H0: 66.5 +2.6 -2.6 km/s/Mpc
+r_d: 147.4 +5.0 -4.6 Mpc
 Ωm: 0.312 +0.012 -0.011
-ωm: 0.1385 +0.0097 -0.0094
-w0: -0.793 +0.130 -0.123 (prior from -1.0 to 0.0. Posterior truncated at 1.68 sigma to the left of the mean )
+ωm: 0.1380 +0.0096 -0.0092
+w0: -0.787 +0.129 -0.123 (prior from -1.0 to 0.0. Posterior truncated at 1.72 sigma to the left of the mean)
 wa: d w(z)/dz at z=0 = -1.5 * (1 - w0**2)
-Chi squared: 40.68
-log likelihood: -135.14
-Log evidence: -146.9
-Degrees of freedom: 41
+Chi squared: 43.58
+log likelihood: -146.21
+Log evidence: -158.1
+Degrees of freedom: 44
 
 ===============================
 
 Flat w0waCDM
+TODO: re-run
 f_cc: 1.43 +0.18 -0.18
 H0: 64.6 +3.7 -3.7 km/s/Mpc
 r_d: 147.2 +5.1 -4.8 Mpc
