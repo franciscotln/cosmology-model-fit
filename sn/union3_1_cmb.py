@@ -59,8 +59,9 @@ def DM_z(z, params):
 
 @njit
 def mu_theory(params):
-    dL = (1.0 + z_cmb) * DM_z(z_cmb, params)
-    return params[0] + 25.0 + 5 * np.log10(dL)
+    dL = (1.0 + z_hel) * DM_z(z_cmb, params)
+    Mz = params[0] + 1.0 - (z_cmb / (1.0 + z_cmb)) ** (0.1 * params[4])
+    return Mz + 25.0 + 5 * np.log10(dL)
 
 
 def chi_squared(params):
@@ -79,6 +80,7 @@ bounds = np.array(
         (60.0, 75.0),  # H0
         (0.010, 0.030),  # ωb
         (0.010, 0.250),  # ωc
+        (-0.4, 1.0),  # p
     ]
 )
 
@@ -150,6 +152,7 @@ def main():
         (H0_16, H0_50, H0_84),
         (Obh2_16, Obh2_50, Obh2_84),
         (Och2_16, Och2_50, Och2_84),
+        (p_16, p_50, p_84),
     ] = pct
 
     best_fit = np.percentile(samples, 50, axis=0)
@@ -165,6 +168,7 @@ def main():
     z_d_16, z_d_50, z_d_84 = np.percentile(z_drag_samples, one_sigma_percentiles)
 
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f}")
+    print(f"p: {p_50:.3f} +{(p_84 - p_50):.3f} -{(p_50 - p_16):.3f}")
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"ωm: {Omh2_50:.5f} +{(Omh2_84 - Omh2_50):.5f} -{(Omh2_50 - Omh2_16):.5f}")
@@ -178,7 +182,7 @@ def main():
     print(f"Log Evidence: {log_evd:.1f}")
     print(f"Degrees of freedom: {degrees_of_freedom}")
 
-    labels = ["$Δ_M$", "$H_0$", "$ω_b$", "$ω_c$"]
+    labels = ["$Δ_M$", "$H_0$", "$ω_b$", "$ω_c$", "$p$"]
     plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
     plot_predictions(
         legend=sn_legend,
@@ -221,21 +225,21 @@ Degrees of freedom: 21
 
 """
 Flat ΛCDM w(z) = -1, varying absolute magnitude
-M(z) = ΔM + tanh(1 - z^(0.1 * p))
+M(z) = ΔM_inf + 1 - (z / (1 + z))^(0.1 * p)
 
-ΔM: -0.077 +0.012 -0.012
-p: 0.151 +0.099 -0.094
+ΔM: -0.090 +0.016 -0.016
+p: 0.203 +0.125 -0.120
 H0: 67.70 +0.50 -0.49 km/s/Mpc
 Ωm: 0.310 +0.007 -0.007
-ωm: 0.14227 +0.00117 -0.00115
+ωm: 0.14227 +0.00116 -0.00115
 ωb: 0.02251 +0.00011 -0.00011
 ωc: 0.1191 +0.0012 -0.0012
 z*: 1089.65 +0.21 -0.21
 z_drag: 1060.18 +0.23 -0.23
 r*: 144.57 Mpc
-r_d: 147.18 Mpc
-Chi squared: 27.1
-Log Evidence: -33.3
+r_d: 147.19 Mpc
+Chi squared: 26.7 (1.67 sigma away from no evolution)
+Log Evidence: -33.2
 Degrees of freedom: 20
 """
 
@@ -247,7 +251,7 @@ H0: 66.35 +1.15 -1.14 km/s/Mpc
 ωm: 0.14241 +0.00118 -0.00117
 ωb: 0.02250 +0.00011 -0.00011
 ωc: 0.1193 +0.0012 -0.0012
-w0: -0.957 +0.040 -0.039 (prior width 1.0: -1.5 to -0.5)
+w0: -0.957 +0.040 -0.039 (prior U(-1.5, -0.5))
 z*: 1089.68 +0.21 -0.21
 z_drag: 1060.17 +0.23 -0.23
 r*: 144.53 Mpc
@@ -265,7 +269,7 @@ H0: 66.19 +0.85 -0.94 km/s/Mpc
 ωm: 0.14232 +0.00116 -0.00115
 ωb: 0.02250 +0.00011 -0.00011
 ωc: 0.1192 +0.0012 -0.0012
-w0: -0.895 +0.068 -0.060 (prior width 1.0: -1.0 to 0.0)
+w0: -0.895 +0.068 -0.060 (prior U(-1.0, 0.0))
 wa: d w(z)/d z at z=0 = -1.5 * (1 - w0^2) = -0.447
 z*: 1089.66 +0.21 -0.21
 z_drag: 1060.18 +0.23 -0.23
@@ -279,6 +283,6 @@ Degrees of freedom: 20
 """
 Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
 TODO
-w0: (prior width 1.5: -1.5 to 0.0)
-wa: (prior width 8.5: -5.5 to 3.0)
+w0: (prior U(-1.5, 0.0))
+wa: (prior U(-5.5, 3.0))
 """
