@@ -15,7 +15,7 @@ c = c0 / 1000  # Speed of light in km/s
 
 z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
 z_grid = np.linspace(0, z_max, num=3000)
-dx = np.diff(z_grid)
+dz = np.diff(z_grid)
 
 
 @njit
@@ -46,9 +46,9 @@ def DH_z(z, params):
 @njit
 def DM_z(z, params):
     dh_grid = DH_z(z_grid, params)
-    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    dh = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size, dtype=np.float64)
-    cum_dm[1:] = np.cumsum(dx * dy)
+    cum_dm[1:] = np.cumsum(dz * dh)
     return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
@@ -186,7 +186,7 @@ H0 U(50.0, 85.0)
 Ωm U(0.1, 0.6)
 
 mag evolution:
-p U(-0.3, 0.7)
+p U(-0.4, 1.0)
 
 wCDM:
 w0 U(-1.5, 0.0)
@@ -214,15 +214,15 @@ Degs of freedom: 31
 """
 
 """
-Flat ΛCDM: w(z) = -1, varying absolute mag of SNe M(z) = ΔM + tanh(1 - z^(0.1 * p))
-ΔM: -0.049 +0.012 -0.012 mag
-p: 0.205 +0.102 -0.099
+Flat ΛCDM: w(z) = -1, evolving absolute mag of SNe M(z) = ΔM_inf + (z / (1 + z))^(0.1 * p)
+ΔM: -0.065 +0.017 -0.017 mag
+p: 0.266 +0.130 -0.124
 rd: 147.09 +0.26 -0.26 Mpc
-H0: 69.10 +0.51 -0.51 km/s/Mpc
+H0: 69.09 +0.50 -0.51 km/s/Mpc
 Ωm: 0.296 +0.009 -0.008
 ωm: 0.1415 +0.0024 -0.0023
-Chi squared: 36.8
-Log evidence: -32.6 (Δ logZ = 0.7 against no evolution in M)
+Chi squared: 36.4 (2.17 sigma away from no evolution in M)
+Log evidence: -32.5 (Δ logZ = 0.8 against no evolution in M)
 Degs of freedom: 30
 """
 
@@ -234,7 +234,7 @@ H0: 67.60 +0.74 -0.74 km/s/Mpc
 Ωm: 0.297 +0.009 -0.009
 ωm: 0.1359 +0.0043 -0.0044
 w0: -0.896 +0.049 -0.050
-Chi squared: 36.8
+Chi squared: 36.8 (2.07 sigma away from ΛCDM)
 Log evidence: -33.7 (Δ logZ = -0.4 in favour of ΛCDM)
 Degs of freedom: 30
 """
@@ -248,7 +248,7 @@ H0: 67.17 +0.82 -0.82 km/s/Mpc
 ωm: 0.1388 +0.0029 -0.0028
 w0: -0.818 +0.072 -0.074
 wa: d w(z)/d z at z=0 = -1.5 * (1 - w0^2) = -0.624
-Chi squared: 35.4
+Chi squared: 35.4 (2.39 sigma away from ΛCDM)
 Log evidence: -31.8 (Δ logZ = 1.5 against ΛCDM)
 Degs of freedom: 30
 """
@@ -262,7 +262,7 @@ H0: 66.98 +0.87 -0.86 km/s/Mpc
 ωm: 0.1444 +0.0049 -0.0068
 w0: -0.776 +0.106 -0.102
 wa: -0.769 +0.569 -0.550
-Chi squared: 34.7
+Chi squared: 34.7 (0.96 sigma away from ΛCDM)
 Log evidence: -34.1 (TODO: remove forbidden volume, still ΛCDM is preferred)
 Degs of freedom: 29
 """
