@@ -320,7 +320,7 @@ r*: 145.01 Mpc
 z_d: 1060.21 +0.23 -0.23
 r_d: 147.61 Mpc
 q0: -0.551 +0.005 -0.005
-Chi squared: 41.7
+Chi squared: 41.7 (2.05 sigma improvement over no mag evolution)
 Log evidence: -41.4
 Degs of freedom: 34
 
@@ -357,7 +357,7 @@ r*: 145.03 Mpc
 z_d: 1060.21 +0.23 -0.23
 r_d: 147.63 Mpc
 q0: -0.532 +0.035 -0.036
-Chi squared: 45.6
+Chi squared: 45.6 (0.55 sigma improvement over ΛCDM)
 Log evidence: -44.2
 Degs of freedom: 34
 """
@@ -377,7 +377,7 @@ r*: 145.09 Mpc
 z_d: 1060.22 +0.23 -0.23
 r_d: 147.69 Mpc
 q0: -0.425 +0.068 -0.065
-Chi squared: 43.0
+Chi squared: 43.0 (1.7 sigma improvement over ΛCDM)
 Log evidence: -42.0
 Degs of freedom: 34
 """
@@ -398,7 +398,7 @@ r*: 144.64 Mpc
 z_d: 1060.17 +0.23 -0.23
 r_d: 147.26 Mpc
 q0: -0.272 +0.090 -0.090
-Chi squared: 36.1
+Chi squared: 36.1 (2.68 sigma improvement over ΛCDM)
 Log evidence: -41.7 (removed excluded volume from constraint wa + w0 > 0)
 Degs of freedom: 33
 """
