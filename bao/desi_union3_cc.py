@@ -3,12 +3,12 @@ import numpy as np
 from scipy.linalg import cho_factor, solve_triangular
 from scipy.constants import c as c0
 from interpolator import interp_hermite
-from y2023union3.data import get_data
+from y2026union3_1.data import get_data
 from y2005cc.data import get_data as get_cc_data
 from y2025BAO.data import get_data as get_bao_data
 
 cc_legend, z_cc_vals, H_cc_vals, cov_matrix_cc = get_cc_data()
-sn_legend, z_sn_vals, sn_mu_vals, cov_matrix_sn = get_data()
+sn_legend, z_sn_vals, z_hel_vals, sn_mu_vals, cov_matrix_sn = get_data()
 bao_legend, bao_data, cov_matrix_bao = get_bao_data()
 
 cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
@@ -78,9 +78,8 @@ def bao_theory(z, qty, params):
 
 @njit
 def mu_theory(params):
-    dL = (1.0 + z_sn_vals) * DM_z(z_sn_vals, params)
-    Mz = params[1]  # + np.tanh(1.0 - z_sn_vals ** (0.1 * params[5]))
-    return Mz + 25.0 + 5 * np.log10(dL)
+    dL = (1.0 + z_hel_vals) * DM_z(z_sn_vals, params)
+    return params[1] + 25.0 + 5 * np.log10(dL)
 
 
 def solve_triang(cho_L, delta):
@@ -134,7 +133,7 @@ def main():
 
     with Pool(6) as pool:
         sampler = Sampler(
-            prior, log_likelihood, n_live=4_000, pool=pool, seed=42, pass_dict=False
+            prior, log_likelihood, n_live=6_000, pool=pool, seed=42, pass_dict=False
         )
         sampler.run(verbose=True)
 
@@ -208,7 +207,7 @@ if __name__ == "__main__":
 
 
 """
-BAO DESI DR2 + SN1a Union3 + Cosmic Chronometers
+BAO DESI DR2 + SN1a Union3.1 + Cosmic Chronometers
 
 Priors:
 f_cc: U(0.01, 3.0)
@@ -218,69 +217,88 @@ rd:   U(120.0, 180.0)
 Ωm:   U(0.01, 0.70)
 
 wzCDM:
-w0: U(-1.0, -1/3)
+w0:   U(-1.0, -1/3)
 
 wCDM:
-w0: U(-1.2, -0.5)
+w0:   U(-1.2, -0.5)
 
 w0waCDM:
 w0:   U(-1.5, 0.0)
 wa:   U(-5.0, 3.0)
+Enforced w0 + wa > 0
+
+Varying absolute magnitude SNe within ΛCDM:
+p:    U(-0.4, 0.8)
 """
 
 """
 Flat ΛCDM: w(z) = -1
 f_cc: 1.48 +0.18 -0.17
-ΔM: -0.124 +0.115 -0.116 mag
-H0: 68.5 +2.3 -2.2 km/s/Mpc
-r_d: 147.3 +4.8 -4.6 Mpc
-Ωm: 0.305 +0.008 -0.008
-ωm: 0.1437 +0.0252 -0.0194
-Chi squared: 74.13
-Log evidence: -174.74
+ΔM: -0.040 +0.070 -0.072 mag
+H0: 68.7 +2.3 -2.3 km/s/Mpc
+r_d: 147.2 +4.9 -4.6 Mpc
+Ωm: 0.303 +0.008 -0.008
+ωm: 0.1437 +0.0330 -0.0233
+Chi squared: 76.36
+Log evidence: -179.01
 Degrees of freedom: 66
 """
 
 """
+Flat ΛCDM: w(z) = -1, varying absolute magnitude SNe
+M(z) = ΔM + tanh(1.0 - z^(0.1 * p))
 f_cc: 1.48 +0.18 -0.17
-ΔM: -0.163 +0.115 -0.115 mag
-H0: 66.9 +2.3 -2.3 km/s/Mpc
-r_d: 147.5 +4.9 -4.7 Mpc
-Ωm: 0.299 +0.009 -0.009
-ωm: 0.1340 +0.0236 -0.0205
-w0: -0.869 +0.050 -0.051
-Chi squared: 67.46
-Log evidence: -173.22 (Δ logZ = 1.52 over ΛCDM)
+ΔM: -0.049 +0.070 -0.071 mag
+H0: 69.0 +2.3 -2.3 km/s/Mpc
+r_d: 147.0 +4.9 -4.6 Mpc
+Ωm: 0.298 +0.008 -0.008
+ωm: 0.1425 +0.0307 -0.0221
+w0: 0.200 +0.102 -0.098
+Chi squared: 72.13
+Log evidence: -178.53 (Δ logZ = 0.48 over ΛCDM)
+Degrees of freedom: 65
+"""
+
+"""
+Flat wCDM: w(z) = w0
+f_cc: 1.48 +0.18 -0.17
+ΔM: -0.049 +0.070 -0.072 mag
+H0: 67.5 +2.3 -2.3 km/s/Mpc
+r_d: 147.3 +4.9 -4.6 Mpc
+Ωm: 0.298 +0.009 -0.009
+ωm: 0.1359 +0.0299 -0.0248
+w0: -0.898 +0.049 -0.050
+Chi squared: 72.09
+Log evidence: -178.66 (Δ logZ = 0.35 over ΛCDM)
 Degrees of freedom: 65
 """
 
 """
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
 f_cc: 1.47 +0.18 -0.17
-ΔM: -0.169 +0.115 -0.117 mag
-H0: 66.4 +2.4 -2.3 km/s/Mpc
-r_d: 147.4 +5.0 -4.6 Mpc
-Ωm: 0.313 +0.009 -0.009
-ωm: 0.1382 +0.0227 -0.0191
-w0: -0.772 +0.074 -0.077
+ΔM: -0.049 +0.070 -0.072 mag
+H0: 67.1 +2.4 -2.3 km/s/Mpc
+r_d: 147.3 +4.9 -4.6 Mpc
+Ωm: 0.308 +0.009 -0.008
+ωm: 0.1391 +0.0295 -0.0234
+w0: -0.825 +0.071 -0.074
 wa: d w(z)/d z at z=0 = -1.5 * (1 - w0^2)
-Chi squared: 65.26
-Log evidence: -171.86 (Δ logZ = 2.88 over ΛCDM)
+Chi squared: 70.70
+Log evidence: -177.67 (Δ logZ = 1.34 over ΛCDM)
 Degrees of freedom: 65
 """
 
 """
 Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
-TODO: re-run
-f_cc: 1.45 +0.18 -0.18
-ΔM: -0.166 +0.115 -0.117 mag
-H0: 66.4 +2.4 -2.4 km/s/Mpc
-r_d: 147.1 +5.0 -4.7 Mpc
-Ωm: 0.328 +0.016 -0.020
-ωm: 0.1436 +0.0259 -0.0293
-w0: -0.726 +0.114 -0.107
-wa: -0.880 +0.587 -0.567
-Chi squared: 61.17
-Log evidence: -163.27 (Δ logZ = 0.23 over ΛCDM)
-Degrees of freedom: 61
+f_cc: 1.47 +0.18 -0.17
+ΔM: -0.047 +0.071 -0.072 mag
+H0: 67.0 +2.4 -2.3 km/s/Mpc
+r_d: 147.2 +4.9 -4.7 Mpc
+Ωm: 0.319 +0.016 -0.020
+ωm: 0.1444 +0.0368 -0.0254
+w0: -0.801 +0.105 -0.097
+wa: -0.633 +0.564 -0.555
+Chi squared: 70.15
+Log evidence: -180.47 (Δ logZ = -1.46 in favour of ΛCDM. TODO: remove forbidden region but still not preferred)
+Degrees of freedom: 64
 """
