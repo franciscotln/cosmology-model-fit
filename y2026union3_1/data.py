@@ -9,7 +9,7 @@ n = data_frame["zcmb"].size
 covariance_matrix = cov_data.reshape((n, n))
 z_cmb = data_frame["zcmb"].to_numpy()
 z_hel = data_frame["zhel"].to_numpy()
-mu_values = data_frame["mu"].to_numpy()
+mu_values = data_frame["mb"].to_numpy()
 sort_indices = np.argsort(z_cmb)
 
 
