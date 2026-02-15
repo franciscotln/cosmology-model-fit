@@ -183,11 +183,11 @@ Degs of freedom: 20
 ===============================
 
 Flat ΛCDM: w(z) = -1, varying absolute magnitude
-M(z) = a + np.tanh(1 - z_cmb ** (0.1 * b))
+M(z) = ΔM + np.tanh(1 - z_cmb ** (0.1 * p))
 
 ΔM: -0.078 +0.062/-0.063
+p: 0.408 +0.267/-0.238
 Ωm: 0.247 +0.052/-0.048
-w0: 0.408 +0.267/-0.238
 R-squared (%): 99.96
 RMSD (mag): 0.046
 Skewness of residuals: -1.056
