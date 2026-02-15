@@ -14,8 +14,9 @@ H0 = 70.0  # Hubble constant (km/s/Mpc)
 # params indices
 OFFSET = 0
 OM = 1
+P = 2
 
-bounds = np.array([(-0.6, 0.6), (0.0, 1.0)])  # ΔM, Ωm
+bounds = np.array([(-0.6, 0.6), (0.0, 1.0), (-0.8, 1.8)])  # ΔM, Ωm, p
 
 z_grid = np.linspace(0, np.max(z_cmb) + 0.1, num=3000)
 dx = np.diff(z_grid)
@@ -39,7 +40,8 @@ def DM_z(z, params):
 @njit
 def mu_theory(params):
     dL = (1.0 + z_hel) * DM_z(z_cmb, params)
-    return params[OFFSET] + 25.0 + 5 * np.log10(dL)
+    Mz = params[OFFSET] + 1.0 - (z_cmb / (1.0 + z_cmb)) ** (0.1 * params[P])
+    return Mz + 25.0 + 5 * np.log10(dL)
 
 
 @njit
@@ -115,6 +117,7 @@ def main():
     one_sigma_ci = [15.9, 50, 84.1]
     dM_16, dM_50, dM_84 = np.percentile(samples[:, OFFSET], one_sigma_ci)
     Om_16, Om_50, Om_84 = np.percentile(samples[:, OM], one_sigma_ci)
+    p_16, p_50, p_84 = np.percentile(samples[:, P], one_sigma_ci)
 
     best_fit = np.percentile(samples, 50, axis=0)
 
@@ -130,11 +133,13 @@ def main():
 
     dM_label = f"{dM_50:.3f} +{dM_84-dM_50:.3f}/-{dM_50-dM_16:.3f}"
     Om_label = f"{Om_50:.3f} +{Om_84-Om_50:.3f}/-{Om_50-Om_16:.3f}"
+    p_label = f"{p_50:.3f} +{p_84-p_50:.3f}/-{p_50-p_16:.3f}"
 
     print_color("Dataset", legend)
     print_color("z range", f"{z_cmb[0]:.3f} - {z_cmb[-1]:.3f}")
     print_color("Sample size", len(z_cmb))
     print_color("ΔM", dM_label)
+    print_color("p", p_label)
     print_color("Ωm", Om_label)
     print_color("R-squared (%)", f"{100 * r2:.2f}")
     print_color("RMSD (mag)", f"{rmsd:.3f}")
@@ -145,7 +150,7 @@ def main():
 
     sigma_mu = np.sqrt(np.diag(cov_matrix))
 
-    labels = ["$ΔM$", "$Ω_m$"]
+    labels = ["$ΔM$", "$Ω_m$", "$p$"]
     plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chain_samples)
     plot_predictions(
         legend=legend,
@@ -183,16 +188,16 @@ Degs of freedom: 20
 ===============================
 
 Flat ΛCDM: w(z) = -1, varying absolute magnitude
-M(z) = ΔM + np.tanh(1 - z_cmb ** (0.1 * p))
+M(z) = ΔM_inf + 1 - (z / (1 + z))^(0.1 * p)
 
-ΔM: -0.078 +0.062/-0.063
-p: 0.408 +0.267/-0.238
-Ωm: 0.247 +0.052/-0.048
+ΔM: -0.078 +0.063/-0.063
+p: 0.405 +0.260/-0.239
+Ωm: 0.267 +0.044/-0.040
 R-squared (%): 99.96
-RMSD (mag): 0.046
-Skewness of residuals: -1.056
-Chi squared: 25.6
-Log evidence: -22.1
+RMSD (mag): 0.047
+Skewness of residuals: -1.140
+Chi squared: 25.7
+Log evidence: -22.0
 Degs of freedom: 19
 
 ===============================
