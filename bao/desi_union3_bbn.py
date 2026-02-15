@@ -3,19 +3,22 @@ import numpy as np
 from scipy.constants import c as c0
 from interpolator import interp_hermite
 import y2024BBN.prior_lcdm_schoneberg as bbn
-from y2023union3.data import get_data as get_sn_data
+from y2026union3_1.data import get_data as get_sn_data
 from y2025BAO.data import get_data as get_bao_data
+from y2024DESBAO.data import get_data as get_des_bao_data
 
 
 c = c0 / 1000  # km/s
 
-sn_legend, z_cmb, mu_values, cov_matrix_sn = get_sn_data()
-bao_legend, bao_data, bao_cov_matrix = get_bao_data()
+sn_legend, z_cmb, z_hel, mu_values, cov_matrix_sn = get_sn_data()
+bao_desi_legend, desi_bao_data, desi_bao_cov_mat = get_bao_data()
+des_bao_legend, des_bao_data, des_bao_cov_mat = get_des_bao_data()
 
 inv_cov_sn = np.linalg.inv(cov_matrix_sn)
-inv_cov_bao = np.linalg.inv(bao_cov_matrix)
+inv_cov_bao = np.linalg.inv(desi_bao_cov_mat)
+inv_cov_des_bao = np.linalg.inv(des_bao_cov_mat)
 
-z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
+z_max = max(np.max(z_cmb), np.max(desi_bao_data["z"])) + 0.1
 z_grid = np.linspace(0, z_max, num=4000)
 dx = np.diff(z_grid)
 
@@ -75,7 +78,8 @@ def DV_z(z, params):
 
 
 qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
-quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int64)
+desi_qty = np.array([qty_map[q] for q in desi_bao_data["quantity"]], dtype=np.int64)
+des_qty = np.array([qty_map[q] for q in des_bao_data["quantity"]], dtype=np.int64)
 
 
 @njit
@@ -95,19 +99,26 @@ def bao_theory(z, qty, params):
 
 @njit
 def theory_mu(params):
-    dL = (1.0 + z_cmb) * DM_z(z_cmb, params)
+    dL = (1.0 + z_hel) * DM_z(z_cmb, params)
     return params[-1] + 25.0 + 5 * np.log10(dL)
 
 
 @njit
 def chi_squared(params):
-    delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
-    chi_bao = delta_bao @ inv_cov_bao @ delta_bao
+    delta_bao = desi_bao_data["value"] - bao_theory(
+        desi_bao_data["z"], desi_qty, params
+    )
+    chi_bao_desi = delta_bao @ inv_cov_bao @ delta_bao
+
+    delta_bao_des = des_bao_data["value"] - bao_theory(
+        des_bao_data["z"], des_qty, params
+    )
+    chi_bao_des = delta_bao_des @ inv_cov_des_bao @ delta_bao_des
 
     delta_sn = mu_values - theory_mu(params)
     chi_sn = delta_sn @ inv_cov_sn @ delta_sn
 
-    return chi_bao + chi_sn
+    return chi_bao_desi + chi_bao_des + chi_sn
 
 
 def log_likelihood(params):
@@ -142,7 +153,7 @@ def main():
 
     with Pool(8) as pool:
         sampler = Sampler(
-            prior, log_likelihood, n_live=9_000, pool=pool, seed=42, pass_dict=False
+            prior, log_likelihood, n_live=6_000, pool=pool, seed=42, pass_dict=False
         )
         sampler.run(verbose=True)
 
@@ -170,6 +181,10 @@ def main():
     wa_16, wa_50, wa_84 = quantile(wa_samples, one_sigma_ci, weights=w)
 
     best_fit = [H0_50, Om_50, Obh2_50, w0_50, dM_50]
+    MAP_params = samples[np.argmax(log_l)]
+    deg_of_freedom = (
+        len(des_bao_data["z"]) + len(desi_bao_data["z"]) + len(z_cmb) - len(best_fit)
+    )
 
     print(f"H0: {H0_50:.1f} +{(H0_84 - H0_50):.1f} -{(H0_50 - H0_16):.1f} km/s/Mpc")
     print(f"Ωm: {Om_50:.4f} +{(Om_84 - Om_50):.4f} -{(Om_50 - Om_16):.4f}")
@@ -181,9 +196,9 @@ def main():
     print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
     print(f"q0: {q0_50:.3f} +{(q0_84 - q0_50):.3f} -{(q0_50 - q0_16):.3f}")
     print(f"j0: {j0_50:.3f} +{(j0_84 - j0_50):.3f} -{(j0_50 - j0_16):.3f}")
-    print(f"Chi squared: {chi_squared(best_fit):.2f}")
+    print(f"Chi squared (MAP): {chi_squared(MAP_params):.2f}")
     print(f"Log Evidence: {sampler.log_z:.2f}")
-    print(f"Degrees of freedom: {len(bao_data['z']) + len(z_cmb) - len(best_fit)}")
+    print(f"Degs of freedom: {deg_of_freedom}")
 
     corner(
         samples,
@@ -203,9 +218,9 @@ def main():
     plt.show()
     plot_bao_predictions(
         theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
-        data=bao_data,
-        errors=np.sqrt(np.diag(bao_cov_matrix)),
-        title=bao_legend,
+        data=desi_bao_data,
+        errors=np.sqrt(np.diag(desi_bao_cov_mat)),
+        title=bao_desi_legend,
     )
     plot_sn_predictions(
         legend=sn_legend,
@@ -238,74 +253,91 @@ w0 U(-1.3, -0.3)
 wzCDM:
 w0 U(-1.0, -1/3)
 
-w0waCDM:
+w0waCDM (w0 + wa < 0 enforced):
 w0 U(-1.3, 0.0)
 wa U(-4.0, 2.0)
+
+Evolving absolute magnitude M(z):
+p U(-0.4, 0.8)
 """
 
 """
 Flat ΛCDM w(z) = -1
 H0: 68.8 +0.6 -0.6 km/s/Mpc
-Ωm: 0.3041 +0.0085 -0.0083
+Ωm: 0.3019 +0.0082 -0.0080
 ωb: 0.02219 +0.00055 -0.00055
-ωm: 0.14387 +0.00514 -0.00487
-w0: -1
-wa: 0
-ΔM: -0.115 +0.091 -0.092
-r_d: 146.87 +1.55 -1.55 Mpc
-q0: -0.544 +0.013 -0.012
+ωm: 0.14283 +0.00502 -0.00482
+ΔM: -0.038 +0.022 -0.021
+r_d: 147.15 +1.54 -1.55 Mpc
+q0: -0.547 +0.012 -0.012
 j0: 1
-Chi squared: 38.82
-Log Evidence: -28.11
+Chi squared (MAP): 41.66
+Log Evidence: -32.66
 Degrees of freedom: 31
+"""
 
-===============================
-
-Flat wCDM w(z) = w0
-H0: 65.1 +1.6 -1.6 km/s/Mpc
-Ωm: 0.2980 +0.0091 -0.0091
-ωb: 0.02218 +0.00055 -0.00055
-ωm: 0.12645 +0.00849 -0.00850
-w0: -0.868 +0.051 -0.052
-wa: 0
-ΔM: -0.223 +0.100 -0.101
-r_d: 151.71 +2.68 -2.56 Mpc
-q0: -0.413 +0.051 -0.052
-j0: 0.638
-Chi squared: 32.15
-Log Evidence: -26.91 (Δ logZ = 1.20 against ΛCDM)
-Degrees of freedom: 30
-
-===============================
-
-Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
-H0: 65.4 +1.3 -1.2 km/s/Mpc
-Ωm: 0.3121 +0.0091 -0.0087
-ωb: 0.02218 +0.00055 -0.00055
-ωm: 0.13345 +0.00597 -0.00570
-w0: -0.764 +0.073 -0.077
-wa: -0.624 +0.186 -0.160 [derived wa = -1.5 * (1 - w0**2)]
-ΔM: -0.203 +0.096 -0.096
-r_d: 149.70 +1.83 -1.83 Mpc
-q0: -0.289 +0.079 -0.084
-j0: -0.201 +0.333 -0.263
-Chi squared: 29.96
-Log Evidence: -25.01 (Δ logZ = 3.10 against ΛCDM)
-Degrees of freedom: 30
-
-===============================
-
-Flat w(z) = w0 + wa * z / (1 + z)
-H0: 66.6 +1.4 -1.5 km/s/Mpc
-Ωm: 0.3313 +0.0156 -0.0177
+"""
+Flat ΛCDM w(z) = -1, evolving absolute magnitude of SNe M(z) = ΔM + tanh(1 - z^(0.1 * p))
+H0: 68.7 +0.6 -0.6 km/s/Mpc
+Ωm: 0.2960 +0.0085 -0.0083
 ωb: 0.02219 +0.00055 -0.00055
-ωm: 0.14753 +0.01020 -0.01183
-w0: -0.695 +0.116 -0.111
-wa: -1.023 +0.556 -0.565
-ΔM: -0.154 +0.099 -0.103
-r_d: 145.96 +3.24 -2.67 Mpc
-q0: -0.198 +0.128 -0.129
-Chi squared: 28.84
-Log Evidence: -26.92 + 0.25 = -26.67 (Δ logZ = 1.44 against ΛCDM)
-Degrees of freedom: 29
+ωm: 0.13976 +0.00507 -0.00477
+p: 0.206 +0.102 -0.100
+ΔM: -0.061 +0.024 -0.024
+r_d: 147.95 +1.55 -1.56 Mpc
+q0: -0.556 +0.013 -0.012
+j0: 1
+Chi squared (MAP): 37.30
+Log Evidence: -32.06 (Δ logZ = 0.6 against ΛCDM)
+Degrees of freedom: 31
+"""
+
+"""
+Flat wCDM w(z) = w0
+H0: 65.9 +1.5 -1.5 km/s/Mpc
+Ωm: 0.2971 +0.0088 -0.0087
+ωb: 0.02219 +0.00055 -0.00056
+ωm: 0.12931 +0.00823 -0.00813
+w0: -0.898 +0.050 -0.050
+ΔM: -0.100 +0.038 -0.039
+r_d: 150.87 +2.55 -2.44 Mpc
+q0: -0.446 +0.049 -0.050
+j0: 0.710 +0.133 -0.119
+Chi squared (MAP): 37.30
+Log Evidence: -32.63 (Δ logZ = 0.03 against ΛCDM)
+Degrees of freedom: 31
+"""
+
+"""
+Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
+H0: 66.2 +1.2 -1.2 km/s/Mpc
+Ωm: 0.3075 +0.0086 -0.0084
+ωb: 0.02219 +0.00055 -0.00055
+ωm: 0.13462 +0.00572 -0.00558
+w0: -0.819 +0.072 -0.072
+wa: -0.493 +0.186 -0.169 [derived wa = -1.5 * (1 - w0**2)]
+ΔM: -0.079 +0.027 -0.027
+r_d: 149.37 +1.79 -1.77 Mpc
+q0: -0.351 +0.078 -0.079
+j0: 0.027 +0.352 -0.298
+Chi squared (MAP): 35.88
+Log Evidence: -31.12 (Δ logZ = 1.54 against ΛCDM)
+Degrees of freedom: 31
+"""
+
+"""
+Flat w(z) = w0 + wa * z / (1 + z)
+H0: 67.3 +1.5 -1.6 km/s/Mpc
+Ωm: 0.3221 +0.0151 -0.0177
+ωb: 0.02219 +0.00054 -0.00055
+ωm: 0.14630 +0.01065 -0.01277
+w0: -0.773 +0.106 -0.099
+wa: -0.794 +0.545 -0.547
+ΔM: -0.032 +0.044 -0.054
+r_d: 146.26 +3.56 -2.78 Mpc
+q0: -0.286 +0.121 -0.121
+j0: -0.339 +0.717 -0.650
+Chi squared (MAP): 35.17
+Log Evidence: -33.26 (TODO: remove forbidden prior volume. Increases the evidence but ΛCDM is preferred)
+Degs of freedom: 30
 """
