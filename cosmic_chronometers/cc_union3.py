@@ -3,10 +3,10 @@ import numpy as np
 from scipy.constants import c as c0
 from scipy.linalg import cho_factor, solve_triangular
 from interpolator import interp_hermite
-from y2023union3.data import get_data as get_sn_data
+from y2026union3_1.data import get_data as get_sn_data
 from y2005cc.data import get_data as get_cc_data
 
-legend_sn, z_sn_vals, mu_vals, cov_matrix_sn = get_sn_data()
+legend_sn, z_cmb, z_hel, mu_vals, cov_matrix_sn = get_sn_data()
 legend_cc, z_cc_vals, H_cc_vals, cov_matrix_cc = get_cc_data()
 
 logdet_cc = np.linalg.slogdet(cov_matrix_cc)[1]
@@ -17,7 +17,7 @@ cho_cc = cho_factor(cov_matrix_cc, lower=True)[0]
 
 c = c0 / 1000  # Speed of light in km/s
 
-z_grid = np.linspace(0, np.max(z_sn_vals), num=2000)
+z_grid = np.linspace(0, np.max(z_cmb), num=2000)
 dx = np.diff(z_grid)
 
 
@@ -44,7 +44,7 @@ def DM_z(z, H0, Om, w0):
 
 @njit
 def mu_theory(dM, H0, Om, w0):
-    dL = (1.0 + z_sn_vals) * DM_z(z_sn_vals, H0, Om, w0)
+    dL = (1.0 + z_hel) * DM_z(z_cmb, H0, Om, w0)
     return dM + 25.0 + 5 * np.log10(dL)
 
 
@@ -86,7 +86,7 @@ def main():
     prior.add_parameter("w0", dist=(-1.0, 0.0))
 
     with Pool(6) as pool:
-        sampler = Sampler(prior, log_likelihood, n_live=10_000, pool=pool, seed=42)
+        sampler = Sampler(prior, log_likelihood, n_live=8_000, pool=pool, seed=42)
         sampler.run(verbose=True)
 
     samples, log_w, log_l = sampler.posterior()
@@ -122,7 +122,7 @@ def main():
     Omh2_16, Omh2_50, Omh2_84 = quantile(Omh2_samples, one_sigma_ci, weights=w)
 
     best_fit = {"f_cc": fcc_50, "dM": dM_50, "H0": h0_50, "Om": Om_50, "w0": w0_50}
-    deg_of_freedom = z_sn_vals.size + z_cc_vals.size - len(labels)
+    deg_of_freedom = z_cmb.size + z_cc_vals.size - len(labels)
 
     print(f"f_cc: {fcc_50:.2f} +{(fcc_84 - fcc_50):.2f} -{(fcc_50 - fcc_16):.2f}")
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
@@ -143,7 +143,7 @@ def main():
     )
     plot_sn_predictions(
         legend=legend_sn,
-        x=z_sn_vals,
+        x=z_cmb,
         y=mu_vals,
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=mu_theory(dM_50, h0_50, Om_50, w0_50),
@@ -158,40 +158,40 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM: w(z) = -1
-f_cc: 1.48 +0.18 -0.17
-ΔM: -0.209 +0.121 -0.120 mag
-H0: 65.7 +2.6 -2.5 km/s/Mpc
-Ωm: 0.350 +0.024 -0.023
-ωm: 0.1511 +0.0105 -0.0101
-Chi squared: 59.12
-Log evidence: -161.8
+f_cc: 1.49 +0.18 -0.17
+ΔM: -0.077 +0.074 -0.076 mag
+H0: 66.7 +2.6 -2.5 km/s/Mpc
+Ωm: 0.333 +0.022 -0.021
+ωm: 0.1486 +0.0103 -0.0100
+Chi squared: 63.94
+Log evidence: -167.3
 Degrees of freedom: 54
 
 ==============================
 
 Flat wCDM: w(z) = w0
 f_cc: 1.47 +0.18 -0.17
-ΔM: -0.185 +0.122 -0.125 mag
-H0: 66.2 +2.7 -2.6 km/s/Mpc
-Ωm: 0.308 +0.047 -0.054
-ωm: 0.1347 +0.0186 -0.0220
-w0: -0.86 +0.13 -0.14
-Chi squared: 57.24
-Log evidence: -163.0
+ΔM: -0.059 +0.081 -0.081 mag
+H0: 67.1 +2.7 -2.6 km/s/Mpc
+Ωm: 0.307 +0.042 -0.048
+ωm: 0.1377 +0.0172 -0.0197
+w0: -0.91 +0.12 -0.13 prior U(-1.5, -0.5)
+Chi squared: 62.44
+Log evidence: -168.1
 Degrees of freedom: 53
 
 ==============================
 
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
 f_cc: 1.47 +0.18 -0.17
-ΔM: -0.183 +0.122 -0.122 mag
-H0: 66.1 +2.6 -2.5 km/s/Mpc
-Ωm: 0.322 +0.029 -0.029
-ωm: 0.1405 +0.0120 -0.0123
-w0: -0.80 +0.12 -0.12 (truncated at -1, 1.67 sigma to the left of the mean)
+ΔM: -0.049 +0.077 -0.078 mag
+H0: 67.1 +2.6 -2.6 km/s/Mpc
+Ωm: 0.310 +0.026 -0.027
+ωm: 0.1393 +0.0117 -0.0118
+w0: -0.84 +0.11 -0.10 prior U(-1, 0) - truncated at -1, 1.45 sigma to the left of the mean
 wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
-Chi squared: 56.70
-Log evidence: -162.1
+Chi squared: 62.13
+Log evidence: -168.0
 Degrees of freedom: 53
 
 ==============================
