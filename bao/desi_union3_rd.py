@@ -198,7 +198,7 @@ w0waCDM:
 w0 U(-1.5, 0.0)
 wa U(-3.5, 2.5)
 
-w0 + wa > 0 enforced
+w0 + wa < 0 enforced
 """
 
 """
@@ -263,6 +263,6 @@ H0: 66.98 +0.87 -0.86 km/s/Mpc
 w0: -0.776 +0.106 -0.102
 wa: -0.769 +0.569 -0.550
 Chi squared: 34.7
-Log evidence: -34.1 (TODO: remove forbidden volume, but still LCDM is preferred)
+Log evidence: -34.1 (TODO: remove forbidden volume, still ΛCDM is preferred)
 Degs of freedom: 29
 """
