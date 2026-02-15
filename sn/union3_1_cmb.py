@@ -1,17 +1,17 @@
 from numba import njit
 import numpy as np
 from interpolator import interp_hermite
-from y2023union3.data import get_data
+from y2026union3_1.data import get_data
 import cmb.data_planck_act_compression as cmb
 
 c = cmb.c  # km/s
 Orh2 = cmb.Or_h2
 Omnuh2 = cmb.Omnu_h2
 
-sn_legend, z_sn_vals, mu_vals, cov_matrix_sn = get_data()
+sn_legend, z_cmb, z_hel, mu_vals, cov_matrix_sn = get_data()
 inv_cov_sn = np.linalg.inv(cov_matrix_sn)
 
-z_grid = np.linspace(0, np.max(z_sn_vals) + 0.1, num=2000)
+z_grid = np.linspace(0, np.max(z_cmb) + 0.1, num=2000)
 dx = np.diff(z_grid)
 
 
@@ -22,7 +22,7 @@ def Ode_z(z, w0):
 
 
 @njit
-def Ez(z, H0, Obh2, Och2, w0):
+def Ez(z, H0, Obh2, Och2):
     h = H0 / 100
     Onu = Omnuh2 / h**2
     Or = Orh2 / h**2
@@ -34,15 +34,15 @@ def Ez(z, H0, Obh2, Och2, w0):
     radiation_term = Or * zp1**4
     matter_term = Obc * zp1**3
     neutrino_term = Onu * cmb.Omnu_z(z)
-    dark_energy_term = Ode * Ode_z(z, w0)
+    dark_energy_term = Ode
 
     return np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
 
 
 @njit
 def Hz(z, params):
-    H0, Obh2, Och2, w0 = params[1:]
-    return H0 * Ez(z, H0, Obh2, Och2, w0)
+    H0 = params[1]
+    return H0 * Ez(z, H0=H0, Obh2=params[2], Och2=params[3])
 
 
 cmb.set_HZ(Hz)
@@ -59,7 +59,7 @@ def DM_z(z, params):
 
 @njit
 def mu_theory(params):
-    dL = (1.0 + z_sn_vals) * DM_z(z_sn_vals, params)
+    dL = (1.0 + z_cmb) * DM_z(z_cmb, params)
     return params[0] + 25.0 + 5 * np.log10(dL)
 
 
@@ -79,7 +79,6 @@ bounds = np.array(
         (60.0, 75.0),  # H0
         (0.010, 0.030),  # ωb
         (0.010, 0.250),  # ωc
-        (-1.0, 0.0),  # w0
     ]
 )
 
@@ -123,7 +122,7 @@ def main():
         (emcee.moves.DEMove(), 0.75),
     ]
 
-    with Pool(5) as pool:
+    with Pool(6) as pool:
         sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
         sampler.run_mcmc(
             initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#ff5a00"}
@@ -151,7 +150,6 @@ def main():
         (H0_16, H0_50, H0_84),
         (Obh2_16, Obh2_50, Obh2_84),
         (Och2_16, Och2_50, Och2_84),
-        (w0_16, w0_50, w0_84),
     ] = pct
 
     best_fit = np.percentile(samples, 50, axis=0)
@@ -172,7 +170,6 @@ def main():
     print(f"ωm: {Omh2_50:.5f} +{(Omh2_84 - Omh2_50):.5f} -{(Omh2_50 - Omh2_16):.5f}")
     print(f"ωb: {Obh2_50:.5f} +{(Obh2_84 - Obh2_50):.5f} -{(Obh2_50 - Obh2_16):.5f}")
     print(f"ωc: {Och2_50:.4f} +{(Och2_84 - Och2_50):.4f} -{(Och2_50 - Och2_16):.4f}")
-    print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"z*: {z_st_50:.2f} +{(z_st_84 - z_st_50):.2f} -{(z_st_50 - z_st_16):.2f}")
     print(f"z_drag: {z_d_50:.2f} +{(z_d_84 - z_d_50):.2f} -{(z_d_50 - z_d_16):.2f}")
     print(f"r*: {cmb.rs_z(z_st_50, Obh2_50, best_fit):.2f} Mpc")
@@ -181,11 +178,11 @@ def main():
     print(f"Log Evidence: {log_evd:.1f}")
     print(f"Degrees of freedom: {degrees_of_freedom}")
 
-    labels = ["$Δ_M$", "$H_0$", "$ω_b$", "$ω_c$", "$w_0$"]
+    labels = ["$Δ_M$", "$H_0$", "$ω_b$", "$ω_c$"]
     plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
     plot_predictions(
         legend=sn_legend,
-        x=z_sn_vals,
+        x=z_cmb,
         y=mu_vals,
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=mu_theory(best_fit),
@@ -199,80 +196,89 @@ if __name__ == "__main__":
 
 """
 *******************************
-Dataset: Union 3 Bins
+Dataset: Union 3.1 (22 bins)
+CMB(R, lA = π / θ*, ωb) ACT+Planck compressed
 z range: 0.050 - 2.262
-Sample size: 22
 *******************************
 """
 
 """
 Flat ΛCDM w(z) = -1
-H0: 67.40 +0.48 -0.48 km/s/Mpc
-Ωm: 0.315 +0.007 -0.007
-ωm: 0.14298 +0.00114 -0.00113
-ωb: 0.02247 +0.00011 -0.00011
-ωc: 0.1199 +0.0012 -0.0012
-w0: -1
-wa: 0
-z*: 1089.76 +0.21 -0.21
+ΔM: -0.069 +0.011 -0.011
+H0: 67.49 +0.48 -0.48 km/s/Mpc
+Ωm: 0.313 +0.007 -0.007
+ωm: 0.14275 +0.00113 -0.00113
+ωb: 0.02248 +0.00011 -0.00011
+ωc: 0.1196 +0.0012 -0.0012
+z*: 1089.73 +0.21 -0.21
 z_drag: 1060.16 +0.23 -0.23
-r*: 144.40 Mpc
-r_d: 147.03 Mpc
-Chi squared: 26.6
-Log Evidence: -28.6
+r*: 144.46 Mpc
+r_d: 147.08 Mpc
+Chi squared: 29.5
+Log Evidence: -33.1
 Degrees of freedom: 21
 """
 
 """
+Flat ΛCDM w(z) = -1, varying absolute magnitude
+M(z) = ΔM + tanh(1 - z^(0.1 * p))
+
+ΔM: -0.077 +0.012 -0.012
+p: 0.151 +0.099 -0.094
+H0: 67.70 +0.50 -0.49 km/s/Mpc
+Ωm: 0.310 +0.007 -0.007
+ωm: 0.14227 +0.00117 -0.00115
+ωb: 0.02251 +0.00011 -0.00011
+ωc: 0.1191 +0.0012 -0.0012
+z*: 1089.65 +0.21 -0.21
+z_drag: 1060.18 +0.23 -0.23
+r*: 144.57 Mpc
+r_d: 147.18 Mpc
+Chi squared: 27.1
+Log Evidence: -33.3
+Degrees of freedom: 20
+"""
+
+"""
 Flat wCDM w(z) = w0
-H0: 65.31 +1.23 -1.23 km/s/Mpc
-Ωm: 0.334 +0.013 -0.013
-ωm: 0.14242 +0.00118 -0.00117
+ΔM: -0.086 +0.018 -0.019
+H0: 66.35 +1.15 -1.14 km/s/Mpc
+Ωm: 0.324 +0.012 -0.012
+ωm: 0.14241 +0.00118 -0.00117
 ωb: 0.02250 +0.00011 -0.00011
 ωc: 0.1193 +0.0012 -0.0012
-w0: -0.922 +0.043 -0.043 (prior width 1.0: -1.5 to -0.5)
-wa: 0
-z*: 1089.68 +0.22 -0.21
+w0: -0.957 +0.040 -0.039 (prior width 1.0: -1.5 to -0.5)
+z*: 1089.68 +0.21 -0.21
 z_drag: 1060.17 +0.23 -0.23
 r*: 144.53 Mpc
 r_d: 147.15 Mpc
-Chi squared: 23.1
-Log Evidence: -29.1
+Chi squared: 28.3
+Log Evidence: -34.9
 Degrees of freedom: 20
 """
 
 """
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
-H0: 65.38 +1.02 -1.03 km/s/Mpc
-Ωm: 0.333 +0.012 -0.011
-ωm: 0.14238 +0.00116 -0.00116
+ΔM: -0.081 +0.012 -0.013
+H0: 66.19 +0.85 -0.94 km/s/Mpc
+Ωm: 0.325 +0.010 -0.009
+ωm: 0.14232 +0.00116 -0.00115
 ωb: 0.02250 +0.00011 -0.00011
 ωc: 0.1192 +0.0012 -0.0012
-w0: -0.837 +0.074 -0.074 (prior width 1.0: -1.0 to 0.0)
+w0: -0.895 +0.068 -0.060 (prior width 1.0: -1.0 to 0.0)
 wa: d w(z)/d z at z=0 = -1.5 * (1 - w0^2) = -0.447
-z*: 1089.67 +0.21 -0.21
+z*: 1089.66 +0.21 -0.21
 z_drag: 1060.18 +0.23 -0.23
-r*: 144.54 Mpc
-r_d: 147.16 Mpc
-Chi squared: 22.2
-Log Evidence: -28.1
+r*: 144.56 Mpc
+r_d: 147.17 Mpc
+Chi squared: 27.7
+Log Evidence: -33.9
 Degrees of freedom: 20
 """
 
 """
 Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
-H0: 66.62 +1.35 -1.42 km/s/Mpc
-Ωm: 0.321 +0.015 -0.013
-ωm: 0.14255 +0.00121 -0.00118
-ωb: 0.02249 +0.00011 -0.00011
-ωc: 0.1194 +0.0012 -0.0012
-w0: -0.686 +0.160 -0.165 (prior width 1.5: -1.5 to 0.0)
-wa: -1.102 +0.753 -0.761 (prior width 8.5: -5.5 to 3.0)
-z*: 1089.70 +0.22 -0.21
-z_drag: 1060.17 +0.24 -0.23
-r*: 144.50 Mpc
-r_d: 147.12 Mpc
-Chi squared: 21.8
-Log Evidence: -29.7
-Degrees of freedom: 19
+TODO
+w0: (prior width 1.5: -1.5 to 0.0)
+wa: (prior width 8.5: -5.5 to 3.0)
 """
