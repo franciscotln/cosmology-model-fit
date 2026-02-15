@@ -16,7 +16,7 @@ cho_bao = cho_factor(cov_matrix_bao, lower=True)[0]
 
 z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
 z_grid = np.linspace(0, z_max, num=1200)
-dx = np.diff(z_grid)
+dz = np.diff(z_grid)
 
 
 @njit
@@ -24,14 +24,8 @@ def Ez(z, theta):
     Om, w0 = theta[2], theta[3]
     zp1 = 1 + z
     cubed = zp1**3
-    rho_de = (4 * cubed / (1 + 3 * cubed)) ** (4 * (1 + w0))
+    rho_de = (2 * cubed / (1.0 + w0 + (1.0 - w0) * cubed)) ** 2
     return np.sqrt(Om * cubed + (1 - Om) * rho_de)
-
-
-@njit
-def theory_mu(theta):
-    dL = (1 + z_hel) * DM_z(z_cmb, theta)
-    return theta[0] + 25 + 5 * np.log10(dL)
 
 
 @njit
@@ -47,9 +41,9 @@ def DH_z(z, params):
 @njit
 def DM_z(z, theta):
     dh_grid = DH_z(z_grid, theta)
-    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    dh = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size, dtype=np.float64)
-    cum_dm[1:] = np.cumsum(dx * dy)
+    cum_dm[1:] = np.cumsum(dz * dh)
     return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
@@ -77,6 +71,12 @@ def bao_theory(z, qty, theta):
     return results / rd_h
 
 
+@njit
+def theory_mu(theta):
+    dL = (1 + z_hel) * DM_z(z_cmb, theta)
+    return theta[0] + 25 + 5 * np.log10(dL)
+
+
 def solve_triang(cho_L, delta):
     y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
     return np.dot(y, y)
@@ -96,7 +96,7 @@ bounds = np.array(
         (-10.0, -8.5),  # ΔM
         (90.0, 110.0),  # r_d * h
         (0.1, 0.7),  # Ωm
-        (-1.5, 0.0),  # w0
+        (-1.0, -1 / 3),  # w0
     ],
     dtype=np.float64,
 )
@@ -137,9 +137,8 @@ def main():
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
     moves = [
-        (emcee.moves.KDEMove(), 0.30),
-        (emcee.moves.DEMove(), 0.56),
-        (emcee.moves.DESnookerMove(), 0.14),
+        (emcee.moves.KDEMove(), 0.25),
+        (emcee.moves.DEMove(), 0.75),
     ]
 
     with Pool(8) as pool:
@@ -207,11 +206,23 @@ Flat ΛCDM
 ΔM: -9.233 +0.007 -0.007 mag
 r_d * h: 100.87 +0.64 -0.64 Mpc
 Ωm: 0.306 +0.008 -0.007
-w0: -1
-wa: 0
 Chi squared: 1645.28
 Log Evidence: -834.27
 Degrees of freedom: 1724
+
+===============================
+
+Flat ΛCDM
+Evolving absolute magnitude with redshift
+M(z) = M_inf + 1 - (z / (1 + z))^(0.1 * p)
+
+ΔM: -9.265 +0.014 -0.014 mag
+p: 0.173 +0.071 -0.069 (prior U(-0.4, 1.0))
+r_d * h: 101.64 +0.70 -0.71 Mpc
+Ωm: 0.296 +0.008 -0.008
+Chi squared: 1638.75 (2.56 sigma away from no mag evolution)
+Log Evidence: -833.11 (Δ logZ 1.16 against no mag evolution)
+Degrees of freedom: 1723
 
 ===============================
 
@@ -219,35 +230,32 @@ Flat wCDM
 ΔM: -9.212 +0.011 -0.011 mag
 r_d * h: 99.69 +0.79 -0.78 Mpc
 Ωm: 0.297 +0.009 -0.008
-w0: -0.909 +0.037 -0.037 (prior width 1.5: -1.5 to -0.5)
-wa: 0
-Chi squared: 1639.51
+w0: -0.909 +0.037 -0.037 (prior U(-1.5, -0.5))
+Chi squared: 1639.51 (2.40 sigma away from ΛCDM)
 Log Evidence: -834.15 (Δ logZ 0.12 against ΛCDM)
 Degrees of freedom: 1723
 
 ===============================
 
-Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)**3)
-ΔM: -9.206 +0.012 -0.012 mag
-r_d * h: 99.49 +0.81 -0.81 Mpc
-Ωm: 0.304 +0.008 -0.007
-w0: -0.868 +0.048 -0.050
-wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-Chi squared: 1638.53
-Log Evidence: -833.40 (Δ logZ 0.87 against ΛCDM)
+Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
+ΔM: -9.205 +0.012 -0.012 mag
+r_d * h: 99.48 +0.82 -0.82 Mpc
+Ωm: 0.305 +0.008 -0.008
+w0: -0.861 +0.050 -0.052
+wa: d w(z)/dz at z=0 = -(3/2) * (1 - w0^2)
+Chi squared: 1638.45 (2.61 sigma away from ΛCDM)
+Log Evidence: -832.51 (Δ logZ 1.76 against ΛCDM)
 Degrees of freedom: 1723
 
 ===============================
 
 Flat w(z) = w0 + wa * z / (1 + z)
-Log Evidence: -838.65 (Δ logZ 2.58 against ΛCDM)
-
 ΔM: -9.203 +0.014 -0.014 mag
 r_d * h: 99.44 +0.82 -0.81 Mpc
 Ωm: 0.313 +0.013 -0.016
-w0: -0.846 +0.071 -0.065 (prior width 1.5: -1.5 to 0.0)
-wa: -0.517 +0.463 -0.456 (prior width 4.5: -3.0 to 1.5)
-Chi squared: 1638.13
+w0: -0.846 +0.071 -0.065 (prior U(-1.5, 0.0))
+wa: -0.517 +0.463 -0.456 (prior U(-3.0, 1.5))
+Chi squared: 1638.13  (2.20 sigma away from ΛCDM)
 Log Evidence: -834.71 (Δ logZ -0.44 in favour of ΛCDM)
 Degrees of freedom: 1722
 """

@@ -8,7 +8,7 @@ from y2005cc.data import get_data as get_cc_data
 from y2025BAO.data import get_data as get_bao_data
 
 cc_legend, z_cc_vals, H_cc_vals, cov_matrix_cc = get_cc_data()
-sn_legend, z_sn_vals, z_hel_vals, sn_mu_vals, cov_matrix_sn = get_data()
+sn_legend, z_cmb, z_hel, sn_mu_vals, cov_matrix_sn = get_data()
 bao_legend, bao_data, cov_matrix_bao = get_bao_data()
 
 cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
@@ -20,9 +20,9 @@ N_cc = len(z_cc_vals)
 
 c = c0 / 1000  # Speed of light in km/s
 
-z_max = max(np.max(z_sn_vals), np.max(bao_data["z"])) + 0.1
+z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
 z_grid = np.linspace(0, z_max, num=3000)
-dx = np.diff(z_grid)
+dz = np.diff(z_grid)
 
 
 @njit
@@ -47,9 +47,9 @@ def DH_z(z, params):
 @njit
 def DM_z(z, params):
     dh_grid = DH_z(z_grid, params)
-    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    dh = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size, dtype=np.float64)
-    cum_dm[1:] = np.cumsum(dx * dy)
+    cum_dm[1:] = np.cumsum(dz * dh)
     return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
@@ -78,7 +78,7 @@ def bao_theory(z, qty, params):
 
 @njit
 def mu_theory(params):
-    dL = (1.0 + z_hel_vals) * DM_z(z_sn_vals, params)
+    dL = (1.0 + z_hel) * DM_z(z_cmb, params)
     return params[1] + 25.0 + 5 * np.log10(dL)
 
 
@@ -163,9 +163,7 @@ def main():
     Omh2_samples = samples[:, 4] * samples[:, 2] ** 2 / 100**2
     Omh2_16, Omh2_50, Omh2_84 = np.percentile(Omh2_samples, [15.9, 50, 84.1])
 
-    deg_of_freedom = (
-        len(z_sn_vals) + len(bao_data["z"]) + len(z_cc_vals) - len(best_fit)
-    )
+    deg_of_freedom = len(z_cmb) + len(bao_data["z"]) + len(z_cc_vals) - len(best_fit)
 
     print(f"f_cc: {fcc_50:.2f} +{(fcc_84 - fcc_50):.2f} -{(fcc_50 - fcc_16):.2f}")
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
@@ -186,7 +184,7 @@ def main():
     )
     plot_sn_predictions(
         legend=sn_legend,
-        x=z_sn_vals,
+        x=z_cmb,
         y=sn_mu_vals,
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=mu_theory(best_fit),
@@ -228,7 +226,7 @@ wa:   U(-5.0, 3.0)
 Enforced w0 + wa > 0
 
 Varying absolute magnitude SNe within ΛCDM:
-p:    U(-0.4, 0.8)
+p:    U(-0.4, 1.0)
 """
 
 """
@@ -245,17 +243,18 @@ Degrees of freedom: 66
 """
 
 """
-Flat ΛCDM: w(z) = -1, varying absolute magnitude SNe
-M(z) = ΔM + tanh(1.0 - z^(0.1 * p))
-f_cc: 1.48 +0.18 -0.17
-ΔM: -0.049 +0.070 -0.071 mag
+Flat ΛCDM: w(z) = -1, evolving absolute magnitude SNe
+M(z) = ΔM_inf + 1 - (z / (1 + z))^(0.1 * p)
+
+f_cc: 1.48 +0.17 -0.17
+ΔM: -0.066 +0.073 -0.073 mag
+p: 0.26 +0.13 -0.13
 H0: 69.0 +2.3 -2.3 km/s/Mpc
-r_d: 147.0 +4.9 -4.6 Mpc
+r_d: 147.2 +4.5 -5.1 Mpc
 Ωm: 0.298 +0.008 -0.008
-ωm: 0.1425 +0.0307 -0.0221
-w0: 0.200 +0.102 -0.098
-Chi squared: 72.13
-Log evidence: -178.53 (Δ logZ = 0.48 over ΛCDM)
+ωm: 0.1426 +0.0309 -0.0219
+Chi squared: 71.79 (2.14 sigma away from no mag evolution)
+Log evidence: -178.26 (Δ logZ = 0.75 against no mag evolution)
 Degrees of freedom: 65
 """
 
@@ -268,8 +267,8 @@ r_d: 147.3 +4.9 -4.6 Mpc
 Ωm: 0.298 +0.009 -0.009
 ωm: 0.1359 +0.0299 -0.0248
 w0: -0.898 +0.049 -0.050
-Chi squared: 72.09
-Log evidence: -178.66 (Δ logZ = 0.35 over ΛCDM)
+Chi squared: 72.09 (2.07 sigma away from ΛCDM)
+Log evidence: -178.66 (Δ logZ = 0.35 against ΛCDM)
 Degrees of freedom: 65
 """
 
@@ -283,8 +282,8 @@ r_d: 147.3 +4.9 -4.6 Mpc
 ωm: 0.1391 +0.0295 -0.0234
 w0: -0.825 +0.071 -0.074
 wa: d w(z)/d z at z=0 = -1.5 * (1 - w0^2)
-Chi squared: 70.70
-Log evidence: -177.67 (Δ logZ = 1.34 over ΛCDM)
+Chi squared: 70.70 (2.38 sigma away from ΛCDM)
+Log evidence: -177.67 (Δ logZ = 1.34 against ΛCDM)
 Degrees of freedom: 65
 """
 
@@ -298,7 +297,7 @@ r_d: 147.2 +4.9 -4.7 Mpc
 ωm: 0.1444 +0.0368 -0.0254
 w0: -0.801 +0.105 -0.097
 wa: -0.633 +0.564 -0.555
-Chi squared: 70.15
+Chi squared: 70.15 (2.01 sigma away from ΛCDM)
 Log evidence: -180.47 (Δ logZ = -1.46 in favour of ΛCDM. TODO: remove forbidden region but still not preferred)
 Degrees of freedom: 64
 """
