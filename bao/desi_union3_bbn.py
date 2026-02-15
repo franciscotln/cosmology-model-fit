@@ -288,7 +288,7 @@ r_d: 147.95 +1.55 -1.56 Mpc
 q0: -0.556 +0.013 -0.012
 j0: 1
 Chi squared (MAP): 37.30
-Log Evidence: -32.06 (Δ logZ = 0.6 against ΛCDM)
+Log Evidence: -32.06 (Δ logZ = 0.6 against no mag evolution)
 Degrees of freedom: 31
 """
 
