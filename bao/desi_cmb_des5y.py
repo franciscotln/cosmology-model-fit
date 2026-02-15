@@ -296,7 +296,7 @@ z*: 1089.60 +0.19 -0.19
 r_d: 147.28 Mpc
 z_d: 1060.18 +0.23 -0.24
 Chi squared: 1639.18
-Log evidence: -842.7 (Δ logZ = 0.3 compared to ΛCDM)
+Log evidence: -842.7 (Δ logZ = 0.3 against ΛCDM)
 Degrees of freedom: 1724
 """
 
@@ -316,6 +316,6 @@ z*: 1089.38 ± 0.15
 z_d: 1060.21 ± 0.23
 r_d: 147.60 ± 0.19 Mpc
 χ2 (MAP): 1643.28
-Log evidence: -842.0 (Δ logZ = 1.0 compared to no evolution in M(z))
+Log evidence: -842.0 (Δ logZ = 1.0 against no evolution in M(z))
 Degrees of freedom: 1725
 """

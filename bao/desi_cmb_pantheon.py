@@ -1,7 +1,7 @@
 from numba import njit
 import numpy as np
 from scipy.linalg import cho_factor, solve_triangular
-import cmb.data_early_lcdm_compression as cmb
+import cmb.data_planck_act_compression as cmb
 from interpolator import interp_hermite
 from y2022pantheonSHOES.data import get_data
 from y2025BAO.data import get_data as get_bao_data
@@ -22,16 +22,16 @@ dx = np.diff(z_grid)
 
 
 @njit
-def Ode_z(z, w0, wa):
+def Ode_z(z, w0):
     zp1 = 1.0 + z
     return (2 * zp1**3 / ((1.0 + w0) + (1.0 - w0) * zp1**3)) ** 2  # wzCDM
     # return 1  # ΛCDM
-    # return zp1 ** (3 * (1 + w0))  # wCDM
-    # return zp1 ** (3 * (1 + w0 + wa)) * np.exp(-3 * wa * z / zp1)  # w0waCDM
+    # return zp1 ** (3 * (1.0 + w0))  # wCDM
+    # return zp1 ** (3 * (1.0 + w0 + wa)) * np.exp(-3 * wa * z / zp1)  # w0waCDM
 
 
 @njit
-def Ez(z, H0, Obh2, Och2, w0=-1.0, wa=0.0):
+def Ez(z, H0, Obh2, Och2, w0):
     h = H0 / 100
     Onu = Omnu_h2 / h**2
     Or = Or_h2 / h**2
@@ -43,21 +43,15 @@ def Ez(z, H0, Obh2, Och2, w0=-1.0, wa=0.0):
     radiation_term = Or * zp1**4
     matter_term = Obc * zp1**3
     neutrino_term = Onu * cmb.Omnu_z(z)
-    dark_energy_term = Ode * Ode_z(z, w0, wa)
+    dark_energy_term = Ode * Ode_z(z, w0)
 
     return np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
 
 
 @njit
-def apparent_mag(params):
-    dL = (1.0 + z_hel) * DM_z(z_cmb, params)
-    return params[0] + 25.0 + 5 * np.log10(dL)
-
-
-@njit
 def H_z(z, params):
-    H0, Obh2, Och2, w0 = params[1:]
-    return H0 * Ez(z, H0, Obh2, Och2, w0)
+    H0 = params[1]
+    return H0 * Ez(z, H0=H0, Obh2=params[2], Och2=params[3], w0=params[4])
 
 
 cmb.set_HZ(H_z)
@@ -102,6 +96,12 @@ def bao_theory(z, qty, params):
     results[DM_mask] = DM_z(z[DM_mask], params)
     results[DV_mask] = DV_z(z[DV_mask], params)
     return results / rd
+
+
+@njit
+def apparent_mag(params):
+    M = params[0]
+    return M + 25.0 + 5 * np.log10((1.0 + z_hel) * DM_z(z_cmb, params))
 
 
 def solve_triang(cho_L, delta):
@@ -163,8 +163,8 @@ def main():
 
     ndim = len(bounds)
     nwalkers = 100
-    burn_in = 350
-    nsteps = 3500 + burn_in
+    burn_in = 500
+    nsteps = 2500 + burn_in
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
     moves = [
@@ -190,6 +190,9 @@ def main():
     chains_samples = sampler.get_chain(discard=burn_in, flat=False)
     log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
     log_evd = log_evidence(samples, log_probs, log_probability, bounds)
+
+    MAP_index = np.argmax(log_probs)
+    print("MAP chi^2:", chi_squared(samples[MAP_index]))
 
     pct = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
     [
@@ -222,13 +225,12 @@ def main():
     print(f"ωc: {Och2_50:.4f} +{(Och2_84 - Och2_50):.4f} -{(Och2_50 - Och2_16):.4f}")
     print(f"ωm: {Omh2_50:.4f} +{(Omh2_84 - Omh2_50):.4f} -{(Omh2_50 - Omh2_16):.4f}")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
+    print(f"M: {M_50:.3f} +{(M_84 - M_50):.3f} -{(M_50 - M_16):.3f} mag")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
-    print(f"M: {M_50:.3f} +{(M_84 - M_50):.3f} -{(M_50 - M_16):.3f}")
     print(f"z*: {zst_50:.2f} +{(zst_84 - zst_50):.2f} -{(zst_50 - zst_16):.2f}")
     print(f"z_d: {zdr_50:.2f} +{(zdr_84 - zdr_50):.2f} -{(zdr_50 - zdr_16):.2f}")
     print(f"r*: {cmb.rs_z(zst_50, Obh2_50, best_fit):.2f} Mpc")
     print(f"rd: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
-    print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Log evidence: {log_evd:.2f}")
     print(f"Degrees of freedom: {degs_of_freedom}")
 
@@ -276,62 +278,79 @@ w0waCDM:
 w0 U(-1.5, 0.0)
 wa U(-2.0, 1.0)
 with w0 + wa < 0 enforced
+
+Evolving absolute magnitude of SNe:
+p U(-0.4, 0.8)
 """
 
 """
 Flat ΛCDM w(z) = -1
-H0: 68.28 +0.29 -0.29 km/s/Mpc
-ωb: 0.02236 +0.00012 -0.00012
-ωc: 0.1174 +0.0006 -0.0006
-ωm: 0.1404 +0.0006 -0.0006
+H0: 68.37 +0.27 -0.27 km/s/Mpc
+ωb: 0.02257 +0.00010 -0.00010
+ωc: 0.1175 +0.0006 -0.0006
+ωm: 0.1407 +0.0006 -0.0006
 Ωm: 0.301 +0.004 -0.004
-w0: -1
-wa: 0
-M: -19.415 +0.009 -0.009
-z*: 1089.73 +0.19 -0.18
-z_d: 1059.88 +0.27 -0.27
-r*: 145.12 Mpc
-rd: 147.80 +0.19 -0.19 Mpc
-Chi squared: 1419.53
-Log evidence: -726.82
+M: -19.412 +0.008 -0.008 mag
+z*: 1089.43 +0.15 -0.15
+z_d: 1060.19 +0.23 -0.23
+r*: 144.94 Mpc
+rd: 147.54 +0.19 -0.19 Mpc
+MAP chi^2: 1420.34
+Log evidence: -727.31
 Degrees of freedom: 1602
 
 ===============================
 
+Flat ΛCDM, varying M(z) for SNe M(z) = M + p * tanh(1 - z^(0.1 * p))
+H0: 68.47 +0.27 -0.28 km/s/Mpc
+ωb: 0.02258 +0.00010 -0.00010
+ωc: 0.1173 +0.0007 -0.0007
+ωm: 0.1405 +0.0006 -0.0006
+Ωm: 0.300 +0.004 -0.004
+M: -19.431 +0.012 -0.012 mag
+p: 0.101 +0.051 -0.050
+z*: 1089.39 +0.15 -0.15
+z_d: 1060.21 +0.23 -0.23
+r*: 144.99 Mpc
+rd: 147.59 +0.19 -0.19 Mpc
+MAP chi^2: 1416.30
+Log evidence: -727.53
+Degrees of freedom: 1601
+
+===============================
+
 Flat wCDM w(z) = w0
-H0: 67.75 +0.58 -0.57 km/s/Mpc
-ωb: 0.02240 +0.00013 -0.00013
-ωc: 0.1169 +0.0008 -0.0009
-ωm: 0.1399 +0.0008 -0.0008
-Ωm: 0.305 +0.005 -0.005
-w0: -0.975 +0.024 -0.024
-wa: 0
-M: -19.427 +0.014 -0.014
-z*: 1089.70 +0.20 -0.20
-z_d: 1059.88 +0.27 -0.27
-r*: 145.23 Mpc
-rd: 147.90 +0.21 -0.21 Mpc
-Chi squared: 1418.23
-Log evidence: -729.01
+H0: 67.87 +0.59 -0.58 km/s/Mpc
+ωb: 0.02259 +0.00011 -0.00010
+ωc: 0.1170 +0.0008 -0.0008
+ωm: 0.1403 +0.0008 -0.0008
+Ωm: 0.304 +0.005 -0.005
+M: -19.423 +0.014 -0.014 mag
+w0: -0.978 +0.023 -0.023
+z*: 1089.35 +0.17 -0.17
+z_d: 1060.21 +0.23 -0.23
+r*: 145.05 Mpc
+rd: 147.65 +0.22 -0.22 Mpc
+MAP chi^2: 1419.38
+Log evidence: -729.68
 Degrees of freedom: 1601
 
 ===============================
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
-H0: 67.32 +0.55 -0.58 km/s/Mpc
-ωb: 0.02240 +0.00012 -0.00012
-ωc: 0.1169 +0.0007 -0.0007
-ωm: 0.1399 +0.0007 -0.0007
+H0: 67.41 +0.55 -0.57 km/s/Mpc
+ωb: 0.02259 +0.00010 -0.00010
+ωc: 0.1170 +0.0007 -0.0007
+ωm: 0.1402 +0.0007 -0.0007
 Ωm: 0.309 +0.006 -0.005
-w0: -0.916 +0.044 -0.042 (truncated at 2.0 sigma to the left of the mean)
-wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-M: -19.433 +0.012 -0.013
-z*: 1089.70 +0.18 -0.18
-z_d: 1059.88 +0.27 -0.27
-r*: 145.22 Mpc
-rd: 147.89 +0.19 -0.19 Mpc
-Chi squared: 1416.12
-Log evidence: -726.93
+M: -19.430 +0.012 -0.013 mag
+w0: -0.919 +0.043 -0.041 (truncated at 1.88 sigma to the left of the mean)
+z*: 1089.35 +0.16 -0.16
+z_d: 1060.21 +0.23 -0.23
+r*: 145.06 Mpc
+rd: 147.65 +0.20 -0.20 Mpc
+MAP chi^2: 1417.15
+Log evidence: -727.54
 Degrees of freedom: 1601
 
 ===============================
