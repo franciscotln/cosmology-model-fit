@@ -2,10 +2,10 @@ from numba import njit
 import numpy as np
 from scipy.constants import c as c0
 from interpolator import interp_hermite
-from y2023union3.data import get_data as get_sn_data
+from y2026union3_1.data import get_data as get_sn_data
 from y2025BAO.data import get_data as get_bao_data
 
-sn_legend, z_sn_vals, mu_vals, cov_matrix_sn = get_sn_data()
+sn_legend, z_cmb, z_hel, mu_vals, cov_matrix_sn = get_sn_data()
 bao_legend, bao_data, bao_cov_matrix = get_bao_data()
 
 inv_cov_sn = np.linalg.inv(cov_matrix_sn)
@@ -13,7 +13,7 @@ inv_cov_bao = np.linalg.inv(bao_cov_matrix)
 
 c = c0 / 1000  # Speed of light in km/s
 
-z_max = max(np.max(z_sn_vals), np.max(bao_data["z"])) + 0.1
+z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
 z_grid = np.linspace(0, z_max, num=3000)
 dx = np.diff(z_grid)
 
@@ -21,15 +21,15 @@ dx = np.diff(z_grid)
 @njit
 def Ez(z, params):
     Om, w0 = params[3], params[4]
-    zp1 = 1 + z
+    zp1 = 1.0 + z
     cubic = zp1**3
     rho_de = (2 * zp1**3 / (1 + w0 + (1 - w0) * zp1**3)) ** 2
-    return np.sqrt(Om * cubic + (1 - Om) * rho_de)
+    return np.sqrt(Om * cubic + (1.0 - Om) * rho_de)
 
 
 @njit
 def mu_theory(params):
-    dL = (1.0 + z_sn_vals) * DM_z(z_sn_vals, params)
+    dL = (1.0 + z_hel) * DM_z(z_cmb, params)
     return params[0] + 25.0 + 5 * np.log10(dL)
 
 
@@ -106,7 +106,7 @@ def main():
 
     with Pool(8) as pool:
         sampler = Sampler(
-            prior, log_likelihood, n_live=10_000, pool=pool, seed=42, pass_dict=False
+            prior, log_likelihood, n_live=8_000, pool=pool, seed=42, pass_dict=False
         )
         sampler.run(verbose=True)
 
@@ -142,7 +142,7 @@ def main():
     )
     plt.show()
 
-    degs_of_freedom = len(bao_data["z"]) + len(z_sn_vals) - len(best_fit)
+    degs_of_freedom = len(bao_data["z"]) + len(z_cmb) - len(best_fit)
 
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
     print(f"rd: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
@@ -162,7 +162,7 @@ def main():
     )
     plot_sn_predictions(
         legend=sn_legend,
-        x=z_sn_vals,
+        x=z_cmb,
         y=mu_vals,
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=mu_theory(best_fit),
@@ -175,10 +175,8 @@ if __name__ == "__main__":
     main()
 
 """
-*******************************
-
 DESI BAO DR2 2025
-Union3 SNe
+Union 3.1 SNe 2026
 rdrag prior from Planck 2018
 
 Priors:
@@ -186,6 +184,9 @@ Priors:
 rd N(147.09, 0.26)
 H0 U(50.0, 85.0)
 Ωm U(0.1, 0.6)
+
+mag evolution:
+p U(-0.3, 0.7)
 
 wCDM:
 w0 U(-1.5, 0.0)
@@ -195,60 +196,73 @@ w0 U(-1.0, -1/3)
 
 w0waCDM:
 w0 U(-1.5, 0.0)
-wa U(-5.0, +3.0)
+wa U(-3.5, 2.5)
 
-*******************************
+w0 + wa > 0 enforced
 """
 
 """
 Flat ΛCDM: w(z) = -1
-ΔM: -0.119 +0.090 -0.089 mag
+ΔM: -0.037 +0.011 -0.011 mag
 rd: 147.09 +0.26 -0.26 Mpc
-H0: 68.69 +0.49 -0.49 km/s/Mpc
-Ωm: 0.304 +0.008 -0.008
-ωm: 0.1434 +0.0023 -0.0023
-w0: -1
-wa: 0
-Chi squared: 38.8
-Log evidence: -29.1
+H0: 68.79 +0.49 -0.49 km/s/Mpc
+Ωm: 0.302 +0.008 -0.008
+ωm: 0.1429 +0.0023 -0.0023
+Chi squared: 41.1
+Log evidence: -33.3
 Degs of freedom: 31
+"""
 
-===============================
+"""
+Flat ΛCDM: w(z) = -1, varying absolute mag of SNe M(z) = ΔM + tanh(1 - z^(0.1 * p))
+ΔM: -0.049 +0.012 -0.012 mag
+p: 0.205 +0.102 -0.099
+rd: 147.09 +0.26 -0.26 Mpc
+H0: 69.10 +0.51 -0.51 km/s/Mpc
+Ωm: 0.296 +0.009 -0.008
+ωm: 0.1415 +0.0024 -0.0023
+Chi squared: 36.8
+Log evidence: -32.6 (Δ logZ = 0.7 against no evolution in M)
+Degs of freedom: 30
+"""
 
+"""
 Flat wCDM: w(z) = w0
+ΔM: -0.046 +0.011 -0.011 mag
 rd: 147.09 +0.26 -0.26 Mpc
-H0: 67.12 +0.76 -0.75 km/s/Mpc
-Ωm: 0.298 +0.009 -0.009
-ωm: 0.1343 +0.0044 -0.0047
-w0: -0.866 +0.051 -0.052
-wa: 0
-Chi squared: 32.2
-Log evidence: -28.2 (Δ logZ = 0.9 against ΛCDM)
+H0: 67.60 +0.74 -0.74 km/s/Mpc
+Ωm: 0.297 +0.009 -0.009
+ωm: 0.1359 +0.0043 -0.0044
+w0: -0.896 +0.049 -0.050
+Chi squared: 36.8
+Log evidence: -33.7 (Δ logZ = -0.4 in favour of ΛCDM)
 Degs of freedom: 30
+"""
 
-===============================
-
+"""
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
+ΔM: -0.046 +0.011 -0.011 mag
 rd: 147.09 +0.26 -0.26 Mpc
-H0: 66.53 +0.85 -0.85 km/s/Mpc
-Ωm: 0.312 +0.009 -0.009
-ωm: 0.1381 +0.0029 -0.0029
-w0: -0.764 +0.074 -0.076
+H0: 67.17 +0.82 -0.82 km/s/Mpc
+Ωm: 0.308 +0.009 -0.009
+ωm: 0.1388 +0.0029 -0.0028
+w0: -0.818 +0.072 -0.074
 wa: d w(z)/d z at z=0 = -1.5 * (1 - w0^2) = -0.624
-Chi squared: 30.0
-Log evidence: -25.9 (Δ logZ = 3.2 against ΛCDM)
+Chi squared: 35.4
+Log evidence: -31.8 (Δ logZ = 1.5 against ΛCDM)
 Degs of freedom: 30
+"""
 
-===============================
-
+"""
 Flat w0waCDM: w(z) = w0 + wa * z / (1 + z)
+ΔM: -0.045 +0.011 -0.011 mag
 rd: 147.09 +0.26 -0.26 Mpc
-H0: 66.21 +0.93 -0.90 km/s/Mpc
-Ωm: 0.331 +0.016 -0.018
-ωm: 0.1450 +0.0047 -0.0060
-w0: -0.698 +0.115 -0.111
-wa: -1.004 +0.565 -0.563
-Chi squared: 28.8
-Log evidence: -28.0 (Δ logZ = 1.1 against ΛCDM)
+H0: 66.98 +0.87 -0.86 km/s/Mpc
+Ωm: 0.322 +0.016 -0.019
+ωm: 0.1444 +0.0049 -0.0068
+w0: -0.776 +0.106 -0.102
+wa: -0.769 +0.569 -0.550
+Chi squared: 34.7
+Log evidence: -34.1 (TODO: remove forbidden volume, but still LCDM is preferred)
 Degs of freedom: 29
 """
