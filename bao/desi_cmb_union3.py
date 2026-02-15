@@ -20,7 +20,7 @@ inv_cov_des_bao = np.linalg.inv(des_bao_cov_matrix)
 
 z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
 z_grid = np.linspace(0, z_max, 3000)
-dx = np.diff(z_grid)
+dz = np.diff(z_grid)
 
 
 @njit
@@ -64,9 +64,9 @@ def DH_z(z, params):
 @njit
 def DM_z(z, params):
     dh_grid = DH_z(z_grid, params)
-    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    dh = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size, dtype=np.float64)
-    cum_dm[1:] = np.cumsum(dx * dy)
+    cum_dm[1:] = np.cumsum(dz * dh)
     return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
@@ -214,6 +214,7 @@ def main():
     ] = np.percentile(samples, one_sigma_ci, axis=0).T
 
     best_fit = np.percentile(samples, 50, axis=0)
+    MAP_params = samples[np.argmax(log_probs)]
 
     degs_of_freedom = (
         len(z_cmb)
@@ -248,7 +249,7 @@ def main():
     print(f"z_d: {z_dr_50:.2f} +{(z_dr_84 - z_dr_50):.2f} -{(z_dr_50 - z_dr_16):.2f}")
     print(f"r_d: {cmb.rs_z(z_dr_50, Obh2_50, best_fit):.2f} Mpc")
     print(f"q0: {q0_50:.3f} +{(q0_84 - q0_50):.3f} -{(q0_50 - q0_16):.3f}")
-    print(f"Chi squared: {chi_squared(best_fit):.2f}")
+    print(f"Chi2 (MAP): {chi_squared(MAP_params):.2f}")
     print(f"Log evidence: {log_evd:.1f}")
     print(f"Degs of freedom: {degs_of_freedom}")
 
@@ -287,6 +288,7 @@ DESI BAO DR2 2025
 DES BAO 2025
 """
 
+
 """
 Flat ΛCDM w(z) = -1
 ΔM: -0.050 +0.007 -0.007 mag
@@ -300,45 +302,49 @@ r*: 144.97 Mpc
 z_d: 1060.20 +0.23 -0.23
 r_d: 147.57 Mpc
 q0: -0.550 +0.005 -0.005
-Chi squared: 45.9
+Chi2 (MAP): 45.9
 Log evidence: -41.9
 Degs of freedom: 35
 """
 
 
 """
-Flat ΛCDM w(z) = -1, varying the absolute mag SNe: M(z) = ΔM + tanh(1 - z^(0.1 * p))
-ΔM: -0.064 +0.010 -0.010 mag
-p: 0.194 +0.098 -0.095 (prior U(-0.4, 0.8))
+Flat ΛCDM w(z) = -1
+Evolving the absolute mag SNe: M(z) = ΔM_inf + 1 - (z / (1 + z))**(0.1 * p)
+
+ΔM: -0.080 +0.015 -0.016 mag
+p: 0.253 +0.124 -0.120 (prior U(-0.4, 1.0))
 H0: 68.51 +0.27 -0.27 km/s/Mpc
-Ωm: 0.299 +0.004 -0.004
+Ωm: 0.2992 +0.0036 -0.0036
 ωb: 0.02258 +0.00010 -0.00010
-ωc: 0.1172 +0.0007 -0.0007
+ωc: 0.1172 +0.0007 -0.0006
 ωm: 0.1404 +0.0006 -0.0006
 z*: 1089.37 +0.15 -0.15
 r*: 145.01 Mpc
 z_d: 1060.21 +0.23 -0.23
 r_d: 147.61 Mpc
 q0: -0.551 +0.005 -0.005
-Chi squared: 41.7 (2.05 sigma improvement over no mag evolution)
-Log evidence: -41.4
+Chi2 (MAP): 41.3 (2.14 sigma improvement over no evolution in mag)
+Log evidence: -41.2
 Degs of freedom: 34
 
+----
+
 Applying H0 (TRGB) gaussian prior: H0 = 70.39 ± 1.8 km/s/Mpc
-ΔM: -0.063 +0.010 -0.010 mag
+ΔM: -0.079 +0.015 -0.015 mag
+p: 0.255 +0.124 -0.118 (prior U(-0.4, 1.0))
 H0: 68.55 +0.27 -0.27 km/s/Mpc
 Ωm: 0.2986 +0.0036 -0.0035
 ωb: 0.02259 +0.00010 -0.00010
-ωc: 0.1171 +0.0007 -0.0006
+ωc: 0.1171 +0.0006 -0.0006
 ωm: 0.1403 +0.0006 -0.0006
-w0: 0.196 +0.097 -0.095
 z*: 1089.36 +0.15 -0.15
 r*: 145.03 Mpc
 z_d: 1060.22 +0.23 -0.23
 r_d: 147.63 Mpc
 q0: -0.552 +0.005 -0.005
-Chi squared: 41.72
-Log evidence: -42.0
+Chi2 (MAP): 41.4
+Log evidence: -41.7
 Degs of freedom: 34
 """
 
@@ -357,7 +363,7 @@ r*: 145.03 Mpc
 z_d: 1060.21 +0.23 -0.23
 r_d: 147.63 Mpc
 q0: -0.532 +0.035 -0.036
-Chi squared: 45.6 (0.55 sigma improvement over ΛCDM)
+Chi2 (MAP): 45.6 (0.55 sigma improvement over ΛCDM)
 Log evidence: -44.2
 Degs of freedom: 34
 """
@@ -377,7 +383,7 @@ r*: 145.09 Mpc
 z_d: 1060.22 +0.23 -0.23
 r_d: 147.69 Mpc
 q0: -0.425 +0.068 -0.065
-Chi squared: 43.0 (1.7 sigma improvement over ΛCDM)
+Chi2 (MAP): 43.0 (1.7 sigma improvement over ΛCDM)
 Log evidence: -42.0
 Degs of freedom: 34
 """
@@ -398,7 +404,7 @@ r*: 144.64 Mpc
 z_d: 1060.17 +0.23 -0.23
 r_d: 147.26 Mpc
 q0: -0.272 +0.090 -0.090
-Chi squared: 36.1 (2.68 sigma improvement over ΛCDM)
+Chi2 (MAP): 36.1 (2.68 sigma improvement over ΛCDM)
 Log evidence: -41.7 (removed excluded volume from constraint wa + w0 > 0)
 Degs of freedom: 33
 """
