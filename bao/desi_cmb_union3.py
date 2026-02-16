@@ -4,6 +4,7 @@ from interpolator import interp_hermite
 from y2026union3_1.data import get_data
 from y2025BAO.data import get_data as get_bao_data
 from y2024DESBAO.data import get_data as get_des_bao_data
+from y20116dFBAO.data import get_data as get_6dF_bao_data
 import cmb.data_planck_act_compression as cmb
 
 c = cmb.c  # km/s
@@ -13,10 +14,12 @@ Omnuh2 = cmb.Omnu_h2
 sn_legend, z_cmb, z_hel, mu_vals, cov_matrix_sn = get_data()
 bao_legend, bao_data, bao_cov_matrix = get_bao_data()
 des_bao_legend, des_bao_data, des_bao_cov_matrix = get_des_bao_data()
+sixdF_bao_legend, sixdF_bao_data, sixdF_bao_cov_matrix = get_6dF_bao_data()
 
 inv_cov_sn = np.linalg.inv(cov_matrix_sn)
 inv_cov_bao = np.linalg.inv(bao_cov_matrix)
 inv_cov_des_bao = np.linalg.inv(des_bao_cov_matrix)
+inv_cov_6dF_bao = np.linalg.inv(sixdF_bao_cov_matrix)
 
 z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
 z_grid = np.linspace(0, z_max, 3000)
@@ -80,6 +83,7 @@ def DV_z(z, params):
 qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
 qty_desi = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int32)
 qty_des = np.array([qty_map[q] for q in des_bao_data["quantity"]], dtype=np.int32)
+qty_6dF = np.array([qty_map[q] for q in sixdF_bao_data["quantity"]], dtype=np.int32)
 
 
 @njit
@@ -118,7 +122,12 @@ def chi2_bao(params):
     chi2_des_bao = delta_bao_des @ inv_cov_des_bao @ delta_bao_des
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], qty_desi, params)
     chi2_desi_bao = delta_bao @ inv_cov_bao @ delta_bao
-    return chi2_desi_bao + chi2_des_bao
+
+    delta_bao_6dF = sixdF_bao_data["value"] - bao_theory(
+        sixdF_bao_data["z"], qty_6dF, params
+    )
+    chi2_6dF_bao = delta_bao_6dF @ inv_cov_6dF_bao @ delta_bao_6dF
+    return chi2_desi_bao + chi2_des_bao + chi2_6dF_bao
 
 
 def chi_squared(params):
@@ -134,7 +143,7 @@ bounds = np.array(
         (60.0, 75.0),  # H0
         (0.010, 0.030),  # ωb = Ωb * h^2
         (0.01, 0.25),  # ωc = Ωc * h^2
-        (-1.0, -1 / 3),  # w0
+        (-1.0, 1 / 3),  # w0
     ]
 )
 
@@ -218,10 +227,11 @@ def main():
 
     degs_of_freedom = (
         len(z_cmb)
+        + len(sixdF_bao_data["z"])
         + len(des_bao_data["z"])
         + len(bao_data["z"])
         + len(cmb.DISTANCE_PRIORS)
-        - len(bounds)
+        - len(best_fit)
     )
     log_evd = log_evidence(samples, log_probs, log_probability, bounds)
 
@@ -267,6 +277,12 @@ def main():
         errors=np.sqrt(np.diag(des_bao_cov_matrix)),
         title=des_bao_legend,
     )
+    plot_bao_predictions(
+        theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
+        data=sixdF_bao_data,
+        errors=np.sqrt(np.diag(sixdF_bao_cov_matrix)),
+        title=sixdF_bao_legend,
+    )
     plot_sn_predictions(
         legend=sn_legend,
         x=z_cmb,
@@ -286,106 +302,107 @@ Union 3.1 SNe 2026
 Compressed Planck + ACT
 DESI BAO DR2 2025
 DES BAO 2025
+6dF BAO 2011
 """
 
 
 """
 Flat ΛCDM w(z) = -1
 ΔM: -0.050 +0.007 -0.007 mag
-H0: 68.43 +0.27 -0.27 km/s/Mpc
-Ωm: 0.300 +0.004 -0.004
-ωb: 0.02257 +0.00010 -0.00010
-ωc: 0.1174 +0.0006 -0.0006
+H0: 68.44 +0.27 -0.27 km/s/Mpc
+Ωm: 0.3001 +0.0036 -0.0035
+ωb: 0.02258 +0.00010 -0.00010
+ωc: 0.1173 +0.0006 -0.0006
 ωm: 0.1406 +0.0006 -0.0006
-z*: 1089.41 +0.16 -0.15
-r*: 144.97 Mpc
-z_d: 1060.20 +0.23 -0.23
-r_d: 147.57 Mpc
+z*: 1089.40 +0.15 -0.15
+r*: 144.98 Mpc
+z_d: 1060.20 +0.22 -0.23
+r_d: 147.58 Mpc
 q0: -0.550 +0.005 -0.005
-Chi2 (MAP): 45.9
-Log evidence: -41.9
-Degs of freedom: 35
+Chi2 (MAP): 46.14
+Log evidence: -42.0
+Degs of freedom: 36
 """
 
 
 """
 Flat ΛCDM w(z) = -1
-Evolving the absolute mag SNe: M(z) = ΔM_inf + 1 - (z / (1 + z))**(0.1 * p)
+Evolving the absolute mag SNe: M(z) = ΔM_max + 1 - (z / (1 + z))**(0.1 * p)
 
-ΔM: -0.080 +0.015 -0.016 mag
-p: 0.253 +0.124 -0.120 (prior U(-0.4, 1.0)) - 98.25% of the posterior has p > 0, which indicates SNe mags become more negative with redshift.
-H0: 68.51 +0.27 -0.27 km/s/Mpc
-Ωm: 0.2992 +0.0036 -0.0036
-ωb: 0.02258 +0.00010 -0.00010
-ωc: 0.1172 +0.0007 -0.0006
+ΔM_max: -0.079 +0.015 -0.016 mag
+p: 0.252 +0.125 -0.119 (prior U(-0.4, 1.0)) - 98.39% of the posterior has p > 0, which indicates SNe mags become more negative with redshift.
+H0: 68.52 +0.28 -0.27 km/s/Mpc
+Ωm: 0.2990 +0.0036 -0.0036
+ωb: 0.02259 +0.00010 -0.00010
+ωc: 0.1172 +0.0006 -0.0007
 ωm: 0.1404 +0.0006 -0.0006
 z*: 1089.37 +0.15 -0.15
-r*: 145.01 Mpc
+r*: 145.02 Mpc
 z_d: 1060.21 +0.23 -0.23
-r_d: 147.61 Mpc
+r_d: 147.62 Mpc
 q0: -0.551 +0.005 -0.005
-Chi2 (MAP): 41.3 (2.14 sigma away from no evolution in mag)
-Log evidence: -41.2
-Degs of freedom: 34
+Chi2 (MAP): 41.55 (2.14 sigma away from no evolution in mags)
+Log evidence: -41.3
+Degs of freedom: 35
 """
 
 
 """
 Flat wCDM w(z) = w0
-ΔM: -0.054 +0.011 -0.011 mag
-H0: 68.11 +0.69 -0.68 km/s/Mpc
-Ωm: 0.303 +0.006 -0.006
-ωb: 0.02259 +0.00011 -0.00010
+ΔM: -0.053 +0.010 -0.010 mag
+H0: 68.18 +0.68 -0.68 km/s/Mpc
+Ωm: 0.3019 +0.0057 -0.0056
+ωb: 0.02259 +0.00011 -0.00011
 ωc: 0.1171 +0.0008 -0.0009
-ωm: 0.1403 +0.0008 -0.0008
-w0: -0.986 +0.027 -0.028 (prior U(-1.3, -0.5))
-z*: 1089.36 +0.17 -0.17
+ωm: 0.1404 +0.0008 -0.0008
+w0: -0.988 +0.027 -0.028 (prior U(-1.3, -0.5))
+z*: 1089.37 +0.18 -0.17
 r*: 145.03 Mpc
 z_d: 1060.21 +0.23 -0.23
 r_d: 147.63 Mpc
-q0: -0.532 +0.035 -0.036
-Chi2 (MAP): 45.6 (0.55 sigma away from ΛCDM)
-Log evidence: -44.2
-Degs of freedom: 34
+q0: -0.535 +0.035 -0.036
+Chi2 (MAP): 45.94 (0.45 sigma away from ΛCDM)
+Log evidence: -44.4
+Degs of freedom: 35
 """
 
 
 """
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
-ΔM: -0.062 +0.009 -0.009 mag
-H0: 67.12 +0.73 -0.77 km/s/Mpc
-Ωm: 0.3110 +0.0072 -0.0066
+ΔM: -0.060 +0.009 -0.009 mag
+H0: 67.22 +0.71 -0.76 km/s/Mpc
+Ωm: 0.3101 +0.0070 -0.0064
 ωb: 0.02260 +0.00010 -0.00010
 ωc: 0.1168 +0.0007 -0.0007
 ωm: 0.1401 +0.0007 -0.0007
-w0: -0.894 +0.058 -0.055 (prior U(-1.0, -1/3). Truncated posterior. 1.93 sigma to the prior left edge)
+w0: -0.901 +0.057 -0.054 (prior U(-1.0, -1/3). Truncated posterior. 1.84 sigma to the prior left edge)
 z*: 1089.32 +0.16 -0.16
-r*: 145.09 Mpc
+r*: 145.10 Mpc
 z_d: 1060.22 +0.23 -0.23
 r_d: 147.69 Mpc
-q0: -0.425 +0.068 -0.065
-Chi2 (MAP): 43.0 (1.7 sigma away from ΛCDM)
-Log evidence: -42.0
-Degs of freedom: 34
+q0: -0.432 +0.067 -0.064
+Chi2 (MAP): 43.61 (1.59 sigma away from ΛCDM)
+Log evidence: -42.3
+Degs of freedom: 35
 """
 
 
 """
 Flat w(z) = w0 + wa * z / (1 + z)
-ΔM: -0.048 +0.011 -0.011 mag
-H0: 66.82 +0.80 -0.79 km/s/Mpc
-Ωm: 0.3180 +0.0080 -0.0078
+ΔM: -0.046 +0.011 -0.011 mag
+H0: 66.92 +0.79 -0.78 km/s/Mpc
+Ωm: 0.3170 +0.0079 -0.0077
 ωb: 0.02251 +0.00011 -0.00011
 ωc: 0.1188 +0.0010 -0.0010
 ωm: 0.1420 +0.0009 -0.0009
-w0: -0.754 +0.082 -0.080 (prior U(-1.5, 0.0))
-wa: -0.81 +0.27 -0.29 (prior U(-2.5, 1.0))
-z*: 1089.61 +0.19 -0.19
+w0: -0.761 +0.082 -0.081 (prior U(-1.5, 0.0))
+wa: -0.796 +0.271 -0.289 (prior U(-2.5, 1.0))
+z*: 1089.61 +0.18 -0.19
 r*: 144.64 Mpc
 z_d: 1060.17 +0.23 -0.23
 r_d: 147.26 Mpc
-q0: -0.272 +0.090 -0.090
-Chi2 (MAP): 36.1 (2.68 sigma away from ΛCDM)
-Log evidence: -41.7 (removed excluded volume from constraint wa + w0 > 0)
-Degs of freedom: 33
+q0: -0.279 +0.091 -0.091
+Chi2 (MAP): 36.66 (2.38 sigma away from ΛCDM)
+Log evidence: -41.8 (excluded forbidden volume from constraint wa + w0 < 0)
+Degs of freedom: 34
 """
