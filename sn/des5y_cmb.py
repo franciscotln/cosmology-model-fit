@@ -14,7 +14,7 @@ sn_legend, z_cmb, z_hel, mu_vals, cov_matrix_sn = get_data()
 cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
 
 z_grid = np.linspace(0, np.max(z_cmb) + 0.1, num=3000)
-dx = np.diff(z_grid)
+dz = np.diff(z_grid)
 
 
 @njit
@@ -53,9 +53,9 @@ cmb.set_HZ(H_z)
 @njit
 def DM_z(z, theta):
     dh_grid = c / H_z(z_grid, theta)
-    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    dh = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size, dtype=np.float64)
-    cum_dm[1:] = np.cumsum(dx * dy)
+    cum_dm[1:] = np.cumsum(dh * dz)
     return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
@@ -131,9 +131,11 @@ def main():
         (emcee.moves.DEMove(), 0.80),
     ]
 
-    with Pool(5) as pool:
+    with Pool(6) as pool:
         sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
-        sampler.run_mcmc(initial_pos, nsteps, progress=True)
+        sampler.run_mcmc(
+            initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#ff5a00"}
+        )
 
     try:
         tau = sampler.get_autocorr_time()
@@ -220,18 +222,37 @@ Log evidence: -834.5
 """
 
 """
+Flat ΛCDM w(z) = -1, varying absolute magnitude
+M(z) = ΔM_inf + 1 - (z / (1 + z))^(0.1 * p)
+
+ΔM: -0.095 +0.013 -0.013
+p: 0.123 +0.066 -0.065 (prior U(-0.4, 0.6))
+H0: 67.73 +0.49 -0.49 km/s/Mpc
+Ωm: 0.310 +0.007 -0.007
+ωb: 0.02251 +0.00011 -0.00011
+ωc: 0.1190 +0.0012 -0.0012
+ωm: 0.1422 +0.0012 -0.0011
+z*: 1089.64 +0.22 -0.21
+zd: 1060.18 +0.23 -0.23
+r*: 144.59 Mpc
+r_d: 147.20 Mpc
+Chi squared: 1629.17 (1.87 sigma away from no evolution in magnitude)
+Log evidence: -834.6
+"""
+
+"""
 Flat wCDM w(z) = w0
 H0: 66.66 +0.72 -0.72 km/s/Mpc
 Ωm: 0.321 +0.008 -0.008
 ωb: 0.02250 +0.00011 -0.00011
 ωc: 0.1193 +0.0012 -0.0012
 ωm: 0.1424 +0.0012 -0.0012
-w0: -1.032 +0.026 -0.026 (prior width 2.0: -2.0 - 0.0)
+w0: -1.032 +0.026 -0.026 (prior U(-2.0, 0.0))
 z*: 1089.68 +0.21 -0.21
 zd: 1060.17 +0.23 -0.23
 r*: 144.53 Mpc
 r_d: 147.15 Mpc
-Chi squared: 1631.02
+Chi squared: 1631.02 (1.28 sigma away from ΛCDM)
 Log evidence: -837.1
 """
 
@@ -242,13 +263,13 @@ H0: 66.67 +0.59 -0.60 km/s/Mpc
 ωb: 0.02251 +0.00011 -0.00011
 ωc: 0.1191 +0.0012 -0.0012
 ωm: 0.1423 +0.0011 -0.0011
-w0: -0.927 +0.044 -0.040 (prior width 1.0: -1.0 - 0.0)
+w0: -0.927 +0.044 -0.040 (prior U(-1.0, 0.0))
 wa: d w(z)/dz at z=0 = -(3/2) * (1 - w0^2)
 z*: 1089.65 +0.21 -0.21
 zd: 1060.18 +0.23 -0.23
 r*: 144.57 Mpc
 r_d: 147.18 Mpc
-Chi squared: 1630.54
+Chi squared: 1630.54 (1.46 sigma away from ΛCDM)
 Log evidence: -835.6
 """
 
@@ -259,12 +280,12 @@ H0: 67.79 +0.96 -1.06 km/s/Mpc
 ωb: 0.02249 +0.00011 -0.00011
 ωc: 0.1194 +0.0012 -0.0012
 ωm: 0.1426 +0.0012 -0.0012
-w0: -0.810 +0.111 -0.116 (prior width 1.5: -1.5 to 0.0)
-wa: -0.769 +0.557 -0.550 (prior width 6.5: -4.0 to 2.5)
+w0: -0.810 +0.111 -0.116 (prior U(-1.5, 0.0))
+wa: -0.769 +0.557 -0.550 (prior U(-4.0, 2.5))
 z*: 1089.70 +0.22 -0.21
 zd: 1060.17 +0.23 -0.24
 r*: 144.50 Mpc
 r_d: 147.12 Mpc
-Chi squared: 1629.53
+Chi squared: 1629.53 (1.26 sigma away from ΛCDM)
 Log evidence: -837.1
 """
