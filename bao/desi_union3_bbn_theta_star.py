@@ -3,7 +3,7 @@ import numpy as np
 import cmb.data_planck_act_compression as cmb
 from interpolator import interp_hermite
 import y2024BBN.prior_lcdm_schoneberg as bbn
-from y2023union3.data import get_data as get_sn_data
+from y2026union3_1.data import get_data as get_sn_data
 from y2025BAO.data import get_data as get_bao_data
 from y2024DESBAO.data import get_data as get_bao_des_data
 
@@ -11,7 +11,7 @@ c = cmb.c  # Speed of light in km/s
 Orh2 = cmb.Or_h2
 Omnuh2 = cmb.Omnu_h2
 
-sn_legend, z_sn_vals, mu_values, cov_matrix_sn = get_sn_data()
+sn_legend, z_cmb, z_hel, mu_values, cov_matrix_sn = get_sn_data()
 bao_legend, bao_data, cov_matrix_bao = get_bao_data()
 bao_des_legend, bao_des_data, cov_matrix_bao_des = get_bao_des_data()
 
@@ -19,9 +19,9 @@ inv_cov_sn = np.linalg.inv(cov_matrix_sn)
 inv_cov_bao = np.linalg.inv(cov_matrix_bao)
 inv_cov_bao_des = np.linalg.inv(cov_matrix_bao_des)
 
-z_max = max(np.max(z_sn_vals), np.max(bao_data["z"])) + 0.1
+z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
 z_grid = np.linspace(0, z_max, num=4000)
-dx = np.diff(z_grid)
+dz = np.diff(z_grid)
 
 
 @njit
@@ -65,9 +65,9 @@ def DH_z(z, params):
 @njit
 def DM_z(z, theta):
     dh_grid = DH_z(z_grid, theta)
-    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    dh = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size, dtype=np.float64)
-    cum_dm[1:] = np.cumsum(dx * dy)
+    cum_dm[1:] = np.cumsum(dh * dz)
     return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
@@ -100,7 +100,7 @@ def bao_theory(z, qty, theta):
 
 @njit
 def theory_mu(theta):
-    dL = (1.0 + z_sn_vals) * DM_z(z_sn_vals, theta)
+    dL = (1.0 + z_hel) * DM_z(z_cmb, theta)
     return theta[0] + 25.0 + 5 * np.log10(dL)
 
 
@@ -159,7 +159,7 @@ def main():
 
     with Pool(8) as pool:
         sampler = Sampler(
-            prior, log_likelihood, n_live=10_000, pool=pool, seed=42, pass_dict=False
+            prior, log_likelihood, n_live=8_000, pool=pool, seed=42, pass_dict=False
         )
         sampler.run(verbose=True)
 
@@ -193,7 +193,9 @@ def main():
     j0_16, j0_50, j0_84 = quantile(j0_samples, one_sigma_ci, weights=w)
 
     best_fit = [dM_50, H0_50, Obh2_50, Och2_50, w0_50]
-    degrees_of_freedom = 1 + len(bao_data["z"]) + len(z_sn_vals) - len(best_fit)
+    degrees_of_freedom = (
+        len(bao_des_data["z"]) + len(bao_data["z"]) + len(z_cmb) - len(best_fit)
+    )
 
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
@@ -212,7 +214,7 @@ def main():
     )
     print(f"q0: {q0_50:.3f} +{(q0_84 - q0_50):.3f} -{(q0_50 - q0_16):.3f}")
     print(f"j0: {j0_50:.3f} +{(j0_84 - j0_50):.3f} -{(j0_50 - j0_16):.3f}")
-    print(f"Chi squared: {chi_squared(best_fit):.2f}")
+    print(f"Chi2 (MAP): {chi_squared(samples[np.argmax(log_l)]):.2f}")
     print(f"Log Evidence: {sampler.log_z:.2f}")
     print(f"Degrees of freedom: {degrees_of_freedom}")
 
@@ -247,7 +249,7 @@ def main():
     )
     plot_sn_predictions(
         legend=sn_legend,
-        x=z_sn_vals,
+        x=z_cmb,
         y=mu_values,
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=theory_mu(best_fit),
@@ -261,9 +263,9 @@ if __name__ == "__main__":
 
 
 """
-BAO: DESI DR2
+BAO: DESI DR2 + DES BAO 2025
 Prior on ωb from BBN (Y2024)
-SN1a: Union3 compilation
+SN1a: Union3.1 compilation
 
 Priors:
 
@@ -287,83 +289,108 @@ w0 + wa < 0 enforced
 
 """
 Flat ΛCDM  w(z) = -1
-H0: 68.34 +0.47 -0.46 km/s/Mpc
-ωb: 0.02209 +0.00054 -0.00053
-ωc: 0.1164 +0.0008 -0.0008
-ωm: 0.1391 +0.0011 -0.0011
-Ωm: 0.298 +0.005 -0.004
-w0: -1
-wa: 0
-z_d: 1059.03 +1.24 -1.25
-r_d: 148.39 +0.70 -0.70 Mpc
-z*: 1089.94 +0.71 -0.68
+ΔM: -0.054 +0.013 -0.012 mag
+H0: 68.38 +0.47 -0.46 km/s/Mpc
+ωb: 0.02211 +0.00053 -0.00054
+ωc: 0.1163 +0.0008 -0.0008
+ωm: 0.1390 +0.0011 -0.0011
+Ωm: 0.297 +0.005 -0.004
+z_d: 1059.07 +1.21 -1.26
+r_d: 148.39 +0.70 -0.69 Mpc
+z*: 1089.90 +0.71 -0.67
 r*: 145.61 Mpc
-100 θ*: 1.04097
-q0: -0.553 +0.007 -0.007
+100 θ*: 1.04094
+q0: -0.554 +0.007 -0.007
 j0: 1
-Chi squared: 40.00
-Log Evidence: -32.32
-Degrees of freedom: 33
+Chi2 (MAP): 41.70
+Log Evidence: -36.41
+Degrees of freedom: 32
+
+===============================
+
+Flat ΛCDM  w(z) = -1, evolving absolute magnitude of SNe
+M(z) = ΔM_inf + 1 - (z/ (1 + z))**(0.1 * p)
+
+ΔM: -0.084 +0.018 -0.018 mag
+p: 0.269 +0.126 -0.120
+H0: 68.54 +0.47 -0.47 km/s/Mpc
+ωb: 0.02219 +0.00053 -0.00054
+ωc: 0.1160 +0.0008 -0.0008
+ωm: 0.1388 +0.0011 -0.0011
+Ωm: 0.296 +0.005 -0.004
+z_d: 1059.22 +1.22 -1.26
+r_d: 148.37 +0.71 -0.70 Mpc
+z*: 1089.78 +0.71 -0.67
+r*: 145.62 Mpc
+100 θ*: 1.04094
+q0: -0.557 +0.007 -0.007
+j0: 1
+Chi2 (MAP): 36.95 (2.18 sigma away from no evolution in magnitude)
+Log Evidence: -35.38 (Δ logZ = 1.03 against no evolution in magnitude)
+Degrees of freedom: 31
 
 ===============================
 
 Flat wCDM w(z) = w0
-H0: 66.80 +0.81 -0.81 km/s/Mpc
-ωb: 0.02229 +0.00054 -0.00054
-ωc: 0.1139 +0.0014 -0.0014
-ωm: 0.1369 +0.0015 -0.0015
-Ωm: 0.307 +0.006 -0.006
-w0: -0.921 +0.034 -0.035
-z_d: 1059.29 +1.23 -1.24
-r_d: 148.83 +0.73 -0.72 Mpc
-z*: 1089.45 +0.73 -0.70
-r*: 146.10 Mpc
+ΔM: -0.067 +0.014 -0.014 mag
+H0: 67.20 +0.80 -0.79 km/s/Mpc
+ωb: 0.02227 +0.00054 -0.00054
+ωc: 0.1144 +0.0013 -0.0014
+ωm: 0.1373 +0.0015 -0.0015
+Ωm: 0.304 +0.006 -0.006
+w0: -0.938 +0.033 -0.034
+z_d: 1059.29 +1.23 -1.25
+r_d: 148.72 +0.73 -0.71 Mpc
+z*: 1089.52 +0.72 -0.71
+r*: 145.99 Mpc
 100 θ*: 1.04093
-q0: -0.457 +0.041 -0.043
-j0: 0.772 +0.095 -0.084
-Chi squared: 34.68
-Log Evidence: -31.66 (Δ logZ = 0.66 against ΛCDM)
-Degrees of freedom: 32
+q0: -0.480 +0.041 -0.042
+j0: 0.819 +0.097 -0.087
+Chi2 (MAP): 37.88 (1.95 sigma away from ΛCDM)
+Log Evidence: -36.73 (Δ logZ = -0.32 in favour of ΛCDM)
+Degrees of freedom: 31
 
 ===============================
 
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
-H0: 66.09 +0.88 -0.88 km/s/Mpc
-ωb: 0.02228 +0.00054 -0.00054
-ωc: 0.1149 +0.0010 -0.0010
-ωm: 0.1378 +0.0012 -0.0012
-Ωm: 0.316 +0.008 -0.008
-w0: -0.802 +0.065 -0.067
-wa: -0.535 +0.167 -0.149 [derived wa = -1.5 * (1 - w0^2)]
-z_d: 1059.35 +1.23 -1.25
-r_d: 148.57 +0.71 -0.70 Mpc
-z*: 1089.55 +0.71 -0.68
-r*: 145.85 Mpc
-100 θ*: 1.04093
-q0: -0.323 +0.073 -0.077
-j0: -0.038 +0.303 -0.249
-Chi squared: 31.42
-Log Evidence: -29.51 (Δ logZ = 2.81 against ΛCDM)
-Degrees of freedom: 32
+ΔM: -0.066 +0.013 -0.013 mag
+H0: 66.68 +0.84 -0.83 km/s/Mpc
+ωb: 0.02227 +0.00053 -0.00053
+ωc: 0.1151 +0.0010 -0.0010
+ωm: 0.1381 +0.0012 -0.0012
+Ωm: 0.311 +0.007 -0.007
+w0: -0.849 +0.063 -0.063
+wa: -0.420 +0.167 -0.153 [derived wa = -1.5 * (1 - w0^2)]
+z_d: 1059.33 +1.22 -1.24
+r_d: 148.52 +0.70 -0.69 Mpc
+z*: 1089.60 +0.70 -0.68
+r*: 145.80 Mpc
+100 θ*: 1.04092
+q0: -0.378 +0.072 -0.073
+j0: 0.167 +0.317 -0.271
+Chi2 (MAP): 36.01 (2.39 sigma away from ΛCDM)
+Log Evidence: -35.18 (Δ logZ = 1.23 against ΛCDM)
+Degrees of freedom: 31
 
 ===============================
 
 Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
-H0: 65.91 +0.88 -0.87 km/s/Mpc
-ωb: 0.02214 +0.00054 -0.00055
-ωc: 0.1180 +0.0017 -0.0019
-ωm: 0.1408 +0.0018 -0.0019
-Ωm: 0.324 +0.010 -0.010
-w0: -0.715 +0.100 -0.097
-wa: -0.837 +0.371 -0.390
-z_d: 1059.24 +1.26 -1.29
-r_d: 147.91 +0.78 -0.75 Mpc
-z*: 1090.04 +0.79 -0.75
-r*: 145.13 Mpc
-100 θ*: 1.04087
-q0: -0.225 +0.109 -0.109
-j0: -0.465 +0.510 -0.472
-Chi squared: 29.12
-Log Evidence: -31.12 + 0.09 = -31.03 (Δ logZ = 0.97 against ΛCDM)
+ΔM: -0.058 +0.015 -0.015 mag
+H0: 66.62 +0.84 -0.83 km/s/Mpc
+ωb: 0.02215 +0.00055 -0.00054
+ωc: 0.1176 +0.0018 -0.0020
+ωm: 0.1404 +0.0018 -0.0020
+Ωm: 0.316 +0.009 -0.009
+w0: -0.785 +0.092 -0.089
+wa: -0.647 +0.347 -0.372
+z_d: 1059.24 +1.24 -1.25
+r_d: 148.00 +0.79 -0.77 Mpc
+z*: 1089.98 +0.76 -0.74
+r*: 145.23 Mpc
+100 θ*: 1.04092
+q0: -0.305 +0.103 -0.101
+j0: -0.182 +0.518 -0.493
+Chi2 (MAP): 35.22 (2.06 sigma away from ΛCDM)
+Log Evidence: -37.44 + 0.09 = -37.35 (Δ logZ = -1.97 in favour of ΛCDM)
 Degrees of freedom: 30
 """
