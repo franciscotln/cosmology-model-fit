@@ -310,7 +310,7 @@ H0: 68.47 +0.27 -0.28 km/s/Mpc
 ωm: 0.1405 +0.0006 -0.0006
 Ωm: 0.300 +0.004 -0.004
 M: -19.437 +0.014 -0.014 mag
-p: 0.116 +0.059 -0.057
+p: 0.116 +0.059 -0.057 - 97.91% of the posterior has p > 0, which indicates SNe mags become more negative with redshift.
 z*: 1089.39 +0.15 -0.15
 z_d: 1060.21 +0.23 -0.23
 r*: 144.99 Mpc
