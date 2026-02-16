@@ -404,7 +404,7 @@ Flat ΛCDM w(z) = -1, evolving absolute magnitude
 M(z) = ΔM_inf + 1 - (z / (1 + z))^(0.1 * p)
 
 ΔM: -0.083 +0.018 -0.018 mag
-p: 0.270 +0.126 -0.120
+p: 0.270 +0.126 -0.120 - 98.78% of the posterior has p > 0, which indicates SNe mags become more negative with redshift.
 H0: 68.57 +0.46 -0.46 km/s/Mpc
 ωb: 0.02222 +0.00052 -0.00053
 ωc: 0.1160 +0.0008 -0.0008

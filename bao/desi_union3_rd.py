@@ -216,7 +216,7 @@ Degs of freedom: 31
 """
 Flat ΛCDM: w(z) = -1, evolving absolute mag of SNe M(z) = ΔM_inf + (z / (1 + z))^(0.1 * p)
 ΔM: -0.065 +0.017 -0.017 mag
-p: 0.266 +0.130 -0.124
+p: 0.266 +0.130 -0.124 - 98.40% of the posterior has p > 0, which indicates SNe mags become more negative with redshift.
 rd: 147.09 +0.26 -0.26 Mpc
 H0: 69.09 +0.50 -0.51 km/s/Mpc
 Ωm: 0.296 +0.009 -0.008
