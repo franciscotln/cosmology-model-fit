@@ -280,7 +280,7 @@ wa U(-2.0, 1.0)
 with w0 + wa < 0 enforced
 
 Evolving absolute magnitude of SNe:
-p U(-0.4, 1.0)
+p U(-0.5, 1.0)
 """
 
 """
@@ -302,21 +302,21 @@ Degrees of freedom: 1602
 ===============================
 
 Flat ΛCDM, evolving absolute magnitude of SNe
-M(z) = M_inf + 1 - (z / (1 + z))**(0.1 * p)
+M(z) = M_max + 1 - (z / (0.1 + z))^(0.1 * p)
 
-H0: 68.47 +0.27 -0.28 km/s/Mpc
+H0: 68.45 +0.27 -0.27 km/s/Mpc
 ωb: 0.02258 +0.00010 -0.00010
-ωc: 0.1173 +0.0007 -0.0007
-ωm: 0.1405 +0.0006 -0.0006
+ωc: 0.1173 +0.0007 -0.0006
+ωm: 0.1406 +0.0006 -0.0006
 Ωm: 0.300 +0.004 -0.004
-M: -19.437 +0.014 -0.014 mag
-p: 0.116 +0.059 -0.057 - 97.91% of the posterior has p > 0, which indicates SNe mags become more negative with redshift.
-z*: 1089.39 +0.15 -0.15
-z_d: 1060.21 +0.23 -0.23
-r*: 144.99 Mpc
+M_max: -19.426 +0.011 -0.011 mag
+p: 0.204 +0.100 -0.100 - 97.93% of the posterior has p > 0, indicating SNe mags become more negative with redshift.
+z*: 1089.40 +0.15 -0.15
+z_d: 1060.20 +0.23 -0.23
+r*: 144.98 Mpc
 rd: 147.58 +0.19 -0.19 Mpc
-MAP chi^2: 1416.29 (2.0 sigma away from no mag evolution)
-Log evidence: -727.54
+MAP chi^2: 1416.27 (2.02 sigma away from no evolution in magnitude)
+Log evidence: -727.03 (Δ logZ = 0.28 against no evolution in magnitude)
 Degrees of freedom: 1601
 
 ===============================
