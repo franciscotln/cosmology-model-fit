@@ -16,7 +16,7 @@ OFFSET = 0
 OM = 1
 P = 2
 
-bounds = np.array([(-0.6, 0.6), (0.0, 1.0), (-0.8, 1.8)])  # ΔM, Ωm, p
+bounds = np.array([(-0.6, 0.6), (0.0, 1.0), (-1.75, 3.0)])  # ΔM, Ωm, p
 
 z_grid = np.linspace(0, np.max(z_cmb) + 0.1, num=3000)
 dx = np.diff(z_grid)
@@ -40,7 +40,7 @@ def DM_z(z, params):
 @njit
 def mu_theory(params):
     dL = (1.0 + z_hel) * DM_z(z_cmb, params)
-    Mz = params[OFFSET] + 1.0 - (z_cmb / (1.0 + z_cmb)) ** (0.1 * params[P])
+    Mz = params[OFFSET] + 1.0 - (z_cmb / (0.1 + z_cmb)) ** (0.1 * params[P])
     return Mz + 25.0 + 5 * np.log10(dL)
 
 
@@ -124,7 +124,6 @@ def main():
     predicted_distances = mu_theory(best_fit)
     residuals = mu_vals - predicted_distances
 
-    # Calculate R-squared
     ss_res = np.sum(residuals**2)
     ss_tot = np.sum((mu_vals - np.mean(mu_vals)) ** 2)
     r2 = 1 - (ss_res / ss_tot)
@@ -188,16 +187,16 @@ Degs of freedom: 20
 ===============================
 
 Flat ΛCDM: w(z) = -1, varying absolute magnitude
-M(z) = ΔM_inf + 1 - (z / (1 + z))^(0.1 * p)
+M(z) = ΔM_inf + 1 - (z / (0.1 + z))^(0.1 * p)
 
-ΔM: -0.078 +0.063/-0.063
-p: 0.405 +0.260/-0.239
-Ωm: 0.267 +0.044/-0.040
+ΔM: -0.025 +0.036/-0.036
+p: 0.637 +0.394/-0.373
+Ωm: 0.292 +0.034/-0.032
 R-squared (%): 99.96
-RMSD (mag): 0.047
-Skewness of residuals: -1.140
+RMSD (mag): 0.046
+Skewness of residuals: -0.892
 Chi squared: 25.7
-Log evidence: -22.0
+Log evidence: -22.1
 Degs of freedom: 19
 
 ===============================

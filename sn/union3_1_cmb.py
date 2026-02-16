@@ -60,7 +60,7 @@ def DM_z(z, params):
 @njit
 def mu_theory(params):
     dL = (1.0 + z_hel) * DM_z(z_cmb, params)
-    Mz = params[0] + 1.0 - (z_cmb / (1.0 + z_cmb)) ** (0.1 * params[4])
+    Mz = params[0] + 1.0 - (z_cmb / (0.1 + z_cmb)) ** (0.1 * params[4])
     return Mz + 25.0 + 5 * np.log10(dL)
 
 
@@ -80,7 +80,7 @@ bounds = np.array(
         (60.0, 75.0),  # H0
         (0.010, 0.030),  # ωb
         (0.010, 0.250),  # ωc
-        (-0.4, 1.0),  # p
+        (-1.0, 2.0),  # p
     ]
 )
 
@@ -225,21 +225,21 @@ Degrees of freedom: 21
 
 """
 Flat ΛCDM w(z) = -1, varying absolute magnitude
-M(z) = ΔM_inf + 1 - (z / (1 + z))^(0.1 * p)
+M(z) = ΔM_max + 1 - (z / (0.1 + z))^(0.1 * p)
 
-ΔM: -0.090 +0.016 -0.016
-p: 0.203 +0.125 -0.120
-H0: 67.70 +0.50 -0.49 km/s/Mpc
-Ωm: 0.310 +0.007 -0.007
-ωm: 0.14227 +0.00116 -0.00115
-ωb: 0.02251 +0.00011 -0.00011
-ωc: 0.1191 +0.0012 -0.0012
-z*: 1089.65 +0.21 -0.21
+ΔM_max: -0.078 +0.012 -0.012
+p: 0.485 +0.269 -0.261 (prior U(-1.0, +2.0))
+H0: 67.68 +0.49 -0.49 km/s/Mpc
+Ωm: 0.311 +0.007 -0.007
+ωm: 0.14231 +0.00115 -0.00114
+ωb: 0.02250 +0.00011 -0.00011
+ωc: 0.1192 +0.0012 -0.0012
+z*: 1089.66 +0.21 -0.21
 z_drag: 1060.18 +0.23 -0.23
-r*: 144.57 Mpc
-r_d: 147.19 Mpc
-Chi squared: 26.7 (1.67 sigma away from no evolution)
-Log Evidence: -33.2
+r*: 144.56 Mpc
+r_d: 147.18 Mpc
+Chi squared: 26.1 (1.84 sigma away from no evolution)
+Log Evidence: -32.9
 Degrees of freedom: 20
 """
 
