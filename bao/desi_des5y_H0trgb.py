@@ -24,7 +24,7 @@ def Ez(z, theta):
     Om, w0 = theta[3], theta[4]
     zp1 = 1.0 + z
     cubed = zp1**3
-    rho_de = 1  # (2 * cubed / (1.0 + w0 + (1.0 - w0) * cubed)) ** 2
+    rho_de = (2 * cubed / (1.0 + w0 + (1.0 - w0) * cubed)) ** 2
     return np.sqrt(Om * cubed + (1.0 - Om) * rho_de)
 
 
@@ -73,8 +73,7 @@ def bao_theory(z, qty, theta):
 @njit
 def theory_mu(theta):
     dL = (1.0 + z_hel) * DM_z(z_cmb, theta)
-    Mz = theta[0] + 1 - (z_cmb / (0.1 + z_cmb)) ** (0.1 * theta[4])
-    return Mz + 25.0 + 5 * np.log10(dL)
+    return theta[0] + 25.0 + 5 * np.log10(dL)
 
 
 def solve_triang(cho_L, delta):
@@ -97,7 +96,7 @@ bounds = np.array(
         (56.0, 85.0),  # H0
         (120.0, 160.0),  # r_d
         (0.1, 0.7),  # Ωm
-        (-0.75, 1.25),  # p
+        (-1.0, -1 / 3),  # w0
     ],
     dtype=np.float64,
 )
