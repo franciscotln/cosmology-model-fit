@@ -24,7 +24,7 @@ def Ez(z, theta):
     Om, w0 = theta[3], theta[4]
     zp1 = 1.0 + z
     cubed = zp1**3
-    rho_de = (2 * cubed / (1.0 + w0 + (1.0 - w0) * cubed)) ** 2
+    rho_de = 1  # (2 * cubed / (1.0 + w0 + (1.0 - w0) * cubed)) ** 2
     return np.sqrt(Om * cubed + (1.0 - Om) * rho_de)
 
 
@@ -73,7 +73,8 @@ def bao_theory(z, qty, theta):
 @njit
 def theory_mu(theta):
     dL = (1.0 + z_hel) * DM_z(z_cmb, theta)
-    return theta[0] + 25.0 + 5 * np.log10(dL)
+    Mz = theta[0] + 1 - (z_cmb / (0.1 + z_cmb)) ** (0.1 * theta[4])
+    return Mz + 25.0 + 5 * np.log10(dL)
 
 
 def solve_triang(cho_L, delta):
@@ -96,7 +97,7 @@ bounds = np.array(
         (56.0, 85.0),  # H0
         (120.0, 160.0),  # r_d
         (0.1, 0.7),  # Ωm
-        (-1.0, -1 / 3),  # w0
+        (-0.75, 1.25),  # p
     ],
     dtype=np.float64,
 )
@@ -218,15 +219,15 @@ Degrees of freedom: 1723
 
 Flat ΛCDM
 Evolving absolute magnitude with redshift
-M(z) = M_inf + 1 - (z / (1 + z))^(0.1 * p)
+M(z) = ΔM_max + 1 - (z / (0.1 + z))^(0.1 * p)
 
-ΔM: -0.028 +0.056 -0.058 mag
-p: 0.173 +0.071 -0.069 - 99.39% of the posterior has p > 0, which indicates SNe mags become more negative with redshift.
-H0: 70.35 +1.79 -1.79 km/s/Mpc
-r_d: 144.45 +3.93 -3.70 Mpc
-Ωm: 0.296 +0.008 -0.008
-Chi2 (MAP): 1638.79 (2.55 sigma away from no mag evolution)
-Log Evidence: -834.62 (Δ logZ 1.43 against no mag evolution)
+ΔM_max: -0.015 +0.056 -0.056 mag
+p: 0.344 +0.135 -0.133 - 99.52% of the posterior has p > 0, suggesting SNe mags become more negative with redshift.
+H0: 70.33 +1.80 -1.76 km/s/Mpc
+r_d: 144.36 +3.87 -3.71 Mpc
+Ωm: 0.297 +0.008 -0.008
+Chi2 (MAP): 1638.39 (2.63 sigma away from no mag evolution)
+Log Evidence: -834.41 (Δ logZ 1.64 against no mag evolution)
 Degrees of freedom: 1722
 
 ===============================
