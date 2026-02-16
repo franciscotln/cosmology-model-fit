@@ -305,7 +305,7 @@ Degrees of freedom: 1724
 Flat ΛCDM, varying absolute magnitude M(z) of SNe
 M(z) = ΔM_inf + 1 - (z / (1 + z))**(0.1 * p)
 
-p: 0.162 ± 0.063 (prior ~ U(-0.4, +1.0))
+p: 0.162 ± 0.064 (prior ~ U(-0.4, +0.6))
 ΔM: -0.083 ± 0.011 mag
 H0: 68.49 ± 0.27 km/s/Mpc
 Ωm: 0.2995 ± 0.0036
@@ -315,7 +315,7 @@ H0: 68.49 ± 0.27 km/s/Mpc
 z*: 1089.38 ± 0.15
 z_d: 1060.21 ± 0.23
 r_d: 147.60 ± 0.19 Mpc
-χ2 (MAP): 1642.98 (2.60 sigma improvement over no magnitude evolution)
-Log evidence: -841.8 (Δ logZ = 1.2 against no evolution in magnitude)
+χ2 (MAP): 1642.97 (2.60 sigma improvement over no magnitude evolution)
+Log evidence: -841.4 (Δ logZ = 1.6 against no evolution in magnitude)
 Degrees of freedom: 1725
 """
