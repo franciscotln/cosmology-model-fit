@@ -315,7 +315,7 @@ z*: 1089.39 +0.15 -0.15
 z_d: 1060.21 +0.23 -0.23
 r*: 144.99 Mpc
 rd: 147.58 +0.19 -0.19 Mpc
-MAP chi^2: 1416.29 (2.0 sigma improvement over no mag evolution)
+MAP chi^2: 1416.29 (2.0 sigma away from no mag evolution)
 Log evidence: -727.54
 Degrees of freedom: 1601
 
@@ -333,7 +333,7 @@ z*: 1089.35 +0.17 -0.17
 z_d: 1060.21 +0.23 -0.23
 r*: 145.05 Mpc
 rd: 147.65 +0.22 -0.22 Mpc
-MAP chi^2: 1419.38 (0.98 sigma improvement over ΛCDM)
+MAP chi^2: 1419.38 (0.98 sigma away from ΛCDM)
 Log evidence: -729.68
 Degrees of freedom: 1601
 
@@ -351,7 +351,7 @@ z*: 1089.35 +0.16 -0.16
 z_d: 1060.21 +0.23 -0.23
 r*: 145.06 Mpc
 rd: 147.65 +0.20 -0.20 Mpc
-MAP chi^2: 1417.15 (1.79 sigma improvement over ΛCDM)
+MAP chi^2: 1417.15 (1.79 sigma away from ΛCDM)
 Log evidence: -727.54
 Degrees of freedom: 1601
 
@@ -370,7 +370,7 @@ z*: 1089.90 +0.24 -0.23
 z_d: 1059.80 +0.28 -0.28
 r*: 144.92 Mpc
 rd: 147.62 +0.23 -0.23 Mpc
-Chi squared: 1412.63 (2.30 sigma improvement over ΛCDM)
+Chi squared: 1412.63 (2.30 sigma away from ΛCDM)
 Log evidence: -728.13
 Degrees of freedom: 1600
 """
