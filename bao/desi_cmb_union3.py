@@ -324,27 +324,8 @@ r*: 145.01 Mpc
 z_d: 1060.21 +0.23 -0.23
 r_d: 147.61 Mpc
 q0: -0.551 +0.005 -0.005
-Chi2 (MAP): 41.3 (2.14 sigma improvement over no evolution in mag)
+Chi2 (MAP): 41.3 (2.14 sigma away from no evolution in mag)
 Log evidence: -41.2
-Degs of freedom: 34
-
-----
-
-Applying H0 (TRGB) gaussian prior: H0 = 70.39 ± 1.8 km/s/Mpc
-ΔM: -0.079 +0.015 -0.015 mag
-p: 0.255 +0.124 -0.118 (prior U(-0.4, 1.0))
-H0: 68.55 +0.27 -0.27 km/s/Mpc
-Ωm: 0.2986 +0.0036 -0.0035
-ωb: 0.02259 +0.00010 -0.00010
-ωc: 0.1171 +0.0006 -0.0006
-ωm: 0.1403 +0.0006 -0.0006
-z*: 1089.36 +0.15 -0.15
-r*: 145.03 Mpc
-z_d: 1060.22 +0.23 -0.23
-r_d: 147.63 Mpc
-q0: -0.552 +0.005 -0.005
-Chi2 (MAP): 41.4
-Log evidence: -41.7
 Degs of freedom: 34
 """
 
@@ -363,7 +344,7 @@ r*: 145.03 Mpc
 z_d: 1060.21 +0.23 -0.23
 r_d: 147.63 Mpc
 q0: -0.532 +0.035 -0.036
-Chi2 (MAP): 45.6 (0.55 sigma improvement over ΛCDM)
+Chi2 (MAP): 45.6 (0.55 sigma away from ΛCDM)
 Log evidence: -44.2
 Degs of freedom: 34
 """
@@ -383,7 +364,7 @@ r*: 145.09 Mpc
 z_d: 1060.22 +0.23 -0.23
 r_d: 147.69 Mpc
 q0: -0.425 +0.068 -0.065
-Chi2 (MAP): 43.0 (1.7 sigma improvement over ΛCDM)
+Chi2 (MAP): 43.0 (1.7 sigma away from ΛCDM)
 Log evidence: -42.0
 Degs of freedom: 34
 """
@@ -404,7 +385,7 @@ r*: 144.64 Mpc
 z_d: 1060.17 +0.23 -0.23
 r_d: 147.26 Mpc
 q0: -0.272 +0.090 -0.090
-Chi2 (MAP): 36.1 (2.68 sigma improvement over ΛCDM)
+Chi2 (MAP): 36.1 (2.68 sigma away from ΛCDM)
 Log evidence: -41.7 (removed excluded volume from constraint wa + w0 > 0)
 Degs of freedom: 33
 """
