@@ -221,7 +221,7 @@ Evolving absolute magnitude with redshift
 M(z) = M_inf + 1 - (z / (1 + z))^(0.1 * p)
 
 ΔM: -0.028 +0.056 -0.058 mag
-p: 0.173 +0.071 -0.069
+p: 0.173 +0.071 -0.069 - 99.39% of the posterior has p > 0, which indicates SNe mags become more negative with redshift.
 H0: 70.35 +1.79 -1.79 km/s/Mpc
 r_d: 144.45 +3.93 -3.70 Mpc
 Ωm: 0.296 +0.008 -0.008
