@@ -102,13 +102,7 @@ def bao_theory(z, qty, theta):
 @njit
 def theory_mu(theta):
     dL = (1.0 + z_sn_vals) * DM_z(z_sn_vals, theta)
-    return (
-        theta[0]
-        + 1
-        - (z_sn_vals / (1.0 + z_sn_vals)) ** (0.1 * theta[4])
-        + 25.0
-        + 5 * np.log10(dL)
-    )
+    return theta[0] + 25.0 + 5 * np.log10(dL)
 
 
 @njit
@@ -259,8 +253,8 @@ def main():
     rd_samples = cmb.r_drag(samples[:, 2], Omh2_samples)
     zd_samples = cmb.z_drag(samples[:, 2], Omh2_samples)
     zst_samples = cmb.z_star(samples[:, 2], Omh2_samples)
-    q0_samples = q0(Om_samples)  # , w0=samples[:, 4])
-    j0_samples = j0(Om_samples)  # , w0=samples[:, 4], wa=wa_samples)
+    q0_samples = q0(Om_samples, w0=samples[:, 4])
+    j0_samples = j0(Om_samples, w0=samples[:, 4], wa=wa_samples)
 
     Omh2_16, Omh2_50, Omh2_84 = quantile(Omh2_samples, one_sigma_ci, weights=w)
     Om_16, Om_50, Om_84 = quantile(Om_samples, one_sigma_ci, weights=w)
