@@ -205,11 +205,21 @@ r_d: 147.09 Mpc (fixed)
 M0: -19.402 +0.012 -0.012 mag
 H0: 68.67 +0.45 -0.44 km/s/Mpc
 Ωm: 0.304 +0.008 -0.008
-w0: -1
-wa: 0
 Chi squared: 1416.14
 Log evidence: -720.61
 Degrees of freedom: 1600
+
+===============================
+
+Flat ΛCDM, evolving absolute magnitude M(z) = M_inf + 1 - (z / (1 + z))^(0.1 * p)
+r_d: 147.09 Mpc (fixed)
+M_inf: -19.422 +0.016 -0.016 mag (M0 = -18.422 +0.016 -0.016)
+p: 0.122 +0.063 -0.061
+H0: 69.00 +0.48 -0.48 km/s/Mpc
+Ωm: 0.298 +0.008 -0.008
+Chi squared: 1412.19 (Δ chi2 3.95)
+Log evidence: -720.85
+Degrees of freedom: 1599
 
 ===============================
 
@@ -219,7 +229,6 @@ M0: -19.416 +0.014 -0.014 mag
 H0: 67.83 +0.58 -0.58 km/s/Mpc
 Ωm: 0.298 +0.009 -0.008
 w0: -0.914 +0.038 -0.039
-wa: 0
 Chi squared: 1411.53 (Δ chi2 4.59)
 Log evidence: -721.02
 Degrees of freedom: 1599
