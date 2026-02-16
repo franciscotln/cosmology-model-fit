@@ -102,7 +102,13 @@ def bao_theory(z, qty, theta):
 @njit
 def theory_mu(theta):
     dL = (1.0 + z_sn_vals) * DM_z(z_sn_vals, theta)
-    return theta[0] + 25.0 + 5 * np.log10(dL)
+    return (
+        theta[0]
+        + 1
+        - (z_sn_vals / (1.0 + z_sn_vals)) ** (0.1 * theta[4])
+        + 25.0
+        + 5 * np.log10(dL)
+    )
 
 
 @njit
@@ -253,8 +259,8 @@ def main():
     rd_samples = cmb.r_drag(samples[:, 2], Omh2_samples)
     zd_samples = cmb.z_drag(samples[:, 2], Omh2_samples)
     zst_samples = cmb.z_star(samples[:, 2], Omh2_samples)
-    q0_samples = q0(Om_samples, w0=samples[:, 4])
-    j0_samples = j0(Om_samples, w0=samples[:, 4], wa=wa_samples)
+    q0_samples = q0(Om_samples)  # , w0=samples[:, 4])
+    j0_samples = j0(Om_samples)  # , w0=samples[:, 4], wa=wa_samples)
 
     Omh2_16, Omh2_50, Omh2_84 = quantile(Omh2_samples, one_sigma_ci, weights=w)
     Om_16, Om_50, Om_84 = quantile(Om_samples, one_sigma_ci, weights=w)
@@ -397,9 +403,34 @@ j0: 1
 Chi squared: 75.56
 Log Evidence: -53.45
 Degrees of freedom: 93
+"""
 
-===============================
+"""
+Flat ΛCDM  w(z) = -1, evolving absolute magnitude
+M(z) = ΔM_inf + 1 - (z / (1 + z))^(0.1 * p)
 
+ΔM: -0.212 +0.094 -0.094 mag
+p: 0.373 +0.144 -0.138
+H0: 68.55 +0.46 -0.46 km/s/Mpc
+ωb: 0.02220 +0.00053 -0.00053
+ωc: 0.1160 +0.0008 -0.0008
+ωm: 0.1389 +0.0011 -0.0011
+Ωm: 0.296 +0.004 -0.004
+σ8: 0.780 +0.014 -0.014
+S8: 0.774 +0.014 -0.014
+z_d: 1059.25 +1.22 -1.23
+r_d: 148.35 +0.70 -0.69 Mpc
+z*: 1089.77 +0.69 -0.67
+r*: 145.61 Mpc
+100 θ*: 1.04095
+q0: -0.557 +0.007 -0.007
+j0: 1
+Chi squared: 67.78 (2.80 sigma away from no evolution in magnitude)
+Log Evidence: -50.94 (Δ logZ = 2.51 against no evolution in magnitude)
+Degrees of freedom: 92
+"""
+
+"""
 Flat wCDM w(z) = w0
 ΔM: -0.168 +0.092 -0.091 mag
 H0: 66.90 +0.78 -0.76 km/s/Mpc
@@ -418,12 +449,12 @@ r*: 146.05 Mpc
 100 θ*: 1.04090
 q0: -0.461 +0.040 -0.040
 j0: 0.778 +0.091 -0.082
-Chi squared: 70.10
+Chi squared: 70.10 (2.34 sigma away from ΛCDM)
 Log Evidence: -52.78 (Δ logZ = 0.67 against ΛCDM)
 Degrees of freedom: 92
+"""
 
-===============================
-
+"""
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
 ΔM: -0.179 +0.092 -0.091 mag
 H0: 66.22 +0.85 -0.83 km/s/Mpc
@@ -442,12 +473,12 @@ r*: 145.83 Mpc
 100 θ*: 1.04091
 q0: -0.331 +0.070 -0.073
 j0: -0.013 +0.292 -0.243
-Chi squared: 66.68
+Chi squared: 66.68 (2.98 sigma away from ΛCDM)
 Log Evidence: -50.55 (Δ logZ = 2.90 against ΛCDM)
 Degrees of freedom: 92
+"""
 
-===============================
-
+"""
 Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
 TODO
 """
