@@ -161,15 +161,16 @@ def main():
     ] = pct
 
     best_fit = np.percentile(samples, 50, axis=0)
+    one_sigma_contour = [15.9, 50, 84.1]
 
     Omh2_samples = samples[:, 2] + samples[:, 3] + Onuh2
     Om_samples = Omh2_samples / (samples[:, 1] / 100) ** 2
     zst_samples = cmb.z_star(samples[:, 2], Omh2_samples)
     zdr_samples = cmb.z_drag(samples[:, 2], Omh2_samples)
-    Omh2_16, Omh2_50, Omh2_84 = np.percentile(Omh2_samples, [15.9, 50, 84.1])
-    Om_16, Om_50, Om_84 = np.percentile(Om_samples, [15.9, 50, 84.1])
-    z_st_16, z_st_50, z_st_84 = np.percentile(zst_samples, [15.9, 50, 84.1])
-    z_dr_16, z_dr_50, z_dr_84 = np.percentile(zdr_samples, [15.9, 50, 84.1])
+    Omh2_16, Omh2_50, Omh2_84 = np.percentile(Omh2_samples, one_sigma_contour)
+    Om_16, Om_50, Om_84 = np.percentile(Om_samples, one_sigma_contour)
+    z_st_16, z_st_50, z_st_84 = np.percentile(zst_samples, one_sigma_contour)
+    z_dr_16, z_dr_50, z_dr_84 = np.percentile(zdr_samples, one_sigma_contour)
 
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f}")
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
@@ -223,21 +224,21 @@ Log evidence: -834.5
 
 """
 Flat ΛCDM w(z) = -1, varying absolute magnitude
-M(z) = ΔM_inf + 1 - (z / (1 + z))^(0.1 * p)
+M(z) = ΔM_max + 1 - (z / (0.1 + z))^(0.1 * p)
 
-ΔM: -0.095 +0.013 -0.013
-p: 0.123 +0.066 -0.065 (prior U(-0.4, 0.6))
-H0: 67.73 +0.49 -0.49 km/s/Mpc
+ΔM_max: -0.086 +0.012 -0.012
+p: 0.260 +0.128 -0.128 (prior U(-0.5, 1.0))
+H0: 67.71 +0.49 -0.48 km/s/Mpc
 Ωm: 0.310 +0.007 -0.007
 ωb: 0.02251 +0.00011 -0.00011
-ωc: 0.1190 +0.0012 -0.0012
-ωm: 0.1422 +0.0012 -0.0011
-z*: 1089.64 +0.22 -0.21
+ωc: 0.1191 +0.0012 -0.0012
+ωm: 0.1422 +0.0011 -0.0011
+z*: 1089.65 +0.21 -0.21
 zd: 1060.18 +0.23 -0.23
-r*: 144.59 Mpc
-r_d: 147.20 Mpc
-Chi squared: 1629.17 (1.87 sigma away from no evolution in magnitude)
-Log evidence: -834.6
+r*: 144.57 Mpc
+r_d: 147.19 Mpc
+Chi squared: 1628.49 (2.04 sigma away from no evolution in M)
+Log evidence: -834.0
 """
 
 """
