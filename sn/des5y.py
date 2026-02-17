@@ -14,7 +14,7 @@ c = c0 / 1000  # Speed of light (km/s)
 H0 = 70.0  # Hubble constant (km/s/Mpc)
 
 z_grid = np.linspace(0, np.max(z_cmb) + 0.1, num=3000)
-dx = np.diff(z_grid)
+dz = np.diff(z_grid)
 
 inv_a = 1.0 + z_grid
 
@@ -30,9 +30,9 @@ def Ez(params):
 @njit
 def DM_z(z, params):
     dh_grid = (c / H0) / Ez(params)
-    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    dh = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size, dtype=np.float64)
-    cum_dm[1:] = np.cumsum(dx * dy)
+    cum_dm[1:] = np.cumsum(dh * dz)
     return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
@@ -182,32 +182,45 @@ Dataset: DES-SN5YR Dovekie - effective: 1714 SNe
 z range: 0.025 - 1.144
 Sample size: 1820
 ********************************
+"""
 
+"""
 Flat ΛCDM w(z) = -1
 Ωm: 0.331 +0.016 -0.015
-w0: -1
-wa: 0
 R-squared (%): 98.38
 RMSD (mag): 0.268
 Skewness of residuals: 3.206
 Chi squared: 1631.42
 Log evidence: -822.3
 Effective deg of freedom: 1712
+"""
 
-==============================
+"""
+Flat ΛCDM w(z) = -1
+Evolving M(z) = M_max + 1 - (z / (0.1 + z))^(0.1 * p)
 
+ΔM: -0.027 +0.021 -0.021 mag
+p: 0.35 +0.20 -0.19 (prior ~ U(-0.75, 1.50))
+Ωm: 0.296 +0.024 -0.023 (complete agreement with BAO in ΛCDM)
+R-squared (%): 98.37
+RMSD (mag): 0.269
+Skewness of residuals: 3.226
+Chi squared: 1628.06
+Effective deg of freedom: 1711
+"""
+
+"""
 Flat wCDM w(z) = w0
 Ωm: 0.260 +0.065 -0.085
 w0: -0.83 +0.14 -0.15
-wa: 0
 R-squared (%): 98.37
 RMSD (mag): 0.268
 Skewness of residuals: 3.213
 Chi squared: 1630.18
 Effective deg of freedom: 1711
+"""
 
-==============================
-
+"""
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
 Ωm: 0.287 +0.030 -0.035
 w0: -0.81 +0.11 -0.11
@@ -218,9 +231,9 @@ Skewness of residuals: 3.217
 Chi squared: 1629.55
 Log evidence: -822.4
 Effective deg of freedom: 1711
+"""
 
-==============================
-
+"""
 Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
 TODO
 """
