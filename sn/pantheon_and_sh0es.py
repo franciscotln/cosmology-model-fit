@@ -15,7 +15,7 @@ cho = cho_factor(cov_matrix, lower=True)[0]
 c = 299792.458  # Speed of light (km/s)
 
 z_grid = np.linspace(0, np.max(z_values) + 0.1, num=3000)
-dx = np.diff(z_grid)
+dz = np.diff(z_grid)
 
 zp1 = 1.0 + z_grid
 zp1_hel = 1.0 + z_hel_values
@@ -31,9 +31,9 @@ def Ez(params):
 @njit
 def DM_z(theta):
     dh_grid = (c / theta[1]) / Ez(theta)
-    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    dh = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size, dtype=np.float64)
-    cum_dm[1:] = np.cumsum(dx * dy)
+    cum_dm[1:] = np.cumsum(dh * dz)
     return interp_hermite(z_values, z_grid, cum_dm, dh_grid)
 
 
@@ -199,10 +199,11 @@ Chi squared: 1452.02
 =============================
 
 ΛCDM w(z) = -1
-Varying M(z) = M_max + 1.0 - (z / (0.1 + z))^(0.1 * p)
-p: 0.133 +0.137/-0.134
-M_max: -19.281 +0.048/-0.048
-H0 (km/s/Mpc): 72.83 +1.25/-1.23
+Evolving absolute mag of SNe M(z) = M_max + p * [1 - (z / (0.1 + z))^0.05]
+
+p: 0.269 +0.279/-0.282 mag
+M_max: -19.279 +0.048/-0.048 mag
+H0 (km/s/Mpc): 72.87 +1.24/-1.22
 Ωm: 0.315 +0.025/-0.024
 R-squared (%): 99.78
 RMSD (mag): 0.153
