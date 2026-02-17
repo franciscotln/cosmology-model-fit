@@ -223,10 +223,10 @@ w0:   U(-1.2, -0.5)
 w0waCDM:
 w0:   U(-1.5, 0.0)
 wa:   U(-5.0, 3.0)
-Enforced w0 + wa > 0
+Enforced w0 + wa < 0
 
 Varying absolute magnitude SNe within ΛCDM:
-p:    U(-0.4, 1.0)
+p:    U(-2.0, 4.0)
 """
 
 """
@@ -244,17 +244,17 @@ Degrees of freedom: 66
 
 """
 Flat ΛCDM: w(z) = -1, evolving absolute magnitude SNe
-M(z) = ΔM_inf + 1 - (z / (1 + z))^(0.1 * p)
+M(z) = M_max + p * [1 - (z / (0.1 + z))^0.05]
 
 f_cc: 1.48 +0.17 -0.17
-ΔM: -0.066 +0.073 -0.073 mag
-p: 0.26 +0.13 -0.13
+ΔM_max: -0.051 +0.072 -0.072 mag
+p: 1.14 +0.52 -0.52
 H0: 69.0 +2.3 -2.3 km/s/Mpc
-r_d: 147.2 +4.5 -5.1 Mpc
-Ωm: 0.298 +0.008 -0.008
+r_d: 147.2 +4.4 -5.0 Mpc
+Ωm: 0.299 +0.008 -0.008
 ωm: 0.1426 +0.0309 -0.0219
-Chi squared: 71.79 (2.14 sigma away from no mag evolution)
-Log evidence: -178.26 (Δ logZ = 0.75 against no mag evolution)
+Chi squared: 71.40 (2.23 sigma away from constant M)
+Log evidence: -178.11 (Δ logZ = 0.90 against constant M)
 Degrees of freedom: 65
 """
 
