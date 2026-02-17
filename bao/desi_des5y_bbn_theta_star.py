@@ -19,17 +19,17 @@ inv_cov_bao = np.linalg.inv(cov_matrix_bao)
 
 z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
 z_grid = np.linspace(0, z_max, num=3000)
-dx = np.diff(z_grid)
+dz = np.diff(z_grid)
 
 
 @njit
-def Ode_z(z, w0, wa):
+def Ode_z(z, w0):
     zp1 = 1.0 + z
     return (2 * zp1**3 / (1.0 + w0 + (1.0 - w0) * zp1**3)) ** 2
 
 
 @njit
-def Ez(z, H0, Obh2, Och2, w0=-1.0, wa=0.0):
+def Ez(z, H0, Obh2, Och2, w0):
     h = H0 / 100
     Onu = Omnu_h2 / h**2
     Or = Orh2 / h**2
@@ -41,7 +41,7 @@ def Ez(z, H0, Obh2, Och2, w0=-1.0, wa=0.0):
     radiation_term = Or * zp1**4
     matter_term = Obc * zp1**3
     neutrino_term = Onu * cmb.Omnu_z(z)
-    dark_energy_term = Ode * Ode_z(z, w0, wa)
+    dark_energy_term = Ode * Ode_z(z, w0)
 
     return np.sqrt(radiation_term + matter_term + neutrino_term + dark_energy_term)
 
@@ -63,9 +63,9 @@ def DH_z(z, params):
 @njit
 def DM_z(z, theta):
     dh_grid = DH_z(z_grid, theta)
-    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    dh = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size, dtype=np.float64)
-    cum_dm[1:] = np.cumsum(dx * dy)
+    cum_dm[1:] = np.cumsum(dz * dh)
     return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
@@ -110,16 +110,13 @@ def chi_squared(theta):
     delta_lA = (cmb.DISTANCE_PRIORS - cmb.cmb_distances(theta[2], theta[3], theta))[1]
     chi2_lA = delta_lA**2 / cmb.covariance[1, 1]
 
-    delta_bbn = bbn.Obh2 - theta[2]
-    chi2_bbn = (delta_bbn / bbn.Obh2_sigma) ** 2
-
     delta_sn = mu_values - theory_mu(theta)
     chi2_sn = solve_triang(cho_sn, delta_sn)
 
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, theta)
     chi2_bao = delta_bao @ inv_cov_bao @ delta_bao
 
-    return chi2_sn + chi2_bao + chi2_lA + chi2_bbn
+    return chi2_sn + chi2_bao + chi2_lA
 
 
 bounds = np.array(
@@ -139,7 +136,8 @@ normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
 def log_prior(theta):
     if not np.all((bounds[:, 0] < theta) & (theta < bounds[:, 1])):
         return -np.inf
-    return normalization
+    Obh2_prior = -0.5 * (bbn.Obh2 - theta[2]) ** 2 / bbn.Obh2_sigma**2
+    return normalization + Obh2_prior
 
 
 def log_likelihood(theta):
@@ -204,7 +202,7 @@ def main():
     ] = np.percentile(samples, one_sigma_contour, axis=0).T
 
     best_fit = np.percentile(samples, 50, axis=0)
-    degs_of_freedom = 2 + len(bao_data["z"]) + sn_size - len(best_fit)
+    degs_of_freedom = 1 + len(bao_data["z"]) + sn_size - len(best_fit)
 
     Omh2_samples = samples[:, 2] + samples[:, 3] + Omnu_h2
     Om_samples = Omh2_samples / (samples[:, 1] / 100) ** 2
@@ -261,23 +259,42 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM  w(z) = -1
+ΔM: -0.068 +0.013 -0.013 mag
 H0: 68.22 +0.46 -0.46 km/s/Mpc
-ωb: 0.02204 +0.00053 -0.00054
+ωb: 0.02204 +0.00054 -0.00053
 ωc: 0.1166 +0.0008 -0.0008
 ωm: 0.1393 +0.0011 -0.0011
 Ωm: 0.299 +0.004 -0.004
-w0: -1
-wa: 0
-r_d: 148.38 +0.70 -0.70 Mpc
-z*: 1090.06 +0.74 -0.70
-r*: 145.57 Mpc
+r_d: 148.38 +0.71 -0.70 Mpc
+z*: 1090.03 +0.71 -0.68
+r*: 145.59 Mpc
 100 θ*: 1.04096
-Chi squared: 1646.45
-Log Evidence: -840.45
-Degrees of freedom: 1725
+Chi squared: 1646.40
+Log Evidence: -840.46
+Degrees of freedom: 1724
+"""
 
-===============================
+"""
+Flat ΛCDM  w(z) = -1
+Varying M(z) = M_max + 1 - (z / (0.1 + z))^(0.1 * p)
 
+p: 0.352 +0.127 -0.123 (prior ~ U(-0.5, 1.0))
+ΔM_max: -0.074 +0.013 -0.013 mag
+H0: 68.50 +0.47 -0.47 km/s/Mpc
+ωb: 0.02218 +0.00054 -0.00053
+ωc: 0.1161 +0.0008 -0.0008
+ωm: 0.1389 +0.0011 -0.0011
+Ωm: 0.296 +0.004 -0.004
+r_d: 148.35 +0.70 -0.69 Mpc
+z*: 1089.80 +0.70 -0.68
+r*: 145.60 Mpc
+100 θ*: 1.04095
+Chi squared: 1638.36 (2.84 sigma away from constant M)
+Log Evidence: -837.97 (Δ logZ 2.49 against constant M)
+Degrees of freedom: 1723
+"""
+
+"""
 Flat wCDM w(z) = w0
 H0: 67.19 +0.63 -0.62 km/s/Mpc
 ωb: 0.02228 +0.00054 -0.00054
@@ -285,35 +302,48 @@ H0: 67.19 +0.63 -0.62 km/s/Mpc
 ωm: 0.1374 +0.0014 -0.0014
 Ωm: 0.304 +0.005 -0.005
 w0: -0.938 +0.025 -0.026
-wa: 0
 r_d: 148.68 +0.72 -0.71 Mpc
 z*: 1089.56 +0.75 -0.72
 r*: 145.96 Mpc
 100 θ*: 1.04093
 Chi squared: 1640.66
 Log Evidence: -840.76 (Δ logZ -0.31 in favour of ΛCDM)
-Degrees of freedom: 1724
+Degrees of freedom: 1723
+"""
 
-===============================
-
+"""
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
 H0: 67.04 +0.62 -0.61 km/s/Mpc
 ωb: 0.02225 +0.00054 -0.00053
 ωc: 0.1154 +0.0009 -0.0009
 ωm: 0.1383 +0.0011 -0.0012
 Ωm: 0.308 +0.005 -0.005
-w0: -0.879 +0.043 -0.043 (prior width 2/3: -1.0 to -1/3)
+w0: -0.879 +0.043 -0.043 (prior ~ U(-1.0, -1/3))
 wa: d w(z)/dz at z=0 = -(3/2) * (1 - w0^2)
 r_d: 148.47 +0.70 -0.69 Mpc
 z*: 1089.64 +0.70 -0.68
 r*: 145.74 Mpc
 100 θ*: 1.04094
-Chi squared: 1638.87
+Chi squared: 1638.87 (2.74 sigma away from ΛCDM)
 Log Evidence: -838.52 (Δ logZ 1.93 against of ΛCDM)
-Degrees of freedom: 1724
+Degrees of freedom: 1723
+"""
 
-===============================
-
-Flat w(z) = w0 + wa * z / (1 + z)
-TODO
+"""
+Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
+ΔM: -0.067 +0.016 -0.016 mag
+H0: 67.16 +0.63 -0.63 km/s/Mpc
+ωb: 0.02216 +0.00056 -0.00055
+ωc: 0.1173 +0.0018 -0.0020
+ωm: 0.1401 +0.0019 -0.0021
+Ωm: 0.310 +0.006 -0.006
+w0: -0.849 +0.064 -0.062 (prior ~ U(-1.5, 0.0))
+wa: -0.462 +0.288 -0.302 (prior ~ U(-2.5, 1.0))
+r_d: 148.09 +0.81 -0.77 Mpc
+z*: 1089.93 +0.78 -0.75
+r*: 145.30 Mpc
+100 θ*: 1.04082
+Chi squared: 1638.45 (2.35 sigma away from ΛCDM)
+Log Evidence: -840.98 (Δ logZ -0.52 in favour of ΛCDM)
+Degrees of freedom: 1722
 """
