@@ -2,12 +2,12 @@ from numba import njit
 import numpy as np
 import cmb.data_planck_act_compression as cmb
 from interpolator import interp_hermite
-from y2023union3.data import get_data as get_sn_data
+from y2026union3_1.data import get_data as get_sn_data
 from y2005cc.data import get_data as get_cc_data
 from y2025BAO.data import get_data as get_bao_data
 
 cc_legend, z_cc_vals, H_cc_vals, cov_matrix_cc = get_cc_data()
-sn_legend, z_sn_vals, mu_values, cov_matrix_sn = get_sn_data()
+sn_legend, z_cmb, z_hel, mu_values, cov_matrix_sn = get_sn_data()
 bao_legend, bao_data, cov_matrix_bao = get_bao_data()
 
 inv_cov_sn = np.linalg.inv(cov_matrix_sn)
@@ -21,9 +21,9 @@ c = cmb.c  # km/s
 Or_h2 = cmb.Or_h2
 Omnu_h2 = cmb.Omnu_h2
 
-z_max = max(np.max(z_sn_vals), np.max(bao_data["z"])) + 0.1
+z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
 z_grid = np.linspace(0, z_max, num=4000)
-dx = np.diff(z_grid)
+dz = np.diff(z_grid)
 
 
 @njit
@@ -31,9 +31,9 @@ def Ode_z(z, w0):
     zp1 = 1.0 + z
     cubed = zp1**3
     # return 1.0  # ΛCDM
-    # return cubed ** (1 + w0)  # wCDM
+    # return cubed ** (1.0 + w0)  # wCDM
     return (2 * cubed / (1.0 + w0 + (1.0 - w0) * cubed)) ** 2  # wzCDM
-    # return cubed ** (1 + w0 + wa) * np.exp(-3 * wa * z / zp1)  # w0waCDM
+    # return cubed ** (1.0 + w0 + wa) * np.exp(-3 * wa * z / zp1)  # w0waCDM
 
 
 @njit
@@ -69,9 +69,9 @@ def DH_z(z, theta):
 @njit
 def DM_z(z, theta):
     dh_grid = DH_z(z_grid, theta)
-    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    dh = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size, dtype=np.float64)
-    cum_dm[1:] = np.cumsum(dx * dy)
+    cum_dm[1:] = np.cumsum(dh * dz)
     return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
@@ -103,7 +103,7 @@ def bao_theory(z, qty, theta):
 
 @njit
 def mu_theory(theta):
-    dL = (1.0 + z_sn_vals) * DM_z(z_sn_vals, theta)
+    dL = (1.0 + z_hel) * DM_z(z_cmb, theta)
     return theta[1] + 25.0 + 5 * np.log10(dL)
 
 
@@ -155,7 +155,7 @@ def main():
 
     with Pool(8) as pool:
         sampler = Sampler(
-            prior, log_likelihood, n_live=10_000, pool=pool, seed=42, pass_dict=False
+            prior, log_likelihood, n_live=8_000, pool=pool, seed=42, pass_dict=False
         )
         sampler.run(verbose=True)
 
@@ -190,7 +190,7 @@ def main():
     best_fit = [fcc_50, dM_50, h0_50, wb_50, wc_50, w0_50]
 
     deg_of_freedom = (
-        1 + len(z_sn_vals) + len(bao_data["z"]) + len(z_cc_vals) - len(prior.keys)
+        1 + len(z_cmb) + len(bao_data["z"]) + len(z_cc_vals) - len(prior.keys)
     )
 
     Omh2_samples = samples[:, 3] + samples[:, 4] + Omnu_h2
@@ -227,7 +227,7 @@ def main():
     )
     plot_sn_predictions(
         legend=sn_legend,
-        x=z_sn_vals,
+        x=z_cmb,
         y=mu_values,
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=mu_theory(best_fit),
@@ -242,88 +242,105 @@ if __name__ == "__main__":
 
 """
 Priors:
-f_cc U(0.2, 3.0)
-ΔM U(-1.0, +1.0)
-H0 U(50.0, 85.0)
-ωb U(0.003, 0.050)
-ωc U(0.05, 0.30)
+f_cc ~U(0.2, 3.0)
+ΔM   ~U(-1.0, +1.0)
+H0   ~U(50.0, 85.0)
+ωb   ~U(0.003, 0.050)
+ωc   ~U(0.05, 0.30)
 
 wCDM:
-w0 U(-1.5, -0.5)
+w0   ~U(-1.5, -0.5)
 
 wzCDM:
-w0 U(-1.0, -1 / 3)
+w0   ~U(-1.0, -1 / 3)
 
 w0waCDM:
-w0 U(-1.5, 0.0)
-wa U(-3.5, +2.0)
+w0   ~U(-1.5, 0.0)
+wa   ~U(-3.5, +2.0)
 w0 + wa < 0 enforced
+
+M(z):
+p    ~U(-1.0, 2.0)
 """
 
 """
 Flat ΛCDM: w(z) = -1
-f_cc: 1.48 +0.19 -0.18
-ΔM: -0.150 +0.100 -0.099 mag
-H0: 67.7 +1.5 -1.4 km/s/Mpc
-ωb: 0.0212 +0.0021 -0.0019 Mpc
+f_cc: 1.49 +0.18 -0.17
+ΔM: -0.068 +0.042 -0.039 mag
+H0: 67.9 +1.5 -1.4 km/s/Mpc
+ωb: 0.0214 +0.0021 -0.0019 Mpc
 ωc: 0.1162 +0.0012 -0.0010
-ωm: 0.1380 +0.0031 -0.0026
-Ωm: 0.301 +0.008 -0.008
-w0: -1
-wa: 0
-r_d: 149.5 +2.5 -2.6 Mpc
-Chi squared: 72.22
-Log evidence: -166.49
-Degrees of freedom: 64
+ωm: 0.1382 +0.0031 -0.0027
+Ωm: 0.300 +0.008 -0.007
+r_d: 149.2 +2.5 -2.6 Mpc
+Chi squared: 77.40
+Log evidence: -181.90
+Degrees of freedom: 67
+"""
 
-===============================
+"""
+Flat ΛCDM: w(z) = -1
+Varying M(z) = M_max + 1 - (z / (1 + z))^(0.1 * p)
 
+f_cc: 1.49 +0.18 -0.17
+ΔM_max: -0.064 +0.042 -0.039 mag
+p: 0.602 +0.278 -0.265
+H0: 68.6 +1.6 -1.4 km/s/Mpc
+ωb: 0.0224 +0.0022 -0.0020 Mpc
+ωc: 0.1163 +0.0013 -0.0011
+ωm: 0.1393 +0.0034 -0.0029
+Ωm: 0.296 +0.008 -0.007
+r_d: 148.1 +2.5 -2.7 Mpc
+Chi squared: 72.32 (2.25 sigmas away from constant M)
+Log evidence: -180.77 (Δ logZ = 1.13 against constant M)
+Degrees of freedom: 66
+"""
+
+"""
 Flat wCDM: w(z) = w0
-f_cc: 1.47 +0.19 -0.18
-ΔM: -0.114 +0.102 -0.102 mag
-H0: 68.5 +1.7 -1.6 km/s/Mpc
-ωb: 0.0260 +0.0032 -0.0030 Mpc
-ωc: 0.1146 +0.0017 -0.0016
-ωm: 0.1411 +0.0043 -0.0037
-Ωm: 0.301 +0.007 -0.007
-w0: -0.888 +0.041 -0.042
-wa: 0
-r_d: 144.7 +3.3 -3.5 Mpc
-Chi squared: 65.35
-Log evidence: -165.37 (Δ logZ = 1.12 against ΛCDM)
-Degrees of freedom: 63
+f_cc: 1.49 +0.18 -0.17
+ΔM: -0.018 +0.052 -0.048 mag
+H0: 68.6 +1.7 -1.5 km/s/Mpc
+ωb: 0.0253 +0.0031 -0.0028 Mpc
+ωc: 0.1150 +0.0016 -0.0015
+ωm: 0.1408 +0.0042 -0.0035
+Ωm: 0.300 +0.007 -0.007
+w0: -0.910 +0.040 -0.041
+r_d: 145.3 +3.2 -3.4 Mpc
+Chi squared: 72.92 (2.12 sigmas away from ΛCDM)
+Log evidence: -181.85 (Δ logZ = 0.05 against ΛCDM)
+Degrees of freedom: 66
+"""
 
-===============================
-
+"""
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
-f_cc: 1.47 +0.18 -0.18
-ΔM: -0.142 +0.102 -0.100 mag
-H0: 67.3 +1.6 -1.5 km/s/Mpc
-ωb: 0.0246 +0.0027 -0.0025 Mpc
-ωc: 0.1159 +0.0015 -0.0013
-ωm: 0.1411 +0.0040 -0.0034
-Ωm: 0.312 +0.008 -0.008
-w0: -0.777 +0.069 -0.072
-wa: d w(z)/dz at z=0 = -(3/2) * (1 - w0^2)
-r_d: 145.8 +2.9 -3.1 Mpc
-Chi squared: 63.22
-Log evidence: -163.37 (Δ logZ = 3.12 against ΛCDM)
-Degrees of freedom: 63
+f_cc: 1.49 +0.18 -0.17
+ΔM: -0.033 +0.047 -0.043 mag
+H0: 67.6 +1.6 -1.4 km/s/Mpc
+ωb: 0.0242 +0.0026 -0.0024 Mpc
+ωc: 0.1160 +0.0015 -0.0013
+ωm: 0.1408 +0.0039 -0.0033
+Ωm: 0.308 +0.008 -0.008
+w0: -0.827 +0.067 -0.070
+r_d: 146.2 +2.9 -3.1 Mpc
+Chi squared: 71.44 (2.44 sigmas away from ΛCDM)
+Log evidence: -180.31 (Δ logZ = 1.59 against ΛCDM)
+Degrees of freedom: 66
+"""
 
-===============================
-
+"""
 Flat w0waCDM: w(z) = w0 + wa * z / (1 + z)
-f_cc: 1.46 +0.18 -0.17
-ΔM: -0.179 +0.107 -0.105 mag
-H0: 65.9 +2.1 -1.8 km/s/Mpc
-ωb: 0.0220 +0.0036 -0.0030 Mpc
-ωc: 0.1179 +0.0018 -0.0021
-ωm: 0.1402 +0.0037 -0.0029
-Ωm: 0.323 +0.015 -0.015
-w0: -0.739 +0.107 -0.100
-wa: -0.750 +0.457 -0.499
-r_d: 148.2 +3.4 -3.8 Mpc
-Chi squared: 62.73
-Log evidence: -166.02 (Δ logZ = 0.47 against ΛCDM)
-Degrees of freedom: 62
+f_cc: 1.48 +0.18 -0.17
+ΔM: -0.057 +0.057 -0.051 mag
+H0: 66.7 +2.1 -1.8 km/s/Mpc
+ωb: 0.0223 +0.0037 -0.0031 Mpc
+ωc: 0.1175 +0.0019 -0.0023
+ωm: 0.1401 +0.0037 -0.0030
+Ωm: 0.315 +0.014 -0.014
+w0: -0.810 +0.097 -0.091
+wa: -0.530 +0.426 -0.469
+r_d: 147.9 +3.5 -3.8 Mpc
+Chi squared: 70.91 (2.06 sigmas away from ΛCDM)
+Log evidence: -183.16 (Δ logZ = -1.26 in favour of ΛCDM)
+Degrees of freedom: 65
 """
