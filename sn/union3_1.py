@@ -190,8 +190,8 @@ Flat ΛCDM: w(z) = -1, varying absolute magnitude
 M(z) = ΔM_inf + 1 - (z / (0.1 + z))^(0.1 * p)
 
 ΔM: -0.025 +0.036/-0.036
-p: 0.637 +0.394/-0.373
-Ωm: 0.292 +0.034/-0.032
+p: 0.637 +0.394/-0.373 (prior ~ U(-1.75, 3.0))
+Ωm: 0.292 +0.034/-0.032 (complete agreement with ΛCDM from BAO)
 R-squared (%): 99.96
 RMSD (mag): 0.046
 Skewness of residuals: -0.892
