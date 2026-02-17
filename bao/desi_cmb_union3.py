@@ -143,7 +143,7 @@ bounds = np.array(
         (60.0, 75.0),  # H0
         (0.010, 0.030),  # ωb = Ωb * h^2
         (0.01, 0.25),  # ωc = Ωc * h^2
-        (-1.0, 1 / 3),  # w0
+        (-1.0, -1 / 3),  # w0
     ]
 )
 
@@ -327,13 +327,13 @@ Degs of freedom: 36
 
 """
 Flat ΛCDM w(z) = -1
-Evolving the absolute mag SNe: M(z) = ΔM_max + 1 - (z / (0.1 + z))**(0.1 * p)
+Evolving absolute mag of SNe M(z) = ΔM_max + p * [1 - (z / (0.1 + z))^0.05]
 
 ΔM_max: -0.064 +0.009 -0.009 mag
-p: 0.581 +0.268 -0.263 (prior U(-0.8, 2.0)) - 98.64% of the posterior has p > 0, which indicates SNe mags become more negative with redshift.
+p: 1.135 +0.509 -0.504 (prior U(-2.0, 4.0))
 H0: 68.51 +0.27 -0.27 km/s/Mpc
 Ωm: 0.2992 +0.0036 -0.0036
-ωb: 0.02259 +0.00010 -0.00010
+ωb: 0.02258 +0.00010 -0.00010
 ωc: 0.1172 +0.0007 -0.0006
 ωm: 0.1404 +0.0006 -0.0006
 z*: 1089.37 +0.15 -0.15
@@ -341,8 +341,8 @@ r*: 145.01 Mpc
 z_d: 1060.21 +0.23 -0.23
 r_d: 147.61 Mpc
 q0: -0.551 +0.005 -0.005
-Chi2 (MAP): 41.16 (2.23 sigma away from no evolution in mags)
-Log evidence: -41.0 (Δ logZ = 1.0 against no evolution in mags)
+Chi2 (MAP): 41.12 (2.24 sigma away from constant M)
+Log evidence: -41.1 (Δ logZ = 0.9 against constant M)
 Degs of freedom: 35
 """
 
