@@ -213,24 +213,23 @@ r_d: 143.38 +3.89 -3.65 Mpc
 Chi2 (MAP): 1645.29
 Log Evidence: -836.05
 Degrees of freedom: 1723
+"""
 
-===============================
-
+"""
 Flat ΛCDM
-Evolving absolute magnitude with redshift
-M(z) = ΔM_max + 1 - (z / (0.1 + z))^(0.1 * p)
+Evolving absolute mag of SNe M(z) = ΔM_max + p * [1 - (z / (0.1 + z))^0.05]
 
-ΔM_max: -0.015 +0.056 -0.056 mag
-p: 0.344 +0.135 -0.133 - 99.52% of the posterior has p > 0, suggesting SNe mags become more negative with redshift.
-H0: 70.33 +1.80 -1.76 km/s/Mpc
-r_d: 144.36 +3.87 -3.71 Mpc
+ΔM_max: -0.015 +0.056 -0.057 mag
+p: 0.694 +0.260 -0.263 (prior ~ U(-1.0, 2.0)) - 99.58% of the posterior has p > 0, suggesting SNe mags become more negative with redshift.
+H0: 70.34 +1.81 -1.80 km/s/Mpc
+r_d: 144.37 +3.88 -3.76 Mpc
 Ωm: 0.297 +0.008 -0.008
-Chi2 (MAP): 1638.39 (2.63 sigma away from no mag evolution)
-Log Evidence: -834.41 (Δ logZ 1.64 against no mag evolution)
+Chi2 (MAP): 1638.38 (2.63 sigma away from no mag evolution)
+Log Evidence: -834.12 (Δ logZ 1.93 against no mag evolution)
 Degrees of freedom: 1722
+"""
 
-===============================
-
+"""
 Flat wCDM
 ΔM: 0.024 +0.056 -0.058 mag
 H0: 70.33 +1.81 -1.80 km/s/Mpc
@@ -240,9 +239,9 @@ w0: -0.908 +0.037 -0.038 (prior U(-1.5, -0.5))
 Chi2 (MAP): 1639.51 (2.40 sigma away from ΛCDM)
 Log Evidence: -835.54 (Δ logZ 0.51 against ΛCDM)
 Degrees of freedom: 1722
+"""
 
-===============================
-
+"""
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
 ΔM: 0.031 +0.055 -0.058 mag
 H0: 70.36 +1.76 -1.81 km/s/Mpc
@@ -253,9 +252,9 @@ wa: d w(z)/dz at z=0 = -(3/2) * (1 - w0^2)
 Chi2 (MAP): 1638.47 (2.61 sigma away from ΛCDM)
 Log Evidence: -834.32 (Δ logZ 1.34 against ΛCDM)
 Degrees of freedom: 1722
+"""
 
-===============================
-
+"""
 Flat w(z) = w0 + wa * z / (1 + z)
 TODO: re-run
 w0: (prior U(-1.5, 0.0))

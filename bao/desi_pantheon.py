@@ -82,7 +82,7 @@ bounds = np.array(
         (-20.0, -19.0),  # M
         (50.0, 100.0),  # H0
         (0.2, 0.7),  # Ωm
-        (-1.5, 0.0),  # w0
+        (-1.0, 2.0),  # w0
     ]
 )
 
@@ -211,14 +211,16 @@ Degrees of freedom: 1600
 
 ===============================
 
-Flat ΛCDM, evolving absolute magnitude M(z) = M_inf + 1 - (z / (1 + z))^(0.1 * p)
+Flat ΛCDM
+Evolving absolute mag of SNe M(z) = M_max + p * [1 - (z / (0.1 + z))^0.05]
+
 r_d: 147.09 Mpc (fixed)
-M_inf: -19.422 +0.016 -0.016 mag (M0 = -18.422 +0.016 -0.016)
-p: 0.122 +0.063 -0.061
-H0: 69.00 +0.48 -0.48 km/s/Mpc
-Ωm: 0.298 +0.008 -0.008
-Chi squared: 1412.19 (Δ chi2 3.95)
-Log evidence: -720.85
+M_max: -19.411 +0.014 -0.014 mag
+p: 0.422 +0.211 -0.214 (prior ~ U(-1.0, 2.0))
+H0: 68.94 +0.48 -0.48 km/s/Mpc
+Ωm: 0.299 +0.008 -0.008
+Chi squared: 1412.20 (Δ chi2 3.95)
+Log evidence: -720.39
 Degrees of freedom: 1599
 
 ===============================
