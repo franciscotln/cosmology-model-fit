@@ -17,7 +17,7 @@ c = c0 / 1000  # Speed of light in km/s
 
 z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
 z_grid = np.linspace(0, z_max, num=3000)
-dx = np.diff(z_grid)
+dz = np.diff(z_grid)
 
 
 @njit
@@ -47,9 +47,9 @@ def DH_z(z, params):
 @njit
 def DM_z(z, theta):
     dh_grid = DH_z(z_grid, theta)
-    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    dh = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size, dtype=np.float64)
-    cum_dm[1:] = np.cumsum(dx * dy)
+    cum_dm[1:] = np.cumsum(dz * dh)
     return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
@@ -136,7 +136,7 @@ def main():
     from corner_plot import plot_corner_and_chains
     from log_evidence import log_evidence
     from sn.plotting import plot_predictions as plot_sn_predictions
-    from .plot_predictions import plot_bao_predictions
+    from bao.plot_predictions import plot_bao_predictions
 
     np.random.seed(42)
     ndim = len(bounds)
@@ -230,6 +230,22 @@ wa: 0
 Chi squared: 1645.3
 Log evidence: -838.0
 Degrees of freedom: 1724
+
+===============================
+
+Flat ΛCDM
+Evolving absolute mag of SNe M(z) = ΔM_max + p * [1 - (z / (0.1 + z))^0.05]
+
+p: 0.693 +0.263 -0.264
+ΔM_max: -0.056 +0.012 -0.012 mag
+H0: 69.02 +0.49 -0.50 km/s/Mpc
+r_d: 147.14 +0.29 -0.29 Mpc
+ωb: 0.02276 +0.00071 -0.00071
+ωm: 0.1416 +0.0023 -0.0023
+Ωm: 0.297 +0.008 -0.008
+Chi squared: 1638.3 (2.65 sigma away from constant M)
+Log evidence: -836.1 (Δ logZ = 1.9 against constant M)
+Degrees of freedom: 1723
 
 ===============================
 
