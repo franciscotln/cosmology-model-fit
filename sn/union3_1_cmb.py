@@ -12,7 +12,7 @@ sn_legend, z_cmb, z_hel, mu_vals, cov_matrix_sn = get_data()
 inv_cov_sn = np.linalg.inv(cov_matrix_sn)
 
 z_grid = np.linspace(0, np.max(z_cmb) + 0.1, num=2000)
-dx = np.diff(z_grid)
+dz = np.diff(z_grid)
 
 
 @njit
@@ -51,16 +51,16 @@ cmb.set_HZ(Hz)
 @njit
 def DM_z(z, params):
     dh_grid = c / Hz(z_grid, params)
-    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    dh = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size, dtype=np.float64)
-    cum_dm[1:] = np.cumsum(dx * dy)
+    cum_dm[1:] = np.cumsum(dz * dh)
     return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
 @njit
 def mu_theory(params):
     dL = (1.0 + z_hel) * DM_z(z_cmb, params)
-    Mz = params[0] + 1.0 - (z_cmb / (0.1 + z_cmb)) ** (0.1 * params[4])
+    Mz = params[0] + params[4] * (1.0 - (z_cmb / (0.1 + z_cmb)) ** 0.05)
     return Mz + 25.0 + 5 * np.log10(dL)
 
 
@@ -80,7 +80,7 @@ bounds = np.array(
         (60.0, 75.0),  # H0
         (0.010, 0.030),  # ωb
         (0.010, 0.250),  # ωc
-        (-1.0, 2.0),  # p
+        (-2.0, 4.0),  # p
     ]
 )
 
@@ -225,13 +225,13 @@ Degrees of freedom: 21
 
 """
 Flat ΛCDM w(z) = -1, varying absolute magnitude
-M(z) = ΔM_max + 1 - (z / (0.1 + z))^(0.1 * p)
+Evolving absolute mag of SNe M(z) = ΔM_max + p * [1 - (z / (0.1 + z))^0.05]
 
 ΔM_max: -0.078 +0.012 -0.012
-p: 0.485 +0.269 -0.261 (prior U(-1.0, +2.0))
+p: 0.953 +0.512 -0.509 (prior U(-2.0, +4.0))
 H0: 67.68 +0.49 -0.49 km/s/Mpc
 Ωm: 0.311 +0.007 -0.007
-ωm: 0.14231 +0.00115 -0.00114
+ωm: 0.14231 +0.00114 -0.00114
 ωb: 0.02250 +0.00011 -0.00011
 ωc: 0.1192 +0.0012 -0.0012
 z*: 1089.66 +0.21 -0.21
@@ -239,7 +239,7 @@ z_drag: 1060.18 +0.23 -0.23
 r*: 144.56 Mpc
 r_d: 147.18 Mpc
 Chi squared: 26.1 (1.84 sigma away from no evolution)
-Log Evidence: -32.9
+Log Evidence: -33.0
 Degrees of freedom: 20
 """
 

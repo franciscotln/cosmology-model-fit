@@ -16,10 +16,10 @@ OFFSET = 0
 OM = 1
 P = 2
 
-bounds = np.array([(-0.6, 0.6), (0.0, 1.0), (-1.75, 3.0)])  # ΔM, Ωm, p
+bounds = np.array([(-0.6, 0.6), (0.0, 1.0), (-2.5, 5.0)])  # ΔM, Ωm, p
 
 z_grid = np.linspace(0, np.max(z_cmb) + 0.1, num=3000)
-dx = np.diff(z_grid)
+dz = np.diff(z_grid)
 
 
 @njit
@@ -31,16 +31,16 @@ def Ez(z, params):
 @njit
 def DM_z(z, params):
     dh_grid = (c / H0) / Ez(z_grid, params)
-    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    dh = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size, dtype=np.float64)
-    cum_dm[1:] = np.cumsum(dx * dy)
+    cum_dm[1:] = np.cumsum(dh * dz)
     return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
 @njit
 def mu_theory(params):
     dL = (1.0 + z_hel) * DM_z(z_cmb, params)
-    Mz = params[OFFSET] + 1.0 - (z_cmb / (0.1 + z_cmb)) ** (0.1 * params[P])
+    Mz = params[OFFSET] + params[P] * (1.0 - (z_cmb / (0.1 + z_cmb)) ** 0.05)
     return Mz + 25.0 + 5 * np.log10(dL)
 
 
@@ -187,16 +187,16 @@ Degs of freedom: 20
 ===============================
 
 Flat ΛCDM: w(z) = -1, varying absolute magnitude
-M(z) = ΔM_inf + 1 - (z / (0.1 + z))^(0.1 * p)
+Evolving absolute mag of SNe M(z) = ΔM_max + p * [1 - (z / (0.1 + z))^0.05]
 
-ΔM: -0.025 +0.036/-0.036
-p: 0.637 +0.394/-0.373 (prior ~ U(-1.75, 3.0))
-Ωm: 0.292 +0.034/-0.032 (complete agreement with ΛCDM from BAO)
+ΔM: -0.023 +0.035/-0.034
+p: 1.215 +0.708/-0.716 (prior ~ U(-2.5, 5.0))
+Ωm: 0.294 +0.034/-0.031 (complete agreement with ΛCDM from BAO)
 R-squared (%): 99.96
 RMSD (mag): 0.046
-Skewness of residuals: -0.892
+Skewness of residuals: -0.850
 Chi squared: 25.7
-Log evidence: -22.1
+Log evidence: -22.0
 Degs of freedom: 19
 
 ===============================
