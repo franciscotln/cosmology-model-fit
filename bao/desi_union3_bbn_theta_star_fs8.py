@@ -23,7 +23,7 @@ inv_cov_bao = np.linalg.inv(cov_matrix_bao)
 
 z_max = max(np.max(z_cmb), np.max(bao_data["z"]), np.max(fs8_data["z"])) + 0.1
 z_grid = np.linspace(0, z_max, num=3000)
-dx = np.diff(z_grid)
+dz = np.diff(z_grid)
 
 
 @njit
@@ -67,9 +67,9 @@ def DH_z(z, params):
 @njit
 def DM_z(z, theta):
     dh_grid = DH_z(z_grid, theta)
-    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    dh = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size, dtype=np.float64)
-    cum_dm[1:] = np.cumsum(dx * dy)
+    cum_dm[1:] = np.cumsum(dz * dh)
     return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
@@ -120,7 +120,7 @@ def growth_ODE(a, y, *theta):
     h = H0 / 100
     Obc = (Obh2 + Och2) / h**2
 
-    z = 1 / a - 1
+    z = 1 / a - 1.0
     H_vals = H_z(z, theta)
     dH_da_vals = dH_da(z, theta)
 
@@ -133,7 +133,7 @@ def growth_ODE(a, y, *theta):
     return [d_delta_da, d2_delta_da]
 
 
-a_vals = np.logspace(-3.037, 0, 1000, dtype=np.float64)
+a_vals = np.logspace(-3.2, 0, 1500, dtype=np.float64)
 
 
 def fs8_theory(z, theta):
@@ -150,7 +150,7 @@ def fs8_theory(z, theta):
     delta, d_delta_da = sol.y
     delta0 = interp_hermite(np.array([1.0]), a_vals, delta, d_delta_da)[0]
     sig8 = theta[-1]
-    a = 1 / (1 + z)
+    a = 1 / (1.0 + z)
 
     # f = d(ln delta)/d(ln a) = (a / delta) * d(delta)/da
     # sigma8(z) = sigma8 * delta(z) / delta(z=0)
@@ -350,8 +350,9 @@ if __name__ == "__main__":
 
 """
 BAO: DESI DR2 2025
-Prior on ωb from BBN (Y2024)
-SN1a: Union3.1 2026
+SN1a: Union3.1 (2026)
+Prior on ωb from BBN (2024)
+fs8 compilation
 
 Priors:
 
@@ -365,16 +366,16 @@ sig8: U(0.5, 1.5)
 wCDM:
 w0: U(-1.2, -0.6)
 
-wzCDM
+wzCDM:
 w0: U(-1.0, -1/3)
 
 w0waCDM:
 w0: U(-1.5, 0.0)
-wa: U(-3.0, 1.0)
+wa: U(-2.5, 1.5)
 w0 + wa < 0 enforced
 
 M(z):
-p: U(-0.4, 1.0)
+p: U(-1.0, 2.0)
 """
 
 """
@@ -401,26 +402,26 @@ Degrees of freedom: 93
 
 """
 Flat ΛCDM w(z) = -1, evolving absolute magnitude
-M(z) = ΔM_inf + 1 - (z / (1 + z))^(0.1 * p)
+M(z) = ΔM_max + 1 - (z / (0.1 + z))^(0.1 * p)
 
-ΔM: -0.083 +0.018 -0.018 mag
-p: 0.270 +0.126 -0.120 - 98.78% of the posterior has p > 0, which indicates SNe mags become more negative with redshift.
-H0: 68.57 +0.46 -0.46 km/s/Mpc
-ωb: 0.02222 +0.00052 -0.00053
+ΔM_max: -0.067 +0.014 -0.014 mag
+p: 0.611 +0.269 -0.260
+H0: 68.55 +0.46 -0.46 km/s/Mpc
+ωb: 0.02221 +0.00053 -0.00053
 ωc: 0.1160 +0.0008 -0.0008
-ωm: 0.1388 +0.0011 -0.0011
-Ωm: 0.295 +0.004 -0.004
+ωm: 0.1389 +0.0011 -0.0011
+Ωm: 0.296 +0.004 -0.004
 σ8: 0.780 +0.014 -0.014
 S8: 0.774 +0.014 -0.014
-z_d: 1059.28 +1.20 -1.24
+z_d: 1059.27 +1.21 -1.25
 r_d: 148.35 +0.70 -0.69 Mpc
-z*: 1089.75 +0.70 -0.66
+z*: 1089.76 +0.70 -0.66
 r*: 145.61 Mpc
 100 θ*: 1.04095
 q0: -0.557 +0.007 -0.007
 j0: 1
-Chi2 (MAP): 72.43 (2.24 sigma away from no evolution in magnitude)
-Log Evidence: -56.51 (Δ logZ = 1.04 against no evolution in magnitude)
+Chi2 (MAP): 72.10 (2.31 sigma away from no evolution in magnitude)
+Log Evidence: -56.32 (Δ logZ = 1.23 against no evolution in magnitude)
 Degrees of freedom: 92
 """
 
@@ -473,5 +474,24 @@ Degrees of freedom: 92
 
 """
 Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
-TODO
+ΔM: -0.056 +0.014 -0.014 mag
+H0: 66.69 +0.82 -0.81 km/s/Mpc
+ωb: 0.02218 +0.00054 -0.00054
+ωc: 0.1177 +0.0017 -0.0019
+ωm: 0.1405 +0.0018 -0.0019
+Ωm: 0.316 +0.009 -0.009
+σ8: 0.786 +0.015 -0.015
+S8: 0.807 +0.019 -0.019
+w0: -0.784 +0.088 -0.086
+wa: -0.662 +0.340 -0.355
+z_d: 1059.31 +1.23 -1.25
+r_d: 147.96 +0.76 -0.76 Mpc
+z*: 1089.94 +0.76 -0.73
+r*: 145.19 Mpc
+100 θ*: 1.04088
+q0: -0.305 +0.098 -0.097
+j0: -0.199 +0.503 -0.475
+Chi2 (MAP): 70.30 (1.91 sigma away from ΛCDM)
+Log Evidence: -58.33 (Δ logZ = -0.78 in favour of ΛCDM)
+Degrees of freedom: 91
 """
