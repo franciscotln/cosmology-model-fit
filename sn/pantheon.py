@@ -14,7 +14,7 @@ H0 = 70.0  # Hubble constant (km/s/Mpc)
 cho = cho_factor(cov_matrix, lower=True)[0]
 
 z_grid = np.linspace(0, np.max(z_cmb) + 0.1, num=3000)
-dx = np.diff(z_grid)
+dz = np.diff(z_grid)
 
 cubed = (1.0 + z_grid) ** 3
 
@@ -29,9 +29,9 @@ def Ez(params):
 @njit
 def DM_z(params):
     dh_grid = (c / H0) / Ez(params)
-    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    dh = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size, dtype=np.float64)
-    cum_dm[1:] = np.cumsum(dx * dy)
+    cum_dm[1:] = np.cumsum(dh * dz)
     return interp_hermite(z_cmb, z_grid, cum_dm, dh_grid)
 
 
@@ -124,9 +124,9 @@ def main():
         print_color("Autocorrelation time", "Not available")
 
     [
-        [M0_16, M0_50, M0_84],
-        [Om_16, Om_50, Om_84],
-        [w0_16, w0_50, w0_84],
+        (M0_16, M0_50, M0_84),
+        (Om_16, Om_50, Om_84),
+        (w0_16, w0_50, w0_84),
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
     best_fit = np.percentile(samples, 50, axis=0)
@@ -192,7 +192,9 @@ Dataset: Pantheon+ (2022)
 z range: 0.0102 - 2.2614
 Sample size: 1590
 *****************************
+"""
 
+"""
 ΛCDM
 M: -19.351 +0.007/-0.007
 Ωm: 0.332 +0.018/-0.018
@@ -205,6 +207,22 @@ kurtosis of residuals: 1.582
 Degs of freedom: 1588
 Chi squared: 1402.92
 Log Evidence: -708.9
+
+=============================
+
+Flat ΛCDM w(z) = -1
+Evolving M(z) = M_max + 1 - (z / (0.1 + z))^(0.1 * p)
+
+p: 0.156 +0.140/-0.138 (prior ~ U(-0.75, 1.0))
+M_max: -19.370 +0.018/-0.018
+Ωm: 0.312 +0.025/-0.024 (agreement with BAO within 0.56 sigma)
+R-squared (%): 99.74
+RMSD (mag): 0.154
+Skewness of residuals: 0.066
+kurtosis of residuals: 1.589
+Degs of freedom: 1587
+Chi squared: 1401.62
+Log Evidence: -709.9
 
 =============================
 
