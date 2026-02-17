@@ -190,8 +190,6 @@ Sample size: 1657
 M: -19.24 +0.03/-0.03 mag
 H0 (km/s/Mpc): 73.5 +- 1.0
 Ωm: 0.332 +0.018/-0.018
-w0: -1
-wa: 0
 R-squared: 99.78 %
 RMSD (mag): 0.153
 Skewness of residuals: 0.085
@@ -200,12 +198,25 @@ Chi squared: 1452.02
 
 =============================
 
+ΛCDM w(z) = -1
+Varying M(z) = M_max + 1.0 - (z / (0.1 + z))^(0.1 * p)
+p: 0.133 +0.137/-0.134
+M_max: -19.281 +0.048/-0.048
+H0 (km/s/Mpc): 72.83 +1.25/-1.23
+Ωm: 0.315 +0.025/-0.024
+R-squared (%): 99.78
+RMSD (mag): 0.153
+Skewness of residuals: 0.065
+kurtosis of residuals: 1.555
+Chi squared: 1451.02
+
+=============================
+
 wCDM w(z) = w0
 M: -19.24 +0.03/-0.03 mag
 H0 (km/s/Mpc): 73.5 +1.0/-1.0 km/s/Mpc
 Ωm: 0.301 +0.062/-0.075
 w0: -0.92 +0.14/-0.16
-wa: 0
 R-squared (%): 99.78
 RMSD (mag): 0.153
 Skewness of residuals: 0.076
@@ -219,7 +230,7 @@ M: -19.243 +0.030/-0.029
 H0 (km/s/Mpc): 73.34 +1.04/-1.01
 Ωm: 0.300 +0.028/-0.033
 w0: -0.877 +0.101/-0.080
-wa: d w(z)/dz at z=0 = -1.5 * (1 - w0**2)
+wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
 R-squared (%): 99.78
 RMSD (mag): 0.153
 Skewness of residuals: 0.070
