@@ -13,16 +13,15 @@ cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
 cho_bao = cho_factor(bao_cov_matrix, lower=True)[0]
 
 c = c0 / 1000  # Speed of light in km/s
-rd = 147.09  # Mpc, fixed
 
 z_max = max(np.max(z_cmb), np.max(data["z"])) + 0.1
 z_grid = np.linspace(0, z_max, num=3000)
-dx = np.diff(z_grid)
+dz = np.diff(z_grid)
 
 
 @njit
 def Ez(z, theta):
-    Om, w0 = theta[2], theta[3]
+    Om, w0 = theta[2], theta[4]
     zp1 = 1.0 + z
     cubed = zp1**3
     rho_de = (2 * cubed / (1.0 + w0 + (1.0 - w0) * cubed)) ** 2
@@ -48,9 +47,9 @@ def DH_z(z, theta):
 @njit
 def DM_z(z, theta):
     dh_grid = DH_z(z_grid, theta)
-    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    dh = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size, dtype=np.float64)
-    cum_dm[1:] = np.cumsum(dx * dy)
+    cum_dm[1:] = np.cumsum(dz * dh)
     return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
@@ -74,7 +73,7 @@ def bao_theory(z, qty, theta):
     results[DH_mask] = DH_z(z[DH_mask], theta)
     results[DM_mask] = DM_z(z[DM_mask], theta)
     results[DV_mask] = DV_z(z[DV_mask], theta)
-    return results / rd
+    return results / theta[3]
 
 
 bounds = np.array(
@@ -82,7 +81,8 @@ bounds = np.array(
         (-20.0, -19.0),  # M
         (50.0, 100.0),  # H0
         (0.2, 0.7),  # Ωm
-        (-1.0, 2.0),  # w0
+        (144.0, 150.0),  # rd
+        (-1.0, -1 / 3),  # w0
     ]
 )
 
@@ -108,7 +108,8 @@ normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
 def log_prior(theta):
     if not np.all((bounds[:, 0] < theta) & (theta < bounds[:, 1])):
         return -np.inf
-    return normalization
+    prior_rd = -0.5 * ((theta[3] - 147.14) / 0.29) ** 2  # Planck + ACT
+    return normalization + prior_rd
 
 
 def log_likelihood(theta):
@@ -128,7 +129,7 @@ def main():
     from log_evidence import log_evidence
     from corner_plot import plot_corner_and_chains
     from sn.plotting import plot_predictions as plot_sn_predictions
-    from .plot_predictions import plot_bao_predictions
+    from bao.plot_predictions import plot_bao_predictions
 
     ndim = len(bounds)
     nwalkers = 150
@@ -164,6 +165,7 @@ def main():
         [M_16, M_50, M_84],
         [H0_16, H0_50, H0_84],
         [Om_16, Om_50, Om_84],
+        [rd_16, rd_50, rd_84],
         [w0_16, w0_50, w0_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
@@ -172,12 +174,13 @@ def main():
     print(f"M0: {M_50:.3f} +{(M_84 - M_50):.3f} -{(M_50 - M_16):.3f} mag")
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
+    print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
-    print(f"Chi squared: {chi_squared(best_fit):.2f}")
-    print(f"Log evidence: {log_evd:.2f}")
+    print(f"Chi2 (MAP): {chi_squared(samples[np.argmax(log_probs)]):.1f}")
+    print(f"Log evidence: {log_evd:.1f}")
     print(f"Degrees of freedom: {data['z'].size + z_cmb.size - len(best_fit)}")
 
-    labels = ["$M_0$", "$H_0$", "$Ω_m$", "$w_0$"]
+    labels = ["$M_0$", "$H_0$", "$Ω_m$", "$r_{drag}$", "$w_0$"]
     plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
     plot_bao_predictions(
         theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
@@ -199,57 +202,60 @@ def main():
 if __name__ == "__main__":
     main()
 
+
 """
 Flat ΛCDM
-r_d: 147.09 Mpc (fixed)
-M0: -19.402 +0.012 -0.012 mag
-H0: 68.67 +0.45 -0.44 km/s/Mpc
+M0: -19.403 +0.013 -0.013 mag
+H0: 68.65 +0.48 -0.48 km/s/Mpc
 Ωm: 0.304 +0.008 -0.008
-Chi squared: 1416.14
-Log evidence: -720.61
-Degrees of freedom: 1600
+r_d: 147.14 +0.29 -0.29 Mpc
+Chi2 (MAP): 1416.1
+Log evidence: -722.7
+Degrees of freedom: 1599
+"""
 
-===============================
-
+"""
 Flat ΛCDM
 Evolving absolute mag of SNe M(z) = M_max + p * [1 - (z / (0.1 + z))^0.05]
 
-r_d: 147.09 Mpc (fixed)
-M_max: -19.411 +0.014 -0.014 mag
-p: 0.422 +0.211 -0.214 (prior ~ U(-1.0, 2.0))
-H0: 68.94 +0.48 -0.48 km/s/Mpc
+M_max: -19.412 +0.014 -0.014 mag
+p: 0.420 +0.214 -0.212 mag (prior ~ U(-1.0, 2.0))
+H0: 68.92 +0.49 -0.49 km/s/Mpc
 Ωm: 0.299 +0.008 -0.008
-Chi squared: 1412.20 (Δ chi2 3.95)
-Log evidence: -720.39
-Degrees of freedom: 1599
+r_d: 147.14 +0.29 -0.29 Mpc
+Chi2 (MAP): 1412.3 (1.95 sigma away from constant M)
+Log evidence: -722.5
+Degrees of freedom: 1598
+"""
 
-===============================
-
+"""
 Flat wCDM
-r_d: 147.09 Mpc (fixed)
-M0: -19.416 +0.014 -0.014 mag
-H0: 67.83 +0.58 -0.58 km/s/Mpc
-Ωm: 0.298 +0.009 -0.008
-w0: -0.914 +0.038 -0.039
-Chi squared: 1411.53 (Δ chi2 4.59)
-Log evidence: -721.02
-Degrees of freedom: 1599
+M0: -19.417 +0.015 -0.015 mag
+H0: 67.81 +0.60 -0.60 km/s/Mpc
+Ωm: 0.298 +0.009 -0.009
+r_d: 147.14 +0.29 -0.29 Mpc
+w0: -0.914 +0.040 -0.040 (prior ~ U(-4/3, -2/3))
+Chi2 (MAP): 1411.5 (2.14 sigma away from ΛCDM)
+Log evidence: -722.3
+Degrees of freedom: 1598
+"""
 
-===============================
-
-Flat w(z) = -1 + 4 * (1 + w0) / (1 + 3 * (1 + z)^3)
-M0: -19.415 +0.014 -0.013 mag
-H0: 67.79 +0.60 -0.58 km/s/Mpc
+"""
+Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
+M0: -19.415 +0.014 -0.014 mag
+H0: 67.76 +0.61 -0.60 km/s/Mpc
 Ωm: 0.304 +0.008 -0.008
-w0: -0.886 +0.050 -0.051
-wa: d w(z)/dz at z=0 = -(9/4) * (1 + w0)
-Chi squared: 1411.37 (Δ chi2 4.77)
-Log evidence: -720.69
-Degrees of freedom: 1599
+r_d: 147.14 +0.29 -0.29 Mpc
+w0: -0.881 +0.053 -0.052 (prior ~ U(-1.0, -1/3))
+wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
+Chi2 (MAP): 1411.4 (2.17 sigma away from ΛCDM)
+Log evidence: -722.0
+Degrees of freedom: 1598
+"""
 
-===============================
-
+"""
 Flat w0waCDM
+TODO: re-run
 r_d: 147.09 Mpc (fixed)
 M0: -19.415 +0.014 -0.014 mag
 H0: 67.79 +0.59 -0.58 km/s/Mpc
