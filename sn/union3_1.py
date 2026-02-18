@@ -24,7 +24,7 @@ bounds = np.array(
         (-0.6, 0.6),  # ΔM
         (52.0, 89.0),  # H0
         (0.0, 1.0),  # Ωm
-        (-2.5, 5.0),  # p
+        (-1.5, 3.0),  # p
     ]
 )
 
@@ -58,7 +58,7 @@ def DM_z(z, params):
 @njit
 def mu_theory(params):
     dL = (1.0 + z_hel) * DM_z(z_cmb, params)
-    Mz = params[OFFSET] + params[P] * (1.0 - (z_cmb / (0.1 + z_cmb)) ** 0.05)
+    Mz = params[OFFSET] + 0.2 * params[P] / (1 + (z_cmb / 0.043))
     return Mz + 25.0 + 5 * np.log10(dL)
 
 
@@ -210,15 +210,15 @@ Degs of freedom: 19
 ===============================
 
 Flat ΛCDM: w(z) = -1
-Evolving absolute mag of SNe M(z) = ΔM_max + p * [1 - (z / (0.1 + z))^0.05]
+Evolving absolute mag of SNe M(z) = ΔM_max + 0.2 * p / (1 + (z / 0.043))
 
-ΔM: -0.010 +0.065/-0.066
-p: 1.22 +0.71/-0.72 (prior ~ U(-2.5, 5.0))
-H0 (km/s/Mpc): 70.40 +1.80/-1.81
-Ωm: 0.294 +0.034/-0.031 (complete agreement with ΛCDM from BAO)
+ΔM: -0.012 +0.065/-0.066
+p: 0.717 +0.417/-0.418 (prior ~ U(-1.5, 3.0))
+H0 (km/s/Mpc): 70.39 +1.80/-1.79
+Ωm: 0.293 +0.034/-0.031 (complete agreement with ΛCDM from BAO)
 R-squared (%): 99.96
 RMSD (mag): 0.046
-Skewness of residuals: -0.853
+Skewness of residuals: -0.881
 Chi squared: 25.7 (1.76 sigma away from constant M)
 Log evidence: -24.1
 Degs of freedom: 18
