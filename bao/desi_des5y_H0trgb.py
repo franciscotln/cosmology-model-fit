@@ -217,15 +217,15 @@ Degrees of freedom: 1723
 
 """
 Flat ΛCDM
-Evolving absolute mag of SNe M(z) = ΔM_max + p * [1 - (z / (0.1 + z))^0.05]
+Evolving absolute mag of SNe M(z) = ΔM_max + 0.2 * p / (1 + (z / 0.043))
 
-ΔM_max: -0.015 +0.056 -0.057 mag
-p: 0.694 +0.260 -0.263 (prior ~ U(-1.0, 2.0)) - 99.58% of the posterior has p > 0, suggesting SNe mags become more negative with redshift.
-H0: 70.34 +1.81 -1.80 km/s/Mpc
-r_d: 144.37 +3.88 -3.76 Mpc
+ΔM_max: -0.016 +0.055 -0.057 mag
+p: 0.415 +0.158 -0.157 (prior ~ U(-0.5, 1.5))
+H0: 70.35 +1.78 -1.83 km/s/Mpc
+r_d: 144.39 +3.93 -3.73 Mpc
 Ωm: 0.297 +0.008 -0.008
-Chi2 (MAP): 1638.38 (2.63 sigma away from no mag evolution)
-Log Evidence: -834.12 (Δ logZ 1.93 against no mag evolution)
+Chi2 (MAP): 1638.27 (2.65 sigma away from no mag evolution)
+Log Evidence: -834.19 (Δ logZ 1.86 against no mag evolution)
 Degrees of freedom: 1722
 """
 
