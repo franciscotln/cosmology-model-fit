@@ -186,7 +186,7 @@ H0 U(50.0, 85.0)
 Ωm U(0.1, 0.6)
 
 mag evolution:
-p U(-2.0, 4.0)
+p U(-1.0, 2.5)
 
 wCDM:
 w0 U(-1.5, 0.0)
@@ -215,12 +215,12 @@ Degs of freedom: 31
 
 """
 Flat ΛCDM: w(z) = -1
-Evolving absolute mag of SNe M(z) = ΔM_max + p * [1 - (z / (0.1 + z))^0.05]
+Evolving absolute mag of SNe M(z) = ΔM_max + 0.2 * p / (1 + (z / 0.043))
 
 ΔM_max: -0.049 +0.012 -0.012 mag
-p: 1.16 +0.52 -0.52
+p: 0.677 +0.299 -0.300
 rd: 147.09 +0.26 -0.26 Mpc
-H0: 69.04 +0.50 -0.50 km/s/Mpc
+H0: 69.05 +0.50 -0.50 km/s/Mpc
 Ωm: 0.297 +0.008 -0.008
 ωm: 0.1417 +0.0023 -0.0023
 Chi squared: 36.0 (2.26 sigma away from no evolution in M)
