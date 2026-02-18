@@ -122,126 +122,81 @@ def chi_squared(params):
     return chi2_cmb + chi_bao + chi_sn
 
 
-bounds = np.array(
-    [
-        (-20.0, -19.0),  # M
-        (60.0, 75.0),  # H0
-        (0.019, 0.025),  # ωb = Ωb * h^2
-        (0.01, 0.25),  # ωc = Ωc * h^2
-        (-1.0, -1 / 3),  # w0
-    ]
-)
-
-normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
-
-
-@njit
-def log_prior(params):
-    if not np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
-        return -np.inf
-    return normalization
-
-
 def log_likelihood(params):
     return -0.5 * chi_squared(params)
 
 
-def log_probability(params):
-    lp = log_prior(params)
-    if np.isinf(lp):
-        return -np.inf
-    return lp + log_likelihood(params)
-
-
 def main():
-    import emcee
+    from getdist import plots, MCSamples
+    import matplotlib.pyplot as plt
+    from nautilus import Sampler, Prior
     from multiprocessing import Pool
-    from log_evidence import log_evidence
-    from corner_plot import plot_corner_and_chains
     from sn.plotting import plot_predictions as plot_sn_predictions
     from bao.plot_predictions import plot_bao_predictions
 
-    ndim = len(bounds)
-    nwalkers = 100
-    burn_in = 500
-    nsteps = 2500 + burn_in
-    np.random.seed(42)
-    initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
-    moves = [
-        (emcee.moves.KDEMove(bw_method="silverman"), 0.30),
-        (emcee.moves.DEMove(), 0.70),
-    ]
+    prior = Prior()
+    prior.add_parameter("M", dist=(-20.0, -19.0))
+    prior.add_parameter("H0", dist=(60.0, 75.0))
+    prior.add_parameter("obh2", dist=(0.019, 0.025))
+    prior.add_parameter("och2", dist=(0.01, 0.25))
+    prior.add_parameter("w0", dist=(-1.0, -1 / 3))
 
     with Pool(6) as pool:
-        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
-        sampler.run_mcmc(
-            initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#ff5a00"}
+        sampler = Sampler(
+            prior, log_likelihood, n_live=6_000, pool=pool, seed=42, pass_dict=False
         )
+        sampler.run(verbose=True)
 
-    try:
-        tau = sampler.get_autocorr_time()
-        print("Auto-correlation time", tau)
-        print("Mean acceptance fraction:", np.mean(sampler.acceptance_fraction))
-        print("Effective samples:", nwalkers * ndim * (nsteps - burn_in) / np.max(tau))
-    except emcee.autocorr.AutocorrError as e:
-        print("Autocorrelation time could not be computed", e)
-
-    samples = sampler.get_chain(discard=burn_in, flat=True)
-    chains_samples = sampler.get_chain(discard=burn_in, flat=False)
-    log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
-    log_evd = log_evidence(samples, log_probs, log_probability, bounds)
-
-    MAP_index = np.argmax(log_probs)
-    print("MAP chi^2:", chi_squared(samples[MAP_index]))
-
-    pct = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
-    [
-        (M_16, M_50, M_84),
-        (H0_16, H0_50, H0_84),
-        (Obh2_16, Obh2_50, Obh2_84),
-        (Och2_16, Och2_50, Och2_84),
-        (w0_16, w0_50, w0_84),
-    ] = pct
-
-    best_fit = np.percentile(samples, 50, axis=0)
-    degs_of_freedom = (
-        len(z_cmb) + len(bao_data["z"]) + len(cmb.DISTANCE_PRIORS) - len(best_fit)
+    samples, log_w, log_l = sampler.posterior()
+    labels = ["M", "H_0", "ω_b", "ω_c", "w_0"]
+    gd_samples = MCSamples(
+        samples=samples,
+        weights=np.exp(log_w),
+        loglikes=log_l,
+        names=prior.keys,
+        labels=labels,
+    )
+    gd_samples.addDerived(
+        gd_samples["obh2"] + gd_samples["och2"] + Omnu_h2, name="omh2", label="ω_m"
+    )
+    gd_samples.addDerived(
+        gd_samples["omh2"] / (gd_samples["H0"] / 100) ** 2, name="om", label="Ω_m"
+    )
+    gd_samples.addDerived(
+        cmb.z_star(gd_samples["obh2"], gd_samples["omh2"]), name="zstar", label="z_*"
+    )
+    gd_samples.addDerived(
+        cmb.z_drag(gd_samples["obh2"], gd_samples["omh2"]),
+        name="zdrag",
+        label="z_{drag}",
+    )
+    gd_samples.addDerived(
+        cmb.r_drag(gd_samples["obh2"], gd_samples["omh2"]),
+        name="rdrag",
+        label="r_{drag}",
     )
 
-    omh2_samples = samples[:, 2] + samples[:, 3] + Omnu_h2
-    om_samples = omh2_samples / (samples[:, 1] / 100) ** 2
-    zst_samples = cmb.z_star(samples[:, 2], omh2_samples)
-    zdr_samples = cmb.z_drag(samples[:, 2], omh2_samples)
-    rdr_samples = cmb.r_drag(samples[:, 2], omh2_samples)
+    plots.get_subplot_plotter().triangle_plot(
+        gd_samples, params=prior.keys, title_limit=1, contour_colors=["C0"]
+    )
+    plt.show()
 
-    Omh2_16, Omh2_50, Omh2_84 = np.percentile(omh2_samples, [15.9, 50, 84.1])
-    Om_16, Om_50, Om_84 = np.percentile(om_samples, [15.9, 50, 84.1])
-    zst_16, zst_50, zst_84 = np.percentile(zst_samples, [15.9, 50, 84.1])
-    zdr_16, zdr_50, zdr_84 = np.percentile(zdr_samples, [15.9, 50, 84.1])
-    rd_16, rd_50, rd_84 = np.percentile(rdr_samples, [15.9, 50, 84.1])
+    best_fit_mean = gd_samples.mean(prior.keys)
+    degs_of_freedom = (
+        len(z_cmb) + len(bao_data["z"]) + len(cmb.DISTANCE_PRIORS) - len(prior.keys)
+    )
 
-    print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
-    print(f"ωb: {Obh2_50:.5f} +{(Obh2_84 - Obh2_50):.5f} -{(Obh2_50 - Obh2_16):.5f}")
-    print(f"ωc: {Och2_50:.4f} +{(Och2_84 - Och2_50):.4f} -{(Och2_50 - Och2_16):.4f}")
-    print(f"ωm: {Omh2_50:.4f} +{(Omh2_84 - Omh2_50):.4f} -{(Omh2_50 - Omh2_16):.4f}")
-    print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
-    print(f"M: {M_50:.3f} +{(M_84 - M_50):.3f} -{(M_50 - M_16):.3f} mag")
-    print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
-    print(f"z*: {zst_50:.2f} +{(zst_84 - zst_50):.2f} -{(zst_50 - zst_16):.2f}")
-    print(f"z_d: {zdr_50:.2f} +{(zdr_84 - zdr_50):.2f} -{(zdr_50 - zdr_16):.2f}")
-    print(f"r*: {cmb.rs_z(zst_50, Obh2_50, best_fit):.2f} Mpc")
-    print(f"rd: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
-    print(f"Log evidence: {log_evd:.2f}")
+    for par in gd_samples.getParamNames().names:
+        print(f"{par}: {gd_samples.mean(par):.5f} ± {gd_samples.std(par):.5f}")
+
+    map_index = np.argmax(log_l)
+    map_params = samples[map_index]
+    print(f"χ2 (MAP): {chi_squared(map_params):.2f}")
+    print(f"Log evidence: {sampler.log_z:.1f}")
     print(f"Degrees of freedom: {degs_of_freedom}")
 
-    labels = ["M", "$H_0$", "$ω_b$", "$ω_c$", "$w_0$"]
-    plot_corner_and_chains(
-        labels=labels,
-        flat_samples=samples,
-        samples=chains_samples,
-    )
     plot_bao_predictions(
-        theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
+        theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit_mean),
         data=bao_data,
         errors=np.sqrt(np.diag(bao_cov_matrix)),
         title=bao_legend,
@@ -249,10 +204,10 @@ def main():
     plot_sn_predictions(
         legend=sn_legend,
         x=z_cmb,
-        y=mb_values - M_50,
+        y=mb_values - gd_samples.mean("M"),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=apparent_mag(best_fit) - M_50,
-        label=f"$Ω_m$={Om_50:.3f}",
+        y_model=apparent_mag(best_fit_mean) - gd_samples.mean("M"),
+        label=f"$Ω_m$={gd_samples.mean('om'):.3f}",
         x_scale="log",
     )
 
@@ -279,98 +234,94 @@ w0 U(-1.5, 0.0)
 wa U(-2.0, 1.0)
 with w0 + wa < 0 enforced
 
-Evolving absolute magnitude of SNe:
-p U(-1.0, 2.0)
+v_pec corrections of SNe:
+v_pec U(-1.2, 3.2) [x 100 km/s]
 """
 
 """
 Flat ΛCDM w(z) = -1
-H0: 68.37 +0.27 -0.27 km/s/Mpc
-ωb: 0.02257 +0.00010 -0.00010
-ωc: 0.1175 +0.0006 -0.0006
-ωm: 0.1407 +0.0006 -0.0006
-Ωm: 0.301 +0.004 -0.004
-M: -19.412 +0.008 -0.008 mag
-z*: 1089.43 +0.15 -0.15
-z_d: 1060.19 +0.23 -0.23
-r*: 144.94 Mpc
-rd: 147.54 +0.19 -0.19 Mpc
-MAP chi^2: 1420.34
-Log evidence: -727.31
+M: -19.412 ± 0.008 mag
+H0: 68.37 ± 0.27 km/s/Mpc
+ωb: 0.02257 ± 0.00010
+ωc: 0.11752 ± 0.00065
+ωm: 0.14073 ± 0.00064
+Ωm: 0.301 ± 0.004
+z*: 1089.43 ± 0.15
+zd: 1060.20 ± 0.23
+rd: 147.54 ± 0.19 Mpc
+χ2 (MAP): 1420.33
+Log evidence: -727.3
 Degrees of freedom: 1602
+"""
 
-===============================
-
+"""
 Flat ΛCDM
-Evolving absolute mag of SNe M(z) = M_max + p * [1 - (z / (0.1 + z))^0.05]
+Bulk v_pec corrections of SNe M(z) = M0 + v_pec_corr
+v_pec_corr = 100 * v_pec * (5 / np.log(10)) / (c * z_cmb) with v_pec in units 100 km/s
 
-H0: 68.45 +0.27 -0.27 km/s/Mpc
-ωb: 0.02258 +0.00010 -0.00010
-ωc: 0.1173 +0.0007 -0.0006
-ωm: 0.1405 +0.0007 -0.0006
-Ωm: 0.300 +0.004 -0.004
-M_max: -19.426 +0.011 -0.011 mag
-p: 0.414 +0.203 -0.205
-z*: 1089.40 +0.15 -0.15
-z_d: 1060.20 +0.23 -0.23
-r*: 144.98 Mpc
-rd: 147.58 +0.19 -0.19 Mpc
-MAP chi^2: 1416.27 (2.02 sigma away from no evolution in magnitude)
-Log evidence: -727.04 (Δ logZ = 0.27 against no evolution in magnitude)
+M0: -19.423 ± 0.010 mag
+v_pec: 95 ± 42 km/s
+H0: 68.43 ± 0.27 km/s/Mpc
+ωb: 0.02257 ± 0.00010
+ωc: 0.1174 ± 0.0006
+ωm: 0.1406 ± 0.0006
+Ωm: 0.300 ± 0.004
+z*: 1089.40 ± 0.15
+zd: 1060.20 ± 0.23
+rd: 147.57 ± 0.19 Mpc
+MAP chi^2: 1415.36 (2.23 sigma away from no v_pec correction)
+Log evidence: -726.2 (Δ logZ = 1.1 against no v_pec correction)
 Degrees of freedom: 1601
+"""
 
-===============================
-
+"""
 Flat wCDM w(z) = w0
-H0: 67.87 +0.59 -0.58 km/s/Mpc
-ωb: 0.02259 +0.00011 -0.00010
-ωc: 0.1170 +0.0008 -0.0008
-ωm: 0.1403 +0.0008 -0.0008
-Ωm: 0.304 +0.005 -0.005
-M: -19.423 +0.014 -0.014 mag
-w0: -0.978 +0.023 -0.023
-z*: 1089.35 +0.17 -0.17
-z_d: 1060.21 +0.23 -0.23
-r*: 145.05 Mpc
-rd: 147.65 +0.22 -0.22 Mpc
-MAP chi^2: 1419.38 (0.98 sigma away from ΛCDM)
-Log evidence: -729.68
+M: -19.424 ± 0.014 mag
+H0: 67.87 ± 0.58 km/s/Mpc
+ωb: 0.02259 ± 0.00011
+ωc: 0.11703 ± 0.00083
+w0: -0.97761 ± 0.02311
+ωm: 0.14027 ± 0.00080
+Ωm: 0.305 ± 0.005
+z*: 1089.35 ± 0.17
+zd: 1060.21 ± 0.23
+rd: 147.64 ± 0.22 Mpc
+χ2 (MAP): 1419.37 (0.98 sigma away from wCDM)
+Log evidence: -729.7 (Δ logZ = -2.4 in favour of ΛCDM)
 Degrees of freedom: 1601
+"""
 
-===============================
-
+"""
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
-H0: 67.41 +0.55 -0.57 km/s/Mpc
-ωb: 0.02259 +0.00010 -0.00010
-ωc: 0.1170 +0.0007 -0.0007
-ωm: 0.1402 +0.0007 -0.0007
-Ωm: 0.309 +0.006 -0.005
-M: -19.430 +0.012 -0.013 mag
-w0: -0.919 +0.043 -0.041 (truncated at 1.88 sigma to the left of the mean)
-z*: 1089.35 +0.16 -0.16
-z_d: 1060.21 +0.23 -0.23
-r*: 145.06 Mpc
-rd: 147.65 +0.20 -0.20 Mpc
-MAP chi^2: 1417.15 (1.79 sigma away from ΛCDM)
-Log evidence: -727.54
+M: -19.431 ± 0.012 mag
+H0: 67.39 ± 0.55 km/s/Mpc
+ωb: 0.02259 ± 0.00010
+ωc: 0.11699 ± 0.00070
+w0: -0.917 ± 0.041
+ωm: 0.14023 ± 0.00068
+Ωm: 0.309 ± 0.005
+z*: 1089.35 ± 0.16
+zd: 1060.21 ± 0.23
+rd: 147.65 ± 0.20 Mpc
+χ2 (MAP): 1417.16 (1.78 sigma away from ΛCDM)
+Log evidence: -727.6 (Δ logZ = -0.3 in favour of ΛCDM)
 Degrees of freedom: 1601
+"""
 
-===============================
-
+"""
 Flat w(z) = w0 + wa * z / (1 + z)
-H0: 67.47 +0.60 -0.59 km/s/Mpc
-ωb: 0.02229 +0.00013 -0.00013
-ωc: 0.1184 +0.0010 -0.0010
-ωm: 0.1413 +0.0009 -0.0009
+H0: 67.60 +0.60 -0.60 km/s/Mpc
+ωb: 0.02253 +0.00011 -0.00011
+ωc: 0.1185 +0.0010 -0.0010
+ωm: 0.1416 +0.0009 -0.0009
 Ωm: 0.310 +0.006 -0.006
-w0: -0.856 +0.056 -0.055
-wa: -0.495 +0.208 -0.224
-M: -19.422 +0.015 -0.015
-z*: 1089.90 +0.24 -0.23
-z_d: 1059.80 +0.28 -0.28
-r*: 144.92 Mpc
-rd: 147.62 +0.23 -0.23 Mpc
-Chi squared: 1412.63 (2.30 sigma away from ΛCDM)
-Log evidence: -728.13
+w0: -0.852 +0.055 -0.055
+wa: -0.52 +0.21 -0.21
+M: -19.418 +0.015 -0.015
+z*: 1089.56 +0.19 -0.19
+zd: 1060.18 +0.23 -0.23
+rd: 147.33 +0.24 -0.24 Mpc
+Chi squared: 1413.00 (2.23 sigma away from ΛCDM)
+Log evidence: -728.5 (Δ logZ = -1.2 in favour of ΛCDM)
 Degrees of freedom: 1600
 """
