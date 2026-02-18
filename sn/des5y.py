@@ -197,15 +197,15 @@ Effective deg of freedom: 1712
 
 """
 Flat ΛCDM w(z) = -1
-Evolving M(z) = M_max + 1 - (z / (0.1 + z))^(0.1 * p)
+Evolving absolute mag of SNe M(z) = ΔM_max + 0.2 * p / (1 + (z / 0.043))
 
-ΔM: -0.027 +0.021 -0.021 mag
-p: 0.35 +0.20 -0.19 (prior ~ U(-0.75, 1.50))
-Ωm: 0.296 +0.024 -0.023 (complete agreement with BAO in ΛCDM)
+ΔM: -0.029 +0.022 -0.022 mag
+p: 0.44 +0.24 -0.24 (prior ~ U(-1.0, 2.0))
+Ωm: 0.294 +0.024 -0.023 (complete agreement with BAO in ΛCDM)
 R-squared (%): 98.37
 RMSD (mag): 0.269
 Skewness of residuals: 3.226
-Chi squared: 1628.06
+Chi squared: 1627.94
 Effective deg of freedom: 1711
 """
 
