@@ -20,10 +20,15 @@ cubed = (1.0 + z_grid) ** 3
 
 
 @njit
+def Ode_z(w0):
+    # Thawing quintessence
+    return (2 * cubed / ((1.0 + w0) + (1.0 - w0) * cubed)) ** 2
+
+
+@njit
 def Ez(params):
-    Om, w0 = params[1], params[2]
-    rho_de = (2 * cubed / ((1.0 + w0) + (1.0 - w0) * cubed)) ** 2
-    return np.sqrt(Om * cubed + (1.0 - Om) * rho_de)
+    Om = params[1]
+    return np.sqrt(Om * cubed + (1.0 - Om))
 
 
 @njit
@@ -37,8 +42,9 @@ def DM_z(params):
 
 @njit
 def apparent_mag(params):
-    dL = (1.0 + z_hel) * DM_z(params)
-    return params[0] + 25.0 + 5 * np.log10(dL)
+    v_pec_corr = 100 * (5 / np.log(10)) * params[2] / (c * z_cmb)
+    Mz = params[0] + v_pec_corr
+    return Mz + 25.0 + 5 * np.log10((1.0 + z_hel) * DM_z(params))
 
 
 def solve_triang(cho_L, delta):
@@ -59,7 +65,7 @@ bounds = np.array(
     [
         (-20.0, -19.0),  # M
         (0.0, 0.7),  # Ωm
-        (-1.0, -1 / 3),  # w0
+        (-1.70, 3.20),  # v_pec [x 100 km/s]
     ]
 )
 
@@ -209,21 +215,22 @@ Log Evidence: -708.9
 =============================
 
 Flat ΛCDM w(z) = -1
-Evolving absolute mag of SNe M(z) = M_max + p * [1 - (z / (0.1 + z))^0.05]
+Evolving absolute mag of SNe M(z) = M0 + v_pec_corr
+v_pec_corr = 100 * v_pec * (5 / np.log(10)) / (c * z_cmb) with v_pec in units 100 km/s
 
-p: 0.311 +0.282/-0.287 (prior ~ U(-1.5, 2.0))
-M_max: -19.370 +0.018/-0.018
-Ωm: 0.313 +0.025/-0.024 (agreement with BAO within 0.64 sigma)
+M0: -19.366 +0.012/-0.012 mag
+v_pec: 76.4 +49.1/-49.3 km/s (prior ~ U(-1.7, 3.2) x 100 km/s)
+Ωm: 0.316 +0.021/-0.020
 R-squared (%): 99.74
-RMSD (mag): 0.154
-Skewness of residuals: 0.067
-kurtosis of residuals: 1.589
+RMSD (mag): 0.153
+Skewness of residuals: 0.055
+kurtosis of residuals: 1.580
 Degs of freedom: 1587
-Chi squared: 1401.66
-Log Evidence: -709.8
+Chi squared: 1400.44
+Log Evidence: -709.0
+"""
 
-=============================
-
+"""
 wCDM
 M: -19.347 +0.009/-0.009
 Ωm: 0.292 +0.064/-0.078
@@ -235,9 +242,9 @@ kurtosis of residuals: 1.589
 Degs of freedom: 1587
 Chi squared: 1402.47
 Log Evidence: -709.5
+"""
 
-=============================
-
+"""
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
 M: -19.344 +0.008/-0.008
 Ωm: 0.299 +0.028/-0.034
@@ -250,9 +257,9 @@ kurtosis of residuals: 1.592
 Degs of freedom: 1587
 Chi squared: 1402.68
 Log Evidence: -709.3
+"""
 
-=============================
-
+"""
 Flat w0waCDM
 M0: 19.348 +0.010/-0.010 mag
 Ωm: 0.337 +0.082/-0.148
