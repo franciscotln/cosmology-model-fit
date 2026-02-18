@@ -223,22 +223,22 @@ Log evidence: -834.5
 """
 
 """
-Flat ΛCDM w(z) = -1, varying absolute magnitude
-M(z) = ΔM_max + 1 - (z / (0.1 + z))^(0.1 * p)
+Flat ΛCDM w(z) = -1
+Evolving absolute mag of SNe M(z) = ΔM_max + 0.2 * p / (1 + (z / 0.043))
 
-ΔM_max: -0.086 +0.012 -0.012
-p: 0.260 +0.128 -0.128 (prior U(-0.5, 1.0))
-H0: 67.71 +0.49 -0.48 km/s/Mpc
+ΔM_max: -0.087 +0.012 -0.012
+p: 0.316 +0.151 -0.154 (prior U(-0.5, 1.5))
+H0: 67.72 +0.48 -0.48 km/s/Mpc
 Ωm: 0.310 +0.007 -0.007
 ωb: 0.02251 +0.00011 -0.00011
 ωc: 0.1191 +0.0012 -0.0012
 ωm: 0.1422 +0.0011 -0.0011
-z*: 1089.65 +0.21 -0.21
+z*: 1089.64 +0.21 -0.21
 zd: 1060.18 +0.23 -0.23
-r*: 144.57 Mpc
-r_d: 147.19 Mpc
-Chi squared: 1628.49 (2.04 sigma away from no evolution in M)
-Log evidence: -834.0
+r*: 144.58 Mpc
+r_d: 147.20 Mpc
+Chi squared: 1628.47 (2.05 sigma away from no evolution in M)
+Log evidence: -834.1
 """
 
 """
