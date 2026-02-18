@@ -221,8 +221,8 @@ Evolving absolute mag of SNe M(z) = ΔM_max + 0.2 * p / (1 + (z / 0.043))
 
 ΔM_max: -0.016 +0.055 -0.057 mag
 p: 0.415 +0.158 -0.157 (prior ~ U(-0.5, 1.5))
-H0: 70.35 +1.78 -1.83 km/s/Mpc
-r_d: 144.39 +3.93 -3.73 Mpc
+H0: 70.4 +1.8 -1.8 km/s/Mpc
+r_d: 144.4 +3.9 -3.7 Mpc
 Ωm: 0.297 +0.008 -0.008
 Chi2 (MAP): 1638.27 (2.65 sigma away from no mag evolution)
 Log Evidence: -834.19 (Δ logZ 1.86 against no mag evolution)
@@ -232,8 +232,8 @@ Degrees of freedom: 1722
 """
 Flat wCDM
 ΔM: 0.024 +0.056 -0.058 mag
-H0: 70.33 +1.81 -1.80 km/s/Mpc
-r_d: 141.73 +3.94 -3.72 Mpc
+H0: 70.3 +1.8 -1.8 km/s/Mpc
+r_d: 141.7 +3.9 -3.7 Mpc
 Ωm: 0.297 +0.009 -0.009
 w0: -0.908 +0.037 -0.038 (prior U(-1.5, -0.5))
 Chi2 (MAP): 1639.51 (2.40 sigma away from ΛCDM)
@@ -244,8 +244,8 @@ Degrees of freedom: 1722
 """
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
 ΔM: 0.031 +0.055 -0.058 mag
-H0: 70.36 +1.76 -1.81 km/s/Mpc
-r_d: 141.39 +3.88 -3.65 Mpc
+H0: 70.4 +1.8 -1.8 km/s/Mpc
+r_d: 141.4 +3.9 -3.7 Mpc
 Ωm: 0.305 +0.008 -0.008
 w0: -0.861 +0.051 -0.052 (prior U(-1.0, -0.333))
 wa: d w(z)/dz at z=0 = -(3/2) * (1 - w0^2)
