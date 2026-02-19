@@ -243,6 +243,27 @@ Degrees of freedom: 1726
 
 
 """
+Flat ΛCDM: w(z) = -1
+Evolving absolute mag of SNe M(z) = ΔM_max + 0.2 * p / (1 + (z / z_c))
+where z_c = 0.043 and p = -20 * z_c * M'(z_c)
+
+p: 0.40 ± 0.15 (prior ~ U(-0.5, +1.5))
+ΔM: -0.0716 ± 0.0086 mag
+H0: 68.48 ± 0.27 km/s/Mpc
+Ωm: 0.2996 ± 0.0036
+ωb: 0.02258 ± 0.00010
+ωc: 0.11726 ± 0.00065
+ωm: 0.1405 ± 0.0006
+z*: 1089.39 ± 0.15
+z_d: 1060.21 ± 0.23
+r_d: 147.59 ± 0.19 Mpc
+χ2 (MAP): 1642.39 (2.71 sigma away from constant M)
+Log evidence: -841.0 (Δ logZ = 2.0 against constant M)
+Degrees of freedom: 1725
+"""
+
+
+"""
 Flat wCDM: w(z) = w0
 
 H0: 67.73 +0.54 -0.53 km/s/Mpc
@@ -298,25 +319,4 @@ z_d: 1060.18 +0.23 -0.24
 Chi squared: 1639.18 (2.80 sigma away from ΛCDM)
 Log evidence: -842.7 (Δ logZ = 0.3 against ΛCDM)
 Degrees of freedom: 1724
-"""
-
-
-"""
-Flat ΛCDM, varying absolute magnitude M(z) of SNe
-Evolving absolute mag of SNe M(z) = ΔM_max + 0.2 * p / (1 + (z / z_c))
-where z_c = 0.043 and p = -20 * z_c * M'(z_c)
-
-p: 0.40 ± 0.15 (prior ~ U(-0.5, +1.5))
-ΔM: -0.0716 ± 0.0086 mag
-H0: 68.48 ± 0.27 km/s/Mpc
-Ωm: 0.2996 ± 0.0036
-ωb: 0.02258 ± 0.00010
-ωc: 0.11726 ± 0.00065
-ωm: 0.1405 ± 0.0006
-z*: 1089.39 ± 0.15
-z_d: 1060.21 ± 0.23
-r_d: 147.59 ± 0.19 Mpc
-χ2 (MAP): 1642.39 (2.71 sigma away from constant M)
-Log evidence: -841.0 (Δ logZ = 2.0 against constant M)
-Degrees of freedom: 1725
 """
