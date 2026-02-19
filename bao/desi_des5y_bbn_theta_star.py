@@ -307,7 +307,7 @@ r_d: 148.68 +0.72 -0.71 Mpc
 z*: 1089.56 +0.75 -0.72
 r*: 145.96 Mpc
 100 θ*: 1.04093
-Chi squared: 1640.66
+Chi squared: 1640.66 (2.40 sigma away from ΛCDM)
 Log Evidence: -840.76 (Δ logZ -0.31 in favour of ΛCDM)
 Degrees of freedom: 1723
 """
