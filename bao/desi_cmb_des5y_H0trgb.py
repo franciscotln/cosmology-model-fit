@@ -239,7 +239,7 @@ if __name__ == "__main__":
 
 """
 *******************************
-DESI DR2 + DES5Y + (R, π/θ*, ωb)CMB ACT DR6 + Planck
+DESI DR2 + DES5Y + (R, π/θ*, ωb)CMB ACT DR6 + Planck + H0 (TRGB)
 *******************************
 """
 
