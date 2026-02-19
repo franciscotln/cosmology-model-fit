@@ -216,15 +216,16 @@ Degrees of freedom: 1599
 
 """
 Flat ΛCDM
-Evolving absolute mag of SNe M(z) = M_max + p * [1 - (z / (0.1 + z))^0.05]
+Bulk v_pec corrections of SNe M(z) = M0 + v_pec_corr
+v_pec_corr = 100 * v_pec * (5 / np.log(10)) / (c * z_cmb) with v_pec in units 100 km/s
 
-M_max: -19.412 +0.014 -0.014 mag
-p: 0.420 +0.214 -0.212 mag (prior ~ U(-1.0, 2.0))
+M_max: -19.410 +0.014 -0.014 mag
+v_pec: 95 +43 -43 km/s (prior ~ U(-1.30, 3.15))
 H0: 68.92 +0.49 -0.49 km/s/Mpc
-Ωm: 0.299 +0.008 -0.008
+Ωm: 0.300 +0.008 -0.008
 r_d: 147.14 +0.29 -0.29 Mpc
-Chi2 (MAP): 1412.3 (1.95 sigma away from constant M)
-Log evidence: -722.5
+Chi2 (MAP): 1411.4 (2.17 sigma away from no v_pec corrections)
+Log evidence: -721.7 (Δ ln(Z) = 1.0 in favor of v_pec corrections)
 Degrees of freedom: 1598
 """
 
@@ -236,7 +237,7 @@ H0: 67.81 +0.60 -0.60 km/s/Mpc
 r_d: 147.14 +0.29 -0.29 Mpc
 w0: -0.914 +0.040 -0.040 (prior ~ U(-4/3, -2/3))
 Chi2 (MAP): 1411.5 (2.14 sigma away from ΛCDM)
-Log evidence: -722.3
+Log evidence: -722.3 (Δ ln(Z) = 0.4 against ΛCDM)
 Degrees of freedom: 1598
 """
 
@@ -249,7 +250,7 @@ r_d: 147.14 +0.29 -0.29 Mpc
 w0: -0.881 +0.053 -0.052 (prior ~ U(-1.0, -1/3))
 wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
 Chi2 (MAP): 1411.4 (2.17 sigma away from ΛCDM)
-Log evidence: -722.0
+Log evidence: -722.0 (Δ ln(Z) = 0.7 against ΛCDM)
 Degrees of freedom: 1598
 """
 
