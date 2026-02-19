@@ -17,6 +17,12 @@ dz = np.diff(z_grid)
 
 
 @njit
+def Ode_z(z, w0):
+    zp1 = 1.0 + z
+    return (2 * zp1**3 / ((1.0 + w0) + (1.0 - w0) * zp1**3)) ** 2
+
+
+@njit
 def Ez(z, H0, Obh2, Och2, w0):
     h = H0 / 100
     Onu = Omnuh2 / h**2
@@ -29,7 +35,7 @@ def Ez(z, H0, Obh2, Och2, w0):
     radiation_term = Or * zp1**4
     matter_term = Obc * zp1**3
     neutrino_term = Onu * cmb.Omnu_z(z)
-    dark_energy_term = Ode * (2 * zp1**3 / ((1.0 + w0) + (1.0 - w0) * zp1**3)) ** 2
+    dark_energy_term = Ode * Ode_z(z, w0)
 
     return np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
 
@@ -46,9 +52,9 @@ cmb.set_HZ(H_z)
 @njit
 def DM_z(z, params):
     dh_grid = c / H_z(z_grid, params)
-    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    dh = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size, dtype=np.float64)
-    cum_dm[1:] = np.cumsum(dz * dy)
+    cum_dm[1:] = np.cumsum(dz * dh)
     return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
@@ -201,8 +207,6 @@ H0: 67.43 +0.46 -0.46 km/s/Mpc
 ωm: 0.14291 +0.00111 -0.00109
 ωb: 0.02248 +0.00011 -0.00011
 ωc: 0.11979 +0.00114 -0.00112
-w0: -1
-wa: 0
 M: -19.438 +0.013 -0.013 mag
 z*: 1089.75 +0.20 -0.20
 z_d: 1060.16 +0.23 -0.23
@@ -210,32 +214,50 @@ r* = 144.42 Mpc
 rd: 147.04 +0.28 -0.28 Mpc
 Chi squared: 1403.98
 
-===============================
+=============================
 
+Flat ΛCDM w(z) = -1
+Evolving absolute mag of SNe M(z) = M0 + v_pec_corr
+v_pec_corr = 100 * v_pec * (5 / np.log(10)) / (c * z_cmb) with v_pec in units 100 km/s
+
+M: -19.444 +0.014 -0.014 mag
+v_pec: 81 +43 -43 km/s (prior ~ U(-1.7, 3.2) in v_pec / (100 km/s))
+H0: 67.60 +0.47 -0.47 km/s/Mpc
+Ωm: 0.312 +0.007 -0.007
+ωm: 0.14251 +0.00111 -0.00111
+ωb: 0.02249 +0.00011 -0.00011
+ωc: 0.11938 +0.00115 -0.00114
+z*: 1089.69 +0.21 -0.20
+z_d: 1060.17 +0.23 -0.23
+r* = 144.51 Mpc
+rd: 147.13 +0.28 -0.28 Mpc
+Chi squared: 1400.47
+"""
+
+"""
 Flat wCDM w(z) = w0
 H0: 66.67 +0.83 -0.82 km/s/Mpc
 Ωm: 0.320 +0.009 -0.009
 ωm: 0.14245 +0.00118 -0.00117
 ωb: 0.02250 +0.00011 -0.00011
 ωc: 0.11931 +0.00122 -0.00121
-w0: -0.968 +0.029 -0.029 (prior width 1.0: from -1.5 to -0.5)
-wa: 0
+w0: -0.968 +0.029 -0.029 (prior ~ U(-1.5, -0.5))
 M: -19.456 +0.021 -0.021 mag
 z*: 1089.68 +0.22 -0.21
 z_d: 1060.17 +0.23 -0.23
 r* = 144.52 Mpc
 rd: 147.14 +0.29 -0.29 Mpc
 Chi squared: 1402.70
+"""
 
-===============================
-
+"""
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
 H0: 66.74 +0.60 -0.64 km/s/Mpc
 Ωm: 0.320 +0.008 -0.007
 ωm: 0.14235 +0.00116 -0.00113
 ωb: 0.02250 +0.00011 -0.00011
 ωc: 0.11921 +0.00119 -0.00117
-w0: -0.936 +0.045 -0.038 (prior width 1.0: from -1.0 to 0.0)
+w0: -0.936 +0.045 -0.038 (prior ~ U(-1.0, 0.0))
 wa: d w(z)/dz at z=0 = -1.5 * (1 - w0**2)
 M: -19.451 +0.015 -0.015 mag
 z*: 1089.67 +0.21 -0.21
@@ -243,9 +265,9 @@ z_d: 1060.17 +0.23 -0.23
 r* = 144.55 Mpc
 rd: 147.17 +0.29 -0.29 Mpc
 Chi squared: 1402.80
+"""
 
-===============================
-
+"""
 Flat w(z) = w0 + wa * z / (1 + z)
 TODO
 """
