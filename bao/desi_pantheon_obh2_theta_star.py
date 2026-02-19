@@ -24,11 +24,17 @@ cmb_inv_cov = np.linalg.inv(cmb.covariance[[0, 1], :][:, [0, 1]])
 
 z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
 z_grid = np.linspace(0, z_max, num=4000)
-dx = np.diff(z_grid)
+dz = np.diff(z_grid)
 
 
 @njit
-def Ez(z, H0, Obh2, Och2, w0=-1.0, wa=0.0):
+def Ode_z(z, w0):
+    zp1 = 1.0 + z
+    return (2 * zp1**3 / (1.0 + w0 + (1.0 - w0) * zp1**3)) ** 2
+
+
+@njit
+def Ez(z, H0, Obh2, Och2, w0):
     h = H0 / 100
     Onu = Omnuh2 / h**2
     Or = Orh2 / h**2
@@ -40,7 +46,7 @@ def Ez(z, H0, Obh2, Och2, w0=-1.0, wa=0.0):
     radiation_term = Or * zp1**4
     matter_term = Obc * zp1**3
     neutrino_term = Onu * cmb.Omnu_z(z)
-    dark_energy_term = Ode * (2 * zp1**3 / (1 + w0 + (1 - w0) * zp1**3)) ** 2
+    dark_energy_term = Ode * Ode_z(z, w0)
 
     return np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
 
@@ -62,9 +68,9 @@ def DH_z(z, params):
 @njit
 def DM_z(z, theta):
     dh_grid = DH_z(z_grid, theta)
-    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    dh = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size, dtype=np.float64)
-    cum_dm[1:] = np.cumsum(dx * dy)
+    cum_dm[1:] = np.cumsum(dz * dh)
     return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
@@ -96,7 +102,7 @@ def bao_theory(z, qty, theta):
 
 
 @njit
-def theory_apparent_mag(theta):
+def apparent_mag_theory(theta):
     dL = (1.0 + z_hel) * DM_z(z_cmb, theta)
     return theta[0] + 25.0 + 5 * np.log10(dL)
 
@@ -111,7 +117,7 @@ def chi_squared(theta):
     delta_cmb = cmb_compressed_priors - cmb_observables
     chi2_cmb = delta_cmb @ cmb_inv_cov @ delta_cmb
 
-    delta_sn = mag_values - theory_apparent_mag(theta)
+    delta_sn = mag_values - apparent_mag_theory(theta)
     chi_sn = solve_triang(cho_sn, delta_sn)
 
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, theta)
@@ -232,7 +238,7 @@ def main():
         x=z_cmb,
         y=mag_values,
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=theory_apparent_mag(best_fit),
+        y_model=apparent_mag_theory(best_fit),
         label=f"$Ω_m$={Om_50:.3f}",
         x_scale="log",
     )
@@ -252,8 +258,19 @@ U(-20.0, -19.0),  # M
 U(50.0, 90.0),  # H0
 U(0.010, 0.030),  # ωb = Ωb * h^2
 U(0.05, 0.30),  # ωc = Ωc * h^2
+
+wCDM:
+U(-1.5, -0.5),  # w0
+
+w0waCDM: (w0 + wa < 0 enforced)
 U(-1.5, 0.0),  # w0
 U(-2.0, 1.5),  # wa
+
+wzCDM:
+U(-1.0, -1/3),  # w0
+
+V_pec:
+U(-1.30, 3.15),  # vpec (in units of 100 km/s)
 """
 
 """
@@ -264,13 +281,30 @@ H0: 68.41 +0.30 -0.30 km/s/Mpc
 ωm: 0.1395 +0.0009 -0.0008
 ωb: 0.02223 +0.00015 -0.00015
 ωc: 0.11663 +0.00082 -0.00081
-w0: -1
-wa: 0
 z_d: 1059.45 +0.36 -0.36
 r_d: 148.15 Mpc
 Chi squared: 1416.94
 Log Evidence: -728.18
 Degs of freedom: 1601
+
+===============================
+
+Flat ΛCDM
+Bulk v_pec corrections of SNe M(z) = M0 + v_pec_corr
+v_pec_corr = 100 * v_pec * (5 / np.log(10)) / (c * z_cmb) with v_pec in units 100 km/s
+
+M: -19.423 +0.010 -0.010 mag
+v_pec: 99 +42 -43 km/s
+H0: 68.48 +0.30 -0.30 km/s/Mpc
+Ωm: 0.297 +0.004 -0.004
+ωm: 0.1393 +0.0009 -0.0008
+ωb: 0.02223 +0.00015 -0.00015
+ωc: 0.11640 +0.00083 -0.00081
+z_d: 1059.45 +0.35 -0.36
+r_d: 148.22 Mpc
+Chi squared: 1411.56 (2.32 sigma away from no v_pec corrections)
+Log Evidence: -726.92 (Δ ln(Z) = 1.26 in favor of v_pec corrections)
+Degs of freedom: 1600
 
 ===============================
 
@@ -281,11 +315,10 @@ H0: 67.26 +0.63 -0.62 km/s/Mpc
 ωm: 0.1376 +0.0013 -0.0013
 ωb: 0.02223 +0.00015 -0.00015
 ωc: 0.11472 +0.00125 -0.00127
-w0: -0.943 +0.027 -0.028 (prior width 1.0: -1.5 to -0.5)
-wa: 0
+w0: -0.943 +0.027 -0.028
 z_d: 1059.34 +0.36 -0.36
 r_d: 148.66 Mpc
-Chi squared: 1412.51
+Chi squared: 1412.51 (2.10 sigma away from ΛCDM)
 Log Evidence: -728.69
 Degs of freedom: 1600
 
@@ -298,11 +331,11 @@ H0: 67.21 +0.58 -0.59 km/s/Mpc
 ωm: 0.1385 +0.0009 -0.0009
 ωb: 0.02223 +0.00015 -0.00015
 ωc: 0.11563 +0.00092 -0.00092
-w0: -0.893 +0.045 -0.045 (prior width 2/3: -1.0 to -1/3)
+w0: -0.893 +0.045 -0.045
 wa: d w(z)/dz at z=0 = -(3 / 2) * (1 - w0^2)
 z_d: 1059.40 +0.35 -0.36
 r_d: 148.41 Mpc
-Chi squared: 1411.65
+Chi squared: 1411.65 (2.30 sigma away from ΛCDM)
 Log Evidence: -727.33
 
 ===============================
@@ -314,11 +347,11 @@ H0: 67.30 +0.62 -0.62 km/s/Mpc
 ωm: 0.1396 +0.0018 -0.0021
 ωb: 0.02223 +0.00015 -0.00015
 ωc: 0.11670 +0.00184 -0.00207
-w0: -0.882 +0.060 -0.058 (prior width 1.5: -1.5 to 0.0)
-wa: -0.306 +0.261 -0.277 (prior width 3.5: -2.0 to 1.5)
+w0: -0.882 +0.060 -0.058
+wa: -0.306 +0.261 -0.277
 z_d: 1059.53 +0.37 -0.38
 r_d: 148.12 Mpc
-Chi squared: 1411.33
+Chi squared: 1411.33 (1.88 sigma away from ΛCDM)
 Log Evidence: -728.98
 Degs of freedom: 1599
 """

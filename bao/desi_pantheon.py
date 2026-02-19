@@ -219,7 +219,7 @@ Flat ΛCDM
 Bulk v_pec corrections of SNe M(z) = M0 + v_pec_corr
 v_pec_corr = 100 * v_pec * (5 / np.log(10)) / (c * z_cmb) with v_pec in units 100 km/s
 
-M_max: -19.410 +0.014 -0.014 mag
+M: -19.410 +0.014 -0.014 mag
 v_pec: 95 +43 -43 km/s (prior ~ U(-1.30, 3.15))
 H0: 68.92 +0.49 -0.49 km/s/Mpc
 Ωm: 0.300 +0.008 -0.008
