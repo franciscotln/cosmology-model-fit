@@ -148,7 +148,7 @@ Flat ΛCDM: w(z) = -1
 Evolving absolute mag of SNe M(z) = M0 + M'0 * z / (1 + (z / 0.043))
 
 ΔM: 0.130 ± 0.078
-M'0: 3.3 ± 2.0 (prior ~ U(-13.0, 7.0))
+M'0: -3.3 ± 2.0 (prior ~ U(-13.0, 7.0))
 H0 (km/s/Mpc): 70.4 ± 1.7
 Ωm: 0.293 +0.030/-0.035 (complete agreement with ΛCDM from BAO)
 Ωm h^2: 0.145 +0.016/-0.019
