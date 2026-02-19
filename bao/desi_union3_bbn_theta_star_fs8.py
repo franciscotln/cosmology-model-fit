@@ -375,7 +375,7 @@ wa: U(-2.5, 1.5)
 w0 + wa < 0 enforced
 
 M(z):
-p: U(-1.0, 2.0)
+p: U(-1.0, 2.5)
 """
 
 """
@@ -401,27 +401,28 @@ Degrees of freedom: 93
 """
 
 """
-Flat ΛCDM w(z) = -1, evolving absolute magnitude
-M(z) = ΔM_max + 1 - (z / (0.1 + z))^(0.1 * p)
+Flat ΛCDM w(z) = -1
+Evolving absolute mag of SNe M(z) = M_max + 0.2 * p / (1 + (z / z_c))
+where z_c = 0.043 and p = -20 * z_c * M'(z_c)
 
 ΔM_max: -0.067 +0.014 -0.014 mag
-p: 0.611 +0.269 -0.260
+p: 0.691 +0.290 -0.293
 H0: 68.55 +0.46 -0.46 km/s/Mpc
-ωb: 0.02221 +0.00053 -0.00053
+ωb: 0.02220 +0.00054 -0.00053
 ωc: 0.1160 +0.0008 -0.0008
 ωm: 0.1389 +0.0011 -0.0011
 Ωm: 0.296 +0.004 -0.004
 σ8: 0.780 +0.014 -0.014
 S8: 0.774 +0.014 -0.014
-z_d: 1059.27 +1.21 -1.25
-r_d: 148.35 +0.70 -0.69 Mpc
-z*: 1089.76 +0.70 -0.66
+z_d: 1059.25 +1.23 -1.24
+r_d: 148.35 +0.70 -0.70 Mpc
+z*: 1089.77 +0.70 -0.68
 r*: 145.61 Mpc
-100 θ*: 1.04095
+100 θ*: 1.04094
 q0: -0.557 +0.007 -0.007
 j0: 1
-Chi2 (MAP): 72.10 (2.31 sigma away from no evolution in magnitude)
-Log Evidence: -56.32 (Δ logZ = 1.23 against no evolution in magnitude)
+Chi2 (MAP): 72.01 (2.33 sigma away from no evolution in magnitude)
+Log Evidence: -56.33 (Δ logZ = 1.22 against no evolution in magnitude)
 Degrees of freedom: 92
 """
 
