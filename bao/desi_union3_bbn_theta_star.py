@@ -194,7 +194,7 @@ def main():
 
     best_fit = [dM_50, H0_50, Obh2_50, Och2_50, w0_50]
     degrees_of_freedom = (
-        len(bao_des_data["z"]) + len(bao_data["z"]) + len(z_cmb) - len(best_fit)
+        1 + len(bao_des_data["z"]) + len(bao_data["z"]) + len(z_cmb) - len(best_fit)
     )
 
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
@@ -285,6 +285,9 @@ w0waCDM:
 w0: U(-1.5, 0.0)
 wa: U(-3.0, 1.0)
 w0 + wa < 0 enforced
+
+Evolving absolute magnitude M(z):
+p U(-1.0, 2.5)
 """
 
 """
@@ -304,30 +307,30 @@ q0: -0.554 +0.007 -0.007
 j0: 1
 Chi2 (MAP): 41.70
 Log Evidence: -36.41
-Degrees of freedom: 32
+Degrees of freedom: 33
 
 ===============================
 
-Flat ΛCDM  w(z) = -1, evolving absolute magnitude of SNe
-M(z) = ΔM_inf + 1 - (z/ (1 + z))**(0.1 * p)
+Flat ΛCDM  w(z) = -1
+Evolving absolute mag of SNe M(z) = M_max + 0.2 * p / (1 + (z / 0.043))
 
-ΔM: -0.084 +0.018 -0.018 mag
-p: 0.269 +0.126 -0.120
-H0: 68.54 +0.47 -0.47 km/s/Mpc
-ωb: 0.02219 +0.00053 -0.00054
-ωc: 0.1160 +0.0008 -0.0008
-ωm: 0.1388 +0.0011 -0.0011
-Ωm: 0.296 +0.005 -0.004
-z_d: 1059.22 +1.22 -1.26
-r_d: 148.37 +0.71 -0.70 Mpc
-z*: 1089.78 +0.71 -0.67
+ΔM_max: -0.067 +0.014 -0.014 mag
+p: 0.686 +0.293 -0.287
+H0: 68.52 +0.46 -0.47 km/s/Mpc
+ωb: 0.02218 +0.00054 -0.00053
+ωc: 0.1161 +0.0008 -0.0008
+ωm: 0.1389 +0.0011 -0.0011
+Ωm: 0.296 +0.004 -0.004
+z_d: 1059.19 +1.23 -1.25
+r_d: 148.38 +0.70 -0.70 Mpc
+z*: 1089.80 +0.70 -0.68
 r*: 145.62 Mpc
-100 θ*: 1.04094
-q0: -0.557 +0.007 -0.007
+100 θ*: 1.04096
+q0: -0.556 +0.007 -0.007
 j0: 1
-Chi2 (MAP): 36.95 (2.18 sigma away from no evolution in magnitude)
-Log Evidence: -35.38 (Δ logZ = 1.03 against no evolution in magnitude)
-Degrees of freedom: 31
+Chi2 (MAP): 36.50 (2.28 sigmas away from constant M)
+Log Evidence: -35.22 (Δ logZ = 1.19 in favour of evolving M)
+Degrees of freedom: 32
 
 ===============================
 
@@ -348,7 +351,7 @@ q0: -0.480 +0.041 -0.042
 j0: 0.819 +0.097 -0.087
 Chi2 (MAP): 37.88 (1.95 sigma away from ΛCDM)
 Log Evidence: -36.73 (Δ logZ = -0.32 in favour of ΛCDM)
-Degrees of freedom: 31
+Degrees of freedom: 32
 
 ===============================
 
@@ -370,7 +373,7 @@ q0: -0.378 +0.072 -0.073
 j0: 0.167 +0.317 -0.271
 Chi2 (MAP): 36.01 (2.39 sigma away from ΛCDM)
 Log Evidence: -35.18 (Δ logZ = 1.23 against ΛCDM)
-Degrees of freedom: 31
+Degrees of freedom: 32
 
 ===============================
 
@@ -392,5 +395,5 @@ q0: -0.305 +0.103 -0.101
 j0: -0.182 +0.518 -0.493
 Chi2 (MAP): 35.22 (2.06 sigma away from ΛCDM)
 Log Evidence: -37.44 + 0.09 = -37.35 (Δ logZ = -1.97 in favour of ΛCDM)
-Degrees of freedom: 30
+Degrees of freedom: 31
 """
