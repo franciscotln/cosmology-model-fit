@@ -258,7 +258,7 @@ w0 U(-1.3, 0.0)
 wa U(-4.0, 2.0)
 
 Evolving absolute magnitude M(z):
-p U(-0.4, 0.8)
+p U(-1.0, 2.5)
 """
 
 """
@@ -277,19 +277,21 @@ Degrees of freedom: 31
 """
 
 """
-Flat ΛCDM w(z) = -1, evolving absolute magnitude of SNe M(z) = ΔM + tanh(1 - z^(0.1 * p))
+Flat ΛCDM w(z) = -1
+Evolving absolute mag of SNe M(z) = ΔM_max + 0.2 * p / (1 + (z / 0.043))
+
+ΔM_max: -0.059 +0.023 -0.023
+p: 0.676 +0.298 -0.298
 H0: 68.7 +0.6 -0.6 km/s/Mpc
-Ωm: 0.2960 +0.0085 -0.0083
+Ωm: 0.2969 +0.0085 -0.0082
 ωb: 0.02219 +0.00055 -0.00055
-ωm: 0.13976 +0.00507 -0.00477
-p: 0.206 +0.102 -0.100
-ΔM: -0.061 +0.024 -0.024
-r_d: 147.95 +1.55 -1.56 Mpc
-q0: -0.556 +0.013 -0.012
+ωm: 0.14028 +0.00507 -0.00480
+r_d: 147.81 +1.55 -1.57 Mpc
+q0: -0.555 +0.013 -0.012
 j0: 1
-Chi squared (MAP): 37.30
-Log Evidence: -32.06 (Δ logZ = 0.6 against no mag evolution)
-Degrees of freedom: 31
+Chi squared (MAP): 36.48 (2.28 sigmas away from constant M)
+Log Evidence: -31.64 (Δ logZ = 1.02 against constant M)
+Degs of freedom: 31
 """
 
 """
