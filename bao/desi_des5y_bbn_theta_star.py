@@ -276,7 +276,8 @@ Degrees of freedom: 1724
 
 """
 Flat ΛCDM  w(z) = -1
-Evolving absolute mag of SNe M(z) = ΔM_max + 0.2 * p / (1 + (z / 0.043))
+Evolving absolute mag of SNe M(z) = ΔM_max + 0.2 * p / (1 + (z / z_c))
+where z_c = 0.043 and p = -20 * z_c * M'(z_c)
 
 p: 0.422 +0.147 -0.146 (prior ~ U(-0.5, 1.5))
 ΔM_max: -0.074 +0.013 -0.013 mag
