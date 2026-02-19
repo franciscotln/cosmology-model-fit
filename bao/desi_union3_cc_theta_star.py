@@ -260,7 +260,7 @@ wa   ~U(-3.5, +2.0)
 w0 + wa < 0 enforced
 
 M(z):
-p    ~U(-2.0, 4.0)
+p    ~U(-1.0, 2.5)
 """
 
 """
@@ -280,20 +280,19 @@ Degrees of freedom: 67
 
 """
 Flat ΛCDM: w(z) = -1
-varying abs. mag: M(z) = M_max + p * [1 - (z / (0.1 + z))^0.05]
-p = M0 - M_max
+Evolving absolute mag of SNe M(z) = ΔM_max + 0.2 * p / (1 + (z / 0.043))
 
 f_cc: 1.49 +0.18 -0.17
 ΔM_max: -0.064 +0.042 -0.039 mag
-p: 1.174 +0.521 -0.513
+p: 0.685 +0.297 -0.295
 H0: 68.6 +1.5 -1.4 km/s/Mpc
 ωb: 0.0224 +0.0022 -0.0020 Mpc
 ωc: 0.1163 +0.0013 -0.0011
 ωm: 0.1393 +0.0034 -0.0029
 Ωm: 0.296 +0.008 -0.007
-r_d: 148.1 +2.6 -2.7 Mpc
-Chi squared: 72.31 (2.26 sigma away from constant M)
-Log evidence: -180.82 (Δ logZ = 1.08 against constant M)
+r_d: 148.1 +2.5 -2.7 Mpc
+Chi squared: 72.19 (2.28 sigmas away from constant M)
+Log evidence: -180.79 (Δ logZ = 1.11 against constant M)
 Degrees of freedom: 66
 """
 
