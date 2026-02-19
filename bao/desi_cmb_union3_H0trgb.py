@@ -126,7 +126,7 @@ def chi2_bao(params):
 def chi_squared(params):
     delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(params[2], params[3], params)
     chi2_cmb = delta_cmb @ cmb.inv_cov_mat @ delta_cmb
-    chi2_H0 = ((params[1] - 70.39) / 1.80) ** 2  # TRGB
+    chi2_H0 = ((params[1] - 70.39) / 1.80) ** 2  # TRGB arXiv:2408.06153v3
 
     return chi2_H0 + chi2_cmb + chi2_bao(params) + chi2_sn(params)
 
