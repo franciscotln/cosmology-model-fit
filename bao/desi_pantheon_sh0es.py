@@ -81,8 +81,8 @@ def mu_theory(theta):
 
 
 @njit
-def v_bulk(theta):
-    return 100 * theta[4] * (5 / np.log(10)) / (c * z_cmb)
+def v_bulk(v_pec):
+    return 100 * v_pec * (5 / np.log(10)) / (c * z_cmb)
 
 
 def solve_triang(cho_L, delta):
@@ -92,7 +92,7 @@ def solve_triang(cho_L, delta):
 
 def chi2_sn(theta):
     mu_the = np.where(ceph_mask, ceph_dists, mu_theory(theta))
-    mb_theory = mu_the + theta[0] + v_bulk(theta)
+    mb_theory = mu_the + theta[0] + v_bulk(theta[4])
     delta_sn = mb_vals - mb_theory
     return solve_triang(cho_sn, delta_sn)
 
@@ -206,7 +206,7 @@ def main():
     plot_sn_predictions(
         legend=legend,
         x=z_cmb,
-        y=mb_vals - M_50 - v_bulk(best_fit),
+        y=mb_vals - M_50 - v_bulk(v_b_50),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=mu_theory(best_fit),
         label=f"Best fit: $Ω_m$={Om_50:.3f}",
