@@ -8,6 +8,7 @@ from y2022pantheonSHOES.data_shoes import get_data
 
 bao_legend, data, bao_cov_matrix = get_bao_data()
 legend, z_cmb, z_hel, mb_vals, ceph_dists, cov_matrix_sn = get_data(z_cut_ceph=0.0043)
+# At z_ceph < 0.0043 there seems to be an inversion in velocity flow which kills the signal
 
 ceph_mask = ceph_dists != -9
 
@@ -23,15 +24,13 @@ dz = np.diff(z_grid)
 
 @njit
 def Ode_z(z, w0):
-    return (1.0 + z) ** (3 * (1.0 + w0)) # wCDM
+    return (1.0 + z) ** (3 * (1.0 + w0))  # wCDM
 
 
 @njit
 def Ez(z, theta):
     Om = theta[2]
-    zp1 = 1.0 + z
-    cubed = zp1**3
-    return np.sqrt(Om * cubed + (1.0 - Om))
+    return np.sqrt(Om * (1.0 + z) ** 3 + (1.0 - Om))
 
 
 @njit
