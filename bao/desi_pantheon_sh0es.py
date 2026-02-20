@@ -6,7 +6,7 @@ from interpolator import interp_hermite
 from y2025BAO.data import get_data as get_bao_data
 from y2022pantheonSHOES.data_shoes import get_data
 
-bao_legend, data, bao_cov_matrix = get_bao_data()
+bao_legend, bao_data, bao_cov_matrix = get_bao_data()
 legend, z_cmb, z_hel, mb_vals, ceph_dists, cov_matrix_sn = get_data(z_cut_ceph=0.0043)
 # At z_ceph < 0.0043 there seems to be an inversion in velocity flow which kills the signal
 
@@ -17,7 +17,7 @@ inv_cov_bao = np.linalg.inv(bao_cov_matrix)
 
 c = c0 / 1000  # Speed of light in km/s
 
-z_max = max(np.max(z_cmb), np.max(data["z"])) + 0.1
+z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
 z_grid = np.linspace(0, z_max, num=3000)
 dz = np.diff(z_grid)
 
@@ -60,7 +60,7 @@ def DV_z(z, theta):
 
 
 qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
-desi_qty = np.array([qty_map[q] for q in data["quantity"]], dtype=np.int32)
+desi_qty = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int32)
 
 
 @njit
@@ -90,23 +90,29 @@ def solve_triang(cho_L, delta):
     return np.dot(y, y)
 
 
-def chi_squared(theta):
+def chi2_sn(theta):
     mu_the = np.where(ceph_mask, ceph_dists, mu_theory(theta))
     mb_theory = mu_the + theta[0] + v_bulk(theta)
     delta_sn = mb_vals - mb_theory
-    chi_sn = solve_triang(cho_sn, delta_sn)
+    return solve_triang(cho_sn, delta_sn)
 
-    delta_bao = data["value"] - bao_theory(data["z"], desi_qty, theta)
-    chi_bao = delta_bao @ inv_cov_bao @ delta_bao
-    return chi_sn + chi_bao
+
+@njit
+def chi2_bao(theta):
+    delta_bao = bao_data["value"] - bao_theory(bao_data["z"], desi_qty, theta)
+    return delta_bao @ inv_cov_bao @ delta_bao
+
+
+def chi_squared(theta):
+    return chi2_sn(theta) + chi2_bao(theta)
 
 
 bounds = np.array(
     [
-        (-20.0, -18.5),  # M
-        (50.0, 100.0),  # H0
+        (-20.0, -18.5),  # M (mag)
+        (50.0, 100.0),  # H0 (km/s/Mpc)
         (0.2, 0.7),  # Ωm
-        (120.0, 170.0),  # rd
+        (120.0, 170.0),  # rd (Mpc)
         (-1.5, 3.5),  # v_bulk in units of 100 km/s
     ]
 )
@@ -187,13 +193,13 @@ def main():
     print(f"v_bulk: {v_b_50:.3f} +{(v_b_84 - v_b_50):.3f} -{(v_b_50 - v_b_16):.3f}")
     print(f"Chi2 (MAP): {chi_squared(samples[np.argmax(log_probs)]):.1f}")
     print(f"Log evidence: {log_evd:.1f}")
-    print(f"Degrees of freedom: {data['z'].size + z_cmb.size - len(best_fit)}")
+    print(f"Degrees of freedom: {len(bao_data) + len(z_cmb) - len(best_fit)}")
 
     labels = ["$M_0$", "$H_0$", "$Ω_m$", "$r_{drag}$", "$v_{bulk}$"]
     plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
     plot_bao_predictions(
         theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
-        data=data,
+        data=bao_data,
         errors=np.sqrt(np.diag(bao_cov_matrix)),
         title=bao_legend,
     )
@@ -214,10 +220,10 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM
-M0: -19.232 +0.032 -0.032 mag
-H0: 74.25 +1.13 -1.11 km/s/Mpc
-Ωm: 0.305 +0.008 -0.008
-rd: 136.00 +2.22 -2.17 Mpc
+M0: -19.232 +- 0.032 mag
+H0: 74.3 +1.1 -1.1 km/s/Mpc
+Ωm: 0.305 +- 0.008
+rd: 136.0 +- 2.2 Mpc
 Chi2 (MAP): 1450.2
 Log evidence: -740.3
 Degrees of freedom: 1650
@@ -228,11 +234,11 @@ Flat ΛCDM
 Bulk v_pec corrections of SNe M(z) = M0 + v_pec_corr
 v_pec_corr = 100 * v_pec * (5 / np.log(10)) / (c * z_cmb) with v_pec in units 100 km/s
 
-v_pec: 100 +40 -41 km/s (prior ~ U(-1.5, 3.5) in units of 100 km/s)
-M0: -19.335 +0.053 -0.053 mag
-H0: 71.28 +1.62 -1.58 km/s/Mpc
-Ωm: 0.300 +0.008 -0.008
-rd: 142.14 +3.44 -3.40 Mpc
+v_pec: 100 +- 40 km/s (prior ~ U(-1.5, 3.5) in units of 100 km/s)
+M0: -19.335 +- 0.053 mag
+H0: 71.3 +- 1.6 km/s/Mpc
+Ωm: 0.300 +- 0.008
+rd: 142.1 +- 3.4 Mpc
 Chi2 (MAP): 1444.3 (2.43 sigma away from no v_pec correction)
 Log evidence: -738.9 (Δ logZ = 1.4 in favor of v_pec correction)
 Degrees of freedom: 1649
@@ -240,11 +246,11 @@ Degrees of freedom: 1649
 
 """
 Flat wCDM
-w0: -0.914 +0.040 -0.040 (prior ~ U(-1.5, -0.5))
-M0: -19.229 +0.032 -0.032 mag
-H0: 73.95 +1.12 -1.11 km/s/Mpc
-Ωm: 0.298 +0.009 -0.009
-rd: 134.94 +2.25 -2.20 Mpc
+w0: -0.914 +- 0.040 (prior ~ U(-1.5, -0.5))
+M0: -19.229 +- 0.032 mag
+H0: 73.9 +- 1.1 km/s/Mpc
+Ωm: 0.298 +- 0.009
+rd: 134.9 +- 2.2 Mpc
 Chi2 (MAP): 1445.6 (2.14 sigma away from ΛCDM)
 Log evidence: -740.3 (Δ logZ = 0.0, same evidence as ΛCDM)
 Degrees of freedom: 1649
@@ -252,12 +258,12 @@ Degrees of freedom: 1649
 
 """
 Flat w0waCDM (enforced w0 + wa < 0)
-M0: -19.228 +0.032 -0.032 mag
-H0: 73.88 +1.11 -1.11 km/s/Mpc
+M0: -19.228 +- 0.032 mag
+H0: 73.9 +- 1.1 km/s/Mpc
 Ωm: 0.304 +0.015 -0.023
 w0: -0.891 +0.061 -0.057 (prior ~ U(-1.5, -0.5))
 wa: -0.18 +0.48 -0.45 (prior ~ U(-2.5, 2.5))
-Chi2 (MAP): 1445.5
+Chi2 (MAP): 1445.5 (1.67 sigma away from ΛCDM)
 Log evidence: -741.4 (Δ logZ = -1.1 in favour of ΛCDM)
 Degrees of freedom: 1648
 """
