@@ -17,6 +17,7 @@ dz = np.diff(z_grid)
 
 @njit
 def Ode_z(z, w0):
+    # Thawing quintessence with w(z) ranging from -1 to 1
     a3 = (1.0 + z) ** -3
     return 4 / ((1.0 + w0) * a3 + (1.0 - w0)) ** 2
 
@@ -59,9 +60,8 @@ def DM_z(z, params):
 
 @njit
 def mu_theory(params):
-    dL = (1.0 + z_hel) * DM_z(z_cmb, params)
-    Mz = params[0] + 0.2 * params[4] / (1 + (z_cmb / 0.043))
-    return Mz + 25.0 + 5 * np.log10(dL)
+    M_z = params[0] + params[4] * z_cmb / (1.0 + (z_cmb / 0.043))
+    return M_z + 25.0 + 5 * np.log10((1.0 + z_hel) * DM_z(z_cmb, params))
 
 
 def chi_squared(params):
@@ -80,7 +80,7 @@ bounds = np.array(
         (60.0, 75.0),  # H0
         (0.010, 0.030),  # ωb
         (0.010, 0.250),  # ωc
-        (-1.5, 3.0),  # p
+        (-10.0, 5.0),  # M'0
     ]
 )
 
@@ -108,9 +108,9 @@ def log_probability(params):
 def main():
     import emcee
     from multiprocessing import Pool
+    from getdist import plots, MCSamples
+    from matplotlib import pyplot as plt
     from sn.plotting import plot_predictions
-    from corner_plot import plot_corner_and_chains
-    from gelman_rubin import gelman_rubin
     from log_evidence import log_evidence
 
     ndim = len(bounds)
@@ -139,58 +139,56 @@ def main():
         print("Autocorrelation time could not be computed", e)
 
     chains_samples = sampler.get_chain(discard=burn_in, flat=False)
+    log_probs_chains = sampler.get_log_prob(discard=burn_in, flat=False)
     samples = sampler.get_chain(discard=burn_in, flat=True)
     log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
     log_evd = log_evidence(samples, log_probs, log_probability, bounds)
 
-    print("Gelman-Rubin:", gelman_rubin(chains_samples))
+    chain_list = [chains_samples[:, i, :] for i in range(chains_samples.shape[1])]
+    loglikes = [-log_probs_chains[:, i] for i in range(log_probs_chains.shape[1])]
 
-    one_sigma_percentiles = [15.9, 50, 84.1]
-    pct = np.percentile(samples, one_sigma_percentiles, axis=0).T
-    [
-        (dM_16, dM_50, dM_84),
-        (H0_16, H0_50, H0_84),
-        (Obh2_16, Obh2_50, Obh2_84),
-        (Och2_16, Och2_50, Och2_84),
-        (p_16, p_50, p_84),
-    ] = pct
+    gd_samples = MCSamples(
+        samples=chain_list,
+        loglikes=loglikes,
+        names=["dM", "H0", "obh2", "och2", "M_prime"],
+        labels=["Δ_M", "H_0", "ω_b", "ω_c", "M'_0"],
+        label="Union3.1 + CMB(R, lA, ωb)",
+    )
+    gd_samples.addDerived(
+        Omnuh2 + gd_samples["obh2"] + gd_samples["och2"], name="omh2", label="ω_m"
+    )
+    gd_samples.addDerived(
+        gd_samples["omh2"] / (gd_samples["H0"] / 100) ** 2, name="om", label="Ω_m"
+    )
+
+    g = plots.get_subplot_plotter()
+    g.triangle_plot(
+        gd_samples,
+        params=["dM", "M_prime", "H0", "om"],
+        title_limit=1,
+        filled=True,
+        contour_colors=["C0"],
+        color=["C0"],
+    )
+    plt.show()
+
+    print(f"Gelman-Rubin: {gd_samples.getGelmanRubin():.1e}")
 
     best_fit = np.percentile(samples, 50, axis=0)
-    degrees_of_freedom = len(mu_vals) + len(cmb.DISTANCE_PRIORS) - len(best_fit)
+    degs_of_freedom = len(mu_vals) + len(cmb.DISTANCE_PRIORS) - len(best_fit)
 
-    Omh2_samples = samples[:, 2] + samples[:, 3] + Omnuh2
-    Om_samples = Omh2_samples / (samples[:, 1] / 100) ** 2
-    z_star_samples = cmb.z_star(samples[:, 2], Omh2_samples)
-    z_drag_samples = cmb.z_drag(samples[:, 2], Omh2_samples)
-    Omh2_16, Omh2_50, Omh2_84 = np.percentile(Omh2_samples, [15.9, 50, 84.1])
-    Om_16, Om_50, Om_84 = np.percentile(Om_samples, [15.9, 50, 84.1])
-    z_st_16, z_st_50, z_st_84 = np.percentile(z_star_samples, one_sigma_percentiles)
-    z_d_16, z_d_50, z_d_84 = np.percentile(z_drag_samples, one_sigma_percentiles)
-
-    print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f}")
-    print(f"p: {p_50:.3f} +{(p_84 - p_50):.3f} -{(p_50 - p_16):.3f}")
-    print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
-    print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
-    print(f"ωm: {Omh2_50:.5f} +{(Omh2_84 - Omh2_50):.5f} -{(Omh2_50 - Omh2_16):.5f}")
-    print(f"ωb: {Obh2_50:.5f} +{(Obh2_84 - Obh2_50):.5f} -{(Obh2_50 - Obh2_16):.5f}")
-    print(f"ωc: {Och2_50:.4f} +{(Och2_84 - Och2_50):.4f} -{(Och2_50 - Och2_16):.4f}")
-    print(f"z*: {z_st_50:.2f} +{(z_st_84 - z_st_50):.2f} -{(z_st_50 - z_st_16):.2f}")
-    print(f"z_drag: {z_d_50:.2f} +{(z_d_84 - z_d_50):.2f} -{(z_d_50 - z_d_16):.2f}")
-    print(f"r*: {cmb.rs_z(z_st_50, Obh2_50, best_fit):.2f} Mpc")
-    print(f"r_d: {cmb.rs_z(z_d_50, Obh2_50, best_fit):.2f} Mpc")
-    print(f"Chi squared: {chi_squared(best_fit):.1f}")
+    MAP_index = np.argmax(log_probs)
+    print(f"Chi2 (MAP): {chi_squared(samples[MAP_index]):.1f}")
     print(f"Log Evidence: {log_evd:.1f}")
-    print(f"Degrees of freedom: {degrees_of_freedom}")
+    print(f"Degrees of freedom: {degs_of_freedom}")
 
-    labels = ["$Δ_M$", "$H_0$", "$ω_b$", "$ω_c$", "$p$"]
-    plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
     plot_predictions(
         legend=sn_legend,
         x=z_cmb,
         y=mu_vals,
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=mu_theory(best_fit),
-        label=f"$Ω_m$={Om_50:.3f}",
+        label=f"ΛCDM + M(z)",
         x_scale="log",
     )
 
@@ -225,21 +223,17 @@ Degrees of freedom: 21
 
 """
 Flat ΛCDM w(z) = -1, varying absolute magnitude
-Evolving absolute mag of SNe M(z) = ΔM_max + 0.2 * p / (1 + (z / 0.043))
+Evolving absolute mag of SNe M(z) = M0 + M'0 * z / (1 + (z / 0.043))
 
-ΔM_max: -0.078 +0.012 -0.012
-p: 0.553 +0.294 -0.297 (prior U(-1.5, +3.0))
-H0: 67.69 +0.49 -0.49 km/s/Mpc
-Ωm: 0.311 +0.007 -0.007
-ωm: 0.14230 +0.00115 -0.00115
-ωb: 0.02250 +0.00011 -0.00011
-ωc: 0.1191 +0.0012 -0.0012
-z*: 1089.66 +0.21 -0.21
-z_drag: 1060.17 +0.23 -0.23
-r*: 144.56 Mpc
-r_d: 147.18 Mpc
-Chi squared: 26.1 (1.84 sigma away from no evolution)
-Log Evidence: -33.2
+ΔM0: 0.031 +- 0.055 mag
+M'0: -2.6 +- 1.4 mag per unit redshift (prior ~ U(-10.0, 5.0))
+H0: 67.68 +- 0.49 km/s/Mpc
+Ωm: 0.3107 +- 0.0069
+ωm: 0.1423 +- 0.0012
+ωb: 0.02250 +- 0.00011
+ωc: 0.1192 +- 0.0012
+Chi2 (MAP): 26.1 (1.84 sigma away from no evolution)
+Log Evidence: -32.9
 Degrees of freedom: 20
 """
 
