@@ -231,9 +231,9 @@ z_cut_cepheids = 0.0043
 ******************************
 
 ΛCDM w(z) = -1
-M: -19.229 +0.033/-0.032 mag (prior ~ U(-20.0, -18.5))
-H0: 74.06 +1.13/-1.12 km/s/Mpc
-Ωm: 0.332 +0.018/-0.018
+M: -19.229 +- 0.033 mag (prior ~ U(-20.0, -18.5))
+H0: 74.1 +- 1.1 km/s/Mpc
+Ωm: 0.332 +- 0.018
 Skewness of residuals: 0.077
 kurtosis of residuals: 1.581
 Chi squared: 1436.89
@@ -241,15 +241,15 @@ Chi squared: 1436.89
 ==============================
 
 ΛCDM w(z) = -1
-Corrections in peculiar velocities added to mu_theory': mu_theory + v_pec_corr
-v_pec_corr = 100 * v_pec * (5 / np.log(10)) / (c * z_cmb)
-with v_pec in units 100 km/s
+Corrections in bulk flow added to mu_theory': mu_theory + v_pec_corr
+v_pec_corr = 100 * v_bulk * (5 / np.log(10)) / (c * z_cmb)
+with v_bulk in units 100 km/s
 
 M: -19.315 +- 0.057 mag (prior ~ U(-20.0, -18.5))
-H0: 71.69 +1.68/-1.65 km/s/Mpc
+H0: 71.7 +- 1.7 km/s/Mpc
 Ωm: 0.315 +- 0.020
-v_pec: 83 +- 45 km/s (prior ~ U(-1.6, 3.2) in units of 100 km/s)
+v_bulk: 83 +- 45 km/s (prior ~ U(-1.6, 3.2) in units of 100 km/s)
 Skewness of residuals: 0.042
 kurtosis of residuals: 1.565
-Chi squared: 1433.37 (1.88 sigma away from no v_pec corrections)
+Chi squared: 1433.37 (1.88 sigma away from no v_bulk corrections)
 """
