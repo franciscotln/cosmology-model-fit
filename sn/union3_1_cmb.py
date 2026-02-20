@@ -222,7 +222,7 @@ Evolving absolute mag of SNe M(z) = M0 + M'0 * z / (1 + (z / 0.043))
 M'0: -2.6 +- 1.4 mag per unit redshift (prior ~ U(-10.0, 5.0))
 H0: 67.68 +- 0.49 km/s/Mpc
 Ωm: 0.3107 +- 0.0069
-Chi2 (MAP): 26.1 (1.84 sigma away from no evolution)
+Chi2 (MAP): 26.1 (1.87 sigma away from no evolution)
 Log Evidence: -32.9
 Degrees of freedom: 20
 """
