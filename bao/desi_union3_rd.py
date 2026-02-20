@@ -180,23 +180,23 @@ Union 3.1 SNe 2026
 rdrag prior from Planck 2018
 
 Priors:
-ΔM U(-1.0, +1.0)
-rd N(147.09, 0.26)
-H0 U(50.0, 85.0)
-Ωm U(0.1, 0.6)
+ΔM ~U(-1.0, +1.0)
+rd ~N(147.09, 0.26)
+H0 ~U(50.0, 85.0)
+Ωm ~U(0.1, 0.6)
 
 mag evolution:
-p U(-1.0, 2.5)
+M0' ~U(-11.0, 4.0)
 
 wCDM:
-w0 U(-1.5, 0.0)
+w0 ~U(-1.5, 0.0)
 
 wzCDM thawing quintessence:
-w0 U(-1.0, -1/3)
+w0 ~U(-1.0, -1/3)
 
 w0waCDM:
-w0 U(-1.5, 0.0)
-wa U(-3.5, 2.5)
+w0 ~U(-1.5, 0.0)
+wa ~U(-3.5, 2.5)
 
 w0 + wa < 0 enforced
 """
@@ -215,16 +215,17 @@ Degs of freedom: 31
 
 """
 Flat ΛCDM: w(z) = -1
-Evolving absolute mag of SNe M(z) = ΔM_max + 0.2 * p / (1 + (z / 0.043))
+Evolving absolute magnitude of SNe M(z) = M0 + M0' * z / (1 + (z / z_h))
+z_h = 0.043 is the redshift of homogeneity scale
 
-ΔM_max: -0.049 +0.012 -0.012 mag
-p: 0.677 +0.299 -0.300
+ΔM: -0.086 +0.056 -0.56 mag
+M0': -3.141 +1.391 -1.391 mag per unit redshift at z=0
 rd: 147.09 +0.26 -0.26 Mpc
 H0: 69.05 +0.50 -0.50 km/s/Mpc
 Ωm: 0.297 +0.008 -0.008
-ωm: 0.1417 +0.0023 -0.0023
+ωm: 0.1417 +0.0024 -0.0023
 Chi squared: 36.0 (2.26 sigma away from no evolution in M)
-Log evidence: -32.3 (Δ logZ = 1.0 against no evolution in M)
+Log evidence: -32.2 (Δ logZ = 1.1 against no evolution in M)
 Degs of freedom: 30
 """
 
