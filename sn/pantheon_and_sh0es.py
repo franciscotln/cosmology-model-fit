@@ -1,24 +1,23 @@
 from numba import njit
 import numpy as np
 import scipy.stats as stats
+from scipy.constants import c as c0
 from scipy.linalg import cho_factor, solve_triangular
 from interpolator import interp_hermite
 from y2022pantheonSHOES.data_shoes import get_data
 
-legend, z_values, z_hel_values, apparent_mag_values, cepheid_distances, cov_matrix = (
-    get_data()
-)
+legend, z_cmb, z_hel, apparent_mags, ceph_dists, cov_matrix = get_data()
 
-cepheids_mask = cepheid_distances != -9
+cepheids_mask = ceph_dists != -9
 cho = cho_factor(cov_matrix, lower=True)[0]
 
-c = 299792.458  # Speed of light (km/s)
+c = c0 / 1000  # Speed of light (km/s)
 
-z_grid = np.linspace(0, np.max(z_values) + 0.1, num=3000)
+z_grid = np.linspace(0, np.max(z_cmb) + 0.1, num=3000)
 dz = np.diff(z_grid)
 
 zp1 = 1.0 + z_grid
-zp1_hel = 1.0 + z_hel_values
+zp1_hel = 1.0 + z_hel
 
 
 @njit
@@ -34,7 +33,7 @@ def DM_z(theta):
     dh = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size, dtype=np.float64)
     cum_dm[1:] = np.cumsum(dh * dz)
-    return interp_hermite(z_values, z_grid, cum_dm, dh_grid)
+    return interp_hermite(z_cmb, z_grid, cum_dm, dh_grid)
 
 
 @njit
@@ -48,9 +47,9 @@ def solve_triang(cho_L, delta):
 
 
 def chi_squared(params):
-    mu_theory = np.where(cepheids_mask, cepheid_distances, model_mu(params))
+    mu_theory = np.where(cepheids_mask, ceph_dists, model_mu(params))
     apparent_mag_theory = mu_theory + params[0]
-    delta = apparent_mag_values - apparent_mag_theory
+    delta = apparent_mags - apparent_mag_theory
     return solve_triang(cho, delta)
 
 
@@ -130,14 +129,12 @@ def main():
 
     predicted_mu_values = model_mu(best_fit)
     residuals = (
-        apparent_mag_values
-        - M_50
-        - np.where(cepheids_mask, cepheid_distances, predicted_mu_values)
+        apparent_mags - M_50 - np.where(cepheids_mask, ceph_dists, predicted_mu_values)
     )
 
     # Compute R-squared
     ss_res = np.sum(residuals**2)
-    ss_tot = np.sum((apparent_mag_values - np.mean(apparent_mag_values)) ** 2)
+    ss_tot = np.sum((apparent_mags - np.mean(apparent_mags)) ** 2)
     r_squared = 1 - (ss_res / ss_tot)
 
     # Compute root mean square deviation
@@ -148,8 +145,8 @@ def main():
     omega_label = f"{omega_50:.3f} +{omega_84-omega_50:.3f}/-{omega_50-omega_16:.3f}"
     w0_label = f"{w0_50:.3f} +{w0_84-w0_50:.3f}/-{w0_50-w0_16:.3f}"
     print_color("Dataset", legend)
-    print_color("z range", f"{z_values[0]:.4f} - {z_values[-1]:.4f}")
-    print_color("Sample size", len(z_values))
+    print_color("z range", f"{z_cmb[0]:.4f} - {z_cmb[-1]:.4f}")
+    print_color("Sample size", len(z_cmb))
     print_color("M", M_label)
     print_color("H0 (km/s/Mpc)", H0_label)
     print_color("Ωm", omega_label)
@@ -166,14 +163,14 @@ def main():
     plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
     plot_predictions(
         legend=legend,
-        x=z_values,
-        y=apparent_mag_values - M_50,
+        x=z_cmb,
+        y=apparent_mags - M_50,
         y_err=sigma_mu,
         y_model=predicted_mu_values,
         label=f"H0={H0_50:.2f} km/s/Mpc",
         x_scale="log",
     )
-    plot_residuals(z_values=z_values, residuals=residuals, y_err=sigma_mu, bins=40)
+    plot_residuals(z_values=z_cmb, residuals=residuals, y_err=sigma_mu, bins=40)
 
 
 if __name__ == "__main__":
@@ -195,21 +192,6 @@ RMSD (mag): 0.153
 Skewness of residuals: 0.085
 kurtosis of residuals: 1.555
 Chi squared: 1452.02
-
-=============================
-
-ΛCDM w(z) = -1
-Evolving absolute mag of SNe M(z) = M_max + p * [1 - (z / (0.1 + z))^0.05]
-
-p: 0.269 +0.279/-0.282 mag
-M_max: -19.279 +0.048/-0.048 mag
-H0 (km/s/Mpc): 72.87 +1.24/-1.22
-Ωm: 0.315 +0.025/-0.024
-R-squared (%): 99.78
-RMSD (mag): 0.153
-Skewness of residuals: 0.065
-kurtosis of residuals: 1.555
-Chi squared: 1451.02
 
 =============================
 
@@ -237,4 +219,37 @@ RMSD (mag): 0.153
 Skewness of residuals: 0.070
 kurtosis of residuals: 1.564
 Chi squared: 1451.86
+"""
+
+
+"""
+******************************
+Dataset: Pantheon+ and SH0ES
+Sample size: 1641
+z range: 0.0043 - 2.2614
+z_cut_cepheids = 0.0043
+******************************
+
+ΛCDM w(z) = -1
+M: -19.229 +0.033/-0.032 mag (prior ~ U(-20.0, -18.5))
+H0: 74.06 +1.13/-1.12 km/s/Mpc
+Ωm: 0.332 +0.018/-0.018
+Skewness of residuals: 0.077
+kurtosis of residuals: 1.581
+Chi squared: 1436.89
+
+==============================
+
+ΛCDM w(z) = -1
+Corrections in peculiar velocities added to mu_theory': mu_theory + v_pec_corr
+v_pec_corr = 100 * v_pec * (5 / np.log(10)) / (c * z_cmb)
+with v_pec in units 100 km/s
+
+M: -19.315 +- 0.057 mag (prior ~ U(-20.0, -18.5))
+H0: 71.69 +1.68/-1.65 km/s/Mpc
+Ωm: 0.315 +- 0.020
+v_pec: 83 +- 45 km/s (prior ~ U(-1.6, 3.2) in units of 100 km/s)
+Skewness of residuals: 0.042
+kurtosis of residuals: 1.565
+Chi squared: 1433.37 (1.88 sigma away from no v_pec corrections)
 """

@@ -5,7 +5,7 @@ import numpy as np
 
 path_to_data = os.path.dirname(os.path.abspath(__file__)) + "/raw-data/"
 data_frame = pd.read_csv(path_to_data + "distances.txt", sep=" ")
-convariances_file = pd.read_csv(path_to_data + "covariance_stat_sys.txt", sep=" ")
+cov_file = pd.read_csv(path_to_data + "covariance_stat_sys.txt", sep=" ")
 selected_columns = data_frame[["zHD", "zHEL", "m_b_corr", "CEPH_DIST", "IS_CALIBRATOR"]]
 
 legend = "Pantheon+ and SH0ES"
@@ -15,14 +15,13 @@ apparent_mag = selected_columns["m_b_corr"].to_numpy(dtype=np.float64)
 cepheid_distances = selected_columns["CEPH_DIST"].to_numpy(dtype=np.float64)
 
 n = z_values.size
-covariance_matrix = convariances_file["cov_mu_shoes"].to_numpy(dtype=np.float64).reshape((n, n))
-
-pantheon_SH0ES_range = np.where(
-    (selected_columns["IS_CALIBRATOR"] == 1) | (z_values > 0.01)
-)[0]
+covariance_matrix = cov_file["cov_mu_shoes"].to_numpy(dtype=np.float64).reshape((n, n))
 
 
-def get_data():
+def get_data(z_cut_ceph=0.0):
+    ceph_mask = (z_values >= z_cut_ceph) & (selected_columns["IS_CALIBRATOR"] == 1)
+    pantheon_SH0ES_range = np.where((ceph_mask) | (z_values > 0.01))[0]
+
     return (
         legend,
         z_values[pantheon_SH0ES_range],
