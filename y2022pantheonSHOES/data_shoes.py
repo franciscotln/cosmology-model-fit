@@ -19,6 +19,9 @@ covariance_matrix = cov_file["cov_mu_shoes"].to_numpy(dtype=np.float64).reshape(
 
 
 def get_data(z_cut_ceph=0.0):
+    """
+    :param float z_cut_ceph: Minimum redshift for including Cepheid-calibrated SNe
+    """
     ceph_mask = (z_values >= z_cut_ceph) & (selected_columns["IS_CALIBRATOR"] == 1)
     pantheon_SH0ES_range = np.where((ceph_mask) | (z_values > 0.01))[0]
 
