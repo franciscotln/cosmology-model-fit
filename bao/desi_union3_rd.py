@@ -217,6 +217,8 @@ Degs of freedom: 31
 Flat ΛCDM: w(z) = -1
 Evolving absolute magnitude of SNe M(z) = M0 + M0' * z / (1 + (z / z_h))
 z_h = 0.043 is the redshift of homogeneity scale
+M(0) = M0
+M(z >> z_h) = M0 + M0' * z_h, asymptotic value
 
 ΔM: -0.086 +0.056 -0.56 mag
 M0': -3.141 +1.391 -1.391 mag per unit redshift at z=0
