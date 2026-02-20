@@ -206,17 +206,10 @@ z range: 0.050 - 2.262
 
 """
 Flat ΛCDM w(z) = -1
-ΔM: -0.069 +0.011 -0.011
-H0: 67.49 +0.48 -0.48 km/s/Mpc
-Ωm: 0.313 +0.007 -0.007
-ωm: 0.14275 +0.00113 -0.00113
-ωb: 0.02248 +0.00011 -0.00011
-ωc: 0.1196 +0.0012 -0.0012
-z*: 1089.73 +0.21 -0.21
-z_drag: 1060.16 +0.23 -0.23
-r*: 144.46 Mpc
-r_d: 147.08 Mpc
-Chi squared: 29.5
+ΔM: -0.069 +- 0.011
+H0: 67.50 +- 0.48 km/s/Mpc
+Ωm: 0.3134 +- 0.0069
+Chi2 (MAP): 29.6
 Log Evidence: -33.1
 Degrees of freedom: 21
 """
@@ -229,9 +222,6 @@ Evolving absolute mag of SNe M(z) = M0 + M'0 * z / (1 + (z / 0.043))
 M'0: -2.6 +- 1.4 mag per unit redshift (prior ~ U(-10.0, 5.0))
 H0: 67.68 +- 0.49 km/s/Mpc
 Ωm: 0.3107 +- 0.0069
-ωm: 0.1423 +- 0.0012
-ωb: 0.02250 +- 0.00011
-ωc: 0.1192 +- 0.0012
 Chi2 (MAP): 26.1 (1.84 sigma away from no evolution)
 Log Evidence: -32.9
 Degrees of freedom: 20
