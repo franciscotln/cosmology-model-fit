@@ -7,8 +7,8 @@ from y2025BAO.data import get_data as get_bao_data
 from y2022pantheonSHOES.data_shoes import get_data
 
 bao_legend, bao_data, bao_cov_matrix = get_bao_data()
-legend, z_cmb, z_hel, mb_vals, ceph_dists, cov_matrix_sn = get_data(z_cut_ceph=0.0043)
-# At z_ceph < 0.0043 there seems to be an inversion in velocity flow which kills the signal
+legend, z_cmb, z_hel, mb_vals, ceph_dists, cov_matrix_sn = get_data(z_cut_ceph=0.0041)
+# At z_ceph < 0.0041 there seems to be an inversion in velocity flow which kills the signal
 
 ceph_mask = ceph_dists != -9
 
