@@ -257,6 +257,7 @@ Degrees of freedom: 1647
 """
 
 """
+Flat w0waCDM
 M0: -19.227 +- 0.033 mag
 H0: 74.0 +- 1.1 km/s/Mpc
 Ωm: 0.304 +0.015 -0.023
