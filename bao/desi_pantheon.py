@@ -20,12 +20,18 @@ dz = np.diff(z_grid)
 
 
 @njit
+def Ode_z(z, w0):
+    zp1 = 1.0 + z
+    cubed = zp1**3
+    return (2 * cubed / (1.0 + w0 + (1.0 - w0) * cubed)) ** 2  # thawing quintessence
+
+
+@njit
 def Ez(z, theta):
     Om, w0 = theta[2], theta[4]
     zp1 = 1.0 + z
     cubed = zp1**3
-    rho_de = (2 * cubed / (1.0 + w0 + (1.0 - w0) * cubed)) ** 2
-    return np.sqrt(Om * cubed + (1.0 - Om) * rho_de)
+    return np.sqrt(Om * cubed + (1.0 - Om) * Ode_z(z, w0))
 
 
 @njit
@@ -162,11 +168,11 @@ def main():
     log_evd = log_evidence(samples, log_probs, log_probability, bounds)
 
     [
-        [M_16, M_50, M_84],
-        [H0_16, H0_50, H0_84],
-        [Om_16, Om_50, Om_84],
-        [rd_16, rd_50, rd_84],
-        [w0_16, w0_50, w0_84],
+        (M_16, M_50, M_84),
+        (H0_16, H0_50, H0_84),
+        (Om_16, Om_50, Om_84),
+        (rd_16, rd_50, rd_84),
+        (w0_16, w0_50, w0_84),
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
     best_fit = np.percentile(samples, 50, axis=0)
@@ -205,10 +211,10 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM
-M0: -19.403 +0.013 -0.013 mag
-H0: 68.65 +0.48 -0.48 km/s/Mpc
-Ωm: 0.304 +0.008 -0.008
-r_d: 147.14 +0.29 -0.29 Mpc
+M0: -19.403 +- 0.013 mag
+H0: 68.65 +- 0.48 km/s/Mpc
+Ωm: 0.304 +- 0.008
+r_d: 147.14 +- 0.29 Mpc
 Chi2 (MAP): 1416.1
 Log evidence: -722.7
 Degrees of freedom: 1599
@@ -216,26 +222,26 @@ Degrees of freedom: 1599
 
 """
 Flat ΛCDM
-Bulk v_pec corrections of SNe M(z) = M0 + v_pec_corr
-v_pec_corr = 100 * v_pec * (5 / np.log(10)) / (c * z_cmb) with v_pec in units 100 km/s
+v_bulk corrections of SNe M(z) = M0 + v_bulk_corr
+v_bulk_corr = 100 * v_bulk * (5 / ln(10)) / (c * z_cmb) with v_bulk in units 100 km/s
 
-M: -19.410 +0.014 -0.014 mag
-v_pec: 95 +43 -43 km/s (prior ~ U(-1.30, 3.15))
-H0: 68.92 +0.49 -0.49 km/s/Mpc
-Ωm: 0.300 +0.008 -0.008
-r_d: 147.14 +0.29 -0.29 Mpc
-Chi2 (MAP): 1411.4 (2.17 sigma away from no v_pec corrections)
-Log evidence: -721.7 (Δ ln(Z) = 1.0 in favor of v_pec corrections)
+M: -19.410 +- 0.014 mag
+v_bulk: 95 +- 43 km/s (prior ~ U(-1.30, 3.15))
+H0: 68.92 +- 0.49 km/s/Mpc
+Ωm: 0.300 +- 0.008
+r_d: 147.14 +- 0.29 Mpc
+Chi2 (MAP): 1411.4 (2.17 sigma away from no v_bulk corrections)
+Log evidence: -721.7 (Δ ln(Z) = 1.0 in favor of v_bulk corrections)
 Degrees of freedom: 1598
 """
 
 """
 Flat wCDM
-M0: -19.417 +0.015 -0.015 mag
-H0: 67.81 +0.60 -0.60 km/s/Mpc
-Ωm: 0.298 +0.009 -0.009
-r_d: 147.14 +0.29 -0.29 Mpc
-w0: -0.914 +0.040 -0.040 (prior ~ U(-4/3, -2/3))
+M0: -19.417 +- 0.015 mag
+H0: 67.81 +- 0.60 km/s/Mpc
+Ωm: 0.298 +- 0.009
+r_d: 147.14 +- 0.29 Mpc
+w0: -0.914 +- 0.040 (prior ~ U(-4/3, -2/3))
 Chi2 (MAP): 1411.5 (2.14 sigma away from ΛCDM)
 Log evidence: -722.3 (Δ ln(Z) = 0.4 against ΛCDM)
 Degrees of freedom: 1598
@@ -243,10 +249,10 @@ Degrees of freedom: 1598
 
 """
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
-M0: -19.415 +0.014 -0.014 mag
+M0: -19.415 +- 0.014 mag
 H0: 67.76 +0.61 -0.60 km/s/Mpc
-Ωm: 0.304 +0.008 -0.008
-r_d: 147.14 +0.29 -0.29 Mpc
+Ωm: 0.304 +- 0.008
+r_d: 147.14 +- 0.29 Mpc
 w0: -0.881 +0.053 -0.052 (prior ~ U(-1.0, -1/3))
 wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
 Chi2 (MAP): 1411.4 (2.17 sigma away from ΛCDM)
@@ -255,14 +261,14 @@ Degrees of freedom: 1598
 """
 
 """
-Flat w0waCDM
-TODO: re-run
-r_d: 147.09 Mpc (fixed)
-M0: -19.415 +0.014 -0.014 mag
-H0: 67.79 +0.59 -0.58 km/s/Mpc
-Ωm: 0.303 +0.015 -0.022
-w0: -0.890 +0.060 -0.056
-wa: -0.178 +0.463 -0.432
-Chi squared: 1411.36 (Δ chi2 4.78)
-Degrees of freedom: 1598
+Flat w0waCDM (w0 + wa < 0 enforced)
+M0: -19.416 +- 0.015 mag
+H0: 67.77 +0.63 -0.60 km/s/Mpc
+Ωm: 0.304 +0.015 -0.023
+r_d: 147.14 +- 0.29 Mpc
+w0: -0.891 +0.063 -0.057 (prior ~ U(-1.5, -0.5))
+wa: -0.17 +0.48 -0.45 (prior ~ U(-3.0, 2.5))
+Chi2 (MAP): 1411.4 (1.67 sigma away from ΛCDM)
+Log evidence: -723.9 (Δ ln(Z) = -1.2 in favour of ΛCDM)
+Degrees of freedom: 1597
 """
