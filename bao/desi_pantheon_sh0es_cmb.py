@@ -7,8 +7,8 @@ from y2022pantheonSHOES.data_shoes import get_data
 import cmb.data_planck_act_compression as cmb
 
 bao_legend, bao_data, bao_cov_matrix = get_bao_data()
-legend, z_cmb, z_hel, mb_vals, ceph_dists, cov_matrix_sn = get_data(z_cut_ceph=0.0041)
-# At z_ceph < 0.0041 there seems to be an inversion in velocity flow which kills the signal
+legend, z_cmb, z_hel, mb_vals, ceph_dists, cov_matrix_sn = get_data(z_cut_ceph=0.0044)
+# At z_ceph < 0.0044 it seems the outflow velocity drops to zero or even becomes slightly negative.
 
 ceph_mask = ceph_dists != -9
 
@@ -43,7 +43,7 @@ def Ez(z, H0, Obh2, Och2):
     radiation_term = Or * zp1**4
     matter_term = Obc * zp1**3
     neutrino_term = Onu * cmb.Omnu_z(z)
-    dark_energy_term = Ode * Ode_z(z, -1.0)
+    dark_energy_term = Ode
 
     return np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
 
@@ -104,8 +104,8 @@ def mu_theory(theta):
 
 
 @njit
-def v_bulk(v_pec):
-    return 100 * v_pec * (5 / np.log(10)) / (c * z_cmb)
+def v_outflow(v_100):
+    return 100 * v_100 * (5 / np.log(10)) / (c * z_cmb)
 
 
 def solve_triang(cho_L, delta):
@@ -115,14 +115,14 @@ def solve_triang(cho_L, delta):
 
 def chi2_sn(theta):
     mu_the = np.where(ceph_mask, ceph_dists, mu_theory(theta))
-    mb_theory = mu_the + theta[0] + v_bulk(theta[4])
+    mb_theory = mu_the + theta[0] + v_outflow(theta[4])
     delta_sn = mb_vals - mb_theory
     return solve_triang(cho_sn, delta_sn)
 
 
 def chi2_cmb(theta):
-    delta_cmb = cmb.DISTANCE_PRIORS[1] - cmb.cmb_distances(theta[2], theta[3], theta)[1]
-    return delta_cmb**2 / cmb.covariance[1, 1]
+    delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(theta[2], theta[3], theta)
+    return delta_cmb @ cmb.inv_cov_mat @ delta_cmb
 
 
 @njit
@@ -141,7 +141,7 @@ bounds = np.array(
         (50.0, 100.0),  # H0 (km/s/Mpc)
         (0.01, 0.05),  # Ωbh2
         (0.01, 0.25),  # Ωch2
-        (-1.0, 3.5),  # v_bulk in units of 100 km/s
+        (-1.0, 3.5),  # v_flow in units of 100 km/s
     ]
 )
 
@@ -233,7 +233,7 @@ def main():
     print(f"Log evidence: {log_evd:.1f}")
     print(f"Degrees of freedom: {len(bao_data) + len(z_cmb) - len(best_fit)}")
 
-    labels = ["$M_0$", "$H_0$", "$Ω_b h^2$", "$Ω_c h^2$", "$v_{bulk}$"]
+    labels = ["$M_0$", "$H_0$", "$Ω_b h^2$", "$Ω_c h^2$", "$v_{flow}$"]
     plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
     plot_bao_predictions(
         theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
@@ -244,7 +244,7 @@ def main():
     plot_sn_predictions(
         legend=legend,
         x=z_cmb,
-        y=mb_vals - M_50 - v_bulk(v_b_50),
+        y=mb_vals - M_50 - v_outflow(v_b_50),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=mu_theory(best_fit),
         label=f"Best fit: $Ω_m$={Om_50:.3f}",
@@ -263,16 +263,16 @@ Pantheon + SH0ES (z_cut 0.0041) + BAO + CMB compressed
 
 """
 Flat ΛCDM
-M0: -19.401 +0.008 -0.008 mag
-H0: 68.71 +0.27 -0.26 km/s/Mpc
-Ωm: 0.297 +0.003 -0.003
-Ωbh2: 0.02263 +0.00010 -0.00010
-Ωch2: 0.11682 +0.00063 -0.00063
-Ωmh2: 0.1401 +0.0006 -0.0006
+M0: -19.401 +- 0.008 mag
+H0: 68.71 +- 0.27 km/s/Mpc
+Ωm: 0.297 +- 0.003
+Ωbh2: 0.02263 +- 0.00010
+Ωch2: 0.11682 +- 0.00063
+Ωmh2: 0.1401 +- 0.0006
 rd: 147.66 +0.19 -0.19 Mpc
-Chi2 (MAP): 1483.2
-Log evidence: -760.4
-Degrees of freedom: 1650
+Chi2 (MAP): 1482.0
+Log evidence: -761.7
+Degrees of freedom: 1648
 """
 
 """
@@ -280,39 +280,32 @@ Flat ΛCDM
 Bulk v_bulk corrections of SNe M(z) = M0 + v_bulk_corr
 v_bulk_corr = 100 * v_bulk * (5 / np.log(10)) / (c * z_cmb) with v_bulk in units 100 km/s
 
-v_bulk: 152.4 +- 27.1 km/s (prior ~ U(-1.0, 3.5) in units of 100 km/s)
-M0: -19.426 +0.009 -0.009 mag
-H0: 68.54 +0.26 -0.26 km/s/Mpc
-Ωm: 0.299 +0.003 -0.003
-Ωbh2: 0.02259 +0.00010 -0.00010
-Ωch2: 0.11713 +0.00063 -0.00063
-Ωmh2: 0.1404 +0.0006 -0.0006
-rd: 147.61 +0.19 -0.19 Mpc
-Chi2 (MAP): 1451.5 (5.63 sigma away from no bulk flow)
-Log evidence: -746.4 (Δ logZ = 14 in favor of bulk flow)
-Degrees of freedom: 1649
+v_bulk: 156 +27 - 28 km/s (prior ~ U(-1.0, 3.5) in units of 100 km/s)
+M0: -19.427 +- 0.009 mag
+H0: 68.54 +- 0.26 km/s/Mpc
+Ωm: 0.299 +- 0.003
+Ωbh2: 0.02259 +- 0.00010
+Ωch2: 0.11713 +- 0.00063
+Ωmh2: 0.1404 +- 0.0006
+rd: 147.61 +- 0.19 Mpc
+Chi2 (MAP): 1449.4 (5.71 sigma away from no bulk flow)
+Log evidence: -747.3 (Δ logZ = 14.4 in favor of bulk flow)
+Degrees of freedom: 1647
 """
 
 """
 Flat wCDM
-M0: -19.391 +- 0.013 mag
-H0: 69.18 +- 0.54 km/s/Mpc
-w0: -1.02 +- 0.02 (prior ~ U(-1.5, -0.5))
+M0: -19.390 +- 0.013 mag
+H0: 69.19 +- 0.54 km/s/Mpc
+w0: -1.02 +- 0.02 (prior ~ U(-1.3, -0.6))
 Ωm: 0.294 +- 0.005
 Ωbh2: 0.02260 +- 0.00010
 Ωch2: 0.1173 +- 0.0008
 Ωmh2: 0.1406 +- 0.0008
-rd: 147.6 +- 0.2 Mpc
-Chi2 (MAP): 1482.2 (1 sigma away from ΛCDM)
-Log evidence: -762.8 (Δ logZ = -2.4 in favour of ΛCDM)
+rd: 147.55 +- 0.22 Mpc
+Chi2 (MAP): 1481.0 (1 sigma away from ΛCDM)
+Log evidence: -763.8 (Δ logZ = -2.1 in favour of ΛCDM)
 Degrees of freedom: 1649
-"""
-
-"""
-TODO (srly?)
-Flat w0waCDM (enforced w0 + wa < 0)
-w0: -0.891 +0.061 -0.057 (prior ~ U(-1.5, -0.5))
-wa: -0.18 +0.48 -0.45 (prior ~ U(-2.5, 2.5))
 """
 
 
@@ -324,16 +317,16 @@ Pantheon + SH0ES (z_cut 0.0041) + BAO + θ* CMB
 
 """
 Flat ΛCDM
-M0: -19.287 +0.030 -0.029 mag
-H0: 72.61 +1.04 -1.02 km/s/Mpc
-Ωm: 0.282 +0.005 -0.004
-Ωbh2: 0.02828 +0.00156 -0.00155
-Ωch2: 0.11971 +0.00155 -0.00147
-Ωmh2: 0.1486 +0.0030 -0.0029
-rd: 141.03 +1.85 -1.81 Mpc
-Chi2 (MAP): 1463.3
-Log evidence: -749.2
-Degrees of freedom: 1650
+M0: -19.286 +- 0.030 mag
+H0: 72.7 +- 1.0 km/s/Mpc
+Ωm: 0.282 +- 0.004
+Ωbh2: 0.0284 +- 0.0016
+Ωch2: 0.1197 +- 0.0016
+Ωmh2: 0.149 +- 0.003
+rd: 140.95 +- 1.83 Mpc
+Chi2 (MAP): 1461.9
+Log evidence: -748.5
+Degrees of freedom: 1648
 """
 
 """
@@ -341,37 +334,30 @@ Flat ΛCDM
 Void outflow corrections of SNe M(z) = M0 + v_corr
 v_corr = 100 * v_flow * (5 / np.log(10)) / (c * z_cmb) with v_flow in units 100 km/s
 
-v_flow: 134 +33 -32 km/s (prior ~ U(-1.0, 3.5) in units of 100 km/s)
-M0: -19.390 +0.037 -0.035 mag
-H0: 69.7 +1.1 -1.1 km/s/Mpc
-Ωm: 0.291 +0.005 -0.005
-Ωbh2: 0.02396 +0.00172 -0.00162
-Ωch2: 0.1170 +0.0014 -0.0012
-Ωmh2: 0.142 +0.003 -0.003
+v_flow: 138 +- 33 km/s (prior ~ U(-1.0, 3.5) in units of 100 km/s)
+M0: -19.390 +- 0.037 mag
+H0: 69.7 +- 1.2 km/s/Mpc
+Ωm: 0.291 +- 0.005
+Ωbh2: 0.0240 +- 0.0017
+Ωch2: 0.117 +- 0.001
+Ωmh2: 0.142 +- 0.003
 rd: 146.2 +2.0 -2.1 Mpc
-Chi2 (MAP): 1446.5 (4.10 sigma away from no outflow)
-Log evidence: -742.7 (Δ logZ = 6.5 in favor of outflow)
-Degrees of freedom: 1649
+Chi2 (MAP): 1444.4 (4.18 sigma away from no outflow)
+Log evidence: -741.6 (Δ logZ = 6.9 in favor of outflow)
+Degrees of freedom: 1647
 """
 
 """
 Flat wCDM
-M0: -19.243 +0.032 -0.032 mag
-H0: 73.3 +1.1 -1.1 km/s/Mpc
-w0: -0.874 +0.031 -0.032
-Ωm: 0.285 +0.004 -0.004
-Ωbh2: 0.0341 +0.0023 -0.0023
-Ωch2: 0.1187 +0.0018 -0.0018
-Ωmh2: 0.1535 +0.0036 -0.0035
-rd: 135.9 +2.3 -2.2 Mpc
-Chi2 (MAP): 1448.3 (3.87 sigma away from ΛCDM)
-Log evidence: -744.1 (Δ logZ = 5.1 in favor of wCDM)
-Degrees of freedom: 1649
-"""
-
-"""
-TODO (srly?)
-Flat w0waCDM (enforced w0 + wa < 0)
-w0: -0.891 +0.061 -0.057 (prior ~ U(-1.5, -0.5))
-wa: -0.18 +0.48 -0.45 (prior ~ U(-2.5, 2.5))
+M0: -19.241 +- 0.032 mag
+H0: 73.4 +- 1.1 km/s/Mpc
+w0: -0.874 +- 0.032 (prior ~ U(-1.3, -0.6))
+Ωm: 0.285 +- 0.004
+Ωbh2: 0.0342 +- 0.0023
+Ωch2: 0.1188 +- 0.0018
+Ωmh2: 0.1536 +- 0.0035
+rd: 135.79 +- 2.24 Mpc
+Chi2 (MAP): 1446.9 (3.87 sigma away from ΛCDM)
+Log evidence: -743.2 (Δ logZ = 5.3 in favor of wCDM)
+Degrees of freedom: 1647
 """
