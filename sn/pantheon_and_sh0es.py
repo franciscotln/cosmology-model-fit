@@ -257,8 +257,8 @@ Chi squared: 1436.89
 ==============================
 
 ΛCDM w(z) = -1
-Corrections in bulk flow added to mu_theory': mu_theory + v_pec_corr
-v_pec_corr = 100 * v_bulk * (5 / np.log(10)) / (c * z_cmb)
+Corrections in bulk flow added to mu_theory': mu_theory + v_bulk_corr
+v_bulk_corr = 100 * v_bulk * (5 / np.log(10)) / (c * z_cmb)
 with v_bulk in units 100 km/s
 
 M: -19.315 +- 0.057 mag
