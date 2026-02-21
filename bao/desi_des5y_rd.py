@@ -21,11 +21,17 @@ dz = np.diff(z_grid)
 
 
 @njit
+def Ode_z(z, w0):
+    inv_a3 = (1.0 + z) ** 3
+    # thawing quintessence
+    return (2 * inv_a3 / (1.0 + w0 + (1.0 - w0) * inv_a3)) ** 2
+
+
+@njit
 def Ez(z, params):
     Om, w0 = params[3], params[4]
     inv_a3 = (1.0 + z) ** 3
-    rho_de = (2 * inv_a3 / (1.0 + w0 + (1.0 - w0) * inv_a3)) ** 2
-    return np.sqrt(Om * inv_a3 + (1.0 - Om) * rho_de)
+    return np.sqrt(Om * inv_a3 + (1.0 - Om) * Ode_z(z, w0))
 
 
 @njit
@@ -234,7 +240,9 @@ Degrees of freedom: 1724
 ===============================
 
 Flat ΛCDM
-Evolving absolute mag of SNe M(z) = ΔM_max + 0.2 * p / (1 + (z / 0.043))
+Evolving absolute mag of SNe M(z) = ΔM_max + 0.2 * p / (1 + (z / z_c))
+where z_c = 0.043
+Equivalently M(z) = M0 + M'0 * z / (1 + (z / z_c))
 
 p: 0.416 +0.157 -0.157
 ΔM_max: -0.057 +0.012 -0.012 mag
