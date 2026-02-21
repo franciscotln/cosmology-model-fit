@@ -42,8 +42,8 @@ def DM_z(params):
 
 @njit
 def apparent_mag(params):
-    v_pec_corr = 100 * (5 / np.log(10)) * params[2] / (c * z_cmb)
-    Mz = params[0] + v_pec_corr
+    v_flow_corr = 100 * (5 / np.log(10)) * params[2] / (c * z_cmb)
+    Mz = params[0] + v_flow_corr
     return Mz + 25.0 + 5 * np.log10((1.0 + z_hel) * DM_z(params))
 
 
