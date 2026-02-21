@@ -231,16 +231,16 @@ Degrees of freedom: 1650
 
 """
 Flat ΛCDM
-Bulk v_bulk corrections of SNe M(z) = M0 + v_bulk_corr
-v_bulk_corr = 100 * v_bulk * (5 / np.log(10)) / (c * z_cmb) with v_bulk in units 100 km/s
+Void outflow corrections of SNe M(z) = M0 + v_corr
+v_corr = 100 * v_flow * (5 / np.log(10)) / (c * z_cmb) with v_flow in units 100 km/s
 
-v_bulk: 100 +- 40 km/s (prior ~ U(-1.5, 3.5) in units of 100 km/s)
+v_flow: 100 +- 40 km/s (prior ~ U(-1.5, 3.5) in units of 100 km/s)
 M0: -19.335 +- 0.053 mag
 H0: 71.3 +- 1.6 km/s/Mpc
 Ωm: 0.300 +- 0.008
 rd: 142.1 +- 3.4 Mpc
-Chi2 (MAP): 1444.3 (2.43 sigma away from no v_bulk correction)
-Log evidence: -738.9 (Δ logZ = 1.4 in favor of v_bulk correction)
+Chi2 (MAP): 1444.3 (2.43 sigma away from no v_corr)
+Log evidence: -738.9 (Δ logZ = 1.4 in favor of v_corr)
 Degrees of freedom: 1649
 """
 

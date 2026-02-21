@@ -48,9 +48,9 @@ def model_mu(params):
 
 
 @njit
-def v_bulk(params):
-    v_bulk_100 = params[3]
-    return 100 * v_bulk_100 * (5 / np.log(10)) / (c * z_cmb)
+def v_flow(params):
+    v_100 = params[3]
+    return 100 * v_100 * (5 / np.log(10)) / (c * z_cmb)
 
 
 def solve_triang(cho_L, delta):
@@ -60,7 +60,7 @@ def solve_triang(cho_L, delta):
 
 def chi_squared(params):
     mu_theory = np.where(cepheids_mask, ceph_dists, model_mu(params))
-    apparent_mag_theory = mu_theory + params[0] + v_bulk(params)
+    apparent_mag_theory = mu_theory + params[0] + v_flow(params)
     delta = apparent_mags - apparent_mag_theory
     return solve_triang(cho, delta)
 
@@ -143,7 +143,7 @@ def main():
     residuals = (
         apparent_mags
         - M_50
-        - v_bulk(best_fit)
+        - v_flow(best_fit)
         - np.where(cepheids_mask, ceph_dists, predicted_mu_values)
     )
 
@@ -158,7 +158,7 @@ def main():
     M_label = f"{M_50:.3f} +{M_84-M_50:.3f}/-{M_50-M_16:.3f}"
     H0_label = f"{H0_50:.2f} +{H0_84-H0_50:.2f}/-{H0_50-H0_16:.2f}"
     omega_label = f"{omega_50:.3f} +{omega_84-omega_50:.3f}/-{omega_50-omega_16:.3f}"
-    v_bulk_label = f"{vb_50:.3f} +{vb_84-vb_50:.3f}/-{vb_50-vb_16:.3f}"
+    v_flow_label = f"{vb_50:.3f} +{vb_84-vb_50:.3f}/-{vb_50-vb_16:.3f}"
 
     print_color("Dataset", legend)
     print_color("z range", f"{z_cmb[0]:.4f} - {z_cmb[-1]:.4f}")
@@ -166,7 +166,7 @@ def main():
     print_color("M", M_label)
     print_color("H0 (km/s/Mpc)", H0_label)
     print_color("Ωm", omega_label)
-    print_color("v_bulk (100 km/s)", v_bulk_label)
+    print_color("v_flow (100 km/s)", v_flow_label)
     print_color("R-squared (%)", f"{100 * r_squared:.2f}")
     print_color("RMSD (mag)", f"{rmsd:.3f}")
     print_color("Skewness of residuals", f"{stats.skew(residuals):.3f}")
@@ -175,12 +175,12 @@ def main():
 
     sigma_mu = np.sqrt(cov_matrix.diagonal())
 
-    labels = ["M", "$H_0$", "$Ω_m$", "$v_{bulk}$"]
+    labels = ["M", "$H_0$", "$Ω_m$", "$v_{flow}$"]
     plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
     plot_predictions(
         legend=legend,
         x=z_cmb,
-        y=apparent_mags - M_50 - v_bulk(best_fit),
+        y=apparent_mags - M_50 - v_flow(best_fit),
         y_err=sigma_mu,
         y_model=predicted_mu_values,
         label=f"H0={H0_50:.2f} km/s/Mpc",
@@ -257,17 +257,17 @@ Chi squared: 1436.89
 ==============================
 
 ΛCDM w(z) = -1
-Corrections in bulk flow added to M': M0 + v_bulk_corr
-v_bulk_corr = 100 * v_bulk * (5 / ln(10)) / (c * z_cmb)
-with v_bulk in units 100 km/s
+Void outflow corrections of SNe M(z) = M0 + v_corr
+v_corr = 100 * v_flow * (5 / ln(10)) / (c * z_cmb)
+with v_flow in units 100 km/s
 
 M: -19.315 +- 0.057 mag
 H0: 71.7 +- 1.7 km/s/Mpc
 Ωm: 0.315 +- 0.020
-v_bulk: 83 +- 45 km/s (prior ~ U(-1.6, 3.2) in units of 100 km/s)
+v_flow: 83 +- 45 km/s (prior ~ U(-1.6, 3.2) in units of 100 km/s)
 Skewness of residuals: 0.042
 kurtosis of residuals: 1.565
-Chi squared: 1433.37 (1.88 sigma away from no v_bulk corrections)
+Chi squared: 1433.37 (1.88 sigma away from no v_flow corrections)
 
 ==============================
 
