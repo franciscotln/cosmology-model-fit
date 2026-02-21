@@ -6,7 +6,7 @@ from scipy.linalg import cho_factor, solve_triangular
 from interpolator import interp_hermite
 from y2022pantheonSHOES.data_shoes import get_data
 
-legend, z_cmb, z_hel, apparent_mags, ceph_dists, cov_matrix = get_data()
+legend, z_cmb, z_hel, apparent_mags, ceph_dists, cov_matrix = get_data(0.0041)
 
 cepheids_mask = ceph_dists != -9
 cho = cho_factor(cov_matrix, lower=True)[0]
@@ -21,10 +21,16 @@ zp1_hel = 1.0 + z_hel
 
 
 @njit
+def Ode_z(params):
+    w0 = params[3]
+    return zp1 ** (3 * (1.0 + w0))  # wCDM
+    # return (2 * zp1**3 / ((1.0 + w0) + (1.0 - w0) * zp1**3)) ** 2  #  quintessence
+
+
+@njit
 def Ez(params):
-    O_m, w0 = params[2], params[3]
-    rho_de = (2 * zp1**3 / ((1.0 + w0) + (1.0 - w0) * zp1**3)) ** 2
-    return np.sqrt(O_m * zp1**3 + (1.0 - O_m) * rho_de)
+    O_m = params[2]
+    return np.sqrt(O_m * zp1**3 + (1.0 - O_m))
 
 
 @njit
@@ -41,6 +47,12 @@ def model_mu(params):
     return 25.0 + 5.0 * np.log10(zp1_hel * DM_z(params))
 
 
+@njit
+def v_bulk(params):
+    v_bulk_100 = params[3]
+    return 100 * v_bulk_100 * (5 / np.log(10)) / (c * z_cmb)
+
+
 def solve_triang(cho_L, delta):
     y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
     return np.dot(y, y)
@@ -48,7 +60,7 @@ def solve_triang(cho_L, delta):
 
 def chi_squared(params):
     mu_theory = np.where(cepheids_mask, ceph_dists, model_mu(params))
-    apparent_mag_theory = mu_theory + params[0]
+    apparent_mag_theory = mu_theory + params[0] + v_bulk(params)
     delta = apparent_mags - apparent_mag_theory
     return solve_triang(cho, delta)
 
@@ -59,10 +71,10 @@ def log_likelihood(params):
 
 bounds = np.array(
     [
-        (-19.5, -19.0),  # M
+        (-20.0, -18.5),  # M
         (60.0, 85.0),  # H0
         (0.1, 0.6),  # Ωm
-        (-1.0, 0.0),  # w0
+        (-1.6, 3.2),  # vb
     ]
 )
 
@@ -122,35 +134,39 @@ def main():
         (M_16, M_50, M_84),
         (H0_16, H0_50, H0_84),
         (omega_16, omega_50, omega_84),
-        (w0_16, w0_50, w0_84),
+        (vb_16, vb_50, vb_84),
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
     best_fit = np.percentile(samples, 50, axis=0)
 
     predicted_mu_values = model_mu(best_fit)
     residuals = (
-        apparent_mags - M_50 - np.where(cepheids_mask, ceph_dists, predicted_mu_values)
+        apparent_mags
+        - M_50
+        - v_bulk(best_fit)
+        - np.where(cepheids_mask, ceph_dists, predicted_mu_values)
     )
 
-    # Compute R-squared
+    # R-squared
     ss_res = np.sum(residuals**2)
     ss_tot = np.sum((apparent_mags - np.mean(apparent_mags)) ** 2)
     r_squared = 1 - (ss_res / ss_tot)
 
-    # Compute root mean square deviation
+    # root mean square deviation
     rmsd = np.sqrt(np.mean(residuals**2))
 
     M_label = f"{M_50:.3f} +{M_84-M_50:.3f}/-{M_50-M_16:.3f}"
     H0_label = f"{H0_50:.2f} +{H0_84-H0_50:.2f}/-{H0_50-H0_16:.2f}"
     omega_label = f"{omega_50:.3f} +{omega_84-omega_50:.3f}/-{omega_50-omega_16:.3f}"
-    w0_label = f"{w0_50:.3f} +{w0_84-w0_50:.3f}/-{w0_50-w0_16:.3f}"
+    v_bulk_label = f"{vb_50:.3f} +{vb_84-vb_50:.3f}/-{vb_50-vb_16:.3f}"
+
     print_color("Dataset", legend)
     print_color("z range", f"{z_cmb[0]:.4f} - {z_cmb[-1]:.4f}")
     print_color("Sample size", len(z_cmb))
     print_color("M", M_label)
     print_color("H0 (km/s/Mpc)", H0_label)
     print_color("Ωm", omega_label)
-    print_color("w0", w0_label)
+    print_color("v_bulk (100 km/s)", v_bulk_label)
     print_color("R-squared (%)", f"{100 * r_squared:.2f}")
     print_color("RMSD (mag)", f"{rmsd:.3f}")
     print_color("Skewness of residuals", f"{stats.skew(residuals):.3f}")
@@ -159,18 +175,18 @@ def main():
 
     sigma_mu = np.sqrt(cov_matrix.diagonal())
 
-    labels = ["M", "$H_0$", "$Ω_m$", "$w_0$"]
+    labels = ["M", "$H_0$", "$Ω_m$", "$v_{bulk}$"]
     plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
     plot_predictions(
         legend=legend,
         x=z_cmb,
-        y=apparent_mags - M_50,
+        y=apparent_mags - M_50 - v_bulk(best_fit),
         y_err=sigma_mu,
         y_model=predicted_mu_values,
         label=f"H0={H0_50:.2f} km/s/Mpc",
         x_scale="log",
     )
-    plot_residuals(z_values=z_cmb, residuals=residuals, y_err=sigma_mu, bins=40)
+    plot_residuals(z_values=z_cmb, residuals=residuals, y_err=sigma_mu, bins=65)
 
 
 if __name__ == "__main__":
@@ -227,11 +243,11 @@ Chi squared: 1451.86
 Dataset: Pantheon+ and SH0ES
 Sample size: 1641
 z range: 0.0043 - 2.2614
-z_cut_cepheids = 0.0043
+z_cut_cepheids >= 0.0041
 ******************************
 
 ΛCDM w(z) = -1
-M: -19.229 +- 0.033 mag (prior ~ U(-20.0, -18.5))
+M: -19.229 +- 0.032 mag (prior ~ U(-20.0, -18.5))
 H0: 74.1 +- 1.1 km/s/Mpc
 Ωm: 0.332 +- 0.018
 Skewness of residuals: 0.077
