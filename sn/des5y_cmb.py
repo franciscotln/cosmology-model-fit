@@ -224,7 +224,9 @@ Log evidence: -834.5
 
 """
 Flat ΛCDM w(z) = -1
-Evolving absolute mag of SNe M(z) = ΔM_max + 0.2 * p / (1 + (z / 0.043))
+Evolving absolute mag of SNe M(z) = ΔM_max + 0.2 * p / (1 + (z / z_c))
+where z_c = 0.043
+Equivalently M(z) = M0 + M'0 * z / (1 + (z / z_c))
 
 ΔM_max: -0.087 +0.012 -0.012
 p: 0.316 +0.151 -0.154 (prior U(-0.5, 1.5))
