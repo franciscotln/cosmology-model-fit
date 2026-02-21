@@ -247,7 +247,7 @@ z_cut_cepheids >= 0.0041
 ******************************
 
 ΛCDM w(z) = -1
-M: -19.229 +- 0.032 mag (prior ~ U(-20.0, -18.5))
+M: -19.229 +- 0.032 mag
 H0: 74.1 +- 1.1 km/s/Mpc
 Ωm: 0.332 +- 0.018
 Skewness of residuals: 0.077
@@ -261,7 +261,7 @@ Corrections in bulk flow added to mu_theory': mu_theory + v_pec_corr
 v_pec_corr = 100 * v_bulk * (5 / np.log(10)) / (c * z_cmb)
 with v_bulk in units 100 km/s
 
-M: -19.315 +- 0.057 mag (prior ~ U(-20.0, -18.5))
+M: -19.315 +- 0.057 mag
 H0: 71.7 +- 1.7 km/s/Mpc
 Ωm: 0.315 +- 0.020
 v_bulk: 83 +- 45 km/s (prior ~ U(-1.6, 3.2) in units of 100 km/s)
