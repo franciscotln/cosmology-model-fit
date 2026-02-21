@@ -65,7 +65,7 @@ bounds = np.array(
     [
         (-20.0, -19.0),  # M
         (0.0, 0.7),  # Ωm
-        (-1.70, 3.20),  # v_pec [x 100 km/s]
+        (-1.70, 3.20),  # v_flow [x 100 km/s]
     ]
 )
 
@@ -132,7 +132,7 @@ def main():
     [
         (M0_16, M0_50, M0_84),
         (Om_16, Om_50, Om_84),
-        (w0_16, w0_50, w0_84),
+        (vf_16, vf_50, vf_84),
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
     best_fit = np.percentile(samples, 50, axis=0)
@@ -154,13 +154,13 @@ def main():
 
     M_label = f"{M0_50:.3f} +{M0_84-M0_50:.3f}/-{M0_50-M0_16:.3f}"
     omega_label = f"{Om_50:.3f} +{Om_84-Om_50:.3f}/-{Om_50-Om_16:.3f}"
-    w0_label = f"{w0_50:.3f} +{w0_84-w0_50:.3f}/-{w0_50-w0_16:.3f}"
+    vf_label = f"{vf_50:.3f} +{vf_84-vf_50:.3f}/-{vf_50-vf_16:.3f}"
 
     print_color("Dataset", legend)
     print_color("z range", f"{z_cmb[0]:.4f} - {z_cmb[-1]:.4f}")
     print_color("M", M_label)
     print_color("Ωm", omega_label)
-    print_color("w0", w0_label)
+    print_color("v_flow", vf_label)
     print_color("R-squared (%)", f"{100 * r_squared:.2f}")
     print_color("RMSD (mag)", f"{rmsd:.3f}")
     print_color("Skewness of residuals", f"{skewness:.3f}")
@@ -169,7 +169,7 @@ def main():
     print_color("Chi squared", f"{chi_squared(best_fit):.2f}")
     print_color("Log Evidence", f"{log_evd:.1f}")
 
-    labels = ["$M_0$", "$Ω_m$", "$w_0$"]
+    labels = ["$M_0$", "$Ω_m$", "$v_{flow}$"]
     plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
     plot_predictions(
         legend=legend,
