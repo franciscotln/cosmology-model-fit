@@ -7,8 +7,8 @@ from y2022pantheonSHOES.data_shoes import get_data
 import cmb.data_planck_act_compression as cmb
 
 bao_legend, bao_data, bao_cov_matrix = get_bao_data()
-legend, z_cmb, z_hel, mb_vals, ceph_dists, cov_matrix_sn = get_data(z_cut_ceph=0.0043)
-# At z_ceph < 0.0043 there seems to be an inversion in velocity flow which kills the signal
+legend, z_cmb, z_hel, mb_vals, ceph_dists, cov_matrix_sn = get_data(z_cut_ceph=0.0041)
+# At z_ceph < 0.0041 there seems to be an inversion in velocity flow which kills the signal
 
 ceph_mask = ceph_dists != -9
 
@@ -257,7 +257,7 @@ if __name__ == "__main__":
 
 """
 ********************************************
-Pantheon + SH0ES (z_cut 0.0043) + BAO + CMB compressed
+Pantheon + SH0ES (z_cut 0.0041) + BAO + CMB compressed
 ********************************************
 """
 
@@ -318,7 +318,7 @@ wa: -0.18 +0.48 -0.45 (prior ~ U(-2.5, 2.5))
 
 """
 ********************************************
-Pantheon + SH0ES (z_cut 0.0043) + BAO + θ* CMB
+Pantheon + SH0ES (z_cut 0.0041) + BAO + θ* CMB
 ********************************************
 """
 
