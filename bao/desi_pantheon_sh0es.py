@@ -7,8 +7,8 @@ from y2025BAO.data import get_data as get_bao_data
 from y2022pantheonSHOES.data_shoes import get_data
 
 bao_legend, bao_data, bao_cov_matrix = get_bao_data()
-legend, z_cmb, z_hel, mb_vals, ceph_dists, cov_matrix_sn = get_data(z_cut_ceph=0.0041)
-# At z_ceph < 0.0041 there seems to be an inversion in velocity flow which kills the signal
+legend, z_cmb, z_hel, mb_vals, ceph_dists, cov_matrix_sn = get_data(z_cut_ceph=0.0044)
+# At z_ceph < 0.0044 it seems the outflow velocity drops to zero or even becomes slightly negative.
 
 ceph_mask = ceph_dists != -9
 
@@ -81,8 +81,8 @@ def mu_theory(theta):
 
 
 @njit
-def v_bulk(v_pec):
-    return 100 * v_pec * (5 / np.log(10)) / (c * z_cmb)
+def v_outflow(v_flow):
+    return 100 * v_flow * (5 / np.log(10)) / (c * z_cmb)
 
 
 def solve_triang(cho_L, delta):
@@ -92,7 +92,7 @@ def solve_triang(cho_L, delta):
 
 def chi2_sn(theta):
     mu_the = np.where(ceph_mask, ceph_dists, mu_theory(theta))
-    mb_theory = mu_the + theta[0] + v_bulk(theta[4])
+    mb_theory = mu_the + theta[0] + v_outflow(theta[4])
     delta_sn = mb_vals - mb_theory
     return solve_triang(cho_sn, delta_sn)
 
@@ -113,7 +113,7 @@ bounds = np.array(
         (50.0, 100.0),  # H0 (km/s/Mpc)
         (0.2, 0.7),  # Ωm
         (120.0, 170.0),  # rd (Mpc)
-        (-1.5, 3.5),  # v_bulk in units of 100 km/s
+        (-1.5, 3.5),  # v_outflow in units of 100 km/s
     ]
 )
 
@@ -181,7 +181,7 @@ def main():
         (H0_16, H0_50, H0_84),
         (Om_16, Om_50, Om_84),
         (rd_16, rd_50, rd_84),
-        (v_b_16, v_b_50, v_b_84),
+        (v_f_16, v_f_50, v_f_84),
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
     best_fit = np.percentile(samples, 50, axis=0)
@@ -190,12 +190,12 @@ def main():
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"rd: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
-    print(f"v_bulk: {v_b_50:.3f} +{(v_b_84 - v_b_50):.3f} -{(v_b_50 - v_b_16):.3f}")
+    print(f"v_flow: {v_f_50:.3f} +{(v_f_84 - v_f_50):.3f} -{(v_f_50 - v_f_16):.3f}")
     print(f"Chi2 (MAP): {chi_squared(samples[np.argmax(log_probs)]):.1f}")
     print(f"Log evidence: {log_evd:.1f}")
     print(f"Degrees of freedom: {len(bao_data) + len(z_cmb) - len(best_fit)}")
 
-    labels = ["$M_0$", "$H_0$", "$Ω_m$", "$r_{drag}$", "$v_{bulk}$"]
+    labels = ["$M_0$", "$H_0$", "$Ω_m$", "$r_{drag}$", "$v_{flow}$"]
     plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
     plot_bao_predictions(
         theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
@@ -206,7 +206,7 @@ def main():
     plot_sn_predictions(
         legend=legend,
         x=z_cmb,
-        y=mb_vals - M_50 - v_bulk(v_b_50),
+        y=mb_vals - M_50 - v_outflow(v_f_50),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=mu_theory(best_fit),
         label=f"Best fit: $Ω_m$={Om_50:.3f}",
@@ -220,13 +220,13 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM
-M0: -19.232 +- 0.032 mag
-H0: 74.3 +1.1 -1.1 km/s/Mpc
-Ωm: 0.305 +- 0.008
-rd: 136.0 +- 2.2 Mpc
-Chi2 (MAP): 1450.2
-Log evidence: -740.3
-Degrees of freedom: 1650
+M0: -19.230 +- 0.033 mag
+H0: 74.3 +- 1.1 km/s/Mpc
+Ωm: 0.304 +- 0.008
+rd: 135.9 +- 2.2 Mpc
+Chi2 (MAP): 1448.7
+Log evidence: -739.5
+Degrees of freedom: 1648
 """
 
 """
@@ -234,36 +234,36 @@ Flat ΛCDM
 Void outflow corrections of SNe M(z) = M0 + v_corr
 v_corr = 100 * v_flow * (5 / np.log(10)) / (c * z_cmb) with v_flow in units 100 km/s
 
-v_flow: 100 +- 40 km/s (prior ~ U(-1.5, 3.5) in units of 100 km/s)
-M0: -19.335 +- 0.053 mag
-H0: 71.3 +- 1.6 km/s/Mpc
+v_flow: 104.3 +- 40.8 km/s (prior ~ U(-1.5, 3.5) in units of 100 km/s)
+M0: -19.336 +- 0.053 mag
+H0: 71.2 +- 1.6 km/s/Mpc
 Ωm: 0.300 +- 0.008
-rd: 142.1 +- 3.4 Mpc
-Chi2 (MAP): 1444.3 (2.43 sigma away from no v_corr)
-Log evidence: -738.9 (Δ logZ = 1.4 in favor of v_corr)
-Degrees of freedom: 1649
+rd: 142.2 +- 3.4 Mpc
+Chi2 (MAP): 1442.2 (2.55 sigma away from no outflow case)
+Log evidence: -737.9 (Δ logZ = +1.6 in favour of outflow model)
+Degrees of freedom: 1647
 """
 
 """
 Flat wCDM
-w0: -0.914 +- 0.040 (prior ~ U(-1.5, -0.5))
-M0: -19.229 +- 0.032 mag
-H0: 73.9 +- 1.1 km/s/Mpc
-Ωm: 0.298 +- 0.009
-rd: 134.9 +- 2.2 Mpc
-Chi2 (MAP): 1445.6 (2.14 sigma away from ΛCDM)
-Log evidence: -740.3 (Δ logZ = 0.0, same evidence as ΛCDM)
-Degrees of freedom: 1649
+w0: -0.915 +0.040 -0.040 (prior ~ U(-1.5, -0.5))
+M0: -19.227 +0.032 -0.033 mag
+H0: 74.02 +1.13 -1.12 km/s/Mpc
+Ωm: 0.298 +0.009 -0.009
+rd: 134.83 +2.25 -2.21 Mpc
+Chi2 (MAP): 1444.2 (2.12 sigma away from ΛCDM)
+Log evidence: -739.5 (Δ logZ = 0.0 identical to ΛCDM)
+Degrees of freedom: 1647
 """
 
 """
-Flat w0waCDM (enforced w0 + wa < 0)
-M0: -19.228 +- 0.032 mag
-H0: 73.9 +- 1.1 km/s/Mpc
+M0: -19.227 +- 0.033 mag
+H0: 74.0 +- 1.1 km/s/Mpc
 Ωm: 0.304 +0.015 -0.023
-w0: -0.891 +0.061 -0.057 (prior ~ U(-1.5, -0.5))
-wa: -0.18 +0.48 -0.45 (prior ~ U(-2.5, 2.5))
-Chi2 (MAP): 1445.5 (1.67 sigma away from ΛCDM)
-Log evidence: -741.4 (Δ logZ = -1.1 in favour of ΛCDM)
-Degrees of freedom: 1648
+rd: 134.9 +- 2.2 Mpc
+w0: -0.892 +0.061 -0.057 (prior ~ U(-1.5, -0.5))
+wa: -0.17 +0.47 -0.45 (prior ~ U(-2.5, 2.5))
+Chi2 (MAP): 1443.9 (1.69 sigma away from ΛCDM)
+Log evidence: -740.5 (Δ logZ = -1.0 in favour of ΛCDM)
+Degrees of freedom: 1646
 """
