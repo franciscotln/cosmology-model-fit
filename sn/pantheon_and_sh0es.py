@@ -257,8 +257,8 @@ Chi squared: 1436.89
 ==============================
 
 ΛCDM w(z) = -1
-Corrections in bulk flow added to mu_theory': mu_theory + v_bulk_corr
-v_bulk_corr = 100 * v_bulk * (5 / np.log(10)) / (c * z_cmb)
+Corrections in bulk flow added to M': M0 + v_bulk_corr
+v_bulk_corr = 100 * v_bulk * (5 / ln(10)) / (c * z_cmb)
 with v_bulk in units 100 km/s
 
 M: -19.315 +- 0.057 mag
@@ -268,4 +268,17 @@ v_bulk: 83 +- 45 km/s (prior ~ U(-1.6, 3.2) in units of 100 km/s)
 Skewness of residuals: 0.042
 kurtosis of residuals: 1.565
 Chi squared: 1433.37 (1.88 sigma away from no v_bulk corrections)
+
+==============================
+
+wCDM w(z) = w0
+M: -19.228 +- 0.032 mag
+H0: 74.0 +1.1/-1.1 km/s/Mpc
+Ωm: 0.300 +0.061/-0.072
+w0: -0.919 +0.139/-0.158 (prior ~ U(-1.4, -0.6))
+R-squared (%): 99.77
+RMSD (mag): 0.153
+Skewness of residuals: 0.069
+kurtosis of residuals: 1.587
+Chi squared: 1436.57 (0.57 sigma away from ΛCDM)
 """
