@@ -277,10 +277,10 @@ Degrees of freedom: 1648
 
 """
 Flat ΛCDM
-Bulk v_bulk corrections of SNe M(z) = M0 + v_bulk_corr
-v_bulk_corr = 100 * v_bulk * (5 / np.log(10)) / (c * z_cmb) with v_bulk in units 100 km/s
+Void outflow corrections of SNe M(z) = M0 + v_corr
+v_corr = 100 * v_flow * (5 / np.log(10)) / (c * z_cmb) with v_flow in units 100 km/s
 
-v_bulk: 156 +27 - 28 km/s (prior ~ U(-1.0, 3.5) in units of 100 km/s)
+v_flow: 156 +27 - 28 km/s (prior ~ U(-1.0, 3.5) in units of 100 km/s)
 M0: -19.427 +- 0.009 mag
 H0: 68.54 +- 0.26 km/s/Mpc
 Ωm: 0.299 +- 0.003
@@ -288,8 +288,8 @@ H0: 68.54 +- 0.26 km/s/Mpc
 Ωch2: 0.11713 +- 0.00063
 Ωmh2: 0.1404 +- 0.0006
 rd: 147.61 +- 0.19 Mpc
-Chi2 (MAP): 1449.4 (5.71 sigma away from no bulk flow)
-Log evidence: -747.3 (Δ logZ = 14.4 in favor of bulk flow)
+Chi2 (MAP): 1449.4 (5.71 sigma away from no void outflow)
+Log evidence: -747.3 (Δ logZ = 14.4 in favor of void outflow)
 Degrees of freedom: 1647
 """
 
@@ -342,8 +342,8 @@ H0: 69.7 +- 1.2 km/s/Mpc
 Ωch2: 0.117 +- 0.001
 Ωmh2: 0.142 +- 0.003
 rd: 146.2 +2.0 -2.1 Mpc
-Chi2 (MAP): 1444.4 (4.18 sigma away from no outflow)
-Log evidence: -741.6 (Δ logZ = 6.9 in favor of outflow)
+Chi2 (MAP): 1444.4 (4.18 sigma away from no void outflow)
+Log evidence: -741.6 (Δ logZ = 6.9 in favor of void outflow)
 Degrees of freedom: 1647
 """
 
