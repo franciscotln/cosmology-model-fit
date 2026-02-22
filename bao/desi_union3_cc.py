@@ -26,12 +26,18 @@ dz = np.diff(z_grid)
 
 
 @njit
+def Ode_z(z, w0):
+    # Thawing quintessence
+    inv_a3 = (1.0 + z) ** 3
+    return (2 * inv_a3 / (1.0 + w0 + (1.0 - w0) * inv_a3)) ** 2
+
+
+@njit
 def Ez(z, params):
     Om, w0 = params[4], params[5]
     zp1 = 1.0 + z
     cubed = zp1**3
-    rho_de = (2 * cubed / (1.0 + w0 + (1.0 - w0) * cubed)) ** 2
-    return np.sqrt(Om * cubed + (1.0 - Om) * rho_de)
+    return np.sqrt(Om * cubed + (1.0 - Om) * Ode_z(z, w0))
 
 
 @njit
@@ -225,8 +231,8 @@ w0:   U(-1.5, 0.0)
 wa:   U(-5.0, 3.0)
 Enforced w0 + wa < 0
 
-Varying absolute magnitude SNe within ΛCDM:
-p:    U(-1.0, 2.5)
+mag corrections:
+M0'   U(-8.0, 4.0)
 """
 
 """
@@ -244,17 +250,20 @@ Degrees of freedom: 66
 
 """
 Flat ΛCDM: w(z) = -1
-Evolving absolute mag of SNe M(z) = ΔM_max + 0.2 * p / (1 + (z / 0.043))
+Corrections to absolute magnitude of SNe M(z) = M0 + M0' * z / (1 + (z / z_c))
+z_c = 0.0557 is the redshift of a kind of homogeneity scale
+M(z << z_c) = M0 + M0' * z, low z value
+M(z >> z_c) = M0 + M0' * z_c, asymptotic value
 
 f_cc: 1.48 +0.18 -0.18
-ΔM_max: -0.051 +0.072 -0.072 mag
-p: 0.66 +0.30 -0.30
+ΔM: 0.067 +0.087 -0.087 mag
+M'0: -2.14 +0.96 -0.96 mag / unity redshift
 H0: 69.0 +2.3 -2.3 km/s/Mpc
-r_d: 147.3 +4.5 -5.0 Mpc
-Ωm: 0.299 +0.008 -0.008
-ωm: 0.1426 +0.0309 -0.0219
-Chi squared: 71.17 (2.28 sigma away from constant M)
-Log evidence: -178.09 (Δ logZ = 0.92 against constant M)
+r_d: 147.2 +4.4 -5.0 Mpc
+Ωm: 0.298 +0.008 -0.008
+ωm: 0.1427 +0.0310 -0.0221
+Chi squared: 71.26 (2.26 sigma away from constant M)
+Log evidence: -178.13 (Δ logZ = 0.88 against constant M)
 Degrees of freedom: 65
 """
 
