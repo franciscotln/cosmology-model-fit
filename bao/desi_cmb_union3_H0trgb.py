@@ -194,8 +194,8 @@ def main():
     degs_of_freedom = (
         1
         + len(z_cmb)
-        + len(sixdF_bao_data["z"])
-        + len(bao_data["z"])
+        + len(sixdF_bao_data)
+        + len(bao_data)
         + len(cmb.DISTANCE_PRIORS)
         - len(best_fit)
     )
@@ -262,21 +262,20 @@ Degrees of freedom: 36
 
 """
 Flat ΛCDM w(z) = -1
-Corrections to absolute mag of SNe M(z) = M0 + M'0 * z / (1 + (z / z_c))
-where z_c = 0.0557 is the redshift of a kind of homogeneity scale
+Outflow mag correction of SNe M(z) = M_inf + (5 / ln(10)) * z_c^2 / (z_c + z)
 
-ΔM: 0.053 ± 0.0046 mag
-M'0: -2.12 ± 0.93 (prior U(-8.0, 4.0))
-H0: 68.54 ± 0.27 km/s/Mpc
+ΔM_inf: -0.065 +0.012 -0.010 mag
+z_c: 0.052 +0.020 -0.016 (prior U(0, 0.17))
+H0: 68.53 ± 0.27 km/s/Mpc
 ωb: 0.02259 ± 0.00010
-ωc: 0.11714 ± 0.00065
+ωc: 0.11715 ± 0.00065
 ωm: 0.14038 ± 0.00064
 Ωm: 0.2989 ± 0.0036
 z*: 1089.36 ± 0.15
 z_d: 1060.22 ± 0.23
 r_d: 147.61 ± 0.19 Mpc
-χ2 (MAP): 41.44 (2.26 sigmas away from no evolution in M)
-Log evidence: -41.3 (ΔlogZ = 1.0 against no evolution in M)
+χ2 (MAP): 41.45 (2.26 sigmas away from no correction in M)
+Log evidence: -41.1 (ΔlogZ = 1.2 against no correction in M)
 Degrees of freedom: 35
 """
 
