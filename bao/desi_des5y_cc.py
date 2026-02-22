@@ -29,7 +29,7 @@ dz = np.diff(z_grid)
 
 
 @njit
-def rho_de(z, w0=-1.0):
+def rho_de(z, w0):
     cubed = (1.0 + z) ** 3
     return (2 * cubed / (1.0 + w0 + (1.0 - w0) * cubed)) ** 2  # wzCDM
     # return 1.0  # ΛCDM
@@ -250,16 +250,17 @@ Degrees of freedom: 1758
 
 """
 Flat ΛCDM
-Evolving absolute mag of SNe M(z) = ΔM_max + p * [1 - (z / (0.1 + z))^0.05]
+Corrections to absolute mag of SNe M(z) = M0 + M'0 * z / (1 + (z / z_c))
+where z_c = 0.0395
 
-ΔM_max: -0.055 +0.069 -0.072 mag
-p: 0.676 +0.261 -0.265 (prior ~ U(-1.0, 2.0))
-H0: 69.0 +2.3 -2.3 km/s/Mpc
-r_d: 147.0 +4.9 -4.5 Mpc
-Ωm: 0.299 +0.008 -0.008
+ΔM: 0.027 +0.077 -0.078 mag
+M'0: -2.14 +0.84 -0.81 mag / unity redshift (prior ~ U(-7, 3))
+H0: 69.0 +2.3 -2.2 km/s/Mpc
+r_d: 147.1 +4.9 -4.6 Mpc
+Ωm: 0.298 +0.008 -0.008
 f_cc: 1.48 +0.18 -0.17
-Chi squared: 1673.70 (2.62 sigma away from constant M)
-Log evidence: -977.76 (Δ logZ = 1.77 against constant M)
+Chi squared: 1673.57 (2.64 sigma away from constant M)
+Log evidence: -977.77 (Δ logZ = 1.76 against constant M)
 Degrees of freedom: 1757
 """
 
