@@ -279,7 +279,7 @@ Corrections to absolute mag of SNe M(z) = M0 + M'0 * z / (1 + (z / z_c))
 where z_c = 0.0557 is the redshift of a kind of homogeneity scale
 
 ΔM0: 0.052 ± 0.046 mag
-M'0: 2.10 ± 0.93 (prior U(-8.0, 4.0))
+M'0: -2.10 ± 0.93 (prior U(-8.0, 4.0))
 H0: 68.51 ± 0.27 km/s/Mpc
 Ωm: 0.2992 ± 0.0036
 ωb: 0.02258 ± 0.00010
