@@ -196,8 +196,8 @@ def main():
     degs_of_freedom = (
         1
         + effective_sample_size
-        + len(bao_data["z"])
-        + len(sixdF_bao_data["z"])
+        + len(bao_data)
+        + len(sixdF_bao_data)
         + len(cmb.DISTANCE_PRIORS)
         - len(prior.keys)
     )
@@ -262,11 +262,10 @@ Degrees of freedom: 1728
 
 """
 Flat ΛCDM: w(z) = -1
-Corrections to absolute mag of SNe M(z) = M0 + M'0 * z / (1 + (z / z_c))
-where z_c = 0.0395
+Outflow mag correction of SNe M(z) = M_inf + (5 / ln(10)) * z_c^2 / (z_c + z)
 
-ΔM: 0.013 ± 0.028 mag
-M'0: -2.11 ± 0.76 mag/unit redshift (prior ~ U(-7.0, +3.0))
+ΔM_inf: -0.0701 ± 0.0089 mag
+z_c: 0.0374 +0.0110 -0.0093 (prior ~ U(0, 0.12))
 H0: 68.53 ± 0.27 km/s/Mpc
 ωb: 0.02259 ± 0.00010
 ωc: 0.11715 ± 0.00064
@@ -274,9 +273,9 @@ H0: 68.53 ± 0.27 km/s/Mpc
 Ωm: 0.299 ± 0.004
 z*: 1089.36 ± 0.15
 zd: 1060.22 ± 0.23
-rd: 147.62 ± 0.19 Mpc
-χ2 (MAP): 1643.71 (2.75 sigmas away from constant M)
-Log evidence: -841.6 (ΔlogZ = 2.2 against constant M)
+rd: 147.61 ± 0.19 Mpc
+χ2 (MAP): 1643.70 (2.75 sigmas away from constant M)
+Log evidence: -841.5 (ΔlogZ = 2.3 against constant M)
 Degrees of freedom: 1727
 """
 
