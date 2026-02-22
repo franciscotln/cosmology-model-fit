@@ -225,7 +225,7 @@ M(z << z_c) = M0 + M0' * z, low z value
 M(z >> z_c) = M0 + M0' * z_c, asymptotic value
 
 ΔM: 0.071 +0.048 -0.49 mag
-M0': -2.176 +0.968 -0.951 mag per unit redshift at z=0
+M0': -2.18 +0.97 -0.95 mag per unit redshift at z=0
 rd: 147.09 +0.26 -0.26 Mpc
 H0: 69.06 +0.50 -0.50 km/s/Mpc
 Ωm: 0.297 +0.008 -0.008
