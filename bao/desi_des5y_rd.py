@@ -240,15 +240,14 @@ Degrees of freedom: 1724
 ===============================
 
 Flat ΛCDM
-Evolving absolute mag of SNe M(z) = ΔM_max + 0.2 * p / (1 + (z / z_c))
-where z_c = 0.043
-Equivalently M(z) = M0 + M'0 * z / (1 + (z / z_c))
+Evolving absolute mag of SNe M(z) = M0 + M'0 * z / (1 + (z / z_c))
+where z_c = 0.0395
 
-p: 0.416 +0.157 -0.157
-ΔM_max: -0.057 +0.012 -0.012 mag
-H0: 69.03 +0.49 -0.49 km/s/Mpc
-r_d: 147.14 +0.29 -0.29 Mpc
-ωb: 0.02277 +0.00072 -0.00070
+M'0: -2.19 +0.82 -0.83 mag per unit redshift (prior ~U(-7, 3))
+ΔM0: 0.030 +0.034 -0.033 mag
+H0: 69.02 +0.49 -0.49 km/s/Mpc
+r_d: 147.14 +0.29 -0.30 Mpc
+ωb: 0.02278 +0.00072 -0.00072
 ωm: 0.1416 +0.0023 -0.0023
 Ωm: 0.297 +0.008 -0.008
 Chi squared: 1638.2 (2.66 sigma away from constant M)
@@ -263,7 +262,7 @@ r_d: 147.14 +0.29 -0.29 Mpc
 ωb: 0.02442 +0.00130 -0.00122
 ωm: 0.1365 +0.0038 -0.0039
 Ωm: 0.297 +0.008 -0.008
-w0: -0.908 +0.037 -0.037 (prior width 1.5: -1.5 to 0.0)
+w0: -0.908 +0.037 -0.037 (prior ~U(-1.5, 0.0))
 wa: 0
 Chi squared: 1639.5 (2.41 sigma away from ΛCDM)
 Log evidence: -837.9 (Δ logZ = 0.1 against ΛCDM)
@@ -277,7 +276,7 @@ r_d: 147.14 +0.30 -0.30 Mpc
 ωb: 0.02350 +0.00090 -0.00087
 ωm: 0.1393 +0.0028 -0.0028
 Ωm: 0.305 +0.008 -0.008
-w0: -0.860 +0.051 -0.052 (prior width 2/3: -1.0 to -1/3)
+w0: -0.860 +0.051 -0.052 (prior ~U(-1.0, -1/3))
 Chi squared: 1638.5 (2.61 sigma away from ΛCDM)
 Log evidence: -836.2 (Δ logZ = 1.8 against ΛCDM)
 Degrees of freedom: 1723
@@ -290,8 +289,8 @@ r_d: 147.14 +0.28 -0.29 Mpc
 ωb: 0.02225 +0.00208 -0.00152
 ωm: 0.1433 +0.0050 -0.0065
 Ωm: 0.314 +0.013 -0.016
-w0: -0.845 +0.069 -0.064 (prior width 1.5: -1.5 to 0.0)
-wa: -0.521 +0.444 -0.444 (prior width 5.5: -3.5 to 2.0)
+w0: -0.845 +0.069 -0.064 (prior ~U(-1.5, 0.0))
+wa: -0.521 +0.444 -0.444 (prior ~U(-3.5, 2.0))
 Chi squared: 1638.1 (2.21 sigma away from ΛCDM)
 Log evidence: -838.6 (Δ logZ = -0.6 in favour of ΛCDM)
 Degrees of freedom: 1722
