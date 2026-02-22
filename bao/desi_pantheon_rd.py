@@ -222,10 +222,10 @@ Degrees of freedom: 1599
 
 """
 Flat ΛCDM
-v_bulk corrections of SNe M(z) = M0 + v_bulk_corr
+v_bulk corrections of SNe M(z) = M_inf + v_bulk_corr
 v_bulk_corr = 100 * v_bulk * (5 / ln(10)) / (c * z_cmb) with v_bulk in units 100 km/s
 
-M: -19.410 +- 0.014 mag
+M_inf: -19.410 +- 0.014 mag
 v_bulk: 95 +- 43 km/s (prior ~ U(-1.30, 3.15))
 H0: 68.92 +- 0.49 km/s/Mpc
 Ωm: 0.300 +- 0.008

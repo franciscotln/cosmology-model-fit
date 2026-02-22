@@ -259,13 +259,13 @@ Chi squared: 1435.44
 ==============================
 
 ΛCDM w(z) = -1
-Void outflow corrections of SNe M(z) = M0 + v_corr
-v_corr = 100 * v_flow * (5 / ln(10)) / (c * z_cmb) with v_flow in units 100 km/s
+Void outflow corrections of SNe M(z) = M_inf + v_flow_corr
+v_flow_corr = 100 * v_flow * (5 / ln(10)) / (c * z_cmb) with v_flow in units 100 km/s
 
-M: -19.319 +- 0.057 mag
+v_flow: 88.8 +- 45.4 km/s (prior ~ U(-1.6, 3.2) in units of 100 km/s)
+M_inf: -19.319 +- 0.057 mag
 H0: 71.6 +- 1.7 km/s/Mpc
 Ωm: 0.313 +- 0.020
-v_flow: 88.8 +- 45.4 km/s (prior ~ U(-1.6, 3.2) in units of 100 km/s)
 R-squared (%): 99.77
 RMSD (mag): 0.153
 Skewness of residuals: 0.037
