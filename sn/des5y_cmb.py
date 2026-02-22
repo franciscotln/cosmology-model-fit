@@ -212,8 +212,6 @@ H0: 67.38 +0.46 -0.45 km/s/Mpc
 ωb: 0.02247 +0.00011 -0.00011
 ωc: 0.1199 +0.0011 -0.0011
 ωm: 0.1430 +0.0011 -0.0011
-w0: -1
-wa: 0
 z*: 1089.77 +0.20 -0.20
 zd: 1060.16 +0.23 -0.23
 r*: 144.39 Mpc
@@ -224,23 +222,21 @@ Log evidence: -834.5
 
 """
 Flat ΛCDM w(z) = -1
-Evolving absolute mag of SNe M(z) = ΔM_max + 0.2 * p / (1 + (z / z_c))
-where z_c = 0.043
-Equivalently M(z) = M0 + M'0 * z / (1 + (z / z_c))
+Outflow mag correction of SNe M(z) = M_inf + (5 / ln(10)) * z_c^2 / (z_c + z)
 
-ΔM_max: -0.087 +0.012 -0.012
-p: 0.316 +0.151 -0.154 (prior U(-0.5, 1.5))
-H0: 67.72 +0.48 -0.48 km/s/Mpc
-Ωm: 0.310 +0.007 -0.007
+ΔM_inf: -0.086 +0.012 -0.012 (consistent with Union3.1 + CMB, it has to be by definition)
+z_c: 0.031 +0.011 -0.012 (prior U(0, 0.12))
+H0: 67.69 +0.49 -0.48 km/s/Mpc
+Ωm: 0.311 +0.007 -0.007
 ωb: 0.02251 +0.00011 -0.00011
 ωc: 0.1191 +0.0012 -0.0012
-ωm: 0.1422 +0.0011 -0.0011
-z*: 1089.64 +0.21 -0.21
+ωm: 0.1423 +0.0011 -0.0011
+z*: 1089.65 +0.21 -0.21
 zd: 1060.18 +0.23 -0.23
-r*: 144.58 Mpc
-r_d: 147.20 Mpc
-Chi squared: 1628.47 (2.05 sigma away from no evolution in M)
-Log evidence: -834.1
+r*: 144.56 Mpc
+r_d: 147.18 Mpc
+Chi squared: 1628.42 (2.06 sigma away from no evolution in M)
+Log evidence: -833.9
 """
 
 """
