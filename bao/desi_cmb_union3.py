@@ -275,21 +275,20 @@ Degs of freedom: 36
 
 """
 Flat ΛCDM w(z) = -1
-Corrections to absolute mag of SNe M(z) = M0 + M'0 * z / (1 + (z / z_c))
-where z_c = 0.0557 is the redshift of a kind of homogeneity scale
+Outflow mag correction of SNe M(z) = M_inf + (5 / ln(10)) * z_c^2 / (z_c + z)
 
-ΔM0: 0.052 ± 0.046 mag
-M'0: -2.10 ± 0.93 (prior U(-8.0, 4.0))
+ΔM_inf: -0.065 + 0.012 -0.010 mag
+z_c: 0.052 +0.020 -0.016 (prior U(0, 0.17))
 H0: 68.51 ± 0.27 km/s/Mpc
 Ωm: 0.2992 ± 0.0036
 ωb: 0.02258 ± 0.00010
 ωc: 0.1172 ± 0.0007
 ωm: 0.1404 ± 0.0006
-z*: 1089.37 ± 0.15
+z*: 1089.38 ± 0.15
 z_d: 1060.21 ± 0.23
 r_d: 147.61 ± 0.19 Mpc
-Chi2 (MAP): 41.04 (2.25 sigma away from constant M)
-Log evidence: -41.1 (Δ logZ = 0.9 against constant M)
+Chi2 (MAP): 41.05 (2.25 sigma away from constant M)
+Log evidence: -40.8 (Δ logZ = 1.2 against constant M)
 Degs of freedom: 35
 """
 
