@@ -39,7 +39,7 @@ def DM_z(z, params):
 @njit
 def mu_theory(params):
     dL = (1.0 + z_hel) * DM_z(z_cmb, params)
-    Mz = params[0] + params[3] * z_cmb / (1 + (z_cmb / 0.043))
+    Mz = params[0] + params[3] * z_cmb / (1.0 + z_cmb / 0.0557)
     return Mz + 25.0 + 5 * np.log10(dL)
 
 
@@ -68,11 +68,11 @@ def main():
         "H0", dist=norm(loc=70.39, scale=1.80)
     )  # TRGB Freedman et al. 2025
     prior.add_parameter("om", dist=(0.1, 0.7))
-    prior.add_parameter("m_prime", dist=(-13.0, 7.0))
+    prior.add_parameter("m_prime", dist=(-11.0, 6.0))
 
     with Pool(6) as pool:
         sampler = Sampler(
-            prior, log_likelihood, n_live=5_000, pool=pool, seed=42, pass_dict=False
+            prior, log_likelihood, n_live=6_000, pool=pool, seed=42, pass_dict=False
         )
         sampler.run(verbose=True)
 
@@ -145,15 +145,16 @@ Degs of freedom: 19
 ===============================
 
 Flat ΛCDM: w(z) = -1
-Evolving absolute mag of SNe M(z) = M0 + M'0 * z / (1 + (z / 0.043))
+Evolving absolute mag of SNe M(z) = M0 + M'0 * z / (1 + (z / z_c))
+z_c = 0.0557
 
-ΔM: 0.130 ± 0.078
-M'0: -3.3 ± 2.0 (prior ~ U(-13.0, 7.0))
-H0 (km/s/Mpc): 70.4 ± 1.7
-Ωm: 0.293 +0.030/-0.035 (complete agreement with ΛCDM from BAO)
-Ωm h^2: 0.145 +0.016/-0.019
-χ2 (MAP): 25.7 (1.76 sigma away from constant M)
-Log evidence: -21.9
+ΔM: 0.116 ± 0.073
+M'0: -2.4 ± 1.4 (prior ~ U(-11.0, 6.0))
+H0: 70.4 ± 1.8 km/s/Mpc
+Ωm: 0.290 +0.031/-0.036 (complete agreement with ΛCDM from BAO)
+Ωm h^2: 0.144 +0.016/-0.019
+χ2 (MAP): 25.6 (1.79 sigma away from constant M)
+Log evidence: -22.0
 Degs of freedom: 18
 
 ===============================

@@ -60,7 +60,7 @@ def DM_z(z, params):
 
 @njit
 def mu_theory(params):
-    M_z = params[0] + params[4] * z_cmb / (1.0 + (z_cmb / 0.043))
+    M_z = params[0] + params[4] * z_cmb / (1.0 + (z_cmb / 0.0557))
     return M_z + 25.0 + 5 * np.log10((1.0 + z_hel) * DM_z(z_cmb, params))
 
 
@@ -80,7 +80,7 @@ bounds = np.array(
         (60.0, 75.0),  # H0
         (0.010, 0.030),  # ωb
         (0.010, 0.250),  # ωc
-        (-10.0, 5.0),  # M'0
+        (-8.0, 4.0),  # M'0
     ]
 )
 
@@ -216,14 +216,15 @@ Degrees of freedom: 21
 
 """
 Flat ΛCDM w(z) = -1, varying absolute magnitude
-Evolving absolute mag of SNe M(z) = M0 + M'0 * z / (1 + (z / 0.043))
+Evolving absolute mag of SNe M(z) = M0 + M'0 * z / (1 + (z / z_c))
+z_c = 0.0557
 
-ΔM0: 0.031 +- 0.055 mag
-M'0: -2.6 +- 1.4 mag per unit redshift (prior ~ U(-10.0, 5.0))
-H0: 67.68 +- 0.49 km/s/Mpc
-Ωm: 0.3107 +- 0.0069
-Chi2 (MAP): 26.1 (1.87 sigma away from no evolution)
-Log Evidence: -32.9
+ΔM0: 0.019 +- 0.049 mag
+M'0: -1.77 +- 0.95 mag per unit redshift (prior ~ U(-8.0, 4.0))
+H0: 67.70 +- 0.49 km/s/Mpc
+Ωm: 0.3106 +- 0.0070
+Chi2 (MAP): 26.2 (1.84 sigma away from no evolution)
+Log Evidence: -33.0
 Degrees of freedom: 20
 """
 
