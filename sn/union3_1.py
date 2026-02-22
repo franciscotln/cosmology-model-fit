@@ -38,9 +38,9 @@ def DM_z(z, params):
 
 @njit
 def mu_theory(params):
-    dL = (1.0 + z_hel) * DM_z(z_cmb, params)
-    Mz = params[0] + params[3] * z_cmb / (1.0 + z_cmb / 0.0557)
-    return Mz + 25.0 + 5 * np.log10(dL)
+    zc = params[3]
+    Mz = params[0] + (5 / np.log(10)) * zc**2 / (zc + z_cmb)
+    return Mz + 25.0 + 5 * np.log10((1.0 + z_hel) * DM_z(z_cmb, params))
 
 
 @njit
@@ -68,7 +68,7 @@ def main():
         "H0", dist=norm(loc=70.39, scale=1.80)
     )  # TRGB Freedman et al. 2025
     prior.add_parameter("om", dist=(0.1, 0.7))
-    prior.add_parameter("m_prime", dist=(-11.0, 6.0))
+    prior.add_parameter("z_c", dist=(0.0, 0.25))
 
     with Pool(6) as pool:
         sampler = Sampler(
@@ -78,7 +78,7 @@ def main():
 
     samples, log_w, log_l = sampler.posterior()
 
-    labels = ["ΔM_0", "H_0", "Ω_m", "M'_0"]
+    labels = ["ΔM_0", "H_0", "Ω_m", "z_c"]
     gd_samples = MCSamples(
         samples=samples,
         weights=np.exp(log_w),
@@ -145,16 +145,15 @@ Degs of freedom: 19
 ===============================
 
 Flat ΛCDM: w(z) = -1
-Evolving absolute mag of SNe M(z) = M0 + M'0 * z / (1 + (z / z_c))
-z_c = 0.0557
+Outflow mag correction of SNe M(z) = M_inf + (5 / ln(10)) * z_c^2 / (z_c + z)
 
-ΔM: 0.116 ± 0.073
-M'0: -2.4 ± 1.4 (prior ~ U(-11.0, 6.0))
+ΔM_inf: -0.030 +0.077 -0.068 mag
+z_c: 0.064 ± 0.030 (prior ~ U(0, 0.25))
 H0: 70.4 ± 1.8 km/s/Mpc
-Ωm: 0.290 +0.031/-0.036 (complete agreement with ΛCDM from BAO)
-Ωm h^2: 0.144 +0.016/-0.019
-χ2 (MAP): 25.6 (1.79 sigma away from constant M)
-Log evidence: -22.0
+Ωm: 0.283 +0.038/-0.038 (agreement with ΛCDM from BAO)
+Ωm h^2: 0.140 +0.020/-0.020
+χ2 (MAP): 25.5 (1.82 sigma away from constant M)
+Log evidence: -21.7
 Degs of freedom: 18
 
 ===============================
