@@ -224,7 +224,7 @@ z_c = 0.0557 is the redshift of a kind of homogeneity scale
 M(z << z_c) = M0 + M0' * z, low z value
 M(z >> z_c) = M0 + M0' * z_c, asymptotic value
 
-ΔM: 0.071 +0.048 -0.49 mag
+ΔM: 0.071 +0.048 -0.049 mag
 M0': -2.18 +0.97 -0.95 mag per unit redshift at z=0
 rd: 147.09 +0.26 -0.26 Mpc
 H0: 69.06 +0.50 -0.50 km/s/Mpc
