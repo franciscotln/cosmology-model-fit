@@ -169,7 +169,7 @@ def main():
     Omh2_samples = samples[:, 4] * samples[:, 2] ** 2 / 100**2
     Omh2_16, Omh2_50, Omh2_84 = np.percentile(Omh2_samples, [15.9, 50, 84.1])
 
-    deg_of_freedom = len(z_cmb) + len(bao_data["z"]) + len(z_cc_vals) - len(best_fit)
+    deg_of_freedom = len(z_cmb) + len(bao_data) + len(z_cc_vals) - len(best_fit)
 
     print(f"f_cc: {fcc_50:.2f} +{(fcc_84 - fcc_50):.2f} -{(fcc_50 - fcc_16):.2f}")
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
@@ -232,17 +232,17 @@ wa:   U(-5.0, 3.0)
 Enforced w0 + wa < 0
 
 mag corrections:
-M0'   U(-8.0, 4.0)
+z_c   U(0, 0.17)
 """
 
 """
 Flat ΛCDM: w(z) = -1
-f_cc: 1.48 +0.18 -0.17
 ΔM: -0.040 +0.070 -0.072 mag
 H0: 68.7 +2.3 -2.3 km/s/Mpc
 r_d: 147.2 +4.9 -4.6 Mpc
 Ωm: 0.303 +0.008 -0.008
 ωm: 0.1437 +0.0330 -0.0233
+f_cc: 1.48 +0.18 -0.17
 Chi squared: 76.36
 Log evidence: -179.01
 Degrees of freedom: 66
@@ -250,20 +250,17 @@ Degrees of freedom: 66
 
 """
 Flat ΛCDM: w(z) = -1
-Corrections to absolute magnitude of SNe M(z) = M0 + M0' * z / (1 + (z / z_c))
-z_c = 0.0557 is the redshift of a kind of homogeneity scale
-M(z << z_c) = M0 + M0' * z, low z value
-M(z >> z_c) = M0 + M0' * z_c, asymptotic value
+Outflow mag correction of SNe M(z) = M_inf + (5 / ln(10)) * z_c^2 / (z_c + z)
 
-f_cc: 1.48 +0.18 -0.18
-ΔM: 0.067 +0.087 -0.087 mag
-M'0: -2.14 +0.96 -0.96 mag / unity redshift
+ΔM_inf: -0.052 +- 0.072 mag
+z_c: 0.052 +0.020 -0.016
 H0: 69.0 +2.3 -2.3 km/s/Mpc
 r_d: 147.2 +4.4 -5.0 Mpc
-Ωm: 0.298 +0.008 -0.008
+Ωm: 0.299 +0.008 -0.008
 ωm: 0.1427 +0.0310 -0.0221
-Chi squared: 71.26 (2.26 sigma away from constant M)
-Log evidence: -178.13 (Δ logZ = 0.88 against constant M)
+f_cc: 1.48 +0.18 -0.18
+Chi squared: 71.35 (2.24 sigma away from constant M)
+Log evidence: -177.85 (Δ logZ = 1.16 against constant M)
 Degrees of freedom: 65
 """
 
@@ -283,7 +280,6 @@ Degrees of freedom: 65
 
 """
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
-f_cc: 1.47 +0.18 -0.17
 ΔM: -0.049 +0.070 -0.072 mag
 H0: 67.1 +2.4 -2.3 km/s/Mpc
 r_d: 147.3 +4.9 -4.6 Mpc
@@ -291,6 +287,7 @@ r_d: 147.3 +4.9 -4.6 Mpc
 ωm: 0.1391 +0.0295 -0.0234
 w0: -0.825 +0.071 -0.074
 wa: d w(z)/d z at z=0 = -1.5 * (1 - w0^2)
+f_cc: 1.47 +0.18 -0.17
 Chi squared: 70.70 (2.38 sigma away from ΛCDM)
 Log evidence: -177.67 (Δ logZ = 1.34 against ΛCDM)
 Degrees of freedom: 65
@@ -298,7 +295,6 @@ Degrees of freedom: 65
 
 """
 Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
-f_cc: 1.47 +0.18 -0.17
 ΔM: -0.047 +0.071 -0.072 mag
 H0: 67.0 +2.4 -2.3 km/s/Mpc
 r_d: 147.2 +4.9 -4.7 Mpc
@@ -306,6 +302,7 @@ r_d: 147.2 +4.9 -4.7 Mpc
 ωm: 0.1444 +0.0368 -0.0254
 w0: -0.801 +0.105 -0.097
 wa: -0.633 +0.564 -0.555
+f_cc: 1.47 +0.18 -0.17
 Chi squared: 70.15 (2.01 sigma away from ΛCDM)
 Log evidence: -180.47 (Δ logZ = -1.46 in favour of ΛCDM. TODO: remove forbidden region but still not preferred)
 Degrees of freedom: 64
