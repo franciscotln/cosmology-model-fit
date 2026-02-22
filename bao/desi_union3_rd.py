@@ -146,7 +146,7 @@ def main():
     )
     plt.show()
 
-    degs_of_freedom = len(bao_data["z"]) + len(z_cmb) - len(best_fit)
+    degs_of_freedom = len(bao_data) + len(z_cmb) - len(best_fit)
 
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
     print(f"rd: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
@@ -189,8 +189,8 @@ rd ~N(147.09, 0.26)
 H0 ~U(50.0, 85.0)
 Ωm ~U(0.1, 0.6)
 
-mag evolution:
-M0' ~U(-8.0, 4.0)
+Outflow mag correction:
+z_c ~U(0.0, 0.17)
 
 wCDM:
 w0 ~U(-1.5, 0.0)
@@ -219,19 +219,16 @@ Degs of freedom: 31
 
 """
 Flat ΛCDM: w(z) = -1
-Corrections to absolute magnitude of SNe M(z) = M0 + M0' * z / (1 + (z / z_c))
-z_c = 0.0557 is the redshift of a kind of homogeneity scale
-M(z << z_c) = M0 + M0' * z, low z value
-M(z >> z_c) = M0 + M0' * z_c, asymptotic value
+Outflow mag correction of SNe M(z) = M_inf + (5 / ln(10)) * z_c^2 / (z_c + z)
 
-ΔM: 0.071 +0.048 -0.049 mag
-M0': -2.18 +0.97 -0.95 mag per unit redshift at z=0
+ΔM_inf: -0.050 +0.013 -0.013 mag
+z_c: 0.054 +0.018 -0.019
 rd: 147.09 +0.26 -0.26 Mpc
-H0: 69.06 +0.50 -0.50 km/s/Mpc
-Ωm: 0.297 +0.008 -0.008
-ωm: 0.1417 +0.0023 -0.0023
-Chi squared: 35.9 (2.28 sigma away from no corrections in M)
-Log evidence: -32.4 (Δ logZ = 0.9 against no corrections in M)
+H0: 69.05 +0.50 -0.50 km/s/Mpc
+Ωm: 0.297 +0.009 -0.008
+ωm: 0.1417 +0.0024 -0.0023
+Chi squared: 36.0 (2.26 sigma away from no corrections in M)
+Log evidence: -32.1 (Δ logZ = 1.2 against no corrections in M)
 Degs of freedom: 30
 """
 
