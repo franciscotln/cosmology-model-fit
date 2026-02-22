@@ -262,12 +262,11 @@ Degrees of freedom: 1728
 
 """
 Flat ΛCDM: w(z) = -1
-Evolving absolute mag of SNe M(z) = ΔM_max + 0.2 * p / (1 + (z / z_c))
-where z_c = 0.043
-Equivalently M(z) = M0 + M'0 * z / (1 + (z / z_c))
+Corrections to absolute mag of SNe M(z) = M0 + M'0 * z / (1 + (z / z_c))
+where z_c = 0.0395
 
-p: 0.40 ± 0.15 (prior ~ U(-0.5, +1.5))
-ΔM_max: -0.0706 ± 0.0086 mag
+ΔM: 0.013 ± 0.028 mag
+M'0: -2.11 ± 0.76 mag/unit redshift (prior ~ U(-7.0, +3.0))
 H0: 68.53 ± 0.27 km/s/Mpc
 ωb: 0.02259 ± 0.00010
 ωc: 0.11715 ± 0.00064
@@ -275,9 +274,9 @@ H0: 68.53 ± 0.27 km/s/Mpc
 Ωm: 0.299 ± 0.004
 z*: 1089.36 ± 0.15
 zd: 1060.22 ± 0.23
-rd: 147.61 ± 0.19 Mpc
-χ2 (MAP): 1643.72 (2.75 sigmas away from constant M)
-Log evidence: -841.7 (ΔlogZ = 2.1 against constant M)
+rd: 147.62 ± 0.19 Mpc
+χ2 (MAP): 1643.71 (2.75 sigmas away from constant M)
+Log evidence: -841.6 (ΔlogZ = 2.2 against constant M)
 Degrees of freedom: 1727
 """
 
