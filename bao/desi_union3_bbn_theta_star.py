@@ -287,7 +287,7 @@ wa: U(-3.0, 1.0)
 w0 + wa < 0 enforced
 
 Evolving absolute magnitude M(z):
-p U(-1.0, 2.5)
+M'0: U(-8.0, 4.0)
 """
 
 """
@@ -312,24 +312,27 @@ Degrees of freedom: 33
 ===============================
 
 Flat ΛCDM  w(z) = -1
-Evolving absolute mag of SNe M(z) = M_max + 0.2 * p / (1 + (z / 0.043))
+Corrections to absolute magnitude of SNe M(z) = M0 + M0' * z / (1 + (z / z_c))
+z_c = 0.0557 is the redshift of a kind of homogeneity scale
+M(z << z_c) = M0 + M0' * z, low z value
+M(z >> z_c) = M0 + M0' * z_c, asymptotic value
 
-ΔM_max: -0.067 +0.014 -0.014 mag
-p: 0.686 +0.293 -0.287
-H0: 68.52 +0.46 -0.47 km/s/Mpc
+ΔM: 0.054 +0.048 -0.048 mag
+M'0: -2.206 +0.941 -0.940 mag / unity redshift
+H0: 68.53 +0.46 -0.47 km/s/Mpc
 ωb: 0.02218 +0.00054 -0.00053
-ωc: 0.1161 +0.0008 -0.0008
+ωc: 0.1160 +0.0008 -0.0008
 ωm: 0.1389 +0.0011 -0.0011
 Ωm: 0.296 +0.004 -0.004
-z_d: 1059.19 +1.23 -1.25
-r_d: 148.38 +0.70 -0.70 Mpc
-z*: 1089.80 +0.70 -0.68
+z_d: 1059.21 +1.23 -1.25
+r_d: 148.37 +0.71 -0.70 Mpc
+z*: 1089.79 +0.70 -0.68
 r*: 145.62 Mpc
-100 θ*: 1.04096
+100 θ*: 1.04095
 q0: -0.556 +0.007 -0.007
 j0: 1
-Chi2 (MAP): 36.50 (2.28 sigmas away from constant M)
-Log Evidence: -35.22 (Δ logZ = 1.19 in favour of evolving M)
+Chi2 (MAP): 36.47 (2.29 sigma away from constant M)
+Log Evidence: -35.27 (Δ logZ 1.14 against constant M)
 Degrees of freedom: 32
 
 ===============================
