@@ -239,11 +239,11 @@ Degrees of freedom: 1634
 ===============================
 
 Flat ΛCDM: w(z) = -1
-Void outflow corrections of SNe M(z) = M0 + v_flow_corr
+Void outflow corrections of SNe M(z) = Minf + v_flow_corr
 v_flow_corr = 100 * v_flow * (5 / ln(10)) / (c * z_cmb) with v_flow in units 100 km/s
 
 v_flow: 94 +44 -44 km/s (prior ~ U(-1.30, 3.15))
-M0: -19.412 +0.070 -0.072 mag
+Minf: -19.412 +0.070 -0.072 mag
 H0: 68.8 +2.3 -2.3 km/s/Mpc
 r_d: 147.2 +4.9 -4.6 Mpc
 Ωm: 0.301 +0.008 -0.008
