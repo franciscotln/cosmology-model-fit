@@ -33,3 +33,13 @@ def get_data(z_cut_ceph=0.0):
         cepheid_distances[pantheon_SH0ES_range],
         covariance_matrix[np.ix_(pantheon_SH0ES_range, pantheon_SH0ES_range)],
     )
+
+
+"""
+Ceph only <= 0.0055 (constant true magnitude M0):
+Fitted M0: -19.285 +0.042/-0.042 mag
+
+DESI + CMB + Pantheon+ + SH0ES (Ceph > 0.0055) predicts, using flow equation:
+Mobs(z_cmb) = M_inf + v_flow * (5/ln(10)) / (c * z_cmb)
+Mobs(z_cmb=0.0055) = -19.216 +- 0.040 mag (1.2 sigma agreement with Ceph only <= 0.0055)
+"""

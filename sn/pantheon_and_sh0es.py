@@ -6,7 +6,9 @@ from scipy.linalg import cho_factor, solve_triangular
 from interpolator import interp_hermite
 from y2022pantheonSHOES.data_shoes import get_data
 
-legend, z_cmb, z_hel, apparent_mags, ceph_dists, cov_matrix = get_data(0.0044)
+legend, z_cmb, z_hel, apparent_mags, ceph_dists, cov_matrix = get_data(0.0055)
+# at z <0.0055 the outflow seems to drop to zero or slightly negative
+# probably dense region of virgo cluster surpass the void effects.
 
 cepheids_mask = ceph_dists != -9
 cho = cho_factor(cov_matrix, lower=True)[0]
@@ -242,19 +244,19 @@ Chi squared: 1451.86
 ******************************
 Dataset: Pantheon+ and SH0ES
 Sample size: 1639
-z range: 0.0044 - 2.2614
-z_cut_cepheids >= 0.0044
+z range: 0.0057 - 2.2614
+z_cut_cepheids >= 0.0055
 ******************************
 
 ΛCDM w(z) = -1
-M: -19.227 +- 0.033 mag
-H0: 74.1 +- 1.1 km/s/Mpc
-Ωm: 0.332 +- 0.018
-R-squared (%): 99.77
+M: -19.228 +0.034/-0.034
+H0 (km/s/Mpc): 74.09 +1.19/-1.18
+Ωm: 0.331 +0.018/-0.018
+R-squared (%): 99.76
 RMSD (mag): 0.153
 Skewness of residuals: 0.075
-kurtosis of residuals: 1.582
-Chi squared: 1435.44
+kurtosis of residuals: 1.586
+Chi squared: 1434.46
 
 ==============================
 
@@ -262,26 +264,26 @@ Chi squared: 1435.44
 Void outflow corrections of SNe M(z) = M_inf + v_flow_corr
 v_flow_corr = 100 * v_flow * (5 / ln(10)) / (c * z_cmb) with v_flow in units 100 km/s
 
-v_flow: 88.8 +- 45.4 km/s (prior ~ U(-1.6, 3.2) in units of 100 km/s)
-M_inf: -19.319 +- 0.057 mag
-H0: 71.6 +- 1.7 km/s/Mpc
-Ωm: 0.313 +- 0.020
-R-squared (%): 99.77
+v_flow (km/s): 92.2 +47.5/-47.4 (prior ~ U(-1.6, 3.5) in units of 100 km/s)
+M_inf: -19.317 +0.057/-0.057
+H0 (km/s/Mpc): 71.71 +1.68/-1.66
+Ωm: 0.312 +0.020/-0.020
+R-squared (%): 99.76
 RMSD (mag): 0.153
-Skewness of residuals: 0.037
-kurtosis of residuals: 1.571
-Chi squared: 1431.46 (2 sigmas away from no flow case)
+Skewness of residuals: 0.036
+kurtosis of residuals: 1.579
+Chi squared: 1430.58 (1.97 sigma away from no flow case)
 
 ==============================
 
 wCDM w(z) = w0
-M: -19.226 +- 0.033
-H0: 74.1 +1.2/-1.1 km/s/Mpc
-Ωm: 0.298 +0.062/-0.072
-w0: -0.92 +0.14/-0.16 (prior ~ U(-1.5, -0.5))
-R-squared (%): 99.77
+w0: -0.917 +0.137/-0.160 (prior ~ U(-1.5, -0.5))
+M: -19.227 +- 0.034
+H0: 74.0 +- 1.2 km/s/Mpc
+Ωm: 0.298 +0.062/-0.071
+R-squared (%): 99.76
 RMSD (mag): 0.153
 Skewness of residuals: 0.066
-kurtosis of residuals: 1.588
-Chi squared: 1435.09 (0.59 sigma away from ΛCDM)
+kurtosis of residuals: 1.592
+Chi squared: 1434.13 (0.57 sigma away from ΛCDM)
 """
