@@ -7,8 +7,8 @@ from y2025BAO.data import get_data as get_bao_data
 from y2022pantheonSHOES.data_shoes import get_data
 
 bao_legend, bao_data, bao_cov_matrix = get_bao_data()
-legend, z_cmb, z_hel, mb_vals, ceph_dists, cov_matrix_sn = get_data(z_cut_ceph=0.0044)
-# At z_ceph < 0.0044 it seems the outflow velocity drops to zero or even becomes slightly negative.
+legend, z_cmb, z_hel, mb_vals, ceph_dists, cov_matrix_sn = get_data(z_cut_ceph=0.0055)
+# At z_ceph < 0.0055 it seems the outflow velocity drops to zero or even becomes slightly negative.
 
 ceph_mask = ceph_dists != -9
 
@@ -220,13 +220,13 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM
-M0: -19.230 +- 0.033 mag
-H0: 74.3 +- 1.1 km/s/Mpc
-Ωm: 0.304 +- 0.008
-rd: 135.9 +- 2.2 Mpc
-Chi2 (MAP): 1448.7
-Log evidence: -739.5
-Degrees of freedom: 1648
+M0: -19.230 +0.034 -0.034 mag
+H0: 74.3 +1.2 -1.2 km/s/Mpc
+Ωm: 0.304 +0.008 -0.008
+rd: 135.9 +2.3 -2.3 Mpc
+Chi2 (MAP): 1447.6
+Log evidence: -738.9
+Degrees of freedom: 1642
 """
 
 """
@@ -234,37 +234,29 @@ Flat ΛCDM
 Void outflow corrections of SNe M(z) = M_inf + v_corr
 v_corr = 100 * v_flow * (5 / np.log(10)) / (c * z_cmb) with v_flow in units 100 km/s
 
-v_flow: 104.3 +- 40.8 km/s (prior ~ U(-1.5, 3.5) in units of 100 km/s)
-M_inf: -19.336 +- 0.053 mag
-H0: 71.2 +- 1.6 km/s/Mpc
-Ωm: 0.300 +- 0.008
-rd: 142.2 +- 3.4 Mpc
-Chi2 (MAP): 1442.2 (2.55 sigma away from no outflow case)
-Log evidence: -737.9 (Δ logZ = +1.6 in favour of outflow model)
-Degrees of freedom: 1647
+v_flow: 1.07 +0.42 -0.43 (x 100 km/s)
+M_inf: -19.332 +0.053 -0.053 mag
+H0: 71.4 +1.6 -1.6 km/s/Mpc
+Ωm: 0.300 +0.008 -0.008
+rd: 142.0 +3.5 -3.4 Mpc
+Chi2 (MAP): 1441.3 (2.51 sigma away from no outflow case)
+Log evidence: -737.3 (Δ logZ = 1.6 in favour of outflow model)
+Degrees of freedom: 1641
 """
 
 """
 Flat wCDM
-w0: -0.915 +0.040 -0.040 (prior ~ U(-1.5, -0.5))
-M0: -19.227 +0.032 -0.033 mag
-H0: 74.02 +1.13 -1.12 km/s/Mpc
+w0: -0.916 +0.040 -0.040 (prior ~ U(-1.5, -0.5))
+M0: -19.228 +0.034 -0.034 mag
+H0: 74.0 +1.2 -1.2 km/s/Mpc
 Ωm: 0.298 +0.009 -0.009
-rd: 134.83 +2.25 -2.21 Mpc
-Chi2 (MAP): 1444.2 (2.12 sigma away from ΛCDM)
-Log evidence: -739.5 (Δ logZ = 0.0 identical to ΛCDM)
-Degrees of freedom: 1647
+rd: 134.9 +2.3 -2.3 Mpc
+Chi2 (MAP): 1443.3 (2.07 sigma away from ΛCDM)
+Log evidence: -739.0 (Δ logZ = -0.1 in favour of ΛCDM)
+Degrees of freedom: 1641
 """
 
 """
 Flat w0waCDM
-M0: -19.227 +- 0.033 mag
-H0: 74.0 +- 1.1 km/s/Mpc
-Ωm: 0.304 +0.015 -0.023
-rd: 134.9 +- 2.2 Mpc
-w0: -0.892 +0.061 -0.057 (prior ~ U(-1.5, -0.5))
-wa: -0.17 +0.47 -0.45 (prior ~ U(-2.5, 2.5))
-Chi2 (MAP): 1443.9 (1.69 sigma away from ΛCDM)
-Log evidence: -740.5 (Δ logZ = -1.0 in favour of ΛCDM)
-Degrees of freedom: 1646
+TODO
 """
