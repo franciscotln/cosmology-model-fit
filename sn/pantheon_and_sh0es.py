@@ -248,10 +248,10 @@ z range: 0.0057 - 2.2614
 z_cut_cepheids >= 0.0055
 ******************************
 
-ΛCDM w(z) = -1
-M: -19.228 +0.034/-0.034
-H0 (km/s/Mpc): 74.09 +1.19/-1.18
-Ωm: 0.331 +0.018/-0.018
+ΛCDM
+M: -19.228 +- 0.034 mag
+H0: 74.1 +- 1.2 km/s/Mpc
+Ωm: 0.331 +- 0.018
 R-squared (%): 99.76
 RMSD (mag): 0.153
 Skewness of residuals: 0.075
@@ -260,30 +260,30 @@ Chi squared: 1434.46
 
 ==============================
 
-ΛCDM w(z) = -1
+ΛCDM
 Void outflow corrections of SNe M(z) = M_inf + v_flow_corr
 v_flow_corr = 100 * v_flow * (5 / ln(10)) / (c * z_cmb) with v_flow in units 100 km/s
 
-v_flow (km/s): 92.2 +47.5/-47.4 (prior ~ U(-1.6, 3.5) in units of 100 km/s)
-M_inf: -19.317 +0.057/-0.057
-H0 (km/s/Mpc): 71.71 +1.68/-1.66
-Ωm: 0.312 +0.020/-0.020
+v_flow: 92.2 +47.5/-47.4 km/s (prior ~ U(-1.6, 3.5) in units of 100 km/s)
+M_inf: -19.317 +- 0.057 mag
+H0: 71.7 +- 1.7 km/s/Mpc
+Ωm: 0.312 +- 0.020
 R-squared (%): 99.76
 RMSD (mag): 0.153
 Skewness of residuals: 0.036
 kurtosis of residuals: 1.579
-Chi squared: 1430.58 (1.97 sigma away from no flow case)
+Chi squared: 1430.58 (2.0 sigmas away from no flow case)
 
 ==============================
 
-wCDM w(z) = w0
+wCDM
 w0: -0.917 +0.137/-0.160 (prior ~ U(-1.5, -0.5))
-M: -19.227 +- 0.034
+M: -19.227 +- 0.034 mag
 H0: 74.0 +- 1.2 km/s/Mpc
 Ωm: 0.298 +0.062/-0.071
 R-squared (%): 99.76
 RMSD (mag): 0.153
 Skewness of residuals: 0.066
 kurtosis of residuals: 1.592
-Chi squared: 1434.13 (0.57 sigma away from ΛCDM)
+Chi squared: 1434.13 (0.6 sigma away from ΛCDM)
 """

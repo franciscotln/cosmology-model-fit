@@ -36,13 +36,16 @@ def get_data(z_cut_ceph=0.0):
 
 
 """
-Ceph only <= 0.0055 (constant true magnitude M0):
-Fitted M0: -19.285 +0.042/-0.042 mag
+Ceph only < 0.0055 (constant true magnitude M0):
+Fitted M0: -19.285 +- 0.042 mag
 
-DESI + CMB + Pantheon+ + SH0ES (Ceph > 0.0055) predicts, using flow equation:
-Mobs(z_cmb) = M_inf + v_flow * (5/ln(10)) / (c * z_cmb)
-Mobs(z_cmb=0.0055) = -19.216 +- 0.040 mag (1.2 sigma agreement with Ceph only <= 0.0055)
+Ceph only >= 0.0055 (outflow model):
+M_inf: -19.403 +0.148 -0.147 mag
+v_flow: 183 +147 -148 km/s
 
-DESI + Pantheon+ + SH0ES (Ceph > 0.0055) predicts, using flow equation:
-Mobs(z_cmb=0.0055) = -19.191 +- 0.110 mag (0.8 sigma agreement with Ceph only <= 0.0055)
+DESI + CMB + Pantheon+ + SH0ES (Ceph_z >= 0.0055)
+M_inf: -19.427 +0.009 -0.009 mag (perfect agreement with Ceph only >= 0.0055)
+v_flow: 160.4 +29.6 -29.5 km/s (perfect agreement with Ceph only >= 0.0055)
+M(z=0.0055) = -19.427 + 160.4 * (5/ln(10)) / (c * 0.0055) = -19.216 +- 0.048 mag
+(1.08 sigma agreement with Ceph only M0 for z < 0.0055)
 """
