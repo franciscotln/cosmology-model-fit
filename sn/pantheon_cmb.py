@@ -217,10 +217,10 @@ Chi squared: 1403.98
 =============================
 
 Flat ΛCDM w(z) = -1
-Evolving absolute mag of SNe M(z) = M0 + v_pec_corr
+Evolving absolute mag of SNe M(z) = M_inf + v_pec_corr
 v_pec_corr = 100 * v_pec * (5 / np.log(10)) / (c * z_cmb) with v_pec in units 100 km/s
 
-M: -19.444 +0.014 -0.014 mag
+M_inf: -19.444 +0.014 -0.014 mag
 v_pec: 81 +43 -43 km/s (prior ~ U(-1.7, 3.2) in v_pec / (100 km/s))
 H0: 67.60 +0.47 -0.47 km/s/Mpc
 Ωm: 0.312 +0.007 -0.007

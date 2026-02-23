@@ -215,10 +215,10 @@ Log Evidence: -708.9
 =============================
 
 Flat ΛCDM w(z) = -1
-Void outflow correction to absolute mag of SNe M(z) = M0 + v_flow_corr
-v_flow_corr = 100 * v_flow * (5 / np.log(10)) / (c * z_cmb) with v_flow in units 100 km/s
+Void outflow correction to absolute mag of SNe M(z) = M_inf + v_flow_corr
+v_flow_corr = 100 * v_flow * (5 / ln(10)) / (c * z_cmb) with v_flow in units 100 km/s
 
-M0: -19.366 +0.012/-0.012 mag
+M_inf: -19.366 +0.012/-0.012 mag
 v_flow: 76.4 +49.1/-49.3 km/s (prior ~ U(-1.7, 3.2) x 100 km/s)
 Ωm: 0.316 +0.021/-0.020
 R-squared (%): 99.74
