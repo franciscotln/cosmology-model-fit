@@ -232,9 +232,9 @@ Degrees of freedom: 1642
 """
 Flat ΛCDM
 Void outflow corrections of SNe M(z) = M_inf + v_corr
-v_corr = 100 * v_flow * (5 / np.log(10)) / (c * z_cmb) with v_flow in units 100 km/s
+v_corr = 100 * v_flow * (5 / ln(10)) / (c * z_cmb) with v_flow in units 100 km/s
 
-v_flow: 1.07 +0.42 -0.43 (x 100 km/s)
+v_flow: 107 +42 -43 km/s
 M_inf: -19.332 +0.053 -0.053 mag
 H0: 71.4 +1.6 -1.6 km/s/Mpc
 Ωm: 0.300 +0.008 -0.008
