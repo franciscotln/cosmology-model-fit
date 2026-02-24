@@ -11,7 +11,6 @@ legend, z_cmb, z_hel, mu_vals, covmat = get_data()
 cho = cho_factor(covmat, lower=True)[0]
 
 c = c0 / 1000  # Speed of light (km/s)
-H0 = 70.0  # Hubble constant (km/s/Mpc)
 
 z_grid = np.linspace(0, np.max(z_cmb) + 0.1, num=3000)
 dz = np.diff(z_grid)
@@ -27,13 +26,13 @@ def Ode_z(w0):
 
 @njit
 def Ez(params):
-    Om = params[1]
+    Om = params[2]
     return np.sqrt(Om * inv_a**3 + 1.0 - Om)
 
 
 @njit
 def DM_z(z, params):
-    dh_grid = (c / H0) / Ez(params)
+    dh_grid = (c / params[1]) / Ez(params)
     dh = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size, dtype=np.float64)
     cum_dm[1:] = np.cumsum(dh * dz)
@@ -42,7 +41,7 @@ def DM_z(z, params):
 
 @njit
 def theory_mu(params):
-    Mz = params[0] - params[2] * 0.043**2 / (0.043 + z_cmb)
+    Mz = params[0] - params[3] * 0.043**2 / (0.043 + z_cmb)
     dL = (1.0 + z_hel) * DM_z(z_cmb, params)
     return Mz + 25.0 + 5 * np.log10(dL)
 
@@ -63,7 +62,8 @@ def log_likelihood(params):
 
 bounds = np.array(
     [
-        (-0.2, 0.2),  # ΔM
+        (-1.0, 1.0),  # ΔM
+        (56.0, 85.0),  # H0
         (0.0, 0.8),  # Ωm
         (-8.0, 4.0),  # M'0
     ]
@@ -76,7 +76,8 @@ normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
 def log_prior(params):
     if not np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
         return -np.inf
-    return normalization
+    # H0 prior from TRGB Freedman et al
+    return normalization - 0.5 * (params[1] - 70.39) ** 2 / 1.80**2
 
 
 def log_probability(params):
@@ -129,6 +130,7 @@ def main():
 
     [
         (M_16, M_50, M_84),
+        (H0_16, H0_50, H0_84),
         (Om_16, Om_50, Om_84),
         (mp0_16, mp0_50, mp0_84),
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
@@ -144,6 +146,7 @@ def main():
 
     rmsd = np.sqrt(np.mean(residuals**2))
 
+    H_label = f"{H0_50:.2f} +{H0_84-H0_50:.2f} -{H0_50-H0_16:.2f} km/s/Mpc"
     M_label = f"{M_50:.3f} +{M_84-M_50:.3f} -{M_50-M_16:.3f} mag"
     Om_label = f"{Om_50:.3f} +{Om_84-Om_50:.3f} -{Om_50-Om_16:.3f}"
     mp0_label = f"{mp0_50:.2f} +{mp0_84-mp0_50:.2f} -{mp0_50-mp0_16:.2f}"
@@ -152,6 +155,7 @@ def main():
     print_color("z range", f"{z_cmb[0]:.3f} - {z_cmb[-1]:.3f}")
     print_color("Sample size", len(z_cmb))
     print_color("ΔM", M_label)
+    print_color("H0", H_label)
     print_color("Ωm", Om_label)
     print_color("M'0", mp0_label)
     print_color("R-squared (%)", f"{100 * r_squared:.2f}")
@@ -162,7 +166,7 @@ def main():
 
     y_err = np.sqrt(covmat.diagonal())
 
-    labels = ["$ΔM$", "$Ω_m$", "$M'_0$"]
+    labels = ["$ΔM$", "$H_0$", "$Ω_m$", "$M'_0$"]
     plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
     plot_predictions(
         legend=legend,
@@ -194,7 +198,7 @@ R-squared (%): 98.38
 RMSD (mag): 0.268
 Skewness of residuals: 3.2
 Chi squared: 1631.42
-Log evidence: -822.3
+Log evidence: -825.8
 Effective deg of freedom: 1712
 """
 
@@ -202,14 +206,15 @@ Effective deg of freedom: 1712
 Flat ΛCDM w(z) = -1
 Outflow mag correction of SNe M(z) = M_inf - M'0 * z_c^2 / (z_c + z), z_c=0.043
 
-ΔM_inf: -0.028 +- 0.022 mag (consistent at 0.23 sigma with Union3.1)
+ΔM_inf: -0.016 +- 0.060 mag (consistent at 0.04 sigma with Union3.1)
 M'0: -2.0 +- 1.1 (prior ~ U(-8, 4)) (consistent at 0.59 sigma with Union3.1)
+H0: 70.4 +- 1.8 km/s/Mpc
 Ωm: 0.295 +0.024 -0.023 (agreement with BAO in ΛCDM at 0.1 sigma)
 R-squared (%): 98.37
 RMSD (mag): 0.269
 Skewness of residuals: 3.2
-Chi squared: 1627.94 (1.87 sigma away from constant M)
-Log evidence: -822.0
+Chi squared: 1627.94 (1.87 sigma significance)
+Log evidence: -825.5
 Effective deg of freedom: 1711
 """
 
@@ -233,7 +238,7 @@ R-squared (%): 98.37
 RMSD (mag): 0.268
 Skewness of residuals: 3.2
 Chi squared: 1629.55
-Log evidence: -822.4
+Log evidence: -825.9
 Effective deg of freedom: 1711
 """
 
