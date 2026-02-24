@@ -250,17 +250,16 @@ Degrees of freedom: 1758
 
 """
 Flat ΛCDM
-Corrections to absolute mag of SNe M(z) = M0 + M'0 * z / (1 + (z / z_c))
-where z_c = 0.0395
+Outflow mag correction of SNe M(z) = M_inf + (5 / ln(10)) * z_c^2 / (z_c + z)
 
-ΔM: 0.027 +0.077 -0.078 mag
-M'0: -2.14 +0.84 -0.81 mag / unity redshift (prior ~ U(-7, 3))
-H0: 69.0 +2.3 -2.2 km/s/Mpc
+zc: 0.038 +0.011 -0.012 (prior ~ U(0, 0.12))
+ΔM_inf: -0.057 +0.070 -0.072 mag
+H0: 69.0 +2.3 -2.3 km/s/Mpc
 r_d: 147.1 +4.9 -4.6 Mpc
-Ωm: 0.298 +0.008 -0.008
+Ωm: 0.299 +0.008 -0.008
 f_cc: 1.48 +0.18 -0.17
-Chi squared: 1673.57 (2.64 sigma away from constant M)
-Log evidence: -977.77 (Δ logZ = 1.76 against constant M)
+Chi squared: 1673.56 (2.64 sigma away from no corrections)
+Log evidence: -977.70 (Δ logZ = 1.83 in favour of corrections)
 Degrees of freedom: 1757
 """
 
