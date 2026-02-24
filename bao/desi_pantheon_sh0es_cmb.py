@@ -10,7 +10,7 @@ bao_legend, bao_data, bao_cov_matrix = get_bao_data()
 legend, z_cmb, z_hel, mb_vals, ceph_dists, cov_matrix_sn = get_data()
 
 ceph_mask = ceph_dists != -9
-z_outflow_cut = 0.0061  # Outflow effects star from here on and decays as ~1/z
+z_outflow_cut = 0.0061  # Outflow effects start from here on and decays as ~1/z
 flow_cut_mask = z_cmb < z_outflow_cut
 local_ceph = ceph_mask & flow_cut_mask
 z_cut_arr = np.full_like(z_cmb, z_outflow_cut)

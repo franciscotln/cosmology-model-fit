@@ -7,10 +7,24 @@ from y2025BAO.data import get_data as get_bao_data
 from y2022pantheonSHOES.data_shoes import get_data
 
 bao_legend, bao_data, bao_cov_matrix = get_bao_data()
-legend, z_cmb, z_hel, mb_vals, ceph_dists, cov_matrix_sn = get_data(z_cut_ceph=0.0055)
-# At z_ceph < 0.0055 it seems the outflow velocity drops to zero or even becomes slightly negative.
+legend, z_cmb, z_hel, mb_vals, ceph_dists, cov_matrix_sn = get_data()
 
 ceph_mask = ceph_dists != -9
+z_outflow_cut = 0.0061  # outflow effects start from here on and decays as ~1/z
+flow_cut_mask = z_cmb < z_outflow_cut
+local_ceph = ceph_mask & flow_cut_mask
+z_cut_arr = np.full_like(z_cmb, z_outflow_cut)
+
+"""
+z_cut  chi2   log(Z)
+0.0040 1463.2 -748.6 (decreasing H0=71.9)
+0.0045 1462.4 -748.1 (decreasing H0=71.5)
+0.0050 1461.5 -747.6 (decreasing H0=71.2)
+0.0061 1460.0 -746.8 (lowest H0=70.9)
+0.0065 1460.7 -747.1 (highest H0=74.0)
+0.0070 1460.6 -747.1 (highest H0=74.0)
+0.0075 1460.6 -747.1 (highest H0=74.0)
+"""
 
 cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
 inv_cov_bao = np.linalg.inv(bao_cov_matrix)
@@ -81,8 +95,15 @@ def mu_theory(theta):
 
 
 @njit
-def v_outflow(v_flow):
-    return 100 * v_flow * (5 / np.log(10)) / (c * z_cmb)
+def v_outflow(v_flow, z):
+    return 100 * v_flow * (5 / np.log(10)) / (c * z)
+
+
+@njit
+def outflow_correction(theta):
+    return np.where(
+        local_ceph, v_outflow(theta[4], z_cut_arr), v_outflow(theta[4], z_cmb)
+    )
 
 
 def solve_triang(cho_L, delta):
@@ -92,7 +113,7 @@ def solve_triang(cho_L, delta):
 
 def chi2_sn(theta):
     mu_the = np.where(ceph_mask, ceph_dists, mu_theory(theta))
-    mb_theory = mu_the + theta[0] + v_outflow(theta[4])
+    mb_theory = mu_the + theta[0] + outflow_correction(theta)
     delta_sn = mb_vals - mb_theory
     return solve_triang(cho_sn, delta_sn)
 
@@ -206,7 +227,7 @@ def main():
     plot_sn_predictions(
         legend=legend,
         x=z_cmb,
-        y=mb_vals - M_50 - v_outflow(v_f_50),
+        y=mb_vals - (M_50 + outflow_correction(best_fit)),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=mu_theory(best_fit),
         label=f"Best fit: $Ω_m$={Om_50:.3f}",
@@ -220,13 +241,13 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM
-M0: -19.230 +0.034 -0.034 mag
-H0: 74.3 +1.2 -1.2 km/s/Mpc
-Ωm: 0.304 +0.008 -0.008
-rd: 135.9 +2.3 -2.3 Mpc
-Chi2 (MAP): 1447.6
-Log evidence: -738.9
-Degrees of freedom: 1642
+M0: -19.247 +0.030 -0.029 mag
+H0: 73.7 +1.0 -1.0 km/s/Mpc
+Ωm: 0.305 +0.008 -0.008
+rd: 136.9 +2.0 -2.0 Mpc
+Chi2 (MAP): 1465.3
+Log evidence: -747.9
+Degrees of freedom: 1666
 """
 
 """
@@ -234,26 +255,27 @@ Flat ΛCDM
 Void outflow corrections of SNe M(z) = M_inf + v_corr
 v_corr = 100 * v_flow * (5 / ln(10)) / (c * z_cmb) with v_flow in units 100 km/s
 
-v_flow: 107 +42 -43 km/s
-M_inf: -19.332 +0.053 -0.053 mag
-H0: 71.4 +1.6 -1.6 km/s/Mpc
+v_flow: 97 +42 -42 km/s
+M_inf: -19.345 +0.051 -0.051 mag
+M0 (computed at z=0.0061): -19.230 mag
+H0: 70.9 +1.5 -1.5 km/s/Mpc
 Ωm: 0.300 +0.008 -0.008
-rd: 142.0 +3.5 -3.4 Mpc
-Chi2 (MAP): 1441.3 (2.51 sigma away from no outflow case)
-Log evidence: -737.3 (Δ logZ = 1.6 in favour of outflow model)
-Degrees of freedom: 1641
+rd: 142.8 +3.4 -3.3 Mpc
+Chi2 (MAP): 1460.0 (2.3 sigma away from no outflow case)
+Log evidence: -746.8 (Δ logZ = 1.1 in favour of outflow model)
+Degrees of freedom: 1665
 """
 
 """
 Flat wCDM
-w0: -0.916 +0.040 -0.040 (prior ~ U(-1.5, -0.5))
-M0: -19.228 +0.034 -0.034 mag
-H0: 74.0 +1.2 -1.2 km/s/Mpc
+w0: -0.915 +0.039 -0.040 (prior ~ U(-1.3, -0.6))
+M0: -19.244 +0.029 -0.029 mag
+H0: 73.4 +1.0 -1.0 km/s/Mpc
 Ωm: 0.298 +0.009 -0.009
-rd: 134.9 +2.3 -2.3 Mpc
-Chi2 (MAP): 1443.3 (2.07 sigma away from ΛCDM)
-Log evidence: -739.0 (Δ logZ = -0.1 in favour of ΛCDM)
-Degrees of freedom: 1641
+rd: 135.9 +2.1 -2.0 Mpc
+Chi2 (MAP): 1460.8 (2.1 sigma away from ΛCDM)
+Log evidence: -747.6 (Δ logZ = 0.3 against ΛCDM)
+Degrees of freedom: 1665
 """
 
 """
