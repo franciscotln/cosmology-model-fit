@@ -20,11 +20,15 @@ inv_a = 1.0 + z_grid
 
 
 @njit
+def Ode_z(w0):
+    # Thawing quintessence with w(z) ranging from -1 to 1
+    return (2 * inv_a**3 / ((1.0 + w0) + (1.0 - w0) * inv_a**3)) ** 2
+
+
+@njit
 def Ez(params):
-    Om, w0 = params[1], params[2]
-    Ode = 1.0 - Om
-    rho_de = (2 * inv_a**3 / ((1.0 + w0) + (1.0 - w0) * inv_a**3)) ** 2
-    return np.sqrt(Om * inv_a**3 + Ode * rho_de)
+    Om = params[1]
+    return np.sqrt(Om * inv_a**3 + 1.0 - Om)
 
 
 @njit
@@ -38,8 +42,9 @@ def DM_z(z, params):
 
 @njit
 def theory_mu(params):
+    Mz = params[0] - params[2] * 0.043**2 / (0.043 + z_cmb)
     dL = (1.0 + z_hel) * DM_z(z_cmb, params)
-    return params[0] + 25.0 + 5 * np.log10(dL)
+    return Mz + 25.0 + 5 * np.log10(dL)
 
 
 def solve_triang(cho_L, delta):
@@ -60,7 +65,7 @@ bounds = np.array(
     [
         (-0.2, 0.2),  # ΔM
         (0.0, 0.8),  # Ωm
-        (-1.0, 0.0),  # w0
+        (-8.0, 4.0),  # M'0
     ]
 )
 
@@ -125,7 +130,7 @@ def main():
     [
         (M_16, M_50, M_84),
         (Om_16, Om_50, Om_84),
-        (w0_16, w0_50, w0_84),
+        (mp0_16, mp0_50, mp0_84),
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
     best_fit = np.percentile(samples, 50, axis=0)
@@ -133,24 +138,22 @@ def main():
     theory_mu_vals = theory_mu(best_fit)
     residuals = mu_vals - theory_mu_vals
 
-    # Calculate R-squared
     ss_res = np.sum(residuals**2)
     ss_tot = np.sum((mu_vals - np.mean(mu_vals)) ** 2)
     r_squared = 1.0 - (ss_res / ss_tot)
 
-    # Calculate root mean square deviation
     rmsd = np.sqrt(np.mean(residuals**2))
 
     M_label = f"{M_50:.3f} +{M_84-M_50:.3f} -{M_50-M_16:.3f} mag"
     Om_label = f"{Om_50:.3f} +{Om_84-Om_50:.3f} -{Om_50-Om_16:.3f}"
-    w0_label = f"{w0_50:.2f} +{w0_84-w0_50:.2f} -{w0_50-w0_16:.2f}"
+    mp0_label = f"{mp0_50:.2f} +{mp0_84-mp0_50:.2f} -{mp0_50-mp0_16:.2f}"
 
     print_color("Dataset", legend)
     print_color("z range", f"{z_cmb[0]:.3f} - {z_cmb[-1]:.3f}")
     print_color("Sample size", len(z_cmb))
     print_color("ΔM", M_label)
     print_color("Ωm", Om_label)
-    print_color("w0", w0_label)
+    print_color("M'0", mp0_label)
     print_color("R-squared (%)", f"{100 * r_squared:.2f}")
     print_color("RMSD (mag)", f"{rmsd:.3f}")
     print_color("Skewness of residuals", f"{stats.skew(residuals):.3f}")
@@ -159,7 +162,7 @@ def main():
 
     y_err = np.sqrt(covmat.diagonal())
 
-    labels = ["$ΔM$", "$Ω_m$", "$w_0$"]
+    labels = ["$ΔM$", "$Ω_m$", "$M'_0$"]
     plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
     plot_predictions(
         legend=legend,
@@ -189,7 +192,7 @@ Flat ΛCDM w(z) = -1
 Ωm: 0.331 +0.016 -0.015
 R-squared (%): 98.38
 RMSD (mag): 0.268
-Skewness of residuals: 3.206
+Skewness of residuals: 3.2
 Chi squared: 1631.42
 Log evidence: -822.3
 Effective deg of freedom: 1712
@@ -197,16 +200,16 @@ Effective deg of freedom: 1712
 
 """
 Flat ΛCDM w(z) = -1
-Outflow mag correction of SNe M(z) = M_inf + (5 / ln(10)) * z_c^2 / (z_c + z)
+Outflow mag correction of SNe M(z) = M_inf - M'0 * z_c^2 / (z_c + z), z_c=0.043
 
-ΔM_inf: -0.028 +0.024 -0.028 mag (consistend with Union3.1, it has to be by definition)
-z_c: 0.04 +0.02 -0.02 (prior ~ U(0, 0.17))
-Ωm: 0.294 +0.024 -0.023 (agreement with BAO in ΛCDM)
+ΔM_inf: -0.028 +- 0.022 mag (consistent at 0.23 sigma with Union3.1)
+M'0: -2.0 +- 1.1 (prior ~ U(-8, 4)) (consistent at 0.59 sigma with Union3.1)
+Ωm: 0.295 +0.024 -0.023 (agreement with BAO in ΛCDM and Union3.1)
 R-squared (%): 98.37
 RMSD (mag): 0.269
-Skewness of residuals: 3.226
+Skewness of residuals: 3.2
 Chi squared: 1627.94 (1.87 sigma away from constant M)
-Log evidence: -821.9
+Log evidence: -822.0
 Effective deg of freedom: 1711
 """
 
@@ -216,7 +219,7 @@ Flat wCDM w(z) = w0
 w0: -0.83 +0.14 -0.15
 R-squared (%): 98.37
 RMSD (mag): 0.268
-Skewness of residuals: 3.213
+Skewness of residuals: 3.2
 Chi squared: 1630.18
 Effective deg of freedom: 1711
 """
@@ -228,7 +231,7 @@ w0: -0.81 +0.11 -0.11
 wa: d w(z)/dz at z=0 = -(3/2) * (1 - w0^2)
 R-squared (%): 98.37
 RMSD (mag): 0.268
-Skewness of residuals: 3.217
+Skewness of residuals: 3.2
 Chi squared: 1629.55
 Log evidence: -822.4
 Effective deg of freedom: 1711

@@ -149,7 +149,7 @@ Outflow mag correction of SNe M(z) = M_inf - M'0 * z_c^2 / (z_c + z), z_c=0.043
 ΔM_inf: -0.013 ± 0.06 mag
 M'0: -3.3 ± 1.9 (prior ~ U(-13, 7))
 H0: 70.4 ± 1.8 km/s/Mpc
-Ωm: 0.294 +0.030/-0.034 (agreement with ΛCDM from BAO)
+Ωm: 0.294 +0.030/-0.034 (agreement with ΛCDM from BAO and DES5Y)
 Ωm h^2: 0.146 +0.016/-0.019
 χ2 (MAP): 25.7 (1.82 sigma away from constant M)
 Log evidence: -21.9

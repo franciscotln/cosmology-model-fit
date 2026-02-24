@@ -19,12 +19,13 @@ dz = np.diff(z_grid)
 
 @njit
 def Ode_z(z, w0):
+    # Thawing quintessence with w(z) ranging from -1 to 1
     a3 = 1 / (1 + z) ** 3
     return 4 / ((1.0 + w0) * a3 + (1.0 - w0)) ** 2
 
 
 @njit
-def Ez(z, H0, Obh2, Och2, w0):
+def Ez(z, H0, Obh2, Och2):
     h = H0 / 100
     Obc = (Obh2 + Och2) / h**2
     Onu = Onuh2 / h**2
@@ -36,15 +37,15 @@ def Ez(z, H0, Obh2, Och2, w0):
     radiation_term = Or * zp1**4
     matter_term = Obc * zp1**3
     neutrino_term = Onu * cmb.Omnu_z(z)
-    dark_energy_term = Ode * Ode_z(z, w0)
+    dark_energy_term = Ode
 
     return np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
 
 
 @njit
 def H_z(z, theta):
-    H0, Obh2, Och2, w0 = theta[1:]
-    return H0 * Ez(z, H0, Obh2, Och2, w0)
+    H0 = theta[1]
+    return H0 * Ez(z, H0, Obh2=theta[2], Och2=theta[3])
 
 
 cmb.set_HZ(H_z)
@@ -61,8 +62,9 @@ def DM_z(z, theta):
 
 @njit
 def theory_mu(params):
+    Mz = params[0] - params[4] * 0.043**2 / (0.043 + z_cmb)
     dL = (1 + z_hel) * DM_z(z_cmb, params)
-    return params[0] + 25 + 5 * np.log10(dL)
+    return Mz + 25 + 5 * np.log10(dL)
 
 
 def solve_triang(cho_L, delta):
@@ -86,7 +88,7 @@ bounds = np.array(
         (55.0, 75.0),  # H0
         (0.010, 0.030),  # Ωb * h^2
         (0.01, 0.25),  # Ωc * h^2
-        (-1.0, 0.0),  # w0
+        (-6.0, 3.0),  # M'0
     ]
 )
 
@@ -157,7 +159,7 @@ def main():
         (H0_16, H0_50, H0_84),
         (Obh2_16, Obh2_50, Obh2_84),
         (Och2_16, Och2_50, Och2_84),
-        (w0_16, w0_50, w0_84),
+        (mp0_16, mp0_50, mp0_84),
     ] = pct
 
     best_fit = np.percentile(samples, 50, axis=0)
@@ -172,13 +174,13 @@ def main():
     z_st_16, z_st_50, z_st_84 = np.percentile(zst_samples, one_sigma_contour)
     z_dr_16, z_dr_50, z_dr_84 = np.percentile(zdr_samples, one_sigma_contour)
 
+    print(f"M'0: {mp0_50:.2f} +{(mp0_84 - mp0_50):.2f} -{(mp0_50 - mp0_16):.2f}")
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f}")
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"ωb: {Obh2_50:.5f} +{(Obh2_84 - Obh2_50):.5f} -{(Obh2_50 - Obh2_16):.5f}")
     print(f"ωc: {Och2_50:.4f} +{(Och2_84 - Och2_50):.4f} -{(Och2_50 - Och2_16):.4f}")
     print(f"ωm: {Omh2_50:.4f} +{(Omh2_84 - Omh2_50):.4f} -{(Omh2_50 - Omh2_16):.4f}")
-    print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"z*: {z_st_50:.2f} +{(z_st_84 - z_st_50):.2f} -{(z_st_50 - z_st_16):.2f}")
     print(f"zd: {z_dr_50:.2f} +{(z_dr_84 - z_dr_50):.2f} -{(z_dr_50 - z_dr_16):.2f}")
     print(f"r*: {cmb.rs_z(z_st_50, Obh2_50, best_fit):.2f} Mpc")
@@ -186,6 +188,8 @@ def main():
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Log evidence: {log_evd:.1f}")
 
+    labels = ["$ΔM$", "$H_0$", "$ω_b$", "$ω_c$", "$M'_0$"]
+    plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
     plot_sn_predictions(
         legend=sn_legend,
         x=z_cmb,
@@ -194,11 +198,6 @@ def main():
         y_model=theory_mu(best_fit),
         label=f"$Ω_m$={Om_50:.3f}",
         x_scale="log",
-    )
-    plot_corner_and_chains(
-        labels=["$ΔM$", "$H_0$", "$ω_b$", "$ω_c$", "$w_0$"],
-        flat_samples=samples,
-        samples=chains_samples,
     )
 
 
@@ -222,33 +221,33 @@ Log evidence: -834.5
 
 """
 Flat ΛCDM w(z) = -1
-Outflow mag correction of SNe M(z) = M_inf + (5 / ln(10)) * z_c^2 / (z_c + z)
+Outflow mag correction of SNe M(z) = M_inf - M'0 * z_c^2 / (z_c + z), z_c=0.043
 
-ΔM_inf: -0.086 +0.012 -0.012 (consistent with Union3.1 + CMB, it has to be by definition)
-z_c: 0.031 +0.011 -0.012 (prior U(0, 0.12))
-H0: 67.69 +0.49 -0.48 km/s/Mpc
-Ωm: 0.311 +0.007 -0.007
-ωb: 0.02251 +0.00011 -0.00011
-ωc: 0.1191 +0.0012 -0.0012
-ωm: 0.1423 +0.0011 -0.0011
-z*: 1089.65 +0.21 -0.21
-zd: 1060.18 +0.23 -0.23
-r*: 144.56 Mpc
-r_d: 147.18 Mpc
-Chi squared: 1628.42 (2.06 sigma away from no evolution in M)
-Log evidence: -833.9
+ΔM_inf: -0.087 +- 0.012 (consistent with Union3.1 + CMB at 0.47 sigma)
+M'0: -1.46 +- 0.71 (prior U(-6.0, 3.0)) (consistent with Union3.1 + CMB at 0.72 sigma)
+H0: 67.72 +- 0.48 km/s/Mpc
+Ωm: 0.310 +- 0.007 (agreement with Union3.1 + CMB)
+ωb: 0.02251 +- 0.00011
+ωc: 0.1191 +- 0.0012
+ωm: 0.1422 +- 0.0011
+z*: 1089.65 +- 0.21
+zd: 1060.18 +- 0.23
+r*: 144.58 Mpc
+r_d: 147.20 Mpc
+Chi squared: 1628.47 (2 sigma significance)
+Log evidence: -834.0
 """
 
 """
 Flat wCDM w(z) = w0
-H0: 66.66 +0.72 -0.72 km/s/Mpc
-Ωm: 0.321 +0.008 -0.008
-ωb: 0.02250 +0.00011 -0.00011
-ωc: 0.1193 +0.0012 -0.0012
-ωm: 0.1424 +0.0012 -0.0012
-w0: -1.032 +0.026 -0.026 (prior U(-2.0, 0.0))
-z*: 1089.68 +0.21 -0.21
-zd: 1060.17 +0.23 -0.23
+H0: 66.66 +- 0.72 km/s/Mpc
+Ωm: 0.321 +- 0.008
+ωb: 0.02250 +- 0.00011
+ωc: 0.1193 +- 0.0012
+ωm: 0.1424 +- 0.0012
+w0: -1.032 +- 0.026 (prior U(-2.0, 0.0))
+z*: 1089.68 +- 0.21
+zd: 1060.17 +- 0.23
 r*: 144.53 Mpc
 r_d: 147.15 Mpc
 Chi squared: 1631.02 (1.28 sigma away from ΛCDM)
