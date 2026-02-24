@@ -23,6 +23,7 @@ z_cut  chi2    H0 [km/s/Mpc]
 0.0065 1449.00 71.4
 0.0070 1449.22 71.6
 0.0075 1449.33 71.7
+0.0080 1449.33 71.8
 """
 
 cho = cho_factor(cov_matrix, lower=True)[0]
@@ -258,7 +259,7 @@ R-squared (%): 99.78
 RMSD (mag): 0.153
 Skewness of residuals: 0.076
 kurtosis of residuals: 1.561
-Chi squared: 1451.70
+Chi squared: 1451.70 (0.57 sigma significance)
 
 =============================
 
@@ -273,5 +274,5 @@ R-squared (%): 99.78
 RMSD (mag): 0.153
 Skewness of residuals: 0.070
 kurtosis of residuals: 1.564
-Chi squared: 1451.86
+Chi squared: 1451.86 (0.40 sigma significance)
 """
