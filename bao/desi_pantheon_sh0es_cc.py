@@ -9,13 +9,28 @@ from y2005cc.data import get_data as get_cc_data
 
 cc_legend, z_cc_vals, H_cc_vals, cov_matrix_cc = get_cc_data()
 bao_legend, bao_data, bao_cov_matrix = get_bao_data()
-legend, z_cmb, z_hel, mb_vals, ceph_dists, cov_matrix_sn = get_data(z_cut_ceph=0.0055)
-# At z_ceph < 0.0055 it seems the outflow velocity drops to zero or even becomes slightly negative.
+legend, z_cmb, z_hel, mb_vals, ceph_dists, cov_matrix_sn = get_data()
 
 ceph_mask = ceph_dists != -9
+z_outflow_cut = 0.0061  # outflow effects start from here on and decays as ~1/z
+flow_cut_mask = z_cmb < z_outflow_cut
+local_ceph = ceph_mask & flow_cut_mask
+z_cut_arr = np.full_like(z_cmb, z_outflow_cut)
 
-inv_cov_cc = np.linalg.inv(cov_matrix_cc)
+"""
+z_cut | Chi2 | Log(Z)
+---------------------
+0.0050 1498.9 -753.3
+0.0055 1497.5 -752.8
+0.0061 1496.6 -752.4
+0.0065 1496.4 -752.4
+0.0070 1495.7 -752.5
+0.0075 1496.6 -752.6
+0.0080 1496.5 -752.6
+"""
+
 cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
+inv_cov_cc = np.linalg.inv(cov_matrix_cc)
 inv_cov_bao = np.linalg.inv(bao_cov_matrix)
 
 N_cc = len(z_cc_vals)
@@ -86,8 +101,15 @@ def mu_theory(theta):
 
 
 @njit
-def v_outflow(v_100):
-    return 100 * v_100 * (5 / np.log(10)) / (c * z_cmb)
+def v_outflow(v_100, z):
+    return 100 * v_100 * (5 / np.log(10)) / (c * z)
+
+
+@njit
+def outflow_correction(theta):
+    return np.where(
+        local_ceph, v_outflow(theta[4], z_cut_arr), v_outflow(theta[4], z_cmb)
+    )
 
 
 def solve_triang(cho_L, delta):
@@ -97,7 +119,7 @@ def solve_triang(cho_L, delta):
 
 def chi2_sn(theta):
     mu_the = np.where(ceph_mask, ceph_dists, mu_theory(theta))
-    mb_theory = mu_the + theta[0] + v_outflow(theta[4])
+    mb_theory = mu_the + theta[0] + outflow_correction(theta)
     delta_sn = mb_vals - mb_theory
     return solve_triang(cho_sn, delta_sn)
 
@@ -161,6 +183,7 @@ def main():
     from corner_plot import plot_corner_and_chains
     from sn.plotting import plot_predictions as plot_sn_predictions
     from bao.plot_predictions import plot_bao_predictions
+    from cosmic_chronometers.plot_predictions import plot_cc_predictions
 
     ndim = len(bounds)
     nwalkers = 150
@@ -209,7 +232,9 @@ def main():
     print(f"M0: {M_50:.3f} +{(M_84 - M_50):.3f} -{(M_50 - M_16):.3f} mag")
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
-    print(f"Ωm h^2: {Omh2_50:.4f} +{(Omh2_84 - Omh2_50):.4f} -{(Omh2_50 - Omh2_16):.4f}")
+    print(
+        f"Ωm h^2: {Omh2_50:.4f} +{(Omh2_84 - Omh2_50):.4f} -{(Omh2_50 - Omh2_16):.4f}"
+    )
     print(f"rd: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
     print(f"v_flow: {v_f_50:.3f} +{(v_f_84 - v_f_50):.3f} -{(v_f_50 - v_f_16):.3f}")
     print(f"f_cc: {f_cc_50:.3f} +{(f_cc_84 - f_cc_50):.3f} -{(f_cc_50 - f_cc_16):.3f}")
@@ -228,13 +253,19 @@ def main():
     plot_sn_predictions(
         legend=legend,
         x=z_cmb,
-        y=mb_vals - M_50 - v_outflow(v_f_50),
+        y=mb_vals - (M_50 + outflow_correction(best_fit)),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=mu_theory(best_fit),
         label=f"Best fit: $Ω_m$={Om_50:.3f}",
         x_scale="log",
     )
-
+    plot_cc_predictions(
+        H_z=lambda z: H_z(z, best_fit),
+        z=z_cc_vals,
+        H=H_cc_vals,
+        H_err=np.sqrt(np.diag(cov_matrix_cc)) / f_cc_50,
+        label=f"{legend} $H_0$: {H0_50:.1f} ± {(H0_84 - H0_50):.1f} km/s/Mpc",
+    )
 
 if __name__ == "__main__":
     main()
@@ -242,14 +273,15 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM
-M0: -19.265 +- 0.031 mag
-H0: 73.2 +1.1 -1.0 km/s/Mpc
+M0: -19.271 +- 0.027 mag
+H0: 73.0 +- 0.9 km/s/Mpc
 Ωm: 0.302 +0.008 -0.007
-rd: 138.3 +- 2.1 Mpc
-f_cc: 1.42 +0.17 -0.16
-Chi2 (MAP): 1485.1
-Log evidence: -746.5
-Degrees of freedom: 1677
+Ωm h^2: 0.161 +- 0.005
+rd: 138.7 +- 1.9 Mpc
+f_cc: 1.43 +- 0.17
+Chi2 (MAP): 1502.6
+Log evidence: -755.2
+Degrees of freedom: 1701
 """
 
 """
@@ -257,29 +289,31 @@ Flat ΛCDM
 Void outflow corrections of SNe M(z) = M_inf + v_corr
 v_corr = 100 * v_flow * (5 / ln(10)) / (c * z_cmb) with v_flow in units 100 km/s
 
-v_flow: 123 +- 38 km/s (prior ~ U(-150, 350))
-M_inf: -19.360 +- 0.043 mag [M(z=0.0055) = -19.198 +- 0.066 mag, 1.1 sigma agreement with Ceph only < 0.0055 M0]
-H0: 70.6 +- 1.3 km/s/Mpc (ballpark agreement with TRGB H0, 2.32 sigma tension with Planck)
-Ωm: 0.299 +0.008 -0.007 (1.52 sigma agreement with Planck)
-Ωm h^2: 0.1488 +0.0066 -0.0063 (0.84 sigma agreement with Planck)
-rd: 143.8 +2.8 -2.7 Mpc (1.15 sigma agreement with Planck)
-f_cc: 1.48 +0.18 -0.17
-Chi2 (MAP): 1477.5 (2.8 sigma away from no flow corrections)
-Log evidence: -743.0 (Δ logZ = 3.5 against no flow corrections)
-Degrees of freedom: 1676
+v_flow: 110 +- 37 km/s (prior ~ U(-150, 350))
+M_inf: -19.367 +- 0.042 mag
+M0 (computed at z=0.0061): -19.236 +- 0.085 mag
+H0: 70.3 +-1.2 km/s/Mpc
+Ωm: 0.300 +0.008 -0.007
+Ωm h^2: 0.148 +- 0.006
+rd: 144.2 +2.7 -2.6 Mpc
+f_cc: 1.49 +0.18 -0.17
+Chi2 (MAP): 1496.6 (2.8 sigma away from no flow corrections)
+Log evidence: -752.4 (Δ logZ = 2.8 against no flow corrections)
+Degrees of freedom: 1700
 """
 
 """
 Flat wCDM
-w0: -0.927 +0.039 -0.040 (prior ~ U(-1.5, -0.5))
-M0: -19.265 +- 0.031 mag
-H0: 72.8 +- 1.1 km/s/Mpc
+w0: -0.927 +- 0.039 (prior ~ U(-1.3, -0.6))
+M0: -19.270 +- 0.028 mag
+H0: 72.6 +1.0 -0.9 km/s/Mpc
 Ωm: 0.296 +- 0.008
-rd: 137.6 +2.1 -2.1 Mpc
-f_cc: 1.40 +0.17 -0.16
-Chi2 (MAP): 1479.5 (2.4 sigma away from ΛCDM)
-Log evidence: -747.2 (Δ logZ = -0.7 in favour of ΛCDM)
-Degrees of freedom: 1676
+Ωm h^2: 0.156 +- 0.0060
+rd: 137.9 +2.0 -1.9 Mpc
+f_cc: 1.41 +0.17 -0.17
+Chi2 (MAP): 1496.7 (2.4 sigma away from ΛCDM)
+Log evidence: -755.4 (Δ logZ = -0.2 in favour of ΛCDM)
+Degrees of freedom: 1700
 """
 
 """
