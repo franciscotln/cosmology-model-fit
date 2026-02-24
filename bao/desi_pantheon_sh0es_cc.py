@@ -299,7 +299,7 @@ H0: 70.3 +-1.2 km/s/Mpc
 Ωm h^2: 0.148 +- 0.006
 rd: 144.2 +- 2.7 Mpc
 f_cc: 1.49 +0.18 -0.17
-Chi2 (MAP): 1496.4 (2.8 sigma away from no flow corrections)
+Chi2 (MAP): 1496.4 (2.5 sigma away from no flow corrections)
 Log evidence: -752.3 (Δ logZ = 2.9 against no flow corrections)
 Degrees of freedom: 1700
 """
