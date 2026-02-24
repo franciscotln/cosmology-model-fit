@@ -10,7 +10,7 @@ bao_legend, bao_data, bao_cov_matrix = get_bao_data()
 legend, z_cmb, z_hel, mb_vals, ceph_dists, cov_matrix_sn = get_data()
 
 ceph_mask = ceph_dists != -9
-z_outflow_cut = 0.0061  # outflow effects start from here on and decays as ~1/z
+z_outflow_cut = 0.0063  # outflow effects start from here on and decays as ~1/z
 flow_cut_mask = z_cmb < z_outflow_cut
 local_ceph = ceph_mask & flow_cut_mask
 z_cut_arr = np.full_like(z_cmb, z_outflow_cut)
@@ -21,6 +21,7 @@ z_cut  chi2   log(Z)
 0.0045 1462.4 -748.1 (decreasing H0=71.5)
 0.0050 1461.5 -747.6 (decreasing H0=71.2)
 0.0061 1460.0 -746.8 (lowest H0=70.9)
+0.0063 1459.9 -746.7 (lowest H0=70.9)
 0.0065 1460.7 -747.1 (highest H0=74.0)
 0.0070 1460.6 -747.1 (highest H0=74.0)
 0.0075 1460.6 -747.1 (highest H0=74.0)
@@ -255,14 +256,14 @@ Flat ΛCDM
 Void outflow corrections of SNe M(z) = M_inf + v_corr
 v_corr = 100 * v_flow * (5 / ln(10)) / (c * z_cmb) with v_flow in units 100 km/s
 
-v_flow: 97 +42 -42 km/s
-M_inf: -19.345 +0.051 -0.051 mag
-M0 (computed at z=0.0061): -19.230 mag
-H0: 70.9 +1.5 -1.5 km/s/Mpc
-Ωm: 0.300 +0.008 -0.008
-rd: 142.8 +3.4 -3.3 Mpc
-Chi2 (MAP): 1460.0 (2.3 sigma away from no outflow case)
-Log evidence: -746.8 (Δ logZ = 1.1 in favour of outflow model)
+v_flow: 99 +- 42 km/s
+M_inf: -19.346 +- 0.051 mag
+M0 (computed at z=0.0063): -19.230 mag
+H0: 70.9 +- 1.5 km/s/Mpc
+Ωm: 0.300 +- 0.008
+rd: 142.9 +- 3.3 Mpc
+Chi2 (MAP): 1459.9 (2.3 sigma away from no outflow case)
+Log evidence: -746.7 (Δ logZ = 1.2 in favour of outflow model)
 Degrees of freedom: 1665
 """
 
