@@ -22,10 +22,15 @@ dx = np.diff(z_grid)
 
 
 @njit
+def Ode_z(z, w0):
+    zp1 = 1.0 + z
+    return (2 * zp1**3 / (1.0 + w0 + (1.0 - w0) * zp1**3)) ** 2
+
+
+@njit
 def Ez(z, Om, w0):
     zp1 = 1.0 + z
-    rho_de = (2 * zp1**3 / (1.0 + w0 + (1.0 - w0) * zp1**3)) ** 2
-    return np.sqrt(Om * zp1**3 + (1.0 - Om) * rho_de)
+    return np.sqrt(Om * zp1**3 + (1.0 - Om) * Ode_z(z, w0))
 
 
 @njit
@@ -157,7 +162,7 @@ if __name__ == "__main__":
 
 
 """
-Flat ΛCDM: w(z) = -1
+Flat ΛCDM
 f_cc: 1.49 +0.18 -0.17
 ΔM: -0.077 +0.074 -0.076 mag
 H0: 66.7 +2.6 -2.5 km/s/Mpc
@@ -166,9 +171,24 @@ H0: 66.7 +2.6 -2.5 km/s/Mpc
 Chi squared: 63.94
 Log evidence: -167.3
 Degrees of freedom: 54
+"""
 
-==============================
+"""
+Flat ΛCDM
+Outflow mag correction of SNe M(z) = M_inf - M'0 * z_c^2 / (z_c + z), z_c=0.043
 
+f_cc: 1.48 +0.18 -0.17
+ΔM_inf: -0.056 +0.075 -0.077 mag
+M'0: -2.8 +1.8 -1.7 (prior ~ U(-13, 7))
+H0: 68.5 +2.9 -2.8 km/s/Mpc
+Ωm: 0.306 +0.027 -0.025
+ωm: 0.1436 +0.0107 -0.0102
+Chi squared: 60.86 (1.75 significance)
+Log evidence: -167.6
+Degrees of freedom: 53
+"""
+
+"""
 Flat wCDM: w(z) = w0
 f_cc: 1.47 +0.18 -0.17
 ΔM: -0.059 +0.081 -0.081 mag
