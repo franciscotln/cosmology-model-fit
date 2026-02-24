@@ -204,7 +204,7 @@ Outflow mag correction of SNe M(z) = M_inf - M'0 * z_c^2 / (z_c + z), z_c=0.043
 
 ΔM_inf: -0.028 +- 0.022 mag (consistent at 0.23 sigma with Union3.1)
 M'0: -2.0 +- 1.1 (prior ~ U(-8, 4)) (consistent at 0.59 sigma with Union3.1)
-Ωm: 0.295 +0.024 -0.023 (agreement with BAO in ΛCDM and Union3.1)
+Ωm: 0.295 +0.024 -0.023 (agreement with BAO in ΛCDM at 0.1 sigma)
 R-squared (%): 98.37
 RMSD (mag): 0.269
 Skewness of residuals: 3.2
