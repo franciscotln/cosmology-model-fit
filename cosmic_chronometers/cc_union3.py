@@ -178,8 +178,8 @@ Flat ΛCDM
 Outflow mag correction of SNe M(z) = M_inf - M'0 * z_c^2 / (z_c + z), z_c=0.043
 
 f_cc: 1.48 +0.18 -0.17
-ΔM_inf: -0.056 +0.075 -0.077 mag
 M'0: -2.8 +1.8 -1.7 (prior ~ U(-13, 7))
+ΔM_inf: -0.056 +0.075 -0.077 mag
 H0: 68.5 +2.9 -2.8 km/s/Mpc
 Ωm: 0.306 +0.027 -0.025
 ωm: 0.1436 +0.0107 -0.0102
