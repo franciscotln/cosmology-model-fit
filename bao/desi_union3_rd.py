@@ -32,12 +32,6 @@ def Ez(z, params):
 
 
 @njit
-def mu_theory(params):
-    dL = (1.0 + z_hel) * DM_z(z_cmb, params)
-    return params[0] + 25.0 + 5 * np.log10(dL)
-
-
-@njit
 def H_z(z, params):
     return params[2] * Ez(z, params)
 
@@ -77,6 +71,12 @@ def bao_theory(z, qty, params):
     results[DM_mask] = DM_z(z[DM_mask], params)
     results[DV_mask] = DV_z(z[DV_mask], params)
     return results / params[1]
+
+
+@njit
+def mu_theory(params):
+    dL = (1.0 + z_hel) * DM_z(z_cmb, params)
+    return params[0] + 25.0 + 5 * np.log10(dL)
 
 
 @njit
@@ -219,16 +219,16 @@ Degs of freedom: 31
 
 """
 Flat ΛCDM: w(z) = -1
-Outflow mag correction of SNe M(z) = M_inf + (5 / ln(10)) * z_c^2 / (z_c + z)
+Outflow mag correction of SNe M(z) = M_inf - M'0 * z_c^2 / (z_c + z), z_c=0.043
 
-ΔM_inf: -0.050 +0.013 -0.013 mag
-z_c: 0.054 +0.018 -0.019
+ΔM_inf: -0.049 +0.012 -0.012 mag
+M'0: -3.14 + 1.40 - 1.39 (prior ~ U(-11, 5))
 rd: 147.09 +0.26 -0.26 Mpc
 H0: 69.05 +0.50 -0.50 km/s/Mpc
-Ωm: 0.297 +0.009 -0.008
+Ωm: 0.297 +0.008 -0.008
 ωm: 0.1417 +0.0024 -0.0023
 Chi squared: 36.0 (2.26 sigma away from no corrections in M)
-Log evidence: -32.1 (Δ logZ = 1.2 against no corrections in M)
+Log evidence: -32.3 (Δ logZ = 1.0 against no corrections in M)
 Degs of freedom: 30
 """
 
