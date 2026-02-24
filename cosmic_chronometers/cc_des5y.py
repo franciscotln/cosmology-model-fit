@@ -20,11 +20,16 @@ c = 299792.458  # Speed of light in km/s
 
 
 @njit
+def Ode_z(z, w0):
+    cubed = (1.0 + z) ** 3
+    # return (2 * cubed / (1.0 + w0 + (1.0 - w0) * cubed)) ** 2
+    return cubed ** (1.0 + w0)  # wCDM
+
+
+@njit
 def Ez(z, params):
     Om, w0 = params[3], params[4]
-    cubed = (1.0 + z) ** 3
-    rho_de = (2 * cubed / (1.0 + w0 + (1.0 - w0) * cubed)) ** 2
-    return np.sqrt(Om * cubed + (1.0 - Om) * rho_de)
+    return np.sqrt(Om * (1.0 + z) ** 3 + (1.0 - Om) * Ode_z(z, w0))
 
 
 @njit
@@ -182,41 +187,56 @@ if __name__ == "__main__":
 
 
 """
-Flat ΛCDM: w(z) = -1
-f_cc: 1.48 +0.19 -0.18
-H0: 67.1 +2.4 -2.3 km/s/Mpc
-Ωm: 0.330 +0.015 -0.014
-w0: -1
-wa: 0
-Chi squared: 1663.70
-Log evidence: -957.1
-Degrees of freedom: 1743
+Flat ΛCDM
 
-==============================
+f_cc: 1.49 +0.18 -0.17
+ΔM: -0.090 +0.071 -0.074 mag
+H0: 66.9 +2.3 -2.3 km/s/Mpc
+Ωm: 0.330 +0.014 -0.014
+Chi squared: 1666.61
+Log evidence: -968.2
+Degrees of freedom: 1746
+"""
 
+"""
+Flat ΛCDM
+Outflow mag correction of SNe M(z) = M_inf - M'0 * z_c^2 / (z_c + z), z_c=0.043
+
+f_cc: 1.48 +0.18 -0.17
+M'0: -1.7 +- 1.0 (prior ~ U(-8, 4))
+ΔM: -0.060 +0.074 -0.076 mag
+H0: 68.7 +- 2.6 km/s/Mpc
+Ωm: 0.303 +- 0.021
+Chi squared: 1663.15 (1.86 sigma significance)
+Log evidence: -968.3
+Degrees of freedom: 1745
+"""
+
+"""
 Flat wCDM: w(z) = w0
-f_cc: 1.46 +0.19 -0.18
-ΔM: -0.062 +0.081 -0.083 mag
-H0: 67.6 +2.5 -2.5 km/s/Mpc
-Ωm: 0.305 +0.038 -0.043
-w0: -0.927 +0.101 -0.108 (prior width 1: -1.5 to -0.5)
-wa: 0
-Chi squared: 1662.49
-Log evidence: -958.1
-Degrees of freedom: 1742
+
+f_cc: 1.47 +0.18 -0.17
+ΔM: -0.068 +0.081 -0.081 mag
+H0: 67.4 +2.6 -2.5 km/s/Mpc
+Ωm: 0.307 +0.038 -0.042
+w0: -0.931 +0.100 -0.107 (prior width 1: -1.5 to -0.3)
+Chi squared: 1665.49
+Log evidence: -969.5
+Degrees of freedom: 1745
 
 ==============================
 
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
-f_cc: 1.46 +0.19 -0.18
-ΔM: -0.049 +0.076 -0.078 mag
-H0: 67.8 +2.5 -2.4 km/s/Mpc
-Ωm: 0.305 +0.021 -0.024
-w0: -0.870 +0.088 -0.079 (prior width 2/3: -1 to -1/3)
+
+f_cc: 1.47 +0.18 -0.17
+ΔM: -0.055 +0.076 -0.076 mag
+H0: 67.7 +2.4 -2.4 km/s/Mpc
+Ωm: 0.306 +0.021 -0.023
+w0: -0.875 +0.087 -0.078 (prior width 2/3: -1 to -1/3 - Truncated)
 wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
-Chi squared: 1661.78
-Log evidence: -957.4
-Degrees of freedom: 1742
+Chi squared: 1664.70
+Log evidence: -968.6 (inacurate: truncated posterior, needs to be done with Nautilus)
+Degrees of freedom: 1745
 
 ==============================
 
