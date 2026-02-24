@@ -60,9 +60,8 @@ def DM_z(z, params):
 
 @njit
 def mu_theory(params):
-    zc = params[4]
-    M_z = params[0] + (5 / np.log(10)) * zc**2 / (zc + z_cmb)
-    return M_z + 25.0 + 5 * np.log10((1.0 + z_hel) * DM_z(z_cmb, params))
+    Mz = params[0] - params[4] * 0.043**2 / (0.043 + z_cmb)
+    return Mz + 25.0 + 5 * np.log10((1.0 + z_hel) * DM_z(z_cmb, params))
 
 
 def chi_squared(params):
@@ -81,7 +80,7 @@ bounds = np.array(
         (60.0, 75.0),  # H0
         (0.010, 0.030),  # ωb
         (0.010, 0.250),  # ωc
-        (0.0, 0.25),  # z_c
+        (-10.0, 5.0),  # M'0
     ]
 )
 
@@ -151,8 +150,8 @@ def main():
     gd_samples = MCSamples(
         samples=chain_list,
         loglikes=loglikes,
-        names=["dM", "H0", "obh2", "och2", "z_c"],
-        labels=["Δ_M", "H_0", "ω_b", "ω_c", "z_c"],
+        names=["dM", "H0", "obh2", "och2", "M_prime"],
+        labels=["Δ_M", "H_0", "ω_b", "ω_c", "M'_0"],
         label="Union3.1 + CMB(R, lA, ωb)",
     )
     gd_samples.addDerived(
@@ -165,7 +164,7 @@ def main():
     g = plots.get_subplot_plotter()
     g.triangle_plot(
         gd_samples,
-        params=["dM", "z_c", "H0", "om"],
+        params=["dM", "M_prime", "H0", "om"],
         title_limit=1,
         filled=True,
         contour_colors=["C0"],
@@ -216,15 +215,15 @@ Degrees of freedom: 21
 """
 
 """
-Flat ΛCDM w(z) = -1, varying absolute magnitude
-Outflow mag correction of SNe M(z) = M_inf + (5 / ln(10)) * z_c^2 / (z_c + z)
+Flat ΛCDM w(z) = -1
+Outflow mag correction of SNe M(z) = M_inf - M'0 * z_c^2 / (z_c + z), z_c=0.043
 
-ΔM_inf: -0.079 +- 0.012 mag
-z_c: 0.045 +0.020 -0.017 (prior ~ U(0, 0.25))
-H0: 67.68 +- 0.49 km/s/Mpc
-Ωm: 0.3108 +- 0.0070
+ΔM_inf: -0.078 +- 0.012 mag
+M'0: -2.6 +- 1.4 (prior ~ U(-10, 5))
+H0: 67.69 +- 0.49 km/s/Mpc
+Ωm: 0.3107 +- 0.0069
 Chi2 (MAP): 26.1 (1.87 sigma away from no outflow)
-Log Evidence: -33.1
+Log Evidence: -32.9
 Degrees of freedom: 20
 """
 
