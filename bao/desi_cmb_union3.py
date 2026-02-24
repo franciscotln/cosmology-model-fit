@@ -199,9 +199,9 @@ def main():
     best_fit = gd_samples.mean(prior.keys)
     degs_of_freedom = (
         len(z_cmb)
-        + len(sixdF_bao_data["z"])
-        + len(des_bao_data["z"])
-        + len(bao_data["z"])
+        + len(sixdF_bao_data)
+        + len(des_bao_data)
+        + len(bao_data)
         + len(cmb.DISTANCE_PRIORS)
         - len(best_fit)
     )
@@ -275,10 +275,10 @@ Degs of freedom: 36
 
 """
 Flat ΛCDM w(z) = -1
-Outflow mag correction of SNe M(z) = M_inf + (5 / ln(10)) * z_c^2 / (z_c + z)
+Outflow mag correction of SNe M(z) = M_inf - M'0 * z_c**2 / (z_c + z), z_c=0.043
 
-ΔM_inf: -0.065 + 0.012 -0.010 mag
-z_c: 0.052 +0.020 -0.016 (prior U(0, 0.17))
+ΔM_inf: -0.0640 ± 0.0094 mag
+M'0: -3.1 ± 1.4 (prior U(-11.0, 5.0))
 H0: 68.51 ± 0.27 km/s/Mpc
 Ωm: 0.2992 ± 0.0036
 ωb: 0.02258 ± 0.00010
@@ -288,7 +288,7 @@ z*: 1089.38 ± 0.15
 z_d: 1060.21 ± 0.23
 r_d: 147.61 ± 0.19 Mpc
 Chi2 (MAP): 41.05 (2.25 sigma away from constant M)
-Log evidence: -40.8 (Δ logZ = 1.2 against constant M)
+Log evidence: -40.9 (Δ logZ = 1.1 against constant M)
 Degs of freedom: 35
 """
 
