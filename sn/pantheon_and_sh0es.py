@@ -6,11 +6,25 @@ from scipy.linalg import cho_factor, solve_triangular
 from interpolator import interp_hermite
 from y2022pantheonSHOES.data_shoes import get_data
 
-legend, z_cmb, z_hel, apparent_mags, ceph_dists, cov_matrix = get_data(0.0055)
-# at z <0.0055 the outflow seems to drop to zero or slightly negative
-# probably dense region of virgo cluster surpass the void effects.
+legend, z_cmb, z_hel, apparent_mags, ceph_dists, cov_matrix = get_data()
 
-cepheids_mask = ceph_dists != -9
+ceph_mask = ceph_dists != -9
+z_outflow_cut = 0.0063  # Outflow effects start from here on and decays as ~1/z
+flow_cut_mask = z_cmb < z_outflow_cut
+local_ceph = ceph_mask & flow_cut_mask
+z_cut_arr = np.full_like(z_cmb, z_outflow_cut)
+
+"""
+z_cut  chi2    H0 [km/s/Mpc]
+0.0050 1450.11 71.7
+0.0055 1449.57 71.5
+0.0061 1449.05 71.3
+0.0063 1448.94 71.3
+0.0065 1449.00 71.4
+0.0070 1449.22 71.6
+0.0075 1449.33 71.7
+"""
+
 cho = cho_factor(cov_matrix, lower=True)[0]
 
 c = c0 / 1000  # Speed of light (km/s)
@@ -50,9 +64,13 @@ def model_mu(params):
 
 
 @njit
-def v_flow(params):
-    v_100 = params[3]
-    return 100 * v_100 * (5 / np.log(10)) / (c * z_cmb)
+def v_flow(v_100, z):
+    return 100 * v_100 * (5 / np.log(10)) / (c * z)
+
+
+@njit
+def outflow_correction(theta):
+    return np.where(local_ceph, v_flow(theta[3], z_cut_arr), v_flow(theta[3], z_cmb))
 
 
 def solve_triang(cho_L, delta):
@@ -61,8 +79,8 @@ def solve_triang(cho_L, delta):
 
 
 def chi_squared(params):
-    mu_theory = np.where(cepheids_mask, ceph_dists, model_mu(params))
-    apparent_mag_theory = mu_theory + params[0] + v_flow(params)
+    mu_theory = np.where(ceph_mask, ceph_dists, model_mu(params))
+    apparent_mag_theory = mu_theory + params[0] + outflow_correction(params)
     delta = apparent_mags - apparent_mag_theory
     return solve_triang(cho, delta)
 
@@ -141,12 +159,11 @@ def main():
 
     best_fit = np.percentile(samples, 50, axis=0)
 
-    predicted_mu_values = model_mu(best_fit)
+    mu_vals_theory = model_mu(best_fit)
     residuals = (
         apparent_mags
-        - M_50
-        - v_flow(best_fit)
-        - np.where(cepheids_mask, ceph_dists, predicted_mu_values)
+        - (M_50 + outflow_correction(best_fit))
+        - np.where(ceph_mask, ceph_dists, mu_vals_theory)
     )
 
     # R-squared
@@ -182,9 +199,9 @@ def main():
     plot_predictions(
         legend=legend,
         x=z_cmb,
-        y=apparent_mags - M_50 - v_flow(best_fit),
+        y=apparent_mags - (M_50 + outflow_correction(best_fit)),
         y_err=sigma_mu,
-        y_model=predicted_mu_values,
+        y_model=mu_vals_theory,
         label=f"H0={H0_50:.2f} km/s/Mpc",
         x_scale="log",
     )
@@ -201,7 +218,8 @@ z range: 0.0012 - 2.2614
 Sample size: 1657
 *****************************
 
-ΛCDM w(z) = -1
+ΛCDM
+
 M: -19.24 +0.03/-0.03 mag
 H0 (km/s/Mpc): 73.5 +- 1.0
 Ωm: 0.332 +0.018/-0.018
@@ -213,7 +231,25 @@ Chi squared: 1452.02
 
 =============================
 
-wCDM w(z) = w0
+ΛCDM
+Void outflow correction to magnitude of SNe M(z) = M_inf + v_flow_corr
+v_flow_corr = 100 * v_flow * (5 / ln(10)) / (c * z_cmb) with v_flow in units 100 km/s
+
+v_flow: 81 +- 47 km/s
+M_inf: -19.326 +- 0.056 mag
+M0 (computed at z=0.0063): -19.233 mag
+H0: 71.3 +- 1.6 km/s/Mpc
+Ωm: 0.315 +- 0.020
+R-squared (%): 99.78
+RMSD (mag): 0.153
+Skewness of residuals: 0.050
+kurtosis of residuals: 1.541
+Chi squared: 1448.94 (1.75 sigma significance)
+
+=============================
+
+wCDM
+
 M: -19.24 +0.03/-0.03 mag
 H0 (km/s/Mpc): 73.5 +1.0/-1.0 km/s/Mpc
 Ωm: 0.301 +0.062/-0.075
@@ -226,7 +262,8 @@ Chi squared: 1451.70
 
 =============================
 
-Flat w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
+Flat wzCDM w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
+
 M: -19.243 +0.030/-0.029
 H0 (km/s/Mpc): 73.34 +1.04/-1.01
 Ωm: 0.300 +0.028/-0.033
@@ -237,53 +274,4 @@ RMSD (mag): 0.153
 Skewness of residuals: 0.070
 kurtosis of residuals: 1.564
 Chi squared: 1451.86
-"""
-
-
-"""
-******************************
-Dataset: Pantheon+ and SH0ES
-Sample size: 1639
-z range: 0.0057 - 2.2614
-z_cut_cepheids >= 0.0055
-******************************
-
-ΛCDM
-M: -19.228 +- 0.034 mag
-H0: 74.1 +- 1.2 km/s/Mpc
-Ωm: 0.331 +- 0.018
-R-squared (%): 99.76
-RMSD (mag): 0.153
-Skewness of residuals: 0.075
-kurtosis of residuals: 1.586
-Chi squared: 1434.46
-
-==============================
-
-ΛCDM
-Void outflow corrections of SNe M(z) = M_inf + v_flow_corr
-v_flow_corr = 100 * v_flow * (5 / ln(10)) / (c * z_cmb) with v_flow in units 100 km/s
-
-v_flow: 92.2 +47.5/-47.4 km/s (prior ~ U(-1.6, 3.5) in units of 100 km/s)
-M_inf: -19.317 +- 0.057 mag
-H0: 71.7 +- 1.7 km/s/Mpc
-Ωm: 0.312 +- 0.020
-R-squared (%): 99.76
-RMSD (mag): 0.153
-Skewness of residuals: 0.036
-kurtosis of residuals: 1.579
-Chi squared: 1430.58 (2.0 sigmas away from no flow case)
-
-==============================
-
-wCDM
-w0: -0.917 +0.137/-0.160 (prior ~ U(-1.5, -0.5))
-M: -19.227 +- 0.034 mag
-H0: 74.0 +- 1.2 km/s/Mpc
-Ωm: 0.298 +0.062/-0.071
-R-squared (%): 99.76
-RMSD (mag): 0.153
-Skewness of residuals: 0.066
-kurtosis of residuals: 1.592
-Chi squared: 1434.13 (0.6 sigma away from ΛCDM)
 """
