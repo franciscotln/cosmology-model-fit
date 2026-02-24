@@ -7,10 +7,30 @@ from y2022pantheonSHOES.data_shoes import get_data
 import cmb.data_planck_act_compression as cmb
 
 bao_legend, bao_data, bao_cov_matrix = get_bao_data()
-legend, z_cmb, z_hel, mb_vals, ceph_dists, cov_matrix_sn = get_data(z_cut_ceph=0.0055)
-# At z_ceph < 0.0055 it seems the outflow velocity drops to zero or even becomes slightly negative.
+legend, z_cmb, z_hel, mb_vals, ceph_dists, cov_matrix_sn = get_data()
 
 ceph_mask = ceph_dists != -9
+z_outflow_cut = 0.0061  # Outflow effects star from here on and decays as ~1/z
+flow_cut_mask = z_cmb < z_outflow_cut
+local_ceph = ceph_mask & flow_cut_mask
+z_cut_arr = np.full_like(z_cmb, z_outflow_cut)
+
+
+"""
+z_cut | Chi2 | Log(Z)
+---------------------
+0.0040 1472.0 -758.8
+0.0045 1470.0 -757.8
+0.0050 1468.5 -756.9
+0.0055 1467.4 -756.4
+0.0061 1466.6 -755.9
+0.0065 1466.7 -755.9
+0.0070 1467.5 -756.3
+0.0075 1468.2 -756.6
+0.0080 1468.8 -756.9
+0.0085 1469.5 -757.2
+"""
+
 
 cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
 inv_cov_bao = np.linalg.inv(bao_cov_matrix)
@@ -19,7 +39,6 @@ c = cmb.c  # km/s
 Or_h2 = cmb.Or_h2
 Omnu_h2 = cmb.Omnu_h2
 
-# z grid for DM
 z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
 z_grid = np.linspace(0, z_max, num=3000)
 dz = np.diff(z_grid)
@@ -104,8 +123,15 @@ def mu_theory(theta):
 
 
 @njit
-def v_outflow(v_100):
-    return 100 * v_100 * (5 / np.log(10)) / (c * z_cmb)
+def v_outflow(v_100, z):
+    return 100 * v_100 * (5 / np.log(10)) / (c * z)
+
+
+@njit
+def outflow_correction(theta):
+    return np.where(
+        local_ceph, v_outflow(theta[4], z_cut_arr), v_outflow(theta[4], z_cmb)
+    )
 
 
 def solve_triang(cho_L, delta):
@@ -115,7 +141,7 @@ def solve_triang(cho_L, delta):
 
 def chi2_sn(theta):
     mu_the = np.where(ceph_mask, ceph_dists, mu_theory(theta))
-    mb_theory = mu_the + theta[0] + v_outflow(theta[4])
+    mb_theory = mu_the + theta[0] + outflow_correction(theta)
     delta_sn = mb_vals - mb_theory
     return solve_triang(cho_sn, delta_sn)
 
@@ -244,7 +270,7 @@ def main():
     plot_sn_predictions(
         legend=legend,
         x=z_cmb,
-        y=mb_vals - M_50 - v_outflow(v_b_50),
+        y=mb_vals - (M_50 + outflow_correction(best_fit)),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=mu_theory(best_fit),
         label=f"Best fit: $Ω_m$={Om_50:.3f}",
@@ -263,16 +289,16 @@ Pantheon + SH0ES (z_cut 0.0041) + BAO + CMB compressed
 
 """
 Flat ΛCDM
-M0: -19.402 +0.008 -0.008 mag
-H0: 68.67 +0.26 -0.26 km/s/Mpc
-Ωm: 0.297 +0.003 -0.003
-Ωbh2: 0.02262 +0.00010 -0.00010
-Ωch2: 0.11689 +0.00063 -0.00063
-Ωmh2: 0.1402 +0.0006 -0.0006
-rd: 147.65 +0.19 -0.19 Mpc
-Chi2 (MAP): 1478.0
-Log evidence: -759.7
-Degrees of freedom: 1642
+M0: -19.400 +- 0.008 mag
+H0: 68.73 +- 0.26 km/s/Mpc
+Ωm: 0.296 +- 0.003
+Ωbh2: 0.02264 +- 0.00010
+Ωch2: 0.11676 +- 0.00063
+Ωmh2: 0.1400 +- 0.0006
+rd: 147.67 +- 0.19 Mpc
+Chi2 (MAP): 1498.4
+Log evidence: -769.9
+Degrees of freedom: 1666
 """
 
 """
@@ -280,30 +306,31 @@ Flat ΛCDM
 Void outflow corrections of SNe M(z) = M_inf + v_corr
 v_corr = 100 * v_flow * (5 / np.log(10)) / (c * z_cmb) with v_flow in units 100 km/s
 
-v_flow: 160.4 +29.6 -29.5 (prior ~ U(-1.0, 3.5) in units of 100 km/s)
-M_inf: -19.427 +0.009 -0.009 mag
-H0: 68.55 +0.27 -0.26 km/s/Mpc
-Ωm: 0.299 +0.003 -0.003
-Ωbh2: 0.02260 +0.00010 -0.00010
-Ωch2: 0.11712 +0.00063 -0.00063
-Ωmh2: 0.1404 +0.0006 -0.0006
-rd: 147.62 +0.19 -0.19 Mpc
-Chi2 (MAP): 1448.7 (5.41 sigma away from no void outflow)
-Log evidence: -746.8 (Δ logZ = 12.9 in favor of void outflow)
-Degrees of freedom: 1641
+v_flow: 148 +- 26 km/s (prior ~ U(-1.0, 3.5) in units of 100 km/s)
+M_inf: -19.426 +- 0.009 mag
+M0 (computed at z_cut=0.0061): -19.251 +- 0.040 mag
+H0: 68.54 +- 0.26 km/s/Mpc
+Ωm: 0.299 +0.004 -0.003
+Ωbh2: 0.02259 +- 0.00010
+Ωch2: 0.11715 +- 0.00063
+Ωmh2: 0.1404 +- 0.0006
+rd: 147.61 +- 0.19 Mpc
+Chi2 (MAP): 1466.6 (5.64 sigma away from no outflow case)
+Log evidence: -755.9 (Δ logZ = 14.0 in favour of outflow model)
+Degrees of freedom: 1665
 """
 
 """
 Flat wCDM
-w0: -1.018 +0.022 -0.022 (prior ~ U(-1.3, -0.6))
-M0: -19.393 +0.013 -0.013 mag
-H0: 69.07 +0.55 -0.54 km/s/Mpc
-Ωm: 0.295 +0.005 -0.005
-Ωbh2: 0.02260 +0.00010 -0.00011
-Ωch2: 0.11731 +0.00080 -0.00081
-Ωmh2: 0.1406 +0.0008 -0.0008
-rd: 147.56 +0.22 -0.22 Mpc
-Chi2 (MAP): 1477.4 (0.77 sigma away from ΛCDM)
-Log evidence: -761.8 (Δ logZ = -2.1 in favor of ΛCDM)
-Degrees of freedom: 1641
+w0: -1.025 +- 0.022 (prior ~ U(-1.3, -0.6))
+M0: -19.388 +- 0.013 mag
+H0: 69.28 +- 0.53 km/s/Mpc
+Ωm: 0.293 +- 0.004
+Ωbh2: 0.02261 +- 0.00010
+Ωch2: 0.11735 +- 0.00080
+Ωmh2: 0.1406 +- 0.0008
+rd: 147.54 +0.22 -0.21 Mpc
+Chi2 (MAP): 1497.1 (1.147 sigma away from ΛCDM)
+Log evidence: -771.8 (Δ logZ = -1.9 in favor of ΛCDM)
+Degrees of freedom: 1665
 """
