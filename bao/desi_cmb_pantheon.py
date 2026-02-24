@@ -261,6 +261,7 @@ v_flow_corr = 100 * v_flow * (5 / ln(10)) / (c * z_cmb) with v_flow in units 100
 
 M_inf: -19.423 ± 0.010 mag
 v_flow: 95 ± 42 km/s
+M0(computed at 0.0063)= -19.314 +-0.058 mag
 H0: 68.43 ± 0.27 km/s/Mpc
 ωb: 0.02257 ± 0.00010
 ωc: 0.1174 ± 0.0006
