@@ -199,7 +199,7 @@ def main():
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.1f}")
     print(f"Log evidence: {log_evd:.1f}")
-    print(f"Degrees of freedom: {1 + len(bao_data['z']) + sn_size - len(best_fit)}")
+    print(f"Degrees of freedom: {1 + len(bao_data) + sn_size - len(best_fit)}")
 
     labels = ["$Δ_M$", "$ω_b$", "$H_0$", "$Ω_m$", "$w_0$"]
     plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
@@ -238,15 +238,17 @@ Degrees of freedom: 1724
 
 """
 Flat ΛCDM
-Outflow mag correction of SNe M(z) = M_inf - M'0 * z_c**2 / (z_c + z), z_c=0.043
+Void outflow corrections of SNe positions
+z_pec = (v / c) * z / (0.035 + z)
+1 + z_cosmo = (1 + z) * (1 + z_pec / c)
 
-M'0: -1.95 +0.74 -0.73 (prior ~U(-6, 2))
-ΔM_inf: -0.057 +0.012 -0.012 mag
-H0: 69.03 +0.49 -0.49 km/s/Mpc
-r_d: 147.14 +0.30 -0.30 Mpc
-ωb: 0.02277 +0.00073 -0.00071
-ωm: 0.1416 +0.0023 -0.0023
+ΔM: -0.057 +0.012 -0.012 mag
+v: 4.52 +1.70 -1.70 [x 100 km/s] (prior ~U(-5, 14))
+rd: 147.14 +0.29 -0.30 Mpc
+H0: 69.03 +0.50 -0.49 km/s/Mpc
 Ωm: 0.297 +0.008 -0.008
+ωb: 0.02278 +0.00071 -0.00071
+ωm: 0.1416 +0.0023 -0.0023
 Chi squared: 1638.2 (2.66 sigma away from constant M)
 Log evidence: -836.0 (Δ logZ = 2.0 against constant M)
 Degrees of freedom: 1723
