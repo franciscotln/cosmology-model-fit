@@ -189,8 +189,8 @@ rd ~N(147.09, 0.26)
 H0 ~U(50.0, 85.0)
 Ωm ~U(0.1, 0.6)
 
-Outflow mag correction:
-z_c ~U(0.0, 0.17)
+Outflow z correction:
+v ~U(-10, 26) x 100 km/s
 
 wCDM:
 w0 ~U(-1.5, 0.0)
@@ -219,10 +219,12 @@ Degs of freedom: 31
 
 """
 Flat ΛCDM: w(z) = -1
-Outflow mag correction of SNe M(z) = M_inf - M'0 * z_c^2 / (z_c + z), z_c=0.043
+Void outflow corrections of SNe positions
+z_pec = (v / c) * z / (0.035 + z)
+1 + z_cosmo = (1 + z) * (1 + z_pec / c)
 
-ΔM_inf: -0.049 +0.012 -0.012 mag
-M'0: -3.14 + 1.40 - 1.39 (prior ~ U(-11, 5))
+ΔM: -0.052 +0.012 -0.012 mag
+v: 7.5 +3.4 -3.3 x 100 km/s
 rd: 147.09 +0.26 -0.26 Mpc
 H0: 69.05 +0.50 -0.50 km/s/Mpc
 Ωm: 0.297 +0.008 -0.008
