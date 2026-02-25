@@ -10,7 +10,7 @@ from y2025BAO.data import get_data as get_bao_data
 c = c0 / 1000  # Speed of light in km/s
 
 cc_legend, z_cc_vals, H_cc_vals, cov_matrix_cc = get_cc_data()
-legend, z_sn_vals, z_sn_hel_vals, apparent_mag_values, cov_matrix_sn = get_data()
+legend, z_cmb, z_hel, apparent_mag_values, cov_matrix_sn = get_data()
 bao_legend, bao_data, cov_matrix_bao = get_bao_data()
 
 cho_cc = cho_factor(cov_matrix_cc, lower=True)[0]
@@ -20,18 +20,22 @@ cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
 logdet_cc = np.linalg.slogdet(cov_matrix_cc)[1]
 N_cc = len(z_cc_vals)
 
-z_max = max(np.max(z_sn_vals), np.max(bao_data["z"])) + 0.1
+z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
 z_grid = np.linspace(0, z_max, num=3000)
 dz = np.diff(z_grid)
 
 
 @njit
+def Ode_z(z, w0):
+    # Thawing quintessence
+    cubed = (1.0 + z) ** 3
+    return (2 * cubed / ((1.0 + w0) + (1.0 - w0) * cubed)) ** 2
+
+
+@njit
 def Ez(z, params):
-    Om, w0 = params[3], params[4]
-    one_plus_z = 1.0 + z
-    cubed = one_plus_z**3
-    rho_de = (2 * cubed / ((1.0 + w0) + (1.0 - w0) * cubed)) ** 2
-    return np.sqrt(Om * cubed + (1.0 - Om) * rho_de)
+    Om = params[3]
+    return np.sqrt(Om * (1.0 + z) ** 3 + (1.0 - Om))
 
 
 @njit
@@ -61,7 +65,7 @@ def DV_z(z, params):
 
 
 qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
-quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int32)
+desi_qty = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int32)
 
 
 @njit
@@ -77,9 +81,20 @@ def bao_theory(z, qty, params):
 
 
 @njit
+def outflow_correction(params):
+    # up to second order in z
+    Om, v_100 = params[3], params[4]
+    q0 = 1.5 * Om - 1.0
+    q_term = (1.0 - q0) * z_cmb
+    q_corr = (1.0 + q_term) / (1.0 + 0.5 * q_term)
+    v_ratio = 100 * v_100 / (c * z_cmb)
+    return v_ratio * (5 / np.log(10)) * q_corr
+
+
+@njit
 def sn_apparent_mag(params):
-    dL = (1.0 + z_sn_hel_vals) * DM_z(z_sn_vals, params)
-    return params[1] + 25.0 + 5 * np.log10(dL)
+    dL = (1.0 + z_hel) * DM_z(z_cmb, params)
+    return params[1] + outflow_correction(params) + 25.0 + 5 * np.log10(dL)
 
 
 bounds = np.array(
@@ -88,7 +103,7 @@ bounds = np.array(
         (-20.0, -19.0),  # M
         (115.0, 170.0),  # r_d
         (0.0, 1.0),  # Ωm
-        (-1.0, 0.0),  # w0
+        (-1.3, 3.15),  # v_flow in units of 100 km/s
         (0.4, 2.5),  # f_cc
     ]
 )
@@ -103,7 +118,7 @@ def chi_squared(params):
     delta_sn = apparent_mag_values - sn_apparent_mag(params)
     chi_sn = solve_triang(cho_sn, delta_sn)
 
-    delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
+    delta_bao = bao_data["value"] - bao_theory(bao_data["z"], desi_qty, params)
     chi_bao = solve_triang(cho_bao, delta_bao)
 
     f_cc = params[-1]
@@ -182,27 +197,27 @@ def main():
         (M_16, M_50, M_84),
         (rd_16, rd_50, rd_84),
         (Om_16, Om_50, Om_84),
-        (w0_16, w0_50, w0_84),
+        (vf_16, vf_50, vf_84),
         (f_cc_16, f_cc_50, f_cc_84),
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
     best_fit = np.percentile(samples, 50, axis=0)
 
-    deg_of_freedom = (
-        len(z_sn_vals) + len(bao_data["z"]) + len(z_cc_vals) - len(best_fit)
-    )
+    deg_of_freedom = len(z_cmb) + len(bao_data) + N_cc - len(best_fit)
 
     print(f"f_cc: {f_cc_50:.2f} +{(f_cc_84 - f_cc_50):.2f} -{(f_cc_50 - f_cc_16):.2f}")
     print(f"H0: {h0_50:.2f} +{(h0_84 - h0_50):.2f} -{(h0_50 - h0_16):.2f} km/s/Mpc")
     print(f"M: {M_50:.3f} +{(M_84 - M_50):.3f} -{(M_50 - M_16):.3f} mag")
     print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
-    print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
+    print(
+        f"v_flow (x 100 km/s): {vf_50:.3f} +{(vf_84 - vf_50):.3f} -{(vf_50 - vf_16):.3f}"
+    )
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Log Evidence: {log_evd:.1f}")
     print(f"Degrees of freedom: {deg_of_freedom}")
 
-    labels = ["$H_0$", "M", "$r_d$", "Ωm", "$w_0$", "$f_{CC}$"]
+    labels = ["$H_0$", "M", "$r_d$", "Ωm", "$v_{flow}$", "$f_{CC}$"]
     plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
     plot_bao_predictions(
         theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
@@ -212,7 +227,7 @@ def main():
     )
     plot_sn_predictions(
         legend=legend,
-        x=z_sn_vals,
+        x=z_cmb,
         y=apparent_mag_values - M_50,
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=sn_apparent_mag(best_fit) - M_50,
@@ -242,13 +257,13 @@ Flat ΛCDM: w(z) = -1
 Void outflow corrections of SNe M(z) = Minf + v_flow_corr
 v_flow_corr = 100 * v_flow * (5 / ln(10)) / (c * z_cmb) with v_flow in units 100 km/s
 
-v_flow: 94 +44 -44 km/s (prior ~ U(-1.30, 3.15))
-Minf: -19.412 +0.070 -0.072 mag
+v_flow: 93 +44 -43 km/s (prior ~ U(-1.30, 3.15))
+M_inf: -19.411 +0.070 -0.073 mag
 H0: 68.8 +2.3 -2.3 km/s/Mpc
-r_d: 147.2 +4.9 -4.6 Mpc
+r_d: 147.1 +4.9 -4.6 Mpc
 Ωm: 0.301 +0.008 -0.008
 f_cc: 1.48 +0.18 -0.17
-Chi squared: 1446.70 (2.21 sigma away from no flow velocity correction)
+Chi squared: 1446.60 (2.0 sigma away from no flow velocity correction)
 Log Evidence: -865.3
 Degrees of freedom: 1633
 
