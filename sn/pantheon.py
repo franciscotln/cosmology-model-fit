@@ -31,29 +31,20 @@ def Ez(params):
 
 
 @njit
-def DM_z(params):
+def DM_z(params, z):
     dh_grid = (c / params[1]) / Ez(params)
     dh = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size, dtype=np.float64)
     cum_dm[1:] = np.cumsum(dh * dz)
-    return interp_hermite(z_cmb, z_grid, cum_dm, dh_grid)
-
-
-@njit
-def outflow_correction(params, z):
-    # up to second order in z
-    Om, v_100 = params[2], params[3]
-    q0 = 1.5 * Om - 1.0
-    q_term = (1.0 - q0) * z
-    q_corr = (1.0 + q_term) / (1.0 + 0.5 * q_term)
-    v_ratio = 100 * v_100 / (c * z)
-    return v_ratio * (5 / np.log(10)) * q_corr
+    return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
 @njit
 def apparent_mag(params):
-    Mz = params[0] + outflow_correction(params, z_cmb)
-    return Mz + 25.0 + 5 * np.log10((1.0 + z_hel) * DM_z(params))
+    z_pec = 100 * params[3] / c
+    z_cosmo = (1.0 + z_cmb) * (1.0 + z_pec) - 1.0
+
+    return params[0] + 25.0 + 5 * np.log10((1.0 + z_hel) * DM_z(params, z_cosmo))
 
 
 def solve_triang(cho_L, delta):
@@ -185,9 +176,9 @@ def main():
     plot_predictions(
         legend=legend,
         x=z_cmb,
-        y=apparent_mag_vals - (M0_50 + outflow_correction(best_fit, z_cmb)),
+        y=apparent_mag_vals - M0_50,
         y_err=np.sqrt(np.diag(cov_matrix)),
-        y_model=predicted_apparent_mag - (M0_50 + outflow_correction(best_fit, z_cmb)),
+        y_model=predicted_apparent_mag - M0_50,
         label=f"$Ω_m$={Om_50:.3f}",
         x_scale="log",
     )
@@ -227,19 +218,19 @@ Log Evidence: -711.0
 =============================
 
 Flat ΛCDM w(z) = -1
-Void outflow correction to absolute mag of SNe M(z) = M_inf + v_flow_corr
-v_flow_corr = 100 * v_flow * q_corr * (5 / ln(10)) / (c * z_cmb) with v_flow in units 100 km/s
+Void outflow corrections of SNe positions
+1 + z_cosmo = (1 + z_cmb) * (1 + v_flow / c)
 
-M_inf: -19.354 +0.056/-0.058 mag
-v_flow: 76 +- 49 km/s (prior ~ U(-1.7, 3.2) x 100 km/s)
-H0: 70.40 +1.81/-1.80 km/s/Mpc
+M_inf: -19.355 +0.056/-0.058 mag
+v_flow: 77 +- 50 km/s (prior ~ U(-1.7, 3.2) x 100 km/s)
+H0: 70.39 +1.80/-1.80 km/s/Mpc
 Ωm: 0.315 +0.021/-0.020
 R-squared (%): 99.74
 RMSD (mag): 0.153
 Skewness of residuals: 0.055
 kurtosis of residuals: 1.580
 Degs of freedom: 1586
-Chi squared: 1400.45 (1.57 sigma significance)
+Chi squared: 1400.46 (1.57 sigma significance)
 Log Evidence: -711.2
 """
 
