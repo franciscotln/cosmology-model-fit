@@ -244,10 +244,12 @@ Degrees of freedom: 1726
 
 """
 Flat ΛCDM: w(z) = -1
-Outflow mag correction of SNe M(z) = M_inf - M'0 * z_c**2 / (z_c + z), z_c=0.043
+Void outflow corrections of SNe positions
+z_pec = (v / c) * z / (0.035 + z)
+1 + z_cosmo = (1 + z) * (1 + z_pec)
 
-ΔM_inf: -0.0716 ± 0.0086 mag (0.6 sigma agreement with DESI+CMB+Union3.1)
-M'0: -1.85 ± 0.68 (prior ~ U(-6.0, 2.0)) (0.8 sigma agreement with DESI+CMB+Union3.1)
+ΔM: -0.0728 ± 0.0088 mag (0.08 sigma agreement with DESI+CMB+Union3.1)
+v: 4.3 ± 1.6 [x 100 km/s] (prior ~ U(-5, 14)) (0.82 sigma agreement with DESI+CMB+Union3.1)
 H0: 68.48 ± 0.27 km/s/Mpc
 Ωm: 0.2996 ± 0.0036
 ωb: 0.02258 ± 0.00010
@@ -256,8 +258,8 @@ H0: 68.48 ± 0.27 km/s/Mpc
 z*: 1089.39 ± 0.15
 z_d: 1060.21 ± 0.23
 r_d: 147.60 ± 0.19 Mpc
-χ2 (MAP): 1642.39 (2.71 sigma away from constant M)
-Log evidence: -840.9 (Δ logZ = 2.1 against constant M)
+χ2 (MAP): 1642.38 (2.71 sigma away from no outflow)
+Log evidence: -840.9 (Δ logZ = 2.1 in favour of outflow)
 Degrees of freedom: 1725
 """
 
