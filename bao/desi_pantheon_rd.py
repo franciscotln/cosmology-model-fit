@@ -77,17 +77,6 @@ def bao_theory(z, qty, theta):
 
 
 @njit
-def outflow_correction(theta):
-    # up to second order in z
-    Om, v_100 = theta[2], theta[4]
-    q0 = 1.5 * Om - 1.0
-    q_term = (1.0 - q0) * z_cmb
-    q_corr = (1.0 + q_term) / (1.0 + 0.5 * q_term)
-    v_ratio = 100 * v_100 / (c * z_cmb)
-    return v_ratio * (5 / np.log(10)) * q_corr
-
-
-@njit
 def apparent_mag(theta):
     dL = (1.0 + z_hel) * DM_z(z_cmb, theta)
     return theta[0] + 25 + 5 * np.log10(dL)
@@ -233,16 +222,16 @@ Degrees of freedom: 1599
 
 """
 Flat ΛCDM
-Outflow corrections of SNe M(z) = M_inf + v_flow_corr
-v_flow_corr = 100 * v_flow * (5 / ln(10)) / (c * z_cmb) with v_flow in units 100 km/s
+Void outflow corrections of SNe positions
+1 + z_cosmo = (1 + z_cmb) * (1 + v_flow / c)
 
-M_inf: -19.410 +- 0.014 mag
-v_flow: 94 +- 43 km/s (prior ~ U(-1.30, 3.15))
+M: -19.410 +- 0.014 mag
+v_flow: 96 +- 44 km/s (prior ~ U(-1.5, 3.5))
 H0: 68.86 +- 0.49 km/s/Mpc
 Ωm: 0.300 +- 0.008
 r_d: 147.14 +- 0.29 Mpc
 Chi2 (MAP): 1411.4 (2.17 sigma away from no v_flow corrections)
-Log evidence: -721.7 (Δ ln(Z) = 1.0 in favor of v_flow corrections)
+Log evidence: -721.9 (Δ ln(Z) = 0.8 in favor of v_flow corrections)
 Degrees of freedom: 1598
 """
 
