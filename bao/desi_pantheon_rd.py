@@ -35,12 +35,6 @@ def Ez(z, theta):
 
 
 @njit
-def apparent_mag(theta):
-    dL = (1.0 + z_hel) * DM_z(z_cmb, theta)
-    return theta[0] + 25 + 5 * np.log10(dL)
-
-
-@njit
 def H_z(z, theta):
     return theta[1] * Ez(z, theta)
 
@@ -80,6 +74,23 @@ def bao_theory(z, qty, theta):
     results[DM_mask] = DM_z(z[DM_mask], theta)
     results[DV_mask] = DV_z(z[DV_mask], theta)
     return results / theta[3]
+
+
+@njit
+def outflow_correction(theta):
+    # up to second order in z
+    Om, v_100 = theta[2], theta[4]
+    q0 = 1.5 * Om - 1.0
+    q_term = (1.0 - q0) * z_cmb
+    q_corr = (1.0 + q_term) / (1.0 + 0.5 * q_term)
+    v_ratio = 100 * v_100 / (c * z_cmb)
+    return v_ratio * (5 / np.log(10)) * q_corr
+
+
+@njit
+def apparent_mag(theta):
+    dL = (1.0 + z_hel) * DM_z(z_cmb, theta)
+    return theta[0] + 25 + 5 * np.log10(dL)
 
 
 bounds = np.array(
@@ -226,8 +237,8 @@ Outflow corrections of SNe M(z) = M_inf + v_flow_corr
 v_flow_corr = 100 * v_flow * (5 / ln(10)) / (c * z_cmb) with v_flow in units 100 km/s
 
 M_inf: -19.410 +- 0.014 mag
-v_flow: 95 +- 43 km/s (prior ~ U(-1.30, 3.15))
-H0: 68.92 +- 0.49 km/s/Mpc
+v_flow: 94 +- 43 km/s (prior ~ U(-1.30, 3.15))
+H0: 68.86 +- 0.49 km/s/Mpc
 Ωm: 0.300 +- 0.008
 r_d: 147.14 +- 0.29 Mpc
 Chi2 (MAP): 1411.4 (2.17 sigma away from no v_flow corrections)
