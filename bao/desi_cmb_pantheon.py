@@ -99,6 +99,18 @@ def bao_theory(z, qty, params):
 
 
 @njit
+def v_outflow(params, z):
+    # up to second order in z
+    v_100 = params[4]
+    Om = (params[2] + params[3] + Omnu_h2) / (params[1] / 100) ** 2
+    q0 = 1.5 * Om - 1.0
+    q_term = (1.0 - q0) * z
+    q_corr = (1.0 + q_term) / (1.0 + 0.5 * q_term)
+    v_ratio = 100 * v_100 / (c * z)
+    return v_ratio * (5 / np.log(10)) * q_corr
+
+
+@njit
 def apparent_mag(params):
     M = params[0]
     return M + 25.0 + 5 * np.log10((1.0 + z_hel) * DM_z(z_cmb, params))
@@ -257,13 +269,13 @@ Degrees of freedom: 1602
 """
 Flat ΛCDM
 Outflow corrections of SNe M(z) = M_inf + v_flow_corr
-v_flow_corr = 100 * v_flow * (5 / ln(10)) / (c * z_cmb) with v_flow in units 100 km/s
+v_flow_corr = 100 * v_flow * q_corr * (5 / ln(10)) / (c * z_cmb) with v_flow in units 100 km/s
 
 M_inf: -19.423 ± 0.010 mag
 v_flow: 95 ± 42 km/s
 M0(computed at 0.0063)= -19.314 +-0.058 mag
 H0: 68.43 ± 0.27 km/s/Mpc
-ωb: 0.02257 ± 0.00010
+ωb: 0.02258 ± 0.00010
 ωc: 0.1174 ± 0.0006
 ωm: 0.1406 ± 0.0006
 Ωm: 0.300 ± 0.004

@@ -102,15 +102,19 @@ def mu_theory(theta):
 
 
 @njit
-def v_outflow(v_100, z):
-    return 100 * v_100 * (5 / np.log(10)) / (c * z)
+def v_outflow(params, z):
+    # up to second order in z
+    Om, v_100 = params[2], params[4]
+    q0 = 1.5 * Om - 1.0
+    q_term = (1.0 - q0) * z
+    q_corr = (1.0 + q_term) / (1.0 + 0.5 * q_term)
+    v_ratio = 100 * v_100 / (c * z)
+    return v_ratio * (5 / np.log(10)) * q_corr
 
 
 @njit
 def outflow_correction(theta):
-    return np.where(
-        local_ceph, v_outflow(theta[4], z_cut_arr), v_outflow(theta[4], z_cmb)
-    )
+    return np.where(local_ceph, v_outflow(theta, z_cut_arr), v_outflow(theta, z_cmb))
 
 
 def solve_triang(cho_L, delta):
@@ -289,17 +293,17 @@ Degrees of freedom: 1701
 """
 Flat ΛCDM
 Void outflow corrections of SNe M(z) = M_inf + v_corr
-v_corr = 100 * v_flow * (5 / ln(10)) / (c * z_cmb) with v_flow in units 100 km/s
+v_corr = 100 * v_flow * q_corr * (5 / ln(10)) / (c * z_cmb) with v_flow in units 100 km/s
 
 v_flow: 113 +- 37 km/s (prior ~ U(-150, 350))
-M_inf: -19.367 +0.041 -0.042 mag
+M_inf: -19.368 +- 0.041 mag
 M0 (computed at z=0.0063): -19.237 +- 0.085 mag
 H0: 70.3 +-1.2 km/s/Mpc
 Ωm: 0.300 +0.008 -0.007
 Ωm h^2: 0.148 +- 0.006
-rd: 144.2 +- 2.7 Mpc
-f_cc: 1.49 +0.18 -0.17
-Chi2 (MAP): 1496.4 (2.5 sigma away from no flow corrections)
+rd: 144.3 +- 2.7 Mpc
+f_cc: 1.49 +0.17 -0.17
+Chi2 (MAP): 1495.2 (2.7 sigma away from no flow corrections)
 Log evidence: -752.3 (Δ logZ = 2.9 against no flow corrections)
 Degrees of freedom: 1700
 """
