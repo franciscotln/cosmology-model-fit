@@ -221,7 +221,7 @@ Degs of freedom: 31
 Flat ΛCDM: w(z) = -1
 Void outflow corrections of SNe positions
 z_pec = (v / c) * z / (0.035 + z)
-1 + z_cosmo = (1 + z) * (1 + z_pec / c)
+1 + z_cosmo = (1 + z) * (1 + z_pec)
 
 ΔM: -0.052 +0.012 -0.012 mag
 v: 7.5 +3.4 -3.3 x 100 km/s
