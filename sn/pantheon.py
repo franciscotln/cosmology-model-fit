@@ -41,9 +41,19 @@ def DM_z(params):
 
 
 @njit
+def outflow_correction(params):
+    # up to second order in z
+    Om, v_100 = params[1], params[2]
+    q0 = 1.5 * Om - 1.0
+    q_term = (1.0 - q0) * z_cmb
+    q_corr = (1.0 + q_term) / (1.0 + 0.5 * q_term)
+    v_ratio = 100 * v_100 / (c * z_cmb)
+    return v_ratio * (5 / np.log(10)) * q_corr
+
+
+@njit
 def apparent_mag(params):
-    v_flow_corr = 100 * (5 / np.log(10)) * params[2] / (c * z_cmb)
-    Mz = params[0] + v_flow_corr
+    Mz = params[0] + outflow_correction(params)
     return Mz + 25.0 + 5 * np.log10((1.0 + z_hel) * DM_z(params))
 
 
@@ -216,11 +226,11 @@ Log Evidence: -708.9
 
 Flat ΛCDM w(z) = -1
 Void outflow correction to absolute mag of SNe M(z) = M_inf + v_flow_corr
-v_flow_corr = 100 * v_flow * (5 / ln(10)) / (c * z_cmb) with v_flow in units 100 km/s
+v_flow_corr = 100 * v_flow * (5 / ln(10)) / (c * z_cmb) * q_term with v_flow in units 100 km/s
 
-M_inf: -19.366 +0.012/-0.012 mag
-v_flow: 76.4 +49.1/-49.3 km/s (prior ~ U(-1.7, 3.2) x 100 km/s)
-Ωm: 0.316 +0.021/-0.020
+M_inf: -19.367 +0.012/-0.012 mag
+v_flow: 76.2 +- 48.9 km/s (prior ~ U(-1.7, 3.2) x 100 km/s)
+Ωm: 0.315 +0.021/-0.020
 R-squared (%): 99.74
 RMSD (mag): 0.153
 Skewness of residuals: 0.055

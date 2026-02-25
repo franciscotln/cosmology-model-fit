@@ -18,13 +18,13 @@ dz = np.diff(z_grid)
 
 @njit
 def Ode_z(z, w0):
+    # Thawing quintessence
     zp1 = 1.0 + z
     return (2 * zp1**3 / ((1.0 + w0) + (1.0 - w0) * zp1**3)) ** 2
 
 
 @njit
-def Ez(z, H0, Obh2, Och2, w0):
-    h = H0 / 100
+def Ez(z, h, Obh2, Och2):
     Onu = Omnuh2 / h**2
     Or = Orh2 / h**2
     Obc = (Obh2 + Och2) / h**2
@@ -35,15 +35,15 @@ def Ez(z, H0, Obh2, Och2, w0):
     radiation_term = Or * zp1**4
     matter_term = Obc * zp1**3
     neutrino_term = Onu * cmb.Omnu_z(z)
-    dark_energy_term = Ode * Ode_z(z, w0)
+    dark_energy_term = Ode
 
     return np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
 
 
 @njit
 def H_z(z, params):
-    H0, Obh2, Och2, w0 = params[1:]
-    return H0 * Ez(z, H0, Obh2, Och2, w0)
+    H0 = params[1]
+    return H0 * Ez(z, h=H0 / 100, Obh2=params[2], Och2=params[3])
 
 
 cmb.set_HZ(H_z)
@@ -59,9 +59,21 @@ def DM_z(z, params):
 
 
 @njit
+def outflow_correction(params):
+    v_100 = params[4]
+    Om = (params[2] + params[3] + Omnuh2) / (params[1] / 100) ** 2
+
+    q0_val = 1.5 * Om - 1.0
+    beta = (1.0 - q0_val) * z_cmb
+    q_corr = (1.0 + beta) / (1.0 + 0.5 * beta)
+    v_ratio = 100 * v_100 / (c * z_cmb)
+    return v_ratio * (5 / np.log(10)) * q_corr
+
+
+@njit
 def apparent_mag(params):
     dL = (1.0 + z_hel) * DM_z(z_cmb, params)
-    return params[0] + 25.0 + 5 * np.log10(dL)
+    return outflow_correction(params) + params[0] + 25.0 + 5 * np.log10(dL)
 
 
 def solve_triang(cho_L, delta):
@@ -85,7 +97,7 @@ bounds = np.array(
         (60.0, 75.0),  # H0
         (0.010, 0.030),  # Ωb * h^2
         (0.010, 0.25),  # Ωc * h^2
-        (-1.0, 0.0),  # w0
+        (-1.7, 3.2),  # v_flow in units of 100 km/s
     ]
 )
 
@@ -154,7 +166,7 @@ def main():
         (H0_16, H0_50, H0_84),
         (Obh2_16, Obh2_50, Obh2_84),
         (Och2_16, Och2_50, Och2_84),
-        (w0_16, w0_50, w0_84),
+        (vf_16, vf_50, vf_84),
     ] = pct
 
     best_fit = np.percentile(samples, 50, axis=0)
@@ -176,7 +188,9 @@ def main():
     print(f"ωm: {Omh2_50:.5f} +{(Omh2_84 - Omh2_50):.5f} -{(Omh2_50 - Omh2_16):.5f}")
     print(f"ωb: {Obh2_50:.5f} +{(Obh2_84 - Obh2_50):.5f} -{(Obh2_50 - Obh2_16):.5f}")
     print(f"ωc: {Och2_50:.5f} +{(Och2_84 - Och2_50):.5f} -{(Och2_50 - Och2_16):.5f}")
-    print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
+    print(
+        f"v_f (x 100 km/s): {vf_50:.3f} +{(vf_84 - vf_50):.3f} -{(vf_50 - vf_16):.3f}"
+    )
     print(f"M: {M_50:.3f} +{(M_84 - M_50):.3f} -{(M_50 - M_16):.3f} mag")
     print(f"z*: {z_st_50:.2f} +{(z_st_84 - z_st_50):.2f} -{(z_st_50 - z_st_16):.2f}")
     print(f"z_d: {z_d_50:.2f} +{(z_d_84 - z_d_50):.2f} -{(z_d_50 - z_d_16):.2f}")
@@ -184,7 +198,7 @@ def main():
     print(f"rd: {r_d_50:.2f} +{(r_d_84 - r_d_50):.2f} -{(r_d_50 - r_d_16):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
 
-    labels = ["M", "$H_0$", "$ω_b$", "$ω_c$", "$w_0$"]
+    labels = ["M", "$H_0$", "$ω_b$", "$ω_c$", "$v_{flow}$"]
     plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains)
     plot_sn_predictions(
         legend=sn_legend,
@@ -218,15 +232,15 @@ Chi squared: 1403.98
 
 Flat ΛCDM w(z) = -1
 Evolving absolute mag of SNe M(z) = M_inf + v_pec_corr
-v_pec_corr = 100 * v_pec * (5 / np.log(10)) / (c * z_cmb) with v_pec in units 100 km/s
+v_pec_corr = 100 * v_pec * (5 / np.log(10)) * q_corr / (c * z_cmb) with v_pec in units 100 km/s
 
 M_inf: -19.444 +0.014 -0.014 mag
 v_pec: 81 +43 -43 km/s (prior ~ U(-1.7, 3.2) in v_pec / (100 km/s))
 H0: 67.60 +0.47 -0.47 km/s/Mpc
 Ωm: 0.312 +0.007 -0.007
 ωm: 0.14251 +0.00111 -0.00111
-ωb: 0.02249 +0.00011 -0.00011
-ωc: 0.11938 +0.00115 -0.00114
+ωb: 0.02250 +0.00011 -0.00011
+ωc: 0.11937 +0.00114 -0.00115
 z*: 1089.69 +0.21 -0.20
 z_d: 1060.17 +0.23 -0.23
 r* = 144.51 Mpc
