@@ -81,20 +81,13 @@ def bao_theory(z, qty, params):
 
 
 @njit
-def outflow_correction(params):
-    # up to second order in z
-    Om, v_100 = params[3], params[4]
-    q0 = 1.5 * Om - 1.0
-    q_term = (1.0 - q0) * z_cmb
-    q_corr = (1.0 + q_term) / (1.0 + 0.5 * q_term)
-    v_ratio = 100 * v_100 / (c * z_cmb)
-    return v_ratio * (5 / np.log(10)) * q_corr
-
-
-@njit
 def sn_apparent_mag(params):
-    dL = (1.0 + z_hel) * DM_z(z_cmb, params)
-    return params[1] + outflow_correction(params) + 25.0 + 5 * np.log10(dL)
+    z_pec = 100 * params[4] / c
+    z_cosmo = (1.0 + z_cmb) * (1.0 + z_pec) - 1.0
+    z_cosmo = np.maximum(z_cosmo, 1e-8)
+
+    dL = (1.0 + z_hel) * DM_z(z_cosmo, params)
+    return params[1] + 25.0 + 5 * np.log10(dL)
 
 
 bounds = np.array(
@@ -103,7 +96,7 @@ bounds = np.array(
         (-20.0, -19.0),  # M
         (115.0, 170.0),  # r_d
         (0.0, 1.0),  # Ωm
-        (-1.3, 3.15),  # v_flow in units of 100 km/s
+        (-1.3, 3.5),  # v_flow in units of 100 km/s
         (0.4, 2.5),  # f_cc
     ]
 )
@@ -254,16 +247,16 @@ Degrees of freedom: 1634
 ===============================
 
 Flat ΛCDM: w(z) = -1
-Void outflow corrections of SNe M(z) = Minf + v_flow_corr
-v_flow_corr = 100 * v_flow * (5 / ln(10)) / (c * z_cmb) with v_flow in units 100 km/s
+Void outflow corrections of SNe positions
+1 + z_cosmo = (1 + z_cmb) * (1 + v_flow/c)
 
-v_flow: 93 +44 -43 km/s (prior ~ U(-1.30, 3.15))
-M_inf: -19.411 +0.070 -0.073 mag
+v_flow: 95 +- 44 km/s (prior ~ U(-1.30, 3.5) in units of 100 km/s)
+M: -19.411 +0.070 -0.073 mag
 H0: 68.8 +2.3 -2.3 km/s/Mpc
 r_d: 147.1 +4.9 -4.6 Mpc
 Ωm: 0.301 +0.008 -0.008
 f_cc: 1.48 +0.18 -0.17
-Chi squared: 1446.60 (2.0 sigma away from no flow velocity correction)
+Chi squared: 1446.64 (2.0 sigma away from no flow velocity correction)
 Log Evidence: -865.3
 Degrees of freedom: 1633
 
