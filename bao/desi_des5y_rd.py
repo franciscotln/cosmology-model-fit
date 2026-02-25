@@ -231,30 +231,28 @@ r_d: 147.14 +0.29 -0.29 Mpc
 ωb: 0.02207 +0.00064 -0.00065
 ωm: 0.1439 +0.0021 -0.0021
 Ωm: 0.306 +0.008 -0.007
-w0: -1
-wa: 0
 Chi squared: 1645.3
 Log evidence: -838.0
 Degrees of freedom: 1724
+"""
 
-===============================
-
+"""
 Flat ΛCDM
-Outflow mag correction of SNe M(z) = M_inf + (5 / ln(10)) * z_c^2 / (z_c + z)
+Outflow mag correction of SNe M(z) = M_inf - M'0 * z_c**2 / (z_c + z), z_c=0.043
 
-z_c: 0.039 +0.011 -0.012 (prior ~U(0, 0.12))
-ΔM_inf: -0.056 +0.012 -0.012 mag (0.35 sigma agreement with Union3.1+BAO, it has to be by definition)
-H0: 69.02 +0.50 -0.50 km/s/Mpc
+M'0: -1.95 +0.74 -0.73 (prior ~U(-6, 2))
+ΔM_inf: -0.057 +0.012 -0.012 mag
+H0: 69.03 +0.49 -0.49 km/s/Mpc
 r_d: 147.14 +0.30 -0.30 Mpc
-ωb: 0.02275 +0.00073 -0.00071
+ωb: 0.02277 +0.00073 -0.00071
 ωm: 0.1416 +0.0023 -0.0023
 Ωm: 0.297 +0.008 -0.008
 Chi squared: 1638.2 (2.66 sigma away from constant M)
 Log evidence: -836.0 (Δ logZ = 2.0 against constant M)
 Degrees of freedom: 1723
+"""
 
-===============================
-
+"""
 Flat wCDM w(z) = w0
 H0: 67.76 +0.55 -0.55 km/s/Mpc
 r_d: 147.14 +0.29 -0.29 Mpc
