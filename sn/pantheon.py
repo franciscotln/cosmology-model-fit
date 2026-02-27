@@ -6,7 +6,7 @@ from scipy.constants import c as c0
 from interpolator import interp_hermite
 from y2022pantheonSHOES.data import get_data
 
-legend, z_cmb, z_hel, apparent_mag_vals, cov_matrix = get_data()
+legend, z_cmb, z_hel, mb_vals, cov_matrix = get_data()
 
 c = c0 / 1000  # Speed of light (km/s)
 
@@ -39,12 +39,32 @@ def DM_z(params, z):
     return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
-@njit
-def apparent_mag(params):
-    z_pec = 100 * params[3] / c
-    z_cosmo = (1.0 + z_cmb) * (1.0 + z_pec) - 1.0
+correction_mask = z_cmb <= 0.1
 
-    return params[0] + 25.0 + 5 * np.log10((1.0 + z_hel) * DM_z(params, z_cosmo))
+
+@njit
+def mu_corr(params):
+    z_pec = 100 * params[3] / c
+    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+
+    return np.where(
+        correction_mask,
+        5.0 * np.log10(DM_z(params, z_cosmo) / DM_z(params, z_cmb)),
+        0.0,
+    )
+
+
+@njit
+def mu_theory(params):
+    return 25.0 + 5 * np.log10((1.0 + z_hel) * DM_z(params, z_cmb))
+
+
+@njit
+def mu_corr(params):
+    z_pec = 100 * params[3] / c
+    z_cosmo = (1.0 + z_cmb) / (1.0 + z_pec) - 1.0
+    corr = 5.0 * np.log10(DM_z(params, z_cosmo) / DM_z(params, z_cmb))
+    return np.where(correction_mask, corr, 0.0)
 
 
 def solve_triang(cho_L, delta):
@@ -53,7 +73,7 @@ def solve_triang(cho_L, delta):
 
 
 def chi_squared(params):
-    delta = apparent_mag_vals - apparent_mag(params)
+    delta = mb_vals - params[0] - mu_corr(params) - mu_theory(params)
     return solve_triang(cho, delta)
 
 
@@ -66,7 +86,7 @@ bounds = np.array(
         (-20.0, -19.0),  # M
         (50.0, 90.0),  # H0
         (0.0, 0.7),  # Ωm
-        (-1.70, 3.20),  # v_flow [x 100 km/s]
+        (-3.25, 2.00),  # v x 100 km/s
     ]
 )
 
@@ -107,7 +127,7 @@ def main():
         (emcee.moves.DEMove(), 0.70),
     ]
 
-    with Pool(5) as pool:
+    with Pool(6) as pool:
         sampler = emcee.EnsembleSampler(
             n_walkers, n_dim, log_probability, pool=pool, moves=moves
         )
@@ -140,29 +160,30 @@ def main():
 
     best_fit = np.percentile(samples, 50, axis=0)
 
-    predicted_apparent_mag = apparent_mag(best_fit)
-    residuals = apparent_mag_vals - predicted_apparent_mag
+    mB_pred = mu_theory(best_fit) + M0_50
+    corrected_mags = mb_vals - mu_corr(best_fit)
+    residuals = corrected_mags - mB_pred
 
     skewness = stats.skew(residuals)
     kurtosis = stats.kurtosis(residuals)
 
-    mean_app_mag = np.mean(apparent_mag_vals)
+    mean_app_mag = np.mean(corrected_mags)
     ss_res = np.sum(residuals**2)
-    ss_tot = np.sum((apparent_mag_vals - mean_app_mag) ** 2)
+    ss_tot = np.sum((corrected_mags - mean_app_mag) ** 2)
     r_squared = 1 - (ss_res / ss_tot)
     rmsd = np.sqrt(np.mean(residuals**2))
 
     M_label = f"{M0_50:.3f} +{M0_84-M0_50:.3f}/-{M0_50-M0_16:.3f}"
     H0_label = f"{H0_50:.2f} +{H0_84-H0_50:.2f}/-{H0_50-H0_16:.2f} km/s/Mpc"
     omega_label = f"{Om_50:.3f} +{Om_84-Om_50:.3f}/-{Om_50-Om_16:.3f}"
-    vf_label = f"{vf_50:.3f} +{vf_84-vf_50:.3f}/-{vf_50-vf_16:.3f}"
+    vf_label = f"{vf_50:.3f} +{vf_84-vf_50:.3f}/-{vf_50-vf_16:.3f} x 100 km/s"
 
     print_color("Dataset", legend)
     print_color("z range", f"{z_cmb[0]:.4f} - {z_cmb[-1]:.4f}")
     print_color("M", M_label)
     print_color("H0", H0_label)
     print_color("Ωm", omega_label)
-    print_color("v_flow", vf_label)
+    print_color("v", vf_label)
     print_color("R-squared (%)", f"{100 * r_squared:.2f}")
     print_color("RMSD (mag)", f"{rmsd:.3f}")
     print_color("Skewness of residuals", f"{skewness:.3f}")
@@ -171,14 +192,14 @@ def main():
     print_color("Chi squared", f"{chi_squared(best_fit):.2f}")
     print_color("Log Evidence", f"{log_evd:.1f}")
 
-    labels = ["$M_0$", "$H_0$", "$Ω_m$", "$v_{flow}$"]
+    labels = ["$M_0$", "$H_0$", "$Ω_m$", "$v_{100}$"]
     plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
     plot_predictions(
         legend=legend,
         x=z_cmb,
-        y=apparent_mag_vals - M0_50,
+        y=corrected_mags - M0_50,
         y_err=np.sqrt(np.diag(cov_matrix)),
-        y_model=predicted_apparent_mag - M0_50,
+        y_model=mu_theory(best_fit),
         label=f"$Ω_m$={Om_50:.3f}",
         x_scale="log",
     )
@@ -217,21 +238,21 @@ Log Evidence: -711.0
 
 =============================
 
-Flat ΛCDM w(z) = -1
-Void outflow corrections of SNe positions
-1 + z_cosmo = (1 + z_cmb) * (1 + v_flow / c)
+Flat ΛCDM
+Isotropic velocity SNe observed redshifts (limit to z <= 0.1)
+z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-M_inf: -19.355 +0.056/-0.058 mag
-v_flow: 77 +- 50 km/s (prior ~ U(-1.7, 3.2) x 100 km/s)
-H0: 70.39 +1.80/-1.80 km/s/Mpc
-Ωm: 0.315 +0.021/-0.020
-R-squared (%): 99.74
-RMSD (mag): 0.153
-Skewness of residuals: 0.055
-kurtosis of residuals: 1.580
+M: -19.352 +0.056/-0.057
+H0: 70.39 +1.79/-1.79 km/s/Mpc
+Ωm: 0.317 +0.021/-0.020
+v: -0.67 +0.44/-0.44 x 100 km/s (prior ~ U(-3.25, 2.00))
+R-squared (%): 99.75
+RMSD (mag): 0.154
+Skewness of residuals: 0.056
+kurtosis of residuals: 1.585
 Degs of freedom: 1586
-Chi squared: 1400.46 (1.57 sigma significance)
-Log Evidence: -711.2
+Chi squared: 1400.53 (1.55 sigma significance)
+Log Evidence: -711.4
 """
 
 """
