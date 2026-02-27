@@ -31,19 +31,19 @@ def Ode_z(z, w0):
 
 
 @njit
-def Ez(z, H0, Obh2, Och2, w0):
+def Ez(z, H0, Obh2, Och2):
     h = H0 / 100
     Onu = Omnu_h2 / h**2
     Or = Or_h2 / h**2
     Obc = (Obh2 + Och2) / h**2
     Ode = 1.0 - Obc - Or - Onu
 
-    zp1 = 1 + z
+    zp1 = 1.0 + z
 
     radiation_term = Or * zp1**4
     matter_term = Obc * zp1**3
     neutrino_term = Onu * cmb.Omnu_z(z)
-    dark_energy_term = Ode * Ode_z(z, w0)
+    dark_energy_term = Ode
 
     return np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
 
@@ -51,7 +51,7 @@ def Ez(z, H0, Obh2, Och2, w0):
 @njit
 def H_z(z, params):
     H0 = params[1]
-    return H0 * Ez(z, H0=H0, Obh2=params[2], Och2=params[3], w0=params[4])
+    return H0 * Ez(z, H0=H0, Obh2=params[2], Och2=params[3])
 
 
 cmb.set_HZ(H_z)
@@ -98,9 +98,25 @@ def bao_theory(z, qty, params):
     return results / rd
 
 
+correction_mask = z_cmb <= 0.1
+
+
 @njit
-def apparent_mag(params):
-    return params[0] + 25.0 + 5 * np.log10((1.0 + z_hel) * DM_z(z_cmb, params))
+def mu_corr(params):
+    z_pec = 100 * params[4] / c
+    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+
+    return np.where(
+        correction_mask,
+        5.0 * np.log10(DM_z(z_cosmo, params) / DM_z(z_cmb, params)),
+        0.0,
+    )
+
+
+@njit
+def mB_theory(params):
+    dL = (1.0 + z_hel) * DM_z(z_cmb, params)
+    return params[0] + 25.0 + 5 * np.log10(dL)
 
 
 def solve_triang(cho_L, delta):
@@ -115,7 +131,7 @@ def chi_squared(params):
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
     chi_bao = delta_bao @ inv_cov_bao @ delta_bao
 
-    delta_sn = mb_values - apparent_mag(params)
+    delta_sn = mb_values - mB_theory(params) - mu_corr(params)
     chi_sn = solve_triang(cho_sn, delta_sn)
 
     return chi2_cmb + chi_bao + chi_sn
@@ -138,7 +154,7 @@ def main():
     prior.add_parameter("H0", dist=(60.0, 75.0))
     prior.add_parameter("obh2", dist=(0.019, 0.025))
     prior.add_parameter("och2", dist=(0.01, 0.25))
-    prior.add_parameter("w0", dist=(-1.0, -1 / 3))
+    prior.add_parameter("v", dist=(-3.2, 1.5))
 
     with Pool(6) as pool:
         sampler = Sampler(
@@ -147,7 +163,7 @@ def main():
         sampler.run(verbose=True)
 
     samples, log_w, log_l = sampler.posterior()
-    labels = ["M", "H_0", "ω_b", "ω_c", "w_0"]
+    labels = ["M", "H_0", "ω_b", "ω_c", "v_{100}"]
     gd_samples = MCSamples(
         samples=samples,
         weights=np.exp(log_w),
@@ -182,7 +198,7 @@ def main():
 
     best_fit_mean = gd_samples.mean(prior.keys)
     degs_of_freedom = (
-        len(z_cmb) + len(bao_data["z"]) + len(cmb.DISTANCE_PRIORS) - len(prior.keys)
+        len(z_cmb) + len(bao_data) + len(cmb.DISTANCE_PRIORS) - len(prior.keys)
     )
 
     for par in gd_samples.getParamNames().names:
@@ -203,9 +219,9 @@ def main():
     plot_sn_predictions(
         legend=sn_legend,
         x=z_cmb,
-        y=mb_values - gd_samples.mean("M"),
+        y=mb_values - gd_samples.mean("M") - mu_corr(gd_samples.mean(prior.keys)),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=apparent_mag(best_fit_mean) - gd_samples.mean("M"),
+        y_model=mB_theory(best_fit_mean) - gd_samples.mean("M"),
         label=f"$Ω_m$={gd_samples.mean('om'):.3f}",
         x_scale="log",
     )
@@ -234,7 +250,7 @@ wa U(-2.0, 1.0)
 with w0 + wa < 0 enforced
 
 v_pec corrections of SNe:
-v_pec U(-1.2, 3.2) [x 100 km/s]
+v_pec U(-3.2, 1.5) [x 100 km/s]
 """
 
 """
@@ -256,20 +272,20 @@ Degrees of freedom: 1602
 """
 Flat ΛCDM
 Void outflow corrections of SNe positions
-1 + z_cosmo = (1 + z_cmb) * (1 + v_flow / c)
+1 + z_cosmo = (1 + z_cmb) / (1 + v_flow / c)
 
-M: -19.423 ± 0.010 mag
-v_flow: 96 ± 43 km/s
+M: -19.4204 ± 0.0092 mag
+v: 84 ± 39 km/s
 H0: 68.43 ± 0.27 km/s/Mpc
 ωb: 0.02257 ± 0.00010
 ωc: 0.1174 ± 0.0006
 ωm: 0.1406 ± 0.0006
 Ωm: 0.300 ± 0.004
-z*: 1089.40 ± 0.15
+z*: 1089.41 ± 0.15
 zd: 1060.20 ± 0.23
 rd: 147.57 ± 0.19 Mpc
-MAP chi^2: 1415.39 (2.22 sigma away from no v_flow correction)
-Log evidence: -726.2 (Δ logZ = 1.1 against no v_flow correction)
+MAP chi^2: 1415.58 (2.18 sigma away from no v_flow correction)
+Log evidence: -726.5 (Δ logZ = 0.8 against no v_flow correction)
 Degrees of freedom: 1601
 """
 
