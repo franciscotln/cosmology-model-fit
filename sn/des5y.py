@@ -65,7 +65,7 @@ def solve_triang(cho_L, delta):
 
 
 def chi_squared(params):
-    diff = mu_vals + mu_corr(params) - theory_mu(params)
+    diff = mu_vals - mu_corr(params) - theory_mu(params)
     return solve_triang(cho, diff)
 
 
@@ -78,7 +78,7 @@ bounds = np.array(
         (-1.0, 1.0),  # ΔM
         (56.0, 85.0),  # H0
         (0.0, 0.8),  # Ωm
-        (-3.0, 6.0),  # v x 100 km/s
+        (-6.0, 3.0),  # v x 100 km/s
     ]
 )
 
@@ -152,7 +152,7 @@ def main():
     best_fit = np.percentile(samples, 50, axis=0)
 
     mu_pred = theory_mu(best_fit)
-    corrected_mu = mu_vals + mu_corr(best_fit)
+    corrected_mu = mu_vals - mu_corr(best_fit)
     residuals = corrected_mu - mu_pred
 
     ss_res = np.sum(residuals**2)
@@ -224,14 +224,14 @@ Isotropic velocity SNe observed redshifts (limit to z <= 0.1)
 z_cosmo = -1 + (1 + z) / (1 + v/c)
 
 ΔM: 0.001 +0.057 -0.058 mag
-v:  1.46 +0.75 -0.77 [x 100 km/s] (prior ~ U(-3, 6))
-H0: 70.38 +1.80 -1.79 km/s/Mpc
-Ωm: 0.308 +0.019 -0.018
+v:  -1.52 +0.79 -0.79 [x 100 km/s] (prior ~ U(-6, 3))
+H0: 70.39 +1.80 -1.80 km/s/Mpc
+Ωm: 0.307 +0.019 -0.018
 R-squared (%): 98.37
 RMSD (mag): 0.269
 Skewness of residuals: 3.2
-Chi squared: 1627.71 (1.93 sigma significance)
-Log evidence: -825.5
+Chi squared: 1627.68 (1.93 sigma significance)
+Log evidence: -825.4
 Effective deg of freedom: 1710
 """
 

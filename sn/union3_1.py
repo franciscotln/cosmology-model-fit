@@ -21,30 +21,43 @@ def Ode(z, w0):
 
 
 @njit
-def Ez(z, params):
-    Om = params[2]
-    return np.sqrt(Om * (1.0 + z) ** 3 + (1.0 - Om))
+def Hz(z, params):
+    H0, Om = params[1], params[2]
+    return H0 * np.sqrt(Om * (1.0 + z) ** 3 + (1.0 - Om))
 
 
 @njit
 def DM_z(z, params):
-    Hz = params[1] * Ez(z_grid, params)
-    dh_grid = c / Hz
+    dh_grid = c / Hz(z_grid, params)
     dh = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size, dtype=np.float64)
     cum_dm[1:] = np.cumsum(dh * dz)
     return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
+correction_mask = z_cmb <= 0.2
+
+
+@njit
+def mu_corr(params):
+    z_pec = 100 * params[3] / c
+    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+
+    return np.where(
+        correction_mask,
+        5.0 * np.log10(DM_z(z_cosmo, params) / DM_z(z_cmb, params)),
+        0.0,
+    )
+
+
 @njit
 def mu_theory(params):
-    Mz = params[0] - params[3] * 0.043**2 / (0.043 + z_cmb)
-    return Mz + 25.0 + 5 * np.log10((1.0 + z_hel) * DM_z(z_cmb, params))
+    return params[0] + 25.0 + 5 * np.log10((1.0 + z_hel) * DM_z(z_cmb, params))
 
 
 @njit
 def chi_squared(params):
-    delta = mu_vals - mu_theory(params)
+    delta = mu_vals - mu_corr(params) - mu_theory(params)
     return delta @ inv_cov @ delta
 
 
@@ -67,7 +80,7 @@ def main():
         "H0", dist=norm(loc=70.39, scale=1.80)
     )  # TRGB Freedman et al. 2025
     prior.add_parameter("om", dist=(0.1, 0.7))
-    prior.add_parameter("m_prime", dist=(-13.0, 7.0))
+    prior.add_parameter("v", dist=(-13.0, 5.0))
 
     with Pool(6) as pool:
         sampler = Sampler(
@@ -77,7 +90,7 @@ def main():
 
     samples, log_w, log_l = sampler.posterior()
 
-    labels = ["ΔM", "H_0", "Ω_m", "M'_0"]
+    labels = ["ΔM", "H_0", "Ω_m", "v_{flow}"]
     gd_samples = MCSamples(
         samples=samples,
         weights=np.exp(log_w),
@@ -105,20 +118,21 @@ def main():
     print(f"Log evidence: {sampler.log_z:.1f}")
     print(f"Degrees of freedom: {degs_of_freedom}")
 
-    predicted_distances = mu_theory(best_fit)
-    residuals = mu_vals - predicted_distances
-    sigma_mu = np.sqrt(np.diag(cov_matrix))
+    mu_pred = mu_theory(best_fit)
+    mu_corrected = mu_vals - mu_corr(best_fit)
+    residuals = mu_corrected - mu_pred
+    mu_std = np.sqrt(np.diag(cov_matrix))
 
     plot_predictions(
         legend=legend,
         x=z_cmb,
-        y=mu_vals,
-        y_err=sigma_mu,
-        y_model=mu_theory(best_fit),
+        y=mu_corrected,
+        y_err=mu_std,
+        y_model=mu_pred,
         label=f"$Ω_m$={gd_samples.mean('om'):.3f}",
         x_scale="log",
     )
-    plot_residuals(z_values=z_cmb, residuals=residuals, y_err=sigma_mu, bins=7)
+    plot_residuals(z_values=z_cmb, residuals=residuals, y_err=mu_std, bins=7)
 
 
 if __name__ == "__main__":
@@ -130,8 +144,10 @@ Dataset: Union 3 Bins
 z range: 0.050 - 2.262
 Sample size: 22
 *******************************
+"""
 
-Flat ΛCDM: w(z) = -1
+"""
+Flat ΛCDM
 
 ΔM: 0.037 ± 0.059
 H0 (km/s/Mpc): 70.3 ± 1.8
@@ -140,23 +156,24 @@ H0 (km/s/Mpc): 70.3 ± 1.8
 χ2 (MAP): 28.8
 Log evidence: -22.0
 Degs of freedom: 19
+"""
 
-===============================
+"""
+Flat ΛCDM
+Isotropic velocity SNe observed redshifts (limit to z <= 0.2)
+z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-Flat ΛCDM: w(z) = -1
-Outflow mag correction of SNe M(z) = M_inf - M'0 * z_c^2 / (z_c + z), z_c=0.043
-
-ΔM_inf: -0.013 ± 0.06 mag
-M'0: -3.3 ± 1.9 (prior ~ U(-13, 7))
+ΔM: 0.000 ± 0.060 mag
+v_flow: -3.9 ± 1.7 (prior ~ U(-13, 5)) x 100 km/s
 H0: 70.4 ± 1.8 km/s/Mpc
-Ωm: 0.294 +0.030/-0.034 (agreement with ΛCDM from BAO at 0.1 sigma)
-Ωm h^2: 0.146 +0.016/-0.019
-χ2 (MAP): 25.7 (1.82 sigma away from constant M)
-Log evidence: -21.9
+Ωm: 0.297 +0.026/-0.029 (agreement with ΛCDM from BAO)
+Ωm h^2: 0.147 +0.014/-0.017
+χ2 (MAP): 23.25 (2.36 sigma away from constant M)
+Log evidence: -20.7
 Degs of freedom: 18
+"""
 
-===============================
-
+"""
 Flat wCDM: w(z) = w0
 
 ΔM: 0.044 ± 0.059
