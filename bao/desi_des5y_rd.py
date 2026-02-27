@@ -29,15 +29,9 @@ def Ode_z(z, w0):
 
 @njit
 def Ez(z, params):
-    Om, w0 = params[3], params[4]
+    Om = params[3]
     inv_a3 = (1.0 + z) ** 3
-    return np.sqrt(Om * inv_a3 + (1.0 - Om) * Ode_z(z, w0))
-
-
-@njit
-def theory_mu(params):
-    dL = (1.0 + z_hel) * DM_z(z_cmb, params)
-    return params[0] + 25.0 + 5 * np.log10(dL)
+    return np.sqrt(Om * inv_a3 + (1.0 - Om))
 
 
 @njit
@@ -83,6 +77,27 @@ def bao_theory(z, qty, params):
     return results / rd
 
 
+correction_mask = z_cmb <= 0.1
+
+
+@njit
+def mu_corr(params):
+    z_pec = 100 * params[4] / c
+    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+
+    return np.where(
+        correction_mask,
+        5.0 * np.log10(DM_z(z_cosmo, params) / DM_z(z_cmb, params)),
+        0.0,
+    )
+
+
+@njit
+def theory_mu(params):
+    dL = (1.0 + z_hel) * DM_z(z_cmb, params)
+    return params[0] + 25.0 + 5 * np.log10(dL)
+
+
 def solve_triang(cho_L, delta):
     y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
     return np.dot(y, y)
@@ -97,7 +112,7 @@ def chi_squared(params):
     delta_rd_prior = rd_prior - cmb.r_drag(params[1], Omh2)
     chi2_prior = (delta_rd_prior / rd_prior_std) ** 2
 
-    delta_sn = mu_values - theory_mu(params)
+    delta_sn = mu_values - theory_mu(params) - mu_corr(params)
     chi_sn = solve_triang(cho_sn, delta_sn)
 
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
@@ -111,7 +126,7 @@ bounds = np.array(
         (0.010, 0.030),  # Ob * h^2
         (50.0, 90.0),  # H0
         (0.1, 0.8),  # Ωm
-        (-1.0, -1 / 3),  # w0
+        (-6.0, 2),  # v
     ]
 )
 
@@ -181,7 +196,7 @@ def main():
         (Obh2_16, Obh2_50, Obh2_84),
         (H0_16, H0_50, H0_84),
         (Om_16, Om_50, Om_84),
-        (w0_16, w0_50, w0_84),
+        (v_16, v_50, v_84),
     ] = pct
 
     best_fit = np.percentile(samples, 50, axis=0)
@@ -196,12 +211,12 @@ def main():
     print(f"ωb: {Obh2_50:.5f} +{(Obh2_84 - Obh2_50):.5f} -{(Obh2_50 - Obh2_16):.5f}")
     print(f"ωm: {Omh2_50:.4f} +{(Omh2_84 - Omh2_50):.4f} -{(Omh2_50 - Omh2_16):.4f}")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
-    print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
+    print(f"v: {v_50:.3f} +{(v_84 - v_50):.3f} -{(v_50 - v_16):.3f} x 100 km/s")
     print(f"Chi squared: {chi_squared(best_fit):.1f}")
     print(f"Log evidence: {log_evd:.1f}")
     print(f"Degrees of freedom: {1 + len(bao_data) + sn_size - len(best_fit)}")
 
-    labels = ["$Δ_M$", "$ω_b$", "$H_0$", "$Ω_m$", "$w_0$"]
+    labels = ["$Δ_M$", "$ω_b$", "$H_0$", "$Ω_m$", "$v$"]
     plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
     plot_bao_predictions(
         theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
@@ -212,7 +227,7 @@ def main():
     plot_sn_predictions(
         legend=sn_legend,
         x=z_cmb,
-        y=mu_values,
+        y=mu_values - mu_corr(best_fit),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=theory_mu(best_fit),
         label=f"$Ω_m$={Om_50:.3f}",
@@ -238,19 +253,18 @@ Degrees of freedom: 1724
 
 """
 Flat ΛCDM
-Void outflow corrections of SNe positions
-z_pec = (v / c) * z / (0.035 + z)
-1 + z_cosmo = (1 + z) * (1 + z_pec)
+Isotropic velocity SNe observed redshifts (limit to z <= 0.1)
+z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-ΔM: -0.057 +0.012 -0.012 mag
-v: 4.52 +1.70 -1.70 [x 100 km/s] (prior ~U(-5, 14))
+ΔM: -0.051 +0.012 -0.012 mag
+v: -1.72 +0.65 -0.65 [x 100 km/s] (prior ~U(-6, 2))
 rd: 147.14 +0.29 -0.30 Mpc
-H0: 69.03 +0.50 -0.49 km/s/Mpc
-Ωm: 0.297 +0.008 -0.008
-ωb: 0.02278 +0.00071 -0.00071
-ωm: 0.1416 +0.0023 -0.0023
-Chi squared: 1638.2 (2.66 sigma away from constant M)
-Log evidence: -836.0 (Δ logZ = 2.0 against constant M)
+H0: 68.91 +0.48 -0.48 km/s/Mpc
+Ωm: 0.299 +0.008 -0.008
+ωb: 0.02261 +0.00069 -0.00069
+ωm: 0.1421 +0.0022 -0.0022
+Chi squared: 1638.1 (2.66 sigma away from no correction)
+Log evidence: -836.1 (Δ logZ = 1.9 in favour of corrections)
 Degrees of freedom: 1723
 """
 

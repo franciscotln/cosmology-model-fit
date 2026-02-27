@@ -27,8 +27,8 @@ def Ode_z(z, w0):
 
 @njit
 def Ez(z, params):
-    Om, w0 = params[3], params[4]
-    return np.sqrt(Om * (1.0 + z) ** 3 + (1.0 - Om) * Ode_z(z, w0))
+    Om = params[3]
+    return np.sqrt(Om * (1.0 + z) ** 3 + (1.0 - Om))
 
 
 @njit
@@ -58,7 +58,7 @@ def DV_z(z, params):
 
 
 qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
-quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int32)
+desi_qty = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int32)
 
 
 @njit
@@ -73,6 +73,21 @@ def bao_theory(z, qty, params):
     return results / params[1]
 
 
+correction_mask = z_cmb <= 0.2
+
+
+@njit
+def mu_corr(params):
+    z_pec = 100 * params[4] / c
+    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+
+    return np.where(
+        correction_mask,
+        5.0 * np.log10(DM_z(z_cosmo, params) / DM_z(z_cmb, params)),
+        0.0,
+    )
+
+
 @njit
 def mu_theory(params):
     dL = (1.0 + z_hel) * DM_z(z_cmb, params)
@@ -81,9 +96,9 @@ def mu_theory(params):
 
 @njit
 def chi_squared(params):
-    delta_sn = mu_vals - mu_theory(params)
+    delta_sn = mu_vals - mu_theory(params) - mu_corr(params)
     chi_sn = delta_sn @ inv_cov_sn @ delta_sn
-    delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
+    delta_bao = bao_data["value"] - bao_theory(bao_data["z"], desi_qty, params)
     chi_bao = delta_bao @ inv_cov_bao @ delta_bao
     return chi_sn + chi_bao
 
@@ -106,7 +121,7 @@ def main():
     prior.add_parameter("rd", dist=norm(loc=147.09, scale=0.26))  # Planck prior
     prior.add_parameter("H0", dist=(50.0, 85.0))
     prior.add_parameter("Ωm", dist=(0.1, 0.6))
-    prior.add_parameter("w0", dist=(-1.0, -1 / 3))
+    prior.add_parameter("v", dist=(-12, 5))
 
     with Pool(8) as pool:
         sampler = Sampler(
@@ -122,12 +137,12 @@ def main():
     rd_16, rd_50, rd_84 = quantile(samples[:, 1], one_sigma_ci, weights=w)
     H0_16, H0_50, H0_84 = quantile(samples[:, 2], one_sigma_ci, weights=w)
     Om_16, Om_50, Om_84 = quantile(samples[:, 3], one_sigma_ci, weights=w)
-    w0_16, w0_50, w0_84 = quantile(samples[:, 4], one_sigma_ci, weights=w)
+    v_16, v_50, v_84 = quantile(samples[:, 4], one_sigma_ci, weights=w)
 
     Omh2_samples = samples[:, 3] * (samples[:, 2] / 100) ** 2
     Omh2_16, Omh2_50, Omh2_84 = quantile(Omh2_samples, one_sigma_ci, weights=w)
 
-    best_fit = [dM_50, rd_50, H0_50, Om_50, w0_50]
+    best_fit = [dM_50, rd_50, H0_50, Om_50, v_50]
 
     corner(
         samples,
@@ -153,7 +168,7 @@ def main():
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"ωm: {Omh2_50:.4f} +{(Omh2_84 - Omh2_50):.4f} -{(Omh2_50 - Omh2_16):.4f}")
-    print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
+    print(f"v: {v_50:.3f} +{(v_84 - v_50):.3f} -{(v_50 - v_16):.3f} x 100 km/s")
     print(f"Chi squared: {chi_squared(best_fit):.1f}")
     print(f"Log evidence: {sampler.log_z:.1f}")
     print(f"Degs of freedom: {degs_of_freedom}")
@@ -167,7 +182,7 @@ def main():
     plot_sn_predictions(
         legend=sn_legend,
         x=z_cmb,
-        y=mu_vals,
+        y=mu_vals - mu_corr(best_fit),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=mu_theory(best_fit),
         label=f"$Ω_m$={Om_50:.3f}",
@@ -189,8 +204,8 @@ rd ~N(147.09, 0.26)
 H0 ~U(50.0, 85.0)
 Ωm ~U(0.1, 0.6)
 
-Outflow z correction:
-v ~U(-10, 26) x 100 km/s
+flow correction:
+v ~U(-12, 5) x 100 km/s
 
 wCDM:
 w0 ~U(-1.5, 0.0)
@@ -206,7 +221,7 @@ w0 + wa < 0 enforced
 """
 
 """
-Flat ΛCDM: w(z) = -1
+Flat ΛCDM
 ΔM: -0.037 +0.011 -0.011 mag
 rd: 147.09 +0.26 -0.26 Mpc
 H0: 68.79 +0.49 -0.49 km/s/Mpc
@@ -218,19 +233,18 @@ Degs of freedom: 31
 """
 
 """
-Flat ΛCDM: w(z) = -1
-Void outflow corrections of SNe positions
-z_pec = (v / c) * z / (0.035 + z)
-1 + z_cosmo = (1 + z) * (1 + z_pec)
+Flat ΛCDM
+Isotropic velocity SNe observed redshifts (limit to z <= 0.2)
+z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-ΔM: -0.052 +0.012 -0.012 mag
-v: 7.5 +3.4 -3.3 x 100 km/s
+ΔM: -0.040 +0.011 -0.011 mag
+v: -3.82 +1.40 -1.40 x 100 km/s
 rd: 147.09 +0.26 -0.26 Mpc
-H0: 69.05 +0.50 -0.50 km/s/Mpc
+H0: 69.04 +0.50 -0.49 km/s/Mpc
 Ωm: 0.297 +0.008 -0.008
-ωm: 0.1417 +0.0024 -0.0023
-Chi squared: 36.0 (2.26 sigma away from no corrections in M)
-Log evidence: -32.3 (Δ logZ = 1.0 against no corrections in M)
+ωm: 0.1417 +0.0023 -0.0023
+Chi squared: 33.5 (2.76 sigma away from no corrections)
+Log evidence: -31.1 (Δ logZ = 2.2 against no flow)
 Degs of freedom: 30
 """
 
