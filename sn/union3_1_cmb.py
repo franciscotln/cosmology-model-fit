@@ -58,17 +58,32 @@ def DM_z(z, params):
     return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
+correction_mask = z_cmb <= 0.2
+
+
+@njit
+def mu_corr(params):
+    z_pec = 100 * params[4] / c
+    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+
+    return np.where(
+        correction_mask,
+        5.0 * np.log10(DM_z(z_cosmo, params) / DM_z(z_cmb, params)),
+        0.0,
+    )
+
+
 @njit
 def mu_theory(params):
-    Mz = params[0] - params[4] * 0.043**2 / (0.043 + z_cmb)
-    return Mz + 25.0 + 5 * np.log10((1.0 + z_hel) * DM_z(z_cmb, params))
+    dL = (1.0 + z_hel) * DM_z(z_cmb, params)
+    return params[0] + 25.0 + 5 * np.log10(dL)
 
 
 def chi_squared(params):
     delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(params[2], params[3], params)
     chi2_cmb = delta_cmb @ cmb.inv_cov_mat @ delta_cmb
 
-    delta_sn = mu_vals - mu_theory(params)
+    delta_sn = mu_vals - mu_theory(params) - mu_corr(params)
     chi_sn = delta_sn @ inv_cov_sn @ delta_sn
 
     return chi2_cmb + chi_sn
@@ -80,7 +95,7 @@ bounds = np.array(
         (60.0, 75.0),  # H0
         (0.010, 0.030),  # ωb
         (0.010, 0.250),  # ωc
-        (-10.0, 5.0),  # M'0
+        (-12.0, 5.0),  # v x 100 km/s
     ]
 )
 
@@ -150,8 +165,8 @@ def main():
     gd_samples = MCSamples(
         samples=chain_list,
         loglikes=loglikes,
-        names=["dM", "H0", "obh2", "och2", "M_prime"],
-        labels=["Δ_M", "H_0", "ω_b", "ω_c", "M'_0"],
+        names=["dM", "H0", "obh2", "och2", "v"],
+        labels=["Δ_M", "H_0", "ω_b", "ω_c", "v{100}"],
         label="Union3.1 + CMB(R, lA, ωb)",
     )
     gd_samples.addDerived(
@@ -164,7 +179,7 @@ def main():
     g = plots.get_subplot_plotter()
     g.triangle_plot(
         gd_samples,
-        params=["dM", "M_prime", "H0", "om"],
+        params=["dM", "v", "H0", "om"],
         title_limit=1,
         filled=True,
         contour_colors=["C0"],
@@ -185,10 +200,10 @@ def main():
     plot_predictions(
         legend=sn_legend,
         x=z_cmb,
-        y=mu_vals,
+        y=mu_vals - mu_corr(best_fit),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=mu_theory(best_fit),
-        label=f"ΛCDM + M(z)",
+        label=f"ΛCDM",
         x_scale="log",
     )
 
@@ -216,14 +231,15 @@ Degrees of freedom: 21
 
 """
 Flat ΛCDM w(z) = -1
-Outflow mag correction of SNe M(z) = M_inf - M'0 * z_c^2 / (z_c + z), z_c=0.043
+Isotropic velocity SNe observed redshifts (limit to z <= 0.2)
+z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-ΔM_inf: -0.078 +- 0.012 mag
-M'0: -2.6 +- 1.4 (prior ~ U(-10, 5))
+ΔM: -0.071 +- 0.011 mag
+v_flow: -3.4 ± 1.4 (prior ~ U(-12, 5)) x 100 km/s
 H0: 67.69 +- 0.49 km/s/Mpc
 Ωm: 0.3107 +- 0.0069
-Chi2 (MAP): 26.1 (1.87 sigma away from no outflow)
-Log Evidence: -32.9
+Chi2 (MAP): 23.6 (2.45 sigma away from no flow)
+Log Evidence: -31.8 (delta logZ = 1.3 in favour of flow)
 Degrees of freedom: 20
 """
 
