@@ -12,38 +12,51 @@ cho = cho_factor(covmat, lower=True)[0]
 
 c = c0 / 1000  # Speed of light (km/s)
 
-z_grid = np.linspace(0, np.max(z_cmb) + 0.1, num=3000)
+z_grid = np.linspace(0, np.max(z_cmb) + 0.1, num=4000)
 dz = np.diff(z_grid)
-
-inv_a = 1.0 + z_grid
+zp1 = 1.0 + z_grid
 
 
 @njit
 def Ode_z(w0):
     # Thawing quintessence with w(z) ranging from -1 to 1
-    return (2 * inv_a**3 / ((1.0 + w0) + (1.0 - w0) * inv_a**3)) ** 2
+    return (2 * zp1**3 / ((1.0 + w0) + (1.0 - w0) * zp1**3)) ** 2
 
 
 @njit
-def Ez(params):
-    Om = params[2]
-    return np.sqrt(Om * inv_a**3 + 1.0 - Om)
+def Hz(params):
+    H0, Om = params[1], params[2]
+    return H0 * np.sqrt(Om * zp1**3 + 1.0 - Om)
 
 
 @njit
 def DM_z(z, params):
-    dh_grid = (c / params[1]) / Ez(params)
-    dh = (dh_grid[:-1] + dh_grid[1:]) / 2
+    dH_grid = c / Hz(params)
+    dh = (dH_grid[:-1] + dH_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size, dtype=np.float64)
     cum_dm[1:] = np.cumsum(dh * dz)
-    return interp_hermite(z, z_grid, cum_dm, dh_grid)
+    return interp_hermite(z, z_grid, cum_dm, dH_grid)
+
+
+correction_mask = z_cmb <= 0.1
+
+
+@njit
+def mu_corr(params):
+    z_pec = 100 * params[3] / c
+    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+
+    return np.where(
+        correction_mask,
+        5.0 * np.log10(DM_z(z_cosmo, params) / DM_z(z_cmb, params)),
+        0.0,
+    )
 
 
 @njit
 def theory_mu(params):
-    Mz = params[0] - params[3] * 0.043**2 / (0.043 + z_cmb)
     dL = (1.0 + z_hel) * DM_z(z_cmb, params)
-    return Mz + 25.0 + 5 * np.log10(dL)
+    return params[0] + 25.0 + 5 * np.log10(dL)
 
 
 def solve_triang(cho_L, delta):
@@ -52,8 +65,8 @@ def solve_triang(cho_L, delta):
 
 
 def chi_squared(params):
-    delta = mu_vals - theory_mu(params)
-    return solve_triang(cho, delta)
+    diff = mu_vals + mu_corr(params) - theory_mu(params)
+    return solve_triang(cho, diff)
 
 
 def log_likelihood(params):
@@ -65,7 +78,7 @@ bounds = np.array(
         (-1.0, 1.0),  # ΔM
         (56.0, 85.0),  # H0
         (0.0, 0.8),  # Ωm
-        (-8.0, 4.0),  # M'0
+        (-3.0, 6.0),  # v x 100 km/s
     ]
 )
 
@@ -99,6 +112,7 @@ def main():
     nwalkers = 150
     burn_in = 500
     nsteps = burn_in + 2500
+    np.random.seed(42)
     initial_state = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
     moves = [
         (emcee.moves.KDEMove(bw_method="silverman"), 0.25),
@@ -116,7 +130,7 @@ def main():
     log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
     log_evd = log_evidence(samples, log_probs, log_probability, bounds)
     print(f"Gelman-Rubin: {gelman_rubin(chains_samples)}")
-    print_color("Log evidence", f"{log_evd:.1f}")
+    MAP_params = samples[np.argmax(log_probs)]
 
     try:
         tau = sampler.get_autocorr_time()
@@ -132,13 +146,14 @@ def main():
         (M_16, M_50, M_84),
         (H0_16, H0_50, H0_84),
         (Om_16, Om_50, Om_84),
-        (mp0_16, mp0_50, mp0_84),
+        (vflow_16, vflow_50, vflow_84),
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
     best_fit = np.percentile(samples, 50, axis=0)
 
-    theory_mu_vals = theory_mu(best_fit)
-    residuals = mu_vals - theory_mu_vals
+    mu_pred = theory_mu(best_fit)
+    corrected_mu = mu_vals + mu_corr(best_fit)
+    residuals = corrected_mu - mu_pred
 
     ss_res = np.sum(residuals**2)
     ss_tot = np.sum((mu_vals - np.mean(mu_vals)) ** 2)
@@ -149,7 +164,7 @@ def main():
     H_label = f"{H0_50:.2f} +{H0_84-H0_50:.2f} -{H0_50-H0_16:.2f} km/s/Mpc"
     M_label = f"{M_50:.3f} +{M_84-M_50:.3f} -{M_50-M_16:.3f} mag"
     Om_label = f"{Om_50:.3f} +{Om_84-Om_50:.3f} -{Om_50-Om_16:.3f}"
-    mp0_label = f"{mp0_50:.2f} +{mp0_84-mp0_50:.2f} -{mp0_50-mp0_16:.2f}"
+    v_label = f"{vflow_50:.2f} +{vflow_84-vflow_50:.2f} -{vflow_50-vflow_16:.2f} km/s"
 
     print_color("Dataset", legend)
     print_color("z range", f"{z_cmb[0]:.3f} - {z_cmb[-1]:.3f}")
@@ -157,27 +172,28 @@ def main():
     print_color("ΔM", M_label)
     print_color("H0", H_label)
     print_color("Ωm", Om_label)
-    print_color("M'0", mp0_label)
+    print_color("v_flow", v_label)
     print_color("R-squared (%)", f"{100 * r_squared:.2f}")
     print_color("RMSD (mag)", f"{rmsd:.3f}")
     print_color("Skewness of residuals", f"{stats.skew(residuals):.3f}")
-    print_color("Chi squared", f"{chi_squared(best_fit):.2f}")
+    print_color("Log evidence", f"{log_evd:.1f}")
+    print_color("Chi2 (MAP)", f"{chi_squared(MAP_params):.2f}")
     print_color("Effective deg of freedom", effective_sample_size - ndim)
 
     y_err = np.sqrt(covmat.diagonal())
 
-    labels = ["$ΔM$", "$H_0$", "$Ω_m$", "$M'_0$"]
+    labels = ["$ΔM$", "$H_0$", "$Ω_m$", "$v_{flow}$"]
     plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
     plot_predictions(
         legend=legend,
         x=z_cmb,
-        y=mu_vals,
+        y=corrected_mu,
         y_err=y_err,
-        y_model=theory_mu_vals,
+        y_model=mu_pred,
         label=f"$Ω_m$={Om_label}",
         x_scale="log",
     )
-    plot_residuals(z_values=z_cmb, residuals=residuals, y_err=y_err, bins=40)
+    plot_residuals(z_values=z_cmb, residuals=residuals, y_err=y_err, bins=60)
 
 
 if __name__ == "__main__":
@@ -193,29 +209,30 @@ Sample size: 1820
 
 """
 Flat ΛCDM w(z) = -1
-Ωm: 0.331 +0.016 -0.015
+Ωm: 0.331 +0.015 -0.015
 R-squared (%): 98.38
 RMSD (mag): 0.268
 Skewness of residuals: 3.2
 Chi squared: 1631.42
-Log evidence: -825.8
-Effective deg of freedom: 1712
+Log evidence: -825.7
+Effective deg of freedom: 1711
 """
 
 """
 Flat ΛCDM w(z) = -1
-Outflow mag correction of SNe M(z) = M_inf - M'0 * z_c^2 / (z_c + z), z_c=0.043
+Isotropic velocity SNe observed redshifts (limit to z <= 0.1)
+z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-ΔM_inf: -0.016 +- 0.060 mag (consistent at 0.04 sigma with Union3.1)
-M'0: -2.0 +- 1.1 (prior ~ U(-8, 4)) (consistent at 0.59 sigma with Union3.1)
-H0: 70.4 +- 1.8 km/s/Mpc
-Ωm: 0.295 +0.024 -0.023 (agreement with BAO in ΛCDM at 0.1 sigma)
+ΔM: 0.001 +0.057 -0.058 mag
+v:  1.46 +0.75 -0.77 [x 100 km/s] (prior ~ U(-3, 6))
+H0: 70.38 +1.80 -1.79 km/s/Mpc
+Ωm: 0.308 +0.019 -0.018
 R-squared (%): 98.37
 RMSD (mag): 0.269
 Skewness of residuals: 3.2
-Chi squared: 1627.94 (1.87 sigma significance)
+Chi squared: 1627.71 (1.93 sigma significance)
 Log evidence: -825.5
-Effective deg of freedom: 1711
+Effective deg of freedom: 1710
 """
 
 """
