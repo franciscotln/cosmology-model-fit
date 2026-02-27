@@ -271,8 +271,8 @@ Degrees of freedom: 1602
 
 """
 Flat ΛCDM
-Void outflow corrections of SNe positions
-1 + z_cosmo = (1 + z_cmb) / (1 + v_flow / c)
+Isotropic velocity SNe observed redshifts (limit to z <= 0.1)
+z_cosmo = -1 + (1 + z) / (1 + v/c)
 
 M: -19.4204 ± 0.0092 mag
 v: 84 ± 39 km/s

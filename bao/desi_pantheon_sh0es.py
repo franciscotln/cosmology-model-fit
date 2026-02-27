@@ -10,22 +10,6 @@ bao_legend, bao_data, bao_cov_matrix = get_bao_data()
 legend, z_cmb, z_hel, mb_vals, ceph_dists, cov_matrix_sn = get_data()
 
 ceph_mask = ceph_dists != -9
-z_outflow_cut = 0.0063  # outflow effects start from here on and decays as ~1/z
-flow_cut_mask = z_cmb < z_outflow_cut
-local_ceph = ceph_mask & flow_cut_mask
-z_cut_arr = np.full_like(z_cmb, z_outflow_cut)
-
-"""
-z_cut  chi2   log(Z)
-0.0040 1463.2 -748.6 (decreasing H0=71.9)
-0.0045 1462.4 -748.1 (decreasing H0=71.5)
-0.0050 1461.5 -747.6 (decreasing H0=71.2)
-0.0061 1460.0 -746.8 (lowest H0=70.9)
-0.0063 1459.9 -746.7 (lowest H0=70.9)
-0.0065 1460.7 -747.1 (highest H0=74.0)
-0.0070 1460.6 -747.1 (highest H0=74.0)
-0.0075 1460.6 -747.1 (highest H0=74.0)
-"""
 
 cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
 inv_cov_bao = np.linalg.inv(bao_cov_matrix)
@@ -43,14 +27,9 @@ def Ode_z(z, w0):
 
 
 @njit
-def Ez(z, theta):
-    Om = theta[2]
-    return np.sqrt(Om * (1.0 + z) ** 3 + (1.0 - Om))
-
-
-@njit
 def H_z(z, theta):
-    return theta[1] * Ez(z, theta)
+    H0, Om = theta[1], theta[2]
+    return H0 * np.sqrt(Om * (1.0 + z) ** 3 + (1.0 - Om))
 
 
 @njit
@@ -90,25 +69,24 @@ def bao_theory(z, qty, theta):
     return results / theta[3]
 
 
+correction_mask = ~ceph_mask & (z_cmb <= 0.1)
+
+
+@njit
+def mu_corr(params):
+    z_pec = 100 * params[4] / c
+    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+
+    return np.where(
+        correction_mask,
+        5.0 * np.log10(DM_z(z_cosmo, params) / DM_z(z_cmb, params)),
+        0.0,
+    )
+
+
 @njit
 def mu_theory(theta):
     return 25 + 5 * np.log10((1.0 + z_hel) * DM_z(z_cmb, theta))
-
-
-@njit
-def v_outflow(params, z):
-    # up to second order in z
-    Om, v_100 = params[2], params[4]
-    q0 = 1.5 * Om - 1.0
-    q_term = (1.0 - q0) * z
-    q_corr = (1.0 + q_term) / (1.0 + 0.5 * q_term)
-    v_ratio = 100 * v_100 / (c * z)
-    return v_ratio * (5 / np.log(10)) * q_corr
-
-
-@njit
-def outflow_correction(theta):
-    return np.where(local_ceph, v_outflow(theta, z_cut_arr), v_outflow(theta, z_cmb))
 
 
 def solve_triang(cho_L, delta):
@@ -117,9 +95,9 @@ def solve_triang(cho_L, delta):
 
 
 def chi2_sn(theta):
-    mu_the = np.where(ceph_mask, ceph_dists, mu_theory(theta))
-    mb_theory = mu_the + theta[0] + outflow_correction(theta)
-    delta_sn = mb_vals - mb_theory
+    mu_pred = np.where(ceph_mask, ceph_dists, mu_theory(theta))
+    mB_theory = mu_pred + theta[0]
+    delta_sn = mb_vals - mB_theory - mu_corr(theta)
     return solve_triang(cho_sn, delta_sn)
 
 
@@ -139,7 +117,7 @@ bounds = np.array(
         (50.0, 100.0),  # H0 (km/s/Mpc)
         (0.2, 0.7),  # Ωm
         (120.0, 170.0),  # rd (Mpc)
-        (-1.5, 3.5),  # v_outflow in units of 100 km/s
+        (-3.0, 1.5),  # v x 100 km/s
     ]
 )
 
@@ -216,12 +194,12 @@ def main():
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"rd: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
-    print(f"v_flow: {v_f_50:.3f} +{(v_f_84 - v_f_50):.3f} -{(v_f_50 - v_f_16):.3f}")
+    print(f"v: {v_f_50:.3f} +{(v_f_84 - v_f_50):.3f} -{(v_f_50 - v_f_16):.3f}")
     print(f"Chi2 (MAP): {chi_squared(samples[np.argmax(log_probs)]):.1f}")
     print(f"Log evidence: {log_evd:.1f}")
     print(f"Degrees of freedom: {len(bao_data) + len(z_cmb) - len(best_fit)}")
 
-    labels = ["$M_0$", "$H_0$", "$Ω_m$", "$r_{drag}$", "$v_{flow}$"]
+    labels = ["$M_0$", "$H_0$", "$Ω_m$", "$r_{drag}$", "$v_{100}$"]
     plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
     plot_bao_predictions(
         theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
@@ -232,7 +210,7 @@ def main():
     plot_sn_predictions(
         legend=legend,
         x=z_cmb,
-        y=mb_vals - (M_50 + outflow_correction(best_fit)),
+        y=mb_vals - (M_50 + mu_corr(best_fit)),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=mu_theory(best_fit),
         label=f"Best fit: $Ω_m$={Om_50:.3f}",
@@ -257,17 +235,16 @@ Degrees of freedom: 1666
 
 """
 Flat ΛCDM
-Void outflow corrections of SNe M(z) = M_inf + v_corr
-v_corr = 100 * v_flow * q_corr * (5 / ln(10)) / (c * z_cmb) with v_flow in units 100 km/s
+Isotropic velocity SNe observed redshifts (limit to z <= 0.1)
+z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-v_flow: 98 +- 42 km/s
-M_inf: -19.346 +- 0.052 mag
-M0 (computed at z=0.0063): -19.230 mag
-H0: 70.9 +- 1.5 km/s/Mpc
-Ωm: 0.300 +- 0.008
-rd: 142.8 +3.4 -3.3 Mpc
-Chi2 (MAP): 1459.8 (2.3 sigma away from no outflow case)
-Log evidence: -746.7 (Δ logZ = 1.2 in favour of outflow model)
+v: -86 +- 40 km/s
+M: -19.244 +- 0.030 mag
+H0: 74.23 +- 1.05 km/s/Mpc
+Ωm: 0.301 +- 0.008
+rd: 136.5 +2.0 -2.0 Mpc
+Chi2 (MAP): 1460.7 (2.14 sigma away from no v corrections)
+Log evidence: -747.1 (Δ logZ = 0.8 in favour of v corrections)
 Degrees of freedom: 1665
 """
 
