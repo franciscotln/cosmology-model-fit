@@ -60,11 +60,25 @@ def DM_z(z, theta):
     return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
+correction_mask = z_cmb <= 0.1
+
+
+@njit
+def mu_corr(params):
+    z_pec = 100 * params[4] / c
+    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+
+    return np.where(
+        correction_mask,
+        5.0 * np.log10(DM_z(z_cosmo, params) / DM_z(z_cmb, params)),
+        0.0,
+    )
+
+
 @njit
 def theory_mu(params):
-    Mz = params[0] - params[4] * 0.043**2 / (0.043 + z_cmb)
-    dL = (1 + z_hel) * DM_z(z_cmb, params)
-    return Mz + 25 + 5 * np.log10(dL)
+    dL = (1.0 + z_hel) * DM_z(z_cmb, params)
+    return params[0] + 25 + 5 * np.log10(dL)
 
 
 def solve_triang(cho_L, delta):
@@ -76,7 +90,7 @@ def chi_squared(params):
     delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(params[2], params[3], params)
     chi2_cmb = np.dot(delta, np.dot(cmb.inv_cov_mat, delta))
 
-    delta_sn = mu_vals - theory_mu(params)
+    delta_sn = mu_vals - theory_mu(params) - mu_corr(params)
     chi_sn = solve_triang(cho_sn, delta_sn)
 
     return chi2_cmb + chi_sn
@@ -88,7 +102,7 @@ bounds = np.array(
         (55.0, 75.0),  # H0
         (0.010, 0.030),  # Ωb * h^2
         (0.01, 0.25),  # Ωc * h^2
-        (-6.0, 3.0),  # M'0
+        (-6.0, 3.0),  # v x 100 km/s
     ]
 )
 
@@ -159,7 +173,7 @@ def main():
         (H0_16, H0_50, H0_84),
         (Obh2_16, Obh2_50, Obh2_84),
         (Och2_16, Och2_50, Och2_84),
-        (mp0_16, mp0_50, mp0_84),
+        (v_16, v_50, v_84),
     ] = pct
 
     best_fit = np.percentile(samples, 50, axis=0)
@@ -174,7 +188,7 @@ def main():
     z_st_16, z_st_50, z_st_84 = np.percentile(zst_samples, one_sigma_contour)
     z_dr_16, z_dr_50, z_dr_84 = np.percentile(zdr_samples, one_sigma_contour)
 
-    print(f"M'0: {mp0_50:.2f} +{(mp0_84 - mp0_50):.2f} -{(mp0_50 - mp0_16):.2f}")
+    print(f"v: {v_50:.2f} +{(v_84 - v_50):.2f} -{(v_50 - v_16):.2f}")
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f}")
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
@@ -188,12 +202,12 @@ def main():
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Log evidence: {log_evd:.1f}")
 
-    labels = ["$ΔM$", "$H_0$", "$ω_b$", "$ω_c$", "$M'_0$"]
+    labels = ["$ΔM$", "$H_0$", "$ω_b$", "$ω_c$", "$v$"]
     plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
     plot_sn_predictions(
         legend=sn_legend,
         x=z_cmb,
-        y=mu_vals,
+        y=mu_vals - mu_corr(best_fit),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=theory_mu(best_fit),
         label=f"$Ω_m$={Om_50:.3f}",
@@ -205,7 +219,7 @@ if __name__ == "__main__":
     main()
 
 """
-Flat ΛCDM w(z) = -1
+Flat ΛCDM
 H0: 67.38 +0.46 -0.45 km/s/Mpc
 Ωm: 0.315 +0.007 -0.006
 ωb: 0.02247 +0.00011 -0.00011
@@ -220,22 +234,23 @@ Log evidence: -834.5
 """
 
 """
-Flat ΛCDM w(z) = -1
-Outflow mag correction of SNe M(z) = M_inf - M'0 * z_c^2 / (z_c + z), z_c=0.043
+Flat ΛCDM
+Isotropic velocity SNe observed redshifts (limit to z <= 0.1)
+z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-ΔM_inf: -0.087 +- 0.012 (consistent with Union3.1 + CMB at 0.47 sigma)
-M'0: -1.46 +- 0.71 (prior U(-6.0, 3.0)) (consistent with Union3.1 + CMB at 0.72 sigma)
-H0: 67.72 +- 0.48 km/s/Mpc
-Ωm: 0.310 +- 0.007 (agreement with Union3.1 + CMB)
-ωb: 0.02251 +- 0.00011
-ωc: 0.1191 +- 0.0012
-ωm: 0.1422 +- 0.0011
-z*: 1089.65 +- 0.21
+v: -1.41 +- 0.64 (prior U(-6.0, 3.0))
+ΔM: -0.082 +- 0.012
+H0: 67.66 +- 0.47 km/s/Mpc
+Ωm: 0.311 +- 0.007
+ωb: 0.02250 +- 0.00011
+ωc: 0.1192 +- 0.0011
+ωm: 0.1424 +- 0.0011
+z*: 1089.67 +- 0.20
 zd: 1060.18 +- 0.23
-r*: 144.58 Mpc
-r_d: 147.20 Mpc
-Chi squared: 1628.47 (2 sigma significance)
-Log evidence: -834.0
+r*: 144.55 Mpc
+r_d: 147.17 Mpc
+Chi squared: 1627.73 (2.2 sigma significance)
+Log evidence: -833.8
 """
 
 """
