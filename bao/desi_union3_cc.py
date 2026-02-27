@@ -34,10 +34,10 @@ def Ode_z(z, w0):
 
 @njit
 def Ez(z, params):
-    Om, w0 = params[4], params[5]
+    Om = params[4]
     zp1 = 1.0 + z
     cubed = zp1**3
-    return np.sqrt(Om * cubed + (1.0 - Om) * Ode_z(z, w0))
+    return np.sqrt(Om * cubed + (1.0 - Om))
 
 
 @njit
@@ -67,7 +67,7 @@ def DV_z(z, params):
 
 
 qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
-quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int32)
+desi_qty = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int32)
 
 
 @njit
@@ -82,6 +82,21 @@ def bao_theory(z, qty, params):
     return results / params[3]
 
 
+correction_mask = z_cmb <= 0.2
+
+
+@njit
+def mu_corr(params):
+    z_pec = 100 * params[5] / c
+    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+
+    return np.where(
+        correction_mask,
+        5.0 * np.log10(DM_z(z_cosmo, params) / DM_z(z_cmb, params)),
+        0.0,
+    )
+
+
 @njit
 def mu_theory(params):
     dL = (1.0 + z_hel) * DM_z(z_cmb, params)
@@ -94,10 +109,10 @@ def solve_triang(cho_L, delta):
 
 
 def chi_squared(params):
-    delta_sn = sn_mu_vals - mu_theory(params)
+    delta_sn = sn_mu_vals - mu_theory(params) - mu_corr(params)
     chi_sn = solve_triang(cho_sn, delta_sn)
 
-    delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
+    delta_bao = bao_data["value"] - bao_theory(bao_data["z"], desi_qty, params)
     chi_bao = solve_triang(cho_bao, delta_bao)
 
     f_cc = params[0]
@@ -134,8 +149,8 @@ def main():
     prior.add_parameter("rd", dist=(120.0, 180.0))
     # Ωm: matter density parameter today
     prior.add_parameter("Ωm", dist=(0.01, 0.70))
-    # w0: dark energy equation of state today
-    prior.add_parameter("w0", dist=(-1.0, -1 / 3))
+    # v: isotropic velocity SNe observed redshifts
+    prior.add_parameter("v", dist=(-12.0, 5.0))
 
     with Pool(6) as pool:
         sampler = Sampler(
@@ -146,7 +161,7 @@ def main():
     samples, log_w, log_l = sampler.posterior()
     w = np.exp(log_w)
 
-    labels = ["f_{cc}", "ΔM", "H_0", "rd", "Ω_m", "w_0"]
+    labels = ["f_{cc}", "ΔM", "H_0", "rd", "Ω_m", "v"]
     gd_samples = MCSamples(
         samples=samples, weights=w, names=prior.keys, labels=labels, loglikes=log_l
     )
@@ -162,9 +177,9 @@ def main():
     h0_16, h0_50, h0_84 = quantile(samples[:, 2], one_sigma_ci, weights=w)
     rd_16, rd_50, rd_84 = quantile(samples[:, 3], one_sigma_ci, weights=w)
     Om_16, Om_50, Om_84 = quantile(samples[:, 4], one_sigma_ci, weights=w)
-    w0_16, w0_50, w0_84 = quantile(samples[:, 5], one_sigma_ci, weights=w)
+    v_16, v_50, v_84 = quantile(samples[:, 5], one_sigma_ci, weights=w)
 
-    best_fit = [fcc_50, dM_50, h0_50, rd_50, Om_50, w0_50]
+    best_fit = [fcc_50, dM_50, h0_50, rd_50, Om_50, v_50]
 
     Omh2_samples = samples[:, 4] * samples[:, 2] ** 2 / 100**2
     Omh2_16, Omh2_50, Omh2_84 = np.percentile(Omh2_samples, [15.9, 50, 84.1])
@@ -177,7 +192,7 @@ def main():
     print(f"r_d: {rd_50:.1f} +{(rd_84 - rd_50):.1f} -{(rd_50 - rd_16):.1f} Mpc")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"ωm: {Omh2_50:.4f} +{(Omh2_84 - Omh2_50):.4f} -{(Omh2_50 - Omh2_16):.4f}")
-    print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
+    print(f"v: {v_50:.3f} +{(v_84 - v_50):.3f} -{(v_50 - v_16):.3f} x 100 km/s")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Log evidence: {sampler.log_z:.2f}")
     print(f"Degrees of freedom: {deg_of_freedom}")
@@ -191,7 +206,7 @@ def main():
     plot_sn_predictions(
         legend=sn_legend,
         x=z_cmb,
-        y=sn_mu_vals,
+        y=sn_mu_vals - mu_corr(best_fit),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=mu_theory(best_fit),
         label=f"$H_0$={h0_50:.2f}, $Ω_m$={Om_50:.3f}",
@@ -231,12 +246,12 @@ w0:   U(-1.5, 0.0)
 wa:   U(-5.0, 3.0)
 Enforced w0 + wa < 0
 
-mag corrections:
-z_c   U(0, 0.17)
+flow correction:
+v ~U(-12, 5) x 100 km/s
 """
 
 """
-Flat ΛCDM: w(z) = -1
+Flat ΛCDM
 ΔM: -0.040 +0.070 -0.072 mag
 H0: 68.7 +2.3 -2.3 km/s/Mpc
 r_d: 147.2 +4.9 -4.6 Mpc
@@ -249,18 +264,19 @@ Degrees of freedom: 66
 """
 
 """
-Flat ΛCDM: w(z) = -1
-Outflow mag correction of SNe M(z) = M_inf + (5 / ln(10)) * z_c^2 / (z_c + z)
+Flat ΛCDM
+Isotropic velocity SNe observed redshifts (limit to z <= 0.2)
+z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-ΔM_inf: -0.052 +- 0.072 mag
-z_c: 0.052 +0.020 -0.016
+ΔM: -0.042 +- 0.072 mag
+v: -3.8 +1.4 -1.4 x 100 km/s
 H0: 69.0 +2.3 -2.3 km/s/Mpc
 r_d: 147.2 +4.4 -5.0 Mpc
-Ωm: 0.299 +0.008 -0.008
-ωm: 0.1427 +0.0310 -0.0221
+Ωm: 0.2987 +0.0081 -0.0081
+ωm: 0.143 +0.031 -0.022
 f_cc: 1.48 +0.18 -0.18
-Chi squared: 71.35 (2.24 sigma away from constant M)
-Log evidence: -177.85 (Δ logZ = 1.16 against constant M)
+Chi squared: 68.85 (2.74 sigma away from no correction)
+Log evidence: -176.90 (Δ logZ = 2.11 in favour of corrections)
 Degrees of freedom: 65
 """
 

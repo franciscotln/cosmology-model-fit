@@ -18,7 +18,7 @@ inv_cov_bao = np.linalg.inv(bao_cov_matrix)
 
 z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
 z_grid = np.linspace(0, z_max, num=4000)
-dx = np.diff(z_grid)
+dz = np.diff(z_grid)
 
 
 @njit
@@ -31,7 +31,7 @@ def Ode_z(z, w0):
 
 
 @njit
-def Ez(z, H0, Obh2, Och2, w0):
+def Ez(z, H0, Obh2, Och2):
     h = H0 / 100
     Onu = Omnuh2 / h**2
     Or = Orh2 / h**2
@@ -43,7 +43,7 @@ def Ez(z, H0, Obh2, Och2, w0):
     radiation_term = Or * zp1**4
     matter_term = Obc * zp1**3
     neutrino_term = Onu * cmb.Omnu_z(z)
-    dark_energy_term = Ode * Ode_z(z, w0)
+    dark_energy_term = Ode
 
     return np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
 
@@ -51,7 +51,7 @@ def Ez(z, H0, Obh2, Och2, w0):
 @njit
 def H_z(z, params):
     H0 = params[1]
-    return H0 * Ez(z, H0=H0, Obh2=params[2], Och2=params[3], w0=params[4])
+    return H0 * Ez(z, H0=H0, Obh2=params[2], Och2=params[3])
 
 
 cmb.set_HZ(H_z)
@@ -65,9 +65,9 @@ def DH_z(z, params):
 @njit
 def DM_z(z, params):
     dh_grid = DH_z(z_grid, params)
-    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    dh = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size, dtype=np.float64)
-    cum_dm[1:] = np.cumsum(dx * dy)
+    cum_dm[1:] = np.cumsum(dz * dh)
     return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
@@ -98,6 +98,21 @@ def bao_theory(z, qty, params):
     return results / rd
 
 
+correction_mask = z_cmb <= 0.1
+
+
+@njit
+def mu_corr(params):
+    z_pec = 100 * params[4] / c
+    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+
+    return np.where(
+        correction_mask,
+        5.0 * np.log10(DM_z(z_cosmo, params) / DM_z(z_cmb, params)),
+        0.0,
+    )
+
+
 @njit
 def theory_mu(params):
     dL = (1.0 + z_hel) * DM_z(z_cmb, params)
@@ -116,7 +131,7 @@ def chi_squared(params):
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
     chi_bao = delta_bao @ inv_cov_bao @ delta_bao
 
-    delta_sn = mu_values - theory_mu(params)
+    delta_sn = mu_values - theory_mu(params) - mu_corr(params)
     chi_sn = solve_triang(cho_sn, delta_sn)
 
     return chi2_cmb + chi_bao + chi_sn
@@ -139,7 +154,7 @@ def main():
     prior.add_parameter("H0", dist=(60.0, 75.0))
     prior.add_parameter("obh2", dist=(0.010, 0.030))
     prior.add_parameter("och2", dist=(0.01, 0.25))
-    prior.add_parameter("w0", dist=(-1.0, -1 / 3))
+    prior.add_parameter("v", dist=(-6.0, 2.0))
 
     with Pool(6) as pool:
         sampler = Sampler(
@@ -148,7 +163,7 @@ def main():
         sampler.run(verbose=True)
 
     samples, log_w, log_l = sampler.posterior()
-    labels = ["ΔM", "H_0", "ω_b", "ω_c", "w_0"]
+    labels = ["ΔM", "H_0", "ω_b", "ω_c", "v"]
     gd_samples = MCSamples(
         samples=samples,
         weights=np.exp(log_w),
@@ -207,7 +222,7 @@ def main():
     plot_sn_predictions(
         legend=sn_legend,
         x=z_cmb,
-        y=mu_values,
+        y=mu_values - mu_corr(best_fit_mean),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=theory_mu(best_fit_mean),
         label=f"$Ω_m$={gd_samples.mean('om'):.3f}",
@@ -225,7 +240,7 @@ DESI DR2 + DES5Y + (R, π/θ*, ωb)CMB ACT DR6 + Planck
 """
 
 """
-Flat ΛCDM: w(z) = -1
+Flat ΛCDM
 
 ΔM: -0.0626 ± 0.0079
 H0: 68.34 ± 0.27 km/s/Mpc
@@ -243,23 +258,22 @@ Degrees of freedom: 1726
 
 
 """
-Flat ΛCDM: w(z) = -1
-Void outflow corrections of SNe positions
-z_pec = (v / c) * z / (0.035 + z)
-1 + z_cosmo = (1 + z) * (1 + z_pec)
+Flat ΛCDM
+Isotropic velocity SNe observed redshifts (limit to z <= 0.1)
+z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-ΔM: -0.0728 ± 0.0088 mag (0.08 sigma agreement with DESI+CMB+Union3.1)
-v: 4.3 ± 1.6 [x 100 km/s] (prior ~ U(-5, 14)) (0.82 sigma agreement with DESI+CMB+Union3.1)
-H0: 68.48 ± 0.27 km/s/Mpc
+ΔM: -0.0649 ± 0.0080 mag
+v: -1.71 ± 0.63 [x 100 km/s] (prior ~ U(-6, 2))
+H0: 68.45 ± 0.27 km/s/Mpc
 Ωm: 0.2996 ± 0.0036
 ωb: 0.02258 ± 0.00010
-ωc: 0.11727 ± 0.00065
+ωc: 0.11734 ± 0.00065
 ωm: 0.1405 ± 0.0006
-z*: 1089.39 ± 0.15
-z_d: 1060.21 ± 0.23
-r_d: 147.60 ± 0.19 Mpc
-χ2 (MAP): 1642.38 (2.71 sigma away from no outflow)
-Log evidence: -840.9 (Δ logZ = 2.1 in favour of outflow)
+z*: 1089.40 ± 0.15
+z_d: 1060.20 ± 0.23
+r_d: 147.58 ± 0.19 Mpc
+χ2 (MAP): 1642.20 (2.74 sigma away from no inflow)
+Log evidence: -840.8 (Δ logZ = 2.2 in favour of inflow)
 Degrees of freedom: 1725
 """
 

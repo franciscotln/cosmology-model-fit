@@ -31,7 +31,7 @@ def Ode_z(z, w0):
 
 
 @njit
-def Ez(z, H0, Obh2, Och2, w0):
+def Ez(z, H0, Obh2, Och2):
     h = H0 / 100
     Onu = Omnuh2 / h**2
     Or = Orh2 / h**2
@@ -43,7 +43,7 @@ def Ez(z, H0, Obh2, Och2, w0):
     radiation_term = Or * zp1**4
     matter_term = Obc * zp1**3
     neutrino_term = Onu * cmb.Omnu_z(z)
-    dark_energy_term = Ode * Ode_z(z, w0)
+    dark_energy_term = Ode
 
     return np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
 
@@ -51,7 +51,7 @@ def Ez(z, H0, Obh2, Och2, w0):
 @njit
 def H_z(z, params):
     H0 = params[1]
-    return H0 * Ez(z, H0, Obh2=params[2], Och2=params[3], w0=params[4])
+    return H0 * Ez(z, H0, Obh2=params[2], Och2=params[3])
 
 
 cmb.set_HZ(H_z)
@@ -99,6 +99,21 @@ def bao_theory(z, qty, params):
     return results / rd
 
 
+correction_mask = z_cmb <= 0.2
+
+
+@njit
+def mu_corr(params):
+    z_pec = 100 * params[4] / c
+    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+
+    return np.where(
+        correction_mask,
+        5.0 * np.log10(DM_z(z_cosmo, params) / DM_z(z_cmb, params)),
+        0.0,
+    )
+
+
 @njit
 def mu_theory(params):
     dL = (1.0 + z_hel) * DM_z(z_cmb, params)
@@ -107,7 +122,7 @@ def mu_theory(params):
 
 @njit
 def chi2_sn(params):
-    delta_sn = mu_vals - mu_theory(params)
+    delta_sn = mu_vals - mu_theory(params) - mu_corr(params)
     return delta_sn @ inv_cov_sn @ delta_sn
 
 
@@ -148,7 +163,7 @@ def main():
     prior.add_parameter("H0", dist=(60.0, 75.0))
     prior.add_parameter("obh2", dist=(0.010, 0.030))
     prior.add_parameter("och2", dist=(0.01, 0.25))
-    prior.add_parameter("w0", dist=(-1.0, -1 / 3))
+    prior.add_parameter("v", dist=(-12.0, 4.5))
 
     with Pool(6) as pool:
         sampler = Sampler(
@@ -157,7 +172,7 @@ def main():
         sampler.run(verbose=True)
 
     samples, log_w, log_l = sampler.posterior()
-    labels = ["ΔM", "H_0", "ω_b", "ω_c", "w_0"]
+    labels = ["ΔM", "H_0", "ω_b", "ω_c", "v"]
     gd_samples = MCSamples(
         samples=samples,
         weights=np.exp(log_w),
@@ -223,7 +238,7 @@ def main():
     plot_sn_predictions(
         legend=sn_legend,
         x=z_cmb,
-        y=mu_vals,
+        y=mu_vals - mu_corr(best_fit),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=mu_theory(best_fit),
         label=f"$Ω_m$={gd_samples.mean('om'):.3f}",
@@ -262,20 +277,21 @@ Degrees of freedom: 36
 
 """
 Flat ΛCDM w(z) = -1
-Outflow mag correction of SNe M(z) = M_inf + (5 / ln(10)) * z_c^2 / (z_c + z)
+Isotropic velocity SNe observed redshifts (limit to z <= 0.2)
+z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-ΔM_inf: -0.065 +0.012 -0.010 mag
-z_c: 0.052 +0.020 -0.016 (prior U(0, 0.17))
+ΔM: -0.0548 ± 0.0073 mag
+v: -3.8 ± 1.4 (prior U(-12, 4.5)) x 100 km/s
 H0: 68.53 ± 0.27 km/s/Mpc
 ωb: 0.02259 ± 0.00010
 ωc: 0.11715 ± 0.00065
-ωm: 0.14038 ± 0.00064
-Ωm: 0.2989 ± 0.0036
+ωm: 0.14039 ± 0.00064
+Ωm: 0.2990 ± 0.0036
 z*: 1089.36 ± 0.15
 z_d: 1060.22 ± 0.23
 r_d: 147.61 ± 0.19 Mpc
-χ2 (MAP): 41.45 (2.26 sigmas away from no correction in M)
-Log evidence: -41.1 (ΔlogZ = 1.2 against no correction in M)
+χ2 (MAP): 39.01 (2.75 sigmas away from no correction)
+Log evidence: -40.1 (ΔlogZ = 2.2 in favour of inflow corrections)
 Degrees of freedom: 35
 """
 
