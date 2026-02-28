@@ -37,7 +37,7 @@ def Ode_z(z, w0):
 
 
 @njit
-def Ez(z, H0, Obh2, Och2, w0):
+def Ez(z, H0, Obh2, Och2):
     h = H0 / 100
     Omnu = Omnu_h2 / h**2
     Or = Or_h2 / h**2
@@ -47,15 +47,15 @@ def Ez(z, H0, Obh2, Och2, w0):
     radiation_term = Or * (1.0 + z) ** 4
     matter_term = Ombc * (1.0 + z) ** 3
     neutrino_term = Omnu * cmb.Omnu_z(z)
-    dark_energy_term = Ode * Ode_z(z, w0)
+    dark_energy_term = Ode
 
     return np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
 
 
 @njit
 def H_z(z, theta):
-    H0, Obh2, Och2, w0 = theta[2:]
-    return H0 * Ez(z, H0, Obh2, Och2, w0)
+    H0 = theta[2]
+    return H0 * Ez(z, H0, Obh2=theta[3], Och2=theta[4])
 
 
 cmb.set_HZ(H_z)
@@ -101,6 +101,22 @@ def bao_theory(z, qty, theta):
     return results / rd
 
 
+correction_mask = z_cmb <= 0.2
+
+
+@njit
+def mu_corr(params):
+    v_km_s = 100 * params[5]
+    z_pec = v_km_s / c
+    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+
+    return np.where(
+        correction_mask,
+        5.0 * np.log10(DM_z(z_cosmo, params) / DM_z(z_cmb, params)),
+        0.0,
+    )
+
+
 @njit
 def mu_theory(theta):
     dL = (1.0 + z_hel) * DM_z(z_cmb, theta)
@@ -112,7 +128,7 @@ def chi_squared(theta):
     thetastar_cov = cmb.covariance[1, 1]
     chi_theta_star = delta**2 / thetastar_cov
 
-    delta_sn = mu_values - mu_theory(theta)
+    delta_sn = mu_values - mu_theory(theta) - mu_corr(theta)
     chi_sn = delta_sn @ inv_cov_sn @ delta_sn
 
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, theta)
@@ -150,8 +166,8 @@ def main():
     prior.add_parameter("ωb", dist=(0.003, 0.050))
     # Ωc x h^2: cold dark matter density param today
     prior.add_parameter("ωc", dist=(0.05, 0.30))
-    # w0: dark energy equation of state today
-    prior.add_parameter("w0", dist=(-1.0, -1 / 3))
+    # v: peculiar velocity of the local group (x 100 km/s)
+    prior.add_parameter("v", dist=(-12, 6))
 
     with Pool(8) as pool:
         sampler = Sampler(
@@ -185,13 +201,11 @@ def main():
     h0_16, h0_50, h0_84 = quantile(samples[:, 2], one_sigma_ci, weights=w)
     wb_16, wb_50, wb_84 = quantile(samples[:, 3], one_sigma_ci, weights=w)
     wc_16, wc_50, wc_84 = quantile(samples[:, 4], one_sigma_ci, weights=w)
-    w0_16, w0_50, w0_84 = quantile(samples[:, 5], one_sigma_ci, weights=w)
+    v_16, v_50, v_84 = quantile(samples[:, 5], one_sigma_ci, weights=w)
 
-    best_fit = [fcc_50, dM_50, h0_50, wb_50, wc_50, w0_50]
+    best_fit = [fcc_50, dM_50, h0_50, wb_50, wc_50, v_50]
 
-    deg_of_freedom = (
-        1 + len(z_cmb) + len(bao_data["z"]) + len(z_cc_vals) - len(prior.keys)
-    )
+    deg_of_freedom = 1 + len(z_cmb) + len(bao_data) + N_cc - len(prior.keys)
 
     Omh2_samples = samples[:, 3] + samples[:, 4] + Omnu_h2
     Om_samples = Omh2_samples / (samples[:, 2] / 100) ** 2
@@ -206,7 +220,7 @@ def main():
     print(f"ωc: {wc_50:.4f} +{(wc_84 - wc_50):.4f} -{(wc_50 - wc_16):.4f}")
     print(f"ωm: {Omh2_50:.4f} +{(Omh2_84 - Omh2_50):.4f} -{(Omh2_50 - Omh2_16):.4f}")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
-    print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
+    print(f"v: {v_50:.3f} +{(v_84 - v_50):.3f} -{(v_50 - v_16):.3f} x 100 km/s")
     print(f"r_d: {rd_50:.1f} +{(rd_84 - rd_50):.1f} -{(rd_50 - rd_16):.1f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Log evidence: {sampler.log_z:.2f}")
@@ -228,7 +242,7 @@ def main():
     plot_sn_predictions(
         legend=sn_legend,
         x=z_cmb,
-        y=mu_values,
+        y=mu_values - mu_corr(best_fit),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=mu_theory(best_fit),
         label=rf"$Ω_m$={Om_50:.3f}",
@@ -259,8 +273,8 @@ w0   ~U(-1.5, 0.0)
 wa   ~U(-3.5, +2.0)
 w0 + wa < 0 enforced
 
-M(z):
-p    ~U(-1.0, 2.5)
+flow correction:
+v ~U(-12, 5) x 100 km/s
 """
 
 """
@@ -280,19 +294,20 @@ Degrees of freedom: 67
 
 """
 Flat ΛCDM: w(z) = -1
-Evolving absolute mag of SNe M(z) = ΔM_max + 0.2 * p / (1 + (z / 0.043))
+Isotropic velocity SNe observed redshifts (limit to z <= 0.2)
+z_cosmo = -1 + (1 + z) / (1 + v/c)
 
 f_cc: 1.49 +0.18 -0.17
-ΔM_max: -0.064 +0.042 -0.039 mag
-p: 0.685 +0.297 -0.295
+ΔM: -0.056 +0.042 -0.039 mag
+v: -3.8 +1.4 -1.4 x 100 km/s
 H0: 68.6 +1.5 -1.4 km/s/Mpc
-ωb: 0.0224 +0.0022 -0.0020 Mpc
+ωb: 0.0223 +0.0022 -0.0020 Mpc
 ωc: 0.1163 +0.0013 -0.0011
-ωm: 0.1393 +0.0034 -0.0029
+ωm: 0.1392 +0.0033 -0.0029
 Ωm: 0.296 +0.008 -0.007
-r_d: 148.1 +2.5 -2.7 Mpc
-Chi squared: 72.19 (2.28 sigmas away from constant M)
-Log evidence: -180.79 (Δ logZ = 1.11 against constant M)
+r_d: 148.2 +2.5 -2.7 Mpc
+Chi squared: 69.80 (2.76 sigmas away from no correction)
+Log evidence: -179.67 (Δ logZ = 2.23 in favour of correction)
 Degrees of freedom: 66
 """
 
