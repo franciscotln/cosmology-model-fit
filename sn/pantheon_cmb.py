@@ -58,22 +58,22 @@ def DM_z(z, params):
     return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
-@njit
-def outflow_correction(params):
-    v_100 = params[4]
-    Om = (params[2] + params[3] + Omnuh2) / (params[1] / 100) ** 2
-
-    q0_val = 1.5 * Om - 1.0
-    beta = (1.0 - q0_val) * z_cmb
-    q_corr = (1.0 + beta) / (1.0 + 0.5 * beta)
-    v_ratio = 100 * v_100 / (c * z_cmb)
-    return v_ratio * (5 / np.log(10)) * q_corr
+correction_mask = z_cmb <= 0.1
 
 
 @njit
-def apparent_mag(params):
+def mu_corr(params):
+    v_km_s = 100 * params[4]
+    z_pec = v_km_s / c
+    z_cosmo = (1.0 + z_cmb) / (1.0 + z_pec) - 1.0
+    corr = 5.0 * np.log10(DM_z(z_cosmo, params) / DM_z(z_cmb, params))
+    return np.where(correction_mask, corr, 0.0)
+
+
+@njit
+def mu_theory(params):
     dL = (1.0 + z_hel) * DM_z(z_cmb, params)
-    return outflow_correction(params) + params[0] + 25.0 + 5 * np.log10(dL)
+    return 25.0 + 5 * np.log10(dL)
 
 
 def solve_triang(cho_L, delta):
@@ -85,7 +85,7 @@ def chi_squared(params):
     delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(params[2], params[3], params)
     chi2_cmb = delta @ cmb.inv_cov_mat @ delta
 
-    delta_sn = mb_values - apparent_mag(params)
+    delta_sn = mb_values - params[0] - mu_theory(params) - mu_corr(params)
     chi_sn = solve_triang(cho_sn, delta_sn)
 
     return chi2_cmb + chi_sn
@@ -97,7 +97,7 @@ bounds = np.array(
         (60.0, 75.0),  # H0
         (0.010, 0.030),  # Ωb * h^2
         (0.010, 0.25),  # Ωc * h^2
-        (-1.7, 3.2),  # v_flow in units of 100 km/s
+        (-3.2, 1.7),  # v 100 km/s
     ]
 )
 
@@ -203,9 +203,9 @@ def main():
     plot_sn_predictions(
         legend=sn_legend,
         x=z_cmb,
-        y=mb_values - M_50,
+        y=mb_values - M_50 - mu_corr(best_fit),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=apparent_mag(best_fit) - M_50,
+        y_model=mu_theory(best_fit),
         label=f"$Ω_m$={Om_50:.3f}",
         x_scale="log",
     )
@@ -227,36 +227,37 @@ z_d: 1060.16 +0.23 -0.23
 r* = 144.42 Mpc
 rd: 147.04 +0.28 -0.28 Mpc
 Chi squared: 1403.98
+"""
 
-=============================
+"""
+Flat ΛCDM
+Isotropic velocity SNe observed redshifts (limit to z <= 0.1)
+z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-Flat ΛCDM w(z) = -1
-Evolving absolute mag of SNe M(z) = M_inf + v_pec_corr
-v_pec_corr = 100 * v_pec * (5 / np.log(10)) * q_corr / (c * z_cmb) with v_pec in units 100 km/s
-
-M_inf: -19.444 +0.014 -0.014 mag
-v_pec: 81 +43 -43 km/s (prior ~ U(-1.7, 3.2) in v_pec / (100 km/s))
-H0: 67.60 +0.47 -0.47 km/s/Mpc
-Ωm: 0.312 +0.007 -0.007
-ωm: 0.14251 +0.00111 -0.00111
-ωb: 0.02250 +0.00011 -0.00011
-ωc: 0.11937 +0.00114 -0.00115
-z*: 1089.69 +0.21 -0.20
+v_f (x 100 km/s): -0.72 +0.39 -0.39 (prior ~ U(-3.2, 1.7))
+M: -19.442 +0.013 -0.013 mag
+H0: 67.58 +0.47 -0.47 km/s/Mpc
+Ωm: 0.312 +0.007 -0.006
+ωm: 0.14254 +0.00111 -0.00109
+ωb: 0.02249 +0.00011 -0.00011
+ωc: 0.11940 +0.00115 -0.00112
+z*: 1089.69 +0.20 -0.20
 z_d: 1060.17 +0.23 -0.23
 r* = 144.51 Mpc
-rd: 147.13 +0.28 -0.28 Mpc
-Chi squared: 1400.47
+rd: 147.12 +0.28 -0.28 Mpc
+Chi squared: 1400.58
 """
 
 """
 Flat wCDM w(z) = w0
+
+w0: -0.968 +0.029 -0.029 (prior ~ U(-1.5, -0.5))
+M: -19.456 +0.021 -0.021 mag
 H0: 66.67 +0.83 -0.82 km/s/Mpc
 Ωm: 0.320 +0.009 -0.009
 ωm: 0.14245 +0.00118 -0.00117
 ωb: 0.02250 +0.00011 -0.00011
 ωc: 0.11931 +0.00122 -0.00121
-w0: -0.968 +0.029 -0.029 (prior ~ U(-1.5, -0.5))
-M: -19.456 +0.021 -0.021 mag
 z*: 1089.68 +0.22 -0.21
 z_d: 1060.17 +0.23 -0.23
 r* = 144.52 Mpc
@@ -266,6 +267,7 @@ Chi squared: 1402.70
 
 """
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
+
 H0: 66.74 +0.60 -0.64 km/s/Mpc
 Ωm: 0.320 +0.008 -0.007
 ωm: 0.14235 +0.00116 -0.00113
