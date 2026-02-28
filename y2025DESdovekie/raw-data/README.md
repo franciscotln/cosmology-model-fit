@@ -1,7 +1,42 @@
-# zHD       = redshift in CMB frame with VPEC correction
-# zHEL      = helio redshift (beware: no VPEC corr) 
-# MU        = distance modulus corrected for bias and contamination
-# MUERR     = stat-uncertainty on MU 
-# MUERR_SYS = sqrt(COVSYS_DIAG) for 'ALL' sys (diagnostic)
-# PROB1A_BEAMS = SNIa BEAMS probability from BBC (diagnostic)
-# ISDATA_REAL: 1   # flag for cosmology fitter to choose blind option
+# Important Changes
+
+Please note that the Covariance Matrices provided here are _inverse_ covariance matrices, and that the code to unpack them and make them into a useable form is provided in the likelihood function. 
+
+Additionally, DES-SN55YR_HD.csv is ordered correctly for use alongside the covariance matrix; the file with the metadata information has a slightly different order and should not be used in conjunction with the covariance matrix. 
+
+
+### Hubble diagrams
+We provide the Hubble diagram including only the essential information for cosmology (`DES-Dovekie_HD.csv`).
+
+Using the metadata, SN distances are calculated as:
+
+$$
+\mathrm{MU} = -2.5 \log_{10}(x_0) + \alpha x_1 - \beta c \pm \frac{\gamma}{2} - \mathrm{biasCor}_{\mu} - M_{0\,\mathrm{avg}}
+$$
+
+**DES-SN5YR_HD.csv**
+
+- `CID` - Candidate ID
+- `IDSURVEY` - {10:'DES', 61:'CFA1', 62:'CFA2', 63:'CFA3S', 64:'CFA3K' ,65:'CFA4p2', 66:'CFA4p3', 150:'FOUND'}
+- `zHD` - Hubble Diagram Redshift (with CMB and VPEC corrections)
+- `zHEL` - Heliocentric Redshift
+- `MU` - SN distances (assuming H0 of 70)
+- `MUERR` - SN distance uncertainties (renormalized for BEAMS prob of being core-collapse)
+
+
+### Global Parameters ###
+- $\alpha =  0.169 \pm 0.0003$
+- $\beta = 3.14 \pm 0.04$
+- $\gamma = 0.033 \pm 0.008$
+- $M_{0~\mathrm{avg}} = -29.96210$
+
+Note, these global parameters are determined from the likelihood analysis of all the SNe on the Hubble diagram.
+
+
+### Statistical and Stat+Systematic Covariance matrices
+The Statistical and Stat+Systematic Covariance matrices (both 1820x1820 Matrix) are provided in
+- `STATONLY.npz`
+- `STAT+SYS.npz` (all systematics)
+
+
+Single-syst cov matrices are also available in SingleSYS_CovMatrix.
