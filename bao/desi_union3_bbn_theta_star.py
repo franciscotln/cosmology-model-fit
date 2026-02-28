@@ -311,32 +311,6 @@ Degrees of freedom: 33
 
 ===============================
 
-Flat ΛCDM  w(z) = -1
-Corrections to absolute magnitude of SNe M(z) = M0 + M0' * z / (1 + (z / z_c))
-z_c = 0.0557 is the redshift of a kind of homogeneity scale
-M(z << z_c) = M0 + M0' * z, low z value
-M(z >> z_c) = M0 + M0' * z_c, asymptotic value
-
-ΔM: 0.054 +0.048 -0.048 mag
-M'0: -2.21 +0.94 -0.94 mag / unity redshift
-H0: 68.53 +0.46 -0.47 km/s/Mpc
-ωb: 0.02218 +0.00054 -0.00053
-ωc: 0.1160 +0.0008 -0.0008
-ωm: 0.1389 +0.0011 -0.0011
-Ωm: 0.296 +0.004 -0.004
-z_d: 1059.21 +1.23 -1.25
-r_d: 148.37 +0.71 -0.70 Mpc
-z*: 1089.79 +0.70 -0.68
-r*: 145.62 Mpc
-100 θ*: 1.04095
-q0: -0.556 +0.007 -0.007
-j0: 1
-Chi2 (MAP): 36.47 (2.29 sigma away from constant M)
-Log Evidence: -35.27 (Δ logZ 1.14 against constant M)
-Degrees of freedom: 32
-
-===============================
-
 Flat wCDM w(z) = w0
 ΔM: -0.067 +0.014 -0.014 mag
 H0: 67.20 +0.80 -0.79 km/s/Mpc

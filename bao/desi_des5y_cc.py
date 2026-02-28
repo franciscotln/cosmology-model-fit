@@ -11,7 +11,7 @@ from y2025DESdovekie.data import (
 )
 
 cc_legend, z_cc_vals, H_cc_vals, cov_matrix_cc = get_cc_data()
-sn_legend, z_sn_vals, z_sn_hel_vals, mu_values, cov_matrix_sn = get_sn_data()
+sn_legend, z_cmb, z_hel, mu_values, cov_matrix_sn = get_sn_data()
 bao_legend, bao_data, cov_matrix_bao = get_bao_data()
 
 cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
@@ -23,7 +23,7 @@ N_cc = len(z_cc_vals)
 
 c = c0 / 1000  # km/s
 
-z_max = max(np.max(z_sn_vals), np.max(bao_data["z"])) + 0.1
+z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
 z_grid = np.linspace(0, z_max, num=3000)
 dz = np.diff(z_grid)
 
@@ -38,14 +38,9 @@ def rho_de(z, w0):
 
 
 @njit
-def Ez(z, theta):
-    Om, w0 = theta[4], theta[5]
-    return np.sqrt(Om * (1.0 + z) ** 3 + (1.0 - Om) * rho_de(z, w0))
-
-
-@njit
 def H_z(z, theta):
-    return theta[2] * Ez(z, theta)
+    H0, Om = theta[2], theta[4]
+    return H0 * np.sqrt(Om * (1.0 + z) ** 3 + (1.0 - Om))
 
 
 @njit
@@ -85,9 +80,25 @@ def bao_theory(z, qty, theta):
     return results / theta[3]
 
 
+correction_mask = z_cmb <= 0.1
+
+
+@njit
+def mu_corr(params):
+    v_km_s = 100 * params[5]
+    z_pec = v_km_s / c
+    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+
+    return np.where(
+        correction_mask,
+        5.0 * np.log10(DM_z(z_cosmo, params) / DM_z(z_cmb, params)),
+        0.0,
+    )
+
+
 @njit
 def mu_theory(theta):
-    dL = (1.0 + z_sn_hel_vals) * DM_z(z_sn_vals, theta)
+    dL = (1.0 + z_hel) * DM_z(z_cmb, theta)
     return theta[1] + 25.0 + 5 * np.log10(dL)
 
 
@@ -98,7 +109,7 @@ def solve_triang(cho_L, delta):
 
 
 def chi_squared(theta):
-    delta_sn = mu_values - mu_theory(theta)
+    delta_sn = mu_values - mu_theory(theta) - mu_corr(theta)
     chi_sn = solve_triang(cho_sn, delta_sn)
 
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, theta)
@@ -117,7 +128,7 @@ bounds = np.array(
         (50.0, 80.0),  # H0: Hubble constant at present
         (110.0, 175.0),  # r_d: sound horizon at drag epoch
         (0.2, 0.7),  # Ωm: matter density parameter at present
-        (-1.0, -1 / 3),  # w0: dark energy equation of state at present
+        (-6, 2),  # v x 100 km/s
     ]
 )
 
@@ -184,29 +195,29 @@ def main():
     log_evd = log_evidence(samples, log_probs, log_probability, bounds)
 
     [
-        [f_cc_16, f_cc_50, f_cc_84],
-        [dM_16, dM_50, dM_84],
-        [h0_16, h0_50, h0_84],
-        [rd_16, rd_50, rd_84],
-        [Om_16, Om_50, Om_84],
-        [w0_16, w0_50, w0_84],
+        (f_cc_16, f_cc_50, f_cc_84),
+        (dM_16, dM_50, dM_84),
+        (h0_16, h0_50, h0_84),
+        (rd_16, rd_50, rd_84),
+        (Om_16, Om_50, Om_84),
+        (v_16, v_50, v_84),
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
     best_fit = np.percentile(samples, 50, axis=0)
 
-    deg_of_freedom = sn_sample + bao_data["value"].size + z_cc_vals.size - ndim
+    deg_of_freedom = sn_sample + len(bao_data) + N_cc - ndim
 
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
     print(f"H0: {h0_50:.1f} +{(h0_84 - h0_50):.1f} -{(h0_50 - h0_16):.1f} km/s/Mpc")
     print(f"r_d: {rd_50:.1f} +{(rd_84 - rd_50):.1f} -{(rd_50 - rd_16):.1f} Mpc")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"f_cc: {f_cc_50:.2f} +{(f_cc_84 - f_cc_50):.2f} -{(f_cc_50 - f_cc_16):.2f}")
-    print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
+    print(f"v: {v_50:.3f} +{(v_84 - v_50):.3f} -{(v_50 - v_16):.3f} x 100 km/s")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Log evidence: {log_evd:.2f}")
     print(f"Degrees of freedom: {deg_of_freedom}")
 
-    labels = ["$f_{CCH}$", "ΔM", "$H_0$", "$r_d$", "$Ω_m$", "$w_0$"]
+    labels = ["$f_{CCH}$", "ΔM", "$H_0$", "$r_d$", "$Ω_m$", "$v_{100}$"]
     plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
     plot_bao_predictions(
         theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
@@ -223,8 +234,8 @@ def main():
     )
     plot_sn_predictions(
         legend=sn_legend,
-        x=z_sn_vals,
-        y=mu_values,
+        x=z_cmb,
+        y=mu_values - mu_corr(best_fit),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=mu_theory(best_fit),
         label=f"$Ω_m$={Om_50:.3f}",
@@ -250,16 +261,17 @@ Degrees of freedom: 1758
 
 """
 Flat ΛCDM
-Outflow mag correction of SNe M(z) = M_inf + (5 / ln(10)) * z_c^2 / (z_c + z)
+Isotropic velocity SNe observed redshifts (limit to z <= 0.1)
+z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-zc: 0.038 +0.011 -0.012 (prior ~ U(0, 0.12))
-ΔM_inf: -0.057 +0.070 -0.072 mag
-H0: 69.0 +2.3 -2.3 km/s/Mpc
-r_d: 147.1 +4.9 -4.6 Mpc
-Ωm: 0.299 +0.008 -0.008
+v: -1.70 +0.65 -0.65 (x 100 km/s) (prior ~ U(-6, 2))
+ΔM: -0.052 +0.069 -0.071 mag
+H0: 68.8 +2.3 -2.3 km/s/Mpc
+r_d: 147.1 +4.9 -4.5 Mpc
+Ωm: 0.300 +0.008 -0.008
 f_cc: 1.48 +0.18 -0.17
-Chi squared: 1673.56 (2.64 sigma away from no corrections)
-Log evidence: -977.70 (Δ logZ = 1.83 in favour of corrections)
+Chi squared: 1673.50 (2.66 sigma away from no corrections)
+Log evidence: -977.74 (Δ logZ = 1.79 in favour of corrections)
 Degrees of freedom: 1757
 """
 

@@ -43,17 +43,16 @@ def r_drag(wb, wm):
 
 
 @njit
-def Ez(z, params):
-    Om, w0 = params[1], params[3]
-    zp1 = 1.0 + z
-    cubed = zp1**3
-    rho_de = (2 * cubed / (1.0 + w0 + (1.0 - w0) * cubed)) ** 2
-    return np.sqrt(Om * cubed + (1.0 - Om) * rho_de)
+def Ode_z(z, w0):
+    # Thawing quintessence
+    cubed = (1.0 + z) ** 3
+    return (2 * cubed / (1.0 + w0 + (1.0 - w0) * cubed)) ** 2
 
 
 @njit
 def H_z(z, params):
-    return params[0] * Ez(z, params)
+    H0, Om = params[0], params[1]
+    return H0 * np.sqrt(Om * (1.0 + z) ** 3 + (1.0 - Om))
 
 
 @njit
@@ -97,10 +96,25 @@ def bao_theory(z, qty, params):
     return results / r_drag(Obh2, Omh2)
 
 
+correction_mask = z_cmb <= 0.2
+
+
+@njit
+def mu_corr(params):
+    z_pec = 100 * params[3] / c
+    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+
+    return np.where(
+        correction_mask,
+        5.0 * np.log10(DM_z(z_cosmo, params) / DM_z(z_cmb, params)),
+        0.0,
+    )
+
+
 @njit
 def theory_mu(params):
     dL = (1.0 + z_hel) * DM_z(z_cmb, params)
-    return params[-1] + 25.0 + 5 * np.log10(dL)
+    return params[4] + 25.0 + 5 * np.log10(dL)
 
 
 @njit
@@ -115,7 +129,7 @@ def chi_squared(params):
     )
     chi_bao_des = delta_bao_des @ inv_cov_des_bao @ delta_bao_des
 
-    delta_sn = mu_values - theory_mu(params)
+    delta_sn = mu_values - theory_mu(params) - mu_corr(params)
     chi_sn = delta_sn @ inv_cov_sn @ delta_sn
 
     return chi_bao_desi + chi_bao_des + chi_sn
@@ -148,7 +162,7 @@ def main():
     prior.add_parameter("H0", dist=(55, 80))
     prior.add_parameter("Ωm", dist=(0.10, 0.65))
     prior.add_parameter("ωb", dist=norm(loc=bbn.Obh2, scale=bbn.Obh2_sigma))
-    prior.add_parameter("w0", dist=(-1.0, -1 / 3))
+    prior.add_parameter("v", dist=(-12.0, 5.0))
     prior.add_parameter("dM", dist=(-1.0, 1.0))
 
     with Pool(8) as pool:
@@ -165,33 +179,28 @@ def main():
     H0_16, H0_50, H0_84 = quantile(samples[:, 0], one_sigma_ci, weights=w)
     Om_16, Om_50, Om_84 = quantile(samples[:, 1], one_sigma_ci, weights=w)
     Obh2_16, Obh2_50, Obh2_84 = quantile(samples[:, 2], one_sigma_ci, weights=w)
-    w0_16, w0_50, w0_84 = quantile(samples[:, 3], one_sigma_ci, weights=w)
+    v_16, v_50, v_84 = quantile(samples[:, 3], one_sigma_ci, weights=w)
     dM_16, dM_50, dM_84 = quantile(samples[:, 4], one_sigma_ci, weights=w)
 
-    wa_samples = -1.5 * (1.0 - samples[:, 3] ** 2)
     Omh2_samples = samples[:, 1] * (samples[:, 0] / 100) ** 2
     rd_samples = r_drag(samples[:, 2], Omh2_samples)
-    q0_samples = q0(samples[:, 1], w0=samples[:, 3])
-    j0_samples = j0(samples[:, 1], w0=samples[:, 3], wa=wa_samples)
+    q0_samples = q0(samples[:, 1])
+    j0_samples = j0(samples[:, 1])
 
     Omh2_16, Omh2_50, Omh2_84 = quantile(Omh2_samples, one_sigma_ci, weights=w)
     rd_16, rd_50, rd_84 = quantile(rd_samples, one_sigma_ci, weights=w)
     q0_16, q0_50, q0_84 = quantile(q0_samples, one_sigma_ci, weights=w)
     j0_16, j0_50, j0_84 = quantile(j0_samples, one_sigma_ci, weights=w)
-    wa_16, wa_50, wa_84 = quantile(wa_samples, one_sigma_ci, weights=w)
 
-    best_fit = [H0_50, Om_50, Obh2_50, w0_50, dM_50]
+    best_fit = [H0_50, Om_50, Obh2_50, v_50, dM_50]
     MAP_params = samples[np.argmax(log_l)]
-    deg_of_freedom = (
-        len(des_bao_data["z"]) + len(desi_bao_data["z"]) + len(z_cmb) - len(best_fit)
-    )
+    deg_of_freedom = len(des_bao_data) + len(desi_bao_data) + len(z_cmb) - len(best_fit)
 
     print(f"H0: {H0_50:.1f} +{(H0_84 - H0_50):.1f} -{(H0_50 - H0_16):.1f} km/s/Mpc")
     print(f"Ωm: {Om_50:.4f} +{(Om_84 - Om_50):.4f} -{(Om_50 - Om_16):.4f}")
     print(f"ωb: {Obh2_50:.5f} +{(Obh2_84 - Obh2_50):.5f} -{(Obh2_50 - Obh2_16):.5f}")
     print(f"ωm: {Omh2_50:.5f} +{(Omh2_84 - Omh2_50):.5f} -{(Omh2_50 - Omh2_16):.5f}")
-    print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
-    print(f"wa: {wa_50:.3f} +{(wa_84 - wa_50):.3f} -{(wa_50 - wa_16):.3f}")
+    print(f"v: {v_50:.3f} +{(v_84 - v_50):.3f} -{(v_50 - v_16):.3f} x 100 km/s")
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f}")
     print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
     print(f"q0: {q0_50:.3f} +{(q0_84 - q0_50):.3f} -{(q0_50 - q0_16):.3f}")
@@ -225,7 +234,7 @@ def main():
     plot_sn_predictions(
         legend=sn_legend,
         x=z_cmb,
-        y=mu_values,
+        y=mu_values - mu_corr(best_fit),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=theory_mu(best_fit),
         label=f"$Ω_m$={Om_50:.3f}",
@@ -257,12 +266,12 @@ w0waCDM (w0 + wa < 0 enforced):
 w0 U(-1.3, 0.0)
 wa U(-4.0, 2.0)
 
-Evolving absolute magnitude M(z):
-p U(-1.0, 2.5)
+flow correction:
+v ~U(-12, 5) x 100 km/s
 """
 
 """
-Flat ΛCDM w(z) = -1
+Flat ΛCDM
 H0: 68.8 +0.6 -0.6 km/s/Mpc
 Ωm: 0.3019 +0.0082 -0.0080
 ωb: 0.02219 +0.00055 -0.00055
@@ -277,20 +286,21 @@ Degrees of freedom: 31
 """
 
 """
-Flat ΛCDM w(z) = -1
-Evolving absolute mag of SNe M(z) = ΔM_max + 0.2 * p / (1 + (z / 0.043))
+Flat ΛCDM
+Isotropic velocity SNe observed redshifts (limit to z <= 0.2)
+z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-ΔM_max: -0.059 +0.023 -0.023
-p: 0.676 +0.298 -0.298
+v: -3.82 +1.40 -1.40 x 100 km/s
+ΔM: -0.050 +0.022 -0.022 mag
 H0: 68.7 +0.6 -0.6 km/s/Mpc
-Ωm: 0.2969 +0.0085 -0.0082
-ωb: 0.02219 +0.00055 -0.00055
-ωm: 0.14028 +0.00507 -0.00480
-r_d: 147.81 +1.55 -1.57 Mpc
-q0: -0.555 +0.013 -0.012
+Ωm: 0.2971 +0.0083 -0.0080
+ωb: 0.02219 +0.00055 -0.00056
+ωm: 0.14031 +0.00504 -0.00472
+r_d: 147.80 +1.54 -1.55 Mpc
+q0: -0.554 +0.012 -0.012
 j0: 1
-Chi squared (MAP): 36.48 (2.28 sigmas away from constant M)
-Log Evidence: -31.64 (Δ logZ = 1.02 against constant M)
+Chi squared (MAP): 34.05 (2.76 sigma away from no corrections)
+Log Evidence: -30.46 (Δ logZ = 2.20 against no flow)
 Degs of freedom: 31
 """
 
