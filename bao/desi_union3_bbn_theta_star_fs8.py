@@ -33,8 +33,7 @@ def Ode_z(z, w0):
 
 
 @njit
-def Ez(z, H0, Obh2, Och2, w0):
-    h = H0 / 100
+def Ez(z, h, Obh2, Och2):
     Onu = Omnuh2 / h**2
     Or = Orh2 / h**2
     Obc = (Obh2 + Och2) / h**2
@@ -45,15 +44,15 @@ def Ez(z, H0, Obh2, Och2, w0):
     radiation_term = Or * zp1**4
     matter_term = Obc * zp1**3
     neutrino_term = Onu * cmb.Omnu_z(z)
-    dark_energy_term = Ode * Ode_z(z, w0)
+    dark_energy_term = Ode
 
     return np.sqrt(radiation_term + matter_term + neutrino_term + dark_energy_term)
 
 
 @njit
 def H_z(z, theta):
-    H0, Obh2, Och2, w0, _ = theta[1:]
-    return H0 * Ez(z, H0, Obh2, Och2, w0)
+    H0 = theta[1]
+    return H0 * Ez(z, h=H0 / 100, Obh2=theta[2], Och2=theta[3])
 
 
 cmb.set_HZ(H_z)
@@ -97,6 +96,21 @@ def bao_theory(z, qty, theta):
     results[DM_mask] = DM_z(z[DM_mask], theta)
     results[DV_mask] = DV_z(z[DV_mask], theta)
     return results / rd
+
+
+correction_mask = z_cmb <= 0.2
+
+
+@njit
+def mu_corr(params):
+    z_pec = 100 * params[4] / c
+    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+
+    return np.where(
+        correction_mask,
+        5.0 * np.log10(DM_z(z_cosmo, params) / DM_z(z_cmb, params)),
+        0.0,
+    )
 
 
 @njit
@@ -160,7 +174,7 @@ def fs8_theory(z, theta):
 
 H0_fid = 67.6
 Obh2_fid = 0.022
-params_fid = [0.0, H0_fid, Obh2_fid, 0.31, -1.0, 0.80]
+params_fid = [0.0, H0_fid, Obh2_fid, 0.31, 0.0, 0.80]
 fiducial_scaling = np.empty(len(fs8_data["z"]), dtype=np.float64)
 
 for i in range(len(fs8_data["z"])):
@@ -180,7 +194,7 @@ def chi2_fs8(theta):
 
 @njit
 def chi2_sn(theta):
-    delta_sn = mu_values - theory_mu(theta)
+    delta_sn = mu_values - theory_mu(theta) - mu_corr(theta)
     return delta_sn @ inv_cov_sn @ delta_sn
 
 
@@ -224,7 +238,7 @@ def main():
     prior.add_parameter("H0", dist=(50.0, 90.0))
     prior.add_parameter("ωb", dist=norm(loc=bbn.Obh2, scale=bbn.Obh2_sigma))
     prior.add_parameter("ωc", dist=(0.05, 0.30))
-    prior.add_parameter("w0", dist=(-1.0, -1 / 3))
+    prior.add_parameter("v", dist=(-12, 5))
     prior.add_parameter("sig8", dist=(0.5, 1.5))
 
     with Pool(8) as pool:
@@ -241,11 +255,8 @@ def main():
     H0_16, H0_50, H0_84 = quantile(samples[:, 1], one_sigma_ci, weights=w)
     Obh2_16, Obh2_50, Obh2_84 = quantile(samples[:, 2], one_sigma_ci, weights=w)
     Och2_16, Och2_50, Och2_84 = quantile(samples[:, 3], one_sigma_ci, weights=w)
-    w0_16, w0_50, w0_84 = quantile(samples[:, 4], one_sigma_ci, weights=w)
+    v_16, v_50, v_84 = quantile(samples[:, 4], one_sigma_ci, weights=w)
     sig8_16, sig8_50, sig8_84 = quantile(samples[:, 5], one_sigma_ci, weights=w)
-
-    wa_samples = -1.5 * (1 - samples[:, 4] ** 2)
-    wa_16, wa_50, wa_84 = quantile(wa_samples, one_sigma_ci, weights=w)
 
     Omh2_samples = samples[:, 2] + samples[:, 3] + Omnuh2
     Om_samples = Omh2_samples / (samples[:, 1] / 100) ** 2
@@ -253,8 +264,8 @@ def main():
     rd_samples = cmb.r_drag(samples[:, 2], Omh2_samples)
     zd_samples = cmb.z_drag(samples[:, 2], Omh2_samples)
     zst_samples = cmb.z_star(samples[:, 2], Omh2_samples)
-    q0_samples = q0(Om_samples, w0=samples[:, 4])
-    j0_samples = j0(Om_samples, w0=samples[:, 4], wa=wa_samples)
+    q0_samples = q0(Om_samples)
+    j0_samples = j0(Om_samples)
 
     Omh2_16, Omh2_50, Omh2_84 = quantile(Omh2_samples, one_sigma_ci, weights=w)
     Om_16, Om_50, Om_84 = quantile(Om_samples, one_sigma_ci, weights=w)
@@ -265,8 +276,8 @@ def main():
     q0_16, q0_50, q0_84 = quantile(q0_samples, one_sigma_ci, weights=w)
     j0_16, j0_50, j0_84 = quantile(j0_samples, one_sigma_ci, weights=w)
 
-    best_fit = [dM_50, H0_50, Obh2_50, Och2_50, w0_50, sig8_50]
-    degs_freedom = len(bao_data["z"]) + len(z_cmb) + len(fs8_data["z"]) - len(best_fit)
+    best_fit = [dM_50, H0_50, Obh2_50, Och2_50, v_50, sig8_50]
+    degs_freedom = len(bao_data) + len(z_cmb) + len(fs8_data["z"]) - len(best_fit)
     chi2_MAP = chi_squared(samples[np.argmax(log_l)])
 
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
@@ -277,8 +288,7 @@ def main():
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"σ8: {sig8_50:.3f} +{(sig8_84 - sig8_50):.3f} -{(sig8_50 - sig8_16):.3f}")
     print(f"S8: {S8_50:.3f} +{(S8_84 - S8_50):.3f} -{(S8_50 - S8_16):.3f}")
-    print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
-    print(f"wa: {wa_50:.3f} +{(wa_84 - wa_50):.3f} -{(wa_50 - wa_16):.3f}")
+    print(f"v: {v_50:.3f} +{(v_84 - v_50):.3f} -{(v_50 - v_16):.3f} x 100 km/s")
     print(f"z_d: {zd_50:.2f} +{(zd_84 - zd_50):.2f} -{(zd_50 - zd_16):.2f}")
     print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
     print(f"z*: {zst_50:.2f} +{(zst_84 - zst_50):.2f} -{(zst_50 - zst_16):.2f}")
@@ -318,7 +328,7 @@ def main():
     plot_sn_predictions(
         legend=sn_legend,
         x=z_cmb,
-        y=mu_values,
+        y=mu_values - mu_corr(best_fit),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=theory_mu(best_fit),
         label=f"$Ω_m$={Om_50:.3f}",
@@ -374,12 +384,12 @@ w0: U(-1.5, 0.0)
 wa: U(-2.5, 1.5)
 w0 + wa < 0 enforced
 
-M(z):
-p: U(-1.0, 2.5)
+flow correction:
+v: U(-12, 5) x 100 km/s
 """
 
 """
-Flat ΛCDM w(z) = -1
+Flat ΛCDM
 ΔM: -0.053 +0.012 -0.012 mag
 H0: 68.42 +0.46 -0.47 km/s/Mpc
 ωb: 0.02214 +0.00054 -0.00053
@@ -398,6 +408,32 @@ j0: 1
 Chi2 (MAP): 77.45
 Log Evidence: -57.55
 Degrees of freedom: 93
+"""
+
+"""
+Flat ΛCDM
+Isotropic velocity SNe observed redshifts (limit to z <= 0.2)
+z_cosmo = -1 + (1 + z) / (1 + v/c)
+
+ΔM: -0.057 +0.012 -0.012 mag
+v: -3.88 +1.38 -1.38 x 100 km/s
+H0: 68.54 +0.46 -0.47 km/s/Mpc
+ωb: 0.02220 +0.00053 -0.00053
+ωc: 0.1160 +0.0008 -0.0008
+ωm: 0.1389 +0.0011 -0.0011
+Ωm: 0.296 +0.004 -0.004
+σ8: 0.780 +0.014 -0.014
+S8: 0.774 +0.014 -0.014
+z_d: 1059.24 +1.22 -1.25
+r_d: 148.36 +0.70 -0.69 Mpc
+z*: 1089.77 +0.70 -0.67
+r*: 145.61 Mpc
+100 θ*: 1.04094
+q0: -0.557 +0.007 -0.007
+j0: 1
+Chi2 (MAP): 69.60 (2.80 sigma away from no correction)
+Log Evidence: -55.16 (Δ logZ = 2.39 in favour of corrections)
+Degrees of freedom: 92
 """
 
 """
