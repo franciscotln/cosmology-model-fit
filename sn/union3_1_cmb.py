@@ -234,10 +234,11 @@ Flat ΛCDM w(z) = -1
 Isotropic velocity SNe observed redshifts (limit to z <= 0.2)
 z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-ΔM: -0.071 +- 0.011 mag
-v_flow: -3.4 ± 1.4 (prior ~ U(-12, 5)) x 100 km/s
-H0: 67.69 +- 0.49 km/s/Mpc
-Ωm: 0.3107 +- 0.0069
+ΔM: -0.071 ± 0.011 mag
+v: -3.4 ± 1.4 (prior ~ U(-12, 5)) x 100 km/s
+v / (z_cut=0.2): -1700 ± 700 km/s
+H0: 67.69 ± 0.49 km/s/Mpc
+Ωm: 0.3107 ± 0.0069
 Chi2 (MAP): 23.6 (2.45 sigma away from no flow)
 Log Evidence: -31.8 (delta logZ = 1.3 in favour of flow)
 Degrees of freedom: 20

@@ -164,7 +164,8 @@ Isotropic velocity SNe observed redshifts (limit to z <= 0.2)
 z_cosmo = -1 + (1 + z) / (1 + v/c)
 
 ΔM: 0.000 ± 0.060 mag
-v_flow: -3.9 ± 1.7 (prior ~ U(-13, 5)) x 100 km/s
+v: -3.9 ± 1.7 (prior ~ U(-13, 5)) x 100 km/s
+v / (z_cut=0.2): -1950 ± 850 km/s
 H0: 70.4 ± 1.8 km/s/Mpc
 Ωm: 0.297 +0.026/-0.029 (agreement with ΛCDM from BAO)
 Ωm h^2: 0.147 +0.014/-0.017
