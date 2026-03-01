@@ -38,18 +38,21 @@ def DM_z(z, params):
     return interp_hermite(z, z_grid, cum_dm, dH_grid)
 
 
-correction_mask = z_cmb <= 0.1
+pivot_mask = z_cmb <= 0.1
 
 
 @njit
 def mu_corr(params):
     z_pec = 100 * params[3] / c
-    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+    z_cosmo1 = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+    z_cosmo2 = -1.0 + (1.0 + z_cmb) / (1.0 - z_pec)
+
+    DM_ref = DM_z(z_cmb, params)
 
     return np.where(
-        correction_mask,
-        5.0 * np.log10(DM_z(z_cosmo, params) / DM_z(z_cmb, params)),
-        0.0,
+        pivot_mask,
+        5.0 * np.log10(DM_z(z_cosmo1, params) / DM_ref),
+        5.0 * np.log10(DM_z(z_cosmo2, params) / DM_ref),
     )
 
 
@@ -220,19 +223,19 @@ Effective deg of freedom: 1711
 
 """
 Flat ΛCDM w(z) = -1
-Isotropic velocity SNe observed redshifts (limit to z <= 0.1)
+Isotropic velocity SNe observed redshifts (turning point z <= 0.1 inflow z > 0.1 outflow)
 z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-ΔM: 0.001 +0.057 -0.058 mag
-v:  -1.52 +0.79 -0.79 (prior ~ U(-6, 3)) x 100 km/s
-v / (z_cut=0.1): -1520 ± 790 km/s
+ΔM: 0.005 +0.056 -0.058 mag
+v: -1.35 +0.66 -0.65 km/s (prior ~ U(-6, 3)) x 100 km/s
+v / (z_cut=0.1): -1350 ± 650 km/s
 H0: 70.39 +1.80 -1.80 km/s/Mpc
-Ωm: 0.307 +0.019 -0.018
+Ωm: 0.309 +0.018 -0.017
 R-squared (%): 98.37
 RMSD (mag): 0.269
 Skewness of residuals: 3.2
-Chi squared: 1627.68 (1.93 sigma significance)
-Log evidence: -825.4
+Log evidence: -825.3
+Chi2 (MAP): 1627.11 (2.08 sigma significance)
 Effective deg of freedom: 1710
 """
 

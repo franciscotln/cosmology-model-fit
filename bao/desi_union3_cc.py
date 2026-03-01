@@ -82,18 +82,21 @@ def bao_theory(z, qty, params):
     return results / params[3]
 
 
-correction_mask = z_cmb <= 0.2
+pivot_mask = z_cmb <= 0.2
 
 
 @njit
 def mu_corr(params):
     z_pec = 100 * params[5] / c
-    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+    z_cosmo1 = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+    z_cosmo2 = -1.0 + (1.0 + z_cmb) / (1.0 - z_pec)
+
+    DM_ref = DM_z(z_cmb, params)
 
     return np.where(
-        correction_mask,
-        5.0 * np.log10(DM_z(z_cosmo, params) / DM_z(z_cmb, params)),
-        0.0,
+        pivot_mask,
+        5.0 * np.log10(DM_z(z_cosmo1, params) / DM_ref),
+        5.0 * np.log10(DM_z(z_cosmo2, params) / DM_ref),
     )
 
 
@@ -150,7 +153,7 @@ def main():
     # Ωm: matter density parameter today
     prior.add_parameter("Ωm", dist=(0.01, 0.70))
     # v: isotropic velocity SNe observed redshifts
-    prior.add_parameter("v", dist=(-12.0, 5.0))
+    prior.add_parameter("v", dist=(-9.5, 3.5))
 
     with Pool(6) as pool:
         sampler = Sampler(
@@ -246,8 +249,8 @@ w0:   U(-1.5, 0.0)
 wa:   U(-5.0, 3.0)
 Enforced w0 + wa < 0
 
-flow correction:
-v ~U(-12, 5) x 100 km/s
+Peculiar motion:
+v ~U(-9.5, 3.5) x 100 km/s
 """
 
 """
@@ -265,18 +268,18 @@ Degrees of freedom: 66
 
 """
 Flat ΛCDM
-Isotropic velocity SNe observed redshifts (limit to z <= 0.2)
+Isotropic velocity SNe observed redshifts (turning point z <= 0.2 inflow z > 0.2 outflow)
 z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-ΔM: -0.042 +- 0.072 mag
-v: -3.8 +1.4 -1.4 x 100 km/s
+ΔM: -0.037 +- 0.072 mag
+v: -3.1 +1.1 -1.1 x 100 km/s
 H0: 69.0 +2.3 -2.3 km/s/Mpc
-r_d: 147.2 +4.4 -5.0 Mpc
-Ωm: 0.2987 +0.0081 -0.0081
+r_d: 147.2 +4.5 -5.0 Mpc
+Ωm: 0.2989 +0.0081 -0.0081
 ωm: 0.143 +0.031 -0.022
 f_cc: 1.48 +0.18 -0.18
-Chi squared: 68.85 (2.74 sigma away from no correction)
-Log evidence: -176.90 (Δ logZ = 2.11 in favour of corrections)
+Chi squared: 67.73 (2.94 sigma away from no correction)
+Log evidence: -176.35 (Δ logZ = 2.66 in favour of corrections)
 Degrees of freedom: 65
 """
 

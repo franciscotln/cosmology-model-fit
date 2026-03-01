@@ -98,18 +98,21 @@ def bao_theory(z, qty, params):
     return results / rd
 
 
-correction_mask = z_cmb <= 0.1
+pivot_mask = z_cmb <= 0.15
 
 
 @njit
 def mu_corr(params):
     z_pec = 100 * params[4] / c
-    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+    z_cosmo1 = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+    z_cosmo2 = -1.0 + (1.0 + z_cmb) / (1.0 - z_pec)
+
+    DM_ref = DM_z(z_cmb, params)
 
     return np.where(
-        correction_mask,
-        5.0 * np.log10(DM_z(z_cosmo, params) / DM_z(z_cmb, params)),
-        0.0,
+        pivot_mask,
+        5.0 * np.log10(DM_z(z_cosmo1, params) / DM_ref),
+        5.0 * np.log10(DM_z(z_cosmo2, params) / DM_ref),
     )
 
 
@@ -154,7 +157,7 @@ def main():
     prior.add_parameter("H0", dist=(60.0, 75.0))
     prior.add_parameter("obh2", dist=(0.019, 0.025))
     prior.add_parameter("och2", dist=(0.01, 0.25))
-    prior.add_parameter("v", dist=(-3.2, 1.5))
+    prior.add_parameter("v", dist=(-3.0, 1.5))
 
     with Pool(6) as pool:
         sampler = Sampler(
@@ -250,7 +253,7 @@ wa U(-2.0, 1.0)
 with w0 + wa < 0 enforced
 
 v_pec corrections of SNe:
-v_pec U(-3.2, 1.5) [x 100 km/s]
+v_pec U(-3.0, 1.5) [x 100 km/s]
 """
 
 """
@@ -271,21 +274,22 @@ Degrees of freedom: 1602
 
 """
 Flat ΛCDM
-Isotropic velocity SNe observed redshifts (limit to z <= 0.1)
+Isotropic velocity SNe observed redshifts (turning point z <= 0.15 inflow z > 0.15 outflow)
 z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-M: -19.4204 ± 0.0092 mag
-v: 84 ± 39 km/s
+M: -19.4191 ± 0.0088 mag
+v: -83 ± 36 km/s
+v / (z_cut=0.15): -553 ± 240 km/s
 H0: 68.43 ± 0.27 km/s/Mpc
-ωb: 0.02257 ± 0.00010
+ωb: 0.02258 ± 0.00010
 ωc: 0.1174 ± 0.0006
 ωm: 0.1406 ± 0.0006
 Ωm: 0.300 ± 0.004
-z*: 1089.41 ± 0.15
+z*: 1089.40 ± 0.15
 zd: 1060.20 ± 0.23
 rd: 147.57 ± 0.19 Mpc
-MAP chi^2: 1415.58 (2.18 sigma away from no v_flow correction)
-Log evidence: -726.5 (Δ logZ = 0.8 against no v_flow correction)
+MAP chi^2: 1415.03 (2.18 sigma significance)
+Log evidence: -726.3 (Δ logZ = 1.1 against no v correction)
 Degrees of freedom: 1601
 """
 

@@ -35,18 +35,21 @@ def DM_z(z, params):
     return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
-correction_mask = z_cmb <= 0.2
+pivot_mask = z_cmb <= 0.2
 
 
 @njit
 def mu_corr(params):
     z_pec = 100 * params[3] / c
-    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+    z_cosmo1 = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+    z_cosmo2 = -1.0 + (1.0 + z_cmb) / (1.0 - z_pec)
+
+    DM_ref = DM_z(z_cmb, params)
 
     return np.where(
-        correction_mask,
-        5.0 * np.log10(DM_z(z_cosmo, params) / DM_z(z_cmb, params)),
-        0.0,
+        pivot_mask,
+        5.0 * np.log10(DM_z(z_cosmo1, params) / DM_ref),
+        5.0 * np.log10(DM_z(z_cosmo2, params) / DM_ref),
     )
 
 
@@ -80,7 +83,7 @@ def main():
         "H0", dist=norm(loc=70.39, scale=1.80)
     )  # TRGB Freedman et al. 2025
     prior.add_parameter("om", dist=(0.1, 0.7))
-    prior.add_parameter("v", dist=(-13.0, 5.0))
+    prior.add_parameter("v", dist=(-10.5, 4.0))
 
     with Pool(6) as pool:
         sampler = Sampler(
@@ -160,17 +163,17 @@ Degs of freedom: 19
 
 """
 Flat ΛCDM
-Isotropic velocity SNe observed redshifts (limit to z <= 0.2)
+Isotropic velocity SNe observed redshifts (turning point z <= 0.2 inflow z > 0.2 outflow)
 z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-ΔM: 0.000 ± 0.060 mag
-v: -3.9 ± 1.7 (prior ~ U(-13, 5)) x 100 km/s
-v / (z_cut=0.2): -1950 ± 850 km/s
+ΔM: 0.008 ± 0.059 mag
+v: -3.1 ± 1.2 (prior ~ U(-10.5, 4.0)) x 100 km/s
+v / (z_cut=0.2): -1550 ± 600 km/s
 H0: 70.4 ± 1.8 km/s/Mpc
-Ωm: 0.297 +0.026/-0.029 (agreement with ΛCDM from BAO)
-Ωm h^2: 0.147 +0.014/-0.017
-χ2 (MAP): 23.25 (2.36 sigma away from constant M)
-Log evidence: -20.7
+Ωm: 0.299 +0.025/-0.028 (agreement with ΛCDM from BAO)
+Ωm h^2: 0.148 +0.014/-0.016
+χ2 (MAP): 22.15 (2.58 sigma significance)
+Log evidence: -20.3 (Δ logZ = 1.7 in favour of in/outflow)
 Degs of freedom: 18
 """
 

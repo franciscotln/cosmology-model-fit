@@ -60,18 +60,21 @@ def DM_z(z, theta):
     return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
-correction_mask = z_cmb <= 0.1
+pivot_mask = z_cmb <= 0.1
 
 
 @njit
 def mu_corr(params):
     z_pec = 100 * params[4] / c
-    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+    z_cosmo1 = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+    z_cosmo2 = -1.0 + (1.0 + z_cmb) / (1.0 - z_pec)
+
+    DM_ref = DM_z(z_cmb, params)
 
     return np.where(
-        correction_mask,
-        5.0 * np.log10(DM_z(z_cosmo, params) / DM_z(z_cmb, params)),
-        0.0,
+        pivot_mask,
+        5.0 * np.log10(DM_z(z_cosmo1, params) / DM_ref),
+        5.0 * np.log10(DM_z(z_cosmo2, params) / DM_ref),
     )
 
 
@@ -102,7 +105,7 @@ bounds = np.array(
         (55.0, 75.0),  # H0
         (0.010, 0.030),  # Ωb * h^2
         (0.01, 0.25),  # Ωc * h^2
-        (-6.0, 3.0),  # v x 100 km/s
+        (-5.0, 2.5),  # v x 100 km/s
     ]
 )
 
@@ -235,23 +238,23 @@ Log evidence: -834.5
 
 """
 Flat ΛCDM
-Isotropic velocity SNe observed redshifts (limit to z <= 0.1)
+Isotropic velocity SNe observed redshifts (turning point z <= 0.1 inflow z > 0.1 outflow)
 z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-v: -1.41 ± 0.64 (prior U(-6.0, 3.0)) x 100 km/s
-v / (z_cut=0.1): -1410 ± 640 km/s
-ΔM: -0.082 ± 0.012
-H0: 67.66 ± 0.47 km/s/Mpc
+v: -1.31 ± 0.57 (prior U(-5.0, 2.5)) x 100 km/s
+v / (z_cut=0.1): -1310 ± 570 km/s
+ΔM: -0.080 ± 0.012
+H0: 67.65 ± 0.47 km/s/Mpc
 Ωm: 0.311 ± 0.007
 ωb: 0.02250 ± 0.00011
 ωc: 0.1192 ± 0.0011
 ωm: 0.1424 ± 0.0011
 z*: 1089.67 ± 0.20
-zd: 1060.18 ± 0.23
-r*: 144.55 Mpc
-r_d: 147.17 Mpc
-Chi squared: 1627.73 (2.2 sigma significance)
-Log evidence: -833.8
+zd: 1060.17 ± 0.23
+r*: 144.54 Mpc
+r_d: 147.16 Mpc
+Chi squared: 1627.13 (2.35 sigma significance)
+Log evidence: -833.4
 """
 
 """

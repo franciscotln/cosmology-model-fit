@@ -102,18 +102,21 @@ def bao_theory(z, qty, params):
     return results / rd
 
 
-correction_mask = z_cmb <= 0.2
+pivot_mask = z_cmb <= 0.2
 
 
 @njit
 def mu_corr(params):
     z_pec = 100 * params[4] / c
-    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+    z_cosmo1 = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+    z_cosmo2 = -1.0 + (1.0 + z_cmb) / (1.0 - z_pec)
+
+    DM_ref = DM_z(z_cmb, params)
 
     return np.where(
-        correction_mask,
-        5.0 * np.log10(DM_z(z_cosmo, params) / DM_z(z_cmb, params)),
-        0.0,
+        pivot_mask,
+        5.0 * np.log10(DM_z(z_cosmo1, params) / DM_ref),
+        5.0 * np.log10(DM_z(z_cosmo2, params) / DM_ref),
     )
 
 
@@ -169,7 +172,7 @@ def main():
     prior.add_parameter("H0", dist=(60.0, 75.0))
     prior.add_parameter("obh2", dist=(0.010, 0.030))
     prior.add_parameter("och2", dist=(0.01, 0.25))
-    prior.add_parameter("v", dist=(-12.0, 4.5))
+    prior.add_parameter("v", dist=(-9.5, 3.5))
 
     with Pool(6) as pool:
         sampler = Sampler(
@@ -290,12 +293,12 @@ Degs of freedom: 36
 
 """
 Flat ΛCDM w(z) = -1
-Isotropic velocity SNe observed redshifts (limit to z <= 0.2)
+Isotropic velocity SNe observed redshifts (turning point z <= 0.2 inflow z > 0.2 outflow)
 z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-ΔM: -0.0553 ± 0.0072 mag
-v: -3.8 ± 1.4 (prior U(-12, 4.5)) x 100 km/s
-v / (z_cut=0.2): -1900 ± 700 km/s
+ΔM: -0.0501 ± 0.0070 mag
+v: -3.1 ± 1.0 (prior U(-9.5, 3.5)) x 100 km/s
+v / (z_cut=0.2): -1590 ± 500 km/s
 H0: 68.51 ± 0.27 km/s/Mpc
 Ωm: 0.2992 ± 0.0036
 ωb: 0.02258 ± 0.00010
@@ -304,8 +307,8 @@ H0: 68.51 ± 0.27 km/s/Mpc
 z*: 1089.38 ± 0.15
 z_d: 1060.21 ± 0.23
 r_d: 147.61 ± 0.19 Mpc
-Chi2 (MAP): 38.61 (2.74 sigma away from no corrections)
-Log evidence: -39.8 (Δ logZ = 2.2 in favour of inflow corrections)
+Chi2 (MAP): 37.48 (2.94 sigma significance)
+Log evidence: -39.3 (Δ logZ = 2.7 in favour of flow corrections)
 Degs of freedom: 35
 """
 
