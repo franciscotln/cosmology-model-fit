@@ -28,15 +28,10 @@ def Ode_z(z, w0):
 
 
 @njit
-def Ez(z, params):
-    Om = params[3]
-    inv_a3 = (1.0 + z) ** 3
-    return np.sqrt(Om * inv_a3 + (1.0 - Om))
-
-
-@njit
 def H_z(z, params):
-    return params[2] * Ez(z, params)
+    H0, Om = params[2], params[3]
+    inv_a3 = (1.0 + z) ** 3
+    return H0 * np.sqrt(Om * inv_a3 + (1.0 - Om))
 
 
 @njit
