@@ -98,18 +98,21 @@ def bao_theory(z, qty, theta):
     return results / rd
 
 
-correction_mask = z_cmb <= 0.2
+pivot_mask = z_cmb <= 0.2
 
 
 @njit
 def mu_corr(params):
     z_pec = 100 * params[4] / c
-    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+    z_cosmo1 = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+    z_cosmo2 = -1.0 + (1.0 + z_cmb) / (1.0 - z_pec)
+
+    DM_ref = DM_z(z_cmb, params)
 
     return np.where(
-        correction_mask,
-        5.0 * np.log10(DM_z(z_cosmo, params) / DM_z(z_cmb, params)),
-        0.0,
+        pivot_mask,
+        5.0 * np.log10(DM_z(z_cosmo1, params) / DM_ref),
+        5.0 * np.log10(DM_z(z_cosmo2, params) / DM_ref),
     )
 
 
@@ -412,27 +415,27 @@ Degrees of freedom: 93
 
 """
 Flat ΛCDM
-Isotropic velocity SNe observed redshifts (limit to z <= 0.2)
+Isotropic velocity SNe observed redshifts (turning point z <= 0.2 inflow z > 0.2 outflow)
 z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-ΔM: -0.057 +0.012 -0.012 mag
-v: -3.88 +1.38 -1.38 x 100 km/s
-H0: 68.54 +0.46 -0.47 km/s/Mpc
-ωb: 0.02220 +0.00053 -0.00053
+v: -313 +104 -105 km/s
+ΔM: -0.052 +0.012 -0.012 mag
+H0: 68.53 +0.46 -0.46 km/s/Mpc
+ωb: 0.02219 +0.00053 -0.00053
 ωc: 0.1160 +0.0008 -0.0008
 ωm: 0.1389 +0.0011 -0.0011
 Ωm: 0.296 +0.004 -0.004
 σ8: 0.780 +0.014 -0.014
-S8: 0.774 +0.014 -0.014
-z_d: 1059.24 +1.22 -1.25
-r_d: 148.36 +0.70 -0.69 Mpc
-z*: 1089.77 +0.70 -0.67
+S8: 0.774 +0.014 -0.015
+z_d: 1059.23 +1.23 -1.23
+r_d: 148.36 +0.69 -0.70 Mpc
+z*: 1089.78 +0.69 -0.67
 r*: 145.61 Mpc
-100 θ*: 1.04094
-q0: -0.557 +0.007 -0.007
+100 θ*: 1.04095
+q0: -0.556 +0.007 -0.007
 j0: 1
-Chi2 (MAP): 69.60 (2.80 sigma away from no correction)
-Log Evidence: -55.16 (Δ logZ = 2.39 in favour of corrections)
+Chi2 (MAP): 68.50 (3.0 sigma significance)
+Log Evidence: -54.87 (Δ logZ = 2.68 in favour of corrections)
 Degrees of freedom: 92
 """
 
@@ -454,7 +457,7 @@ r*: 145.97 Mpc
 100 θ*: 1.04090
 q0: -0.481 +0.039 -0.040
 j0: 0.821 +0.093 -0.084
-Chi2 (MAP): 72.95 (2.12 sigma away from ΛCDM)
+Chi2 (MAP): 72.95 (2.1 sigma significance)
 Log Evidence: -57.79 (Δ logZ = -0.24 in favour of ΛCDM)
 Degrees of freedom: 92
 """
@@ -478,7 +481,7 @@ r*: 145.78 Mpc
 100 θ*: 1.04092
 q0: -0.380 +0.069 -0.070
 j0: 0.174 +0.304 -0.264
-Chi2 (MAP): 70.96 (2.55 sigma away from ΛCDM)
+Chi2 (MAP): 70.96 (2.6 sigma significance)
 Log Evidence: -56.16 (Δ logZ = 1.39 against ΛCDM)
 Degrees of freedom: 92
 """
@@ -502,7 +505,7 @@ r*: 145.19 Mpc
 100 θ*: 1.04088
 q0: -0.305 +0.098 -0.097
 j0: -0.199 +0.503 -0.475
-Chi2 (MAP): 70.30 (1.91 sigma away from ΛCDM)
+Chi2 (MAP): 70.30 (1.9 sigma significance)
 Log Evidence: -58.33 (Δ logZ = -0.78 in favour of ΛCDM)
 Degrees of freedom: 91
 """

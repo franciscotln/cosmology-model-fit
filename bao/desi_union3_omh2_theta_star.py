@@ -28,8 +28,7 @@ def Ode_z(z, w0):
 
 
 @njit
-def Ez(z, H0, Obh2, Och2):
-    h = H0 / 100
+def Ez(z, h, Obh2, Och2):
     Onu = Omnuh2 / h**2
     Or = Orh2 / h**2
     Obc = (Obh2 + Och2) / h**2
@@ -48,7 +47,7 @@ def Ez(z, H0, Obh2, Och2):
 @njit
 def H_z(z, params):
     H0 = params[1]
-    return H0 * Ez(z, H0, Obh2=params[2], Och2=params[3])
+    return H0 * Ez(z, h=H0 / 100, Obh2=params[2], Och2=params[3])
 
 
 cmb.set_HZ(H_z)
@@ -76,7 +75,7 @@ def DV_z(z, theta):
 
 
 qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
-quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int64)
+desi_qty = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int64)
 
 
 @njit
@@ -93,18 +92,21 @@ def bao_theory(z, qty, theta):
     return results / rd
 
 
-correction_mask = z_cmb <= 0.2
+pivot_mask = z_cmb <= 0.2
 
 
 @njit
 def mu_corr(params):
     z_pec = 100 * params[4] / c
-    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+    z_cosmo1 = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+    z_cosmo2 = -1.0 + (1.0 + z_cmb) / (1.0 - z_pec)
+
+    DM_ref = DM_z(z_cmb, params)
 
     return np.where(
-        correction_mask,
-        5.0 * np.log10(DM_z(z_cosmo, params) / DM_z(z_cmb, params)),
-        0.0,
+        pivot_mask,
+        5.0 * np.log10(DM_z(z_cosmo1, params) / DM_ref),
+        5.0 * np.log10(DM_z(z_cosmo2, params) / DM_ref),
     )
 
 
@@ -123,7 +125,7 @@ def chi_squared(theta):
     delta_sn = mu_vals - theory_mu(theta) - mu_corr(theta)
     chi_sn = delta_sn @ inv_cov_sn @ delta_sn
 
-    delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, theta)
+    delta_bao = bao_data["value"] - bao_theory(bao_data["z"], desi_qty, theta)
     chi_bao = delta_bao @ inv_cov_bao @ delta_bao
     return chi_sn + chi_bao + chi_cmb
 
@@ -145,7 +147,7 @@ def main():
     prior.add_parameter("H0", dist=(50.0, 90.0))
     prior.add_parameter("ωb", dist=(0.01, 0.04))
     prior.add_parameter("ωc", dist=(0.05, 0.3))
-    prior.add_parameter("v", dist=(-12.5, 4.5))
+    prior.add_parameter("v", dist=(-12.0, 5.0))
 
     with Pool(8) as pool:
         sampler = Sampler(
@@ -244,7 +246,7 @@ H0 U(50.0, 90.0)
 ωc U(0.05, 0.3)
 
 flow correction:
-v ~U(-12.5, 4.5) x 100 km/s
+v ~U(-12, 5) x 100 km/s
 
 wCDM:
 w0 U(-1.3, -0.3)
@@ -275,20 +277,20 @@ Degs of freedom: 33
 
 """
 Flat ΛCDM
-Isotropic velocity SNe observed redshifts (limit to z <= 0.2)
+Isotropic velocity SNe observed redshifts (turning point z <= 0.2 inflow z > 0.2 outflow)
 z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-v: -4.00 +1.39 -1.39 x 100 km/s
-ΔM: -0.025 +0.021 -0.022 mag
-H0: 69.66 +0.82 -0.83 km/s/Mpc
-ωb: 0.02391 +0.00093 -0.00096
-ωc: 0.1172 +0.0007 -0.0007
+v: -3.23 +1.05 -1.05 x 100 km/s
+ΔM: -0.021 +0.022 -0.022 mag
+H0: 69.63 +0.83 -0.82 km/s/Mpc
+ωb: 0.02388 +0.00094 -0.00095
+ωc: 0.1172 +0.0007 -0.0006
 ωm: 0.1418 +0.0012 -0.0012
 Ωm: 0.292 +0.006 -0.006
-z_d: 1063.31 +2.04 -2.14
-r_d: 146.15 +1.06 -1.02 Mpc
-Chi squared: 34.22 (2.90 sigma away from no flow correction)
-Log Evidence: -36.88 (Δ logZ = 2.60 against no flow correction)
+z_d: 1063.26 +2.04 -2.13
+r_d: 146.17 +1.06 -1.02 Mpc
+Chi squared: 33.13 (3.08 sigma significance)
+Log Evidence: -36.61 (Δ logZ = 2.87 in favour of flow correction)
 Degs of freedom: 32
 """
 
