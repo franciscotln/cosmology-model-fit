@@ -19,7 +19,7 @@ inv_cov_bao = np.linalg.inv(bao_cov_matrix)
 inv_cov_6dF_bao = np.linalg.inv(sixdF_bao_cov_matrix)
 
 z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
-z_grid = np.linspace(0, z_max, 3000)
+z_grid = np.linspace(0, z_max, 4000)
 dz = np.diff(z_grid)
 
 
@@ -99,18 +99,21 @@ def bao_theory(z, qty, params):
     return results / rd
 
 
-correction_mask = z_cmb <= 0.2
+pivot_mask = z_cmb <= 0.2
 
 
 @njit
 def mu_corr(params):
     z_pec = 100 * params[4] / c
-    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+    z_cosmo1 = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+    z_cosmo2 = -1.0 + (1.0 + z_cmb) / (1.0 - z_pec)
+
+    DM_ref = DM_z(z_cmb, params)
 
     return np.where(
-        correction_mask,
-        5.0 * np.log10(DM_z(z_cosmo, params) / DM_z(z_cmb, params)),
-        0.0,
+        pivot_mask,
+        5.0 * np.log10(DM_z(z_cosmo1, params) / DM_ref),
+        5.0 * np.log10(DM_z(z_cosmo2, params) / DM_ref),
     )
 
 
@@ -163,7 +166,7 @@ def main():
     prior.add_parameter("H0", dist=(60.0, 75.0))
     prior.add_parameter("obh2", dist=(0.010, 0.030))
     prior.add_parameter("och2", dist=(0.01, 0.25))
-    prior.add_parameter("v", dist=(-12.0, 4.5))
+    prior.add_parameter("v", dist=(-9.5, 3.5))
 
     with Pool(6) as pool:
         sampler = Sampler(
@@ -277,22 +280,22 @@ Degrees of freedom: 36
 
 """
 Flat ΛCDM w(z) = -1
-Isotropic velocity SNe observed redshifts (limit to z <= 0.2)
+Isotropic velocity SNe observed redshifts (turning point z <= 0.2 inflow z > 0.2 outflow)
 z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-ΔM: -0.0548 ± 0.0073 mag
-v: -3.8 ± 1.4 (prior U(-12, 4.5)) x 100 km/s
+ΔM: -0.0497 ± 0.0069 mag
+v: -3.1 ± 1.0 (prior U(-9.5, 3.5)) x 100 km/s
 v / (z_cut=0.2): -1900 ± 700 km/s
 H0: 68.53 ± 0.27 km/s/Mpc
 ωb: 0.02259 ± 0.00010
-ωc: 0.11715 ± 0.00065
-ωm: 0.14039 ± 0.00064
-Ωm: 0.2990 ± 0.0036
+ωc: 0.11716 ± 0.00065
+ωm: 0.14040 ± 0.00063
+Ωm: 0.2990 ± 0.0035
 z*: 1089.36 ± 0.15
 z_d: 1060.22 ± 0.23
 r_d: 147.61 ± 0.19 Mpc
-χ2 (MAP): 39.01 (2.75 sigmas away from no correction)
-Log evidence: -40.1 (ΔlogZ = 2.2 in favour of inflow corrections)
+χ2 (MAP): 37.87 (2.95 sigma significance)
+Log evidence: -39.5 (ΔlogZ = 2.8 in favour of in/outflow corrections)
 Degrees of freedom: 35
 """
 
