@@ -37,8 +37,7 @@ def Ode_z(z, w0):
 
 
 @njit
-def Ez(z, H0, Obh2, Och2):
-    h = H0 / 100
+def Ez(z, h, Obh2, Och2):
     Omnu = Omnu_h2 / h**2
     Or = Or_h2 / h**2
     Ombc = (Obh2 + Och2) / h**2
@@ -55,7 +54,7 @@ def Ez(z, H0, Obh2, Och2):
 @njit
 def H_z(z, theta):
     H0 = theta[2]
-    return H0 * Ez(z, H0, Obh2=theta[3], Och2=theta[4])
+    return H0 * Ez(z, h=H0 / 100, Obh2=theta[3], Och2=theta[4])
 
 
 cmb.set_HZ(H_z)
@@ -101,19 +100,21 @@ def bao_theory(z, qty, theta):
     return results / rd
 
 
-correction_mask = z_cmb <= 0.2
+pivot_mask = z_cmb <= 0.2
 
 
 @njit
 def mu_corr(params):
-    v_km_s = 100 * params[5]
-    z_pec = v_km_s / c
-    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+    z_pec = 100 * params[5] / c
+    z_cosmo1 = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+    z_cosmo2 = -1.0 + (1.0 + z_cmb) / (1.0 - z_pec)
+
+    DM_ref = DM_z(z_cmb, params)
 
     return np.where(
-        correction_mask,
-        5.0 * np.log10(DM_z(z_cosmo, params) / DM_z(z_cmb, params)),
-        0.0,
+        pivot_mask,
+        5.0 * np.log10(DM_z(z_cosmo1, params) / DM_ref),
+        5.0 * np.log10(DM_z(z_cosmo2, params) / DM_ref),
     )
 
 
@@ -167,7 +168,7 @@ def main():
     # Ωc x h^2: cold dark matter density param today
     prior.add_parameter("ωc", dist=(0.05, 0.30))
     # v: peculiar velocity of the local group (x 100 km/s)
-    prior.add_parameter("v", dist=(-12, 6))
+    prior.add_parameter("v", dist=(-10.5, 4.5))
 
     with Pool(8) as pool:
         sampler = Sampler(
@@ -274,7 +275,7 @@ wa   ~U(-3.5, +2.0)
 w0 + wa < 0 enforced
 
 flow correction:
-v ~U(-12, 5) x 100 km/s
+v ~U(-10.5, 4.5) x 100 km/s
 """
 
 """
@@ -294,20 +295,20 @@ Degrees of freedom: 67
 
 """
 Flat ΛCDM: w(z) = -1
-Isotropic velocity SNe observed redshifts (limit to z <= 0.2)
+Isotropic velocity SNe observed redshifts (turning point z <= 0.2 inflow z > 0.2 outflow)
 z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-f_cc: 1.49 +0.18 -0.17
-ΔM: -0.056 +0.042 -0.039 mag
-v: -3.8 +1.4 -1.4 x 100 km/s
-H0: 68.6 +1.5 -1.4 km/s/Mpc
+v: -313 +105 -105 km/s
+ΔM: -0.05 +0.04 -0.04 mag
+H0: 68.5 +1.5 -1.4 km/s/Mpc
 ωb: 0.0223 +0.0022 -0.0020 Mpc
-ωc: 0.1163 +0.0013 -0.0011
-ωm: 0.1392 +0.0033 -0.0029
+ωc: 0.116 +0.001 -0.001
+ωm: 0.139 +0.003 -0.003
 Ωm: 0.296 +0.008 -0.007
 r_d: 148.2 +2.5 -2.7 Mpc
-Chi squared: 69.80 (2.76 sigmas away from no correction)
-Log evidence: -179.67 (Δ logZ = 2.23 in favour of correction)
+f_cc: 1.49 +0.18 -0.17
+Chi squared: 68.70 (2.95 sigma significance)
+Log evidence: -179.21 (Δ logZ = 2.69 in favour of correction)
 Degrees of freedom: 66
 """
 
@@ -322,7 +323,7 @@ H0: 68.6 +1.7 -1.5 km/s/Mpc
 Ωm: 0.300 +0.007 -0.007
 w0: -0.910 +0.040 -0.041
 r_d: 145.3 +3.2 -3.4 Mpc
-Chi squared: 72.92 (2.12 sigmas away from ΛCDM)
+Chi squared: 72.92 (2.12 sigma significance)
 Log evidence: -181.85 (Δ logZ = 0.05 against ΛCDM)
 Degrees of freedom: 66
 """
@@ -338,7 +339,7 @@ H0: 67.6 +1.6 -1.4 km/s/Mpc
 Ωm: 0.308 +0.008 -0.008
 w0: -0.827 +0.067 -0.070
 r_d: 146.2 +2.9 -3.1 Mpc
-Chi squared: 71.44 (2.44 sigmas away from ΛCDM)
+Chi squared: 71.44 (2.44 sigma significance)
 Log evidence: -180.31 (Δ logZ = 1.59 against ΛCDM)
 Degrees of freedom: 66
 """
@@ -355,7 +356,7 @@ H0: 66.7 +2.1 -1.8 km/s/Mpc
 w0: -0.810 +0.097 -0.091
 wa: -0.530 +0.426 -0.469
 r_d: 147.9 +3.5 -3.8 Mpc
-Chi squared: 70.91 (2.06 sigmas away from ΛCDM)
+Chi squared: 70.91 (2.06 sigma significance)
 Log evidence: -183.16 (Δ logZ = -1.26 in favour of ΛCDM)
 Degrees of freedom: 65
 """
