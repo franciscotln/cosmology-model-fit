@@ -278,7 +278,7 @@ r_d: 147.2 +4.5 -5.0 Mpc
 Ωm: 0.2989 +0.0081 -0.0081
 ωm: 0.143 +0.031 -0.022
 f_cc: 1.48 +0.18 -0.18
-Chi squared: 67.73 (2.94 sigma away from no correction)
+Chi squared: 67.73 (2.94 sigma significance)
 Log evidence: -176.35 (Δ logZ = 2.66 in favour of corrections)
 Degrees of freedom: 65
 """
