@@ -80,19 +80,21 @@ def bao_theory(z, qty, theta):
     return results / theta[3]
 
 
-correction_mask = z_cmb <= 0.1
+pivot_mask = z_cmb <= 0.11
 
 
 @njit
 def mu_corr(params):
-    v_km_s = 100 * params[5]
-    z_pec = v_km_s / c
-    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+    z_pec = 100 * params[5] / c
+    z_cosmo1 = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+    z_cosmo2 = -1.0 + (1.0 + z_cmb) / (1.0 - z_pec)
+
+    DM_ref = DM_z(z_cmb, params)
 
     return np.where(
-        correction_mask,
-        5.0 * np.log10(DM_z(z_cosmo, params) / DM_z(z_cmb, params)),
-        0.0,
+        pivot_mask,
+        5.0 * np.log10(DM_z(z_cosmo1, params) / DM_ref),
+        5.0 * np.log10(DM_z(z_cosmo2, params) / DM_ref),
     )
 
 
@@ -261,17 +263,17 @@ Degrees of freedom: 1758
 
 """
 Flat ΛCDM
-Isotropic velocity SNe observed redshifts (limit to z <= 0.1)
+Isotropic velocity SNe observed redshifts (turning point z <= 0.11 inflow z > 0.11 outflow)
 z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-v: -1.70 +0.65 -0.65 (x 100 km/s) (prior ~ U(-6, 2))
-ΔM: -0.052 +0.069 -0.071 mag
+v: -1.57 +0.56 -0.56 x 100 km/s
+ΔM: -0.049 +0.069 -0.072 mag
 H0: 68.8 +2.3 -2.3 km/s/Mpc
-r_d: 147.1 +4.9 -4.5 Mpc
-Ωm: 0.300 +0.008 -0.008
+r_d: 147.1 +4.9 -4.6 Mpc
+Ωm: 0.301 +0.008 -0.008
 f_cc: 1.48 +0.18 -0.17
-Chi squared: 1673.50 (2.66 sigma away from no corrections)
-Log evidence: -977.74 (Δ logZ = 1.79 in favour of corrections)
+Chi squared: 1672.82 (2.78 sigma away from no corrections)
+Log evidence: -977.49 (Δ logZ = 2.04 in favour of corrections)
 Degrees of freedom: 1757
 """
 
