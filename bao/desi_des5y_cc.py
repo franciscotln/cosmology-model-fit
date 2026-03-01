@@ -272,7 +272,7 @@ H0: 68.8 +2.3 -2.3 km/s/Mpc
 r_d: 147.1 +4.9 -4.6 Mpc
 Ωm: 0.301 +0.008 -0.008
 f_cc: 1.48 +0.18 -0.17
-Chi squared: 1672.82 (2.78 sigma away from no corrections)
+Chi squared: 1672.82 (2.78 sigma significance)
 Log evidence: -977.49 (Δ logZ = 2.04 in favour of corrections)
 Degrees of freedom: 1757
 """
