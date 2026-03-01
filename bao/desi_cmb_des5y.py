@@ -98,7 +98,7 @@ def bao_theory(z, qty, params):
     return results / rd
 
 
-pivot_mask = z_cmb <= 0.1
+pivot_mask = z_cmb <= 0.11
 
 
 @njit
@@ -262,22 +262,22 @@ Degrees of freedom: 1726
 
 """
 Flat ΛCDM
-Isotropic velocity SNe observed redshifts (turning point z <= 0.1 inflow z > 0.1 outflow)
+Isotropic velocity SNe observed redshifts (turning point z <= 0.11 inflow z > 0.11 outflow)
 z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-ΔM: -0.0618 ± 0.0079 mag
-v: -1.55 ± 0.55 (prior ~ U(-6, 2)) x 100 km/s
-v / (z_cut=0.1): -1550 ± 550 km/s
-H0: 68.44 ± 0.27 km/s/Mpc
+ΔM: -0.0617 ± 0.0079 mag
+v: -1.58 ± 0.56 (prior ~ U(-6, 2)) x 100 km/s
+v / (z_cut=0.11): -1436 ± 509 km/s
+H0: 68.45 ± 0.27 km/s/Mpc
 Ωm: 0.3001 ± 0.0036
 ωb: 0.02258 ± 0.00010
-ωc: 0.11735 ± 0.00065
+ωc: 0.11734 ± 0.00065
 ωm: 0.1405 ± 0.0006
 z*: 1089.40 ± 0.15
 z_d: 1060.20 ± 0.23
 r_d: 147.57 ± 0.19 Mpc
-χ2 (MAP): 1641.75 (2.82 sigma away from no in/outflow)
-Log evidence: -840.7 (Δ logZ = 2.3 in favour of in/outflow)
+χ2 (MAP): 1641.48 (2.87 sigma significance)
+Log evidence: -840.6 (Δ logZ = 2.4 in favour of in/outflow)
 Degrees of freedom: 1725
 """
 

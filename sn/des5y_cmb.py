@@ -60,7 +60,7 @@ def DM_z(z, theta):
     return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
-pivot_mask = z_cmb <= 0.1
+pivot_mask = z_cmb <= 0.11
 
 
 @njit
@@ -238,23 +238,23 @@ Log evidence: -834.5
 
 """
 Flat ΛCDM
-Isotropic velocity SNe observed redshifts (turning point z <= 0.1 inflow z > 0.1 outflow)
+Isotropic velocity SNe observed redshifts (turning point z <= 0.11 inflow z > 0.11 outflow)
 z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-v: -1.31 ± 0.57 (prior U(-5.0, 2.5)) x 100 km/s
-v / (z_cut=0.1): -1310 ± 570 km/s
+v: -1.35 ± 0.56 (prior U(-5.0, 2.5)) x 100 km/s
+v / (z_cut=0.11): -1227 ± 509 km/s
 ΔM: -0.080 ± 0.012
-H0: 67.65 ± 0.47 km/s/Mpc
+H0: 67.66 ± 0.47 km/s/Mpc
 Ωm: 0.311 ± 0.007
 ωb: 0.02250 ± 0.00011
 ωc: 0.1192 ± 0.0011
 ωm: 0.1424 ± 0.0011
 z*: 1089.67 ± 0.20
-zd: 1060.17 ± 0.23
+zd: 1060.18 ± 0.23
 r*: 144.54 Mpc
 r_d: 147.16 Mpc
-Chi squared: 1627.13 (2.35 sigma significance)
-Log evidence: -833.4
+Chi squared: 1626.94 (2.39 sigma significance)
+Log evidence: -833.3
 """
 
 """

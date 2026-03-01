@@ -16,7 +16,7 @@ inv_cov_des = np.linalg.inv(cov_des)
 
 z_max = np.max(data["z"]) + 0.1
 z_grid = np.linspace(0, z_max, num=3000)
-dx = np.diff(z_grid)
+dz = np.diff(z_grid)
 
 
 @njit
@@ -38,9 +38,9 @@ def DH_z(z, theta):
 def bao_theory(z, qty, theta):
     dh_grid = DH_z(z_grid, theta)
 
-    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    dh = (dh_grid[:-1] + dh_grid[1:]) / 2
     dm_grid = np.zeros(z_grid.size, dtype=np.float64)
-    dm_grid[1:] = np.cumsum(dx * dy)
+    dm_grid[1:] = np.cumsum(dz * dh)
 
     DV_mask = qty == 0
     DM_mask = qty == 1

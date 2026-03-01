@@ -38,7 +38,7 @@ def DM_z(z, params):
     return interp_hermite(z, z_grid, cum_dm, dH_grid)
 
 
-pivot_mask = z_cmb <= 0.1
+pivot_mask = z_cmb <= 0.11
 
 
 @njit
@@ -223,19 +223,19 @@ Effective deg of freedom: 1711
 
 """
 Flat ΛCDM w(z) = -1
-Isotropic velocity SNe observed redshifts (turning point z <= 0.1 inflow z > 0.1 outflow)
+Isotropic velocity SNe observed redshifts (turning point z <= 0.11 inflow z > 0.11 outflow)
 z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-ΔM: 0.005 +0.056 -0.058 mag
-v: -1.35 +0.66 -0.65 km/s (prior ~ U(-6, 3)) x 100 km/s
-v / (z_cut=0.1): -1350 ± 650 km/s
-H0: 70.39 +1.80 -1.80 km/s/Mpc
-Ωm: 0.309 +0.018 -0.017
+ΔM: 0.005 +0.056 -0.057 mag
+v: -1.41 +0.66 -0.65 km/s (prior ~ U(-6, 3)) x 100 km/s
+v / (z_cut=0.11): -1282 ± 600 km/s
+H0: 70.40 +1.78 -1.79 km/s/Mpc
+Ωm: 0.308 +0.018 -0.018
 R-squared (%): 98.37
 RMSD (mag): 0.269
 Skewness of residuals: 3.2
-Log evidence: -825.3
-Chi2 (MAP): 1627.11 (2.08 sigma significance)
+Log evidence: -825.2
+Chi2 (MAP): 1626.91 (2.12 sigma significance)
 Effective deg of freedom: 1710
 """
 
