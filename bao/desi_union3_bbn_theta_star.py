@@ -285,9 +285,6 @@ w0waCDM:
 w0: U(-1.5, 0.0)
 wa: U(-3.0, 1.0)
 w0 + wa < 0 enforced
-
-Evolving absolute magnitude M(z):
-M'0: U(-8.0, 4.0)
 """
 
 """

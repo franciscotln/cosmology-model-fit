@@ -12,7 +12,7 @@ c = c0 / 1000  # Speed of light (km/s)
 
 cho = cho_factor(cov_matrix, lower=True)[0]
 
-z_grid = np.linspace(0, np.max(z_cmb) + 0.1, num=3000)
+z_grid = np.linspace(0, np.max(z_cmb) + 0.1, num=4000)
 dz = np.diff(z_grid)
 
 cubed = (1.0 + z_grid) ** 3
@@ -25,46 +25,39 @@ def Ode_z(w0):
 
 
 @njit
-def Ez(params):
-    Om = params[2]
-    return np.sqrt(Om * cubed + (1.0 - Om))
+def H_z(params):
+    H0, Om = params[1], params[2]
+    return H0 * np.sqrt(Om * cubed + (1.0 - Om))
 
 
 @njit
 def DM_z(params, z):
-    dh_grid = (c / params[1]) / Ez(params)
+    dh_grid = c / H_z(params)
     dh = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size, dtype=np.float64)
     cum_dm[1:] = np.cumsum(dh * dz)
     return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
-correction_mask = z_cmb <= 0.1
+correction_mask = z_cmb <= 0.15
 
 
 @njit
-def mu_corr(params):
+def mu_corr(params, DM_ref):
     z_pec = 100 * params[3] / c
-    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+    z_cosmo1 = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+    z_cosmo2 = -1.0 + (1.0 + z_cmb) / (1.0 - z_pec)
 
     return np.where(
         correction_mask,
-        5.0 * np.log10(DM_z(params, z_cosmo) / DM_z(params, z_cmb)),
-        0.0,
+        5.0 * np.log10(DM_z(params, z_cosmo1) / DM_ref),
+        5.0 * np.log10(DM_z(params, z_cosmo2) / DM_ref),
     )
 
 
 @njit
-def mu_theory(params):
-    return 25.0 + 5 * np.log10((1.0 + z_hel) * DM_z(params, z_cmb))
-
-
-@njit
-def mu_corr(params):
-    z_pec = 100 * params[3] / c
-    z_cosmo = (1.0 + z_cmb) / (1.0 + z_pec) - 1.0
-    corr = 5.0 * np.log10(DM_z(params, z_cosmo) / DM_z(params, z_cmb))
-    return np.where(correction_mask, corr, 0.0)
+def mu_theory(DM):
+    return 25.0 + 5 * np.log10((1.0 + z_hel) * DM)
 
 
 def solve_triang(cho_L, delta):
@@ -73,7 +66,8 @@ def solve_triang(cho_L, delta):
 
 
 def chi_squared(params):
-    delta = mb_vals - params[0] - mu_corr(params) - mu_theory(params)
+    DM = DM_z(params, z_cmb)
+    delta = mb_vals - params[0] - mu_corr(params, DM) - mu_theory(DM)
     return solve_triang(cho, delta)
 
 
@@ -155,13 +149,14 @@ def main():
         (M0_16, M0_50, M0_84),
         (H0_16, H0_50, H0_84),
         (Om_16, Om_50, Om_84),
-        (vf_16, vf_50, vf_84),
+        (v_16, v_50, v_84),
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
     best_fit = np.percentile(samples, 50, axis=0)
 
-    mB_pred = mu_theory(best_fit) + M0_50
-    corrected_mags = mb_vals - mu_corr(best_fit)
+    DM = DM_z(best_fit, z_cmb)
+    mB_pred = mu_theory(DM) + M0_50
+    corrected_mags = mb_vals - mu_corr(best_fit, DM)
     residuals = corrected_mags - mB_pred
 
     skewness = stats.skew(residuals)
@@ -176,14 +171,14 @@ def main():
     M_label = f"{M0_50:.3f} +{M0_84-M0_50:.3f}/-{M0_50-M0_16:.3f}"
     H0_label = f"{H0_50:.2f} +{H0_84-H0_50:.2f}/-{H0_50-H0_16:.2f} km/s/Mpc"
     omega_label = f"{Om_50:.3f} +{Om_84-Om_50:.3f}/-{Om_50-Om_16:.3f}"
-    vf_label = f"{vf_50:.3f} +{vf_84-vf_50:.3f}/-{vf_50-vf_16:.3f} x 100 km/s"
+    v_label = f"{v_50:.3f} +{v_84-v_50:.3f}/-{v_50-v_16:.3f} x 100 km/s"
 
     print_color("Dataset", legend)
     print_color("z range", f"{z_cmb[0]:.4f} - {z_cmb[-1]:.4f}")
     print_color("M", M_label)
     print_color("H0", H0_label)
     print_color("Ωm", omega_label)
-    print_color("v", vf_label)
+    print_color("v", v_label)
     print_color("R-squared (%)", f"{100 * r_squared:.2f}")
     print_color("RMSD (mag)", f"{rmsd:.3f}")
     print_color("Skewness of residuals", f"{skewness:.3f}")
@@ -199,7 +194,7 @@ def main():
         x=z_cmb,
         y=corrected_mags - M0_50,
         y_err=np.sqrt(np.diag(cov_matrix)),
-        y_model=mu_theory(best_fit),
+        y_model=mB_pred - M0_50,
         label=f"$Ω_m$={Om_50:.3f}",
         x_scale="log",
     )
@@ -239,20 +234,20 @@ Log Evidence: -711.0
 =============================
 
 Flat ΛCDM
-Isotropic velocity SNe observed redshifts (limit to z <= 0.1)
+Isotropic velocity SNe observed redshifts (turning point z <= 0.15 inflow z > 0.15 outflow)
 z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-M: -19.352 +0.056/-0.057
-H0: 70.39 +1.79/-1.79 km/s/Mpc
-Ωm: 0.317 +0.021/-0.020
-v: -0.67 +0.44/-0.44 x 100 km/s (prior ~ U(-3.25, 2.00))
+M: -19.351 +0.056/-0.057
+H0: 70.39 +1.79/-1.80 km/s/Mpc
+Ωm: 0.315 +0.021/-0.020
+v: -0.68 +0.41/-0.41 x 100 km/s (prior ~ U(-3.25, 2.00))
 R-squared (%): 99.75
 RMSD (mag): 0.154
-Skewness of residuals: 0.056
-kurtosis of residuals: 1.585
+Skewness of residuals: 0.055
+kurtosis of residuals: 1.586
 Degs of freedom: 1586
-Chi squared: 1400.53 (1.55 sigma significance)
-Log Evidence: -711.4
+Chi squared: 1400.15 (1.55 sigma significance)
+Log Evidence: -711.3
 """
 
 """

@@ -29,32 +29,33 @@ def Ode_z(params):
 
 
 @njit
-def Hz(params):
+def H_z(params):
     H0, O_m = params[1], params[2]
     return H0 * np.sqrt(O_m * zp1**3 + (1.0 - O_m))
 
 
 @njit
 def DM_z(z, theta):
-    dh_grid = c / Hz(theta)
+    dh_grid = c / H_z(theta)
     dh = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size, dtype=np.float64)
     cum_dm[1:] = np.cumsum(dh * dz)
     return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
-correction_mask = (z_cmb <= 0.1) & ~ceph_mask
+correction_mask = (z_cmb <= 0.15) & ~ceph_mask
 
 
 @njit
 def mu_corr(params):
     z_pec = 100 * params[3] / c
-    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+    z_cosmo1 = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+    z_cosmo2 = -1.0 + (1.0 + z_cmb) / (1.0 - z_pec)
 
     return np.where(
         correction_mask,
-        5.0 * np.log10(DM_z(z_cosmo, params) / DM_z(z_cmb, params)),
-        0.0,
+        5.0 * np.log10(DM_z(z_cosmo1, params) / DM_z(z_cmb, params)),
+        5.0 * np.log10(DM_z(z_cosmo2, params) / DM_z(z_cmb, params)),
     )
 
 
@@ -206,7 +207,9 @@ Dataset: Pantheon+ and SH0ES
 z range: 0.0012 - 2.2614
 Sample size: 1657
 *****************************
+"""
 
+"""
 ΛCDM
 
 M: -19.24 +0.03/-0.03 mag
@@ -217,26 +220,26 @@ RMSD (mag): 0.153
 Skewness of residuals: 0.085
 kurtosis of residuals: 1.555
 Chi squared: 1452.02
+"""
 
-=============================
-
+"""
 ΛCDM
-Isotropic velocity SNe observed redshifts (limit to z <= 0.1)
+Isotropic velocity SNe observed redshifts (turning point z <= 0.15 inflow z > 0.15 outflow)
 z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-M: -19.242 +0.029/-0.029 mag
-H0: 74.01 +1.07/-1.06 km/s/Mpc
-Ωm: 0.317 +0.020/-0.020
-v: -0.68 +0.45/-0.45 x 100 km/s
+M: -19.197 +0.041/-0.042 mag
+H0: 75.33 +1.54/-1.56 km/s/Mpc
+Ωm: 0.324 +0.019/-0.018
+v: -0.310 +0.196/-0.189 x 100 km/s
 R-squared (%): 99.78
 RMSD (mag): 0.153
-Skewness of residuals: 0.052
-kurtosis of residuals: 1.558
-Chi squared: 1449.61 (1.55 sigma significance)
-Log Evidence: -736.14
+Skewness of residuals: 0.066
+kurtosis of residuals: 1.580
+Chi squared: 1449.54 (1.57 sigma significance)
+Log Evidence: -736.95
+"""
 
-=============================
-
+"""
 wCDM
 
 M: -19.24 +0.03/-0.03 mag
@@ -248,9 +251,9 @@ RMSD (mag): 0.153
 Skewness of residuals: 0.076
 kurtosis of residuals: 1.561
 Chi squared: 1451.70 (0.57 sigma significance)
+"""
 
-=============================
-
+"""
 Flat wzCDM w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
 
 M: -19.243 +0.030/-0.029
