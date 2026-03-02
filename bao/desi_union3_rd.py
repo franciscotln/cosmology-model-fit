@@ -26,14 +26,9 @@ def Ode_z(z, w0):
 
 
 @njit
-def Ez(z, params):
-    Om = params[3]
-    return np.sqrt(Om * (1.0 + z) ** 3 + (1.0 - Om))
-
-
-@njit
 def H_z(z, params):
-    return params[2] * Ez(z, params)
+    H0, Om = params[2], params[3]
+    return H0 * np.sqrt(Om * (1.0 + z) ** 3 + (1.0 - Om))
 
 
 @njit
@@ -100,6 +95,7 @@ z node
 1.40   v: -3.871 +1.790 -1.831 x 100 km/s   Chi squared: 36.5   Log evidence: -32.1
 """
 
+
 @njit
 def mu_corr(params):
     z_pec = 100 * params[4] / c
@@ -152,7 +148,7 @@ def main():
 
     with Pool(8) as pool:
         sampler = Sampler(
-            prior, log_likelihood, n_live=8_000, pool=pool, seed=42, pass_dict=False
+            prior, log_likelihood, n_live=10_000, pool=pool, seed=42, pass_dict=False
         )
         sampler.run(verbose=True)
 
@@ -232,7 +228,7 @@ H0 ~U(50.0, 85.0)
 Ωm ~U(0.1, 0.6)
 
 flow correction:
-v ~U(-12, 5) x 100 km/s
+v ~U(-9.5, 3.5) x 100 km/s
 
 wCDM:
 w0 ~U(-1.5, 0.0)
@@ -265,14 +261,14 @@ Isotropic velocity SNe observed redshifts (turning point z <= 0.2 inflow z > 0.2
 z_cosmo = -1 + (1 + z) / (1 + v/c)
 
 ΔM: -0.035 +0.011 -0.011 mag
-v: -3.10 +1.04 -1.06 x 100 km/s
-v / (z_cut=0.2): -1550 ± 525 km/s
+v: -3.10 +1.06 -1.05 x 100 km/s
+v / (z_cut=0.2): -1550 ± 530 km/s
 rd: 147.09 +0.26 -0.26 Mpc
-H0: 69.03 +0.50 -0.49 km/s/Mpc
+H0: 69.03 +0.49 -0.49 km/s/Mpc
 Ωm: 0.298 +0.008 -0.008
 ωm: 0.1418 +0.0023 -0.0023
-Chi squared: 32.4 (2.95 sigma away from no corrections)
-Log evidence: -30.6 (Δ logZ = 2.7 against no flow)
+Chi squared: 32.4 (2.95 sigma significance)
+Log evidence: -30.6 (Δ logZ = 2.7 in favour of flow corrections)
 Degs of freedom: 30
 """
 

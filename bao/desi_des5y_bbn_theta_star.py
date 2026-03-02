@@ -275,27 +275,6 @@ Degrees of freedom: 1724
 """
 
 """
-Flat ΛCDM  w(z) = -1
-Corrections to absolute mag of SNe M(z) = M0 + M'0 * z / (1 + (z / z_c))
-where z_c = 0.0395
-
-M'0: -2.22 +0.77 -0.77 (prior ~ U(-7.0, 3.0))
-ΔM: 0.014 +0.031 -0.031 mag
-H0: 68.49 +0.47 -0.47 km/s/Mpc
-ωb: 0.02218 +0.00054 -0.00054
-ωc: 0.1161 +0.0008 -0.0008
-ωm: 0.1389 +0.0011 -0.0011
-Ωm: 0.296 +0.005 -0.004
-r_d: 148.35 +0.71 -0.70 Mpc
-z*: 1089.81 +0.70 -0.68
-r*: 145.60 Mpc
-100 θ*: 1.04095
-Chi squared: 1638.25 (2.85 sigma away from constant M)
-Log Evidence: -838.01 (Δ logZ 2.45 against constant M)
-Degrees of freedom: 1723
-"""
-
-"""
 Flat wCDM w(z) = w0
 H0: 67.19 +0.63 -0.62 km/s/Mpc
 ωb: 0.02228 +0.00054 -0.00054

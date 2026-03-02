@@ -24,7 +24,7 @@ N_cc = len(z_cc_vals)
 c = c0 / 1000  # km/s
 
 z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
-z_grid = np.linspace(0, z_max, num=3000)
+z_grid = np.linspace(0, z_max, num=4000)
 dz = np.diff(z_grid)
 
 
