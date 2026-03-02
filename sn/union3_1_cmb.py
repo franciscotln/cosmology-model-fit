@@ -11,7 +11,7 @@ Omnuh2 = cmb.Omnu_h2
 sn_legend, z_cmb, z_hel, mu_vals, cov_matrix_sn = get_data()
 inv_cov_sn = np.linalg.inv(cov_matrix_sn)
 
-z_grid = np.linspace(0, np.max(z_cmb) + 0.1, num=2000)
+z_grid = np.linspace(0, np.max(z_cmb) + 0.1, num=4000)
 dz = np.diff(z_grid)
 
 
@@ -23,8 +23,7 @@ def Ode_z(z, w0):
 
 
 @njit
-def Ez(z, H0, Obh2, Och2):
-    h = H0 / 100
+def Ez(z, h, Obh2, Och2):
     Onu = Omnuh2 / h**2
     Or = Orh2 / h**2
     Obc = (Obh2 + Och2) / h**2
@@ -43,7 +42,7 @@ def Ez(z, H0, Obh2, Och2):
 @njit
 def Hz(z, params):
     H0 = params[1]
-    return H0 * Ez(z, H0=H0, Obh2=params[2], Och2=params[3])
+    return H0 * Ez(z, h=H0 / 100, Obh2=params[2], Och2=params[3])
 
 
 cmb.set_HZ(Hz)
@@ -62,31 +61,29 @@ pivot_mask = z_cmb <= 0.2
 
 
 @njit
-def mu_corr(params):
+def mu_corr(params, DM_obs):
     z_pec = 100 * params[4] / c
     z_cosmo1 = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
     z_cosmo2 = -1.0 + (1.0 + z_cmb) / (1.0 - z_pec)
 
-    DM_ref = DM_z(z_cmb, params)
-
     return np.where(
         pivot_mask,
-        5.0 * np.log10(DM_z(z_cosmo1, params) / DM_ref),
-        5.0 * np.log10(DM_z(z_cosmo2, params) / DM_ref),
+        5.0 * np.log10(DM_z(z_cosmo1, params) / DM_obs),
+        5.0 * np.log10(DM_z(z_cosmo2, params) / DM_obs),
     )
 
 
 @njit
-def mu_theory(params):
-    dL = (1.0 + z_hel) * DM_z(z_cmb, params)
-    return params[0] + 25.0 + 5 * np.log10(dL)
+def mu_theory(params, DM):
+    return params[0] + 25.0 + 5 * np.log10((1.0 + z_hel) * DM)
 
 
 def chi_squared(params):
     delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(params[2], params[3], params)
     chi2_cmb = delta_cmb @ cmb.inv_cov_mat @ delta_cmb
 
-    delta_sn = mu_vals - mu_theory(params) - mu_corr(params)
+    DM = DM_z(z_cmb, params)
+    delta_sn = mu_vals - mu_theory(params, DM) - mu_corr(params, DM)
     chi_sn = delta_sn @ inv_cov_sn @ delta_sn
 
     return chi2_cmb + chi_sn
@@ -203,9 +200,9 @@ def main():
     plot_predictions(
         legend=sn_legend,
         x=z_cmb,
-        y=mu_vals - mu_corr(best_fit),
+        y=mu_vals - mu_corr(best_fit, DM_z(z_cmb, best_fit)),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=mu_theory(best_fit),
+        y_model=mu_theory(best_fit, DM_z(z_cmb, best_fit)),
         label=f"ΛCDM",
         x_scale="log",
     )
@@ -242,7 +239,7 @@ v: -2.8 ± 1.1 (prior ~ U(-10, 4)) x 100 km/s
 v / (z_cut=0.2): -1400 ± 550 km/s
 H0: 67.69 ± 0.49 km/s/Mpc
 Ωm: 0.3107 ± 0.0069
-Chi2 (MAP): 22.5 (2.66 sigma away from no flow)
+Chi2 (MAP): 22.5 (2.66 sigma significance)
 Log Evidence: -31.2 (delta logZ = 1.9 in favour of flow)
 Degrees of freedom: 20
 """

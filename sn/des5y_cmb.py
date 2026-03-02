@@ -13,7 +13,7 @@ sn_legend, z_cmb, z_hel, mu_vals, cov_matrix_sn = get_data()
 
 cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
 
-z_grid = np.linspace(0, np.max(z_cmb) + 0.1, num=3000)
+z_grid = np.linspace(0, np.max(z_cmb) + 0.1, num=4000)
 dz = np.diff(z_grid)
 
 
@@ -25,8 +25,7 @@ def Ode_z(z, w0):
 
 
 @njit
-def Ez(z, H0, Obh2, Och2):
-    h = H0 / 100
+def Ez(z, h, Obh2, Och2):
     Obc = (Obh2 + Och2) / h**2
     Onu = Onuh2 / h**2
     Or = Orh2 / h**2
@@ -45,7 +44,7 @@ def Ez(z, H0, Obh2, Och2):
 @njit
 def H_z(z, theta):
     H0 = theta[1]
-    return H0 * Ez(z, H0, Obh2=theta[2], Och2=theta[3])
+    return H0 * Ez(z, h=H0 / 100, Obh2=theta[2], Och2=theta[3])
 
 
 cmb.set_HZ(H_z)
@@ -64,24 +63,21 @@ pivot_mask = z_cmb <= 0.11
 
 
 @njit
-def mu_corr(params):
+def mu_corr(params, DM_obs):
     z_pec = 100 * params[4] / c
     z_cosmo1 = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
     z_cosmo2 = -1.0 + (1.0 + z_cmb) / (1.0 - z_pec)
 
-    DM_ref = DM_z(z_cmb, params)
-
     return np.where(
         pivot_mask,
-        5.0 * np.log10(DM_z(z_cosmo1, params) / DM_ref),
-        5.0 * np.log10(DM_z(z_cosmo2, params) / DM_ref),
+        5.0 * np.log10(DM_z(z_cosmo1, params) / DM_obs),
+        5.0 * np.log10(DM_z(z_cosmo2, params) / DM_obs),
     )
 
 
 @njit
-def theory_mu(params):
-    dL = (1.0 + z_hel) * DM_z(z_cmb, params)
-    return params[0] + 25 + 5 * np.log10(dL)
+def theory_mu(params, DM):
+    return params[0] + 25 + 5 * np.log10((1.0 + z_hel) * DM)
 
 
 def solve_triang(cho_L, delta):
@@ -93,7 +89,8 @@ def chi_squared(params):
     delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(params[2], params[3], params)
     chi2_cmb = np.dot(delta, np.dot(cmb.inv_cov_mat, delta))
 
-    delta_sn = mu_vals - theory_mu(params) - mu_corr(params)
+    DM = DM_z(z_cmb, params)
+    delta_sn = mu_vals - theory_mu(params, DM) - mu_corr(params, DM)
     chi_sn = solve_triang(cho_sn, delta_sn)
 
     return chi2_cmb + chi_sn
@@ -210,9 +207,9 @@ def main():
     plot_sn_predictions(
         legend=sn_legend,
         x=z_cmb,
-        y=mu_vals - mu_corr(best_fit),
+        y=mu_vals - mu_corr(best_fit, DM_z(z_cmb, best_fit)),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=theory_mu(best_fit),
+        y_model=theory_mu(best_fit, DM_z(z_cmb, best_fit)),
         label=f"$Ω_m$={Om_50:.3f}",
         x_scale="log",
     )
