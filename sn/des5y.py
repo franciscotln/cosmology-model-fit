@@ -38,28 +38,25 @@ def DM_z(z, params):
     return interp_hermite(z, z_grid, cum_dm, dH_grid)
 
 
-pivot_mask = z_cmb <= 0.11
+pivot_mask = z_cmb <= 0.10563
 
 
 @njit
-def mu_corr(params):
+def mu_corr(params, DM_obs):
     z_pec = 100 * params[3] / c
     z_cosmo1 = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
     z_cosmo2 = -1.0 + (1.0 + z_cmb) / (1.0 - z_pec)
 
-    DM_ref = DM_z(z_cmb, params)
-
     return np.where(
         pivot_mask,
-        5.0 * np.log10(DM_z(z_cosmo1, params) / DM_ref),
-        5.0 * np.log10(DM_z(z_cosmo2, params) / DM_ref),
+        5.0 * np.log10(DM_z(z_cosmo1, params) / DM_obs),
+        5.0 * np.log10(DM_z(z_cosmo2, params) / DM_obs),
     )
 
 
 @njit
-def theory_mu(params):
-    dL = (1.0 + z_hel) * DM_z(z_cmb, params)
-    return params[0] + 25.0 + 5 * np.log10(dL)
+def theory_mu(params, DM):
+    return params[0] + 25.0 + 5 * np.log10((1.0 + z_hel) * DM)
 
 
 def solve_triang(cho_L, delta):
@@ -68,7 +65,8 @@ def solve_triang(cho_L, delta):
 
 
 def chi_squared(params):
-    diff = mu_vals - mu_corr(params) - theory_mu(params)
+    DM = DM_z(z_cmb, params)
+    diff = mu_vals - mu_corr(params, DM) - theory_mu(params, DM)
     return solve_triang(cho, diff)
 
 
@@ -154,8 +152,9 @@ def main():
 
     best_fit = np.percentile(samples, 50, axis=0)
 
-    mu_pred = theory_mu(best_fit)
-    corrected_mu = mu_vals - mu_corr(best_fit)
+    DM_best = DM_z(z_cmb, best_fit)
+    mu_pred = theory_mu(best_fit, DM_best)
+    corrected_mu = mu_vals - mu_corr(best_fit, DM_best)
     residuals = corrected_mu - mu_pred
 
     ss_res = np.sum(residuals**2)
@@ -223,12 +222,12 @@ Effective deg of freedom: 1711
 
 """
 Flat ΛCDM w(z) = -1
-Isotropic velocity SNe observed redshifts (turning point z <= 0.11 inflow z > 0.11 outflow)
+Isotropic velocity SNe observed redshifts (turning point z <= 0.10563 inflow z > 0.10563 outflow)
 z_cosmo = -1 + (1 + z) / (1 + v/c)
 
 ΔM: 0.005 +0.056 -0.057 mag
 v: -1.41 +0.66 -0.65 km/s (prior ~ U(-6, 3)) x 100 km/s
-v / (z_cut=0.11): -1282 ± 600 km/s
+v / (z_cut=0.10563): -1335 ± 625 km/s
 H0: 70.40 +1.78 -1.79 km/s/Mpc
 Ωm: 0.308 +0.018 -0.018
 R-squared (%): 98.37

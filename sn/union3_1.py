@@ -9,7 +9,7 @@ inv_cov = np.linalg.inv(cov_matrix)
 
 c = c0 / 1000  # Speed of light (km/s)
 
-z_grid = np.linspace(0, np.max(z_cmb) + 0.1, num=3000)
+z_grid = np.linspace(0, np.max(z_cmb) + 0.1, num=4000)
 dz = np.diff(z_grid)
 
 
@@ -39,28 +39,27 @@ pivot_mask = z_cmb <= 0.2
 
 
 @njit
-def mu_corr(params):
+def mu_corr(params, DM_obs):
     z_pec = 100 * params[3] / c
     z_cosmo1 = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
     z_cosmo2 = -1.0 + (1.0 + z_cmb) / (1.0 - z_pec)
 
-    DM_ref = DM_z(z_cmb, params)
-
     return np.where(
         pivot_mask,
-        5.0 * np.log10(DM_z(z_cosmo1, params) / DM_ref),
-        5.0 * np.log10(DM_z(z_cosmo2, params) / DM_ref),
+        5.0 * np.log10(DM_z(z_cosmo1, params) / DM_obs),
+        5.0 * np.log10(DM_z(z_cosmo2, params) / DM_obs),
     )
 
 
 @njit
-def mu_theory(params):
-    return params[0] + 25.0 + 5 * np.log10((1.0 + z_hel) * DM_z(z_cmb, params))
+def mu_theory(params, DM):
+    return params[0] + 25.0 + 5 * np.log10((1.0 + z_hel) * DM)
 
 
 @njit
 def chi_squared(params):
-    delta = mu_vals - mu_corr(params) - mu_theory(params)
+    DM = DM_z(z_cmb, params)
+    delta = mu_vals - mu_corr(params, DM) - mu_theory(params, DM)
     return delta @ inv_cov @ delta
 
 
@@ -121,8 +120,9 @@ def main():
     print(f"Log evidence: {sampler.log_z:.1f}")
     print(f"Degrees of freedom: {degs_of_freedom}")
 
-    mu_pred = mu_theory(best_fit)
-    mu_corrected = mu_vals - mu_corr(best_fit)
+    DM_best = DM_z(z_cmb, best_fit)
+    mu_pred = mu_theory(best_fit, DM_best)
+    mu_corrected = mu_vals - mu_corr(best_fit, DM_best)
     residuals = mu_corrected - mu_pred
     mu_std = np.sqrt(np.diag(cov_matrix))
 
@@ -152,8 +152,8 @@ Sample size: 22
 """
 Flat ΛCDM
 
-ΔM: 0.037 ± 0.059
-H0 (km/s/Mpc): 70.3 ± 1.8
+ΔM: 0.038 ± 0.060
+H0 (km/s/Mpc): 70.4 ± 1.8
 Ωm: 0.336 ± 0.025
 Ωm h^2: 0.166 +0.014/-0.016
 χ2 (MAP): 28.8
@@ -166,11 +166,11 @@ Flat ΛCDM
 Isotropic velocity SNe observed redshifts (turning point z <= 0.2 inflow z > 0.2 outflow)
 z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-ΔM: 0.008 ± 0.059 mag
+ΔM: 0.007 ± 0.060 mag
 v: -3.1 ± 1.2 (prior ~ U(-10.5, 4.0)) x 100 km/s
 v / (z_cut=0.2): -1550 ± 600 km/s
 H0: 70.4 ± 1.8 km/s/Mpc
-Ωm: 0.299 +0.025/-0.028 (agreement with ΛCDM from BAO)
+Ωm: 0.299 +0.027/-0.027 (agreement with ΛCDM from BAO)
 Ωm h^2: 0.148 +0.014/-0.016
 χ2 (MAP): 22.15 (2.58 sigma significance)
 Log evidence: -20.3 (Δ logZ = 1.7 in favour of in/outflow)
