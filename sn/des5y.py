@@ -210,13 +210,15 @@ Sample size: 1820
 """
 
 """
-Flat ΛCDM w(z) = -1
+Flat ΛCDM
+ΔM: 0.020 +0.056 -0.058 mag
+H0: 70.39 +1.80 -1.81 km/s/Mpc
 Ωm: 0.331 +0.015 -0.015
 R-squared (%): 98.38
 RMSD (mag): 0.268
 Skewness of residuals: 3.2
-Chi squared: 1631.42
 Log evidence: -825.7
+Chi2 (MAP): 1631.42
 Effective deg of freedom: 1711
 """
 
@@ -239,6 +241,7 @@ Effective deg of freedom: 1710
 """
 
 """
+RERUN
 Flat wCDM w(z) = w0
 Ωm: 0.260 +0.065 -0.085
 w0: -0.83 +0.14 -0.15
@@ -246,10 +249,11 @@ R-squared (%): 98.37
 RMSD (mag): 0.268
 Skewness of residuals: 3.2
 Chi squared: 1630.18
-Effective deg of freedom: 1711
+Effective deg of freedom: 1710
 """
 
 """
+RERUN
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
 Ωm: 0.287 +0.030 -0.035
 w0: -0.81 +0.11 -0.11
@@ -259,7 +263,7 @@ RMSD (mag): 0.268
 Skewness of residuals: 3.2
 Chi squared: 1629.55
 Log evidence: -825.9
-Effective deg of freedom: 1711
+Effective deg of freedom: 1710
 """
 
 """
