@@ -35,20 +35,12 @@ def DM_z(z, params):
     return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
-pivot_mask = z_cmb <= 0.2
-
-
 @njit
 def mu_corr(params, DM_obs):
-    z_pec = 100 * params[3] / c
-    z_cosmo1 = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
-    z_cosmo2 = -1.0 + (1.0 + z_cmb) / (1.0 - z_pec)
-
-    return np.where(
-        pivot_mask,
-        5.0 * np.log10(DM_z(z_cosmo1, params) / DM_obs),
-        5.0 * np.log10(DM_z(z_cosmo2, params) / DM_obs),
-    )
+    v_km_s = 100 * params[3] * np.where(z_cmb <= 0.2, 1, -1)
+    z_pec = v_km_s / c
+    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+    return 5 * np.log10(DM_z(z_cosmo, params) / DM_obs)
 
 
 @njit
@@ -78,9 +70,8 @@ def main():
 
     prior = Prior()
     prior.add_parameter("dM", dist=(-1.0, +1.0))
-    prior.add_parameter(
-        "H0", dist=norm(loc=70.39, scale=1.80)
-    )  # TRGB Freedman et al. 2025
+    # TRGB Freedman et al. 2025
+    prior.add_parameter("H0", dist=norm(loc=70.39, scale=1.80))
     prior.add_parameter("om", dist=(0.1, 0.7))
     prior.add_parameter("v", dist=(-10.5, 4.0))
 

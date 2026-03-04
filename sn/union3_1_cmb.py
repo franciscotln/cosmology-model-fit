@@ -57,25 +57,17 @@ def DM_z(z, params):
     return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
-pivot_mask = z_cmb <= 0.2
-
-
 @njit
 def mu_corr(params, DM_obs):
-    z_pec = 100 * params[4] / c
-    z_cosmo1 = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
-    z_cosmo2 = -1.0 + (1.0 + z_cmb) / (1.0 - z_pec)
-
-    return np.where(
-        pivot_mask,
-        5.0 * np.log10(DM_z(z_cosmo1, params) / DM_obs),
-        5.0 * np.log10(DM_z(z_cosmo2, params) / DM_obs),
-    )
+    v_km_s = 100 * params[4] * np.where(z_cmb <= 0.2, 1, -1)
+    z_pec = v_km_s / c
+    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+    return 5 * np.log10(DM_z(z_cosmo, params) / DM_obs)
 
 
 @njit
-def mu_theory(params, DM):
-    return params[0] + 25.0 + 5 * np.log10((1.0 + z_hel) * DM)
+def mu_theory(offset, DM):
+    return offset + 25.0 + 5 * np.log10((1.0 + z_hel) * DM)
 
 
 def chi_squared(params):
@@ -83,7 +75,7 @@ def chi_squared(params):
     chi2_cmb = delta_cmb @ cmb.inv_cov_mat @ delta_cmb
 
     DM = DM_z(z_cmb, params)
-    delta_sn = mu_vals - mu_theory(params, DM) - mu_corr(params, DM)
+    delta_sn = mu_vals - mu_theory(params[0], DM) - mu_corr(params, DM)
     chi_sn = delta_sn @ inv_cov_sn @ delta_sn
 
     return chi2_cmb + chi_sn
@@ -166,7 +158,7 @@ def main():
         samples=chain_list,
         loglikes=loglikes,
         names=["dM", "H0", "obh2", "och2", "v"],
-        labels=["Δ_M", "H_0", "ω_b", "ω_c", "v{100}"],
+        labels=["Δ_M", "H_0", "ω_b", "ω_c", "v_{100}"],
         label="Union3.1 + CMB(R, lA, ωb)",
     )
     gd_samples.addDerived(
@@ -202,7 +194,7 @@ def main():
         x=z_cmb,
         y=mu_vals - mu_corr(best_fit, DM_z(z_cmb, best_fit)),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=mu_theory(best_fit, DM_z(z_cmb, best_fit)),
+        y_model=mu_theory(best_fit[0], DM_z(z_cmb, best_fit)),
         label=f"ΛCDM",
         x_scale="log",
     )
