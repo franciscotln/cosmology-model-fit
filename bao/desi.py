@@ -1,7 +1,7 @@
 from numba import njit
 import numpy as np
 from scipy.constants import c as c0
-from interpolator import interp_pchip
+from interpolator import interp_pchip, interp_hermite
 from y2025BAO.data import get_data
 from y2024DESBAO.data import get_data as get_des_data
 
@@ -49,10 +49,10 @@ def bao_theory(z, qty, theta):
     results = np.empty(z.size, dtype=np.float64)
 
     results[DH_mask] = interp_pchip(z[DH_mask], z_grid, dh_grid)
-    results[DM_mask] = interp_pchip(z[DM_mask], z_grid, dm_grid)
+    results[DM_mask] = interp_hermite(z[DM_mask], x=z_grid, y=dm_grid, y_prime=dh_grid)
 
     dh_at_z = interp_pchip(z[DV_mask], z_grid, dh_grid)
-    dm_at_z = interp_pchip(z[DV_mask], z_grid, dm_grid)
+    dm_at_z = interp_hermite(z[DV_mask], x=z_grid, y=dm_grid, y_prime=dh_grid)
     results[DV_mask] = (z[DV_mask] * dh_at_z * dm_at_z**2) ** (1 / 3)
     return results / rd
 
@@ -200,9 +200,9 @@ Log evidence: -12.46
 Degs of freedom: 11
 R^2: 0.9987
 RMSD: 0.305
+"""
 
-================================
-
+"""
 Flat wCDM:
 rd: 147.09 Mpc (fixed)
 h: 0.679 +0.012 -0.011
@@ -213,22 +213,22 @@ Log evidence: -13.49
 Degs of freedom: 11
 R^2: 0.9989
 RMSD: 0.279
+"""
 
-===============================
-
+"""
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
 rd: 147.09 Mpc (fixed)
-h: 0.666 +0.014 -0.015
+h: 0.666 +0.015 -0.015
 Ωm: 0.312 +0.012 -0.012
-w0: -0.767 +0.133 -0.130 (prior width 1.0: from -1.0 to 0.0) - left side truncated
+w0: -0.766 +0.132 -0.131 (prior width 1.0: from -1.0 to 0.0) - left side truncated
 Chi squared: 8.81
 Log evidence: -12.45
 Degs of freedom: 11
 R^2: 0.9991
 RMSD: 0.261
+"""
 
-===============================
-
+"""
 Flat w0waCDM:
 rd: 147.09 Mpc (fixed)
 h: 0.621 +0.032 -0.029
