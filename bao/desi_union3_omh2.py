@@ -14,7 +14,7 @@ inv_cov_bao = np.linalg.inv(bao_cov_matrix)
 c = c0 / 1000  # Speed of light in km/s
 
 z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
-z_grid = np.linspace(0, z_max, num=3000)
+z_grid = np.linspace(0, z_max, num=4000)
 dz = np.diff(z_grid)
 
 
@@ -73,29 +73,23 @@ pivot_mask = z_cmb <= 0.2
 
 
 @njit
-def mu_corr(params):
-    z_pec = 100 * params[4] / c
-    z_cosmo1 = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
-    z_cosmo2 = -1.0 + (1.0 + z_cmb) / (1.0 - z_pec)
+def mu_corr(params, DM_ref):
+    v_km_s = 100 * params[4] * np.where(pivot_mask, 1.0, -1.0)
+    z_pec = v_km_s / c
+    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
 
-    DM_ref = DM_z(z_cmb, params)
-
-    return np.where(
-        pivot_mask,
-        5.0 * np.log10(DM_z(z_cosmo1, params) / DM_ref),
-        5.0 * np.log10(DM_z(z_cosmo2, params) / DM_ref),
-    )
+    return 5.0 * np.log10(DM_z(z_cosmo, params) / DM_ref)
 
 
 @njit
-def mu_theory(params):
-    dL = (1.0 + z_hel) * DM_z(z_cmb, params)
-    return params[0] + 25.0 + 5 * np.log10(dL)
+def mu_theory(params, DM):
+    return params[0] + 25.0 + 5 * np.log10((1.0 + z_hel) * DM)
 
 
 @njit
 def chi_squared(params):
-    delta_sn = mu_vals - mu_theory(params) - mu_corr(params)
+    DM = DM_z(z_cmb, params)
+    delta_sn = mu_vals - mu_theory(params, DM) - mu_corr(params, DM)
     chi_sn = delta_sn @ inv_cov_sn @ delta_sn
 
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], desi_qty, params)
@@ -125,7 +119,13 @@ def main():
 
     with Pool(8) as pool:
         sampler = Sampler(
-            prior, log_likelihood, n_live=8_000, pool=pool, seed=42, pass_dict=False
+            prior,
+            log_likelihood,
+            n_live=8_000,
+            pool=pool,
+            seed=42,
+            pass_dict=False,
+            n_networks=5,
         )
         sampler.run(verbose=True)
 
@@ -143,6 +143,7 @@ def main():
     Om_16, Om_50, Om_84 = quantile(Om_samples, one_sigma_ci, weights=w)
 
     best_fit = [dM_50, rd_50, H0_50, Omh2_50, v_50]
+    MAP_params = samples[np.argmax(log_l)]
 
     corner(
         samples,
@@ -161,7 +162,7 @@ def main():
     )
     plt.show()
 
-    degs_of_freedom = len(bao_data["value"]) + len(z_cmb) - len(best_fit)
+    degs_of_freedom = len(bao_data) + len(z_cmb) - len(best_fit)
 
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
     print(f"rd: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
@@ -169,7 +170,7 @@ def main():
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"ωm: {Omh2_50:.4f} +{(Omh2_84 - Omh2_50):.4f} -{(Omh2_50 - Omh2_16):.4f}")
     print(f"v: {v_50:.3f} +{(v_84 - v_50):.3f} -{(v_50 - v_16):.3f} x 100 km/s")
-    print(f"Chi squared: {chi_squared(best_fit):.1f}")
+    print(f"Chi2 (MAP): {chi_squared(MAP_params):.1f}")
     print(f"Log evidence: {sampler.log_z:.1f}")
     print(f"Degs of freedom: {degs_of_freedom}")
 
@@ -182,9 +183,9 @@ def main():
     plot_sn_predictions(
         legend=sn_legend,
         x=z_cmb,
-        y=mu_vals - mu_corr(best_fit),
+        y=mu_vals - mu_corr(best_fit, DM_z(z_cmb, best_fit)),
         y_err=np.sqrt(np.diag(sn_cov_matrix)),
-        y_model=mu_theory(best_fit),
+        y_model=mu_theory(best_fit, DM_z(z_cmb, best_fit)),
         label=f"$Ω_m$={Om_50:.3f}",
         x_scale="log",
     )
@@ -237,10 +238,10 @@ Flat ΛCDM
 Isotropic velocity SNe observed redshifts (turning point z <= 0.2 inflow z > 0.2 outflow)
 z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-v: -3.11 +1.06 -1.05 x 100 km/s
-ΔM: -0.0256 +0.0249 -0.0249 mag
-rd: 146.4 +1.3 -1.3 Mpc
-H0: 69.34 +1.00 -0.99 km/s/Mpc
+v: -3.11 +1.06 -1.07 x 100 km/s
+ΔM: -0.025 +0.025 -0.025 mag
+rd: 146.43 +1.29 -1.27 Mpc
+H0: 69.34 +0.99 -0.98 km/s/Mpc
 Ωm: 0.297 +0.008 -0.008
 ωm: 0.1430 +0.0011 -0.0011
 Chi squared: 32.4 (2.95 sigma significance)
