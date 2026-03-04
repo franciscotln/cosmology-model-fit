@@ -59,6 +59,7 @@ def DM_z(z, params):
 
 @njit
 def mu_corr(params, DM_obs):
+    # Heaviside step at z = 0.2
     v_km_s = 100 * params[4] * np.where(z_cmb <= 0.2, 1, -1)
     z_pec = v_km_s / c
     z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
