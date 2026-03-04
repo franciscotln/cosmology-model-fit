@@ -15,7 +15,7 @@ legend_des, data_des, cov_des = get_des_data()
 inv_cov_des = np.linalg.inv(cov_des)
 
 z_max = np.max(data["z"]) + 0.1
-z_grid = np.linspace(0, z_max, num=3000)
+z_grid = np.linspace(0, z_max, num=4000)
 dz = np.diff(z_grid)
 
 

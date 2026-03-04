@@ -14,7 +14,7 @@ inv_cov_bao = np.linalg.inv(bao_cov_matrix)
 c = c0 / 1000  # Speed of light in km/s
 
 z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
-z_grid = np.linspace(0, z_max, num=3000)
+z_grid = np.linspace(0, z_max, num=4000)
 dz = np.diff(z_grid)
 
 
@@ -97,30 +97,25 @@ z node
 
 
 @njit
-def mu_corr(params):
-    z_pec = 100 * params[4] / c
-    z_cosmo1 = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
-    z_cosmo2 = -1.0 + (1.0 + z_cmb) / (1.0 - z_pec)
+def mu_corr(params, DM):
+    # Heaviside step at z = 0.2
+    v_km_s = 100 * params[4] * np.where(pivot_mask, 1.0, -1.0)
+    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + v_km_s / c)
 
-    DM_ref = DM_z(z_cmb, params)
-
-    return np.where(
-        pivot_mask,
-        5.0 * np.log10(DM_z(z_cosmo1, params) / DM_ref),
-        5.0 * np.log10(DM_z(z_cosmo2, params) / DM_ref),
-    )
+    return 5.0 * np.log10(DM_z(z_cosmo, params) / DM)
 
 
 @njit
-def mu_theory(params):
-    dL = (1.0 + z_hel) * DM_z(z_cmb, params)
-    return params[0] + 25.0 + 5 * np.log10(dL)
+def mu_theory(params, DM):
+    return params[0] + 25.0 + 5 * np.log10((1.0 + z_hel) * DM)
 
 
 @njit
 def chi_squared(params):
-    delta_sn = mu_vals - mu_theory(params) - mu_corr(params)
+    DM = DM_z(z_cmb, params)
+    delta_sn = mu_vals - mu_theory(params, DM) - mu_corr(params, DM)
     chi_sn = delta_sn @ inv_cov_sn @ delta_sn
+
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], desi_qty, params)
     chi_bao = delta_bao @ inv_cov_bao @ delta_bao
     return chi_sn + chi_bao
@@ -148,7 +143,13 @@ def main():
 
     with Pool(8) as pool:
         sampler = Sampler(
-            prior, log_likelihood, n_live=10_000, pool=pool, seed=42, pass_dict=False
+            prior,
+            log_likelihood,
+            n_live=10_000,
+            pool=pool,
+            seed=42,
+            pass_dict=False,
+            n_networks=5,
         )
         sampler.run(verbose=True)
 
@@ -205,9 +206,9 @@ def main():
     plot_sn_predictions(
         legend=sn_legend,
         x=z_cmb,
-        y=mu_vals - mu_corr(best_fit),
+        y=mu_vals - mu_corr(best_fit, DM_z(z_cmb, best_fit)),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=mu_theory(best_fit),
+        y_model=mu_theory(best_fit, DM_z(z_cmb, best_fit)),
         label=f"$Ω_m$={Om_50:.3f}",
         x_scale="log",
     )
@@ -261,10 +262,10 @@ Isotropic velocity SNe observed redshifts (turning point z <= 0.2 inflow z > 0.2
 z_cosmo = -1 + (1 + z) / (1 + v/c)
 
 ΔM: -0.035 +0.011 -0.011 mag
-v: -3.10 +1.06 -1.05 x 100 km/s
+v: -3.10 +1.06 -1.06 x 100 km/s
 v / (z_cut=0.2): -1550 ± 530 km/s
 rd: 147.09 +0.26 -0.26 Mpc
-H0: 69.03 +0.49 -0.49 km/s/Mpc
+H0: 69.03 +0.50 -0.49 km/s/Mpc
 Ωm: 0.298 +0.008 -0.008
 ωm: 0.1418 +0.0023 -0.0023
 Chi squared: 32.4 (2.95 sigma significance)
