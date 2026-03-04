@@ -82,7 +82,7 @@ def DV_z(z, theta):
 
 
 qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
-quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int32)
+desi_qty = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int32)
 
 
 @njit
@@ -100,28 +100,17 @@ def bao_theory(z, qty, theta):
     return results / rd
 
 
-pivot_mask = z_cmb <= 0.2
+@njit
+def mu_corr(params, DM_obs):
+    # Heaviside step at z = 0.2
+    v_km_s = 100 * params[5] * np.where(z_cmb <= 0.2, 1.0, -1.0)
+    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + v_km_s / c)
+    return 5.0 * np.log10(DM_z(z_cosmo, params) / DM_obs)
 
 
 @njit
-def mu_corr(params):
-    z_pec = 100 * params[5] / c
-    z_cosmo1 = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
-    z_cosmo2 = -1.0 + (1.0 + z_cmb) / (1.0 - z_pec)
-
-    DM_ref = DM_z(z_cmb, params)
-
-    return np.where(
-        pivot_mask,
-        5.0 * np.log10(DM_z(z_cosmo1, params) / DM_ref),
-        5.0 * np.log10(DM_z(z_cosmo2, params) / DM_ref),
-    )
-
-
-@njit
-def mu_theory(theta):
-    dL = (1.0 + z_hel) * DM_z(z_cmb, theta)
-    return theta[1] + 25.0 + 5 * np.log10(dL)
+def mu_theory(theta, DM):
+    return theta[1] + 25.0 + 5 * np.log10((1.0 + z_hel) * DM)
 
 
 def chi_squared(theta):
@@ -129,10 +118,11 @@ def chi_squared(theta):
     thetastar_cov = cmb.covariance[1, 1]
     chi_theta_star = delta**2 / thetastar_cov
 
-    delta_sn = mu_values - mu_theory(theta) - mu_corr(theta)
+    DM = DM_z(z_cmb, theta)
+    delta_sn = mu_values - mu_theory(theta, DM) - mu_corr(theta, DM)
     chi_sn = delta_sn @ inv_cov_sn @ delta_sn
 
-    delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, theta)
+    delta_bao = bao_data["value"] - bao_theory(bao_data["z"], desi_qty, theta)
     chi_bao = delta_bao @ inv_cov_bao @ delta_bao
 
     delta_cc = H_cc_vals - H_z(z_cc_vals, theta)
@@ -167,7 +157,7 @@ def main():
     prior.add_parameter("ωb", dist=(0.003, 0.050))
     # Ωc x h^2: cold dark matter density param today
     prior.add_parameter("ωc", dist=(0.05, 0.30))
-    # v: peculiar velocity of the local group (x 100 km/s)
+    # v: peculiar velocity in/outflow (x 100 km/s)
     prior.add_parameter("v", dist=(-10.5, 4.5))
 
     with Pool(8) as pool:
@@ -243,9 +233,9 @@ def main():
     plot_sn_predictions(
         legend=sn_legend,
         x=z_cmb,
-        y=mu_values - mu_corr(best_fit),
+        y=mu_values - mu_corr(best_fit, DM_z(z_cmb, best_fit)),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=mu_theory(best_fit),
+        y_model=mu_theory(best_fit, DM_z(z_cmb, best_fit)),
         label=rf"$Ω_m$={Om_50:.3f}",
         x_scale="log",
     )
