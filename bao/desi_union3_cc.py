@@ -1,6 +1,5 @@
 from numba import njit
 import numpy as np
-from scipy.linalg import cho_factor, solve_triangular
 from scipy.constants import c as c0
 from interpolator import interp_hermite
 from y2026union3_1.data import get_data
@@ -8,12 +7,12 @@ from y2005cc.data import get_data as get_cc_data
 from y2025BAO.data import get_data as get_bao_data
 
 cc_legend, z_cc_vals, H_cc_vals, cov_matrix_cc = get_cc_data()
-sn_legend, z_cmb, z_hel, sn_mu_vals, cov_matrix_sn = get_data()
+sn_legend, z_cmb, z_hel, mu_vals, cov_matrix_sn = get_data()
 bao_legend, bao_data, cov_matrix_bao = get_bao_data()
 
-cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
-cho_bao = cho_factor(cov_matrix_bao, lower=True)[0]
-cho_cc = cho_factor(cov_matrix_cc, lower=True)[0]
+inv_cov_sn = np.linalg.inv(cov_matrix_sn)
+inv_cov_bao = np.linalg.inv(cov_matrix_bao)
+inv_cov_cc = np.linalg.inv(cov_matrix_cc)
 
 logdet_cc = np.linalg.slogdet(cov_matrix_cc)[1]
 N_cc = len(z_cc_vals)
@@ -21,7 +20,7 @@ N_cc = len(z_cc_vals)
 c = c0 / 1000  # Speed of light in km/s
 
 z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
-z_grid = np.linspace(0, z_max, num=3000)
+z_grid = np.linspace(0, z_max, num=4000)
 dz = np.diff(z_grid)
 
 
@@ -33,16 +32,9 @@ def Ode_z(z, w0):
 
 
 @njit
-def Ez(z, params):
-    Om = params[4]
-    zp1 = 1.0 + z
-    cubed = zp1**3
-    return np.sqrt(Om * cubed + (1.0 - Om))
-
-
-@njit
 def H_z(z, params):
-    return params[2] * Ez(z, params)
+    H0, Om = params[2], params[4]
+    return H0 * np.sqrt(Om * (1.0 + z) ** 3 + (1.0 - Om))
 
 
 @njit
@@ -86,41 +78,29 @@ pivot_mask = z_cmb <= 0.2
 
 
 @njit
-def mu_corr(params):
-    z_pec = 100 * params[5] / c
-    z_cosmo1 = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
-    z_cosmo2 = -1.0 + (1.0 + z_cmb) / (1.0 - z_pec)
-
-    DM_ref = DM_z(z_cmb, params)
-
-    return np.where(
-        pivot_mask,
-        5.0 * np.log10(DM_z(z_cosmo1, params) / DM_ref),
-        5.0 * np.log10(DM_z(z_cosmo2, params) / DM_ref),
-    )
+def mu_corr(params, DM_obs):
+    # Heaviside step at z = 0.2
+    v_km_s = 100 * params[5] * np.where(z_cmb <= 0.2, 1.0, -1.0)
+    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + v_km_s / c)
+    return 5.0 * np.log10(DM_z(z_cosmo, params) / DM_obs)
 
 
 @njit
-def mu_theory(params):
-    dL = (1.0 + z_hel) * DM_z(z_cmb, params)
-    return params[1] + 25.0 + 5 * np.log10(dL)
-
-
-def solve_triang(cho_L, delta):
-    y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
-    return np.dot(y, y)
+def mu_theory(params, DM):
+    return params[1] + 25.0 + 5 * np.log10((1.0 + z_hel) * DM)
 
 
 def chi_squared(params):
-    delta_sn = sn_mu_vals - mu_theory(params) - mu_corr(params)
-    chi_sn = solve_triang(cho_sn, delta_sn)
+    DM = DM_z(z_cmb, params)
+    delta_sn = mu_vals - mu_theory(params, DM) - mu_corr(params, DM)
+    chi_sn = delta_sn @ inv_cov_sn @ delta_sn
 
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], desi_qty, params)
-    chi_bao = solve_triang(cho_bao, delta_bao)
+    chi_bao = delta_bao @ inv_cov_bao @ delta_bao
 
     f_cc = params[0]
     delta_cc = H_cc_vals - H_z(z_cc_vals, params)
-    chi_cc = solve_triang(cho_cc, delta_cc) * f_cc**2
+    chi_cc = delta_cc @ (inv_cov_cc * f_cc**2) @ delta_cc
 
     return chi_sn + chi_bao + chi_cc
 
@@ -157,14 +137,20 @@ def main():
 
     with Pool(6) as pool:
         sampler = Sampler(
-            prior, log_likelihood, n_live=6_000, pool=pool, seed=42, pass_dict=False
+            prior,
+            log_likelihood,
+            n_live=6_000,
+            pool=pool,
+            seed=42,
+            pass_dict=False,
+            n_networks=6,
         )
         sampler.run(verbose=True)
 
     samples, log_w, log_l = sampler.posterior()
     w = np.exp(log_w)
 
-    labels = ["f_{cc}", "ΔM", "H_0", "rd", "Ω_m", "v"]
+    labels = ["f_{cc}", "ΔM", "H_0", "r_{drag}", "Ω_m", "v"]
     gd_samples = MCSamples(
         samples=samples, weights=w, names=prior.keys, labels=labels, loglikes=log_l
     )
@@ -183,11 +169,10 @@ def main():
     v_16, v_50, v_84 = quantile(samples[:, 5], one_sigma_ci, weights=w)
 
     best_fit = [fcc_50, dM_50, h0_50, rd_50, Om_50, v_50]
+    deg_of_freedom = len(z_cmb) + len(bao_data) + N_cc - len(best_fit)
 
     Omh2_samples = samples[:, 4] * samples[:, 2] ** 2 / 100**2
     Omh2_16, Omh2_50, Omh2_84 = np.percentile(Omh2_samples, [15.9, 50, 84.1])
-
-    deg_of_freedom = len(z_cmb) + len(bao_data) + len(z_cc_vals) - len(best_fit)
 
     print(f"f_cc: {fcc_50:.2f} +{(fcc_84 - fcc_50):.2f} -{(fcc_50 - fcc_16):.2f}")
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
@@ -209,9 +194,9 @@ def main():
     plot_sn_predictions(
         legend=sn_legend,
         x=z_cmb,
-        y=sn_mu_vals - mu_corr(best_fit),
+        y=mu_vals - mu_corr(best_fit, DM_z(z_cmb, best_fit)),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=mu_theory(best_fit),
+        y_model=mu_theory(best_fit, DM_z(z_cmb, best_fit)),
         label=f"$H_0$={h0_50:.2f}, $Ω_m$={Om_50:.3f}",
         x_scale="log",
     )
@@ -274,11 +259,11 @@ z_cosmo = -1 + (1 + z) / (1 + v/c)
 ΔM: -0.037 +- 0.072 mag
 v: -3.1 +1.1 -1.1 x 100 km/s
 H0: 69.0 +2.3 -2.3 km/s/Mpc
-r_d: 147.2 +4.5 -5.0 Mpc
+r_d: 147.2 +4.4 -5.0 Mpc
 Ωm: 0.2989 +0.0081 -0.0081
 ωm: 0.143 +0.031 -0.022
 f_cc: 1.48 +0.18 -0.18
-Chi squared: 67.73 (2.94 sigma significance)
+Chi squared: 67.71 (2.94 sigma significance)
 Log evidence: -176.35 (Δ logZ = 2.66 in favour of corrections)
 Degrees of freedom: 65
 """
