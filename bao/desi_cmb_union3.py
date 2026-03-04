@@ -22,7 +22,7 @@ inv_cov_des_bao = np.linalg.inv(des_bao_cov_matrix)
 inv_cov_6dF_bao = np.linalg.inv(sixdF_bao_cov_matrix)
 
 z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
-z_grid = np.linspace(0, z_max, 3000)
+z_grid = np.linspace(0, z_max, 4000)
 dz = np.diff(z_grid)
 
 
@@ -106,29 +106,22 @@ pivot_mask = z_cmb <= 0.2
 
 
 @njit
-def mu_corr(params):
-    z_pec = 100 * params[4] / c
-    z_cosmo1 = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
-    z_cosmo2 = -1.0 + (1.0 + z_cmb) / (1.0 - z_pec)
-
-    DM_ref = DM_z(z_cmb, params)
-
-    return np.where(
-        pivot_mask,
-        5.0 * np.log10(DM_z(z_cosmo1, params) / DM_ref),
-        5.0 * np.log10(DM_z(z_cosmo2, params) / DM_ref),
-    )
+def mu_corr(params, DM_obs):
+    # Heaviside step at z = 0.2
+    v_km_s = 100 * params[4] * np.where(pivot_mask, 1.0, -1.0)
+    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + v_km_s / c)
+    return 5.0 * np.log10(DM_z(z_cosmo, params) / DM_obs)
 
 
 @njit
-def mu_theory(params):
-    dL = (1.0 + z_hel) * DM_z(z_cmb, params)
-    return params[0] + 25.0 + 5 * np.log10(dL)
+def mu_theory(params, DM):
+    return params[0] + 25.0 + 5 * np.log10((1.0 + z_hel) * DM)
 
 
 @njit
 def chi2_sn(params):
-    delta_sn = mu_vals - mu_theory(params) - mu_corr(params)
+    DM = DM_z(z_cmb, params)
+    delta_sn = mu_vals - mu_theory(params, DM) - mu_corr(params, DM)
     return delta_sn @ inv_cov_sn @ delta_sn
 
 
@@ -253,9 +246,9 @@ def main():
     plot_sn_predictions(
         legend=sn_legend,
         x=z_cmb,
-        y=mu_vals - mu_corr(best_fit),
+        y=mu_vals - mu_corr(best_fit, DM_z(z_cmb, best_fit)),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=mu_theory(best_fit),
+        y_model=mu_theory(best_fit, DM_z(z_cmb, best_fit)),
         label=f"$Ω_m$={gd_samples.mean('om'):.3f}",
         x_scale="log",
     )
@@ -296,18 +289,18 @@ Flat ΛCDM w(z) = -1
 Isotropic velocity SNe observed redshifts (turning point z <= 0.2 inflow z > 0.2 outflow)
 z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-ΔM: -0.0501 ± 0.0070 mag
+ΔM: -0.0502 ± 0.0070 mag
 v: -3.1 ± 1.0 (prior U(-9.5, 3.5)) x 100 km/s
 v / (z_cut=0.2): -1590 ± 500 km/s
 H0: 68.51 ± 0.27 km/s/Mpc
 Ωm: 0.2992 ± 0.0036
 ωb: 0.02258 ± 0.00010
-ωc: 0.1172 ± 0.0007
+ωc: 0.11720 ± 0.00065
 ωm: 0.1404 ± 0.0006
 z*: 1089.38 ± 0.15
 z_d: 1060.21 ± 0.23
 r_d: 147.61 ± 0.19 Mpc
-Chi2 (MAP): 37.48 (2.94 sigma significance)
+Chi2 (MAP): 37.47 (2.94 sigma significance)
 Log evidence: -39.3 (Δ logZ = 2.7 in favour of flow corrections)
 Degs of freedom: 35
 """
