@@ -102,24 +102,16 @@ pivot_mask = z_cmb <= 0.11
 
 
 @njit
-def mu_corr(params):
-    z_pec = 100 * params[4] / c
-    z_cosmo1 = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
-    z_cosmo2 = -1.0 + (1.0 + z_cmb) / (1.0 - z_pec)
-
-    DM_ref = DM_z(z_cmb, params)
-
-    return np.where(
-        pivot_mask,
-        5.0 * np.log10(DM_z(z_cosmo1, params) / DM_ref),
-        5.0 * np.log10(DM_z(z_cosmo2, params) / DM_ref),
-    )
+def mu_corr(params, DM_obs):
+    # Heaviside step at z = 0.11
+    v_km_s = 100 * params[4] * np.where(pivot_mask, 1.0, -1.0)
+    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + v_km_s / c)
+    return 5.0 * np.log10(DM_z(z_cosmo, params) / DM_obs)
 
 
 @njit
-def theory_mu(params):
-    dL = (1.0 + z_hel) * DM_z(z_cmb, params)
-    return params[0] + 25.0 + 5 * np.log10(dL)
+def theory_mu(params, DM):
+    return params[0] + 25.0 + 5 * np.log10((1.0 + z_hel) * DM)
 
 
 def solve_triang(cho_L, delta):
@@ -134,7 +126,8 @@ def chi_squared(params):
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
     chi_bao = delta_bao @ inv_cov_bao @ delta_bao
 
-    delta_sn = mu_values - theory_mu(params) - mu_corr(params)
+    DM = DM_z(z_cmb, params)
+    delta_sn = mu_values - theory_mu(params, DM) - mu_corr(params, DM)
     chi_sn = solve_triang(cho_sn, delta_sn)
 
     return chi2_cmb + chi_bao + chi_sn
@@ -199,7 +192,7 @@ def main():
     )
     plt.show()
 
-    best_fit_mean = gd_samples.mean(prior.keys)
+    best_fit = gd_samples.mean(prior.keys)
     degs_of_freedom = (
         effective_sample_size
         + len(bao_data)
@@ -217,7 +210,7 @@ def main():
     print(f"Degrees of freedom: {degs_of_freedom}")
 
     plot_bao_predictions(
-        theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit_mean),
+        theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
         data=bao_data,
         errors=np.sqrt(np.diag(bao_cov_matrix)),
         title=bao_legend,
@@ -225,9 +218,9 @@ def main():
     plot_sn_predictions(
         legend=sn_legend,
         x=z_cmb,
-        y=mu_values - mu_corr(best_fit_mean),
+        y=mu_values - mu_corr(best_fit, DM_z(z_cmb, best_fit)),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=theory_mu(best_fit_mean),
+        y_model=theory_mu(best_fit, DM_z(z_cmb, best_fit)),
         label=f"$Ω_m$={gd_samples.mean('om'):.3f}",
         x_scale="log",
     )
