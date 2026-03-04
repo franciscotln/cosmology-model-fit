@@ -72,28 +72,18 @@ def bao_theory(z, qty, params):
     return results / rd
 
 
-pivot_mask = z_cmb <= 0.11
+@njit
+def mu_corr(params, DM_ref):
+    v_km_s = 100 * params[4] * np.where(z_cmb <= 0.11, 1, -1)
+    z_pec = v_km_s / c
+    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+
+    return 5.0 * np.log10(DM_z(z_cosmo, params) / DM_ref)
 
 
 @njit
-def mu_corr(params):
-    z_pec = 100 * params[4] / c
-    z_cosmo1 = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
-    z_cosmo2 = -1.0 + (1.0 + z_cmb) / (1.0 - z_pec)
-
-    DM_ref = DM_z(z_cmb, params)
-
-    return np.where(
-        pivot_mask,
-        5.0 * np.log10(DM_z(z_cosmo1, params) / DM_ref),
-        5.0 * np.log10(DM_z(z_cosmo2, params) / DM_ref),
-    )
-
-
-@njit
-def theory_mu(params):
-    dL = (1.0 + z_hel) * DM_z(z_cmb, params)
-    return params[0] + 25.0 + 5 * np.log10(dL)
+def theory_mu(offset, DM):
+    return offset + 25.0 + 5 * np.log10((1.0 + z_hel) * DM)
 
 
 def solve_triang(cho_L, delta):
@@ -110,7 +100,8 @@ def chi_squared(params):
     delta_rd_prior = rd_prior - cmb.r_drag(params[1], Omh2)
     chi2_prior = (delta_rd_prior / rd_prior_std) ** 2
 
-    delta_sn = mu_values - theory_mu(params) - mu_corr(params)
+    DM = DM_z(z_cmb, params)
+    delta_sn = mu_values - theory_mu(params[0], DM) - mu_corr(params, DM)
     chi_sn = solve_triang(cho_sn, delta_sn)
 
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], desi_qty, params)
@@ -225,9 +216,9 @@ def main():
     plot_sn_predictions(
         legend=sn_legend,
         x=z_cmb,
-        y=mu_values - mu_corr(best_fit),
+        y=mu_values - mu_corr(best_fit, DM_z(z_cmb, best_fit)),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=theory_mu(best_fit),
+        y_model=theory_mu(dM_50, DM_z(z_cmb, best_fit)),
         label=f"$Ω_m$={Om_50:.3f}",
         x_scale="log",
     )
@@ -255,8 +246,8 @@ Isotropic velocity SNe observed redshifts (turning point z <= 0.11 inflow z > 0.
 z_cosmo = -1 + (1 + z) / (1 + v/c)
 
 ΔM: -0.048 +0.012 -0.012 mag
-v: -1.60 +0.57 -0.57 x 100 km/s (prior ~U(-6, 2)) x 100 km/s
-v / (z_cut=0.11): -1455 ± 518 km/s
+v: -1.59 +0.57 -0.57 x 100 km/s (prior ~U(-6, 2)) x 100 km/s
+v / (z_cut=0.10563): -1505 ± 540 km/s
 H0: 68.90 +0.48 -0.48 km/s/Mpc
 r_d: 147.14 +0.30 -0.30 Mpc
 ωb: 0.02258 +0.00069 -0.00068
