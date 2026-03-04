@@ -13,8 +13,8 @@ bao_legend, bao_data, bao_cov_matrix = get_bao_data()
 inv_cov_sn = np.linalg.inv(bao_cov_matrix)
 
 z_max = np.max(bao_data["z"]) + 0.1
-z_grid = np.linspace(0, z_max, num=3000)
-dx = np.diff(z_grid)
+z_grid = np.linspace(0, z_max, num=4000)
+dz = np.diff(z_grid)
 
 
 @njit
@@ -24,8 +24,7 @@ def Ode_z(z, w0):
 
 
 @njit
-def Ez(z, H0, Obh2, Och2, w0):
-    h = H0 / 100
+def Ez(z, h, Obh2, Och2, w0):
     Onu = Omnu_h2 / h**2
     Or = Or_h2 / h**2
     Obc = (Obh2 + Och2) / h**2
@@ -42,9 +41,9 @@ def Ez(z, H0, Obh2, Och2, w0):
 
 
 @njit
-def H_z(z, params):
-    H0, Obh2, Och2, w0 = params
-    return H0 * Ez(z, H0, Obh2, Och2, w0)
+def H_z(z, pars):
+    H0 = pars[0]
+    return H0 * Ez(z, h=H0 / 100, Obh2=pars[1], Och2=pars[2], w0=pars[3])
 
 
 cmb.set_HZ(H_z)
@@ -58,10 +57,10 @@ def DH_z(z, params):
 @njit
 def DM_z(z, params):
     dh_grid = DH_z(z_grid, params)
-    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    dh = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size, dtype=np.float64)
-    cum_dm[1:] = np.cumsum(dx * dy)
-    return interp_hermite(z, z_grid, cum_dm, dh_grid)
+    cum_dm[1:] = np.cumsum(dz * dh)
+    return interp_hermite(z, x=z_grid, y=cum_dm, y_prime=dh_grid)
 
 
 @njit
@@ -72,7 +71,7 @@ def DV_z(z, params):
 
 
 qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
-quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int32)
+desi_qty = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int32)
 
 
 @njit
@@ -95,7 +94,7 @@ def chi_squared(params):
     )
     chi2_thetastar = delta_thetastar**2 / cmb.covariance[1, 1]
 
-    delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
+    delta_bao = bao_data["value"] - bao_theory(bao_data["z"], desi_qty, params)
     chi_bao = delta_bao @ inv_cov_sn @ delta_bao
 
     return chi2_thetastar + chi_bao
@@ -155,9 +154,6 @@ def main():
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"r*: {cmb.rs_z(zst_50, Obh2_50, best_fit):.2f} Mpc")
     print(f"z*: {zst_50:.2f} +{(zst_84 - zst_50):.2f} -{(zst_50 - zst_16):.2f}")
-    print(
-        f"100 θ*: {100 * np.pi / (cmb.cmb_distances(Obh2_50, Och2_50, best_fit)[1]):.5f}"
-    )
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Log evidence: {sampler.log_z:.1f}")
 
@@ -194,24 +190,23 @@ if __name__ == "__main__":
 *******************************
 Dataset: DESI DR2 2024 + θ∗ Planck + BBN
 *******************************
+"""
 
-Flat ΛCDM w(z) = -1
+"""
+Flat ΛCDM
 rd: 148.30 +0.71 -0.70 Mpc
-H0: 68.51 +0.48 -0.47 km/s/Mpc
-ωb: 0.02217 +0.00054 -0.00054
+H0: 68.50 +0.47 -0.47 km/s/Mpc
+ωb: 0.02217 +0.00053 -0.00054
 ωc: 0.1163 +0.0009 -0.0009
 ωm: 0.1391 +0.0011 -0.0011
-Ωm: 0.2964 +0.0045 -0.0045
-w0: -1
-wa: 0
+Ωm: 0.2965 +0.0045 -0.0044
 r*: 145.55 Mpc
-z*: 1089.84 +0.68 -0.65
-100 θ*: 1.04109
+z*: 1089.84 +0.67 -0.65
 Chi squared: 10.29
-Log evidence: -15.0
+Log evidence: -15.1
+"""
 
-===============================
-
+"""
 Flat wCDM w(z) = w0
 rd: 148.48 +0.76 -0.75 Mpc
 H0: 67.81 +1.13 -1.09 km/s/Mpc
@@ -226,9 +221,9 @@ z*: 1089.69 +0.72 -0.69
 100 θ*: 1.04107
 Chi squared: 9.71
 Log evidence: -17.3
+"""
 
-===============================
-
+"""
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
 rd: 148.46 +0.71 -0.71 Mpc
 H0: 66.55 +1.24 -1.42 km/s/Mpc
@@ -243,9 +238,9 @@ z*: 1089.63 +0.68 -0.66
 100 θ*: 1.04098
 Chi squared: 9.05
 Log evidence: -15.8
+"""
 
-===============================
-
+"""
 Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
 TODO
 w0 - prior width 4.0: -2.5 to 1.5
