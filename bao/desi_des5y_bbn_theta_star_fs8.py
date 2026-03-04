@@ -105,14 +105,9 @@ pivot_mask = z_cmb <= 0.11
 @njit
 def mu_corr(params, DM_obs):
     z_pec = 100 * params[4] / c
-    z_cosmo1 = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
-    z_cosmo2 = -1.0 + (1.0 + z_cmb) / (1.0 - z_pec)
-
-    return np.where(
-        pivot_mask,
-        5.0 * np.log10(DM_z(z_cosmo1, params) / DM_obs),
-        5.0 * np.log10(DM_z(z_cosmo2, params) / DM_obs),
-    )
+    z_pec = np.where(pivot_mask, z_pec, -z_pec)
+    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+    return 5.0 * np.log10(DM_z(z_cosmo, params) / DM_obs)
 
 
 @njit
@@ -220,12 +215,12 @@ def log_likelihood(theta):
     return -0.5 * chi_squared(theta)
 
 
-def q0(Om, w0=-1):
+def q0(Om, w0=-1.0):
     """Calculate the deceleration parameter at z=0"""
     return Om / 2 + (1.0 + 3 * w0) * (1.0 - Om) / 2
 
 
-def j0(Om, w0=-1, wa=0):
+def j0(Om, w0=-1.0, wa=0.0):
     """Calculate the jerk parameter at z=0"""
     return 1.0 + (3 / 2) * (1.0 - Om) * (3 * w0 * (1.0 + w0) + wa)
 
@@ -387,6 +382,20 @@ v: U(-6, 2) x 100 km/s
 """
 Flat ΛCDM
 
+ΔM: -0.066 +0.013 -0.013 mag
+H0: 68.28 +0.45 -0.45 km/s/Mpc
+ωb: 0.02207 +0.00053 -0.00053
+ωc: 0.1165 +0.0008 -0.0008
+ωm: 0.1392 +0.0011 -0.0011
+Ωm: 0.299 +0.004 -0.004
+σ8: 0.778 +0.014 -0.014
+S8: 0.777 +0.014 -0.014
+r_d: 148.38 +0.70 -0.70 Mpc
+q0: -0.552 +0.006 -0.006
+j0: 1
+Chi2 (MAP): 1682.02
+Log Evidence: -859.26
+Degrees of freedom: 1785
 """
 
 """
@@ -406,8 +415,8 @@ S8: 0.775 +0.014 -0.014
 r_d: 148.36 +0.70 -0.70 Mpc
 q0: -0.555 +0.007 -0.006
 j0: 1
-Chi2 (MAP): 1673.65
-Log Evidence: -856.51 (Δ logZ = x.xx in favour of corrections)
+Chi2 (MAP): 1673.65 (2.89 significance)
+Log Evidence: -856.51 (Δ logZ = 2.75 in favour of corrections)
 Degrees of freedom: 1784
 """
 
