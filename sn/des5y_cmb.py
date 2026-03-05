@@ -64,15 +64,10 @@ pivot_mask = z_cmb <= 0.11
 
 @njit
 def mu_corr(params, DM_obs):
-    z_pec = 100 * params[4] / c
-    z_cosmo1 = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
-    z_cosmo2 = -1.0 + (1.0 + z_cmb) / (1.0 - z_pec)
-
-    return np.where(
-        pivot_mask,
-        5.0 * np.log10(DM_z(z_cosmo1, params) / DM_obs),
-        5.0 * np.log10(DM_z(z_cosmo2, params) / DM_obs),
-    )
+    v_km_s = 100 * params[4] * np.where(z_cmb <= 0.11, 1, -1)
+    z_pec = v_km_s / c
+    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+    return 5.0 * np.log10(DM_z(z_cosmo, params) / DM_obs)
 
 
 @njit

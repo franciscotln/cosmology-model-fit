@@ -43,20 +43,15 @@ pivot_mask = z_cmb <= 0.10563
 
 @njit
 def mu_corr(params, DM_obs):
-    z_pec = 100 * params[3] / c
-    z_cosmo1 = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
-    z_cosmo2 = -1.0 + (1.0 + z_cmb) / (1.0 - z_pec)
-
-    return np.where(
-        pivot_mask,
-        5.0 * np.log10(DM_z(z_cosmo1, params) / DM_obs),
-        5.0 * np.log10(DM_z(z_cosmo2, params) / DM_obs),
-    )
+    v_km_s = 100 * params[3] * np.where(z_cmb <= 0.11, 1, -1)
+    z_pec = v_km_s / c
+    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+    return 5.0 * np.log10(DM_z(z_cosmo, params) / DM_obs)
 
 
 @njit
-def theory_mu(params, DM):
-    return params[0] + 25.0 + 5 * np.log10((1.0 + z_hel) * DM)
+def theory_mu(offset, DM):
+    return offset + 25.0 + 5 * np.log10((1.0 + z_hel) * DM)
 
 
 def solve_triang(cho_L, delta):
@@ -66,7 +61,7 @@ def solve_triang(cho_L, delta):
 
 def chi_squared(params):
     DM = DM_z(z_cmb, params)
-    diff = mu_vals - mu_corr(params, DM) - theory_mu(params, DM)
+    diff = mu_vals - mu_corr(params, DM) - theory_mu(params[0], DM)
     return solve_triang(cho, diff)
 
 
@@ -153,7 +148,7 @@ def main():
     best_fit = np.percentile(samples, 50, axis=0)
 
     DM_best = DM_z(z_cmb, best_fit)
-    mu_pred = theory_mu(best_fit, DM_best)
+    mu_pred = theory_mu(offset=M_50, DM=DM_best)
     corrected_mu = mu_vals - mu_corr(best_fit, DM_best)
     residuals = corrected_mu - mu_pred
 

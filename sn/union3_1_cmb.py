@@ -82,84 +82,44 @@ def chi_squared(params):
     return chi2_cmb + chi_sn
 
 
-bounds = np.array(
-    [
-        (-1.0, 1.0),  # ΔM
-        (60.0, 75.0),  # H0
-        (0.010, 0.030),  # ωb
-        (0.010, 0.250),  # ωc
-        (-10.0, 4.0),  # v x 100 km/s
-    ]
-)
-
-normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
-
-
-@njit
-def log_prior(params):
-    if np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
-        return normalization
-    return -np.inf
-
-
 def log_likelihood(params):
     return -0.5 * chi_squared(params)
 
 
-def log_probability(params):
-    lp = log_prior(params)
-    if np.isinf(lp):
-        return -np.inf
-    return lp + log_likelihood(params)
-
-
 def main():
-    import emcee
+    from nautilus import Sampler, Prior
     from multiprocessing import Pool
     from getdist import plots, MCSamples
     from matplotlib import pyplot as plt
     from sn.plotting import plot_predictions
-    from log_evidence import log_evidence
 
-    ndim = len(bounds)
-    nwalkers = 150
-    burn_in = 500
-    nsteps = 2500 + burn_in
-    np.random.seed(42)
-    initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
-    moves = [
-        (emcee.moves.KDEMove(bw_method="silverman"), 0.25),
-        (emcee.moves.DEMove(), 0.75),
-    ]
+    prior = Prior()
+    prior.add_parameter("dM", dist=(-1.0, +1.0))
+    prior.add_parameter("H0", dist=(60.0, 75.0))
+    prior.add_parameter("obh2", dist=(0.01, 0.03))
+    prior.add_parameter("och2", dist=(0.01, 0.25))
+    prior.add_parameter("v", dist=(-10.0, 4.0))
 
     with Pool(6) as pool:
-        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
-        sampler.run_mcmc(
-            initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#ff5a00"}
+        sampler = Sampler(
+            prior,
+            log_likelihood,
+            n_live=8_000,
+            pool=pool,
+            seed=42,
+            pass_dict=False,
+            n_networks=5,
         )
+        sampler.run(verbose=True)
 
-    try:
-        tau = sampler.get_autocorr_time()
-        print("auto-correlation time", tau)
-        print("acceptance fraction", np.mean(sampler.acceptance_fraction))
-        print("effective samples", ndim * nwalkers * (nsteps - burn_in) / np.max(tau))
-    except emcee.autocorr.AutocorrError as e:
-        print("Autocorrelation time could not be computed", e)
-
-    chains_samples = sampler.get_chain(discard=burn_in, flat=False)
-    log_probs_chains = sampler.get_log_prob(discard=burn_in, flat=False)
-    samples = sampler.get_chain(discard=burn_in, flat=True)
-    log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
-    log_evd = log_evidence(samples, log_probs, log_probability, bounds)
-
-    chain_list = [chains_samples[:, i, :] for i in range(chains_samples.shape[1])]
-    loglikes = [-log_probs_chains[:, i] for i in range(log_probs_chains.shape[1])]
+    samples, log_w, log_l = sampler.posterior()
 
     gd_samples = MCSamples(
-        samples=chain_list,
-        loglikes=loglikes,
-        names=["dM", "H0", "obh2", "och2", "v"],
-        labels=["Δ_M", "H_0", "ω_b", "ω_c", "v_{100}"],
+        samples=samples,
+        weights=np.exp(log_w),
+        loglikes=log_l,
+        names=prior.keys,
+        labels=["ΔM", "H_0", "ω_b", "ω_c", "v_{flow}"],
         label="Union3.1 + CMB(R, lA, ωb)",
     )
     gd_samples.addDerived(
@@ -180,14 +140,15 @@ def main():
     )
     plt.show()
 
-    print(f"Gelman-Rubin: {gd_samples.getGelmanRubin():.1e}")
-
     best_fit = np.percentile(samples, 50, axis=0)
     degs_of_freedom = len(mu_vals) + len(cmb.DISTANCE_PRIORS) - len(best_fit)
 
-    MAP_index = np.argmax(log_probs)
+    for par in gd_samples.getParamNames().names:
+        print(f"{par}: {gd_samples.mean(par):.5f} ± {gd_samples.std(par):.5f}")
+
+    MAP_index = np.argmax(log_l)
     print(f"Chi2 (MAP): {chi_squared(samples[MAP_index]):.1f}")
-    print(f"Log Evidence: {log_evd:.1f}")
+    print(f"Log Evidence: {sampler.log_z:.1f}")
     print(f"Degrees of freedom: {degs_of_freedom}")
 
     plot_predictions(
