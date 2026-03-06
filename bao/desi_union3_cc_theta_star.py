@@ -204,6 +204,7 @@ def main():
     rd_16, rd_50, rd_84 = quantile(r_d_samples, one_sigma_ci, weights=w)
     Omh2_16, Omh2_50, Omh2_84 = quantile(Omh2_samples, one_sigma_ci, weights=w)
     Om_16, Om_50, Om_84 = quantile(Om_samples, one_sigma_ci, weights=w)
+
     print(f"f_cc: {fcc_50:.2f} +{(fcc_84 - fcc_50):.2f} -{(fcc_50 - fcc_16):.2f}")
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
     print(f"H0: {h0_50:.1f} +{(h0_84 - h0_50):.1f} -{(h0_50 - h0_16):.1f} km/s/Mpc")

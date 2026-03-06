@@ -280,7 +280,7 @@ def main():
     j0_16, j0_50, j0_84 = quantile(j0_samples, one_sigma_ci, weights=w)
 
     best_fit = [dM_50, H0_50, Obh2_50, Och2_50, v_50, sig8_50]
-    degs_freedom = len(bao_data) + len(z_cmb) + len(fs8_data["z"]) - len(best_fit)
+    degs_freedom = len(bao_data) + len(z_cmb) + len(fs8_data) - len(best_fit)
     chi2_MAP = chi_squared(samples[np.argmax(log_l)])
 
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")

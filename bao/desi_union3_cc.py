@@ -151,7 +151,7 @@ def main():
         samples=samples,
         weights=w,
         names=prior.keys,
-        labels=["f_{cc}", "ΔM", "H_0", "r_{drag}", "Ω_m", "v"],
+        labels=["f_{cc}", "ΔM", "H_0", "r_{drag}", "Ω_m", "v_{100}"],
         loglikes=log_l,
     )
     gd_samples.addDerived(

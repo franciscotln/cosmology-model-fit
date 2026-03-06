@@ -92,28 +92,17 @@ def bao_theory(z, qty, theta):
     return results / rd
 
 
-pivot_mask = z_cmb <= 0.2
+@njit
+def mu_corr(params, DM_ref):
+    v_km_s = 100 * params[4] * np.where(z_cmb <= 0.2, 1, -1)
+    z_pec = v_km_s / c
+    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+    return 5.0 * np.log10(DM_z(z_cosmo, params) / DM_ref)
 
 
 @njit
-def mu_corr(params):
-    z_pec = 100 * params[4] / c
-    z_cosmo1 = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
-    z_cosmo2 = -1.0 + (1.0 + z_cmb) / (1.0 - z_pec)
-
-    DM_ref = DM_z(z_cmb, params)
-
-    return np.where(
-        pivot_mask,
-        5.0 * np.log10(DM_z(z_cosmo1, params) / DM_ref),
-        5.0 * np.log10(DM_z(z_cosmo2, params) / DM_ref),
-    )
-
-
-@njit
-def theory_mu(theta):
-    dL = (1.0 + z_hel) * DM_z(z_cmb, theta)
-    return theta[0] + 25.0 + 5 * np.log10(dL)
+def theory_mu(theta, DM):
+    return theta[0] + 25.0 + 5 * np.log10((1.0 + z_hel) * DM)
 
 
 def chi_squared(theta):
@@ -122,7 +111,8 @@ def chi_squared(theta):
     ]
     chi_cmb = delta_cmb @ inv_cov_cmb @ delta_cmb
 
-    delta_sn = mu_vals - theory_mu(theta) - mu_corr(theta)
+    DM = DM_z(z_cmb, theta)
+    delta_sn = mu_vals - theory_mu(theta, DM) - mu_corr(theta, DM)
     chi_sn = delta_sn @ inv_cov_sn @ delta_sn
 
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], desi_qty, theta)
@@ -191,7 +181,7 @@ def main():
     print(f"Log Evidence: {sampler.log_z:.2f}")
     print(f"Degs of freedom: {degrees_of_freedom}")
 
-    labels = ["$Δ_M$", "$H_0$", "$ω_b$", "$ω_c$", "$v$"]
+    labels = ["$Δ_M$", "$H_0$", "$ω_b$", "$ω_c$", "$v_{100}$"]
     corner(
         samples,
         weights=w,
@@ -218,9 +208,9 @@ def main():
     plot_sn_predictions(
         legend=sn_legend,
         x=z_cmb,
-        y=mu_vals - mu_corr(best_fit),
+        y=mu_vals - mu_corr(best_fit, DM_z(z_cmb, best_fit)),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=theory_mu(best_fit),
+        y_model=theory_mu(best_fit, DM_z(z_cmb, best_fit)),
         label=f"$Ω_m$={Om_50:.3f}",
         x_scale="log",
     )

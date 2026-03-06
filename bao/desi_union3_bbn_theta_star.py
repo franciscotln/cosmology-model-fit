@@ -198,7 +198,7 @@ def main():
 
     best_fit = [dM_50, H0_50, Obh2_50, Och2_50, v100_50]
     degrees_of_freedom = (
-        1 + len(bao_des_data["z"]) + len(bao_data["z"]) + len(z_cmb) - len(best_fit)
+        1 + len(bao_des_data) + len(bao_data) + len(z_cmb) - len(best_fit)
     )
 
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
