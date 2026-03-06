@@ -38,11 +38,9 @@ def DM_z(z, params):
     return interp_hermite(z, z_grid, cum_dm, dH_grid)
 
 
-pivot_mask = z_cmb <= 0.10563
-
-
 @njit
 def mu_corr(params, DM_obs):
+    # pivot_z = 0.10563
     v_km_s = 100 * params[3] * np.where(z_cmb <= 0.11, 1, -1)
     z_pec = v_km_s / c
     z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
