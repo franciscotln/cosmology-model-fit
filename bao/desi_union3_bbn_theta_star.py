@@ -26,13 +26,13 @@ dz = np.diff(z_grid)
 
 @njit
 def Ode_z(z, w0):
+    # Thawing quintessence
     zp1 = 1.0 + z
     return (2 * zp1**3 / (1.0 + w0 + (1.0 - w0) * zp1**3)) ** 2
 
 
 @njit
-def Ez(z, H0, Obh2, Och2, w0):
-    h = H0 / 100
+def Ez(z, h, Obh2, Och2):
     Onu = Omnuh2 / h**2
     Or = Orh2 / h**2
     Obc = (Obh2 + Och2) / h**2
@@ -43,15 +43,15 @@ def Ez(z, H0, Obh2, Och2, w0):
     radiation_term = Or * zp1**4
     matter_term = Obc * zp1**3
     neutrino_term = Onu * cmb.Omnu_z(z)
-    dark_energy_term = Ode * Ode_z(z, w0)
+    dark_energy_term = Ode
 
     return np.sqrt(radiation_term + matter_term + neutrino_term + dark_energy_term)
 
 
 @njit
 def H_z(z, theta):
-    H0, Obh2, Och2, w0 = theta[1:]
-    return H0 * Ez(z, H0, Obh2, Och2, w0)
+    H0 = theta[1]
+    return H0 * Ez(z, h=H0 / 100, Obh2=theta[2], Och2=theta[3])
 
 
 cmb.set_HZ(H_z)
@@ -99,14 +99,22 @@ def bao_theory(z, qty, theta):
 
 
 @njit
-def theory_mu(theta):
-    dL = (1.0 + z_hel) * DM_z(z_cmb, theta)
-    return theta[0] + 25.0 + 5 * np.log10(dL)
+def mu_corr(params, DM_ref):
+    v_km_s = 100 * params[4] * np.where(z_cmb <= 0.2, 1, -1)
+    z_pec = v_km_s / c
+    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+    return 5.0 * np.log10(DM_z(z_cosmo, params) / DM_ref)
+
+
+@njit
+def theory_mu(theta, DM):
+    return theta[0] + 25.0 + 5 * np.log10((1.0 + z_hel) * DM)
 
 
 @njit
 def chi2_sn(theta):
-    delta_sn = mu_values - theory_mu(theta)
+    DM = DM_z(z_cmb, theta)
+    delta_sn = mu_values - theory_mu(theta, DM) - mu_corr(theta, DM)
     return delta_sn @ inv_cov_sn @ delta_sn
 
 
@@ -121,10 +129,13 @@ def chi2_bao(theta):
     return chi2_bao + chi2_bao_des
 
 
-def chi_squared(theta):
+def chi2_cmb(theta):
     delta_lA = cmb.DISTANCE_PRIORS[1] - cmb.cmb_distances(theta[2], theta[3], theta)[1]
-    chi2_lA = delta_lA**2 / cmb.covariance[1, 1]
-    return chi2_sn(theta) + chi2_bao(theta) + chi2_lA
+    return delta_lA**2 / cmb.covariance[1, 1]
+
+
+def chi_squared(theta):
+    return chi2_sn(theta) + chi2_bao(theta) + chi2_cmb(theta)
 
 
 def log_likelihood(theta):
@@ -152,10 +163,10 @@ def main():
 
     prior = Prior()
     prior.add_parameter("ΔM", dist=(-1.0, 1.0))
-    prior.add_parameter("H0", dist=(50, 90))
+    prior.add_parameter("H0", dist=(50.0, 90.0))
     prior.add_parameter("ωb", dist=norm(loc=bbn.Obh2, scale=bbn.Obh2_sigma))
     prior.add_parameter("ωc", dist=(0.05, 0.30))
-    prior.add_parameter("w0", dist=(-1.0, -1 / 3))
+    prior.add_parameter("v100", dist=(-10.5, 4.5))
 
     with Pool(8) as pool:
         sampler = Sampler(
@@ -171,28 +182,21 @@ def main():
     H0_16, H0_50, H0_84 = quantile(samples[:, 1], one_sigma_ci, weights=w)
     Obh2_16, Obh2_50, Obh2_84 = quantile(samples[:, 2], one_sigma_ci, weights=w)
     Och2_16, Och2_50, Och2_84 = quantile(samples[:, 3], one_sigma_ci, weights=w)
-    w0_16, w0_50, w0_84 = quantile(samples[:, 4], one_sigma_ci, weights=w)
-
-    wa_samples = -1.5 * (1 - samples[:, 4] ** 2)
-    wa_16, wa_50, wa_84 = quantile(wa_samples, one_sigma_ci, weights=w)
+    v100_16, v100_50, v100_84 = quantile(samples[:, 4], one_sigma_ci, weights=w)
 
     Omh2_samples = samples[:, 2] + samples[:, 3] + Omnuh2
     Om_samples = Omh2_samples / (samples[:, 1] / 100) ** 2
     rd_samples = cmb.r_drag(samples[:, 2], Omh2_samples)
-    zd_samples = cmb.z_drag(samples[:, 2], Omh2_samples)
-    zst_samples = cmb.z_star(samples[:, 2], Omh2_samples)
-    q0_samples = q0(Om_samples, w0=samples[:, 4])
-    j0_samples = j0(Om_samples, w0=samples[:, 4], wa=wa_samples)
+    q0_samples = q0(Om_samples)
+    j0_samples = j0(Om_samples)
 
     Omh2_16, Omh2_50, Omh2_84 = quantile(Omh2_samples, one_sigma_ci, weights=w)
     Om_16, Om_50, Om_84 = quantile(Om_samples, one_sigma_ci, weights=w)
     rd_16, rd_50, rd_84 = quantile(rd_samples, one_sigma_ci, weights=w)
-    zd_16, zd_50, zd_84 = quantile(zd_samples, one_sigma_ci, weights=w)
-    zst_16, zst_50, zst_84 = quantile(zst_samples, one_sigma_ci, weights=w)
     q0_16, q0_50, q0_84 = quantile(q0_samples, one_sigma_ci, weights=w)
     j0_16, j0_50, j0_84 = quantile(j0_samples, one_sigma_ci, weights=w)
 
-    best_fit = [dM_50, H0_50, Obh2_50, Och2_50, w0_50]
+    best_fit = [dM_50, H0_50, Obh2_50, Och2_50, v100_50]
     degrees_of_freedom = (
         1 + len(bao_des_data["z"]) + len(bao_data["z"]) + len(z_cmb) - len(best_fit)
     )
@@ -203,15 +207,10 @@ def main():
     print(f"ωc: {Och2_50:.4f} +{(Och2_84 - Och2_50):.4f} -{(Och2_50 - Och2_16):.4f}")
     print(f"ωm: {Omh2_50:.4f} +{(Omh2_84 - Omh2_50):.4f} -{(Omh2_50 - Omh2_16):.4f}")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
-    print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
-    print(f"wa: {wa_50:.3f} +{(wa_84 - wa_50):.3f} -{(wa_50 - wa_16):.3f}")
-    print(f"z_d: {zd_50:.2f} +{(zd_84 - zd_50):.2f} -{(zd_50 - zd_16):.2f}")
-    print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
-    print(f"z*: {zst_50:.2f} +{(zst_84 - zst_50):.2f} -{(zst_50 - zst_16):.2f}")
-    print(f"r*: {cmb.rs_z(zst_50, Obh2_50, best_fit):.2f} Mpc")
     print(
-        f"100 θ*: {100 * np.pi / cmb.cmb_distances(Obh2_50, Och2_50, best_fit)[1]:.5f}"
+        f"v: {v100_50:.3f} +{(v100_84 - v100_50):.3f} -{(v100_50 - v100_16):.3f} x 100 km/s"
     )
+    print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
     print(f"q0: {q0_50:.3f} +{(q0_84 - q0_50):.3f} -{(q0_50 - q0_16):.3f}")
     print(f"j0: {j0_50:.3f} +{(j0_84 - j0_50):.3f} -{(j0_50 - j0_16):.3f}")
     print(f"Chi2 (MAP): {chi_squared(samples[np.argmax(log_l)]):.2f}")
@@ -250,9 +249,9 @@ def main():
     plot_sn_predictions(
         legend=sn_legend,
         x=z_cmb,
-        y=mu_values,
+        y=mu_values - mu_corr(best_fit, DM_z(z_cmb, best_fit)),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=theory_mu(best_fit),
+        y_model=theory_mu(best_fit, DM_z(z_cmb, best_fit)),
         label=f"$Ω_m$={Om_50:.3f}",
         x_scale="log",
     )
@@ -275,6 +274,9 @@ H0: U(50, 90)
 ωb: N(loc=0.02218, scale=0.00055)
 ωc: U(0.05, 0.30)
 
+flow correction:
+v_100 ~U(-10.5, 4.5) x 100 km/s
+
 wCDM:
 w0: U(-1.2, -0.6)
 
@@ -295,11 +297,7 @@ H0: 68.38 +0.47 -0.46 km/s/Mpc
 ωc: 0.1163 +0.0008 -0.0008
 ωm: 0.1390 +0.0011 -0.0011
 Ωm: 0.297 +0.005 -0.004
-z_d: 1059.07 +1.21 -1.26
 r_d: 148.39 +0.70 -0.69 Mpc
-z*: 1089.90 +0.71 -0.67
-r*: 145.61 Mpc
-100 θ*: 1.04094
 q0: -0.554 +0.007 -0.007
 j0: 1
 Chi2 (MAP): 41.70
@@ -308,6 +306,26 @@ Degrees of freedom: 33
 
 ===============================
 
+Flat ΛCDM w(z) = -1
+Isotropic velocity SNe observed redshifts (turning point z <= 0.2 inflow z > 0.2 outflow)
+z_cosmo = -1 + (1 + z) / (1 + v/c)
+
+v: -314 +104 -105 km/s
+ΔM: -0.053 +0.012 -0.012 mag
+H0: 68.51 +0.46 -0.46 km/s/Mpc
+ωb: 0.02217 +0.00053 -0.00053
+ωc: 0.1161 +0.0008 -0.0008
+ωm: 0.1389 +0.0011 -0.0011
+Ωm: 0.296 +0.004 -0.004
+r_d: 148.38 +0.70 -0.70 Mpc
+q0: -0.556 +0.007 -0.007
+j0: 1
+Chi2 (MAP): 32.95 (2.96 sigma significance)
+Log Evidence: -33.63 (Δ logZ = 2.78 in favour of ΛCDM with v correction)
+Degrees of freedom: 32
+"""
+
+"""
 Flat wCDM w(z) = w0
 ΔM: -0.067 +0.014 -0.014 mag
 H0: 67.20 +0.80 -0.79 km/s/Mpc
