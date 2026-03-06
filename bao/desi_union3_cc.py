@@ -308,7 +308,7 @@ r_d: 147.4 +4.5 -5.1 Mpc
 w0: -0.793 +0.086 -0.110
 wa: -0.65 +- 0.55
 f_cc: 1.47 +0.18 -0.17
-Chi squared: 70.05 (2.52 sigma significance)
+Chi squared: 70.05 (2.13 sigma significance)
 Log evidence: -180.01 + 0.37 (Δ logZ = -0.71 in favour of ΛCDM)
 Degrees of freedom: 64
 """
