@@ -122,7 +122,7 @@ def main():
     # f_cc: CCH covariance rescaling (overestimated uncertainties)
     prior.add_parameter("fcc", dist=(0.01, 3.0))
     # ΔM: magnitude offset
-    prior.add_parameter("ΔM", dist=(-1, 1))
+    prior.add_parameter("dM", dist=(-1, 1))
     # H0: Hubble constant at present
     prior.add_parameter("H0", dist=(45, 90))
     # rd: sound horizon at drag epoch
@@ -147,16 +147,18 @@ def main():
     samples, log_w, log_l = sampler.posterior()
     w = np.exp(log_w)
 
-    labels = ["f_{cc}", "ΔM", "H_0", "r_{drag}", "Ω_m", "v"]
     gd_samples = MCSamples(
-        samples=samples, weights=w, names=prior.keys, labels=labels, loglikes=log_l
+        samples=samples,
+        weights=w,
+        names=prior.keys,
+        labels=["f_{cc}", "ΔM", "H_0", "r_{drag}", "Ω_m", "v"],
+        loglikes=log_l,
+    )
+    gd_samples.addDerived(
+        gd_samples["Om"] * (gd_samples["H0"] / 100) ** 2, name="Omh2", label="Ω_m h^2"
     )
     plots.get_subplot_plotter().triangle_plot(
-        roots=gd_samples,
-        params=prior.keys[1:],
-        title_limit=1,
-        color=["C0"],
-        contour_colors=["C0"],
+        roots=gd_samples, title_limit=1, color=["C0"], contour_colors=["C0"]
     )
     plt.show()
 
@@ -169,18 +171,20 @@ def main():
     Om_16, Om_50, Om_84 = quantile(samples[:, 4], one_sigma_ci, weights=w)
     v_16, v_50, v_84 = quantile(samples[:, 5], one_sigma_ci, weights=w)
 
+    Omh2_samples = samples[:, 4] * samples[:, 2] ** 2 / 100**2
+    Omh2_16, Omh2_50, Omh2_84 = quantile(Omh2_samples, one_sigma_ci, weights=w)
+
     best_fit = [fcc_50, dM_50, h0_50, rd_50, Om_50, v_50]
     deg_of_freedom = len(z_cmb) + len(bao_data) + N_cc - len(best_fit)
-
-    Omh2_samples = samples[:, 4] * samples[:, 2] ** 2 / 100**2
-    Omh2_16, Omh2_50, Omh2_84 = np.percentile(Omh2_samples, [15.9, 50, 84.1])
 
     print(f"f_cc: {fcc_50:.2f} +{(fcc_84 - fcc_50):.2f} -{(fcc_50 - fcc_16):.2f}")
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
     print(f"H0: {h0_50:.1f} +{(h0_84 - h0_50):.1f} -{(h0_50 - h0_16):.1f} km/s/Mpc")
     print(f"r_d: {rd_50:.1f} +{(rd_84 - rd_50):.1f} -{(rd_50 - rd_16):.1f} Mpc")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
-    print(f"ωm: {Omh2_50:.4f} +{(Omh2_84 - Omh2_50):.4f} -{(Omh2_50 - Omh2_16):.4f}")
+    print(
+        f"Ωm h^2: {Omh2_50:.4f} +{(Omh2_84 - Omh2_50):.4f} -{(Omh2_50 - Omh2_16):.4f}"
+    )
     print(f"v: {v_50:.3f} +{(v_84 - v_50):.3f} -{(v_50 - v_16):.3f} x 100 km/s")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Log evidence: {sampler.log_z:.2f}")
@@ -245,8 +249,8 @@ Flat ΛCDM
 H0: 68.7 +- 2.3 km/s/Mpc
 r_d: 147.4 +4.5 -5.0 Mpc
 Ωm: 0.3031 +- 0.0081
-ωm: 0.143 +0.033 -0.026
-f_cc: 1.48 +0.18 -0.17
+Ωm h^2: 0.1431 +- 0.0094
+f_cc: 1.49 +- 0.18
 Chi squared: 76.40
 Log evidence: -178.93
 Degrees of freedom: 66
@@ -257,13 +261,13 @@ Flat ΛCDM
 Monopole in velocity SNe (turning point z <= 0.2 inflow z > 0.2 outflow)
 z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-ΔM: -0.038 +-0.072 mag
 v: -3.1 +- 1.1 x 100 km/s
+ΔM: -0.038 +-0.072 mag
 H0: 68.9 +- 2.3 km/s/Mpc
 r_d: 147.3 +4.4 -5.0 Mpc
 Ωm: 0.2989 +- 0.0081
-ωm: 0.143 +0.031 -0.025
-f_cc: 1.48 +0.18 -0.17
+Ωm h^2: 0.1422 +- 0.0094
+f_cc: 1.48 +- 0.18
 Chi squared: 67.75 (2.94 sigma significance)
 Log evidence: -176.42 (Δ logZ = 2.51 in favour of coherent velocity)
 Degrees of freedom: 65
@@ -271,13 +275,14 @@ Degrees of freedom: 65
 
 """
 Flat wCDM: w(z) = w0
+
+w0: -0.898 +- 0.050
 ΔM: -0.051 +- 0.072 mag
 H0: 67.5 +- 2.3 km/s/Mpc
 r_d: 147.5 +4.4 -5.1 Mpc
 Ωm: 0.2982 +- 0.0087
-ωm: 0.136 +0.031 -0.025
-w0: -0.898 +- 0.050
-f_cc: 1.48 +0.18 -0.17
+Ωm h^2: 0.136 +- 0.0094
+f_cc: 1.48 +- 0.18
 Chi squared: 72.12 (2.07 sigma significance)
 Log evidence: -178.58 (Δ logZ = 0.35 against ΛCDM)
 Degrees of freedom: 65
@@ -285,14 +290,15 @@ Degrees of freedom: 65
 
 """
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
+
 ΔM: -0.050 +- 0.072 mag
 H0: 67.1 +- 2.4 km/s/Mpc
 r_d: 147.4 +4.5 -5.0 Mpc
 Ωm: 0.3085 +0.0085 -0.0085
-ωm: 0.1391 +0.0295 -0.0234
+Ωm h^2: 0.1391 +- 0.0094
 w0: -0.826 +- 0.071
 wa: d w(z)/d z at z=0 = -1.5 * (1 - w0^2)
-f_cc: 1.47 +0.18 -0.17
+f_cc: 1.47 +- 0.18
 Chi squared: 70.67 (2.39 sigma significance)
 Log evidence: -177.59 (Δ logZ = 1.34 against ΛCDM)
 Degrees of freedom: 65
@@ -300,14 +306,15 @@ Degrees of freedom: 65
 
 """
 Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
+
 ΔM: -0.048 +- 0.072 mag
 H0: 67.0 +- 2.4 km/s/Mpc
 r_d: 147.4 +4.5 -5.1 Mpc
 Ωm: 0.317 +0.021 -0.013 (non-gaussian)
-ωm: 0.144 +0.035 -0.028
+Ωm h^2: 0.144 +-0.0094
 w0: -0.793 +0.086 -0.110
 wa: -0.65 +- 0.55
-f_cc: 1.47 +0.18 -0.17
+f_cc: 1.47 +- 0.18
 Chi squared: 70.05 (2.13 sigma significance)
 Log evidence: -180.01 + 0.37 (Δ logZ = -0.71 in favour of ΛCDM)
 Degrees of freedom: 64
