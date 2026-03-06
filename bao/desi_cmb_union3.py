@@ -161,15 +161,21 @@ def main():
     from bao.plot_predictions import plot_bao_predictions
 
     prior = Prior()
-    prior.add_parameter("dM", dist=(-1.0, +1.0))
-    prior.add_parameter("H0", dist=(60.0, 75.0))
-    prior.add_parameter("obh2", dist=(0.010, 0.030))
+    prior.add_parameter("dM", dist=(-1, +1))  # mag
+    prior.add_parameter("H0", dist=(60, 75))  # km/s/Mpc
+    prior.add_parameter("obh2", dist=(0.01, 0.03))
     prior.add_parameter("och2", dist=(0.01, 0.25))
-    prior.add_parameter("v", dist=(-9.5, 3.5))
+    prior.add_parameter("v", dist=(-10, 4))  # x 100 km/s
 
     with Pool(6) as pool:
         sampler = Sampler(
-            prior, log_likelihood, n_live=6_000, pool=pool, seed=42, pass_dict=False
+            prior,
+            log_likelihood,
+            n_live=10_000,
+            pool=pool,
+            seed=42,
+            pass_dict=False,
+            n_networks=5,
         )
         sampler.run(verbose=True)
 
@@ -289,8 +295,8 @@ Flat ΛCDM w(z) = -1
 Isotropic velocity SNe observed redshifts (turning point z <= 0.2 inflow z > 0.2 outflow)
 z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-ΔM: -0.0502 ± 0.0070 mag
-v: -3.1 ± 1.0 (prior U(-9.5, 3.5)) x 100 km/s
+ΔM: -0.0501 ± 0.0070 mag
+v: -3.1 ± 1.0 (prior U(-10, 4)) x 100 km/s
 v / (z_cut=0.2): -1590 ± 500 km/s
 H0: 68.51 ± 0.27 km/s/Mpc
 Ωm: 0.2992 ± 0.0036
@@ -300,8 +306,8 @@ H0: 68.51 ± 0.27 km/s/Mpc
 z*: 1089.38 ± 0.15
 z_d: 1060.21 ± 0.23
 r_d: 147.61 ± 0.19 Mpc
-Chi2 (MAP): 37.47 (2.94 sigma significance)
-Log evidence: -39.3 (Δ logZ = 2.7 in favour of flow corrections)
+Chi2 (MAP): 37.48 (2.94 sigma significance)
+Log evidence: -39.4 (Δ logZ = 2.6 in favour of flow corrections)
 Degs of freedom: 35
 """
 
