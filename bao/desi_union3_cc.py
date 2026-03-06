@@ -74,13 +74,10 @@ def bao_theory(z, qty, params):
     return results / params[3]
 
 
-pivot_mask = z_cmb <= 0.2
-
-
 @njit
 def mu_corr(params, DM_obs):
     # Heaviside step at z = 0.2
-    v_km_s = 100 * params[5] * np.where(z_cmb <= 0.2, 1.0, -1.0)
+    v_km_s = 100 * params[5] * np.where(z_cmb <= 0.2, 1, -1)
     z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + v_km_s / c)
     return 5.0 * np.log10(DM_z(z_cosmo, params) / DM_obs)
 
@@ -125,21 +122,21 @@ def main():
     # f_cc: CC error rescaling (overestimated)
     prior.add_parameter("fcc", dist=(0.01, 3.0))
     # ΔM: magnitude offset
-    prior.add_parameter("ΔM", dist=(-1.0, 1.0))
+    prior.add_parameter("ΔM", dist=(-1, 1))
     # H0: Hubble constant at present
-    prior.add_parameter("H0", dist=(50.0, 85.0))
+    prior.add_parameter("H0", dist=(45, 90))
     # rd: sound horizon at drag epoch
-    prior.add_parameter("rd", dist=(120.0, 180.0))
+    prior.add_parameter("rd", dist=(100, 200))
     # Ωm: matter density parameter today
-    prior.add_parameter("Ωm", dist=(0.01, 0.70))
-    # v: isotropic velocity SNe observed redshifts
-    prior.add_parameter("v", dist=(-9.5, 3.5))
+    prior.add_parameter("Om", dist=(0.2, 0.50))
+    # v: coherent flow SNe
+    prior.add_parameter("v", dist=(-10.5, 4.5))
 
-    with Pool(6) as pool:
+    with Pool(8) as pool:
         sampler = Sampler(
             prior,
             log_likelihood,
-            n_live=6_000,
+            n_live=8_000,
             pool=pool,
             seed=42,
             pass_dict=False,
@@ -155,7 +152,11 @@ def main():
         samples=samples, weights=w, names=prior.keys, labels=labels, loglikes=log_l
     )
     plots.get_subplot_plotter().triangle_plot(
-        gd_samples, filled=True, title_limit=1, color=["blue"], contour_colors=["blue"]
+        roots=gd_samples,
+        params=prior.keys[1:],
+        title_limit=1,
+        color=["C0"],
+        contour_colors=["C0"],
     )
     plt.show()
 
@@ -197,7 +198,7 @@ def main():
         y=mu_vals - mu_corr(best_fit, DM_z(z_cmb, best_fit)),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=mu_theory(best_fit, DM_z(z_cmb, best_fit)),
-        label=f"$H_0$={h0_50:.2f}, $Ω_m$={Om_50:.3f}",
+        label=f"$Ω_m$={Om_50:.3f}",
         x_scale="log",
     )
     plot_cc_predictions(
@@ -219,9 +220,9 @@ BAO DESI DR2 + SN1a Union3.1 + Cosmic Chronometers
 Priors:
 f_cc: U(0.01, 3.0)
 ΔM:   U(-1.0, 1.0)
-H0:   U(50.0, 85.0)
-rd:   U(120.0, 180.0)
-Ωm:   U(0.01, 0.70)
+H0:   U(45.0, 90.0)
+rd:   U(100.0, 200.0)
+Ωm:   U(0.2, 0.50)
 
 wzCDM:
 w0:   U(-1.0, -1/3)
@@ -232,82 +233,82 @@ w0:   U(-1.2, -0.5)
 w0waCDM:
 w0:   U(-1.5, 0.0)
 wa:   U(-5.0, 3.0)
-Enforced w0 + wa < 0
+Enforced w0 + wa < 0, forbidden prior region removed in evidence calculation.
 
-Peculiar motion:
-v ~U(-9.5, 3.5) x 100 km/s
+Coherent flow:
+v ~U(-10.5, 4.5) x 100 km/s
 """
 
 """
 Flat ΛCDM
-ΔM: -0.040 +0.070 -0.072 mag
-H0: 68.7 +2.3 -2.3 km/s/Mpc
-r_d: 147.2 +4.9 -4.6 Mpc
-Ωm: 0.303 +0.008 -0.008
-ωm: 0.1437 +0.0330 -0.0233
+ΔM: -0.041 +- 0.072 mag
+H0: 68.7 +- 2.3 km/s/Mpc
+r_d: 147.4 +4.5 -5.0 Mpc
+Ωm: 0.3031 +- 0.0081
+ωm: 0.143 +0.033 -0.026
 f_cc: 1.48 +0.18 -0.17
-Chi squared: 76.36
-Log evidence: -179.01
+Chi squared: 76.40
+Log evidence: -178.93
 Degrees of freedom: 66
 """
 
 """
 Flat ΛCDM
-Isotropic velocity SNe observed redshifts (turning point z <= 0.2 inflow z > 0.2 outflow)
+Monopole in velocity SNe (turning point z <= 0.2 inflow z > 0.2 outflow)
 z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-ΔM: -0.037 +- 0.072 mag
-v: -3.1 +1.1 -1.1 x 100 km/s
-H0: 69.0 +2.3 -2.3 km/s/Mpc
-r_d: 147.2 +4.4 -5.0 Mpc
-Ωm: 0.2989 +0.0081 -0.0081
-ωm: 0.143 +0.031 -0.022
-f_cc: 1.48 +0.18 -0.18
-Chi squared: 67.71 (2.94 sigma significance)
-Log evidence: -176.35 (Δ logZ = 2.66 in favour of corrections)
+ΔM: -0.038 +-0.072 mag
+v: -3.1 +- 1.1 x 100 km/s
+H0: 68.9 +- 2.3 km/s/Mpc
+r_d: 147.3 +4.4 -5.0 Mpc
+Ωm: 0.2989 +- 0.0081
+ωm: 0.143 +0.031 -0.025
+f_cc: 1.48 +0.18 -0.17
+Chi squared: 67.75 (2.94 sigma significance)
+Log evidence: -176.42 (Δ logZ = 2.51 in favour of coherent velocity)
 Degrees of freedom: 65
 """
 
 """
 Flat wCDM: w(z) = w0
+ΔM: -0.051 +- 0.072 mag
+H0: 67.5 +- 2.3 km/s/Mpc
+r_d: 147.5 +4.4 -5.1 Mpc
+Ωm: 0.2982 +- 0.0087
+ωm: 0.136 +0.031 -0.025
+w0: -0.898 +- 0.050
 f_cc: 1.48 +0.18 -0.17
-ΔM: -0.049 +0.070 -0.072 mag
-H0: 67.5 +2.3 -2.3 km/s/Mpc
-r_d: 147.3 +4.9 -4.6 Mpc
-Ωm: 0.298 +0.009 -0.009
-ωm: 0.1359 +0.0299 -0.0248
-w0: -0.898 +0.049 -0.050
-Chi squared: 72.09 (2.07 sigma away from ΛCDM)
-Log evidence: -178.66 (Δ logZ = 0.35 against ΛCDM)
+Chi squared: 72.12 (2.07 sigma significance)
+Log evidence: -178.58 (Δ logZ = 0.35 against ΛCDM)
 Degrees of freedom: 65
 """
 
 """
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
-ΔM: -0.049 +0.070 -0.072 mag
-H0: 67.1 +2.4 -2.3 km/s/Mpc
-r_d: 147.3 +4.9 -4.6 Mpc
-Ωm: 0.308 +0.009 -0.008
+ΔM: -0.050 +- 0.072 mag
+H0: 67.1 +- 2.4 km/s/Mpc
+r_d: 147.4 +4.5 -5.0 Mpc
+Ωm: 0.3085 +0.0085 -0.0085
 ωm: 0.1391 +0.0295 -0.0234
-w0: -0.825 +0.071 -0.074
+w0: -0.826 +- 0.071
 wa: d w(z)/d z at z=0 = -1.5 * (1 - w0^2)
 f_cc: 1.47 +0.18 -0.17
-Chi squared: 70.70 (2.38 sigma away from ΛCDM)
-Log evidence: -177.67 (Δ logZ = 1.34 against ΛCDM)
+Chi squared: 70.67 (2.39 sigma significance)
+Log evidence: -177.59 (Δ logZ = 1.34 against ΛCDM)
 Degrees of freedom: 65
 """
 
 """
 Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
-ΔM: -0.047 +0.071 -0.072 mag
-H0: 67.0 +2.4 -2.3 km/s/Mpc
-r_d: 147.2 +4.9 -4.7 Mpc
-Ωm: 0.319 +0.016 -0.020
-ωm: 0.1444 +0.0368 -0.0254
-w0: -0.801 +0.105 -0.097
-wa: -0.633 +0.564 -0.555
+ΔM: -0.048 +- 0.072 mag
+H0: 67.0 +- 2.4 km/s/Mpc
+r_d: 147.4 +4.5 -5.1 Mpc
+Ωm: 0.317 +0.021 -0.013 (non-gaussian)
+ωm: 0.144 +0.035 -0.028
+w0: -0.793 +0.086 -0.110
+wa: -0.65 +- 0.55
 f_cc: 1.47 +0.18 -0.17
-Chi squared: 70.15 (2.01 sigma away from ΛCDM)
-Log evidence: -180.47 (Δ logZ = -1.46 in favour of ΛCDM. TODO: remove forbidden region but still not preferred)
+Chi squared: 70.05 (2.52 sigma significance)
+Log evidence: -180.01 + 0.37 (Δ logZ = -0.71 in favour of ΛCDM)
 Degrees of freedom: 64
 """
