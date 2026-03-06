@@ -119,7 +119,7 @@ def main():
     from bao.plot_predictions import plot_bao_predictions
 
     prior = Prior()
-    # f_cc: CC error rescaling (overestimated)
+    # f_cc: CCH covariance rescaling (overestimated uncertainties)
     prior.add_parameter("fcc", dist=(0.01, 3.0))
     # ΔM: magnitude offset
     prior.add_parameter("ΔM", dist=(-1, 1))
