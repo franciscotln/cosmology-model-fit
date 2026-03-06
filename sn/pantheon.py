@@ -39,20 +39,13 @@ def DM_z(params, z):
     return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
-correction_mask = z_cmb <= 0.15
-
-
 @njit
 def mu_corr(params, DM_ref):
-    z_pec = 100 * params[3] / c
-    z_cosmo1 = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
-    z_cosmo2 = -1.0 + (1.0 + z_cmb) / (1.0 - z_pec)
-
-    return np.where(
-        correction_mask,
-        5.0 * np.log10(DM_z(params, z_cosmo1) / DM_ref),
-        5.0 * np.log10(DM_z(params, z_cosmo2) / DM_ref),
-    )
+    # Heaviside step at z = 0.15
+    v_km_s = 100 * params[3] * np.where(z_cmb <= 0.15, 1, -1)
+    z_pec = v_km_s / c
+    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+    return 5.0 * np.log10(DM_z(params, z_cosmo) / DM_ref)
 
 
 @njit

@@ -12,7 +12,7 @@ Omnuh2 = cmb.Omnu_h2
 sn_legend, z_cmb, z_hel, mb_values, cov_matrix_sn = get_data()
 cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
 
-z_grid = np.linspace(0, np.max(z_cmb) + 0.1, num=3000)
+z_grid = np.linspace(0, np.max(z_cmb) + 0.1, num=4000)
 dz = np.diff(z_grid)
 
 
@@ -54,26 +54,22 @@ def DM_z(z, params):
     dh_grid = c / H_z(z_grid, params)
     dh = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size, dtype=np.float64)
-    cum_dm[1:] = np.cumsum(dz * dh)
+    cum_dm[1:] = np.cumsum(dh * dz)
     return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
-correction_mask = z_cmb <= 0.1
-
-
 @njit
-def mu_corr(params):
-    v_km_s = 100 * params[4]
+def mu_corr(params, DM_ref):
+    # Heaviside step at z = 0.15
+    v_km_s = 100 * params[4] * np.where(z_cmb <= 0.15, 1, -1)
     z_pec = v_km_s / c
     z_cosmo = (1.0 + z_cmb) / (1.0 + z_pec) - 1.0
-    corr = 5.0 * np.log10(DM_z(z_cosmo, params) / DM_z(z_cmb, params))
-    return np.where(correction_mask, corr, 0.0)
+    return 5.0 * np.log10(DM_z(z_cosmo, params) / DM_ref)
 
 
 @njit
-def mu_theory(params):
-    dL = (1.0 + z_hel) * DM_z(z_cmb, params)
-    return 25.0 + 5 * np.log10(dL)
+def mu_theory(DM):
+    return 25.0 + 5 * np.log10((1.0 + z_hel) * DM)
 
 
 def solve_triang(cho_L, delta):
@@ -85,7 +81,8 @@ def chi_squared(params):
     delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(params[2], params[3], params)
     chi2_cmb = delta @ cmb.inv_cov_mat @ delta
 
-    delta_sn = mb_values - params[0] - mu_theory(params) - mu_corr(params)
+    DM = DM_z(z_cmb, params)
+    delta_sn = mb_values - params[0] - mu_theory(DM) - mu_corr(params, DM)
     chi_sn = solve_triang(cho_sn, delta_sn)
 
     return chi2_cmb + chi_sn
@@ -188,9 +185,7 @@ def main():
     print(f"ωm: {Omh2_50:.5f} +{(Omh2_84 - Omh2_50):.5f} -{(Omh2_50 - Omh2_16):.5f}")
     print(f"ωb: {Obh2_50:.5f} +{(Obh2_84 - Obh2_50):.5f} -{(Obh2_50 - Obh2_16):.5f}")
     print(f"ωc: {Och2_50:.5f} +{(Och2_84 - Och2_50):.5f} -{(Och2_50 - Och2_16):.5f}")
-    print(
-        f"v_f (x 100 km/s): {vf_50:.3f} +{(vf_84 - vf_50):.3f} -{(vf_50 - vf_16):.3f}"
-    )
+    print(f"v: {vf_50:.3f} +{(vf_84 - vf_50):.3f} -{(vf_50 - vf_16):.3f} x 100 km/s")
     print(f"M: {M_50:.3f} +{(M_84 - M_50):.3f} -{(M_50 - M_16):.3f} mag")
     print(f"z*: {z_st_50:.2f} +{(z_st_84 - z_st_50):.2f} -{(z_st_50 - z_st_16):.2f}")
     print(f"z_d: {z_d_50:.2f} +{(z_d_84 - z_d_50):.2f} -{(z_d_50 - z_d_16):.2f}")
@@ -203,9 +198,9 @@ def main():
     plot_sn_predictions(
         legend=sn_legend,
         x=z_cmb,
-        y=mb_values - M_50 - mu_corr(best_fit),
+        y=mb_values - M_50 - mu_corr(best_fit, DM_z(z_cmb, best_fit)),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=mu_theory(best_fit),
+        y_model=mu_theory(DM_z(z_cmb, best_fit)),
         label=f"$Ω_m$={Om_50:.3f}",
         x_scale="log",
     )
@@ -215,7 +210,7 @@ if __name__ == "__main__":
     main()
 
 """
-Flat ΛCDM w(z) = -1
+Flat ΛCDM
 H0: 67.43 +0.46 -0.46 km/s/Mpc
 Ωm: 0.314 +0.007 -0.007
 ωm: 0.14291 +0.00111 -0.00109
@@ -231,21 +226,21 @@ Chi squared: 1403.98
 
 """
 Flat ΛCDM
-Isotropic velocity SNe observed redshifts (limit to z <= 0.1)
+Isotropic velocity SNe observed redshifts (turning point z <= 0.15 inflow z > 0.15 outflow)
 z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-v_f (x 100 km/s): -0.72 +0.39 -0.39 (prior ~ U(-3.2, 1.7))
-M: -19.442 +0.013 -0.013 mag
-H0: 67.58 +0.47 -0.47 km/s/Mpc
-Ωm: 0.312 +0.007 -0.006
-ωm: 0.14254 +0.00111 -0.00109
+v (x 100 km/s): -0.71 +0.36 -0.36 (prior ~ U(-3.2, 1.7))
+M: -19.441 +0.013 -0.014 mag
+H0: 67.60 +0.48 -0.47 km/s/Mpc
+Ωm: 0.312 +0.007 -0.007
+ωm: 0.14250 +0.00112 -0.00111
 ωb: 0.02249 +0.00011 -0.00011
-ωc: 0.11940 +0.00115 -0.00112
-z*: 1089.69 +0.20 -0.20
+ωc: 0.11936 +0.00116 -0.00114
+z*: 1089.69 +0.21 -0.21
 z_d: 1060.17 +0.23 -0.23
 r* = 144.51 Mpc
-rd: 147.12 +0.28 -0.28 Mpc
-Chi squared: 1400.58
+rd: 147.13 +0.28 -0.28 Mpc
+Chi squared: 1400.16 (1.95 sigma significance)
 """
 
 """
