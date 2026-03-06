@@ -12,36 +12,37 @@ inv_cov_mat = np.linalg.inv(fs8_data.cov_mat)
 
 z_max = np.max(data["z"]) + 0.1
 z_grid = np.linspace(0, z_max, num=4000)
-dx = np.diff(z_grid)
+dz = np.diff(z_grid)
 
 
 @njit
 def rho_de_z(z, w0):
+    # Thawing quintessence wzCDM
     cubic = (1.0 + z) ** 3
     return (2 * cubic / (1.0 + w0 + (1.0 - w0) * cubic)) ** 2
 
 
 @njit
-def Ez(z, Om_eff, w0=-1.0):
-    return np.sqrt(Om_eff * (1.0 + z) ** 3 + (1.0 - Om_eff) * rho_de_z(z, w0))
+def Ez(z, Om, w0):
+    return np.sqrt(Om * (1.0 + z) ** 3 + (1.0 - Om) * rho_de_z(z, w0))
 
 
 @njit
-def dE_da(z, Om_eff, w0=-1.0):
+def dE_da(z, Om, w0):
     a = 1 / (1.0 + z)
-    dz = 1e-05
-    Ez_plus = Ez(z + dz, Om_eff, w0)
-    Ez_minus = Ez(z - dz, Om_eff, w0)
+    dz = 1e-06
+    Ez_plus = Ez(z + dz, Om, w0)
+    Ez_minus = Ez(z - dz, Om, w0)
     dE_dz = (Ez_plus - Ez_minus) / (2 * dz)
     return -dE_dz / a**2
 
 
 @njit
-def DM(z, Om_eff, w0):
-    dh_grid = c / Ez(z_grid, Om_eff, w0)
-    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+def DM(z, Om, w0):
+    dh_grid = c / Ez(z_grid, Om, w0)
+    dh = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(len(z_grid), dtype=np.float64)
-    cum_dm[1:] = np.cumsum(dx * dy)
+    cum_dm[1:] = np.cumsum(dh * dz)
     return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
@@ -55,14 +56,14 @@ for i in range(len(data["z"])):
 
 
 @njit
-def growth_ode(a, y, Om_eff, w0):
+def growth_ode(a, y, Om, w0):
     z = 1 / a - 1.0
-    E_val = Ez(z, Om_eff, w0)
-    dE_da_val = dE_da(z, Om_eff, w0)
+    E_val = Ez(z, Om, w0)
+    dE_da_val = dE_da(z, Om, w0)
 
     delta, d_delta_da = y
 
-    source = (3 / 2) * (Om_eff / a**5) * (delta / E_val**2)
+    source = (3 / 2) * (Om / a**5) * (delta / E_val**2)
     friction = -(3 / a + dE_da_val / E_val) * d_delta_da
     d2_delta_da = friction + source
 
@@ -73,7 +74,7 @@ max_z = 100
 a_vals = np.logspace(np.log10(1 / (1.0 + max_z)), 0, 1000)
 
 
-def fs8_theory(z, Om_eff, sig8, w0):
+def fs8_theory(z, Om, sig8, w0):
     sol = solve_ivp(
         growth_ode,
         t_span=(a_vals[0], a_vals[-1]),
@@ -81,7 +82,7 @@ def fs8_theory(z, Om_eff, sig8, w0):
         t_eval=a_vals,
         rtol=1e-8,
         atol=1e-10,
-        args=(Om_eff, w0),
+        args=(Om, w0),
     )
     delta, d_delta_da = sol.y
 
@@ -93,10 +94,10 @@ def fs8_theory(z, Om_eff, sig8, w0):
 
 
 def chi_squared(theta):
-    Om_eff, sig8, w0, f_err = theta
-    q = Ez(data["z"], Om_eff, w0) * DM(data["z"], Om_eff, w0) / denominator_fiducial
-    delta = data["fs8"] - fs8_theory(data["z"], Om_eff, sig8, w0) / q
-    return f_err**2 * np.dot(delta, np.dot(inv_cov_mat, delta))
+    Om, sig8, w0, f_err = theta
+    q = Ez(data["z"], Om, w0) * DM(data["z"], Om, w0) / denominator_fiducial
+    delta = data["fs8"] - fs8_theory(data["z"], Om, sig8, w0) / q
+    return delta @ (inv_cov_mat * f_err**2) @ delta
 
 
 N = len(data["z"])
@@ -250,13 +251,13 @@ if __name__ == "__main__":
 flat ΛCDM
 
 without f_err:
-Ωm_eff = 0.249 +0.026 -0.024
-σ8 = 0.816 +0.020 -0.019
-S8 = 0.742 +0.028 -0.028
+Ωm_eff = 0.274 +0.027 -0.025
+σ8 = 0.787 +0.019 -0.018
+S8 = 0.752 +0.028 -0.027
 w0: -1
 f = 1
-chi2 = 37.50
-log likelihood = 83.2
+chi2 = 35.34
+log likelihood =  97.1
 log evidence = 77.8
 degs of freedom = 61
 
@@ -265,10 +266,10 @@ degs of freedom = 61
 with f_err:
 Ωm_eff = 0.274 +0.020 -0.019
 σ8 = 0.787 +0.014 -0.014
-S8 = 0.752 +0.022 -0.021
+S8 = 0.752 +0.021 -0.021
 w0: -1
-f = 1.32 +0.12 -0.12
-chi2 = 61.41
+f = 1.32 +0.12 -0.11
+chi2 = 61.35
 log likelihood = 101.5
 log evidence = 93.7
 degs of freedom = 60
@@ -277,13 +278,13 @@ degs of freedom = 60
 
 flat wCDM
 Ωm_eff = 0.254 +0.023 -0.024
-σ8 = 0.875 +0.072 -0.051
-S8 = 0.809 +0.038 -0.035
-w0 = -0.742 +0.124 -0.123 (prior: U(-1.4, 0.0))
-f = 1.35 +0.12 -0.12
-chi2 = 60.35
+σ8 = 0.876 +0.069 -0.051
+S8 = 0.809 +0.037 -0.035
+w0 = -0.742 +0.122 -0.121 (prior: U(-1.4, 0.0))
+f = 1.35 +0.13 -0.12
+chi2 = 60.26
 log likelihood = 103.6
-log evidence = 94.5
+log evidence = 94.1
 degs of freedom = 59
 
 ===============================
