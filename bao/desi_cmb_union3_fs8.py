@@ -32,6 +32,22 @@ def Ode_z(z, w0):
 
 
 @njit
+def d_Ode_dz(z, w0):
+    dz = 1e-06
+    Ode_plus = Ode_z(z + dz, w0)
+    Ode_minus = Ode_z(z - dz, w0)
+    return (Ode_plus - Ode_minus) / (2 * dz)
+
+
+@njit
+def d_Omnu_dz(z):
+    dz = 1e-06
+    Omnu_plus = cmb.Omnu_z(z + dz)
+    Omnu_minus = cmb.Omnu_z(z - dz)
+    return (Omnu_plus - Omnu_minus) / (2 * dz)
+
+
+@njit
 def Ez(z, h, Obh2, Och2):
     Onu = Omnuh2 / h**2
     Or = Orh2 / h**2
@@ -113,11 +129,14 @@ def theory_mu(theta, DM):
 
 @njit
 def dH_da(z, theta):
-    dz = 1e-5
-    Hz_plus = H_z(z + dz, theta)
-    Hz_minus = H_z(z - dz, theta)
-    dH_dz = (Hz_plus - Hz_minus) / (2 * dz)
-    return -1 * (1 + z) ** 2 * dH_dz
+    H0, Obh2, Och2 = theta[1], theta[2], theta[3]
+    h = H0 / 100
+    Obc = (Obh2 + Och2) / h**2
+    Or = Orh2 / h**2
+    Onu = Omnuh2 / h**2
+    numerator = 3 * Obc * (1.0 + z) ** 2 + 4 * Or * (1.0 + z) ** 3 + Onu * d_Omnu_dz(z)
+    denominator = 2 * H_z(z, theta) / (1.0 + z) ** 2
+    return -numerator * H0**2 / denominator
 
 
 @njit
@@ -139,7 +158,7 @@ def growth_ODE(a, y, *theta):
     return [d_delta_da, d2_delta_da]
 
 
-a_vals = np.logspace(-3.2, 0, 1500, dtype=np.float64)
+a_vals = np.logspace(-3.2, 0, 5000, dtype=np.float64)
 
 
 def fs8_theory(z, theta):
@@ -408,8 +427,8 @@ S8: 0.777 +0.014 -0.014
 r_d: 147.61 +0.19 -0.19 Mpc
 q0: -0.551 +0.005 -0.005
 j0: 1
-Chi2 (MAP): 72.81 (2.94 sigma significance)
-Log Evidence: -61.45 (Δ logZ = 2.59 in favour of corrections)
+Chi2 (MAP): 72.83 (2.94 sigma significance)
+Log Evidence: -61.46 (Δ logZ = 2.58 in favour of corrections)
 Degrees of freedom: 92
 """
 
