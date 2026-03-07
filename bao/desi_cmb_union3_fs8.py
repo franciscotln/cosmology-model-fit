@@ -27,11 +27,13 @@ dz = np.diff(z_grid)
 
 @njit
 def w_de_z(z, w0):
+    # Thawing quintessence wzCDM
     return -1.0 + 2 * (1.0 + w0) / (1.0 + w0 + (1.0 - w0) * (1.0 + z) ** 3)
 
 
 @njit
 def Ode_z(z, w0):
+    # Thawing quintessence wzCDM
     zp1 = 1.0 + z
     return (2 * zp1**3 / (1.0 + w0 + (1.0 - w0) * zp1**3)) ** 2
 
@@ -166,8 +168,8 @@ def fs8_theory(z, theta):
         t_span=(a_vals[0], a_vals[-1]),
         y0=(a_vals[0], 1.0),
         t_eval=a_vals,
-        rtol=1e-8,
-        atol=1e-10,
+        rtol=1e-6,
+        atol=1e-8,
         args=theta,
     )
 
@@ -183,7 +185,7 @@ def fs8_theory(z, theta):
 H0_fid = 67.6
 Obh2_fid = 0.022
 params_fid = [0.0, H0_fid, Obh2_fid, 0.31, 0.0, 0.80]
-fiducial_scaling = np.empty(len(fs8_data["z"]), dtype=np.float64)
+fiducial_scaling = np.empty(len(fs8_data), dtype=np.float64)
 
 for i in range(len(fs8_data["z"])):
     zi = fs8_data["z"][i]
@@ -348,7 +350,7 @@ def main():
         fmt=".",
         label="data",
     )
-    plt.plot(z_fs8_smoot, fs8_theory(z_fs8_smoot, best_fit), label="best-fit")
+    plt.plot(z_fs8_smoot, fs8_theory(z_fs8_smoot, best_fit), label="fσ8 theory")
     plt.xlabel("z")
     plt.ylabel(r"$f\sigma_8(z)$")
     plt.legend()
@@ -377,7 +379,7 @@ H0: U(50, 90)
 sig8: U(0.5, 1.5)
 
 wCDM:
-w0: U(-1.2, -0.6)
+w0: U(-1.2, -0.5)
 
 wzCDM:
 w0: U(-1.0, -1/3)
@@ -416,17 +418,17 @@ z_cosmo = -1 + (1 + z) / (1 + v/c)
 
 v: -306 +104 -104 km/s
 ΔM: -0.050 +0.007 -0.007 mag
-H0: 68.51 +0.27 -0.27 km/s/Mpc
+H0: 68.50 +0.27 -0.27 km/s/Mpc
 ωb: 0.02258 +0.00010 -0.00010
 ωc: 0.1172 +0.0007 -0.0007
 ωm: 0.1404 +0.0006 -0.0006
 Ωm: 0.299 +0.004 -0.004
 σ8: 0.778 +0.014 -0.014
 S8: 0.777 +0.014 -0.014
-r_d: 147.60 +0.19 -0.19 Mpc
+r_d: 147.61 +0.19 -0.19 Mpc
 q0: -0.551 +0.005 -0.005
 j0: 1
-Chi2 (MAP): 72.80 (2.94 sigma significance)
+Chi2 (MAP): 72.82 (2.94 sigma significance)
 Log Evidence: -61.46 (Δ logZ = 2.58 in favour of corrections)
 Degrees of freedom: 92
 """
@@ -434,11 +436,40 @@ Degrees of freedom: 92
 """
 Flat wCDM w(z) = w0
 
+ΔM: -0.054 +0.010 -0.010 mag
+H0: 68.10 +0.66 -0.66 km/s/Mpc
+ωb: 0.02259 +0.00011 -0.00011
+ωc: 0.1171 +0.0008 -0.0008
+ωm: 0.1403 +0.0008 -0.0008
+Ωm: 0.302 +0.006 -0.006
+σ8: 0.780 +0.015 -0.015
+S8: 0.783 +0.017 -0.017
+w0: -0.985 +0.026 -0.027
+r_d: 147.64 +0.22 -0.22 Mpc
+q0: -0.531 +0.034 -0.035
+j0: 0.954 +0.084 -0.078
+Chi2 (MAP): 81.13
+Log Evidence: -66.36 (Δ logZ = -2.32 in favour of ΛCDM)
+Degrees of freedom: 92
 """
 
 """
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
 
+ΔM: -0.061 +0.009 -0.009 mag
+H0: 67.14 +0.71 -0.74 km/s/Mpc
+ωb: 0.02260 +0.00010 -0.00010
+ωc: 0.1168 +0.0007 -0.0007
+ωm: 0.1400 +0.0007 -0.0007
+Ωm: 0.311 +0.007 -0.006
+σ8: 0.785 +0.015 -0.014
+S8: 0.799 +0.019 -0.018
+w0: -0.895 +0.056 -0.054
+r_d: 147.70 +0.20 -0.20 Mpc
+q0: -0.425 +0.066 -0.064
+j0: 0.707 +0.140 -0.124
+Chi2 (MAP): 78.41 (1.74 sigma significance)
+Log Evidence: -64.10 (Δ logZ = -0.06 in favour of ΛCDM)
 """
 
 """
