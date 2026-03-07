@@ -8,7 +8,13 @@ import y2018fs8.data as fs8_data
 c = c0 / 1000  # km/s
 
 data = fs8_data.data
-inv_cov_mat = np.linalg.inv(fs8_data.cov_mat)
+
+no_cov_mask = data["cov_id"] == -1
+std_no_cov = data["fs8_err"][no_cov_mask]
+
+cov1_mask = data["cov_id"] == 1
+cov2_mask = data["cov_id"] == 2
+cov3_mask = data["cov_id"] == 3
 
 z_max = np.max(data["z"]) + 0.1
 z_grid = np.linspace(0, z_max, num=4000)
@@ -76,8 +82,8 @@ def growth_ode(a, y, Om, w0):
     return [d_delta_da, d2_delta_da]
 
 
-max_z = 100
-a_vals = np.logspace(np.log10(1 / (1.0 + max_z)), 0, 1000)
+max_z = 500
+a_vals = np.logspace(np.log10(1 / (1.0 + max_z)), 0, 2000)
 
 
 def fs8_theory(z, Om, sig8, w0):
@@ -103,22 +109,30 @@ def chi_squared(theta):
     Om, sig8, w0, f_err = theta
     q = Ez(data["z"], Om, w0) * DM(data["z"], Om, w0) / denominator_fiducial
     delta = data["fs8"] - fs8_theory(data["z"], Om, sig8, w0) / q
-    return delta @ (inv_cov_mat * f_err**2) @ delta
+
+    delta_no_cov = delta[no_cov_mask]
+    delta_cov1 = delta[cov1_mask]
+    delta_cov2 = delta[cov2_mask]
+    delta_cov3 = delta[cov3_mask]
+
+    chi2_no_cov = np.sum((delta_no_cov / (std_no_cov / f_err)) ** 2)
+    chi2_1 = delta_cov1 @ (fs8_data.inv_cov1 * f_err**2) @ delta_cov1
+    chi2_2 = delta_cov2 @ (fs8_data.inv_cov2 * f_err**2) @ delta_cov2
+    chi2_3 = delta_cov3 @ (fs8_data.inv_cov3 * f_err**2) @ delta_cov3
+
+    return chi2_no_cov + chi2_1 + chi2_2 + chi2_3
 
 
-N = len(data["z"])
-logdet = np.linalg.slogdet(fs8_data.cov_mat)[1]
-norm_fact_1 = N * np.log(2 * np.pi) + logdet
+N = len(data)
 
 
 def log_likelihood(theta):
-    norm_fact = norm_fact_1 - 2 * N * np.log(theta[-1])
-    return -0.5 * (chi_squared(theta) + norm_fact)
+    return -0.5 * (chi_squared(theta) - 2 * N * np.log(theta[-1]))
 
 
 bounds = np.array(
     [
-        (0.1, 0.6),  # Ωm_eff: effective clustering matter density
+        (0.1, 0.6),  # Ωm: effective clustering matter density
         (0.2, 1.2),  # sigma8
         (-1.0, 0.0),  # w0
         (0.5, 2.2),  # f_err: overestimation factor of the errors
@@ -198,11 +212,11 @@ def main():
         (S8_chains_samples[:, :, np.newaxis], chains_samples), axis=2
     )
 
-    print(f"Ωm_eff = {Om_50:.3f} +{Om_84-Om_50:.3f} -{Om_50-Om_16:.3f}")
+    print(f"Ωm = {Om_50:.3f} +{Om_84-Om_50:.3f} -{Om_50-Om_16:.3f}")
     print(f"σ8 = {s8_50:.3f} +{s8_84-s8_50:.3f} -{s8_50-s8_16:.3f}")
     print(f"S8 = {S8_50:.3f} +{S8_84-S8_50:.3f} -{S8_50-S8_16:.3f}")
     print(f"w0 = {w0_50:.3f} +{w0_84-w0_50:.3f} -{w0_50-w0_16:.3f}")
-    print(f"f = {f_50:.2f} +{f_84-f_50:.2f} -{f_50-f_16:.2f}")
+    print(f"f_err = {f_50:.2f} +{f_84-f_50:.2f} -{f_50-f_16:.2f}")
     print(f"chi2 = {chi_squared(best_fit):.2f}")
     print(f"log likelihood = {log_likelihood(best_fit):.1f}")
     print(f"log evidence = {log_evd:.1f}")
@@ -223,7 +237,7 @@ def main():
         fmt=".",
         label="data",
     )
-    plt.plot(z_plot, fs8_plot, label="best-fit", color="C1")
+    plt.plot(z_plot, fs8_plot, label="fs8 theory", color="C1")
     plt.xlabel("z")
     plt.ylabel(r"$f\sigma_8(z)$")
     plt.legend()
@@ -243,11 +257,6 @@ def main():
     plt.legend()
     plt.show()
 
-    plt.hist(residuals, bins=12, density=True)
-    plt.xlabel("residuals")
-    plt.ylabel("density")
-    plt.show()
-
 
 if __name__ == "__main__":
     main()
@@ -259,50 +268,47 @@ flat ΛCDM
 without f_err:
 Ωm_eff = 0.274 +0.027 -0.025
 σ8 = 0.787 +0.019 -0.018
-S8 = 0.752 +0.028 -0.027
-w0: -1
-f = 1
-chi2 = 35.34
-log likelihood =  97.1
-log evidence = 77.8
+S8 = 0.753 +0.028 -0.028
+chi2 = 35.35
+log likelihood = -17.7
+log evidence = -23.1
 degs of freedom = 61
 
 ---
 
 with f_err:
-Ωm_eff = 0.274 +0.020 -0.019
-σ8 = 0.787 +0.014 -0.014
-S8 = 0.752 +0.021 -0.021
-w0: -1
-f = 1.32 +0.12 -0.11
-chi2 = 61.35
-log likelihood = 101.5
-log evidence = 93.7
+Ωm = 0.273 +0.021 -0.019
+σ8 = 0.788 +0.014 -0.014
+S8 = 0.752 +0.022 -0.021
+f_err = 1.32 +0.12 -0.12
+chi2 = 61.43
+log likelihood = -13.3
+log evidence = -21.0
 degs of freedom = 60
+"""
 
-===============================
-
+"""
 flat wCDM
-Ωm_eff = 0.254 +0.023 -0.024
+Ωm = 0.254 +0.023 -0.024
 σ8 = 0.876 +0.069 -0.051
 S8 = 0.809 +0.037 -0.035
 w0 = -0.742 +0.122 -0.121 (prior: U(-1.4, 0.0))
 f = 1.35 +0.13 -0.12
 chi2 = 60.26
-log likelihood = 103.6
-log evidence = 94.1
+log likelihood = -11.2
+log evidence = -20.3
 degs of freedom = 59
+"""
 
-===============================
-
+"""
 flat wzCDM
-Ωm_eff = 0.280 +0.020 -0.019
+Ωm = 0.280 +0.020 -0.019
 σ8 = 0.828 +0.029 -0.026
 S8 = 0.801 +0.033 -0.031
 w0 = -0.683 +0.147 -0.155 (prior: U(-1.0, 0.0))
 f = 1.34 +0.12 -0.12
 chi2 = 60.39
-log likelihood = 103.1
-log evidence = 94.5
+log likelihood = -11.7
+log evidence = -20.3
 degs of freedom = 59
 """
