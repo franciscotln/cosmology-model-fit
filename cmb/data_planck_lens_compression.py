@@ -66,6 +66,23 @@ def Omnu_z(z):
 
 
 @njit
+def w_nu_z(z):
+    """
+    Equation of state w(z) for massive neutrinos using the 5-node approximation
+    """
+    mz_sq = (m0 / (1.0 + z)) ** 2
+    f0 = np.sqrt(qs_sq[0] + mz_sq)
+    f1 = np.sqrt(qs_sq[1] + mz_sq)
+    f2 = np.sqrt(qs_sq[2] + mz_sq)
+    f3 = np.sqrt(qs_sq[3] + mz_sq)
+    f4 = np.sqrt(qs_sq[4] + mz_sq)
+
+    numerator = ws[0] / f0 + ws[1] / f1 + ws[2] / f2 + ws[3] / f3 + ws[4] / f4
+    denominator = ws[0] * f0 + ws[1] * f1 + ws[2] * f2 + ws[3] * f3 + ws[4] * f4
+    return (1 / 3) - (1 / 3) * mz_sq * numerator / denominator
+
+
+@njit
 def z_star(wb, wm):
     """arXiv:2106.00428v2 (eq A-4)"""
 

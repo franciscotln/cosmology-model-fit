@@ -26,6 +26,11 @@ dz = np.diff(z_grid)
 
 
 @njit
+def w_de_z(z, w0):
+    return -1.0 + 2 * (1.0 + w0) / (1.0 + w0 + (1.0 - w0) * (1.0 + z) ** 3)
+
+
+@njit
 def Ode_z(z, w0):
     zp1 = 1.0 + z
     return (2 * zp1**3 / (1.0 + w0 + (1.0 - w0) * zp1**3)) ** 2
@@ -33,18 +38,12 @@ def Ode_z(z, w0):
 
 @njit
 def d_Ode_dz(z, w0):
-    dz = 1e-06
-    Ode_plus = Ode_z(z + dz, w0)
-    Ode_minus = Ode_z(z - dz, w0)
-    return (Ode_plus - Ode_minus) / (2 * dz)
+    return Ode_z(z, w0) * 3 * (1.0 + w_de_z(z, w0)) / (1.0 + z)
 
 
 @njit
 def d_Omnu_dz(z):
-    dz = 1e-06
-    Omnu_plus = cmb.Omnu_z(z + dz)
-    Omnu_minus = cmb.Omnu_z(z - dz)
-    return (Omnu_plus - Omnu_minus) / (2 * dz)
+    return cmb.Omnu_z(z) * 3 * (1.0 + cmb.w_nu_z(z)) / (1.0 + z)
 
 
 @njit
@@ -419,15 +418,15 @@ v: -306 +104 -104 km/s
 ΔM: -0.050 +0.007 -0.007 mag
 H0: 68.51 +0.27 -0.27 km/s/Mpc
 ωb: 0.02258 +0.00010 -0.00010
-ωc: 0.1172 +0.0007 -0.0006
+ωc: 0.1172 +0.0007 -0.0007
 ωm: 0.1404 +0.0006 -0.0006
 Ωm: 0.299 +0.004 -0.004
 σ8: 0.778 +0.014 -0.014
 S8: 0.777 +0.014 -0.014
-r_d: 147.61 +0.19 -0.19 Mpc
+r_d: 147.60 +0.19 -0.19 Mpc
 q0: -0.551 +0.005 -0.005
 j0: 1
-Chi2 (MAP): 72.83 (2.94 sigma significance)
+Chi2 (MAP): 72.80 (2.94 sigma significance)
 Log Evidence: -61.46 (Δ logZ = 2.58 in favour of corrections)
 Degrees of freedom: 92
 """
