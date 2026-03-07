@@ -19,21 +19,25 @@ inv_cov_cc = np.linalg.inv(cov_matrix)
 logdet_cc = np.linalg.slogdet(cov_matrix)[1]
 
 z_grid = np.linspace(0, np.max(z_fs8) + 0.1, num=4000)
-dx = np.diff(z_grid)
+dz = np.diff(z_grid)
+
+
+@njit
+def Ode_z(z, w0):
+    cubic = (1 + z) ** 3
+    return (2 * cubic / (1 + w0 + (1 - w0) * cubic)) ** 2
 
 
 @njit
 def H_z(z, params):
     H0, Om, w0 = params[0], params[1], params[-1]
-    cubic = (1 + z) ** 3
-    rho_de = (2 * cubic / (1 + w0 + (1 - w0) * cubic)) ** 2
-    return H0 * np.sqrt(Om * (1 + z) ** 3 + (1 - Om) * rho_de)
+    return H0 * np.sqrt(Om * (1.0 + z) ** 3 + (1.0 - Om) * Ode_z(z, w0))
 
 
 @njit
 def dH_da(z, params):
     a = 1 / (1 + z)
-    dz = 1e-05
+    dz = 1e-06
     H_plus = H_z(z + dz, params)
     H_minus = H_z(z - dz, params)
     dH_dz = (H_plus - H_minus) / (2 * dz)
@@ -43,9 +47,9 @@ def dH_da(z, params):
 @njit
 def DM(z, params):
     dh_grid = c / H_z(z_grid, params)
-    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    dh = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(len(z_grid), dtype=np.float64)
-    cum_dm[1:] = np.cumsum(dx * dy)
+    cum_dm[1:] = np.cumsum(dh * dz)
     return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
@@ -75,8 +79,8 @@ def growth_ode(a, y, *params):
     return [d_delta_da, d2_delta_da]
 
 
-max_z = 200
-a_vals = np.logspace(np.log10(1 / (1 + max_z)), 0, 1000)
+max_z = 1000
+a_vals = np.logspace(np.log10(1 / (1 + max_z)), 0, 10_000)
 
 
 def fs8_theory(z, params):
@@ -90,13 +94,12 @@ def fs8_theory(z, params):
         args=params,
     )
     delta, d_delta_da = sol.y
-    sig8 = params[2]
 
     delta0 = interp_hermite(np.array([1.0]), a_vals, delta, d_delta_da)[0]
     # f = d(ln delta)/d(ln a) = (a / delta) * d(delta)/da
     # sigma8(z) = sigma8 * delta(z) / delta(z=0)
     a = 1 / (1 + z)
-    return sig8 * a * interp_pchip(a, a_vals, d_delta_da) / delta0
+    return params[2] * a * interp_pchip(a, a_vals, d_delta_da) / delta0
 
 
 def chi_squared(params):
@@ -143,7 +146,7 @@ def main():
 
     with Pool(6) as pool:
         sampler = Sampler(
-            prior, log_likelihood, n_live=10_000, pool=pool, seed=42, pass_dict=False
+            prior, log_likelihood, n_live=8_000, pool=pool, seed=42, pass_dict=False
         )
         sampler.run(verbose=True)
 
@@ -223,50 +226,49 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM: w(z) = -1
-H0: 70.2 +2.7 -2.6 km/s/Mpc
-Ωm: 0.283 +0.019 -0.018
-σ8: 0.783 +0.013 -0.013
-S8: 0.761 +0.020 -0.019
-f_cc: 1.45 +0.18 -0.18
+H0: 70.0 +2.6 -2.6 km/s/Mpc
+Ωm: 0.285 +0.019 -0.018
+σ8: 0.7827 +0.0132 -0.0132
+S8: 0.762 +0.020 -0.019
+f_cc: 1.46 +0.18 -0.17
 f_fs8: 1.32 +0.12 -0.12
-w0: -1
-Chi squared: 93.75
-Log likelihood: -29.62
-Log evidence: -41.4
-Degs of freedom: 91
+Chi squared: 96.63
+Log likelihood: -40.89
+Log evidence: -52.7
+Degs of freedom: 94
+"""
 
--------------------------------
-
+"""
 Flat wCDM: w(z) = w0
-H0: 67.1 +3.0 -3.0 km/s/Mpc
-Ωm: 0.262 +0.022 -0.023
-σ8: 0.862 +0.063 -0.048
+H0: 66.8 +3.0 -3.0 km/s/Mpc
+Ωm: 0.261 +0.022 -0.024
+σ8: 0.866 +0.065 -0.049
 S8: 0.808 +0.033 -0.031
-f_cc: 1.44 +0.18 -0.18
-f_fs8: 1.35 +0.13 -0.12
-w0: -0.764 +0.116 -0.121 (prior -1.6 to 0.0)
-Chi squared: 92.65
-Log likelihood: -27.74
-Log evidence: -41.1
-Degs of freedom: 90
+f_cc: 1.46 +0.18 -0.17
+f_fs8: 1.35 +0.12 -0.12
+w0: -0.752 +0.115 -0.120 (prior -1.6 to 0.0)
+Chi squared: 95.67
+Log likelihood: -38.84
+Log evidence: -52.3
+Degs of freedom: 93
+"""
 
--------------------------------
-
+"""
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
-H0: 67.7 +2.9 -2.9 km/s/Mpc
-Ωm: 0.288 +0.019 -0.018
+H0: 67.4 +2.9 -2.8 km/s/Mpc
+Ωm: 0.289 +0.019 -0.018
 σ8: 0.816 +0.027 -0.023
 S8: 0.799 +0.031 -0.028
-f_cc: 1.43 +0.18 -0.18
+f_cc: 1.45 +0.18 -0.17
 f_fs8: 1.34 +0.12 -0.12
-w0: -0.736 +0.146 -0.146 (prior -1.0 to 0.0)
-Chi squared: 92.96
-Log likelihood: -28.53
-Log evidence: -41.2
+w0: -0.727 +0.145 -0.148 (prior -1.0 to 0.0)
+Chi squared: 95.90
+Log likelihood: -39.73
+Log evidence: -52.5
 Degs of freedom: 90
+"""
 
--------------------------------
-
+"""
 Flat w0waCDM: w(z) = w0 + wa * z / (1 + z)
 TODO
 """
