@@ -23,6 +23,14 @@ def rho_de_z(z, w0):
 
 
 @njit
+def d_rho_de_dz(z, w0):
+    dz = 1e-06
+    rho_plus = rho_de_z(z + dz, w0)
+    rho_minus = rho_de_z(z - dz, w0)
+    return (rho_plus - rho_minus) / (2 * dz)
+
+
+@njit
 def Ez(z, Om, w0):
     return np.sqrt(Om * (1.0 + z) ** 3 + (1.0 - Om) * rho_de_z(z, w0))
 
@@ -30,11 +38,9 @@ def Ez(z, Om, w0):
 @njit
 def dE_da(z, Om, w0):
     a = 1 / (1.0 + z)
-    dz = 1e-06
-    Ez_plus = Ez(z + dz, Om, w0)
-    Ez_minus = Ez(z - dz, Om, w0)
-    dE_dz = (Ez_plus - Ez_minus) / (2 * dz)
-    return -dE_dz / a**2
+    numerator = 3 * Om * (1.0 + z) ** 2 + (1.0 - Om) * d_rho_de_dz(z, w0)
+    denominator = 2 * a**2 * Ez(z, Om, w0)
+    return -numerator / denominator
 
 
 @njit
@@ -292,11 +298,11 @@ degs of freedom = 59
 flat wzCDM
 Ωm_eff = 0.280 +0.020 -0.019
 σ8 = 0.828 +0.029 -0.026
-S8 = 0.800 +0.033 -0.032
-w0 = -0.686 +0.148 -0.155 (prior: U(-1.0, 0.0))
-f = 1.34 +0.13 -0.12
-chi2 = 60.52
+S8 = 0.801 +0.033 -0.031
+w0 = -0.683 +0.147 -0.155 (prior: U(-1.0, 0.0))
+f = 1.34 +0.12 -0.12
+chi2 = 60.39
 log likelihood = 103.1
-log evidence = 94.2
+log evidence = 94.5
 degs of freedom = 59
 """
