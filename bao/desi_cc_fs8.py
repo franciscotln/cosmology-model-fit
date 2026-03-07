@@ -2,6 +2,7 @@ from numba import njit
 import numpy as np
 from scipy.constants import c as c0
 from scipy.integrate import solve_ivp
+from interpolator import interp_hermite, interp_pchip
 from y2025BAO.data import get_data as get_bao_data
 from y2005cc.data import get_data as get_cc_data
 import y2018fs8.data as fs8
@@ -23,7 +24,7 @@ logdet_cc = np.linalg.slogdet(cov_matrix)[1]
 
 z_max = max(np.max(z_fs8), np.max(z_cc), np.max(data["z"]))
 z_grid = np.linspace(0, z_max + 0.1, num=4000)
-dx = np.diff(z_grid)
+dz = np.diff(z_grid)
 
 
 @njit
@@ -40,21 +41,11 @@ def DH_z(z, params):
 
 
 @njit
-def dH_da(z, params):
-    a = 1 / (1 + z)
-    dz = 1e-05
-    H_plus = H_z(z + dz, params)
-    H_minus = H_z(z - dz, params)
-    dH_dz = (H_plus - H_minus) / (2 * dz)
-    return -dH_dz / a**2
-
-
-@njit
 def DM_z(z, params):
     dh_grid = c / H_z(z_grid, params)
-    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    dh = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(len(z_grid))
-    cum_dm[1:] = np.cumsum(dx * dy)
+    cum_dm[1:] = np.cumsum(dh * dz)
     return np.interp(z, z_grid, cum_dm)
 
 
@@ -63,6 +54,16 @@ def DV_z(z, params):
     DH = DH_z(z, params)
     DM = DM_z(z, params)
     return (z * DH * DM**2) ** (1 / 3)
+
+
+@njit
+def dH_da(z, params):
+    a = 1 / (1 + z)
+    dz = 1e-06
+    H_plus = H_z(z + dz, params)
+    H_minus = H_z(z - dz, params)
+    dH_dz = (H_plus - H_minus) / (2 * dz)
+    return -dH_dz / a**2
 
 
 denominator_fiducial = np.zeros(len(z_fs8), dtype=np.float64)
@@ -90,8 +91,8 @@ def growth_ode(a, y, *params):
     return [d_delta_da, d2_delta_da]
 
 
-max_z = 200
-a_vals = np.logspace(np.log10(1 / (1 + max_z)), 0, 1000)
+max_z = 500
+a_vals = np.logspace(np.log10(1 / (1 + max_z)), 0, 5000)
 
 
 def fs8_theory(z, params):
@@ -105,13 +106,12 @@ def fs8_theory(z, params):
         args=params,
     )
     delta, d_delta_da = sol.y
+    delta0 = interp_hermite(np.array([1.0]), a_vals, delta, d_delta_da)[0]
     sig8 = params[2]
-
-    delta0 = np.interp(1.0, a_vals, delta)
+    a = 1 / (1.0 + z)
     # f = d(ln delta)/d(ln a) = (a / delta) * d(delta)/da
     # sigma8(z) = sigma8 * delta(z) / delta(z=0)
-    a = 1 / (1 + z)
-    return a * np.interp(a, a_vals, d_delta_da) * sig8 / delta0
+    return sig8 * a * interp_pchip(a, a_vals, d_delta_da) / delta0
 
 
 qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
@@ -216,7 +216,7 @@ def main():
     S8_samples = samples[:, 2] * np.sqrt(samples[:, 1] / 0.3)
     S8_16, S8_50, S8_84 = quantile(S8_samples, one_sigma_ci, weights=w)
 
-    best_fit = [H0_50, Om_50, sig8_50, fcc_50, fs_50, rd_50, w0_50]
+    best_fit = [H0_50, Om_50, sig8_50, fcc_50, fs_50, rd_50 , w0_50]
 
     print(f"H0: {H0_50:.1f} +{(H0_84 - H0_50):.1f} -{(H0_50 - H0_16):.1f} km/s/Mpc")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
@@ -268,56 +268,53 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM: w(z) = -1
-H0: 69.3 +2.3 -2.3 km/s/Mpc
+H0: 69.2 +2.3 -2.3 km/s/Mpc
 Ωm: 0.295 +0.008 -0.008
 σ8: 0.778 +0.011 -0.011
 S8: 0.772 +0.013 -0.013
-f_cc: 1.47 +0.19 -0.18
+f_cc: 1.48 +0.18 -0.17
 f_fs8: 1.31 +0.12 -0.12
-rd: 146.8 +5.0 -4.7 Mpc
-w0: -1
-wa: 0
-Chi squared: 104.70
-Log likelihood: -35.02
-Log evidence: -51.9
-Degs of freedom: 90
+rd: 146.9 +4.9 -4.6 Mpc
+Chi squared: 107.83
+Log likelihood: -46.24
+Log evidence: -63.1
+Degs of freedom: 93
+"""
 
--------------------------------
-
+"""
 Flat wCDM: w(z) = w0
-H0: 67.6 +2.5 -2.5 km/s/Mpc
+H0: 67.5 +2.5 -2.4 km/s/Mpc
 Ωm: 0.293 +0.008 -0.008
-σ8: 0.807 +0.022 -0.020
-S8: 0.798 +0.019 -0.019
-f_cc: 1.46 +0.19 -0.18
+σ8: 0.808 +0.022 -0.021
+S8: 0.798 +0.020 -0.019
+f_cc: 1.48 +0.18 -0.17
 f_fs8: 1.34 +0.12 -0.12
-rd: 147.0 +5.1 -4.7 Mpc
-w0: -0.883 +0.064 -0.066 (prior -1.4 to -0.4)
-wa: 0
-Chi squared: 103.69
-Log likelihood: -33.50
-Log evidence: -52.1
-Degs of freedom: 89
+rd: 147.3 +5.0 -4.6 Mpc
+w0: -0.880 +0.064 -0.066 (prior -1.4 to -0.4)
+Chi squared: 106.65
+Log likelihood: -44.62
+Log evidence: -63.3
+Degs of freedom: 92
+"""
 
--------------------------------
-
+"""
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
-H0: 67.0 +2.5 -2.5 km/s/Mpc
+H0: 66.8 +2.5 -2.5 km/s/Mpc
 Ωm: 0.307 +0.010 -0.010
 σ8: 0.799 +0.016 -0.015
 S8: 0.807 +0.023 -0.022
-f_cc: 1.46 +0.19 -0.18
+f_cc: 1.47 +0.18 -0.17
 f_fs8: 1.33 +0.12 -0.12
-rd: 147.0 +5.1 -4.7 Mpc
-w0: -0.786 +0.104 -0.107 (prior -1.0 to 0.0)
+rd: 147.2 +5.0 -4.7 Mpc
+w0: -0.782 +0.104 -0.107 (prior -1.0 to 0.0)
 wa: -1.5 * (1 - w0^2)
-Chi squared: 102.73
-Log likelihood: -33.46
-Log evidence: -51.6
-Degs of freedom: 89
+Chi squared: 105.64
+Log likelihood: -44.60
+Log evidence: -62.8
+Degs of freedom: 92
+"""
 
--------------------------------
-
+"""
 Flat w0waCDM: w(z) = w0 + wa * z / (1 + z)
 TODO
 """

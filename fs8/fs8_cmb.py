@@ -13,8 +13,8 @@ data = fs8_data.data
 inv_cov_mat = np.linalg.inv(fs8_data.cov_mat)
 
 z_max = np.max(data["z"]) + 0.1
-z_grid = np.linspace(0, z_max, num=3000)
-dx = np.diff(z_grid)
+z_grid = np.linspace(0, z_max, num=4000)
+dz = np.diff(z_grid)
 
 
 @njit
@@ -53,7 +53,7 @@ cmb.set_HZ(Hz)
 @njit
 def dH_da(z, theta):
     a = 1 / (1.0 + z)
-    dz = 1e-05
+    dz = 1e-06
     dH_dz = (Hz(z + dz, theta) - Hz(z - dz, theta)) / (2 * dz)
     return -dH_dz / a**2
 
@@ -61,9 +61,9 @@ def dH_da(z, theta):
 @njit
 def DM(z, theta):
     dh_grid = c / Hz(z_grid, theta)
-    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    dh = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(len(z_grid), dtype=np.float64)
-    cum_dm[1:] = np.cumsum(dx * dy)
+    cum_dm[1:] = np.cumsum(dh * dz)
     return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
@@ -298,18 +298,18 @@ if __name__ == "__main__":
 
 """
 flat ΛCDM
-H0 = 67.89 +0.48 -0.48 km/s/Mpc
+H0 = 67.89 +0.47 -0.48 km/s/Mpc
 Ωbh2 = 0.02252 +0.00011 -0.00011
-Ωch2 = 0.11871 +0.00115 -0.00116
-Ωmh2 = 0.1419 +0.0011 -0.0011
-Ωm = 0.308 +0.007 -0.007
+Ωch2 = 0.11867 +0.00116 -0.00113
+Ωmh2 = 0.1418 +0.0011 -0.0011
+Ωm = 0.308 +0.007 -0.006
 σ8 = 0.775 +0.011 -0.011
-S8 = 0.783 +0.012 -0.012 (consistent within 1 sigma with both CMB-only and fσ8-only)
-f = 1.30 +0.12 -0.12
-chi2 = 62.58
+S8 = 0.783 +0.012 -0.012
+f = 1.30 +0.12 -0.11
+chi2 = 62.53
 log likelihood = 100.0
 log evidence = 78.7
-degs of freedom = 58
+degs of freedom = 57
 
 ===============================
 
@@ -331,17 +331,17 @@ degs of freedom = 57
 ===============================
 
 flat wzCDM
-H0 = 66.61 +0.97 -1.40 km/s/Mpc
+H0 = 66.60 +0.98 -1.41 km/s/Mpc
 Ωbh2 = 0.02253 +0.00011 -0.00011
-Ωch2 = 0.11851 +0.00117 -0.00116
+Ωch2 = 0.11851 +0.00117 -0.00117
 Ωmh2 = 0.1417 +0.0011 -0.0011
 Ωm = 0.320 +0.014 -0.011
 σ8 = 0.781 +0.012 -0.012
 S8 = 0.804 +0.025 -0.019
 w0 = -0.908 +0.102 -0.065
-f = 1.29 +0.12 -0.11
-chi2 = 62.59
+f = 1.29 +0.12 -0.12
+chi2 = 62.66
 log likelihood = 99.5
-log evidence = 75.2
+log evidence = 72.9
 degs of freedom = 57
 """
