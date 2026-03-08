@@ -180,10 +180,11 @@ def main():
     log_evd = sampler.log_z
     one_sigma_ci = [0.159, 0.5, 0.841]
 
+    labels = ["$H_0$", "$\Omega_m$", "$\sigma_8$", "$f_{cc}$", "$f_{fs8}$", "$w_0$"]
     corner(
         samples,
         weights=w,
-        labels=prior.keys,
+        labels=labels,
         quantiles=one_sigma_ci,
         show_titles=True,
         title_fmt=".4f",
@@ -193,7 +194,7 @@ def main():
         smooth=2.0,
         smooth1d=2.0,
         levels=(0.393, 0.864),
-        range=np.repeat(0.9999, len(prior.keys)),
+        range=np.repeat(0.9999, len(labels)),
     )
     plt.show()
 
@@ -242,48 +243,48 @@ if __name__ == "__main__":
 """
 Flat ΛCDM
 
-H0: 68.5 +2.6 -2.6 km/s/Mpc
-Ωm: 0.306 +0.021 -0.020
-σ8: 0.784 +0.013 -0.013
-S8: 0.792 +0.023 -0.022
+H0: 68.6 +2.5 -2.5 km/s/Mpc
+Ωm: 0.305 +0.018 -0.017
+σ8: 0.782 +0.011 -0.010
+S8: 0.788 +0.018 -0.017 (1.91 sigma from Planck 2018)
 f_cc: 1.48 +0.18 -0.17
-f_fs8: 1.41 +0.15 -0.15
-Chi squared: 79.57
-Log likelihood: -9.99
-Log evidence: -22.7
-Degs of freedom: 77
+f_fs8: 1.70 +0.16 -0.16
+Chi squared: 91.58
+Log likelihood: -0.89
+Log evidence: -14.0
+Degs of freedom: 89
 """
 
 """
 Flat wCDM: w(z) = w0
 
-H0: 65.1 +3.0 -3.0 km/s/Mpc
-Ωm: 0.278 +0.025 -0.027
-σ8: 0.877 +0.068 -0.051
-S8: 0.848 +0.036 -0.034
+H0: 65.7 +2.8 -2.7 km/s/Mpc
+Ωm: 0.277 +0.022 -0.023
+σ8: 0.869 +0.057 -0.045
+S8: 0.838 +0.029 -0.028
+w0: -0.738 +0.102 -0.108 (prior -1.6 to 0.0)
 f_cc: 1.46 +0.18 -0.17
-f_fs8: 1.48 +0.16 -0.16
-w0: -0.716 +0.119 -0.125 (prior -1.6 to 0.0)
-Chi squared: 78.62
-Log likelihood: -7.49
-Log evidence: -21.8
-Degs of freedom: 76
+f_fs8: 1.78 +0.17 -0.17
+Chi squared: 90.67
+Log likelihood: 1.92
+Log evidence: -12.9
+Degs of freedom: 88
 """
 
 """
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
 
-H0: 65.6 +2.9 -2.8 km/s/Mpc
-Ωm: 0.311 +0.021 -0.020
-σ8: 0.825 +0.028 -0.025
-S8: 0.842 +0.034 -0.032
+H0: 65.9 +2.7 -2.6 km/s/Mpc
+Ωm: 0.307 +0.017 -0.016
+σ8: 0.826 +0.025 -0.023
+S8: 0.836 +0.027 -0.026
+w0: -0.661 +0.127 -0.139 (prior -1.0 to 0.0)
 f_cc: 1.46 +0.18 -0.17
-f_fs8: 1.47 +0.16 -0.15
-w0: -0.656 +0.148 -0.162 (prior -1.0 to 0.0)
-Chi squared: 78.81
-Log likelihood: -8.14
-Log evidence: -21.8
-Degs of freedom: 76
+f_fs8: 1.78 +0.17 -0.17
+Chi squared: 90.84
+Log likelihood: 1.63
+Log evidence: -12.6
+Degs of freedom: 88
 """
 
 """
