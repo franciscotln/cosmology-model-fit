@@ -9,23 +9,40 @@ import y2018fs8.data as fs8
 c = c0 / 1000  # Speed of light in km/s
 
 legend, z_cc, H_values, cov_matrix = get_data()
-
-z_fs8, fs8_values = fs8.data["z"], fs8.data["fs8"]
-
-inv_cov_fs8 = np.linalg.inv(fs8.cov_mat)
-logdet_fs8 = np.linalg.slogdet(fs8.cov_mat)[1]
-
 inv_cov_cc = np.linalg.inv(cov_matrix)
-logdet_cc = np.linalg.slogdet(cov_matrix)[1]
 
-z_grid = np.linspace(0, np.max(z_fs8) + 0.1, num=4000)
+z_fs8, fs8_values, fs8_std = fs8.data["z"], fs8.data["fs8"], fs8.data["fs8_err"]
+
+N_cc = z_cc.size
+N_fs8 = z_fs8.size
+
+no_cov_mask = fs8.data["cov_id"] == -1
+cov1_mask = fs8.data["cov_id"] == 1
+cov2_mask = fs8.data["cov_id"] == 2
+cov3_mask = fs8.data["cov_id"] == 3
+std_no_cov = fs8_std[no_cov_mask]
+
+z_max = max(np.max(z_fs8), np.max(z_cc))
+z_grid = np.linspace(0, z_max + 0.1, num=4000)
 dz = np.diff(z_grid)
 
 
 @njit
+def w_de_z(z, w0):
+    # Thawing quintessence wzCDM
+    return -1.0 + 2 * (1.0 + w0) / (1.0 + w0 + (1.0 - w0) * (1.0 + z) ** 3)
+
+
+@njit
 def Ode_z(z, w0):
+    # Thawing quintessence wzCDM
     cubic = (1 + z) ** 3
     return (2 * cubic / (1 + w0 + (1 - w0) * cubic)) ** 2
+
+
+@njit
+def d_Ode_dz(z, w0):
+    return Ode_z(z, w0) * 3 * (1.0 + w_de_z(z, w0)) / (1.0 + z)
 
 
 @njit
@@ -36,12 +53,11 @@ def H_z(z, params):
 
 @njit
 def dH_da(z, params):
-    a = 1 / (1 + z)
-    dz = 1e-06
-    H_plus = H_z(z + dz, params)
-    H_minus = H_z(z - dz, params)
-    dH_dz = (H_plus - H_minus) / (2 * dz)
-    return -dH_dz / a**2
+    H0, Om, w0 = params[0], params[1], params[-1]
+    a = 1 / (1.0 + z)
+    numerator = 3 * Om * (1.0 + z) ** 2 + (1.0 - Om) * d_Ode_dz(z, w0)
+    denominator = 2 * a**2 * H_z(z, params) / H0**2
+    return -numerator / denominator
 
 
 @njit
@@ -53,12 +69,12 @@ def DM(z, params):
     return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
-denominator_fiducial = np.zeros(len(z_fs8), dtype=np.float64)
-
-for i in range(len(z_fs8)):
+denominator_fiducial = np.zeros(N_fs8, dtype=np.float64)
+for i in range(N_fs8):
     zi = z_fs8[i]
     Om_fid = fs8.data["omega_fid"][i]
-    params = [67.5, Om_fid, 0.8, 1.0, 1.0, -1.0]
+    s8_fid = fs8.data["s8_fid"][i]
+    params = [67.5, Om_fid, s8_fid, 1.0, 1.0, -1.0]
     DM_i = DM(np.array([zi]), params)[0]
     denominator_fiducial[i] = H_z(zi, params) * DM_i
 
@@ -79,8 +95,8 @@ def growth_ode(a, y, *params):
     return [d_delta_da, d2_delta_da]
 
 
-max_z = 1000
-a_vals = np.logspace(np.log10(1 / (1 + max_z)), 0, 10_000)
+max_z = 500
+a_vals = np.logspace(np.log10(1 / (1 + max_z)), 0, 5_000)
 
 
 def fs8_theory(z, params):
@@ -102,30 +118,38 @@ def fs8_theory(z, params):
     return params[2] * a * interp_pchip(a, a_vals, d_delta_da) / delta0
 
 
-def chi_squared(params):
-    f_cc, f_fs8 = params[3], params[4]
-
+def chi2_fs8(params):
     q = H_z(z_fs8, params) * DM(z_fs8, params) / denominator_fiducial
-    delta_fs8 = fs8_values - fs8_theory(z_fs8, params) / q
-    chi2_fs8 = f_fs8**2 * np.dot(delta_fs8, np.dot(inv_cov_fs8, delta_fs8))
+    delta = fs8_values - fs8_theory(z_fs8, params) / q
 
+    delta_no_cov = delta[no_cov_mask]
+    delta1 = delta[cov1_mask]
+    delta2 = delta[cov2_mask]
+    delta3 = delta[cov3_mask]
+
+    f_err = params[4]
+    chi2_no_cov = np.sum((delta_no_cov / (std_no_cov / f_err)) ** 2)
+    chi2_1 = delta1 @ (fs8.inv_cov1 * f_err**2) @ delta1
+    chi2_2 = delta2 @ (fs8.inv_cov2 * f_err**2) @ delta2
+    chi2_3 = delta3 @ (fs8.inv_cov3 * f_err**2) @ delta3
+
+    return chi2_no_cov + chi2_1 + chi2_2 + chi2_3
+
+
+@njit
+def chi2_cc(params):
+    f_err = params[3]
     delta_cc = H_values - H_z(z_cc, params)
-    chi2_cc = f_cc**2 * np.dot(delta_cc, np.dot(inv_cov_cc, delta_cc))
+    return delta_cc @ (inv_cov_cc * f_err**2) @ delta_cc
 
-    return chi2_cc + chi2_fs8
+
+def chi_squared(params):
+    return chi2_cc(params) + chi2_fs8(params)
 
 
 def log_likelihood(params):
-    N_cc = z_cc.size
-    normalization_cc = (
-        N_cc * np.log(2 * np.pi) + logdet_cc - 2 * N_cc * np.log(params[3])
-    )
-
-    N_fs8 = z_fs8.size
-    normalization_fs8 = (
-        N_fs8 * np.log(2 * np.pi) + logdet_fs8 - 2 * N_fs8 * np.log(params[4])
-    )
-
+    normalization_cc = -2 * N_cc * np.log(params[3])
+    normalization_fs8 = -2 * N_fs8 * np.log(params[4])
     return -0.5 * (chi_squared(params) + normalization_cc + normalization_fs8)
 
 
@@ -134,19 +158,20 @@ def main():
     from corner import corner, quantile
     import matplotlib.pyplot as plt
     from multiprocessing import Pool
-    from .plot_predictions import plot_cc_predictions
+    from fs8.plot_predictions import plot_predictions as plot_fs8_predictions
+    from cosmic_chronometers.plot_predictions import plot_cc_predictions
 
     prior = Prior()
-    prior.add_parameter("H0", dist=(40.0, 100.0))
-    prior.add_parameter("Om", dist=(0.1, 0.6))
-    prior.add_parameter("sig8", dist=(0.2, 1.2))
-    prior.add_parameter("f_cc", dist=(0.3, 2.6))
-    prior.add_parameter("f_fs8", dist=(0.5, 2.2))
-    prior.add_parameter("w0", dist=(-1.0, 0.0))
+    prior.add_parameter("H0", dist=(35, 100))
+    prior.add_parameter("Om", dist=(0.01, 0.6))
+    prior.add_parameter("sig8", dist=(0.2, 1.5))
+    prior.add_parameter("f_cc", dist=(0.05, 3))
+    prior.add_parameter("f_fs8", dist=(0.05, 3))
+    prior.add_parameter("w0", dist=(-1.0, 0))
 
     with Pool(6) as pool:
         sampler = Sampler(
-            prior, log_likelihood, n_live=8_000, pool=pool, seed=42, pass_dict=False
+            prior, log_likelihood, n_live=6_000, pool=pool, seed=42, pass_dict=False
         )
         sampler.run(verbose=True)
 
@@ -203,69 +228,62 @@ def main():
         H_err=np.sqrt(np.diag(cov_matrix)) / fcc_50,
         label=f"{legend} $H_0$: {H0_50:.1f} ± {(H0_84 - H0_50):.1f} km/s/Mpc",
     )
-
-    z_plot = np.linspace(0, np.max(z_fs8), 200)
-    fs8_plot = fs8_theory(z_plot, best_fit)
-    q = H_z(z_fs8, best_fit) * DM(z_fs8, best_fit) / denominator_fiducial
-    plt.errorbar(
-        z_fs8,
-        fs8_values * q,
-        yerr=fs8.data["fs8_err"] * q / fs_50,
-        fmt=".",
-        label="data",
+    plot_fs8_predictions(
+        fs8_theory=lambda z: fs8_theory(z, best_fit),
+        data=fs8.data,
+        q=H_z(z_fs8, best_fit) * DM(z_fs8, best_fit) / denominator_fiducial,
+        f_err=fs_50,
     )
-    plt.plot(z_plot, fs8_plot, label="best-fit", color="C1")
-    plt.xlabel("z")
-    plt.ylabel(r"$f\sigma_8(z)$")
-    plt.legend()
-    plt.show()
 
 
 if __name__ == "__main__":
     main()
 
 """
-Flat ΛCDM: w(z) = -1
-H0: 70.0 +2.6 -2.6 km/s/Mpc
-Ωm: 0.285 +0.019 -0.018
-σ8: 0.7827 +0.0132 -0.0132
-S8: 0.762 +0.020 -0.019
-f_cc: 1.46 +0.18 -0.17
-f_fs8: 1.32 +0.12 -0.12
-Chi squared: 96.63
-Log likelihood: -40.89
-Log evidence: -52.7
-Degs of freedom: 94
+Flat ΛCDM
+
+H0: 68.5 +2.6 -2.6 km/s/Mpc
+Ωm: 0.306 +0.021 -0.020
+σ8: 0.784 +0.013 -0.013
+S8: 0.792 +0.023 -0.022
+f_cc: 1.48 +0.18 -0.17
+f_fs8: 1.41 +0.15 -0.15
+Chi squared: 79.57
+Log likelihood: -9.99
+Log evidence: -22.7
+Degs of freedom: 77
 """
 
 """
 Flat wCDM: w(z) = w0
-H0: 66.8 +3.0 -3.0 km/s/Mpc
-Ωm: 0.261 +0.022 -0.024
-σ8: 0.866 +0.065 -0.049
-S8: 0.808 +0.033 -0.031
+
+H0: 65.1 +3.0 -3.0 km/s/Mpc
+Ωm: 0.278 +0.025 -0.027
+σ8: 0.877 +0.068 -0.051
+S8: 0.848 +0.036 -0.034
 f_cc: 1.46 +0.18 -0.17
-f_fs8: 1.35 +0.12 -0.12
-w0: -0.752 +0.115 -0.120 (prior -1.6 to 0.0)
-Chi squared: 95.67
-Log likelihood: -38.84
-Log evidence: -52.3
-Degs of freedom: 93
+f_fs8: 1.48 +0.16 -0.16
+w0: -0.716 +0.119 -0.125 (prior -1.6 to 0.0)
+Chi squared: 78.62
+Log likelihood: -7.49
+Log evidence: -21.8
+Degs of freedom: 76
 """
 
 """
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
-H0: 67.4 +2.9 -2.8 km/s/Mpc
-Ωm: 0.289 +0.019 -0.018
-σ8: 0.816 +0.027 -0.023
-S8: 0.799 +0.031 -0.028
-f_cc: 1.45 +0.18 -0.17
-f_fs8: 1.34 +0.12 -0.12
-w0: -0.727 +0.145 -0.148 (prior -1.0 to 0.0)
-Chi squared: 95.90
-Log likelihood: -39.73
-Log evidence: -52.5
-Degs of freedom: 90
+
+H0: 65.6 +2.9 -2.8 km/s/Mpc
+Ωm: 0.311 +0.021 -0.020
+σ8: 0.825 +0.028 -0.025
+S8: 0.842 +0.034 -0.032
+f_cc: 1.46 +0.18 -0.17
+f_fs8: 1.47 +0.16 -0.15
+w0: -0.656 +0.148 -0.162 (prior -1.0 to 0.0)
+Chi squared: 78.81
+Log likelihood: -8.14
+Log evidence: -21.8
+Degs of freedom: 76
 """
 
 """
