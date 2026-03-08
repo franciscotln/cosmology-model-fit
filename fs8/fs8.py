@@ -30,26 +30,26 @@ def w_de(z, w0):
 
 
 @njit
-def rho_de_z(z, w0):
+def Ode_z(z, w0):
     # Thawing quintessence wzCDM
     cubic = (1.0 + z) ** 3
     return (2 * cubic / (1.0 + w0 + (1.0 - w0) * cubic)) ** 2
 
 
 @njit
-def d_rho_de_dz(z, w0):
-    return rho_de_z(z, w0) * 3 * (1.0 + w_de(z, w0)) / (1.0 + z)
+def d_Ode_dz(z, w0):
+    return Ode_z(z, w0) * 3 * (1.0 + w_de(z, w0)) / (1.0 + z)
 
 
 @njit
 def Ez(z, Om, w0):
-    return np.sqrt(Om * (1.0 + z) ** 3 + (1.0 - Om) * rho_de_z(z, w0))
+    return np.sqrt(Om * (1.0 + z) ** 3 + (1.0 - Om) * Ode_z(z, w0))
 
 
 @njit
 def dE_da(z, Om, w0):
     a = 1 / (1.0 + z)
-    numerator = 3 * Om * (1.0 + z) ** 2 + (1.0 - Om) * d_rho_de_dz(z, w0)
+    numerator = 3 * Om * (1.0 + z) ** 2 + (1.0 - Om) * d_Ode_dz(z, w0)
     denominator = 2 * a**2 * Ez(z, Om, w0)
     return -numerator / denominator
 
@@ -137,9 +137,9 @@ def log_likelihood(theta):
 bounds = np.array(
     [
         (0.1, 0.6),  # Ωm: effective clustering matter density
-        (0.2, 1.2),  # sigma8
+        (0.5, 1.0),  # sigma8
         (-1.0, 0.0),  # w0
-        (0.5, 2.2),  # f_err: overestimation factor of the errors
+        (0.2, 3.2),  # f_err: overestimation factor of the errors
     ]
 )
 
@@ -245,103 +245,77 @@ if __name__ == "__main__":
 flat ΛCDM
 
 without f_err:
-Ωm_eff = 0.274 +0.027 -0.025
-σ8 = 0.787 +0.019 -0.018
-S8 = 0.753 +0.028 -0.028
-chi2 = 35.35
-log likelihood = -17.7
-log evidence = -23.1
-degs of freedom = 61
+Ωm = 0.302 +0.033 -0.031
+σ8 = 0.783 +0.019 -0.018
+S8 = 0.785 +0.033 -0.032 (1.33 sigma tension with Planck)
+chi2 = 19.50
+log likelihood = -9.8
+degs of freedom = 56
+chi2/deg = 0.348 (too low)
 
 ---
 
 with f_err:
-Ωm = 0.273 +0.021 -0.019
-σ8 = 0.788 +0.014 -0.014
-S8 = 0.752 +0.022 -0.021
-f_err = 1.32 +0.12 -0.12
-chi2 = 61.43
-log likelihood = -13.3
-log evidence = -21.0
-degs of freedom = 60
+Ωm = 0.300 +0.019 -0.018
+σ8 = 0.783 +0.011 -0.011
+S8 = 0.784 +0.019 -0.019 (2 sigma tension with Planck)
+f_err = 1.70 +0.16 -0.16
+chi2 = 57.67
+log likelihood = 2.6
+degs of freedom = 55
+chi2/deg = 1.05
 """
 
 """
 flat wCDM
-Ωm = 0.254 +0.023 -0.024
-σ8 = 0.876 +0.069 -0.051
-S8 = 0.809 +0.037 -0.035
-w0 = -0.742 +0.122 -0.121 (prior: U(-1.4, 0.0))
-f = 1.35 +0.13 -0.12
-chi2 = 60.26
-log likelihood = -11.2
-log evidence = -20.3
-degs of freedom = 59
-"""
-
-"""
-flat wzCDM
-Ωm = 0.280 +0.020 -0.019
-σ8 = 0.828 +0.029 -0.026
-S8 = 0.801 +0.033 -0.031
-w0 = -0.683 +0.147 -0.155 (prior: U(-1.0, 0.0))
-f = 1.34 +0.12 -0.12
-chi2 = 60.39
-log likelihood = -11.7
-log evidence = -20.3
-degs of freedom = 59
-"""
-
-
-"""
-=================================================================================
-Applying Mask: data with cov matrix, data with Om_fid >= 0.28 and sig8_fid >= 0.8
-=================================================================================
-"""
-
-"""
-Flat ΛCDM
 
 without f_err:
-Ωm = 0.300 +0.034 -0.032
-σ8 = 0.786 +0.020 -0.019
-S8 = 0.786 +0.036 -0.035
-chi2 = 22.44
-log likelihood = -11.2
-degs of freedom = 44
+Ωm = 0.279 +0.036 -0.033
+σ8 = 0.863 +0.077 -0.065
+S8 = 0.835 +0.047 -0.047
+w0 = -0.752 +0.140 -0.176 (prior: U(-1.4, 0.0))
+chi2 = 17.46
+log likelihood = -8.7
+degs of freedom = 55
+chi2/deg = 0.317
 
---
+---
 
 with f_err:
-Ωm = 0.299 +0.024 -0.023
-σ8 = 0.787 +0.014 -0.014
-S8 = 0.785 +0.026 -0.025
-f_err = 1.40 +0.15 -0.14
-chi2 = 46.32
-log likelihood = -6.5
-degs of freedom = 43
-"""
-
-"""
-flat wCDM
-Ωm = 0.270 +0.027 -0.029
-σ8 = 0.897 +0.081 -0.057
-S8 = 0.856 +0.042 -0.038
-w0 = -0.678 +0.128 -0.127
-f_err = 1.48 +0.16 -0.16
-chi2 = 45.42
-log likelihood = -3.6
-degs of freedom = 42
+Ωm = 0.273 +0.022 -0.021
+σ8 = 0.879 +0.055 -0.045
+S8 = 0.840 +0.029 -0.029
+w0 = -0.722 +0.096 -0.104 (prior: U(-1.4, 0.0))
+f_err = 1.78 +0.17 -0.17
+chi2 = 58.30
+log likelihood = 5.8
+degs of freedom = 54
+chi2/deg = 1.08
 """
 
 """
 flat wzCDM
-Ωm = 0.306 +0.022 -0.021
-σ8 = 0.837 +0.030 -0.028
-S8 = 0.846 +0.036 -0.035
-w0 = -0.597 +0.147 -0.166
-f_err = 1.47 +0.16 -0.15
-chi2 = 46.00
-log likelihood = -4.0
-degs of freedom = 42
+
+without f_err:
+Ωm = 0.303 +0.033 -0.030
+σ8 = 0.836 +0.047 -0.038
+S8 = 0.843 +0.047 -0.045
+w0 = -0.614 +0.203 -0.211 (prior: U(-1.0, 0.0))
+chi2 = 17.45
+log likelihood = -8.7
+degs of freedom = 55
+chi2/deg = 0.317
+
+---
+
+with f_err:
+Ωm = 0.302 +0.018 -0.017
+σ8 = 0.836 +0.027 -0.025
+S8 = 0.840 +0.029 -0.028
+w0 = -0.616 +0.124 -0.140 (prior: U(-1.0, 0.0))
+f_err = 1.78 +0.17 -0.16
+chi2 = 58.10
+log likelihood = 5.8
+degs of freedom = 54
+chi2/deg = 1.08
 """
