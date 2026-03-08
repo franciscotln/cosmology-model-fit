@@ -17,13 +17,24 @@ data = np.loadtxt(
 )
 cov_mat = np.loadtxt(pathname + "fs8_cov.dat", dtype=np.float64)
 
+mask = (
+    ((data["omega_fid"] >= 0.28) & (data["s8_fid"] >= 0.8))
+    | (data["cov_id"] == 1)
+    | (data["cov_id"] == 2)
+    | (data["cov_id"] == 3)
+)
+
+data = data[mask]
+cov_mat = cov_mat[mask, :][:, mask]
+
 # covariances from arXiv:1806.10822v2
+
 # data
 # arXiv:1803.01337v4
 # arXiv:2110.08498v2
 # arXiv:2007.08999v2
 
-# Covariance for the data points z = 0.3, 0.4, 0.5, 0.6 respectively
+# Covariance for the data points z = 0.3, 0.4, 0.5, 0.6 respectively (cov_id = 2)
 # taken from arXiv:1203.6565v2, section 5.1
 # estimated_corr = [
 #     [1.00, 0.84, 0.50, 0.15],

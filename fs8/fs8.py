@@ -20,6 +20,14 @@ z_max = np.max(data["z"]) + 0.1
 z_grid = np.linspace(0, z_max, num=4000)
 dz = np.diff(z_grid)
 
+N = len(data)
+
+
+@njit
+def w_de(z, w0):
+    # Thawing quintessence wzCDM
+    return -1.0 + 2 * (1.0 + w0) / (1.0 + w0 + (1.0 - w0) * (1.0 + z) ** 3)
+
 
 @njit
 def rho_de_z(z, w0):
@@ -30,10 +38,7 @@ def rho_de_z(z, w0):
 
 @njit
 def d_rho_de_dz(z, w0):
-    dz = 1e-06
-    rho_plus = rho_de_z(z + dz, w0)
-    rho_minus = rho_de_z(z - dz, w0)
-    return (rho_plus - rho_minus) / (2 * dz)
+    return rho_de_z(z, w0) * 3 * (1.0 + w_de(z, w0)) / (1.0 + z)
 
 
 @njit
@@ -58,13 +63,14 @@ def DM(z, Om, w0):
     return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
-denominator_fiducial = np.zeros(len(data["z"]), dtype=np.float64)
-for i in range(len(data["z"])):
-    z = data["z"][i]
-    om_fid = data["omega_fid"][i]
+denominator_fiducial = np.zeros(N, dtype=np.float64)
+for i in range(N):
     w0_fid = -1.0
-    DM_i = DM(np.array([z]), om_fid, w0_fid)[0]
-    denominator_fiducial[i] = Ez(z, om_fid, w0_fid) * DM_i
+    Om_fid_i = data["omega_fid"][i]
+    z_i = data["z"][i]
+    DM_i = DM(np.array([z_i]), Om_fid_i, w0_fid)[0]
+    Ez_i = Ez(z_i, Om_fid_i, w0_fid)
+    denominator_fiducial[i] = Ez_i * DM_i
 
 
 @njit
@@ -123,11 +129,9 @@ def chi_squared(theta):
     return chi2_no_cov + chi2_1 + chi2_2 + chi2_3
 
 
-N = len(data)
-
-
 def log_likelihood(theta):
-    return -0.5 * (chi_squared(theta) - 2 * N * np.log(theta[-1]))
+    f_err = theta[-1]
+    return -0.5 * (chi_squared(theta) - 2 * N * np.log(f_err))
 
 
 bounds = np.array(
@@ -159,15 +163,14 @@ def log_probability(theta):
 def main():
     from multiprocessing import Pool
     import emcee
-    import matplotlib.pyplot as plt
+    from fs8.plot_predictions import plot_predictions
     from corner_plot import plot_corner_and_chains
-    from log_evidence import log_evidence
 
     np.random.seed(42)
     ndim = len(bounds)
     nwalkers = 100
     burn_in = 1000
-    nsteps = 2500 + burn_in
+    nsteps = 2000 + burn_in
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
     moves = [
         (emcee.moves.KDEMove(bw_method="silverman"), 0.25),
@@ -191,7 +194,8 @@ def main():
     samples = sampler.get_chain(discard=burn_in, flat=True)
     chains_samples = sampler.get_chain(discard=burn_in, flat=False)
     log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
-    log_evd = log_evidence(samples, log_probs, log_probability, bounds)
+
+    MAP_samples = samples[np.argmax(log_probs)]
 
     pct = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
     [
@@ -217,45 +221,20 @@ def main():
     print(f"S8 = {S8_50:.3f} +{S8_84-S8_50:.3f} -{S8_50-S8_16:.3f}")
     print(f"w0 = {w0_50:.3f} +{w0_84-w0_50:.3f} -{w0_50-w0_16:.3f}")
     print(f"f_err = {f_50:.2f} +{f_84-f_50:.2f} -{f_50-f_16:.2f}")
-    print(f"chi2 = {chi_squared(best_fit):.2f}")
-    print(f"log likelihood = {log_likelihood(best_fit):.1f}")
-    print(f"log evidence = {log_evd:.1f}")
+    print(f"chi2 = {chi_squared(MAP_samples):.2f}")
+    print(f"log likelihood = {log_likelihood(MAP_samples):.1f}")
     print(f"degs of freedom = {N - len(best_fit)}")
 
     labels = ["$S_8$", "$Ω_m$", "$\sigma_8$", "$w_0$", "$f_{err}$"]
     plot_corner_and_chains(labels, samples, chains_samples)
-
-    z_plot = np.linspace(0, np.max(data["z"]), 200)
-    fs8_plot = fs8_theory(z_plot, Om_50, s8_50, w0_50)
-
-    q = Ez(data["z"], Om_50, w0_50) * DM(data["z"], Om_50, w0_50) / denominator_fiducial
-
-    plt.errorbar(
-        data["z"],
-        data["fs8"] * q,
-        yerr=data["fs8_err"] * q / f_50,
-        fmt=".",
-        label="data",
+    plot_predictions(
+        fs8_theory=lambda z: fs8_theory(z, Om_50, s8_50, w0_50),
+        data=data,
+        q=Ez(data["z"], Om_50, w0_50)
+        * DM(data["z"], Om_50, w0_50)
+        / denominator_fiducial,
+        f_err=f_50,
     )
-    plt.plot(z_plot, fs8_plot, label="fs8 theory", color="C1")
-    plt.xlabel("z")
-    plt.ylabel(r"$f\sigma_8(z)$")
-    plt.legend()
-    plt.show()
-
-    residuals = q * data["fs8"] - fs8_theory(data["z"], Om_50, s8_50, w0_50)
-    plt.errorbar(
-        data["z"],
-        residuals,
-        yerr=data["fs8_err"] * q / f_50,
-        fmt=".",
-        label="residuals",
-    )
-    plt.axhline(0, color="k", ls="--")
-    plt.xlabel("z")
-    plt.ylabel("residuals")
-    plt.legend()
-    plt.show()
 
 
 if __name__ == "__main__":
@@ -311,4 +290,58 @@ chi2 = 60.39
 log likelihood = -11.7
 log evidence = -20.3
 degs of freedom = 59
+"""
+
+
+"""
+=================================================================================
+Applying Mask: data with cov matrix, data with Om_fid >= 0.28 and sig8_fid >= 0.8
+=================================================================================
+"""
+
+"""
+Flat ΛCDM
+
+without f_err:
+Ωm = 0.300 +0.034 -0.032
+σ8 = 0.786 +0.020 -0.019
+S8 = 0.786 +0.036 -0.035
+chi2 = 22.44
+log likelihood = -11.2
+degs of freedom = 44
+
+--
+
+with f_err:
+Ωm = 0.299 +0.024 -0.023
+σ8 = 0.787 +0.014 -0.014
+S8 = 0.785 +0.026 -0.025
+f_err = 1.40 +0.15 -0.14
+chi2 = 46.32
+log likelihood = -6.5
+degs of freedom = 43
+"""
+
+"""
+flat wCDM
+Ωm = 0.270 +0.027 -0.029
+σ8 = 0.897 +0.081 -0.057
+S8 = 0.856 +0.042 -0.038
+w0 = -0.678 +0.128 -0.127
+f_err = 1.48 +0.16 -0.16
+chi2 = 45.42
+log likelihood = -3.6
+degs of freedom = 42
+"""
+
+"""
+flat wzCDM
+Ωm = 0.306 +0.022 -0.021
+σ8 = 0.837 +0.030 -0.028
+S8 = 0.846 +0.036 -0.035
+w0 = -0.597 +0.147 -0.166
+f_err = 1.47 +0.16 -0.15
+chi2 = 46.00
+log likelihood = -4.0
+degs of freedom = 42
 """
