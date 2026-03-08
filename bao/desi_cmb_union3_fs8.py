@@ -15,12 +15,13 @@ sn_legend, z_cmb, z_hel, mu_values, cov_matrix_sn = get_sn_data()
 bao_legend, bao_data, cov_matrix_bao = get_bao_data()
 
 fs8_data = fs8.data
+z_fs8, fs8_vals = fs8_data["z"], fs8_data["fs8"]
 
 inv_cov_fs8 = np.linalg.inv(fs8.cov_mat)
 inv_cov_sn = np.linalg.inv(cov_matrix_sn)
 inv_cov_bao = np.linalg.inv(cov_matrix_bao)
 
-z_max = max(np.max(z_cmb), np.max(bao_data["z"]), np.max(fs8_data["z"])) + 0.1
+z_max = max(np.max(z_cmb), np.max(bao_data["z"]), np.max(z_fs8)) + 0.1
 z_grid = np.linspace(0, z_max, num=4000)
 dz = np.diff(z_grid)
 
@@ -159,7 +160,7 @@ def growth_ODE(a, y, *theta):
     return [d_delta_da, d2_delta_da]
 
 
-a_vals = np.logspace(-3.2, 0, 5000, dtype=np.float64)
+a_vals = np.logspace(-2.7, 0, 5000, dtype=np.float64)
 
 
 def fs8_theory(z, theta):
@@ -184,21 +185,24 @@ def fs8_theory(z, theta):
 
 H0_fid = 67.6
 Obh2_fid = 0.022
-params_fid = [0.0, H0_fid, Obh2_fid, 0.31, 0.0, 0.80]
+params_fid = [0.0, H0_fid, Obh2_fid, 0.31, -1.0, 0.80]
 fiducial_scaling = np.empty(len(fs8_data), dtype=np.float64)
 
-for i in range(len(fs8_data["z"])):
-    zi = fs8_data["z"][i]
+for i in range(len(fs8_data)):
+    zi = z_fs8[i]
     Om_fid = fs8_data["omega_fid"][i]
+    s8_fid = fs8_data["s8_fid"][i]
     Och2_fid = Om_fid * (H0_fid / 100) ** 2 - Obh2_fid - Omnuh2
     params_fid[3] = Och2_fid
+    params_fid[-1] = s8_fid
     DM_i = DM_z(np.array([zi]), params_fid)[0]
-    fiducial_scaling[i] = H_z(zi, params_fid) * DM_i
+    H_i = H_z(zi, params_fid)
+    fiducial_scaling[i] = H_i * DM_i
 
 
 def chi2_fs8(theta):
-    Fap = H_z(fs8_data["z"], theta) * DM_z(fs8_data["z"], theta) / fiducial_scaling
-    delta_fs8 = fs8_data["fs8"] - fs8_theory(fs8_data["z"], theta) / Fap
+    q = H_z(z_fs8, theta) * DM_z(z_fs8, theta) / fiducial_scaling
+    delta_fs8 = fs8_vals - fs8_theory(z_fs8, theta) / q
     return delta_fs8 @ inv_cov_fs8 @ delta_fs8
 
 
@@ -243,6 +247,7 @@ def main():
     import matplotlib.pyplot as plt
     from nautilus import Sampler, Prior
     from multiprocessing import Pool
+    from fs8.plot_predictions import plot_predictions as plot_fs8_predictions
     from sn.plotting import plot_predictions as plot_sn_predictions
     from bao.plot_predictions import plot_bao_predictions
 
@@ -337,24 +342,11 @@ def main():
         label=f"$Ω_m$={Om_50:.3f}",
         x_scale="log",
     )
-
-    z_fs8_smoot = np.linspace(0, np.max(fs8_data["z"]), 200)
-    Fap = (
-        H_z(fs8_data["z"], best_fit) * DM_z(fs8_data["z"], best_fit) / fiducial_scaling
+    plot_fs8_predictions(
+        fs8_theory=lambda z: fs8_theory(z, best_fit),
+        data=fs8_data,
+        q=H_z(z_fs8, best_fit) * DM_z(z_fs8, best_fit) / fiducial_scaling,
     )
-
-    plt.errorbar(
-        fs8_data["z"],
-        Fap * fs8_data["fs8"],
-        yerr=Fap * fs8_data["fs8_err"],
-        fmt=".",
-        label="data",
-    )
-    plt.plot(z_fs8_smoot, fs8_theory(z_fs8_smoot, best_fit), label="fσ8 theory")
-    plt.xlabel("z")
-    plt.ylabel(r"$f\sigma_8(z)$")
-    plt.legend()
-    plt.show()
 
 
 if __name__ == "__main__":
@@ -395,20 +387,20 @@ v: U(-10.5, 4.5) x 100 km/s
 
 """
 Flat ΛCDM
-ΔM: -0.050 +0.007 -0.007 mag
-H0: 68.44 +0.27 -0.27 km/s/Mpc
-ωb: 0.02258 +0.00010 -0.00010
-ωc: 0.1174 +0.0006 -0.0007
+ΔM: -0.051 +0.007 -0.007 mag
+H0: 68.41 +0.27 -0.27 km/s/Mpc
+ωb: 0.02257 +0.00010 -0.00010
+ωc: 0.1174 +0.0006 -0.0006
 ωm: 0.1406 +0.0006 -0.0006
 Ωm: 0.300 +0.004 -0.004
-σ8: 0.778 +0.014 -0.014
-S8: 0.778 +0.014 -0.014
-r_d: 147.58 +0.19 -0.19 Mpc
-q0: -0.550 +0.005 -0.005
+σ8: 0.788 +0.016 -0.016
+S8: 0.788 +0.016 -0.016
+r_d: 147.56 +0.19 -0.19 Mpc
+q0: -0.549 +0.005 -0.005
 j0: 1
-Chi2 (MAP): 81.45
-Log Evidence: -64.04
-Degrees of freedom: 93
+Chi2 (MAP): 67.55
+Log Evidence: -56.95
+Degrees of freedom: 76
 """
 
 """
@@ -416,60 +408,61 @@ Flat ΛCDM
 Isotropic velocity SNe observed redshifts (turning point z <= 0.2 inflow z > 0.2 outflow)
 z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-v: -306 +104 -104 km/s
-ΔM: -0.050 +0.007 -0.007 mag
-H0: 68.50 +0.27 -0.27 km/s/Mpc
+v: -305 +105 -104 km/s
+ΔM: -0.051 +0.007 -0.007 mag
+H0: 68.47 +0.27 -0.27 km/s/Mpc
 ωb: 0.02258 +0.00010 -0.00010
-ωc: 0.1172 +0.0007 -0.0007
-ωm: 0.1404 +0.0006 -0.0006
-Ωm: 0.299 +0.004 -0.004
-σ8: 0.778 +0.014 -0.014
-S8: 0.777 +0.014 -0.014
-r_d: 147.61 +0.19 -0.19 Mpc
-q0: -0.551 +0.005 -0.005
+ωc: 0.1173 +0.0007 -0.0006
+ωm: 0.1405 +0.0006 -0.0006
+Ωm: 0.300 +0.004 -0.004
+σ8: 0.788 +0.016 -0.016
+S8: 0.788 +0.016 -0.016
+r_d: 147.59 +0.19 -0.19 Mpc
+q0: -0.550 +0.005 -0.005
 j0: 1
-Chi2 (MAP): 72.82 (2.94 sigma significance)
-Log Evidence: -61.46 (Δ logZ = 2.58 in favour of corrections)
-Degrees of freedom: 92
+Chi2 (MAP): 59.00 (2.92 sigma significance)
+Log Evidence: -54.40 (Δ logZ = 2.55 in favour of corrections)
+Degrees of freedom: 75
 """
 
 """
 Flat wCDM w(z) = w0
 
-ΔM: -0.054 +0.010 -0.010 mag
-H0: 68.10 +0.66 -0.66 km/s/Mpc
+ΔM: -0.056 +0.010 -0.010 mag
+H0: 67.96 +0.67 -0.67 km/s/Mpc
 ωb: 0.02259 +0.00011 -0.00011
-ωc: 0.1171 +0.0008 -0.0008
+ωc: 0.1170 +0.0008 -0.0008
 ωm: 0.1403 +0.0008 -0.0008
-Ωm: 0.302 +0.006 -0.006
-σ8: 0.780 +0.015 -0.015
-S8: 0.783 +0.017 -0.017
-w0: -0.985 +0.026 -0.027
+Ωm: 0.304 +0.006 -0.006
+σ8: 0.791 +0.017 -0.017
+S8: 0.796 +0.019 -0.019
+w0: -0.980 +0.026 -0.027
 r_d: 147.64 +0.22 -0.22 Mpc
-q0: -0.531 +0.034 -0.035
-j0: 0.954 +0.084 -0.078
-Chi2 (MAP): 81.13
-Log Evidence: -66.36 (Δ logZ = -2.32 in favour of ΛCDM)
-Degrees of freedom: 92
+q0: -0.507 +0.034 -0.035
+j0: 0.905 +0.080 -0.074
+Chi2 (MAP): 66.98 (0.75 sigma significance)
+Log Evidence: -59.01 (Δ logZ = -2.06 in favour of ΛCDM)
+Degrees of freedom: 75
 """
 
 """
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
 
-ΔM: -0.061 +0.009 -0.009 mag
-H0: 67.14 +0.71 -0.74 km/s/Mpc
+ΔM: -0.063 +0.009 -0.009 mag
+H0: 66.98 +0.74 -0.75 km/s/Mpc
 ωb: 0.02260 +0.00010 -0.00010
 ωc: 0.1168 +0.0007 -0.0007
-ωm: 0.1400 +0.0007 -0.0007
-Ωm: 0.311 +0.007 -0.006
-σ8: 0.785 +0.015 -0.014
-S8: 0.799 +0.019 -0.018
-w0: -0.895 +0.056 -0.054
-r_d: 147.70 +0.20 -0.20 Mpc
-q0: -0.425 +0.066 -0.064
-j0: 0.707 +0.140 -0.124
-Chi2 (MAP): 78.41 (1.74 sigma significance)
-Log Evidence: -64.10 (Δ logZ = -0.06 in favour of ΛCDM)
+ωm: 0.1401 +0.0007 -0.0007
+Ωm: 0.312 +0.007 -0.007
+σ8: 0.797 +0.017 -0.017
+S8: 0.813 +0.021 -0.020
+w0: -0.884 +0.057 -0.056
+r_d: 147.69 +0.20 -0.20 Mpc
+q0: -0.412 +0.066 -0.066
+j0: 0.683 +0.141 -0.122
+Chi2 (MAP): 63.88 (1.91 sigma significance)
+Log Evidence: -56.67 (Δ logZ = 0.28 in favour of wzCDM)
+Degrees of freedom: 75
 """
 
 """
