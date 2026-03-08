@@ -10,7 +10,17 @@ Orh2 = cmb.Or_h2
 Omnuh2 = cmb.Omnu_h2
 
 data = fs8_data.data
-inv_cov_mat = np.linalg.inv(fs8_data.cov_mat)
+
+N = len(data)
+logdet = np.linalg.slogdet(fs8_data.cov_mat)[1]
+norm_fact_1 = N * np.log(2 * np.pi) + logdet
+
+no_cov_mask = data["cov_id"] == -1
+std_no_cov = data["fs8_err"][no_cov_mask]
+
+cov1_mask = data["cov_id"] == 1
+cov2_mask = data["cov_id"] == 2
+cov3_mask = data["cov_id"] == 3
 
 z_max = np.max(data["z"]) + 0.1
 z_grid = np.linspace(0, z_max, num=4000)
@@ -18,9 +28,26 @@ dz = np.diff(z_grid)
 
 
 @njit
+def w_de_z(z, w0):
+    # Thawing quintessence wzCDM
+    return -1.0 + 2 * (1.0 + w0) / (1.0 + w0 + (1.0 - w0) * (1.0 + z) ** 3)
+
+
+@njit
 def Ode_z(z, w0):
-    a3 = 1 / (1.0 + z) ** 3
-    return 4 / ((1.0 + w0) * a3 + 1.0 - w0) ** 2
+    # Thawing quintessence wzCDM
+    zp1 = 1.0 + z
+    return (2 * zp1**3 / (1.0 + w0 + (1.0 - w0) * zp1**3)) ** 2
+
+
+@njit
+def d_Ode_dz(z, w0):
+    return Ode_z(z, w0) * 3 * (1.0 + w_de_z(z, w0)) / (1.0 + z)
+
+
+@njit
+def d_Omnu_dz(z):
+    return cmb.Omnu_z(z) * 3 * (1.0 + cmb.w_nu_z(z)) / (1.0 + z)
 
 
 @njit
@@ -43,8 +70,8 @@ def Ez(z, H0, Obh2, Och2, w0):
 
 @njit
 def Hz(z, theta):
-    H0, Obh2, Och2, w0 = theta[0:4]
-    return H0 * Ez(z, H0, Obh2, Och2, w0)
+    H0 = theta[0]
+    return H0 * Ez(z, H0, Obh2=theta[1], Och2=theta[2], w0=theta[3])
 
 
 cmb.set_HZ(Hz)
@@ -52,10 +79,22 @@ cmb.set_HZ(Hz)
 
 @njit
 def dH_da(z, theta):
-    a = 1 / (1.0 + z)
-    dz = 1e-06
-    dH_dz = (Hz(z + dz, theta) - Hz(z - dz, theta)) / (2 * dz)
-    return -dH_dz / a**2
+    H0, Obh2, Och2, w0 = theta[0:4]
+    h = H0 / 100
+
+    Obc = (Obh2 + Och2) / h**2
+    Or = Orh2 / h**2
+    Onu = Omnuh2 / h**2
+    Ode = 1.0 - Obc - Or - Onu
+
+    matter = 3 * Obc * (1.0 + z) ** 2
+    rad = 4 * Or * (1.0 + z) ** 3
+    nu = Onu * d_Omnu_dz(z)
+    de = Ode * d_Ode_dz(z, w0)
+
+    numerator = matter + rad + nu + de
+    denominator = 2 * Hz(z, theta) / (1.0 + z) ** 2
+    return -numerator * H0**2 / denominator
 
 
 @njit
@@ -70,9 +109,9 @@ def DM(z, theta):
 H0_fid = 67.6
 Obh2_fid = 0.0222
 params_fid = [H0_fid, Obh2_fid, 0.12, -1.0, 0.80, 1.0]
-denominator_fiducial = np.empty(len(data["z"]), dtype=np.float64)
+denominator_fiducial = np.empty(N, dtype=np.float64)
 
-for i in range(len(data["z"])):
+for i in range(N):
     z = data["z"][i]
     Om_fid = data["omega_fid"][i]
     params_fid[2] = Om_fid * (H0_fid / 100) ** 2 - Obh2_fid - Omnuh2
@@ -99,8 +138,8 @@ def growth_ode(a, y, *params):
     return [d_delta_da, d2_delta_da]
 
 
-max_z = 1100
-a_vals = np.logspace(np.log10(1 / (1.0 + max_z)), 0, 11_000)
+max_z = 500
+a_vals = np.logspace(np.log10(1 / (1.0 + max_z)), 0, 5_000)
 
 
 def fs8_theory(z, params):
@@ -109,8 +148,8 @@ def fs8_theory(z, params):
         t_span=(a_vals[0], a_vals[-1]),
         y0=(a_vals[0], 1.0),
         t_eval=a_vals,
-        rtol=1e-8,
-        atol=1e-10,
+        rtol=1e-6,
+        atol=1e-8,
         args=params,
     )
     delta, d_delta_da = sol.y
@@ -123,20 +162,31 @@ def fs8_theory(z, params):
     return a * interp_pchip(a, a_vals, d_delta_da) * sig8 / delta0
 
 
-def chi_squared(theta):
+def chi2_fs8(theta):
     q = Hz(data["z"], theta) * DM(data["z"], theta) / denominator_fiducial
     delta = data["fs8"] - fs8_theory(data["z"], theta) / q
-    chi2_fs8 = theta[-1] ** 2 * delta @ inv_cov_mat @ delta
 
+    delta_no_cov = delta[no_cov_mask]
+    delta1 = delta[cov1_mask]
+    delta2 = delta[cov2_mask]
+    delta3 = delta[cov3_mask]
+
+    f_err = theta[-1]
+    chi2_no_cov = np.sum((delta_no_cov / (std_no_cov / f_err)) ** 2)
+    chi2_1 = delta1 @ (fs8_data.inv_cov1 * f_err**2) @ delta1
+    chi2_2 = delta2 @ (fs8_data.inv_cov2 * f_err**2) @ delta2
+    chi2_3 = delta3 @ (fs8_data.inv_cov3 * f_err**2) @ delta3
+
+    return chi2_no_cov + chi2_1 + chi2_2 + chi2_3
+
+
+def chi2_cmb(theta):
     delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(theta[1], theta[2], theta)
-    chi2_cmb = delta_cmb @ cmb.inv_cov_mat @ delta_cmb
-
-    return chi2_fs8 + chi2_cmb
+    return delta_cmb @ cmb.inv_cov_mat @ delta_cmb
 
 
-N = len(data["z"])
-logdet = np.linalg.slogdet(fs8_data.cov_mat)[1]
-norm_fact_1 = N * np.log(2 * np.pi) + logdet
+def chi_squared(theta):
+    return chi2_fs8(theta) + chi2_cmb(theta)
 
 
 def log_likelihood(theta):
@@ -175,9 +225,9 @@ def log_probability(theta):
 def main():
     from multiprocessing import Pool
     import emcee
-    import matplotlib.pyplot as plt
     from corner_plot import plot_corner_and_chains
     from log_evidence import log_evidence
+    from fs8.plot_predictions import plot_predictions
 
     np.random.seed(42)
     ndim = len(bounds)
@@ -244,52 +294,14 @@ def main():
     print(f"log evidence = {log_evd:.1f}")
     print(f"degs of freedom = {N - len(best_fit)}")
 
-    labels = [
-        "$H_0$",
-        "$Ωbh^2$",
-        "$Ωch^2$",
-        "$w_0$",
-        "$\sigma_8$",
-        "$f_{err}$",
-    ]
+    labels = ["$H_0$", "$Ωbh^2$", "$Ωch^2$", "$w_0$", "$\sigma_8$", "$f_{err}$"]
     plot_corner_and_chains(labels, samples, chains_samples)
-
-    z_plot = np.linspace(0, np.max(data["z"]), 200)
-    fs8_plot = fs8_theory(z_plot, best_fit)
-
-    q = Hz(data["z"], best_fit) * DM(data["z"], best_fit) / denominator_fiducial
-
-    plt.errorbar(
-        data["z"],
-        data["fs8"] * q,
-        yerr=data["fs8_err"] * q / f_50,
-        fmt=".",
-        label="data",
+    plot_predictions(
+        fs8_theory=lambda z: fs8_theory(z, best_fit),
+        data=data,
+        q=Hz(data["z"], best_fit) * DM(data["z"], best_fit) / denominator_fiducial,
+        f_err=f_50,
     )
-    plt.plot(z_plot, fs8_plot, label="model", color="C1")
-    plt.xlabel("z")
-    plt.ylabel(r"$f\sigma_8(z)$")
-    plt.legend()
-    plt.show()
-
-    residuals = q * data["fs8"] - fs8_theory(data["z"], best_fit)
-    plt.errorbar(
-        data["z"],
-        residuals,
-        yerr=data["fs8_err"] * q / f_50,
-        fmt=".",
-        label="residuals",
-    )
-    plt.axhline(0, color="k", ls="--")
-    plt.xlabel("z")
-    plt.ylabel("residuals")
-    plt.legend()
-    plt.show()
-
-    plt.hist(residuals, bins=12, density=True)
-    plt.xlabel("residuals")
-    plt.ylabel("density")
-    plt.show()
 
 
 if __name__ == "__main__":
@@ -298,50 +310,53 @@ if __name__ == "__main__":
 
 """
 flat ΛCDM
-H0 = 67.89 +0.47 -0.48 km/s/Mpc
+
+H0 = 67.88 +0.48 -0.48 km/s/Mpc
 Ωbh2 = 0.02252 +0.00011 -0.00011
-Ωch2 = 0.11867 +0.00116 -0.00113
-Ωmh2 = 0.1418 +0.0011 -0.0011
-Ωm = 0.308 +0.007 -0.006
+Ωch2 = 0.11869 +0.00115 -0.00114
+Ωmh2 = 0.1419 +0.0011 -0.0011
+Ωm = 0.308 +0.007 -0.007
 σ8 = 0.775 +0.011 -0.011
 S8 = 0.783 +0.012 -0.012
-f = 1.30 +0.12 -0.11
-chi2 = 62.53
+f = 1.30 +0.12 -0.12
+chi2 = 62.48
 log likelihood = 100.0
-log evidence = 78.7
-degs of freedom = 57
+log evidence = 80.5
+degs of freedom = 58
+"""
 
-===============================
-
+"""
 flat wCDM
-H0 = 69.06 +1.93 -1.84 km/s/Mpc
+
+H0 = 69.04 +1.95 -1.85 km/s/Mpc
 Ωbh2 = 0.02252 +0.00011 -0.00011
-Ωch2 = 0.11891 +0.00119 -0.00119
-Ωmh2 = 0.1421 +0.0012 -0.0011
+Ωch2 = 0.11890 +0.00119 -0.00119
+Ωmh2 = 0.1421 +0.0012 -0.0012
 Ωm = 0.298 +0.017 -0.016
-σ8 = 0.770 +0.013 -0.013
-S8 = 0.765 +0.030 -0.029
-w0 = -1.042 +0.062 -0.065
+σ8 = 0.770 +0.013 -0.014
+S8 = 0.766 +0.030 -0.030
+w0 = -1.041 +0.063 -0.065 (prior U(-1.5, -0.5))
 f = 1.29 +0.12 -0.12
-chi2 = 61.43
+chi2 = 61.47
 log likelihood = 100.1
-log evidence = 74.2
+log evidence = 78.9
 degs of freedom = 57
+"""
 
-===============================
-
+"""
 flat wzCDM
-H0 = 66.60 +0.98 -1.41 km/s/Mpc
+
+H0 = 66.61 +0.97 -1.39 km/s/Mpc
 Ωbh2 = 0.02253 +0.00011 -0.00011
-Ωch2 = 0.11851 +0.00117 -0.00117
+Ωch2 = 0.11851 +0.00117 -0.00115
 Ωmh2 = 0.1417 +0.0011 -0.0011
 Ωm = 0.320 +0.014 -0.011
 σ8 = 0.781 +0.012 -0.012
 S8 = 0.804 +0.025 -0.019
-w0 = -0.908 +0.102 -0.065
+w0 = -0.908 +0.100 -0.065 (prior U(-1, 0))
 f = 1.29 +0.12 -0.12
-chi2 = 62.66
-log likelihood = 99.5
-log evidence = 72.9
+chi2 = 62.61
+log likelihood = 99.6
+log evidence = 79.6 (inaccurate due to truncated posterior)
 degs of freedom = 57
 """
