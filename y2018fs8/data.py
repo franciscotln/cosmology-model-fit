@@ -10,6 +10,7 @@ data = np.loadtxt(
         ("fs8", np.float64),
         ("fs8_err", np.float64),
         ("omega_fid", np.float64),
+        ("s8_fid", np.float64),
         ("year", np.int16),
         ("cov_id", np.int16),
     ],
