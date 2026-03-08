@@ -226,7 +226,6 @@ def main():
     from multiprocessing import Pool
     import emcee
     from corner_plot import plot_corner_and_chains
-    from log_evidence import log_evidence
     from fs8.plot_predictions import plot_predictions
 
     np.random.seed(42)
@@ -257,7 +256,6 @@ def main():
     samples = sampler.get_chain(discard=burn_in, flat=True)
     chains_samples = sampler.get_chain(discard=burn_in, flat=False)
     log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
-    log_evd = log_evidence(samples, log_probs, log_probability, bounds)
 
     pct = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
     [
@@ -279,6 +277,7 @@ def main():
     S8_16, S8_50, S8_84 = np.percentile(S8_samples, [15.9, 50, 84.1])
 
     best_fit = np.percentile(samples, 50, axis=0)
+    MAP_samples = samples[np.argmax(log_probs)]
 
     print(f"H0 = {H0_50:.2f} +{H0_84-H0_50:.2f} -{H0_50-H0_16:.2f} km/s/Mpc")
     print(f"Ωbh2 = {Obh2_50:.5f} +{Obh2_84-Obh2_50:.5f} -{Obh2_50-Obh2_16:.5f}")
@@ -289,9 +288,8 @@ def main():
     print(f"S8 = {S8_50:.3f} +{S8_84-S8_50:.3f} -{S8_50-S8_16:.3f}")
     print(f"w0 = {w0_50:.3f} +{w0_84-w0_50:.3f} -{w0_50-w0_16:.3f}")
     print(f"f = {f_50:.2f} +{f_84-f_50:.2f} -{f_50-f_16:.2f}")
-    print(f"chi2 = {chi_squared(best_fit):.2f}")
-    print(f"log likelihood = {log_likelihood(best_fit):.1f}")
-    print(f"log evidence = {log_evd:.1f}")
+    print(f"chi2 = {chi_squared(MAP_samples):.2f}")
+    print(f"log likelihood = {log_likelihood(MAP_samples):.1f}")
     print(f"degs of freedom = {N - len(best_fit)}")
 
     labels = ["$H_0$", "$Ωbh^2$", "$Ωch^2$", "$w_0$", "$\sigma_8$", "$f_{err}$"]
@@ -311,52 +309,49 @@ if __name__ == "__main__":
 """
 flat ΛCDM
 
-H0 = 67.88 +0.48 -0.48 km/s/Mpc
-Ωbh2 = 0.02252 +0.00011 -0.00011
-Ωch2 = 0.11869 +0.00115 -0.00114
-Ωmh2 = 0.1419 +0.0011 -0.0011
-Ωm = 0.308 +0.007 -0.007
-σ8 = 0.775 +0.011 -0.011
-S8 = 0.783 +0.012 -0.012
-f = 1.30 +0.12 -0.12
-chi2 = 62.48
-log likelihood = 100.0
-log evidence = 80.5
-degs of freedom = 58
+H0 = 67.70 +0.48 -0.48 km/s/Mpc
+Ωbh2 = 0.02251 +0.00011 -0.00011
+Ωch2 = 0.11911 +0.00116 -0.00116
+Ωmh2 = 0.1423 +0.0011 -0.0011
+Ωm = 0.310 +0.007 -0.007
+σ8 = 0.785 +0.011 -0.011
+S8 = 0.796 +0.013 -0.013
+f = 1.42 +0.15 -0.15
+chi2 = 46.72
+log likelihood = 79.9
+degs of freedom = 41
 """
 
 """
 flat wCDM
 
-H0 = 69.04 +1.95 -1.85 km/s/Mpc
-Ωbh2 = 0.02252 +0.00011 -0.00011
-Ωch2 = 0.11890 +0.00119 -0.00119
-Ωmh2 = 0.1421 +0.0012 -0.0012
-Ωm = 0.298 +0.017 -0.016
-σ8 = 0.770 +0.013 -0.014
-S8 = 0.766 +0.030 -0.030
-w0 = -1.041 +0.063 -0.065 (prior U(-1.5, -0.5))
-f = 1.29 +0.12 -0.12
-chi2 = 61.47
-log likelihood = 100.1
-log evidence = 78.9
-degs of freedom = 57
+H0 = 66.76 +1.95 -1.83 km/s/Mpc
+Ωbh2 = 0.02251 +0.00011 -0.00011
+Ωch2 = 0.11900 +0.00119 -0.00118
+Ωmh2 = 0.1422 +0.0011 -0.0011
+Ωm = 0.319 +0.018 -0.018
+σ8 = 0.788 +0.014 -0.014
+S8 = 0.811 +0.033 -0.033
+w0 = -0.967 +0.063 -0.066 (prior U(-1.5, -0.5))
+f = 1.41 +0.15 -0.15
+chi2 = 45.54
+log likelihood = 80.1
+degs of freedom = 40
 """
 
 """
 flat wzCDM
 
-H0 = 66.61 +0.97 -1.39 km/s/Mpc
-Ωbh2 = 0.02253 +0.00011 -0.00011
-Ωch2 = 0.11851 +0.00117 -0.00115
-Ωmh2 = 0.1417 +0.0011 -0.0011
-Ωm = 0.320 +0.014 -0.011
-σ8 = 0.781 +0.012 -0.012
-S8 = 0.804 +0.025 -0.019
-w0 = -0.908 +0.100 -0.065 (prior U(-1, 0))
-f = 1.29 +0.12 -0.12
-chi2 = 62.61
-log likelihood = 99.6
-log evidence = 79.6 (inaccurate due to truncated posterior)
-degs of freedom = 57
+H0 = 65.29 +1.52 -1.71 km/s/Mpc
+Ωbh2 = 0.02252 +0.00011 -0.00011
+Ωch2 = 0.11881 +0.00118 -0.00118
+Ωmh2 = 0.1420 +0.0011 -0.0011
+Ωm = 0.333 +0.018 -0.015
+σ8 = 0.797 +0.014 -0.014
+S8 = 0.838 +0.033 -0.028
+w0 = -0.820 +0.124 -0.111 (prior U(-1.0, 0.0))
+f = 1.43 +0.15 -0.15
+chi2 = 45.62
+log likelihood = 80.6
+degs of freedom = 40
 """
