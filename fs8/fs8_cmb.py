@@ -291,7 +291,7 @@ def main():
     print(f"f = {f_50:.2f} +{f_84-f_50:.2f} -{f_50-f_16:.2f}")
     print(f"chi2 = {chi_squared(MAP_samples):.2f}")
     print(f"log likelihood = {log_likelihood(MAP_samples):.1f}")
-    print(f"degs of freedom = {N - len(best_fit)}")
+    print(f"degs of freedom = {N + len(cmb.DISTANCE_PRIORS) - len(best_fit)}")
 
     labels = ["$H_0$", "$Ωbh^2$", "$Ωch^2$", "$w_0$", "$\sigma_8$", "$f_{err}$"]
     plot_corner_and_chains(labels, samples, chains_samples)
@@ -320,7 +320,7 @@ S8 = 0.793 +0.010 -0.010
 f = 1.71 +0.16 -0.16
 chi2 = 56.57
 log likelihood = 107.7
-degs of freedom = 53
+degs of freedom = 56
 """
 
 """
@@ -337,7 +337,7 @@ w0 = -0.975 +0.051 -0.053 (prior U(-1.5, -0.5))
 f = 1.70 +0.16 -0.16
 chi2 = 59.00
 log likelihood = 107.9
-degs of freedom = 52
+degs of freedom = 55
 """
 
 """
@@ -354,5 +354,5 @@ w0 = -0.844 +0.104 -0.093 (prior U(-1.0, 0.0))
 f = 1.72 +0.17 -0.16
 chi2 = 58.62
 log likelihood = 108.5
-degs of freedom = 52
+degs of freedom = 55
 """
