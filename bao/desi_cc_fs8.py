@@ -246,7 +246,7 @@ def main():
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Log likelihood: {log_likelihood(best_fit):.2f}")
     print(f"Log evidence: {log_evd:.1f}")
-    print(f"Degs of freedom: {len(z_cc) + len(z_fs8) - len(best_fit)}")
+    print(f"Degs of freedom: {len(z_cc) + len(z_fs8) + len(data) - len(best_fit)}")
 
     plot_bao_predictions(
         theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
@@ -286,7 +286,7 @@ f_fs8: 1.71 +0.16 -0.16
 Chi squared: 102.70
 Log likelihood: -39.13
 Log evidence: -57.0
-Degs of freedom: 88
+Degs of freedom: 101
 """
 
 """
@@ -303,7 +303,7 @@ f_fs8: 1.78 +0.17 -0.16
 Chi squared: 101.73
 Log likelihood: -36.55
 Log evidence: -56.3 (Δ logZ = 0.7 aganst ΛCDM)
-Degs of freedom: 87
+Degs of freedom: 100
 """
 
 """
@@ -320,7 +320,7 @@ f_fs8: 1.78 +0.17 -0.17
 Chi squared: 100.31
 Log likelihood: -35.82
 Log evidence: -55.1 (Δ logZ = 1.9 aganst ΛCDM)
-Degs of freedom: 87
+Degs of freedom: 100
 """
 
 """
