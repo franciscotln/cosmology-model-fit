@@ -252,9 +252,9 @@ def main():
     from bao.plot_predictions import plot_bao_predictions
 
     prior = Prior()
-    prior.add_parameter("ΔM", dist=(-1.0, 1.0))
-    prior.add_parameter("H0", dist=(50.0, 90.0))
-    prior.add_parameter("obh2", dist=(0.010, 0.030))
+    prior.add_parameter("ΔM", dist=(-1, 1))
+    prior.add_parameter("H0", dist=(50, 90))
+    prior.add_parameter("obh2", dist=(0.01, 0.03))
     prior.add_parameter("och2", dist=(0.01, 0.25))
     prior.add_parameter("v", dist=(-10.5, 4.5))
     prior.add_parameter("sig8", dist=(0.5, 1.5))
@@ -307,13 +307,15 @@ def main():
     print(f"q0: {q0_50:.3f} +{(q0_84 - q0_50):.3f} -{(q0_50 - q0_16):.3f}")
     print(f"j0: {j0_50:.3f} +{(j0_84 - j0_50):.3f} -{(j0_50 - j0_16):.3f}")
     print(f"Chi2 (MAP): {chi2_MAP:.2f}")
+    print(f"Log Likelihood (MAP): {np.max(log_l):.2f}")
     print(f"Log Evidence: {sampler.log_z:.2f}")
     print(f"Degrees of freedom: {degs_freedom}")
 
+    labels = ["$Δ_M$", "$H_0$", "$Ω_b h^2$", "$Ω_c h^2$", "$v_{100}$", "$σ_8$"]
     corner(
         samples,
         weights=w,
-        labels=prior.keys,
+        labels=labels,
         quantiles=one_sigma_ci,
         show_titles=True,
         title_fmt=".4f",
@@ -323,7 +325,7 @@ def main():
         smooth=2.0,
         smooth1d=2.0,
         levels=(0.393, 0.864),
-        range=np.repeat(0.9999, len(prior.keys)),
+        range=np.repeat(0.9999, len(labels)),
     )
     plt.show()
 
@@ -387,20 +389,22 @@ v: U(-10.5, 4.5) x 100 km/s
 
 """
 Flat ΛCDM
+
 ΔM: -0.051 +0.007 -0.007 mag
 H0: 68.41 +0.27 -0.27 km/s/Mpc
 ωb: 0.02257 +0.00010 -0.00010
-ωc: 0.1174 +0.0006 -0.0006
+ωc: 0.1174 +0.0006 -0.0007
 ωm: 0.1406 +0.0006 -0.0006
-Ωm: 0.300 +0.004 -0.004
-σ8: 0.788 +0.016 -0.016
-S8: 0.788 +0.016 -0.016
+Ωm: 0.301 +0.004 -0.004
+σ8: 0.785 +0.015 -0.014
+S8: 0.786 +0.015 -0.015
 r_d: 147.56 +0.19 -0.19 Mpc
 q0: -0.549 +0.005 -0.005
 j0: 1
-Chi2 (MAP): 67.55
-Log Evidence: -56.95
-Degrees of freedom: 76
+Chi2 (MAP): 64.62
+Log Likelihood (MAP): -32.31
+Log Evidence: -55.58
+Degrees of freedom: 88
 """
 
 """
@@ -415,54 +419,57 @@ H0: 68.47 +0.27 -0.27 km/s/Mpc
 ωc: 0.1173 +0.0007 -0.0006
 ωm: 0.1405 +0.0006 -0.0006
 Ωm: 0.300 +0.004 -0.004
-σ8: 0.788 +0.016 -0.016
-S8: 0.788 +0.016 -0.016
+σ8: 0.785 +0.014 -0.014
+S8: 0.785 +0.015 -0.015
 r_d: 147.59 +0.19 -0.19 Mpc
 q0: -0.550 +0.005 -0.005
 j0: 1
-Chi2 (MAP): 59.00 (2.92 sigma significance)
-Log Evidence: -54.40 (Δ logZ = 2.55 in favour of corrections)
-Degrees of freedom: 75
+Chi2 (MAP): 56.05 (2.92 sigma significance)
+Log Likelihood (MAP): -28.02
+Log Evidence: -53.03 (Δ logZ = 2.55 in favour of corrections)
+Degrees of freedom: 87
 """
 
 """
 Flat wCDM w(z) = w0
 
 ΔM: -0.056 +0.010 -0.010 mag
-H0: 67.96 +0.67 -0.67 km/s/Mpc
+H0: 67.98 +0.67 -0.66 km/s/Mpc
 ωb: 0.02259 +0.00011 -0.00011
-ωc: 0.1170 +0.0008 -0.0008
+ωc: 0.1170 +0.0008 -0.0009
 ωm: 0.1403 +0.0008 -0.0008
 Ωm: 0.304 +0.006 -0.006
-σ8: 0.791 +0.017 -0.017
-S8: 0.796 +0.019 -0.019
-w0: -0.980 +0.026 -0.027
-r_d: 147.64 +0.22 -0.22 Mpc
-q0: -0.507 +0.034 -0.035
-j0: 0.905 +0.080 -0.074
-Chi2 (MAP): 66.98 (0.75 sigma significance)
-Log Evidence: -59.01 (Δ logZ = -2.06 in favour of ΛCDM)
-Degrees of freedom: 75
+σ8: 0.788 +0.015 -0.015
+S8: 0.793 +0.018 -0.018
+w0: -0.981 +0.026 -0.027
+r_d: 147.64 +0.23 -0.23 Mpc
+q0: -0.525 +0.034 -0.035
+j0: 0.942 +0.083 -0.077
+Chi2 (MAP): 64.11 (0.72 sigma significance)
+Log Likelihood (MAP): -32.05
+Log Evidence: -57.67 (Δ logZ = -2.09 in favour of ΛCDM)
+Degrees of freedom: 87
 """
 
 """
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
 
 ΔM: -0.063 +0.009 -0.009 mag
-H0: 66.98 +0.74 -0.75 km/s/Mpc
+H0: 67.00 +0.73 -0.75 km/s/Mpc
 ωb: 0.02260 +0.00010 -0.00010
 ωc: 0.1168 +0.0007 -0.0007
 ωm: 0.1401 +0.0007 -0.0007
 Ωm: 0.312 +0.007 -0.007
-σ8: 0.797 +0.017 -0.017
-S8: 0.813 +0.021 -0.020
-w0: -0.884 +0.057 -0.056
+σ8: 0.794 +0.015 -0.015
+S8: 0.810 +0.020 -0.019
+v: -0.886 +0.057 -0.056 x 100 km/s
 r_d: 147.69 +0.20 -0.20 Mpc
-q0: -0.412 +0.066 -0.066
-j0: 0.683 +0.141 -0.122
-Chi2 (MAP): 63.88 (1.91 sigma significance)
-Log Evidence: -56.67 (Δ logZ = 0.28 in favour of wzCDM)
-Degrees of freedom: 75
+q0: -0.414 +0.067 -0.066
+j0: 0.686 +0.141 -0.122
+Chi2 (MAP): 60.98 (1.91 sigma significance)
+Log Likelihood (MAP): -30.49
+Log Evidence: -55.34 (Δ logZ = 0.24 in favour of wzCDM)
+Degrees of freedom: 87
 """
 
 """
