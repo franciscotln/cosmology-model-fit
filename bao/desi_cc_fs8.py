@@ -74,9 +74,9 @@ def dH_da(z, params):
     Ode = 1.0 - Om
     a = 1 / (1 + z)
 
-    mat = Om * (1.0 + 0.0) * (1.0 + z) ** 3
-    de = Ode * (1.0 + w_de_z(z, w0)) * Ode_z(z, w0)
-    numerator = -1.5 * H0**2 * (mat + de)
+    mat = 3 * Om * (1.0 + 0.0) * (1.0 + z) ** 3
+    de = 3 * Ode * (1.0 + w_de_z(z, w0)) * Ode_z(z, w0)
+    numerator = -0.5 * H0**2 * (mat + de)
     denominator = a * H_z(z, params)
     return numerator / denominator
 
@@ -87,7 +87,8 @@ for i in range(N_fs8):
     Om_fid = fs8.data["omega_fid"][i]
     s8_fid = fs8.data["s8_fid"][i]
     w0_fid = -1.0
-    params = [67.5, Om_fid, s8_fid, 1.0, 1.0, 147.0, w0_fid]
+    S8_fid = s8_fid * (Om_fid / 0.3) ** 0.5
+    params = [67.5, Om_fid, s8_fid, S8_fid, 1.0, 1.0, 147.0, w0_fid]
     denominator_fiducial[i] = H_z(zi, params) * DM_z(zi, params)
 
 
@@ -130,6 +131,20 @@ def fs8_theory(z, params):
     return sig8 * a * interp_pchip(a, a_vals, d_delta_da) / delta0
 
 
+PLANCK_MASK = (fs8.data["omega_fid"] >= 0.3) & (fs8.data["s8_fid"] >= 0.8)
+S8_fid = fs8.data["s8_fid"] * (fs8.data["omega_fid"] / 0.3) ** 0.5
+
+
+def chi2_fs8(params):
+    g8, f_fs8 = params[3], params[5]
+
+    alpha = np.where(PLANCK_MASK, 1.0, S8_fid / g8)
+    q = H_z(z_fs8, params) * DM_z(z_fs8, params) / denominator_fiducial
+
+    delta = fs8_values - fs8_theory(z_fs8, params) * alpha / q
+    return delta @ (inv_cov_fs8 * f_fs8**2) @ delta
+
+
 qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
 desi_qty = np.array([qty_map[q] for q in data["quantity"]], dtype=np.int32)
 
@@ -143,32 +158,33 @@ def bao_theory(z, qty, params):
     results[DH_mask] = DH_z(z[DH_mask], params)
     results[DM_mask] = DM_z(z[DM_mask], params)
     results[DV_mask] = DV_z(z[DV_mask], params)
-    return results / params[5]
+    return results / params[6]
+
+
+@njit
+def chi2_bao(params):
+    delta = data["value"] - bao_theory(data["z"], desi_qty, params)
+    return delta @ inv_cov_bao @ delta
+
+
+@njit
+def chi2_cc(params):
+    f_cc = params[4]
+    delta = H_values - H_z(z_cc, params)
+    return delta @ (inv_cov_cc * f_cc**2) @ delta
 
 
 def chi_squared(params):
-    f_cc, f_fs8 = params[3], params[4]
-
-    q = H_z(z_fs8, params) * DM_z(z_fs8, params) / denominator_fiducial
-    delta_fs8 = fs8_values - fs8_theory(z_fs8, params) / q
-    chi2_fs8 = f_fs8**2 * np.dot(delta_fs8, np.dot(inv_cov_fs8, delta_fs8))
-
-    delta_cc = H_values - H_z(z_cc, params)
-    chi2_cc = f_cc**2 * np.dot(delta_cc, np.dot(inv_cov_cc, delta_cc))
-
-    delta_bao = data["value"] - bao_theory(data["z"], desi_qty, params)
-    chi_bao = np.dot(delta_bao, np.dot(inv_cov_bao, delta_bao))
-
-    return chi2_cc + chi2_fs8 + chi_bao
+    return chi2_cc(params) + chi2_fs8(params) + chi2_bao(params)
 
 
 def log_likelihood(params):
     normalization_cc = (
-        N_cc * np.log(2 * np.pi) + logdet_cc - 2 * N_cc * np.log(params[3])
+        N_cc * np.log(2 * np.pi) + logdet_cc - 2 * N_cc * np.log(params[4])
     )
 
     normalization_fs8 = (
-        N_fs8 * np.log(2 * np.pi) + logdet_fs8 - 2 * N_fs8 * np.log(params[4])
+        N_fs8 * np.log(2 * np.pi) + logdet_fs8 - 2 * N_fs8 * np.log(params[5])
     )
 
     return -0.5 * (chi_squared(params) + normalization_cc + normalization_fs8)
@@ -187,6 +203,7 @@ def main():
     prior.add_parameter("H0", dist=(40, 100))
     prior.add_parameter("Om", dist=(0.1, 0.6))
     prior.add_parameter("sig8", dist=(0.1, 1.5))
+    prior.add_parameter("g8", dist=(0.5, 1.5))
     prior.add_parameter("f_cc", dist=(0.03, 3.0))
     prior.add_parameter("f_fs8", dist=(0.2, 3.0))
     prior.add_parameter("rd", dist=(110, 180))
@@ -207,6 +224,7 @@ def main():
         "$H_0$",
         "$Ω_m$",
         "$\sigma_8$",
+        "$g_8$",
         "$f_{cc}$",
         "$f_{fs8}$",
         "$r_{drag}$",
@@ -232,20 +250,22 @@ def main():
     H0_16, H0_50, H0_84 = quantile(samples[:, 0], one_sigma_ci, weights=w)
     Om_16, Om_50, Om_84 = quantile(samples[:, 1], one_sigma_ci, weights=w)
     sig8_16, sig8_50, sig8_84 = quantile(samples[:, 2], one_sigma_ci, weights=w)
-    fcc_16, fcc_50, fcc_84 = quantile(samples[:, 3], one_sigma_ci, weights=w)
-    fs_16, fs_50, fs_84 = quantile(samples[:, 4], one_sigma_ci, weights=w)
-    rd_16, rd_50, rd_84 = quantile(samples[:, 5], one_sigma_ci, weights=w)
-    w0_16, w0_50, w0_84 = quantile(samples[:, 6], one_sigma_ci, weights=w)
+    g8_16, g8_50, g8_84 = quantile(samples[:, 3], one_sigma_ci, weights=w)
+    fcc_16, fcc_50, fcc_84 = quantile(samples[:, 4], one_sigma_ci, weights=w)
+    fs_16, fs_50, fs_84 = quantile(samples[:, 5], one_sigma_ci, weights=w)
+    rd_16, rd_50, rd_84 = quantile(samples[:, 6], one_sigma_ci, weights=w)
+    w0_16, w0_50, w0_84 = quantile(samples[:, 7], one_sigma_ci, weights=w)
 
     S8_samples = samples[:, 2] * np.sqrt(samples[:, 1] / 0.3)
     S8_16, S8_50, S8_84 = quantile(S8_samples, one_sigma_ci, weights=w)
 
-    best_fit = [H0_50, Om_50, sig8_50, fcc_50, fs_50, rd_50, w0_50]
+    best_fit = [H0_50, Om_50, sig8_50, g8_50, fcc_50, fs_50, rd_50, w0_50]
 
     print(f"H0: {H0_50:.1f} +{(H0_84 - H0_50):.1f} -{(H0_50 - H0_16):.1f} km/s/Mpc")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"σ8: {sig8_50:.3f} +{(sig8_84 - sig8_50):.3f} -{(sig8_50 - sig8_16):.3f}")
     print(f"S8: {S8_50:.3f} +{(S8_84 - S8_50):.3f} -{(S8_50 - S8_16):.3f}")
+    print(f"g8: {g8_50:.3f} +{(g8_84 - g8_50):.3f} -{(g8_50 - g8_16):.3f}")
     print(f"f_cc: {fcc_50:.2f} +{(fcc_84 - fcc_50):.2f} -{(fcc_50 - fcc_16):.2f}")
     print(f"f_fs8: {fs_50:.2f} +{(fs_84 - fs_50):.2f} -{(fs_50 - fs_16):.2f}")
     print(f"rd: {rd_50:.1f} +{(rd_84 - rd_50):.1f} -{(rd_50 - rd_16):.1f} Mpc")
@@ -271,7 +291,9 @@ def main():
     plot_fs8_predictions(
         fs8_theory=lambda z: fs8_theory(z, best_fit),
         data=fs8.data,
-        q=H_z(z_fs8, best_fit) * DM_z(z_fs8, best_fit) / denominator_fiducial,
+        q=H_z(z_fs8, best_fit)
+        * DM_z(z_fs8, best_fit)
+        / (denominator_fiducial * np.where(PLANCK_MASK, 1.0, S8_fid / g8_50)),
         f_err=fs_50,
     )
 
@@ -283,92 +305,98 @@ if __name__ == "__main__":
 """
 Flat ΛCDM: w(z) = -1
 
-H0: 68.9 +2.2 -2.3 km/s/Mpc
-Ωm: 0.299 +0.008 -0.008
-σ8: 0.784 +0.009 -0.009
-S8: 0.783 +0.011 -0.011 (2.64 sigma from Planck+ACT)
-rd: 147.1 +4.9 -4.6 Mpc
+H0: 68.8 +2.3 -2.3 km/s/Mpc
+Ωm: 0.301 +0.008 -0.008
+σ8: 0.794 +0.012 -0.012
+S8: 0.796 +0.015 -0.014 (1.68 sigma from Planck+ACT)
+g8: 0.803 +0.021 -0.020
 f_cc: 1.48 +0.18 -0.17 (error overestimation factor in CCH data)
-f_fs8: 1.71 +0.16 -0.16 (error overestimation factor in FS8 data)
-Chi squared: 102.70
-Log likelihood: -39.13
-Log evidence: -57.0
-Degs of freedom: 101
+f_fs8: 1.50 +0.14 -0.13 (error overestimation factor in FS8 data)
+rd: 147.1 +5.0 -4.6 Mpc
+Chi squared: 106.00
+Log likelihood: -39.42
+Log evidence: -60.3
+Degs of freedom: 104
 
 ---
 
 without overestimation factors f_cc and f_fs8:
 
 H0: 68.9 +3.3 -3.3 km/s/Mpc
-Ωm: 0.298 +0.008 -0.008
-σ8: 0.784 +0.015 -0.015
-S8: 0.782 +0.016 -0.016 (2.26 sigma from Planck+ACT)
+Ωm: 0.299 +0.008 -0.008
+σ8: 0.795 +0.018 -0.018
+S8: 0.794 +0.020 -0.020 (1.47 sigma from Planck+ACT)
+g8: 0.804 +0.031 -0.030
 rd: 147.2 +7.3 -6.7 Mpc
-Chi squared: 45.92
-Log likelihood: -56.00
-Degs of freedom: 103
+Chi squared: 53.23
+Log likelihood: -52.36
+Degs of freedom: 106
 """
 
 """
 Flat wCDM: w(z) = w0
 
-H0: 67.0 +2.4 -2.3 km/s/Mpc
-Ωm: 0.295 +0.008 -0.008
-σ8: 0.821 +0.022 -0.020
-S8: 0.815 +0.018 -0.018
-rd: 147.4 +4.9 -4.6 Mpc
-w0: -0.858 +0.060 -0.062 (prior -1.4 to -0.4)
+H0: 67.4 +2.4 -2.4 km/s/Mpc
+Ωm: 0.299 +0.008 -0.008
+σ8: 0.818 +0.022 -0.021
+S8: 0.817 +0.021 -0.020
+g8: 0.802 +0.020 -0.020
 f_cc: 1.48 +0.18 -0.17
-f_fs8: 1.78 +0.17 -0.16
-Chi squared: 101.73
-Log likelihood: -36.55 (2.27 sigma significance)
-Log evidence: -56.3 (Δ logZ = 0.7 aganst ΛCDM)
-Degs of freedom: 100
+f_fs8: 1.51 +0.14 -0.14
+rd: 147.4 +4.9 -4.5 Mpc
+w0: -0.902 +0.064 -0.066 (prior -1.4 to -0.4)
+Chi squared: 104.38
+Log likelihood: -38.31 (1.49 sigma significance)
+Log evidence: -61.0 (Δ logZ = -0.7 in favour of ΛCDM)
+Degs of freedom: 103
 
 ---
 
 without overestimation factors f_cc and f_fs8:
 
-H0: 67.3 +3.5 -3.4 km/s/Mpc
-Ωm: 0.297 +0.009 -0.009
-σ8: 0.812 +0.026 -0.024
-S8: 0.808 +0.024 -0.023
+H0: 67.5 +3.4 -3.4 km/s/Mpc
+Ωm: 0.298 +0.009 -0.009
+σ8: 0.817 +0.027 -0.025
+S8: 0.815 +0.026 -0.026
+g8: 0.803 +0.031 -0.030
 rd: 147.5 +7.3 -6.7 Mpc
-w0: -0.890 +0.070 -0.071 (prior -1.4 to -0.4)
-Chi squared: 43.61
-Log likelihood: -54.84 (1.52 sigma significance)
-Degs of freedom: 102
+w0: -0.906 +0.069 -0.073 (prior -1.4 to -0.4)
+Chi squared: 51.54
+Log likelihood: -51.51 (1.30 sigma significance)
+Degs of freedom: 105
 """
 
 """
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
 
-H0: 66.0 +2.5 -2.4 km/s/Mpc
-Ωm: 0.313 +0.009 -0.009
-σ8: 0.813 +0.015 -0.015
-S8: 0.831 +0.021 -0.021
-rd: 147.4 +5.0 -4.7 Mpc
-w0: -0.724 +0.092 -0.100 (prior -1.0 to 0.0)
+H0: 66.7 +2.4 -2.5 km/s/Mpc
+Ωm: 0.311 +0.010 -0.010
+σ8: 0.813 +0.017 -0.016
+S8: 0.828 +0.024 -0.022
+g8: 0.801 +0.020 -0.020
 f_cc: 1.47 +0.18 -0.17
-f_fs8: 1.78 +0.17 -0.16
-Chi squared: 100.38
-Log likelihood: -35.82 (2.57 sigma significance)
-Log evidence: -55.1 (Δ logZ = 1.9 aganst ΛCDM)
-Degs of freedom: 100
+f_fs8: 1.51 +0.14 -0.14
+rd: 147.4 +5.0 -4.6 Mpc
+w0: -0.804 +0.104 -0.104 (prior -1.0 to 0.0)
+Chi squared: 103.62
+Log likelihood: -38.11 (1.62 sigma significance)
+Log evidence: -60.3 (Δ logZ = 0.0 equal to ΛCDM)
+Degs of freedom: 103
 
 ---
 
 without overestimation factors f_cc and f_fs8:
 
-H0: 66.1 +3.4 -3.4 km/s/Mpc
-Ωm: 0.313 +0.011 -0.011
-σ8: 0.810 +0.021 -0.020
-S8: 0.826 +0.029 -0.027
-rd: 147.7 +7.3 -6.7 Mpc
-w0: -0.751 +0.117 -0.122 (prior -1.0 to 0.0)
-Chi squared: 42.53 (1.84 sigma significance)
-Log likelihood: -54.30
-Degs of freedom: 102
+H0: 66.5 +3.4 -3.4 km/s/Mpc
+Ωm: 0.312 +0.011 -0.010
+σ8: 0.815 +0.022 -0.021
+S8: 0.831 +0.030 -0.028
+g8: 0.802 +0.031 -0.030
+rd: 147.6 +7.3 -6.7 Mpc
+w0: -0.787 +0.117 -0.115 (prior -1.0 to 0.0)
+Chi squared: 51.02 (1.64 sigma significance)
+Log likelihood: -51.25
+Degs of freedom: 105
 """
 
 """
