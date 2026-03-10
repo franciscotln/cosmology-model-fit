@@ -247,10 +247,10 @@ if __name__ == "__main__":
 """
 Flat ΛCDM
 
-H0: 67.8 +2.5 -2.5 km/s/Mpc
-Ωm: 0.317 +0.020 -0.018
-σ8: 0.789 +0.013 -0.013
-S8: 0.811 +0.023 -0.022 (0.72 sigma from Planck+ACT)
+H0: 67.8 +2.5 -2.5 km/s/Mpc (0.07 sigma agreement with Planck+ACT)
+Ωm: 0.317 +0.020 -0.018 (0.27 sigma agreement with Planck+ACT)
+σ8: 0.789 +0.013 -0.013 (1.79 sigma agreement with Planck+ACT)
+S8: 0.811 +0.023 -0.022 (0.72 sigma agreement with Planck+ACT)
 g8: 0.807 +0.021 -0.021
 f_cc: 1.48 +0.18 -0.18
 f_fs8: 1.50 +0.14 -0.13
