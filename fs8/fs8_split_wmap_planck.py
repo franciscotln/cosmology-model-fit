@@ -21,12 +21,15 @@ N = len(data)
 
 @njit
 def w_de(z, w0):
-    return w0
+    # Thawing quintessence wzCDM
+    return -1.0 + 2 * (1.0 + w0) / (1.0 + w0 + (1.0 - w0) * (1.0 + z) ** 3)
 
 
 @njit
 def Ode_z(z, w0):
-    return (1.0 + z) ** (3 * (1.0 + w0))
+    # Thawing quintessence wzCDM
+    cubic = (1.0 + z) ** 3
+    return (2 * cubic / (1.0 + w0 + (1.0 - w0) * cubic)) ** 2
 
 
 @njit
@@ -47,9 +50,9 @@ def dE_da(z, params):
     a = 1 / (1.0 + z)
 
     matter = Om * (1.0 + z) ** 3 * (3 * (1.0 + 0.0) / (1.0 + z))
-    dark_eng = Ode * d_Ode_dz(z, w0)
+    dark_engy = Ode * d_Ode_dz(z, w0)
 
-    numerator = matter + dark_eng
+    numerator = matter + dark_engy
     denominator = -2 * a**2 * Ez(z, params)
     return numerator / denominator
 
@@ -147,7 +150,7 @@ bounds = np.array(
         (0.1, 0.6),  # Ωm: effective clustering matter density
         (0.5, 1.0),  # sigma8
         (0.5, 1.5),  # g8
-        (-2.0, 0.0),  # w0
+        (-1.0, 0.0),  # w0
         (0.2, 3.2),  # f_err: overestimation factor of the errors
     ]
 )
@@ -289,14 +292,14 @@ chi2/dof = 1.08
 """
 
 """
-wCDM
+Flat wCDM
 
 without f_err:
 Ωm = 0.305 +0.036 -0.035
 σ8 = 0.818 +0.075 -0.056
 S8 = 0.830 +0.050 -0.050
 g8 = 0.806 +0.032 -0.031
-w0 = -0.890 +0.194 -0.233
+w0 = -0.890 +0.194 -0.233 (prior ~ U(-2, 0))
 chi2 = 26.27
 log likelihood = -13.1
 degs of freedom = 58
@@ -310,9 +313,38 @@ with f_err:
 S8 = 0.829 +0.036 -0.034
 g8 = 0.804 +0.022 -0.021
 f_err = 1.49 +0.14 -0.13
-w0 = -0.877 +0.141 -0.155
+w0 = -0.877 +0.141 -0.155 (prior ~ U(-2, 0))
 chi2 = 61.78
 log likelihood = -4.4
 degs of freedom = 57
 chi2/dof = 1.08
+"""
+
+"""
+Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
+
+without f_err:
+Ωm = 0.316 +0.032 -0.030
+σ8 = 0.819 +0.036 -0.029
+S8 = 0.843 +0.044 -0.041
+g8 = 0.802 +0.032 -0.030
+w0 = -0.754 +0.202 -0.164 (prior ~ U(-1, 0))
+chi2 = 26.33
+log likelihood = -13.2
+degs of freedom = 58
+chi2/dof = 0.45
+
+-----
+
+with f_err:
+Ωm = 0.315 +0.021 -0.020
+σ8 = 0.813 +0.025 -0.020
+S8 = 0.834 +0.031 -0.029
+g8 = 0.802 +0.022 -0.020
+f_err = 1.49 +0.14 -0.14
+w0 = -0.799 +0.154 -0.130 (prior ~ U(-1, 0))
+chi2 = 62.34
+log likelihood = -4.5
+degs of freedom = 57
+chi2/dof = 1.09
 """
