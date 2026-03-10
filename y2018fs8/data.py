@@ -6,12 +6,12 @@ Data:
 arXiv:1803.01337v4
 arXiv:2110.08498v2 (ALFALFA z=0.013)
 
-Covariances:
+Covariances WiggleZ and SDSS-IV (cov_id = 1 and cov_id = 3 respectively):
 arXiv:1806.10822v2
 
 Covariance for the data points z = 0.3, 0.4, 0.5, 0.6 respectively (cov_id = 2)
 arXiv:1203.6565v2, section 5.1
-estimated_corr = [
+estimated_correlation = [
     [1.00, 0.84, 0.50, 0.15],
     [0.84, 1.00, 0.88, 0.65],
     [0.50, 0.88, 1.00, 0.92],
@@ -36,11 +36,6 @@ data = np.loadtxt(
     ],
 )
 cov_mat = np.loadtxt(pathname + "fs8_cov.dat", dtype=np.float64)
-
-mask = data["outlier"] == False  # 3 data points
-
-data = data[mask]
-cov_mat = cov_mat[mask, :][:, mask]
 
 cov1 = 1e-3 * np.array(
     [
