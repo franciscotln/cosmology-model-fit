@@ -32,7 +32,6 @@ data = np.loadtxt(
         ("s8_fid", np.float64),
         ("year", np.int16),
         ("cov_id", np.int16),
-        ("outlier", bool),
     ],
 )
 cov_mat = np.loadtxt(pathname + "fs8_cov.dat", dtype=np.float64)
