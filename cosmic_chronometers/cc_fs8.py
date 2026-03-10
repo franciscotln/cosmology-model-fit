@@ -10,17 +10,12 @@ c = c0 / 1000  # Speed of light in km/s
 
 legend, z_cc, H_values, cov_matrix = get_data()
 inv_cov_cc = np.linalg.inv(cov_matrix)
+inv_cov_fs8 = np.linalg.inv(fs8.cov_mat)
 
-z_fs8, fs8_values, fs8_std = fs8.data["z"], fs8.data["fs8"], fs8.data["fs8_err"]
+z_fs8, fs8_values = fs8.data["z"], fs8.data["fs8"]
 
 N_cc = z_cc.size
 N_fs8 = z_fs8.size
-
-no_cov_mask = fs8.data["cov_id"] == -1
-cov1_mask = fs8.data["cov_id"] == 1
-cov2_mask = fs8.data["cov_id"] == 2
-cov3_mask = fs8.data["cov_id"] == 3
-std_no_cov = fs8_std[no_cov_mask]
 
 z_max = max(np.max(z_fs8), np.max(z_cc))
 z_grid = np.linspace(0, z_max + 0.1, num=4000)
@@ -74,13 +69,14 @@ for i in range(N_fs8):
     zi = z_fs8[i]
     Om_fid = fs8.data["omega_fid"][i]
     s8_fid = fs8.data["s8_fid"][i]
-    params = [67.5, Om_fid, s8_fid, 1.0, 1.0, -1.0]
+    S8_fid = s8_fid * np.sqrt(Om_fid / 0.3)
+    params = [67.5, Om_fid, s8_fid, S8_fid, 1.0, 1.0, -1.0]
     DM_i = DM(np.array([zi]), params)[0]
     denominator_fiducial[i] = H_z(zi, params) * DM_i
 
 
 @njit
-def growth_ode(a, y, *params):
+def growth_ode(a, y, params):
     H0, Om = params[0], params[1]
     delta, d_delta_da = y
 
@@ -105,9 +101,9 @@ def fs8_theory(z, params):
         t_span=(a_vals[0], a_vals[-1]),
         y0=(a_vals[0], 1.0),
         t_eval=a_vals,
-        rtol=1e-8,
-        atol=1e-10,
-        args=params,
+        rtol=1e-6,
+        atol=1e-8,
+        args=(params,),
     )
     delta, d_delta_da = sol.y
 
@@ -118,27 +114,22 @@ def fs8_theory(z, params):
     return params[2] * a * interp_pchip(a, a_vals, d_delta_da) / delta0
 
 
+PLANCK_MASK = (fs8.data["omega_fid"] >= 0.3) & (fs8.data["s8_fid"] >= 0.8)
+S8_fid = fs8.data["s8_fid"] * np.sqrt(fs8.data["omega_fid"] / 0.3)
+
+
 def chi2_fs8(params):
+    g8, f_fs8 = params[3], params[5]
+    alpha = np.where(PLANCK_MASK, 1.0, S8_fid / g8)
     q = H_z(z_fs8, params) * DM(z_fs8, params) / denominator_fiducial
-    delta = fs8_values - fs8_theory(z_fs8, params) / q
 
-    delta_no_cov = delta[no_cov_mask]
-    delta1 = delta[cov1_mask]
-    delta2 = delta[cov2_mask]
-    delta3 = delta[cov3_mask]
-
-    f_err = params[4]
-    chi2_no_cov = np.sum((delta_no_cov / (std_no_cov / f_err)) ** 2)
-    chi2_1 = delta1 @ (fs8.inv_cov1 * f_err**2) @ delta1
-    chi2_2 = delta2 @ (fs8.inv_cov2 * f_err**2) @ delta2
-    chi2_3 = delta3 @ (fs8.inv_cov3 * f_err**2) @ delta3
-
-    return chi2_no_cov + chi2_1 + chi2_2 + chi2_3
+    delta = fs8_values - fs8_theory(z_fs8, params) * alpha / q
+    return delta @ (inv_cov_fs8 * f_fs8**2) @ delta
 
 
 @njit
 def chi2_cc(params):
-    f_err = params[3]
+    f_err = params[4]
     delta_cc = H_values - H_z(z_cc, params)
     return delta_cc @ (inv_cov_cc * f_err**2) @ delta_cc
 
@@ -148,8 +139,8 @@ def chi_squared(params):
 
 
 def log_likelihood(params):
-    normalization_cc = -2 * N_cc * np.log(params[3])
-    normalization_fs8 = -2 * N_fs8 * np.log(params[4])
+    normalization_cc = -2 * N_cc * np.log(params[4])
+    normalization_fs8 = -2 * N_fs8 * np.log(params[5])
     return -0.5 * (chi_squared(params) + normalization_cc + normalization_fs8)
 
 
@@ -165,9 +156,10 @@ def main():
     prior.add_parameter("H0", dist=(35, 100))
     prior.add_parameter("Om", dist=(0.01, 0.6))
     prior.add_parameter("sig8", dist=(0.2, 1.5))
+    prior.add_parameter("g8", dist=(0.5, 1.5))
     prior.add_parameter("f_cc", dist=(0.05, 3))
     prior.add_parameter("f_fs8", dist=(0.05, 3))
-    prior.add_parameter("w0", dist=(-1.0, 0))
+    prior.add_parameter("w0", dist=(-1.60, 0))
 
     with Pool(6) as pool:
         sampler = Sampler(
@@ -180,7 +172,15 @@ def main():
     log_evd = sampler.log_z
     one_sigma_ci = [0.159, 0.5, 0.841]
 
-    labels = ["$H_0$", "$\Omega_m$", "$\sigma_8$", "$f_{cc}$", "$f_{fs8}$", "$w_0$"]
+    labels = [
+        "$H_0$",
+        "$\Omega_m$",
+        "$\sigma_8$",
+        "$g_8$",
+        "$f_{cc}$",
+        "$f_{fs8}$",
+        "$w_0$",
+    ]
     corner(
         samples,
         weights=w,
@@ -201,19 +201,21 @@ def main():
     H0_16, H0_50, H0_84 = quantile(samples[:, 0], one_sigma_ci, weights=w)
     Om_16, Om_50, Om_84 = quantile(samples[:, 1], one_sigma_ci, weights=w)
     sig8_16, sig8_50, sig8_84 = quantile(samples[:, 2], one_sigma_ci, weights=w)
-    fcc_16, fcc_50, fcc_84 = quantile(samples[:, 3], one_sigma_ci, weights=w)
-    fs_16, fs_50, fs_84 = quantile(samples[:, 4], one_sigma_ci, weights=w)
-    w0_16, w0_50, w0_84 = quantile(samples[:, 5], one_sigma_ci, weights=w)
+    g8_16, g8_50, g8_84 = quantile(samples[:, 3], one_sigma_ci, weights=w)
+    fcc_16, fcc_50, fcc_84 = quantile(samples[:, 4], one_sigma_ci, weights=w)
+    fs_16, fs_50, fs_84 = quantile(samples[:, 5], one_sigma_ci, weights=w)
+    w0_16, w0_50, w0_84 = quantile(samples[:, 6], one_sigma_ci, weights=w)
 
     S8_samples = samples[:, 2] * np.sqrt(samples[:, 1] / 0.3)
     S8_16, S8_50, S8_84 = quantile(S8_samples, one_sigma_ci, weights=w)
 
-    best_fit = [H0_50, Om_50, sig8_50, fcc_50, fs_50, w0_50]
+    best_fit = [H0_50, Om_50, sig8_50, g8_50, fcc_50, fs_50, w0_50]
 
     print(f"H0: {H0_50:.1f} +{(H0_84 - H0_50):.1f} -{(H0_50 - H0_16):.1f} km/s/Mpc")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"σ8: {sig8_50:.3f} +{(sig8_84 - sig8_50):.3f} -{(sig8_50 - sig8_16):.3f}")
     print(f"S8: {S8_50:.3f} +{(S8_84 - S8_50):.3f} -{(S8_50 - S8_16):.3f}")
+    print(f"g8: {g8_50:.3f} +{(g8_84 - g8_50):.3f} -{(g8_50 - g8_16):.3f}")
     print(f"f_cc: {fcc_50:.2f} +{(fcc_84 - fcc_50):.2f} -{(fcc_50 - fcc_16):.2f}")
     print(f"f_fs8: {fs_50:.2f} +{(fs_84 - fs_50):.2f} -{(fs_50 - fs_16):.2f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
@@ -232,7 +234,9 @@ def main():
     plot_fs8_predictions(
         fs8_theory=lambda z: fs8_theory(z, best_fit),
         data=fs8.data,
-        q=H_z(z_fs8, best_fit) * DM(z_fs8, best_fit) / denominator_fiducial,
+        q=H_z(z_fs8, best_fit)
+        * DM(z_fs8, best_fit)
+        / (denominator_fiducial * np.where(PLANCK_MASK, 1.0, S8_fid / g8_50)),
         f_err=fs_50,
     )
 
@@ -243,48 +247,51 @@ if __name__ == "__main__":
 """
 Flat ΛCDM
 
-H0: 68.6 +2.5 -2.5 km/s/Mpc
-Ωm: 0.305 +0.018 -0.017
-σ8: 0.782 +0.011 -0.010
-S8: 0.788 +0.018 -0.017 (1.91 sigma from Planck 2018)
-f_cc: 1.48 +0.18 -0.17
-f_fs8: 1.70 +0.16 -0.16
-Chi squared: 91.58
-Log likelihood: -0.89
-Log evidence: -14.0
-Degs of freedom: 89
+H0: 67.8 +2.5 -2.5 km/s/Mpc
+Ωm: 0.317 +0.020 -0.018
+σ8: 0.789 +0.013 -0.013
+S8: 0.811 +0.023 -0.022 (0.72 sigma from Planck+ACT)
+g8: 0.807 +0.021 -0.021
+f_cc: 1.48 +0.18 -0.18
+f_fs8: 1.50 +0.14 -0.13
+Chi squared: 94.65
+Log likelihood: -8.12
+Log evidence: -24.1
+Degs of freedom: 92
 """
 
 """
 Flat wCDM: w(z) = w0
 
-H0: 65.7 +2.8 -2.7 km/s/Mpc
-Ωm: 0.277 +0.022 -0.023
-σ8: 0.869 +0.057 -0.045
-S8: 0.838 +0.029 -0.028
-w0: -0.738 +0.102 -0.108 (prior -1.6 to 0.0)
-f_cc: 1.46 +0.18 -0.17
-f_fs8: 1.78 +0.17 -0.17
-Chi squared: 90.67
-Log likelihood: 1.92
-Log evidence: -12.9
-Degs of freedom: 88
+H0: 66.9 +2.9 -2.8 km/s/Mpc
+Ωm: 0.309 +0.023 -0.024
+σ8: 0.812 +0.048 -0.037
+S8: 0.826 +0.032 -0.031
+g8: 0.805 +0.022 -0.021
+f_cc: 1.48 +0.18 -0.17
+f_fs8: 1.49 +0.14 -0.13
+w0: -0.909 +0.139 -0.147 (prior -1.6 to 0.0)
+Chi squared: 93.61
+Log likelihood: -7.92
+Log evidence: -25.4
+Degs of freedom: 91
 """
 
 """
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
 
-H0: 65.9 +2.7 -2.6 km/s/Mpc
-Ωm: 0.307 +0.017 -0.016
-σ8: 0.826 +0.025 -0.023
-S8: 0.836 +0.027 -0.026
-w0: -0.661 +0.127 -0.139 (prior -1.0 to 0.0)
-f_cc: 1.46 +0.18 -0.17
-f_fs8: 1.78 +0.17 -0.17
-Chi squared: 90.84
-Log likelihood: 1.63
-Log evidence: -12.6
-Degs of freedom: 88
+H0: 66.4 +2.6 -2.6 km/s/Mpc
+Ωm: 0.319 +0.019 -0.019
+σ8: 0.807 +0.022 -0.018
+S8: 0.833 +0.028 -0.026
+g8: 0.803 +0.021 -0.021
+f_cc: 1.47 +0.18 -0.17
+f_fs8: 1.50 +0.14 -0.13
+w0: -0.835 +0.143 -0.110 (prior -1.0 to 0.0)
+Chi squared: 94.21
+Log likelihood: -8.05
+Log evidence: -25.1
+Degs of freedom: 91
 """
 
 """
