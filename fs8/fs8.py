@@ -15,6 +15,7 @@ std_no_cov = data["fs8_err"][no_cov_mask]
 cov1_mask = data["cov_id"] == 1
 cov2_mask = data["cov_id"] == 2
 cov3_mask = data["cov_id"] == 3
+cov4_mask = data["cov_id"] == 4
 
 z_max = np.max(data["z"]) + 0.1
 z_grid = np.linspace(0, z_max, num=4000)
@@ -120,13 +121,15 @@ def chi_squared(theta):
     delta_cov1 = delta[cov1_mask]
     delta_cov2 = delta[cov2_mask]
     delta_cov3 = delta[cov3_mask]
+    delta_cov4 = delta[cov4_mask]
 
     chi2_no_cov = np.sum((delta_no_cov / (std_no_cov / f_err)) ** 2)
     chi2_1 = delta_cov1 @ (fs8_data.inv_cov1 * f_err**2) @ delta_cov1
     chi2_2 = delta_cov2 @ (fs8_data.inv_cov2 * f_err**2) @ delta_cov2
     chi2_3 = delta_cov3 @ (fs8_data.inv_cov3 * f_err**2) @ delta_cov3
+    chi2_4 = delta_cov4 @ (fs8_data.inv_cov4 * f_err**2) @ delta_cov4
 
-    return chi2_no_cov + chi2_1 + chi2_2 + chi2_3
+    return chi2_no_cov + chi2_1 + chi2_2 + chi2_3 + chi2_4
 
 
 def log_likelihood(theta):
@@ -245,77 +248,45 @@ if __name__ == "__main__":
 flat ΛCDM
 
 without f_err:
-Ωm = 0.302 +0.033 -0.031
-σ8 = 0.783 +0.019 -0.018
-S8 = 0.785 +0.033 -0.032 (1.33 sigma tension with Planck)
-chi2 = 19.50
-log likelihood = -9.8
-degs of freedom = 56
-chi2/deg = 0.348 (too low)
+Ωm = 0.294 +0.030 -0.028
+σ8 = 0.773 +0.019 -0.019
+S8 = 0.765 +0.029 -0.028
+chi2 = 31.55
+log likelihood = -15.8
+degs of freedom = 60
 
 ---
 
 with f_err:
-Ωm = 0.300 +0.019 -0.018
-σ8 = 0.783 +0.011 -0.011
-S8 = 0.784 +0.019 -0.019 (2 sigma tension with Planck)
-f_err = 1.70 +0.16 -0.16
-chi2 = 57.67
-log likelihood = 2.6
-degs of freedom = 55
-chi2/deg = 1.05
+Ωm = 0.293 +0.021 -0.020
+σ8 = 0.773 +0.014 -0.014
+S8 = 0.764 +0.021 -0.021
+f_err = 1.38 +0.13 -0.12
+chi2 = 62.38
+log likelihood = -10.1
+degs of freedom = 59
 """
 
 """
 flat wCDM
 
 without f_err:
-Ωm = 0.279 +0.036 -0.033
-σ8 = 0.863 +0.077 -0.065
-S8 = 0.835 +0.047 -0.047
-w0 = -0.752 +0.140 -0.176 (prior: U(-1.4, 0.0))
-chi2 = 17.46
-log likelihood = -8.7
-degs of freedom = 55
-chi2/deg = 0.317
+w0 (prior: U(-1.4, 0.0))
 
 ---
 
 with f_err:
-Ωm = 0.273 +0.022 -0.021
-σ8 = 0.879 +0.055 -0.045
-S8 = 0.840 +0.029 -0.029
-w0 = -0.722 +0.096 -0.104 (prior: U(-1.4, 0.0))
-f_err = 1.78 +0.17 -0.17
-chi2 = 58.30
-log likelihood = 5.8
-degs of freedom = 54
-chi2/deg = 1.08
+w0 (prior: U(-1.4, 0.0))
 """
 
 """
 flat wzCDM
 
 without f_err:
-Ωm = 0.303 +0.033 -0.030
-σ8 = 0.836 +0.047 -0.038
-S8 = 0.843 +0.047 -0.045
-w0 = -0.614 +0.203 -0.211 (prior: U(-1.0, 0.0))
-chi2 = 17.45
-log likelihood = -8.7
-degs of freedom = 55
-chi2/deg = 0.317
+w0 (prior: U(-1.0, 0.0))
 
 ---
 
 with f_err:
-Ωm = 0.302 +0.018 -0.017
-σ8 = 0.836 +0.027 -0.025
-S8 = 0.840 +0.029 -0.028
-w0 = -0.616 +0.124 -0.140 (prior: U(-1.0, 0.0))
-f_err = 1.78 +0.17 -0.16
-chi2 = 58.10
-log likelihood = 5.8
-degs of freedom = 54
-chi2/deg = 1.08
+w0 (prior: U(-1.0, 0.0))
 """
