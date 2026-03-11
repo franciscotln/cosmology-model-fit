@@ -66,7 +66,7 @@ def DM(z, params):
     return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
-Ez_DMz_fiducial = np.zeros(N, dtype=np.float64)
+Ez_DMz_fid = np.zeros(N, dtype=np.float64)
 for i in range(N):
     z_i = z_vals[i]
     Om_fid_i = data["omega_fid"][i]
@@ -78,7 +78,7 @@ for i in range(N):
 
     DM_i = DM(np.array([z_i]), params_fid)[0]
     Ez_i = Ez(z_i, params_fid)
-    Ez_DMz_fiducial[i] = Ez_i * DM_i
+    Ez_DMz_fid[i] = Ez_i * DM_i
 
 
 @njit
@@ -127,15 +127,16 @@ S8_fid = data["s8_fid"] * (data["omega_fid"] / 0.3) ** 0.5
 
 
 def chi_squared(theta):
-    g8, f_err = theta[2], theta[-1]
+    Om, sig8, g, _, f_err = theta
 
     # fiducial template WMAP vs Planck factor
-    shape = np.where(PLANCK_MASK, 1.0, S8_fid / g8)
+    S8_mcmc = sig8 * (Om / 0.3) ** 0.5
+    alpha = np.where(PLANCK_MASK, 1.0, g * S8_fid / S8_mcmc)
 
     # Alcock-Paczynski factor
-    q = Ez(z_vals, theta) * DM(z_vals, theta) / Ez_DMz_fiducial
+    q = Ez(z_vals, theta) * DM(z_vals, theta) / Ez_DMz_fid
 
-    diff = data["fs8"] - fs8_theory(z_vals, theta) * shape / q
+    diff = data["fs8"] - fs8_theory(z_vals, theta) * alpha / q
 
     return diff @ (inv_cov * f_err**2) @ diff
 
@@ -149,7 +150,7 @@ bounds = np.array(
     [
         (0.1, 0.6),  # Ωm: effective clustering matter density
         (0.5, 1.0),  # sigma8
-        (0.5, 1.5),  # g8
+        (0.6, 1.4),  # g
         (-1.0, 0.0),  # w0
         (0.2, 3.2),  # f_err: overestimation factor of the errors
     ]
@@ -232,7 +233,7 @@ def main():
     print(f"Ωm = {Om_50:.3f} +{Om_84-Om_50:.3f} -{Om_50-Om_16:.3f}")
     print(f"σ8 = {s8_50:.3f} +{s8_84-s8_50:.3f} -{s8_50-s8_16:.3f}")
     print(f"S8 = {S8_50:.3f} +{S8_84-S8_50:.3f} -{S8_50-S8_16:.3f}")
-    print(f"g8 = {g8_50:.3f} +{g8_84-g8_50:.3f} -{g8_50-g8_16:.3f}")
+    print(f"g = {g8_50:.2f} +{g8_84-g8_50:.2f} -{g8_50-g8_16:.2f}")
     print(f"f_err = {f_50:.2f} +{f_84-f_50:.2f} -{f_50-f_16:.2f}")
     print(f"w0 = {w0_50:.3f} +{w0_84-w0_50:.3f} -{w0_50-w0_16:.3f}")
     print(f"chi2 = {chi_squared(MAP_samples):.2f}")
@@ -244,8 +245,8 @@ def main():
     plot_predictions(
         fs8_theory=lambda z: fs8_theory(z, best_fit),
         data=data,
-        q=(Ez(z_vals, best_fit) * DM(z_vals, best_fit) / Ez_DMz_fiducial)
-        / np.where(PLANCK_MASK, 1.0, S8_fid / g8_50),
+        q=(Ez(z_vals, best_fit) * DM(z_vals, best_fit) / Ez_DMz_fid)
+        * np.where(PLANCK_MASK, 1.0, S8_50 / (g8_50 * S8_fid)),
         f_err=f_50,
     )
 
@@ -253,6 +254,10 @@ def main():
 if __name__ == "__main__":
     main()
 
+
+"""
+fs8 compilation with split WMAP and Planck data
+"""
 
 """
 Flat ΛCDM
@@ -265,42 +270,58 @@ S8 = 0.832 ±0.013
 
 ================================================
 
-fs8 compilation with split WMAP and Planck data:
 
 without f_err:
-Ωm = 0.316 +0.033 -0.031
-σ8 = 0.785 +0.020 -0.020
-S8 = 0.805 +0.037 -0.036
-g8 = 0.797 +0.033 -0.031
-chi2 = 28.89
-log likelihood = -14.4
+Ωm = 0.318 +0.032 -0.030
+σ8 = 0.784 +0.021 -0.020
+S8 = 0.807 +0.037 -0.036
+g = 1.02 +0.04 -0.04
+chi2 = 28.92
+log likelihood = -14.5
 degs of freedom = 59
 chi2/dof = 0.49
 
 -----
 
 with f_err:
-Ωm = 0.316 +0.022 -0.021
-σ8 = 0.785 +0.014 -0.014
+Ωm = 0.316 +0.023 -0.021
+σ8 = 0.784 +0.015 -0.014
 S8 = 0.805 +0.026 -0.025
-g8 = 0.796 +0.023 -0.022
+g = 1.02 +0.03 -0.03
 f_err = 1.43 +0.13 -0.13
-chi2 = 61.41
-log likelihood = -7.3
+chi2 = 62.30
+log likelihood = -7.4
 degs of freedom = 58
-chi2/dof = 1.06
+chi2/dof = 1.07
+"""
+
+"""
+ΛCDM + Ωk
+
+with f_err:
+S8 = 0.831 +0.037 -0.037
+Ωm = 0.280 +0.048 -0.036
+Ωl = 0.569 +0.129 -0.110
+Ωk = 0.151 +0.146 -0.177
+σ8 = 0.863 +0.085 -0.089
+g = 1.06 +0.05 -0.05
+f_err = 1.43 +0.13 -0.13
+chi2 = 63.27
+log likelihood = -7.0
+degs of freedom = 57
 """
 
 """
 Flat wCDM
 
 without f_err:
-Ωm = 0.305 +0.038 -0.036
-σ8 = 0.814 +0.078 -0.055
-S8 = 0.827 +0.051 -0.049
-g8 = 0.796 +0.033 -0.032
-w0 = -0.882 +0.199 -0.231 (prior ~ U(-1, 0))
-chi2 = 28.54
+
+Ωm = 0.307 +0.037 -0.036
+σ8 = 0.811 +0.077 -0.055
+S8 = 0.826 +0.051 -0.049
+g = 1.05 +0.07 -0.07
+w0 = -0.888 +0.201 -0.236 (prior ~ U(-2, 0))
+chi2 = 28.64
 log likelihood = -14.3
 degs of freedom = 58
 chi2/dof = 0.49
@@ -308,43 +329,62 @@ chi2/dof = 0.49
 -----
 
 with f_err:
-Ωm = 0.303 +0.027 -0.027
-σ8 = 0.818 +0.056 -0.043
-S8 = 0.826 +0.037 -0.035
-g8 = 0.793 +0.023 -0.022
+
+S8 = 0.825 +0.037 -0.035
+Ωm = 0.305 +0.026 -0.027
+σ8 = 0.815 +0.055 -0.042
+g = 1.05 +0.05 -0.05
+w0 = -0.880 +0.150 -0.163 (prior: U(-2, 0))
 f_err = 1.43 +0.13 -0.13
-w0 = -0.869 +0.148 -0.161 (prior ~ U(-2, 0))
-chi2 = 62.60
-log likelihood = -7.0
+chi2 = 60.88
+log likelihood = -7.1
 degs of freedom = 57
-chi2/dof = 1.10
+chi2/dof = 1.07
 """
 
 """
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
 
 without f_err:
-Ωm = 0.317 +0.032 -0.031
-σ8 = 0.813 +0.037 -0.029
-S8 = 0.839 +0.044 -0.042
-g8 = 0.790 +0.033 -0.031
-w0 = -0.749 +0.206 -0.166 (prior ~ U(-1, 0))
-chi2 = 28.62
-log likelihood = -14.3
+
+Ωm = 0.318 +0.033 -0.031
+σ8 = 0.812 +0.036 -0.028
+S8 = 0.838 +0.044 -0.042
+g = 1.07 +0.06 -0.05
+w0 = -0.755 +0.204 -0.164 (prior ~ U(-1, 0))
+chi2 = 28.75
+log likelihood = -14.4
 degs of freedom = 58
 chi2/dof = 0.49
 
 -----
 
 with f_err:
-Ωm = 0.316 +0.022 -0.022
-σ8 = 0.808 +0.026 -0.021
-S8 = 0.831 +0.032 -0.030
-g8 = 0.791 +0.023 -0.022
+
+Ωm = 0.317 +0.023 -0.021
+σ8 = 0.806 +0.025 -0.021
+S8 = 0.830 +0.032 -0.029
+g = 1.06 +0.04 -0.04
 f_err = 1.43 +0.13 -0.13
-w0 = -0.790 +0.160 -0.135 (prior ~ U(-1, 0))
-chi2 = 61.46
-log likelihood = -7.1
+w0 = -0.802 +0.160 -0.130 (prior ~ U(-1, 0))
+chi2 = 63.71
+log likelihood = -7.2
 degs of freedom = 57
-chi2/dof = 1.08
+chi2/dof = 1.12
+"""
+
+"""
+flat w0waCDM
+
+with f_err:
+S8 = 0.824 +0.037 -0.036
+Ωm = 0.312 +0.045 -0.042
+σ8 = 0.802 +0.074 -0.049
+g = 1.05 +0.05 -0.05
+w0 = -0.855 +0.205 -0.203 (prior: U(-2, 0))
+wa = -0.056 +0.748 -1.434 (prior: U(-4, 4))
+f_err = 1.42 +0.13 -0.13
+chi2 = 63.35
+log likelihood = -6.9
+degs of freedom = 56
 """
