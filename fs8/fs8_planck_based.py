@@ -9,11 +9,11 @@ c = c0 / 1000  # km/s
 
 """
 Mask applied on data which refers to the data based on Planck cosmology:
-(sigma8_fid >= 0.8) & (Ωm_fid >= 0.3)
+Ωm_fid >= 0.3
 """
 
 data = fs8_data.data
-mask = (data["s8_fid"] >= 0.8) & (data["omega_fid"] >= 0.3)
+mask = data["omega_fid"] >= 0.3
 
 data = data[mask]
 cov_mat = fs8_data.cov_mat[np.ix_(mask, mask)]
@@ -234,74 +234,85 @@ if __name__ == "__main__":
 
 
 """
+Data points with Ωm_fid >= 0.3
+Sample size: 38
+==============================
+"""
+
+"""
 flat ΛCDM
 
 without f_err:
-Ωm = 0.363 +0.043 -0.040
-σ8 = 0.778 +0.020 -0.020
-S8 = 0.855 +0.044 -0.043
-chi2 = 11.29
-log likelihood = -5.6
-degs of freedom = 35
+Ωm = 0.373 +0.043 -0.040
+σ8 = 0.771 +0.020 -0.020
+S8 = 0.859 +0.043 -0.043
+chi2 = 14.68
+log likelihood = -7.3
+degs of freedom = 36
+chi2/dof = 0.41
 
 ---
 
 with f_err:
-Ωm = 0.360 +0.024 -0.023
-σ8 = 0.778 +0.011 -0.011
-S8 = 0.853 +0.025 -0.024
-f_err = 1.77 +0.21 -0.21 (overestimation factor of the errors)
-chi2 = 36.65
-log likelihood = 3.5
-degs of freedom = 34
+Ωm = 0.370 +0.028 -0.026
+σ8 = 0.771 +0.013 -0.013
+S8 = 0.857 +0.028 -0.028
+f_err = 1.57 +0.19 -0.18 (error overestimation factor)
+chi2 = 38.16
+log likelihood = -0.9
+degs of freedom = 35
+chi2/dof = 1.09
 """
 
 """
 flat wCDM
 
 without f_err:
-Ωm = 0.361 +0.047 -0.046
-σ8 = 0.767 +0.079 -0.047
-S8 = 0.852 +0.062 -0.060
-w0 = -1.06 +0.32 -0.40 (prior: U(-2.0, 0.0))
-chi2 = 11.28
-log likelihood = -5.6
-degs of freedom = 34
+Ωm = 0.372 +0.046 -0.047
+σ8 = 0.754 +0.074 -0.043
+S8 = 0.851 +0.062 -0.060
+w0 = -1.114 +0.354 -0.415 (prior: U(-2.0, 0.0))
+chi2 = 14.64
+log likelihood = -7.3
+degs of freedom = 35
+chi2/dof = 0.42
 
 ---
 
 with f_err:
-Ωm = 0.361 +0.027 -0.027
-σ8 = 0.772 +0.044 -0.033
-S8 = 0.851 +0.036 -0.036
-w0 = -1.037 +0.198 -0.225 (prior: U(-2.0, 0.0))
-f_err = 1.74 +0.21 -0.20 (overestimation factor of the errors)
-chi2 = 37.62
-log likelihood = 3.5
-degs of freedom = 33
+Ωm = 0.373 +0.030 -0.031
+σ8 = 0.756 +0.049 -0.033
+S8 = 0.848 +0.042 -0.041
+w0 = -1.098 +0.253 -0.282 (prior: U(-2.0, 0.0))
+f_err = 1.55 +0.19 -0.18 (error overestimation factor)
+chi2 = 37.96
+log likelihood = -0.9
+degs of freedom = 34
+chi2/dof = 1.12
 """
 
 """
 flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
 
 without f_err:
-Ωm = 0.362 +0.044 -0.040
-σ8 = 0.804 +0.038 -0.028
-S8 = 0.886 +0.050 -0.047
-w0 = -0.754 +0.243 -0.172 (prior: U(-1.0, 0.0))
-chi2 = 11.29
-log likelihood = -5.6
-degs of freedom = 34
-
+Ωm = 0.373 +0.043 -0.041
+σ8 = 0.794 +0.035 -0.028
+S8 = 0.887 +0.050 -0.047
+w0 = -0.764 +0.244 -0.167 (prior: U(-1.0, 0.0))
+chi2 = 14.70
+log likelihood = -7.4
+degs of freedom = 35
+chi2/dof = 0.42
 ---
 
 with f_err:
-Ωm = 0.361 +0.025 -0.024
-σ8 = 0.792 +0.020 -0.015
-S8 = 0.871 +0.029 -0.027
-w0 = -0.858 +0.157 -0.101 (prior: U(-1.0, 0.0))
-f_err = 1.74 +0.21 -0.21 (overestimation factor of the errors)
-chi2 = 37.50
-log likelihood = 3.4
-degs of freedom = 33
+Ωm = 0.372 +0.028 -0.027
+σ8 = 0.785 +0.022 -0.017
+S8 = 0.875 +0.033 -0.031
+w0 = -0.850 +0.175 -0.107 (prior: U(-1.0, 0.0))
+f_err = 1.54 +0.19 -0.18 (error overestimation factor)
+chi2 = 38.49
+log likelihood = -1.0
+degs of freedom = 34
+chi2/dof = 1.13
 """
