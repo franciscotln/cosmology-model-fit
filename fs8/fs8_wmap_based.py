@@ -9,11 +9,11 @@ c = c0 / 1000  # km/s
 
 """
 Mask applied on data which refers to the data based on WMAP cosmology:
-(sigma8_fid < 0.8) | (Ωm_fid < 0.3)
+Ωm_fid < 0.3
 """
 
 data = fs8_data.data
-mask = (data["s8_fid"] < 0.8) | (data["omega_fid"] < 0.3)
+mask = data["omega_fid"] < 0.3
 data = data[mask]
 cov_mat = fs8_data.cov_mat[np.ix_(mask, mask)]
 
