@@ -64,15 +64,15 @@ def DM(z, params):
     return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
-denominator_fiducial = np.zeros(N_fs8, dtype=np.float64)
+Hz_DMz_fid = np.zeros(N_fs8, dtype=np.float64)
 for i in range(N_fs8):
     zi = z_fs8[i]
     Om_fid = fs8.data["omega_fid"][i]
     s8_fid = fs8.data["s8_fid"][i]
     S8_fid = s8_fid * np.sqrt(Om_fid / 0.3)
-    params = [67.5, Om_fid, s8_fid, S8_fid, 1.0, 1.0, -1.0]
+    params = [68.5, Om_fid, s8_fid, 1.0, 1.0, 1.0, -1.0]
     DM_i = DM(np.array([zi]), params)[0]
-    denominator_fiducial[i] = H_z(zi, params) * DM_i
+    Hz_DMz_fid[i] = H_z(zi, params) * DM_i
 
 
 @njit
@@ -114,14 +114,16 @@ def fs8_theory(z, params):
     return params[2] * a * interp_pchip(a, a_vals, d_delta_da) / delta0
 
 
-PLANCK_MASK = (fs8.data["omega_fid"] >= 0.3) & (fs8.data["s8_fid"] >= 0.8)
+PLANCK_MASK = fs8.data["omega_fid"] >= 0.3
 S8_fid = fs8.data["s8_fid"] * np.sqrt(fs8.data["omega_fid"] / 0.3)
 
 
 def chi2_fs8(params):
-    g8, f_fs8 = params[3], params[5]
-    alpha = np.where(PLANCK_MASK, 1.0, S8_fid / g8)
-    q = H_z(z_fs8, params) * DM(z_fs8, params) / denominator_fiducial
+    Om, sig8, g, f_fs8 = params[1], params[2], params[3], params[5]
+
+    S8_mcmc = sig8 * (Om / 0.3) ** 0.5
+    alpha = np.where(PLANCK_MASK, 1.0, g * S8_fid / S8_mcmc)
+    q = H_z(z_fs8, params) * DM(z_fs8, params) / Hz_DMz_fid
 
     delta = fs8_values - fs8_theory(z_fs8, params) * alpha / q
     return delta @ (inv_cov_fs8 * f_fs8**2) @ delta
@@ -156,10 +158,10 @@ def main():
     prior.add_parameter("H0", dist=(35, 100))
     prior.add_parameter("Om", dist=(0.01, 0.6))
     prior.add_parameter("sig8", dist=(0.2, 1.5))
-    prior.add_parameter("g8", dist=(0.5, 1.5))
+    prior.add_parameter("g", dist=(0.5, 1.5))
     prior.add_parameter("f_cc", dist=(0.05, 3))
     prior.add_parameter("f_fs8", dist=(0.05, 3))
-    prior.add_parameter("w0", dist=(-1.60, 0))
+    prior.add_parameter("w0", dist=(-1, 0))
 
     with Pool(6) as pool:
         sampler = Sampler(
@@ -176,7 +178,7 @@ def main():
         "$H_0$",
         "$\Omega_m$",
         "$\sigma_8$",
-        "$g_8$",
+        "$g$",
         "$f_{cc}$",
         "$f_{fs8}$",
         "$w_0$",
@@ -201,7 +203,7 @@ def main():
     H0_16, H0_50, H0_84 = quantile(samples[:, 0], one_sigma_ci, weights=w)
     Om_16, Om_50, Om_84 = quantile(samples[:, 1], one_sigma_ci, weights=w)
     sig8_16, sig8_50, sig8_84 = quantile(samples[:, 2], one_sigma_ci, weights=w)
-    g8_16, g8_50, g8_84 = quantile(samples[:, 3], one_sigma_ci, weights=w)
+    g_16, g_50, g_84 = quantile(samples[:, 3], one_sigma_ci, weights=w)
     fcc_16, fcc_50, fcc_84 = quantile(samples[:, 4], one_sigma_ci, weights=w)
     fs_16, fs_50, fs_84 = quantile(samples[:, 5], one_sigma_ci, weights=w)
     w0_16, w0_50, w0_84 = quantile(samples[:, 6], one_sigma_ci, weights=w)
@@ -209,13 +211,13 @@ def main():
     S8_samples = samples[:, 2] * np.sqrt(samples[:, 1] / 0.3)
     S8_16, S8_50, S8_84 = quantile(S8_samples, one_sigma_ci, weights=w)
 
-    best_fit = [H0_50, Om_50, sig8_50, g8_50, fcc_50, fs_50, w0_50]
+    best_fit = [H0_50, Om_50, sig8_50, g_50, fcc_50, fs_50, w0_50]
 
     print(f"H0: {H0_50:.1f} +{(H0_84 - H0_50):.1f} -{(H0_50 - H0_16):.1f} km/s/Mpc")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"σ8: {sig8_50:.3f} +{(sig8_84 - sig8_50):.3f} -{(sig8_50 - sig8_16):.3f}")
     print(f"S8: {S8_50:.3f} +{(S8_84 - S8_50):.3f} -{(S8_50 - S8_16):.3f}")
-    print(f"g8: {g8_50:.3f} +{(g8_84 - g8_50):.3f} -{(g8_50 - g8_16):.3f}")
+    print(f"g: {g_50:.3f} +{(g_84 - g_50):.3f} -{(g_50 - g_16):.3f}")
     print(f"f_cc: {fcc_50:.2f} +{(fcc_84 - fcc_50):.2f} -{(fcc_50 - fcc_16):.2f}")
     print(f"f_fs8: {fs_50:.2f} +{(fs_84 - fs_50):.2f} -{(fs_50 - fs_16):.2f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
@@ -236,7 +238,8 @@ def main():
         data=fs8.data,
         q=H_z(z_fs8, best_fit)
         * DM(z_fs8, best_fit)
-        / (denominator_fiducial * np.where(PLANCK_MASK, 1.0, S8_fid / g8_50)),
+        * np.where(PLANCK_MASK, 1.0, S8_50 / (g_50 * S8_fid))
+        / Hz_DMz_fid,
         f_err=fs_50,
     )
 
@@ -247,50 +250,50 @@ if __name__ == "__main__":
 """
 Flat ΛCDM
 
-H0: 67.8 +2.5 -2.5 km/s/Mpc (0.07 sigma agreement with Planck+ACT)
-Ωm: 0.317 +0.020 -0.018 (0.27 sigma agreement with Planck+ACT)
-σ8: 0.789 +0.013 -0.013 (1.79 sigma agreement with Planck+ACT)
-S8: 0.811 +0.023 -0.022 (0.72 sigma agreement with Planck+ACT)
-g8: 0.807 +0.021 -0.021
-f_cc: 1.48 +0.18 -0.18
-f_fs8: 1.50 +0.14 -0.13
-Chi squared: 94.65
-Log likelihood: -8.12
-Log evidence: -24.1
+H0: 67.7 +2.5 -2.5 km/s/Mpc
+Ωm: 0.318 +0.020 -0.019
+σ8: 0.784 +0.014 -0.014
+S8: 0.807 +0.024 -0.023
+g: 1.024 +0.028 -0.028
+f_cc: 1.48 +0.18 -0.17
+f_fs8: 1.44 +0.13 -0.13
+Chi squared: 94.74
+Log likelihood: -10.71
+Log evidence: -26.4
 Degs of freedom: 92
 """
 
 """
 Flat wCDM: w(z) = w0
 
-H0: 66.9 +2.9 -2.8 km/s/Mpc
-Ωm: 0.309 +0.023 -0.024
-σ8: 0.812 +0.048 -0.037
-S8: 0.826 +0.032 -0.031
-g8: 0.805 +0.022 -0.021
+H0: 66.8 +2.9 -2.8 km/s/Mpc
+Ωm: 0.310 +0.024 -0.025
+σ8: 0.804 +0.049 -0.038
+S8: 0.821 +0.033 -0.032
+g: 1.043 +0.046 -0.044
 f_cc: 1.48 +0.18 -0.17
-f_fs8: 1.49 +0.14 -0.13
-w0: -0.909 +0.139 -0.147 (prior -1.6 to 0.0)
-Chi squared: 93.61
-Log likelihood: -7.92
-Log evidence: -25.4
+f_fs8: 1.43 +0.13 -0.13
+w0: -0.915 +0.147 -0.157 (prior -1.6 to 0.0)
+Chi squared: 93.63
+Log likelihood: -10.59
+Log evidence: -27.6
 Degs of freedom: 91
 """
 
 """
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
 
-H0: 66.4 +2.6 -2.6 km/s/Mpc
-Ωm: 0.319 +0.019 -0.019
-σ8: 0.807 +0.022 -0.018
-S8: 0.833 +0.028 -0.026
-g8: 0.803 +0.021 -0.021
-f_cc: 1.47 +0.18 -0.17
-f_fs8: 1.50 +0.14 -0.13
-w0: -0.835 +0.143 -0.110 (prior -1.0 to 0.0)
-Chi squared: 94.21
-Log likelihood: -8.05
-Log evidence: -25.1
+H0: 66.3 +2.7 -2.6 km/s/Mpc
+Ωm: 0.320 +0.020 -0.019
+σ8: 0.801 +0.022 -0.018
+S8: 0.829 +0.029 -0.027
+g: 1.055 +0.039 -0.035
+f_cc: 1.48 +0.18 -0.17
+f_fs8: 1.43 +0.13 -0.13
+w0: -0.836 +0.147 -0.112 (prior -1.0 to 0.0)
+Chi squared: 94.12
+Log likelihood: -10.76
+Log evidence: -27.4
 Degs of freedom: 91
 """
 
