@@ -21,6 +21,7 @@ std_no_cov = data["fs8_err"][no_cov_mask]
 cov1_mask = data["cov_id"] == 1
 cov2_mask = data["cov_id"] == 2
 cov3_mask = data["cov_id"] == 3
+cov4_mask = data["cov_id"] == 4
 
 z_max = np.max(data["z"]) + 0.1
 z_grid = np.linspace(0, z_max, num=4000)
@@ -171,14 +172,16 @@ def chi2_fs8(theta):
     delta1 = delta[cov1_mask]
     delta2 = delta[cov2_mask]
     delta3 = delta[cov3_mask]
+    delta4 = delta[cov4_mask]
 
     f_err = theta[-1]
     chi2_no_cov = np.sum((delta_no_cov / (std_no_cov / f_err)) ** 2)
     chi2_1 = delta1 @ (fs8_data.inv_cov1 * f_err**2) @ delta1
     chi2_2 = delta2 @ (fs8_data.inv_cov2 * f_err**2) @ delta2
     chi2_3 = delta3 @ (fs8_data.inv_cov3 * f_err**2) @ delta3
+    chi2_4 = delta4 @ (fs8_data.inv_cov4 * f_err**2) @ delta4
 
-    return chi2_no_cov + chi2_1 + chi2_2 + chi2_3
+    return chi2_no_cov + chi2_1 + chi2_2 + chi2_3 + chi2_4
 
 
 def chi2_cmb(theta):
