@@ -6,8 +6,11 @@ Data:
 arXiv:1803.01337v4
 arXiv:2110.08498v2 (ALFALFA z=0.013)
 
-Covariances WiggleZ and SDSS-IV (cov_id = 1 and cov_id = 3 respectively):
+Covariances WiggleZ and SDSS-IV (cov_id = 1 and cov_id = 4 respectively):
 arXiv:1806.10822v2
+
+Covariance for SDSS-III (cov_id = 3):
+arXiv:1607.03155v1 
 
 Covariance for the data points z = 0.3, 0.4, 0.5, 0.6 respectively (cov_id = 2)
 arXiv:1203.6565v2, section 5.1
@@ -34,7 +37,6 @@ data = np.loadtxt(
         ("cov_id", np.int16),
     ],
 )
-cov_mat = np.loadtxt(pathname + "fs8_cov.dat", dtype=np.float64)
 
 cov1 = 1e-3 * np.array(
     [
@@ -53,7 +55,15 @@ cov2 = 1e-3 * np.array(
     ]
 )
 
-cov3 = 1e-2 * np.array(
+cov3 = 1e-3 * np.array(
+    [
+        [2.025, 0.816183, 0.260712],
+        [0.816183, 1.444, 0.6593076],
+        [0.260712, 0.6593076, 1.156],
+    ]
+)
+
+cov4 = 1e-2 * np.array(
     [
         [3.0976, 0.8920, 0.3290, -0.021],
         [0.8920, 0.9801, 0.4360, 0.0760],
@@ -65,3 +75,12 @@ cov3 = 1e-2 * np.array(
 inv_cov1 = np.linalg.inv(cov1)
 inv_cov2 = np.linalg.inv(cov2)
 inv_cov3 = np.linalg.inv(cov3)
+inv_cov4 = np.linalg.inv(cov4)
+
+n = len(data)
+cov_mat = np.diag(data["fs8_err"] ** 2)
+
+cov_blocks = {1: cov1, 2: cov2, 3: cov3, 4: cov4}
+for cov_id, block in cov_blocks.items():
+    idx = np.where(data["cov_id"] == cov_id)[0]
+    cov_mat[np.ix_(idx, idx)] = block
