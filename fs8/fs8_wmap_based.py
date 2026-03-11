@@ -230,6 +230,11 @@ def main():
 if __name__ == "__main__":
     main()
 
+"""
+Data points with Ωm_fid < 0.3
+Sample size: 24
+==============================
+"""
 
 """
 flat ΛCDM
