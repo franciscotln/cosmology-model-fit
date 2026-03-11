@@ -3,7 +3,7 @@ import numpy as np
 
 
 def plot_predictions(fs8_theory, data, q, f_err=1.0):
-    PLANCK_MASK = (data["omega_fid"] >= 0.3) & (data["s8_fid"] >= 0.8)
+    PLANCK_MASK = data["omega_fid"] >= 0.3
 
     z_plot = np.linspace(0, np.max(data["z"]) + 0.5, 200)
     fs8_plot = fs8_theory(z_plot)
