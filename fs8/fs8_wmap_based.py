@@ -3,7 +3,7 @@ import numpy as np
 from scipy.integrate import solve_ivp
 from scipy.constants import c as c0
 from interpolator import interp_hermite, interp_pchip
-import y2018fs8.data as fs8_data
+import y2018fs8.data as fs8
 
 c = c0 / 1000  # km/s
 
@@ -12,10 +12,10 @@ Mask applied on data which refers to the data based on WMAP cosmology:
 Ωm_fid < 0.3
 """
 
-data = fs8_data.data
+data = fs8.data
 mask = data["omega_fid"] < 0.3
 data = data[mask]
-cov_mat = fs8_data.cov_mat[np.ix_(mask, mask)]
+cov_mat = fs8.cov_mat[np.ix_(mask, mask)]
 
 inv_cov = np.linalg.inv(cov_mat)
 z_vals = data["z"]
@@ -208,10 +208,10 @@ def main():
         (S8_chains_samples[:, :, np.newaxis], chains_samples), axis=2
     )
 
-    print(f"Ωm = {Om_50:.3f} +{Om_84-Om_50:.3f} -{Om_50-Om_16:.3f}")
-    print(f"σ8 = {s8_50:.3f} +{s8_84-s8_50:.3f} -{s8_50-s8_16:.3f}")
-    print(f"S8 = {S8_50:.3f} +{S8_84-S8_50:.3f} -{S8_50-S8_16:.3f}")
-    print(f"w0 = {w0_50:.3f} +{w0_84-w0_50:.3f} -{w0_50-w0_16:.3f}")
+    print(f"Ωm = {Om_50:.2f} +{Om_84-Om_50:.2f} -{Om_50-Om_16:.2f}")
+    print(f"σ8 = {s8_50:.2f} +{s8_84-s8_50:.2f} -{s8_50-s8_16:.2f}")
+    print(f"S8 = {S8_50:.2f} +{S8_84-S8_50:.2f} -{S8_50-S8_16:.2f}")
+    print(f"w0 = {w0_50:.2f} +{w0_84-w0_50:.2f} -{w0_50-w0_16:.2f}")
     print(f"f_err = {f_50:.2f} +{f_84-f_50:.2f} -{f_50-f_16:.2f}")
     print(f"chi2 = {chi_squared(MAP_samples):.2f}")
     print(f"log likelihood = {log_likelihood(MAP_samples):.1f}")
@@ -243,7 +243,7 @@ without f_err:
 Ωm = 0.22 +0.04 -0.04
 σ8 = 0.81 +0.05 -0.04
 S8 = 0.68 +0.04 -0.03
-chi2 = 7.16
+chi2 = 7.25
 log likelihood = -3.6
 degs of freedom = 22
 
@@ -254,8 +254,8 @@ with f_err:
 σ8 = 0.81 +0.03 -0.03
 S8 = 0.68 +0.02 -0.02
 f_err = 1.76 +0.27 -0.25
-chi2 = 23.64
-log likelihood = 2.5
+chi2 = 24.06
+log likelihood = 2.4
 degs of freedom = 21
 """
 
