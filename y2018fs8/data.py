@@ -1,7 +1,6 @@
 import numpy as np
 
 """
-
 Data:
 arXiv:1803.01337v4
 arXiv:2110.08498v2 (ALFALFA z=0.013)
@@ -77,7 +76,6 @@ inv_cov2 = np.linalg.inv(cov2)
 inv_cov3 = np.linalg.inv(cov3)
 inv_cov4 = np.linalg.inv(cov4)
 
-n = len(data)
 cov_mat = np.diag(data["fs8_err"] ** 2)
 
 cov_blocks = {1: cov1, 2: cov2, 3: cov3, 4: cov4}
