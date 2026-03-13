@@ -6,6 +6,7 @@ from interpolator import interp_hermite, interp_pchip
 import y2018fs8.data as fs8_data
 
 c = c0 / 1000  # km/s
+H0 = 70.0  # km/s/Mpc
 
 """
 Mask applied on data which refers to the data based on Planck cosmology:
@@ -47,47 +48,48 @@ def d_Ode_dz(z, w0):
 
 
 @njit
-def Ez(z, Om, w0):
-    return np.sqrt(Om * (1.0 + z) ** 3 + (1.0 - Om) * Ode_z(z, w0))
+def Hz(z, H0, Om, w0):
+    return H0 * np.sqrt(Om * (1.0 + z) ** 3 + (1.0 - Om) * Ode_z(z, w0))
 
 
 @njit
-def dE_da(z, Om, w0):
+def dH_da(z, H0, Om, w0):
     a = 1 / (1.0 + z)
     numerator = 3 * Om * (1.0 + z) ** 2 + (1.0 - Om) * d_Ode_dz(z, w0)
-    denominator = 2 * a**2 * Ez(z, Om, w0)
-    return -numerator / denominator
+    denominator = 2 * a**2 * Hz(z, H0, Om, w0)
+    return -numerator * H0**2 / denominator
 
 
 @njit
-def DM(z, Om, w0):
-    dh_grid = c / Ez(z_grid, Om, w0)
+def DM(z, H0, Om, w0):
+    dh_grid = c / Hz(z_grid, H0, Om, w0)
     dh = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(len(z_grid), dtype=np.float64)
     cum_dm[1:] = np.cumsum(dh * dz)
     return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
-denominator_fiducial = np.zeros(N, dtype=np.float64)
+Hz_DMz_fid = np.zeros(N, dtype=np.float64)
 for i in range(N):
     w0_fid = -1.0
     Om_fid_i = data["omega_fid"][i]
+    H0_fid_i = data["H0_fid"][i]
     z_i = data["z"][i]
-    DM_i = DM(np.array([z_i]), Om_fid_i, w0_fid)[0]
-    Ez_i = Ez(z_i, Om_fid_i, w0_fid)
-    denominator_fiducial[i] = Ez_i * DM_i
+    DM_i = DM(np.array([z_i]), H0_fid_i, Om_fid_i, w0_fid)[0]
+    Hz_i = Hz(z_i, H0_fid_i, Om_fid_i, w0_fid)
+    Hz_DMz_fid[i] = Hz_i * DM_i
 
 
 @njit
 def growth_ode(a, y, Om, w0):
     z = 1 / a - 1.0
-    E_val = Ez(z, Om, w0)
-    dE_da_val = dE_da(z, Om, w0)
+    H_val = Hz(z, H0, Om, w0)
+    dH_da_val = dH_da(z, H0, Om, w0)
 
     delta, d_delta_da = y
 
-    source = (3 / 2) * (Om / a**5) * (delta / E_val**2)
-    friction = -(3 / a + dE_da_val / E_val) * d_delta_da
+    source = (3 / 2) * H0**2 * (Om / a**5) * (delta / H_val**2)
+    friction = -(3 / a + dH_da_val / H_val) * d_delta_da
     d2_delta_da = friction + source
 
     return [d_delta_da, d2_delta_da]
@@ -118,7 +120,7 @@ def fs8_theory(z, Om, sig8, w0):
 
 def chi_squared(theta):
     Om, sig8, w0, f_err = theta
-    q = Ez(z_vals, Om, w0) * DM(z_vals, Om, w0) / denominator_fiducial
+    q = Hz(z_vals, H0, Om, w0) * DM(z_vals, H0, Om, w0) / Hz_DMz_fid
     delta = fs8_vals - fs8_theory(z_vals, Om, sig8, w0) / q
 
     return delta @ (inv_cov * f_err**2) @ delta
@@ -224,7 +226,7 @@ def main():
     plot_predictions(
         fs8_theory=lambda z: fs8_theory(z, Om_50, s8_50, w0_50),
         data=data,
-        q=Ez(z_vals, Om_50, w0_50) * DM(z_vals, Om_50, w0_50) / denominator_fiducial,
+        q=Hz(z_vals, H0, Om_50, w0_50) * DM(z_vals, H0, Om_50, w0_50) / Hz_DMz_fid,
         f_err=f_50,
     )
 
@@ -235,7 +237,7 @@ if __name__ == "__main__":
 
 """
 Data points with Ωm_fid >= 0.3
-Sample size: 38
+Sample size: 36
 ==============================
 """
 
@@ -243,24 +245,24 @@ Sample size: 38
 flat ΛCDM
 
 without f_err:
-Ωm = 0.373 +0.043 -0.040
+Ωm = 0.392 +0.049 -0.046
 σ8 = 0.771 +0.020 -0.020
-S8 = 0.859 +0.043 -0.043
-chi2 = 14.68
-log likelihood = -7.3
-degs of freedom = 36
-chi2/dof = 0.41
+S8 = 0.881 +0.049 -0.048
+chi2 = 13.39
+log likelihood = -6.7
+degs of freedom = 34
+chi2/dof = 0.39
 
 ---
 
 with f_err:
-Ωm = 0.370 +0.028 -0.026
-σ8 = 0.771 +0.013 -0.013
-S8 = 0.857 +0.028 -0.028
-f_err = 1.57 +0.19 -0.18 (error overestimation factor)
-chi2 = 38.16
-log likelihood = -0.9
-degs of freedom = 35
+Ωm = 0.390 +0.030 -0.028
+σ8 = 0.771 +0.013 -0.012
+S8 = 0.879 +0.031 -0.030
+f_err = 1.60 +0.20 -0.19 (error overestimation factor)
+chi2 = 35.84
+log likelihood = -0.2
+degs of freedom = 33
 chi2/dof = 1.09
 """
 

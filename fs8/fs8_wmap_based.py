@@ -20,6 +20,8 @@ cov_mat = fs8.cov_mat[np.ix_(mask, mask)]
 inv_cov = np.linalg.inv(cov_mat)
 z_vals = data["z"]
 fs8_vals = data["fs8"]
+data["H0_fid"][data["H0_fid"] == 0] = 72.0
+
 
 z_grid = np.linspace(0, np.max(z_vals) + 0.1, num=4000)
 dz = np.diff(z_grid)
@@ -232,7 +234,7 @@ if __name__ == "__main__":
 
 """
 Data points with Ωm_fid < 0.3
-Sample size: 24
+Sample size: 26
 ==============================
 """
 
@@ -240,23 +242,25 @@ Sample size: 24
 flat ΛCDM
 
 without f_err:
-Ωm = 0.22 +0.04 -0.04
-σ8 = 0.81 +0.05 -0.04
-S8 = 0.68 +0.04 -0.03
-chi2 = 7.25
-log likelihood = -3.6
-degs of freedom = 22
+Ωm = 0.222 +0.040 -0.035
+σ8 = 0.802 +0.046 -0.041
+S8 = 0.690 +0.035 -0.033
+chi2 = 7.80
+log likelihood = -3.9
+degs of freedom = 24
+chi2/dof = 0.32
 
 ---
 
 with f_err:
-Ωm = 0.21 +0.02 -0.02
-σ8 = 0.81 +0.03 -0.03
-S8 = 0.68 +0.02 -0.02
-f_err = 1.76 +0.27 -0.25
-chi2 = 24.06
-log likelihood = 2.4
-degs of freedom = 21
+Ωm = 0.219 +0.022 -0.020
+σ8 = 0.805 +0.026 -0.024
+S8 = 0.688 +0.020 -0.019
+f_err = 1.77 +0.26 -0.25
+chi2 = 25.92
+log likelihood = 2.7
+degs of freedom = 23
+chi2/dof = 1.13
 """
 
 """
