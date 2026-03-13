@@ -40,6 +40,9 @@ data = np.loadtxt(
 outliers_idx = [3, 33, 36]
 data = np.delete(data, outliers_idx)
 
+missing_H0_fid = data["H0_fid"] == 0
+data["H0_fid"][missing_H0_fid] = 71.0 # WMAP-based data
+
 cov1 = 1e-3 * np.array(
     [
         [6.400, 2.570, 0.000],
