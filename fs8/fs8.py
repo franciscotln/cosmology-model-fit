@@ -8,14 +8,10 @@ import y2018fs8.data as fs8_data
 c = c0 / 1000  # km/s
 
 data = fs8_data.data
-
-no_cov_mask = data["cov_id"] == -1
-std_no_cov = data["fs8_err"][no_cov_mask]
-
-cov1_mask = data["cov_id"] == 1
-cov2_mask = data["cov_id"] == 2
-cov3_mask = data["cov_id"] == 3
-cov4_mask = data["cov_id"] == 4
+z_vals = data["z"]
+a_vals = 1 / (1.0 + z_vals)
+fs8_vals = data["fs8"]
+inv_cov_mat = np.linalg.inv(fs8_data.cov_mat)
 
 z_max = np.max(data["z"]) + 0.1
 z_grid = np.linspace(0, z_max, num=4000)
@@ -64,23 +60,13 @@ def DM(z, Om, w0):
     return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
-denominator_fiducial = np.zeros(N, dtype=np.float64)
-for i in range(N):
-    w0_fid = -1.0
-    Om_fid_i = data["omega_fid"][i]
-    z_i = data["z"][i]
-    DM_i = DM(np.array([z_i]), Om_fid_i, w0_fid)[0]
-    Ez_i = Ez(z_i, Om_fid_i, w0_fid)
-    denominator_fiducial[i] = Ez_i * DM_i
-
-
 @njit
-def growth_ode(a, y, Om, w0):
+def growth_ODE(a, integr, Om, w0):
     z = 1 / a - 1.0
     E_val = Ez(z, Om, w0)
     dE_da_val = dE_da(z, Om, w0)
 
-    delta, d_delta_da = y
+    delta, d_delta_da = integr
 
     source = (3 / 2) * (Om / a**5) * (delta / E_val**2)
     friction = -(3 / a + dE_da_val / E_val) * d_delta_da
@@ -89,47 +75,48 @@ def growth_ode(a, y, Om, w0):
     return [d_delta_da, d2_delta_da]
 
 
-max_z = 500
-a_vals = np.logspace(np.log10(1 / (1.0 + max_z)), 0, 2000)
+a_span = np.logspace(-2.15, 0, 1000)
+a_init = a_span[0]
+a_end = a_span[-1]
 
 
-def fs8_theory(z, Om, sig8, w0):
+def fs8_theory(a, Om, sigma8_0, w0):
     sol = solve_ivp(
-        growth_ode,
-        t_span=(a_vals[0], a_vals[-1]),
-        y0=(a_vals[0], 1.0),
-        t_eval=a_vals,
-        rtol=1e-8,
-        atol=1e-10,
+        growth_ODE,
+        t_span=(a_init, a_end),
+        y0=(a_init, 1.0),  # δ(a_init) = a_init, dδ/da(a_init) = 1.0
+        t_eval=a_span,
+        rtol=1e-6,
+        atol=1e-8,
         args=(Om, w0),
     )
     delta, d_delta_da = sol.y
+    delta_0 = delta[-1]
+    # f = d(ln δ)/d(ln a) = (a / δ(a)) * d(δ(a))/da
+    # sigma8(a) = sigma8(a=1) * δ(a) / δ(a=1)
+    return (sigma8_0 / delta_0) * a * interp_pchip(a, a_span, d_delta_da)
 
-    delta0 = interp_hermite(np.array([1.0]), a_vals, delta, d_delta_da)[0]
-    # f = d(ln delta)/d(ln a) = (a / delta) * d(delta)/da
-    # sigma8(z) = sigma8 * delta(z) / delta(z=0)
-    a = 1 / (1.0 + z)
-    return sig8 * a * interp_pchip(a, a_vals, d_delta_da) / delta0
+
+Ez_DMz_fid = np.zeros(N, dtype=np.float64)
+for i in range(N):
+    w0_fid = -1.0
+    Om_fid_i = data["omega_fid"][i]
+    z_i = z_vals[i]
+    DM_i = DM(np.array([z_i]), Om_fid_i, w0_fid)[0]
+    Ez_i = Ez(z_i, Om_fid_i, w0_fid)
+    Ez_DMz_fid[i] = Ez_i * DM_i
+
+
+@njit
+def AP_factor(z, Om, w0):
+    return Ez(z, Om, w0) * DM(z, Om, w0) / Ez_DMz_fid
 
 
 def chi_squared(theta):
     Om, sig8, w0, f_err = theta
-    q = Ez(data["z"], Om, w0) * DM(data["z"], Om, w0) / denominator_fiducial
-    delta = data["fs8"] - fs8_theory(data["z"], Om, sig8, w0) / q
-
-    delta_no_cov = delta[no_cov_mask]
-    delta_cov1 = delta[cov1_mask]
-    delta_cov2 = delta[cov2_mask]
-    delta_cov3 = delta[cov3_mask]
-    delta_cov4 = delta[cov4_mask]
-
-    chi2_no_cov = np.sum((delta_no_cov / (std_no_cov / f_err)) ** 2)
-    chi2_1 = delta_cov1 @ (fs8_data.inv_cov1 * f_err**2) @ delta_cov1
-    chi2_2 = delta_cov2 @ (fs8_data.inv_cov2 * f_err**2) @ delta_cov2
-    chi2_3 = delta_cov3 @ (fs8_data.inv_cov3 * f_err**2) @ delta_cov3
-    chi2_4 = delta_cov4 @ (fs8_data.inv_cov4 * f_err**2) @ delta_cov4
-
-    return chi2_no_cov + chi2_1 + chi2_2 + chi2_3 + chi2_4
+    q = AP_factor(z_vals, Om, w0)
+    delta = fs8_vals - fs8_theory(a_vals, Om, sig8, w0) / q
+    return delta @ (inv_cov_mat * f_err**2) @ delta
 
 
 def log_likelihood(theta):
@@ -172,7 +159,7 @@ def main():
     np.random.seed(42)
     ndim = len(bounds)
     nwalkers = 100
-    burn_in = 1000
+    burn_in = 500
     nsteps = 2000 + burn_in
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
     moves = [
@@ -231,11 +218,9 @@ def main():
     labels = ["$S_8$", "$Ω_m$", "$\sigma_8$", "$w_0$", "$f_{err}$"]
     plot_corner_and_chains(labels, samples, chains_samples)
     plot_predictions(
-        fs8_theory=lambda z: fs8_theory(z, Om_50, s8_50, w0_50),
+        fs8_theory=lambda z: fs8_theory(1 / (1 + z), Om_50, s8_50, w0_50),
         data=data,
-        q=Ez(data["z"], Om_50, w0_50)
-        * DM(data["z"], Om_50, w0_50)
-        / denominator_fiducial,
+        q=Ez(z_vals, Om_50, w0_50) * DM(z_vals, Om_50, w0_50) / Ez_DMz_fid,
         f_err=f_50,
     )
 
@@ -248,45 +233,70 @@ if __name__ == "__main__":
 flat ΛCDM
 
 without f_err:
-Ωm = 0.294 +0.030 -0.028
-σ8 = 0.773 +0.019 -0.019
-S8 = 0.765 +0.029 -0.028
-chi2 = 31.55
-log likelihood = -15.8
-degs of freedom = 60
+Ωm = 0.297 +0.033 -0.030
+σ8 = 0.783 +0.021 -0.020
+S8 = 0.779 +0.032 -0.031
+chi2 = 21.54
+log likelihood = -10.8
+degs of freedom = 57
 
 ---
 
 with f_err:
-Ωm = 0.293 +0.021 -0.020
-σ8 = 0.773 +0.014 -0.014
-S8 = 0.764 +0.021 -0.021
-f_err = 1.38 +0.13 -0.12
-chi2 = 62.38
-log likelihood = -10.1
-degs of freedom = 59
+Ωm = 0.296 +0.020 -0.019
+σ8 = 0.784 +0.012 -0.012
+S8 = 0.778 +0.019 -0.019
+f_err = 1.63 +0.15 -0.15
+chi2 = 59.04
+log likelihood = 0.2
+degs of freedom = 56
 """
 
 """
 flat wCDM
 
 without f_err:
-w0 (prior: U(-1.4, 0.0))
+Ωm = 0.276 +0.036 -0.032
+σ8 = 0.858 +0.079 -0.067
+S8 = 0.827 +0.046 -0.048
+w0 = -0.762 +0.149 -0.190 (prior: U(-1.4, 0.0))
+chi2 = 19.79
+log likelihood = -9.9
+degs of freedom = 56
 
 ---
 
 with f_err:
-w0 (prior: U(-1.4, 0.0))
+Ωm = 0.271 +0.023 -0.023
+σ8 = 0.874 +0.059 -0.049
+S8 = 0.832 +0.032 -0.031
+w0 = -0.729 +0.104 -0.118 (prior: U(-1.4, 0.0))
+f_err = 1.69 +0.16 -0.16
+chi2 = 59.16
+log likelihood = 2.7
+degs of freedom = 55
 """
 
 """
 flat wzCDM
 
 without f_err:
-w0 (prior: U(-1.0, 0.0))
-
+Ωm = 0.300 +0.033 -0.030
+σ8 = 0.835 +0.050 -0.038
+S8 = 0.838 +0.049 -0.045
+w0 = -0.607 +0.213 -0.220 (prior: U(-1.0, 0.0))
+chi2 = 19.67
+log likelihood = -9.8
+degs of freedom = 56
 ---
 
 with f_err:
-w0 (prior: U(-1.0, 0.0))
+Ωm = 0.299 +0.019 -0.018
+σ8 = 0.835 +0.030 -0.027
+S8 = 0.835 +0.031 -0.030
+w0 = -0.613 +0.138 -0.152 (prior: U(-1.0, 0.0))
+f_err = 1.69 +0.16 -0.16
+chi2 = 58.53
+log likelihood = 2.9
+degs of freedom = 55
 """
