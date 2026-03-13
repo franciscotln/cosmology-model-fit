@@ -13,8 +13,7 @@ a_vals = 1 / (1.0 + z_vals)
 fs8_vals = data["fs8"]
 inv_cov_mat = np.linalg.inv(fs8_data.cov_mat)
 
-z_max = np.max(data["z"]) + 0.1
-z_grid = np.linspace(0, z_max, num=4000)
+z_grid = np.linspace(0, np.max(z_vals) + 0.1, num=4000)
 dz = np.diff(z_grid)
 
 N = len(data)
@@ -233,70 +232,74 @@ if __name__ == "__main__":
 flat ΛCDM
 
 without f_err:
-Ωm = 0.297 +0.033 -0.030
-σ8 = 0.783 +0.021 -0.020
-S8 = 0.779 +0.032 -0.031
-chi2 = 21.54
-log likelihood = -10.8
-degs of freedom = 57
+Ωm = 0.323 +0.037 -0.035
+σ8 = 0.782 +0.019 -0.019
+S8 = 0.810 +0.037 -0.036
+chi2 = 17.06
+log likelihood = -8.5
+degs of freedom = 55
 
 ---
 
 with f_err:
-Ωm = 0.296 +0.020 -0.019
-σ8 = 0.784 +0.012 -0.012
-S8 = 0.778 +0.019 -0.019
-f_err = 1.63 +0.15 -0.15
-chi2 = 59.04
-log likelihood = 0.2
-degs of freedom = 56
+Ωm = 0.320 +0.020 -0.019
+σ8 = 0.783 +0.011 -0.011
+S8 = 0.808 +0.021 -0.020
+f_err = 1.80 +0.17 -0.17
+chi2 = 56.96
+log likelihood = 5.9
+degs of freedom = 54
 """
 
 """
 flat wCDM
 
 without f_err:
-Ωm = 0.276 +0.036 -0.032
-σ8 = 0.858 +0.079 -0.067
-S8 = 0.827 +0.046 -0.048
-w0 = -0.762 +0.149 -0.190 (prior: U(-1.4, 0.0))
-chi2 = 19.79
-log likelihood = -9.9
-degs of freedom = 56
+
+Ωm = 0.298 +0.040 -0.036
+σ8 = 0.864 +0.078 -0.069
+S8 = 0.863 +0.051 -0.052
+w0 = -0.726 +0.147 -0.202 (prior: U(-1.4, 0.0))
+f_err = 1.72 +1.00 -1.03
+chi2 = 14.93
+log likelihood = -7.5
+degs of freedom = 54
 
 ---
 
 with f_err:
-Ωm = 0.271 +0.023 -0.023
-σ8 = 0.874 +0.059 -0.049
-S8 = 0.832 +0.032 -0.031
-w0 = -0.729 +0.104 -0.118 (prior: U(-1.4, 0.0))
-f_err = 1.69 +0.16 -0.16
-chi2 = 59.16
-log likelihood = 2.7
-degs of freedom = 55
+
+Ωm = 0.288 +0.024 -0.023
+σ8 = 0.889 +0.056 -0.047
+S8 = 0.872 +0.030 -0.031
+w0 = -0.678 +0.096 -0.109 (prior: U(-1.4, 0.0))
+f_err = 1.91 +0.19 -0.18
+chi2 = 56.39
+log likelihood = 9.7
+degs of freedom = 53
 """
 
 """
 flat wzCDM
 
 without f_err:
-Ωm = 0.300 +0.033 -0.030
-σ8 = 0.835 +0.050 -0.038
-S8 = 0.838 +0.049 -0.045
-w0 = -0.607 +0.213 -0.220 (prior: U(-1.0, 0.0))
-chi2 = 19.67
-log likelihood = -9.8
-degs of freedom = 56
+Ωm = 0.323 +0.037 -0.034
+σ8 = 0.836 +0.050 -0.039
+S8 = 0.871 +0.053 -0.049
+w0 = -0.582 +0.229 -0.235 (prior: U(-1.0, 0.0))
+chi2 = 15.19
+log likelihood = -7.6
+degs of freedom = 54
+
 ---
 
 with f_err:
-Ωm = 0.299 +0.019 -0.018
-σ8 = 0.835 +0.030 -0.027
-S8 = 0.835 +0.031 -0.030
-w0 = -0.613 +0.138 -0.152 (prior: U(-1.0, 0.0))
-f_err = 1.69 +0.16 -0.16
-chi2 = 58.53
-log likelihood = 2.9
-degs of freedom = 55
+Ωm = 0.322 +0.019 -0.018
+σ8 = 0.836 +0.027 -0.026
+S8 = 0.868 +0.030 -0.029
+w0 = -0.579 +0.133 -0.150 (prior: U(-1.0, 0.0))
+f_err = 1.89 +0.18 -0.18
+chi2 = 57.23
+log likelihood = 9.2
+degs of freedom = 53
 """
