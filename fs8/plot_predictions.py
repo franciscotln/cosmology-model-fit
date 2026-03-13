@@ -55,3 +55,28 @@ def plot_predictions(fs8_theory, data, q, f_err=1.0):
     plt.ylabel("residuals")
     plt.legend()
     plt.show()
+
+    norm_residuals = residuals / scaled_err
+    plt.scatter(
+        data["z"][PLANCK_MASK],
+        norm_residuals[PLANCK_MASK],
+        label="Planck-based normalised residuals",
+        c="C0",
+        s=10,
+    )
+    plt.scatter(
+        data["z"][~PLANCK_MASK],
+        norm_residuals[~PLANCK_MASK],
+        label="WMAP-based normalised residuals",
+        c="C1",
+        s=10,
+    )
+    plt.axhline(2, color="red", ls="--", alpha=0.3)
+    plt.axhline(1, color="green", ls="--", alpha=0.3)
+    plt.axhline(-1, color="green", ls="--", alpha=0.3)
+    plt.axhline(-2, color="red", ls="--", alpha=0.3)
+    plt.axhline(0, color="k", ls="--", alpha=0.5)
+    plt.xlabel("z")
+    plt.ylabel("normalised residuals (Z-scores)")
+    plt.legend()
+    plt.show()
