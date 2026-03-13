@@ -9,7 +9,7 @@ Covariances WiggleZ and SDSS-IV (cov_id = 1 and cov_id = 4 respectively):
 arXiv:1806.10822v2
 
 Covariance for SDSS-III (cov_id = 3):
-arXiv:1607.03155v1 
+arXiv:1607.03155v1
 
 Covariance for the data points z = 0.3, 0.4, 0.5, 0.6 respectively (cov_id = 2)
 arXiv:1203.6565v2, section 5.1
@@ -20,9 +20,8 @@ Estimated correlation:
  [0.1540818  0.63950074 0.90248676 1.        ]]
 """
 
-pathname = "y2018fs8/raw/"
 data = np.loadtxt(
-    pathname + "fs8.csv",
+    "y2018fs8/raw/fs8.csv",
     delimiter=",",
     skiprows=1,
     dtype=[
@@ -37,11 +36,11 @@ data = np.loadtxt(
     ],
 )
 
-outliers_idx = [3, 33, 36]
+outliers_idx = [3, 5, 33, 36, 54]
 data = np.delete(data, outliers_idx)
 
 missing_H0_fid = data["H0_fid"] == 0
-data["H0_fid"][missing_H0_fid] = 71.0 # WMAP-based data
+data["H0_fid"][missing_H0_fid] = 71.0  # WMAP-based data
 
 cov1 = 1e-3 * np.array(
     [
@@ -76,11 +75,6 @@ cov4 = 1e-2 * np.array(
         [-0.021, 0.0760, 0.3500, 1.1236],
     ]
 )
-
-inv_cov1 = np.linalg.inv(cov1)
-inv_cov2 = np.linalg.inv(cov2)
-inv_cov3 = np.linalg.inv(cov3)
-inv_cov4 = np.linalg.inv(cov4)
 
 cov_mat = np.diag(data["fs8_err"] ** 2)
 
