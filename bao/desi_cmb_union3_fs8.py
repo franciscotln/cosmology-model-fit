@@ -463,7 +463,7 @@ S8: 0.822 +0.021 -0.021
 w0: -0.884 +0.057 -0.055
 r_d: 147.69 +0.20 -0.20 Mpc
 q0: -0.411 +0.066 -0.065
-j0: 0.682 +0.139 -0.121
+j0:
 Chi2 (MAP): 57.57 (1.92 sigma significance)
 Log Likelihood (MAP): -28.79
 Log Evidence: -53.47 (Δ logZ = 0.31 against ΛCDM)

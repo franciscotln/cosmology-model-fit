@@ -16,20 +16,40 @@ sn_legend, z_cmb, z_hel, mu_values, cov_matrix_sn = get_sn_data()
 bao_legend, bao_data, cov_matrix_bao = get_bao_data()
 
 fs8_data = fs8.data
+z_fs8 = fs8_data["z"]
+a_fs8 = 1 / (1.0 + z_fs8)
+N_fs8 = len(z_fs8)
 
 inv_cov_fs8 = np.linalg.inv(fs8.cov_mat)
 inv_cov_sn = np.linalg.inv(cov_matrix_sn)
 inv_cov_bao = np.linalg.inv(cov_matrix_bao)
 
-z_max = max(np.max(z_cmb), np.max(bao_data["z"]), np.max(fs8_data["z"])) + 0.1
-z_grid = np.linspace(0, z_max, num=3000)
+z_max = max(np.max(z_cmb), np.max(bao_data["z"]), np.max(z_fs8)) + 0.1
+z_grid = np.linspace(0, z_max, num=4000)
 dz = np.diff(z_grid)
 
 
 @njit
+def d_Omnu_dz(z):
+    return cmb.Omnu_z(z) * 3 * (1.0 + cmb.w_nu_z(z)) / (1.0 + z)
+
+
+@njit
+def w_de_z(z, w0):
+    # Thawing quintessence wzCDM
+    return -1.0 + 2 * (1.0 + w0) / (1.0 + w0 + (1.0 - w0) * (1.0 + z) ** 3)
+
+
+@njit
 def Ode_z(z, w0):
+    # Thawing quintessence wzCDM
     zp1 = 1.0 + z
     return (2 * zp1**3 / (1.0 + w0 + (1.0 - w0) * zp1**3)) ** 2
+
+
+@njit
+def d_Ode_dz(z, w0):
+    return Ode_z(z, w0) * 3 * (1.0 + w_de_z(z, w0)) / (1.0 + z)
 
 
 @njit
@@ -98,48 +118,40 @@ def bao_theory(z, qty, theta):
     return results / rd
 
 
-pivot_mask = z_cmb <= 0.2
+@njit
+def mu_corr(params, DM_ref):
+    v_km_s = 100 * params[4] * np.where(z_cmb <= 0.2, 1, -1)
+    z_pec = v_km_s / c
+    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+    return 5.0 * np.log10(DM_z(z_cosmo, params) / DM_ref)
 
 
 @njit
-def mu_corr(params):
-    z_pec = 100 * params[4] / c
-    z_cosmo1 = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
-    z_cosmo2 = -1.0 + (1.0 + z_cmb) / (1.0 - z_pec)
-
-    DM_ref = DM_z(z_cmb, params)
-
-    return np.where(
-        pivot_mask,
-        5.0 * np.log10(DM_z(z_cosmo1, params) / DM_ref),
-        5.0 * np.log10(DM_z(z_cosmo2, params) / DM_ref),
-    )
+def theory_mu(theta, DM):
+    return theta[0] + 25.0 + 5 * np.log10((1.0 + z_hel) * DM)
 
 
 @njit
-def theory_mu(theta):
-    dL = (1.0 + z_hel) * DM_z(z_cmb, theta)
-    return theta[0] + 25.0 + 5 * np.log10(dL)
+def dH_da(z, H_vals, theta):
+    H0, Obh2, Och2 = theta[1], theta[2], theta[3]
+    h = H0 / 100
+    Obc = (Obh2 + Och2) / h**2
+    Or = Orh2 / h**2
+    Onu = Omnuh2 / h**2
+    numerator = 3 * Obc * (1.0 + z) ** 2 + 4 * Or * (1.0 + z) ** 3 + Onu * d_Omnu_dz(z)
+    denominator = 2 * H_vals / (1.0 + z) ** 2
+    return -numerator * H0**2 / denominator
 
 
 @njit
-def dH_da(z, theta):
-    dz = 1e-5
-    Hz_plus = H_z(z + dz, theta)
-    Hz_minus = H_z(z - dz, theta)
-    dH_dz = (Hz_plus - Hz_minus) / (2 * dz)
-    return -1 * (1 + z) ** 2 * dH_dz
-
-
-@njit
-def growth_ODE(a, y, *theta):
+def growth_ODE(a, y, theta):
     H0, Obh2, Och2 = theta[1], theta[2], theta[3]
     h = H0 / 100
     Obc = (Obh2 + Och2) / h**2
 
     z = 1 / a - 1.0
     H_vals = H_z(z, theta)
-    dH_da_vals = dH_da(z, theta)
+    dH_da_vals = dH_da(z, H_vals, theta)
 
     delta, d_delta_da = y
 
@@ -150,54 +162,51 @@ def growth_ODE(a, y, *theta):
     return [d_delta_da, d2_delta_da]
 
 
-a_vals = np.logspace(-3.2, 0, 1500, dtype=np.float64)
+a_span = np.logspace(np.log10(1 / 101), 0, 1000, dtype=np.float64)
 
 
-def fs8_theory(z, theta):
+def fs8_theory(a, theta):
     sol = solve_ivp(
         growth_ODE,
-        t_span=(a_vals[0], a_vals[-1]),
-        y0=(a_vals[0], 1.0),
-        t_eval=a_vals,
-        rtol=1e-8,
-        atol=1e-10,
-        args=theta,
+        t_span=(a_span[0], a_span[-1]),
+        y0=(a_span[0], 1.0),
+        t_eval=a_span,
+        rtol=1e-6,
+        atol=1e-8,
+        args=(theta,),
     )
 
     delta, d_delta_da = sol.y
-    delta0 = interp_hermite(np.array([1.0]), a_vals, delta, d_delta_da)[0]
+    delta0 = delta[-1]
     sig8 = theta[-1]
-    a = 1 / (1.0 + z)
-
     # f = d(ln delta)/d(ln a) = (a / delta) * d(delta)/da
     # sigma8(z) = sigma8 * delta(z) / delta(z=0)
+    return (sig8 / delta0) * a * interp_pchip(a, a_span, d_delta_da)
 
-    return sig8 * a * interp_pchip(a, a_vals, d_delta_da) / delta0
 
-
-H0_fid = 67.6
-Obh2_fid = 0.022
-params_fid = [0.0, H0_fid, Obh2_fid, 0.31, 0.0, 0.80]
-fiducial_scaling = np.empty(len(fs8_data["z"]), dtype=np.float64)
-
-for i in range(len(fs8_data["z"])):
-    zi = fs8_data["z"][i]
+Hz_DMz_fid = np.empty(N_fs8, dtype=np.float64)
+for i in range(N_fs8):
+    Obh2_fid = 0.022
+    zi = z_fs8[i]
     Om_fid = fs8_data["omega_fid"][i]
+    H0_fid = fs8_data["H0_fid"][i]
+    sig8_fid = fs8_data["s8_fid"][i]
     Och2_fid = Om_fid * (H0_fid / 100) ** 2 - Obh2_fid - Omnuh2
-    params_fid[3] = Och2_fid
+    params_fid = [0.0, H0_fid, Obh2_fid, Och2_fid, 0.0, sig8_fid]
     DM_i = DM_z(np.array([zi]), params_fid)[0]
-    fiducial_scaling[i] = H_z(zi, params_fid) * DM_i
+    Hz_DMz_fid[i] = H_z(zi, params_fid) * DM_i
 
 
 def chi2_fs8(theta):
-    Fap = H_z(fs8_data["z"], theta) * DM_z(fs8_data["z"], theta) / fiducial_scaling
-    delta_fs8 = fs8_data["fs8"] - fs8_theory(fs8_data["z"], theta) / Fap
+    Fap = H_z(z_fs8, theta) * DM_z(z_fs8, theta) / Hz_DMz_fid
+    delta_fs8 = fs8_data["fs8"] - fs8_theory(a_fs8, theta) / Fap
     return delta_fs8 @ inv_cov_fs8 @ delta_fs8
 
 
 @njit
 def chi2_sn(theta):
-    delta_sn = mu_values - theory_mu(theta) - mu_corr(theta)
+    DM = DM_z(z_cmb, theta)
+    delta_sn = mu_values - theory_mu(theta, DM) - mu_corr(theta, DM)
     return delta_sn @ inv_cov_sn @ delta_sn
 
 
@@ -207,10 +216,14 @@ def chi2_bao(theta):
     return delta_bao @ inv_cov_bao @ delta_bao
 
 
+def chi2_cmb(theta):
+    # thetastar only
+    delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(theta[2], theta[3], theta)
+    return delta[1] ** 2 / cmb.covariance[1, 1]
+
+
 def chi_squared(theta):
-    delta_lA = cmb.DISTANCE_PRIORS[1] - cmb.cmb_distances(theta[2], theta[3], theta)[1]
-    chi2_lA = delta_lA**2 / cmb.covariance[1, 1]
-    return chi2_fs8(theta) + chi2_sn(theta) + chi2_bao(theta) + chi2_lA
+    return chi2_fs8(theta) + chi2_sn(theta) + chi2_bao(theta) + chi2_cmb(theta)
 
 
 def log_likelihood(theta):
@@ -235,6 +248,7 @@ def main():
     from multiprocessing import Pool
     from sn.plotting import plot_predictions as plot_sn_predictions
     from bao.plot_predictions import plot_bao_predictions
+    from fs8.plot_predictions import plot_predictions as plot_fs8_predictions
 
     prior = Prior()
     prior.add_parameter("ΔM", dist=(-1.0, 1.0))
@@ -265,8 +279,6 @@ def main():
     Om_samples = Omh2_samples / (samples[:, 1] / 100) ** 2
     S8_samples = samples[:, 5] * (Om_samples / 0.3) ** 0.5
     rd_samples = cmb.r_drag(samples[:, 2], Omh2_samples)
-    zd_samples = cmb.z_drag(samples[:, 2], Omh2_samples)
-    zst_samples = cmb.z_star(samples[:, 2], Omh2_samples)
     q0_samples = q0(Om_samples)
     j0_samples = j0(Om_samples)
 
@@ -274,13 +286,11 @@ def main():
     Om_16, Om_50, Om_84 = quantile(Om_samples, one_sigma_ci, weights=w)
     S8_16, S8_50, S8_84 = quantile(S8_samples, one_sigma_ci, weights=w)
     rd_16, rd_50, rd_84 = quantile(rd_samples, one_sigma_ci, weights=w)
-    zd_16, zd_50, zd_84 = quantile(zd_samples, one_sigma_ci, weights=w)
-    zst_16, zst_50, zst_84 = quantile(zst_samples, one_sigma_ci, weights=w)
     q0_16, q0_50, q0_84 = quantile(q0_samples, one_sigma_ci, weights=w)
     j0_16, j0_50, j0_84 = quantile(j0_samples, one_sigma_ci, weights=w)
 
     best_fit = [dM_50, H0_50, Obh2_50, Och2_50, v_50, sig8_50]
-    degs_freedom = len(bao_data) + len(z_cmb) + len(fs8_data) - len(best_fit)
+    degs_freedom = len(bao_data) + len(z_cmb) + N_fs8 - len(best_fit)
     chi2_MAP = chi_squared(samples[np.argmax(log_l)])
 
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
@@ -292,13 +302,7 @@ def main():
     print(f"σ8: {sig8_50:.3f} +{(sig8_84 - sig8_50):.3f} -{(sig8_50 - sig8_16):.3f}")
     print(f"S8: {S8_50:.3f} +{(S8_84 - S8_50):.3f} -{(S8_50 - S8_16):.3f}")
     print(f"v: {v_50:.3f} +{(v_84 - v_50):.3f} -{(v_50 - v_16):.3f} x 100 km/s")
-    print(f"z_d: {zd_50:.2f} +{(zd_84 - zd_50):.2f} -{(zd_50 - zd_16):.2f}")
     print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
-    print(f"z*: {zst_50:.2f} +{(zst_84 - zst_50):.2f} -{(zst_50 - zst_16):.2f}")
-    print(f"r*: {cmb.rs_z(zst_50, Obh2_50, best_fit):.2f} Mpc")
-    print(
-        f"100 θ*: {100 * np.pi / cmb.cmb_distances(Obh2_50, Och2_50, best_fit)[1]:.5f}"
-    )
     print(f"q0: {q0_50:.3f} +{(q0_84 - q0_50):.3f} -{(q0_50 - q0_16):.3f}")
     print(f"j0: {j0_50:.3f} +{(j0_84 - j0_50):.3f} -{(j0_50 - j0_16):.3f}")
     print(f"Chi2 (MAP): {chi2_MAP:.2f}")
@@ -331,30 +335,17 @@ def main():
     plot_sn_predictions(
         legend=sn_legend,
         x=z_cmb,
-        y=mu_values - mu_corr(best_fit),
+        y=mu_values - mu_corr(best_fit, DM_z(z_cmb, best_fit)),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=theory_mu(best_fit),
+        y_model=theory_mu(best_fit, DM_z(z_cmb, best_fit)),
         label=f"$Ω_m$={Om_50:.3f}",
         x_scale="log",
     )
-
-    z_fs8_smoot = np.linspace(0, np.max(fs8_data["z"]), 200)
-    Fap = (
-        H_z(fs8_data["z"], best_fit) * DM_z(fs8_data["z"], best_fit) / fiducial_scaling
+    plot_fs8_predictions(
+        lambda z: fs8_theory(1 / (1.0 + z), best_fit),
+        data=fs8_data,
+        q=H_z(z_fs8, best_fit) * DM_z(z_fs8, best_fit) / Hz_DMz_fid,
     )
-
-    plt.errorbar(
-        fs8_data["z"],
-        Fap * fs8_data["fs8"],
-        yerr=Fap * fs8_data["fs8_err"],
-        fmt=".",
-        label="data",
-    )
-    plt.plot(z_fs8_smoot, fs8_theory(z_fs8_smoot, best_fit), label="best-fit")
-    plt.xlabel("z")
-    plt.ylabel(r"$f\sigma_8(z)$")
-    plt.legend()
-    plt.show()
 
 
 if __name__ == "__main__":
@@ -393,24 +384,20 @@ v: U(-12, 5) x 100 km/s
 
 """
 Flat ΛCDM
-ΔM: -0.053 +0.012 -0.012 mag
-H0: 68.42 +0.46 -0.47 km/s/Mpc
-ωb: 0.02214 +0.00054 -0.00053
-ωc: 0.1162 +0.0008 -0.0008
-ωm: 0.1390 +0.0011 -0.0011
-Ωm: 0.297 +0.004 -0.004
-σ8: 0.779 +0.014 -0.014
-S8: 0.775 +0.014 -0.014
-z_d: 1059.12 +1.25 -1.24
-r_d: 148.37 +0.69 -0.71 Mpc
-z*: 1089.87 +0.70 -0.68
-r*: 145.60 Mpc
-100 θ*: 1.04096
-q0: -0.554 +0.007 -0.007
+ΔM: -0.055 +0.013 -0.012 mag
+H0: 68.34 +0.47 -0.46 km/s/Mpc
+ωb: 0.02210 +0.00053 -0.00054
+ωc: 0.1164 +0.0008 -0.0008
+ωm: 0.1391 +0.0011 -0.0011
+Ωm: 0.298 +0.004 -0.004
+σ8: 0.798 +0.016 -0.016
+S8: 0.795 +0.017 -0.017
+r_d: 148.37 +0.70 -0.70 Mpc
+q0: -0.553 +0.007 -0.007
 j0: 1
-Chi2 (MAP): 77.45
-Log Evidence: -57.55
-Degrees of freedom: 93
+Chi2 (MAP): 57.26
+Log Evidence: -47.43
+Degrees of freedom: 86
 """
 
 """
@@ -418,75 +405,64 @@ Flat ΛCDM
 Isotropic velocity SNe observed redshifts (turning point z <= 0.2 inflow z > 0.2 outflow)
 z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-v: -313 +104 -105 km/s
-ΔM: -0.052 +0.012 -0.012 mag
-H0: 68.53 +0.46 -0.46 km/s/Mpc
-ωb: 0.02219 +0.00053 -0.00053
-ωc: 0.1160 +0.0008 -0.0008
-ωm: 0.1389 +0.0011 -0.0011
-Ωm: 0.296 +0.004 -0.004
-σ8: 0.780 +0.014 -0.014
-S8: 0.774 +0.014 -0.015
-z_d: 1059.23 +1.23 -1.23
-r_d: 148.36 +0.69 -0.70 Mpc
-z*: 1089.78 +0.69 -0.67
-r*: 145.61 Mpc
-100 θ*: 1.04095
-q0: -0.556 +0.007 -0.007
+v: -312 +104 -105 km/s
+ΔM: -0.054 +0.012 -0.012 mag
+H0: 68.45 +0.46 -0.46 km/s/Mpc
+ωb: 0.02215 +0.00053 -0.00052
+ωc: 0.1162 +0.0008 -0.0008
+ωm: 0.1390 +0.0011 -0.0011
+Ωm: 0.297 +0.004 -0.004
+σ8: 0.798 +0.016 -0.016
+S8: 0.794 +0.017 -0.017
+r_d: 148.37 +0.70 -0.70 Mpc
+q0: -0.555 +0.007 -0.007
 j0: 1
-Chi2 (MAP): 68.50 (3.0 sigma significance)
-Log Evidence: -54.87 (Δ logZ = 2.68 in favour of corrections)
-Degrees of freedom: 92
+Chi2 (MAP): 48.66 (2.93 sigma significance)
+Log Evidence: -44.81 (Δ logZ = 2.62 in favour of v corrections)
+Degrees of freedom: 85
 """
 
 """
 Flat wCDM w(z) = w0
-ΔM: -0.066 +0.014 -0.014 mag
-H0: 67.25 +0.78 -0.75 km/s/Mpc
-ωb: 0.02231 +0.00053 -0.00054
-ωc: 0.1144 +0.0013 -0.0014
-ωm: 0.1373 +0.0014 -0.0015
-Ωm: 0.304 +0.006 -0.006
-σ8: 0.790 +0.015 -0.015
-S8: 0.795 +0.018 -0.018
-w0: -0.939 +0.032 -0.033
-z_d: 1059.37 +1.21 -1.24
-r_d: 148.69 +0.72 -0.72 Mpc
-z*: 1089.47 +0.72 -0.69
-r*: 145.97 Mpc
-100 θ*: 1.04090
-q0: -0.481 +0.039 -0.040
-j0: 0.821 +0.093 -0.084
-Chi2 (MAP): 72.95 (2.1 sigma significance)
-Log Evidence: -57.79 (Δ logZ = -0.24 in favour of ΛCDM)
-Degrees of freedom: 92
+ΔM: -0.069 +0.014 -0.014 mag
+H0: 67.05 +0.78 -0.77 km/s/Mpc
+ωb: 0.02229 +0.00053 -0.00054
+ωc: 0.1143 +0.0013 -0.0014
+ωm: 0.1372 +0.0015 -0.0015
+Ωm: 0.305 +0.006 -0.006
+σ8: 0.810 +0.018 -0.018
+S8: 0.817 +0.021 -0.020
+w0: -0.932 +0.033 -0.033
+r_d: 148.73 +0.73 -0.71 Mpc
+q0: -0.472 +0.039 -0.040
+j0: 0.802
+Chi2 (MAP): 52.72 (2.13 sigma significance)
+Log Evidence: -47.32 (Δ logZ = 0.11 against ΛCDM)
+Degrees of freedom: 85
 """
 
 """
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
-ΔM: -0.065 +0.013 -0.013 mag
-H0: 66.75 +0.80 -0.80 km/s/Mpc
-ωb: 0.02231 +0.00053 -0.00053
+ΔM: -0.068 +0.013 -0.013 mag
+H0: 66.52 +0.83 -0.81 km/s/Mpc
+ωb: 0.02228 +0.00053 -0.00053
 ωc: 0.1151 +0.0010 -0.0010
-ωm: 0.1380 +0.0012 -0.0012
-Ωm: 0.310 +0.007 -0.007
-σ8: 0.791 +0.015 -0.015
-S8: 0.804 +0.019 -0.019
-w0: -0.850 +0.060 -0.061
-wa: -0.416 +0.160 -0.148 [derived wa = -1.5 * (1 - w0^2)]
-z_d: 1059.42 +1.22 -1.23
-r_d: 148.49 +0.69 -0.69 Mpc
-z*: 1089.54 +0.70 -0.67
-r*: 145.78 Mpc
-100 θ*: 1.04092
-q0: -0.380 +0.069 -0.070
-j0: 0.174 +0.304 -0.264
-Chi2 (MAP): 70.96 (2.6 sigma significance)
-Log Evidence: -56.16 (Δ logZ = 1.39 against ΛCDM)
-Degrees of freedom: 92
+ωm: 0.1381 +0.0012 -0.0012
+Ωm: 0.312 +0.007 -0.007
+σ8: 0.811 +0.018 -0.017
+S8: 0.827 +0.022 -0.021
+w0: -0.837 +0.061 -0.062
+wa: [derived wa = -1.5 * (1 - w0^2)]
+r_d: 148.51 +0.70 -0.69 Mpc
+q0: -0.364 +0.069 -0.072
+j0: 0.116 +0.302 -0.258
+Chi2 (MAP): 50.41  (2.62 sigma significance)
+Log Evidence: -45.63 (Δ logZ = 1.80 against ΛCDM)
+Degrees of freedom: 85
 """
 
 """
+TODO: re-run (fs8 compilation updated)
 Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
 ΔM: -0.056 +0.014 -0.014 mag
 H0: 66.69 +0.82 -0.81 km/s/Mpc
