@@ -59,7 +59,7 @@ def DM_z(z, params):
     dh = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(len(z_grid))
     cum_dm[1:] = np.cumsum(dh * dz)
-    return np.interp(z, z_grid, cum_dm)
+    return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
 @njit
@@ -87,9 +87,10 @@ for i in range(N_fs8):
     zi = z_fs8[i]
     Om_fid = fs8.data["omega_fid"][i]
     s8_fid = fs8.data["s8_fid"][i]
+    H0_fid = fs8.data["H0_fid"][i]
     w0_fid = -1.0
-    params = [67.5, Om_fid, s8_fid, 1.0, 1.0, 147.0, w0_fid]
-    Hz_DMz_fid[i] = H_z(zi, params) * DM_z(zi, params)
+    params = [H0_fid, Om_fid, s8_fid, 1.0, 1.0, 147.0, w0_fid]
+    Hz_DMz_fid[i] = H_z(zi, params) * DM_z(np.array([zi]), params)[0]
 
 
 @njit
@@ -136,6 +137,12 @@ def chi2_fs8(params):
     return params[4] ** 2 * delta @ inv_cov_fs8 @ delta
 
 
+@njit
+def chi2_cc(params):
+    delta = H_values - H_z(z_cc, params)
+    return params[3] ** 2 * delta @ inv_cov_cc @ delta
+
+
 qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
 desi_qty = np.array([qty_map[q] for q in data["quantity"]], dtype=np.int32)
 
@@ -156,12 +163,6 @@ def bao_theory(z, qty, params):
 def chi2_bao(params):
     delta = data["value"] - bao_theory(data["z"], desi_qty, params)
     return delta @ inv_cov_bao @ delta
-
-
-@njit
-def chi2_cc(params):
-    delta = H_values - H_z(z_cc, params)
-    return params[3] ** 2 * delta @ inv_cov_cc @ delta
 
 
 def chi_squared(params):
@@ -289,29 +290,29 @@ if __name__ == "__main__":
 """
 Flat ΛCDM: w(z) = -1
 
-H0: 68.7 +2.3 -2.3 km/s/Mpc
-Ωm: 0.303 +0.008 -0.008 (1.17 sigma tension with Planck)
-σ8: 0.787 +0.009 -0.009 (2.16 sigma tension with Planck)
-S8: 0.792 +0.011 -0.011 (2.16 sigma tension with Planck)
+H0: 68.8 +2.3 -2.3 km/s/Mpc
+Ωm: 0.302 +0.008 -0.008 (1.26 sigma tension with Planck)
+σ8: 0.794 +0.009 -0.009 (1.55 sigma tension with Planck)
+S8: 0.797 +0.011 -0.011 (1.93 sigma tension with Planck)
 f_cc: 1.48 +0.18 -0.17 (error overestimation factor in CCH data)
-f_fs8: 1.84 +0.18 -0.17 (error overestimation factor in FS8 data)
-rd: 147.2 +5.0 -4.6 Mpc
-Chi squared: 100.99
-Log likelihood: -39.90
-Log evidence: -57.7
+f_fs8: 1.85 +0.18 -0.17 (error overestimation factor in FS8 data)
+rd: 147.2 +4.9 -4.6 Mpc
+Chi squared: 101.01
+Log likelihood: -40.83
+Log evidence: -58.6
 Degs of freedom: 99
 
 ---
 
 without overestimation factors f_cc and f_fs8:
 
-H0: 68.8 +3.3 -3.3 km/s/Mpc
-Ωm: 0.300 +0.008 -0.008
-σ8: 0.789 +0.016 -0.016
-S8: 0.788 +0.018 -0.017
-rd: 147.3 +7.4 -6.6 Mpc
-Chi squared: 42.91
-Log likelihood: -59.04
+H0: 68.8 +3.3 -3.4 km/s/Mpc
+Ωm: 0.299 +0.008 -0.008
+σ8: 0.795 +0.017 -0.017
+S8: 0.794 +0.018 -0.018
+rd: 147.3 +7.4 -6.8 Mpc
+Chi squared: 42.60
+Log likelihood: -60.27
 Degs of freedom: 101
 """
 
@@ -319,61 +320,61 @@ Degs of freedom: 101
 Flat wCDM: w(z) = w0
 
 H0: 66.6 +2.4 -2.4 km/s/Mpc
-Ωm: 0.300 +0.009 -0.009
-σ8: 0.826 +0.022 -0.020
-S8: 0.826 +0.018 -0.018
+Ωm: 0.298 +0.009 -0.008
+σ8: 0.834 +0.022 -0.020
+S8: 0.831 +0.018 -0.018
 f_cc: 1.48 +0.18 -0.17
-f_fs8: 1.92 +0.18 -0.18
+f_fs8: 1.94 +0.19 -0.18
 rd: 147.6 +5.0 -4.6 Mpc
-w0: -0.849 +0.060 -0.062 (prior -1.4 to -0.4)
-Chi squared: 100.07
-Log likelihood: -37.04 (2.39 sigma significance)
-Log evidence: -56.7 (Δ logZ = 1.0 against ΛCDM)
+w0: -0.847 +0.060 -0.061 (prior -1.4 to -0.4)
+Chi squared: 100.10
+Log likelihood: -37.89 (2.24 sigma significance)
+Log evidence: -57.5 (Δ logZ = 1.1 against ΛCDM)
 Degs of freedom: 98
 
 ---
 
 without overestimation factors f_cc and f_fs8:
 
-H0: 67.2 +3.4 -3.3 km/s/Mpc
+H0: 67.2 +3.4 -3.4 km/s/Mpc
 Ωm: 0.298 +0.009 -0.009
-σ8: 0.816 +0.027 -0.024
-S8: 0.814 +0.025 -0.025
+σ8: 0.823 +0.027 -0.025
+S8: 0.820 +0.025 -0.025
 rd: 147.6 +7.3 -6.7 Mpc
-w0: -0.889 +0.071 -0.072 (prior -1.4 to -0.4)
-Chi squared: 40.65
-Log likelihood: -57.92 (1.50 sigma significance)
+w0: -0.889 +0.069 -0.074 (prior -1.4 to -0.4)
+Chi squared: 40.25
+Log likelihood: -59.10 (1.52 sigma significance)
 Degs of freedom: 100
 """
 
 """
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
 
-H0: 65.6 +2.4 -2.4 km/s/Mpc
-Ωm: 0.319 +0.010 -0.009
-σ8: 0.818 +0.015 -0.015
-S8: 0.843 +0.022 -0.022
+H0: 65.7 +2.4 -2.4 km/s/Mpc
+Ωm: 0.317 +0.009 -0.009
+σ8: 0.825 +0.015 -0.015
+S8: 0.848 +0.022 -0.022
 f_cc: 1.47 +0.18 -0.17
-f_fs8: 1.93 +0.19 -0.18
-rd: 147.5 +5.0 -4.6 Mpc
-w0: -0.703 +0.095 -0.102 (prior -1.0 to 0.0)
-Chi squared: 98.59
-Log likelihood: -36.19 (2.72 sigma significance)
-Log evidence: -55.4 (Δ logZ = 2.23 against ΛCDM)
+f_fs8: 1.95 +0.19 -0.18
+rd: 147.5 +5.0 -4.7 Mpc
+w0: -0.704 +0.093 -0.102 (prior -1.0 to 0.0)
+Chi squared: 98.34
+Log likelihood: -37.08 (2.74 sigma significance)
+Log evidence: -56.2 (Δ logZ = 2.4 against ΛCDM)
 Degs of freedom: 98
 
 ---
 
 without overestimation factors f_cc and f_fs8:
 
-H0: 66.0 +3.4 -3.4 km/s/Mpc
-Ωm: 0.315 +0.011 -0.011
-σ8: 0.814 +0.022 -0.021
-S8: 0.834 +0.030 -0.029
-rd: 147.6 +7.4 -6.7 Mpc
-w0: -0.744 +0.118 -0.124 (prior -1.0 to 0.0)
-Chi squared: 39.55
-Log likelihood: -57.36 (1.83 sigma significance)
+H0: 66.0 +3.5 -3.4 km/s/Mpc
+Ωm: 0.314 +0.011 -0.011
+σ8: 0.821 +0.022 -0.021
+S8: 0.840 +0.030 -0.029
+rd: 147.6 +7.2 -6.7 Mpc
+w0: -0.744 +0.116 -0.124 (prior -1.0 to 0.0)
+Chi squared: 39.20
+Log likelihood: -58.58 (1.84 sigma significance)
 Degs of freedom: 100
 """
 
