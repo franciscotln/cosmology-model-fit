@@ -9,25 +9,20 @@ Omnu_z = cmb.Omnu_z
 
 
 @njit
-def Ez(z, H0, Obh2, Och2):
+def Hz(z, params):
+    H0, Obh2, Och2 = params
     h = H0 / 100
     Onu = Omnu_h2 / h**2
     Or = Or_h2 / h**2
     Obc = (Obh2 + Och2) / h**2
     Ode = 1.0 - Obc - Or - Onu
 
-    radiation_term = Or * (1.0 + z) ** 4
-    matter_term = Obc * (1.0 + z) ** 3
-    dark_energy_term = Ode
-    neutrino_term = Onu * Omnu_z(z)
+    radiation = Or * (1.0 + z) ** 4
+    cd_matter = Obc * (1.0 + z) ** 3
+    dark_energy = Ode
+    neutrino = Onu * Omnu_z(z)
 
-    return np.sqrt(radiation_term + matter_term + neutrino_term + dark_energy_term)
-
-
-@njit
-def Hz(z, params):
-    H0, Obh2, Och2 = params
-    return H0 * Ez(z, H0, Obh2, Och2)
+    return H0 * np.sqrt(radiation + cd_matter + neutrino + dark_energy)
 
 
 cmb.set_HZ(Hz)
