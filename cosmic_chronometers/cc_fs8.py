@@ -228,48 +228,48 @@ if __name__ == "__main__":
 """
 Flat ΛCDM
 
-H0: 67.5 +2.5 -2.4 km/s/Mpc
-Ωm: 0.322 +0.018 -0.018
-σ8: 0.782 +0.010 -0.010
-S8: 0.810 +0.019 -0.019
+H0: 67.2 +2.5 -2.4 km/s/Mpc
+Ωm: 0.326 +0.018 -0.018
+σ8: 0.780 +0.010 -0.010
+S8: 0.813 +0.019 -0.018
 f_cc: 1.49 +0.18 -0.17
-f_fs8: 1.80 +0.17 -0.17
-Chi squared: 90.58
-Log likelihood: 2.56
-Log evidence: -10.4
-Degs of freedom: 88
+f_fs8: 1.85 +0.18 -0.17
+Chi squared: 89.56
+Log likelihood: 3.89
+Log evidence: -9.1
+Degs of freedom: 86
 """
 
 """
 Flat wCDM: w(z) = w0
 
-H0: 64.3 +2.7 -2.7 km/s/Mpc
-Ωm: 0.291 +0.023 -0.025
-σ8: 0.876 +0.059 -0.046
-S8: 0.865 +0.031 -0.029
-f_cc: 1.46 +0.18 -0.17
-f_fs8: 1.91 +0.19 -0.18
-w0: -0.705 +0.106 -0.112 (prior -1.6 to 0.0)
-Chi squared: 89.52
-Log likelihood: 5.75
-Log evidence: -9.0
-Degs of freedom: 87
+H0: 64.5 +2.7 -2.7 km/s/Mpc
+Ωm: 0.300 +0.023 -0.024
+σ8: 0.857 +0.054 -0.042
+S8: 0.860 +0.030 -0.029
+f_cc: 1.47 +0.18 -0.17
+f_fs8: 1.93 +0.19 -0.18
+w0: -0.742 +0.111 -0.115 (prior -1.6 to 0.0)
+Chi squared: 88.51
+Log likelihood: 6.25
+Log evidence: -8.4
+Degs of freedom: 86
 """
 
 """
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
 
-H0: 64.6 +2.7 -2.6 km/s/Mpc
-Ωm: 0.325 +0.018 -0.017
-σ8: 0.826 +0.026 -0.023
-S8: 0.861 +0.029 -0.029
+H0: 64.8 +2.6 -2.6 km/s/Mpc
+Ωm: 0.329 +0.018 -0.017
+σ8: 0.818 +0.025 -0.022
+S8: 0.857 +0.028 -0.027
 f_cc: 1.46 +0.18 -0.17
-f_fs8: 1.89 +0.19 -0.18
-w0: -0.633 +0.135 -0.149 (prior -1.0 to 0.0)
-Chi squared: 89.74
-Log likelihood: 5.15
-Log evidence: -8.9
-Degs of freedom: 87
+f_fs8: 1.92 +0.19 -0.18
+w0: -0.674 +0.137 -0.152 (prior -1.0 to 0.0)
+Chi squared: 88.76
+Log likelihood: 5.85
+Log evidence: -8.2
+Degs of freedom: 86
 """
 
 """
