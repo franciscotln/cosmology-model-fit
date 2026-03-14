@@ -43,10 +43,10 @@ def Ez(z, Om, w0):
 
 
 @njit
-def dE_da(z, Om, w0):
+def dE_da(z, E_val, Om, w0):
     a = 1 / (1.0 + z)
     numerator = 3 * Om * (1.0 + z) ** 2 + (1.0 - Om) * d_Ode_dz(z, w0)
-    denominator = 2 * a**2 * Ez(z, Om, w0)
+    denominator = 2 * a**2 * E_val
     return -numerator / denominator
 
 
@@ -63,7 +63,7 @@ def DM(z, Om, w0):
 def growth_ODE(a, integr, Om, w0):
     z = 1 / a - 1.0
     E_val = Ez(z, Om, w0)
-    dE_da_val = dE_da(z, Om, w0)
+    dE_da_val = dE_da(z, E_val, Om, w0)
 
     delta, d_delta_da = integr
 
@@ -115,7 +115,7 @@ def chi_squared(theta):
     Om, sig8, w0, f_err = theta
     q = AP_factor(z_vals, Om, w0)
     delta = fs8_vals - fs8_theory(a_vals, Om, sig8, w0) / q
-    return delta @ (inv_cov_mat * f_err**2) @ delta
+    return f_err**2 * delta @ inv_cov_mat @ delta
 
 
 def log_likelihood(theta):
@@ -232,22 +232,22 @@ if __name__ == "__main__":
 flat ΛCDM
 
 without f_err:
-Ωm = 0.327 +0.038 -0.035
-σ8 = 0.780 +0.019 -0.019
-S8 = 0.813 +0.037 -0.036
-chi2 = 15.93
+Ωm = 0.316 +0.037 -0.034
+σ8 = 0.789 +0.021 -0.020
+S8 = 0.810 +0.037 -0.035
+chi2 = 15.98
 log likelihood = -8.0
 degs of freedom = 54
 
 ---
 
 with f_err:
-Ωm = 0.326 +0.020 -0.019
-σ8 = 0.780 +0.010 -0.010
-S8 = 0.812 +0.020 -0.020
-f_err = 1.85 +0.18 -0.17
-chi2 = 56.18
-log likelihood = 7.2
+Ωm = 0.315 +0.020 -0.019
+σ8 = 0.790 +0.011 -0.011
+S8 = 0.808 +0.020 -0.019
+f_err = 1.84 +0.18 -0.17
+chi2 = 56.27
+log likelihood = 7.1
 degs of freedom = 53
 """
 
@@ -255,25 +255,25 @@ degs of freedom = 53
 flat wCDM
 
 without f_err:
-Ωm = 0.304 +0.043 -0.037
-σ8 = 0.851 +0.082 -0.068
-S8 = 0.860 +0.052 -0.053
-w0 = -0.751 +0.164 -0.215 (prior: U(-1.4, 0.0))
-chi2 = 14.37
-log likelihood = -7.2
+Ωm = 0.295 +0.040 -0.035
+σ8 = 0.864 +0.078 -0.067
+S8 = 0.860 +0.051 -0.052
+w0 = -0.746 +0.153 -0.203 (prior: U(-1.4, 0.0))
+f_err = 1.68 +1.03 -1.01
+chi2 = 14.13
+log likelihood = -7.1
 degs of freedom = 53
 
 ---
 
 with f_err:
-
-Ωm = 0.296 +0.024 -0.024
-σ8 = 0.870 +0.056 -0.046
-S8 = 0.867 +0.031 -0.030
-w0 = -0.708 +0.106 -0.118 (prior: U(-1.4, 0.0))
-f_err = 1.93 +0.19 -0.18
-chi2 = 55.70
-log likelihood = 10.1
+Ωm = 0.287 +0.022 -0.022
+σ8 = 0.886 +0.053 -0.045
+S8 = 0.868 +0.030 -0.030
+w0 = -0.702 +0.098 -0.109 (prior: U(-1.4, 0.0))
+f_err = 1.95 +0.19 -0.18
+chi2 = 55.72
+log likelihood = 10.6
 degs of freedom = 52
 """
 
@@ -281,23 +281,23 @@ degs of freedom = 52
 flat wzCDM
 
 without f_err:
-Ωm = 0.328 +0.037 -0.035
-σ8 = 0.828 +0.048 -0.037
+Ωm = 0.320 +0.036 -0.033
+σ8 = 0.839 +0.049 -0.038
 S8 = 0.869 +0.052 -0.048
-w0 = -0.607 +0.225 -0.232 (prior: U(-1.0, 0.0))
-chi2 = 14.55
-log likelihood = -7.3
+w0 = -0.605 +0.227 -0.227 (prior: U(-1.0, 0.0))
+chi2 = 14.28
+log likelihood = -7.1
 degs of freedom = 53
 
 ---
 
 with f_err:
-Ωm = 0.327 +0.019 -0.018
-σ8 = 0.826 +0.027 -0.024
-S8 = 0.863 +0.029 -0.029
-w0 = -0.622 +0.137 -0.155 (prior: U(-1.0, 0.0))
-f_err = 1.92 +0.19 -0.18
-chi2 = 56.19
-log likelihood = 9.7
+Ωm = 0.318 +0.018 -0.018
+σ8 = 0.839 +0.026 -0.024
+S8 = 0.864 +0.030 -0.028
+w0 = -0.605 +0.129 -0.145 (prior: U(-1.0, 0.0))
+f_err = 1.93 +0.19 -0.18
+chi2 = 55.32
+log likelihood = 10.2
 degs of freedom = 52
 """
