@@ -228,47 +228,47 @@ if __name__ == "__main__":
 """
 Flat ΛCDM
 
-H0: 67.2 +2.5 -2.4 km/s/Mpc
-Ωm: 0.326 +0.018 -0.018
-σ8: 0.780 +0.010 -0.010
-S8: 0.813 +0.019 -0.018
-f_cc: 1.49 +0.18 -0.17
+H0: 67.8 +2.5 -2.5 km/s/Mpc (0.2 sigma from Planck)
+Ωm: 0.317 +0.018 -0.017 (identical to Planck)
+σ8: 0.789 +0.011 -0.011 (1.7 sigma from Planck)
+S8: 0.810 +0.018 -0.018 (1.0 sigma from Planck)
+f_cc: 1.48 +0.18 -0.17
 f_fs8: 1.85 +0.18 -0.17
-Chi squared: 89.56
-Log likelihood: 3.89
-Log evidence: -9.1
-Degs of freedom: 86
+Chi squared: 89.52
+Log likelihood: 3.76
+Log evidence: -9.2
+Degs of freedom: 87
 """
 
 """
 Flat wCDM: w(z) = w0
 
-H0: 64.5 +2.7 -2.7 km/s/Mpc
-Ωm: 0.300 +0.023 -0.024
-σ8: 0.857 +0.054 -0.042
-S8: 0.860 +0.030 -0.029
+H0: 64.7 +2.7 -2.7 km/s/Mpc
+Ωm: 0.290 +0.022 -0.023
+σ8: 0.874 +0.055 -0.042
+S8: 0.862 +0.030 -0.028
 f_cc: 1.47 +0.18 -0.17
-f_fs8: 1.93 +0.19 -0.18
-w0: -0.742 +0.111 -0.115 (prior -1.6 to 0.0)
-Chi squared: 88.51
-Log likelihood: 6.25
-Log evidence: -8.4
+f_fs8: 1.95 +0.19 -0.18
+w0: -0.727 +0.104 -0.109 (prior -1.6 to 0.0)
+Chi squared: 88.75
+Log likelihood: 6.69 (2.42 sigma significance)
+Log evidence: -8.0 (Δ logZ = 1.2 against ΛCDM)
 Degs of freedom: 86
 """
 
 """
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
 
-H0: 64.8 +2.6 -2.6 km/s/Mpc
-Ωm: 0.329 +0.018 -0.017
-σ8: 0.818 +0.025 -0.022
-S8: 0.857 +0.028 -0.027
+H0: 65.1 +2.7 -2.6 km/s/Mpc
+Ωm: 0.320 +0.017 -0.017
+σ8: 0.831 +0.024 -0.022
+S8: 0.859 +0.028 -0.027
 f_cc: 1.46 +0.18 -0.17
-f_fs8: 1.92 +0.19 -0.18
-w0: -0.674 +0.137 -0.152 (prior -1.0 to 0.0)
-Chi squared: 88.76
-Log likelihood: 5.85
-Log evidence: -8.2
+f_fs8: 1.93 +0.19 -0.18
+w0: -0.653 +0.130 -0.143 (prior -1.0 to 0.0)
+Chi squared: 88.78
+Log likelihood: 6.24 (2.2 sigma significance)
+Log evidence: -7.8 (Δ logZ = 1.4 against ΛCDM)
 Degs of freedom: 86
 """
 
