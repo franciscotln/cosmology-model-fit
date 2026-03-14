@@ -56,27 +56,31 @@ def plot_predictions(fs8_theory, data, q, f_err=1.0):
     plt.legend()
     plt.show()
 
-    norm_residuals = residuals / scaled_err
+    median_residuals = np.median(residuals)
+    mad = np.median(np.abs(residuals - median_residuals))
+    modified_z_scores = 0.6745 * (residuals - median_residuals) / mad
     plt.scatter(
         data["z"][PLANCK_MASK],
-        norm_residuals[PLANCK_MASK],
-        label="Planck-based normalised residuals",
+        modified_z_scores[PLANCK_MASK],
+        label="Planck-based",
         c="C0",
         s=10,
     )
     plt.scatter(
         data["z"][~PLANCK_MASK],
-        norm_residuals[~PLANCK_MASK],
-        label="WMAP-based normalised residuals",
+        modified_z_scores[~PLANCK_MASK],
+        label="WMAP-based",
         c="C1",
         s=10,
     )
-    plt.axhline(2, color="red", ls="--", alpha=0.3)
-    plt.axhline(1, color="green", ls="--", alpha=0.3)
-    plt.axhline(-1, color="green", ls="--", alpha=0.3)
-    plt.axhline(-2, color="red", ls="--", alpha=0.3)
+    plt.axhline(3.0, color="red", ls="--", alpha=0.3)
+    plt.axhline(2.5, color="orange", ls="--", alpha=0.3)
+    plt.axhline(2.0, color="green", ls="--", alpha=0.3)
+    plt.axhline(-2.0, color="green", ls="--", alpha=0.3)
+    plt.axhline(-2.5, color="orange", ls="--", alpha=0.3)
+    plt.axhline(-3.0, color="red", ls="--", alpha=0.3)
     plt.axhline(0, color="k", ls="--", alpha=0.5)
     plt.xlabel("z")
-    plt.ylabel("normalised residuals (Z-scores)")
+    plt.ylabel("modified z-scores")
     plt.legend()
     plt.show()

@@ -36,7 +36,7 @@ data = np.loadtxt(
     ],
 )
 
-outliers_idx = [3, 5, 33, 36, 54]
+outliers_idx = [3, 5, 24, 33, 36, 54]
 data = np.delete(data, outliers_idx)
 
 missing_H0_fid = data["H0_fid"] == 0
