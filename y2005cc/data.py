@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+from interpolator import interp_pchip
 
 data = pd.read_csv("y2005cc/raw-data/data.csv")
 cov_components = pd.read_csv("y2005cc/raw-data/cov_components.csv")
@@ -9,10 +10,10 @@ Hz = data["H"].to_numpy(dtype=np.float64)
 sigma_H = data["sigma_H"].to_numpy(dtype=np.float64)
 
 zmod = cov_components["z"].to_numpy(dtype=np.float64)
-imf_intp = np.interp(z, zmod, cov_components["imf"]) / 100
-slib_intp = np.interp(z, zmod, cov_components["stlib"]) / 100
-sps_intp = np.interp(z, zmod, cov_components["sps"]) / 100
-spsooo_intp = np.interp(z, zmod, cov_components["spsooo"]) / 100
+imf_intp = interp_pchip(z, zmod, cov_components["imf"].to_numpy()) / 100
+slib_intp = interp_pchip(z, zmod, cov_components["stlib"].to_numpy()) / 100
+sps_intp = interp_pchip(z, zmod, cov_components["sps"].to_numpy()) / 100
+spsooo_intp = interp_pchip(z, zmod, cov_components["spsooo"].to_numpy()) / 100
 
 N = len(z)
 cov_mat_diag = np.zeros((N, N), dtype="float64")
