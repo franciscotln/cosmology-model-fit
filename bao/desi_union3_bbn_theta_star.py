@@ -1,5 +1,6 @@
 from numba import njit
 import numpy as np
+from scipy.linalg import block_diag
 import cmb.data_planck_act_compression as cmb
 from interpolator import interp_hermite
 import y2024BBN.prior_lcdm_schoneberg as bbn
@@ -12,14 +13,16 @@ Orh2 = cmb.Or_h2
 Omnuh2 = cmb.Omnu_h2
 
 sn_legend, z_cmb, z_hel, mu_values, cov_matrix_sn = get_sn_data()
-bao_legend, bao_data, cov_matrix_bao = get_bao_data()
-bao_des_legend, bao_des_data, cov_matrix_bao_des = get_bao_des_data()
+bao_desi_legend, bao_desi_data, cov_mat_bao_desi = get_bao_data()
+bao_des_legend, bao_des_data, cov_mat_bao_des = get_bao_des_data()
+
+bao = np.concatenate((bao_desi_data, bao_des_data))
+cov_mat_bao = block_diag(cov_mat_bao_desi, cov_mat_bao_des)
 
 inv_cov_sn = np.linalg.inv(cov_matrix_sn)
-inv_cov_bao = np.linalg.inv(cov_matrix_bao)
-inv_cov_bao_des = np.linalg.inv(cov_matrix_bao_des)
+inv_cov_bao = np.linalg.inv(cov_mat_bao)
 
-z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
+z_max = max(np.max(z_cmb), np.max(bao["z"])) + 0.1
 z_grid = np.linspace(0, z_max, num=4000)
 dz = np.diff(z_grid)
 
@@ -79,8 +82,7 @@ def DV_z(z, theta):
 
 
 qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
-qty_desi = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int64)
-qty_des = np.array([qty_map[q] for q in bao_des_data["quantity"]], dtype=np.int64)
+bao_qty = np.array([qty_map[q] for q in bao["quantity"]], dtype=np.int64)
 
 
 @njit
@@ -120,13 +122,8 @@ def chi2_sn(theta):
 
 @njit
 def chi2_bao(theta):
-    delta_bao_des = bao_des_data["value"] - bao_theory(
-        bao_des_data["z"], qty_des, theta
-    )
-    chi2_bao_des = delta_bao_des @ inv_cov_bao_des @ delta_bao_des
-    delta_bao = bao_data["value"] - bao_theory(bao_data["z"], qty_desi, theta)
-    chi2_bao = delta_bao @ inv_cov_bao @ delta_bao
-    return chi2_bao + chi2_bao_des
+    delta_bao = bao["value"] - bao_theory(bao["z"], bao_qty, theta)
+    return delta_bao @ inv_cov_bao @ delta_bao
 
 
 @njit
@@ -199,9 +196,7 @@ def main():
     j0_16, j0_50, j0_84 = quantile(j0_samples, one_sigma_ci, weights=w)
 
     best_fit = [dM_50, H0_50, Obh2_50, Och2_50, v100_50]
-    degrees_of_freedom = (
-        1 + len(bao_des_data) + len(bao_data) + len(z_cmb) - len(best_fit)
-    )
+    degrees_of_freedom = 1 + len(bao) + len(z_cmb) - len(best_fit)
 
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
@@ -238,15 +233,9 @@ def main():
 
     plot_bao_predictions(
         theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
-        data=bao_data,
-        errors=np.sqrt(np.diag(cov_matrix_bao)),
-        title=bao_legend,
-    )
-    plot_bao_predictions(
-        theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
-        data=bao_des_data,
-        errors=np.sqrt(np.diag(cov_matrix_bao_des)),
-        title=bao_des_legend,
+        data=bao,
+        errors=np.sqrt(np.diag(cov_mat_bao)),
+        title=f"{bao_desi_legend} + {bao_des_legend}",
     )
     plot_sn_predictions(
         legend=sn_legend,
@@ -314,12 +303,12 @@ z_cosmo = -1 + (1 + z) / (1 + v/c)
 
 v: -314 +104 -105 km/s
 ΔM: -0.053 +0.012 -0.012 mag
-H0: 68.51 +0.46 -0.46 km/s/Mpc
-ωb: 0.02217 +0.00053 -0.00053
+H0: 68.51 +0.47 -0.47 km/s/Mpc
+ωb: 0.02218 +0.00053 -0.00053
 ωc: 0.1161 +0.0008 -0.0008
 ωm: 0.1389 +0.0011 -0.0011
 Ωm: 0.296 +0.004 -0.004
-r_d: 148.38 +0.70 -0.70 Mpc
+r_d: 148.38 +0.70 -0.69 Mpc
 q0: -0.556 +0.007 -0.007
 j0: 1
 Chi2 (MAP): 32.95 (2.96 sigma significance)
