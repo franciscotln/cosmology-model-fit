@@ -4,13 +4,12 @@ Planck PR3, 2019 plikHM TT, TE, EE + lowl + lowE
 
 from numba import njit
 import numpy as np
-from scipy.integrate import quad
 from scipy.constants import c as c0
 import nu_evolution as neutrino
 
 c = c0 / 1000  # km/s
 
-DISTANCE_PRIORS = np.array([1.75063846, 301.760701, 0.0223597502], dtype=np.float64)
+DISTANCE_PRIORS = np.array([1.75063846, 301.760701, 0.0223597502])
 """Compressed Planck priors: (R, lA = π / θ*, ωb)"""
 
 covariance = np.array(
@@ -18,8 +17,7 @@ covariance = np.array(
         [2.09107356e-05, 1.78419597e-04, -4.46283183e-07],
         [1.78419597e-04, 7.81249750e-03, -4.24834772e-06],
         [-4.46283183e-07, -4.24834772e-06, 2.21402189e-08],
-    ],
-    dtype=np.float64,
+    ]
 )
 inv_cov_mat = np.linalg.inv(covariance)
 

@@ -5,13 +5,12 @@ arXiv:2302.12911
 
 from numba import njit
 import numpy as np
-from scipy.integrate import quad
 from scipy.constants import c as c0
 import nu_evolution as neutrino
 
 c = c0 / 1000  # km/s
 
-DISTANCE_PRIORS = np.array([0.010410274, 0.02223, 0.14208], dtype=np.float64)
+DISTANCE_PRIORS = np.array([0.010410274, 0.02223, 0.14208])
 """Compressed early-LCDM priors: (θ*, ωb, ωm)"""
 
 covariance = 1e-9 * np.array(
@@ -19,8 +18,7 @@ covariance = 1e-9 * np.array(
         [0.00662099420, 0.124442058, -1.19287532],
         [0.124442058, 21.3441666, -94.0008323],
         [-1.19287532, -94.0008323, 1488.41714],
-    ],
-    dtype=np.float64,
+    ]
 )
 inv_cov_mat = np.linalg.inv(covariance)
 

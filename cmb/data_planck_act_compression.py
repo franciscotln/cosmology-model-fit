@@ -7,13 +7,12 @@ https://lambda.gsfc.nasa.gov/product/act/act_dr6.02/act_dr6.02_chains_prod_table
 
 from numba import njit
 import numpy as np
-from scipy.integrate import quad
 from scipy.constants import c as c0
 import nu_evolution as neutrino
 
 c = c0 / 1000  # km/s
 
-DISTANCE_PRIORS = np.array([1.74795802, 301.803306, 0.0224962530], dtype=np.float64)
+DISTANCE_PRIORS = np.array([1.74795802, 301.803306, 0.0224962530])
 """Compressed Planck + ACT DR6 priors: (R, lA = π / θ*, ωb)"""
 
 covariance = np.array(
@@ -21,8 +20,7 @@ covariance = np.array(
         [1.54911112e-05, 1.03997132e-04, -2.10953275e-07],
         [1.03997132e-04, 5.43880523e-03, -1.53612827e-06],
         [-2.10953275e-07, -1.53612827e-06, 1.23574770e-08],
-    ],
-    dtype=np.float64,
+    ]
 )
 inv_cov_mat = np.linalg.inv(covariance)
 
