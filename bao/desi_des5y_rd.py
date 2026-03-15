@@ -2,7 +2,7 @@ from numba import njit
 import numpy as np
 from scipy.linalg import cho_factor, solve_triangular
 from interpolator import interp_hermite
-import cmb.data_planck_act_compression as cmb
+from cmb.data_planck_act_compression import c, r_drag
 from y2025DESdovekie.data import get_data, effective_sample_size as sn_size
 from y2025BAO.data import get_data as get_bao_data
 
@@ -11,8 +11,6 @@ bao_legend, bao_data, cov_matrix_bao = get_bao_data()
 
 cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
 cho_bao = cho_factor(cov_matrix_bao, lower=True)[0]
-
-c = cmb.c  # Speed of light in km/s
 
 z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
 z_grid = np.linspace(0, z_max, num=4000)
@@ -60,7 +58,7 @@ desi_qty = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int64)
 
 @njit
 def bao_theory(z, qty, params):
-    rd = cmb.r_drag(wb=params[1], wm=params[3] * (params[2] / 100) ** 2)
+    rd = r_drag(wb=params[1], wm=params[3] * (params[2] / 100) ** 2)
     DV_mask = qty == 0
     DM_mask = qty == 1
     DH_mask = qty == 2
@@ -96,7 +94,7 @@ rd_prior_std = 0.29
 
 def chi_squared(params):
     Omh2 = params[3] * (params[2] / 100) ** 2
-    delta_rd_prior = rd_prior - cmb.r_drag(params[1], Omh2)
+    delta_rd_prior = rd_prior - r_drag(params[1], Omh2)
     chi2_prior = (delta_rd_prior / rd_prior_std) ** 2
 
     DM = DM_z(z_cmb, params)
@@ -189,7 +187,7 @@ def main():
 
     best_fit = np.percentile(samples, 50, axis=0)
     Omh2_samples = samples[:, 3] * (samples[:, 2] / 100) ** 2
-    rd_samples = cmb.r_drag(samples[:, 1], Omh2_samples)
+    rd_samples = r_drag(samples[:, 1], Omh2_samples)
     Omh2_16, Omh2_50, Omh2_84 = np.percentile(Omh2_samples, [15.9, 50, 84.1])
     rd_16, rd_50, rd_84 = np.percentile(rd_samples, [15.9, 50, 84.1])
 
