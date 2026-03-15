@@ -65,18 +65,17 @@ def DH_z(z, params):
 
 
 @njit
-def DM_z(z, params):
+def DM_grid(params):
     dh_grid = DH_z(z_grid, params)
     dh = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size, dtype=np.float64)
-    cum_dm[1:] = np.cumsum(dz * dh)
-    return interp_hermite(z, z_grid, cum_dm, dh_grid)
+    cum_dm[1:] = np.cumsum(dh * dz)
+    return (cum_dm, dh_grid)
 
 
 @njit
-def DV_z(z, params):
+def DV_z(z, DM, params):
     DH = DH_z(z, params)
-    DM = DM_z(z, params)
     return (z * DH * DM**2) ** (1 / 3)
 
 
@@ -87,7 +86,7 @@ qty_6dF = np.array([qty_map[q] for q in sixdF_bao_data["quantity"]], dtype=np.in
 
 
 @njit
-def bao_theory(z, qty, params):
+def bao_theory(z, qty, params, DM):
     Obh2, Och2 = params[2], params[3]
     Omh2 = Obh2 + Och2 + Omnuh2
     rd = cmb.r_drag(Obh2, Omh2)
@@ -96,18 +95,41 @@ def bao_theory(z, qty, params):
     DV_mask = qty == 0
     DM_mask = qty == 1
     DH_mask = qty == 2
+    results[DM_mask] = DM[DM_mask]
     results[DH_mask] = DH_z(z[DH_mask], params)
-    results[DM_mask] = DM_z(z[DM_mask], params)
-    results[DV_mask] = DV_z(z[DV_mask], params)
+    results[DV_mask] = DV_z(z[DV_mask], DM[DV_mask], params)
     return results / rd
 
 
 @njit
-def mu_corr(params, DM_obs):
+def chi2_bao(params, DM_interp):
+    DM_desi = interp_hermite(bao_data["z"], z_grid, *DM_interp)
+    DM_des = interp_hermite(des_bao_data["z"], z_grid, *DM_interp)
+    DM_6dF = interp_hermite(sixdF_bao_data["z"], z_grid, *DM_interp)
+
+    delta_bao_des = des_bao_data["value"] - bao_theory(
+        des_bao_data["z"], qty_des, params, DM_des
+    )
+    chi2_des_bao = delta_bao_des @ inv_cov_des_bao @ delta_bao_des
+    delta_bao = bao_data["value"] - bao_theory(bao_data["z"], qty_desi, params, DM_desi)
+    chi2_desi_bao = delta_bao @ inv_cov_bao @ delta_bao
+
+    delta_bao_6dF = sixdF_bao_data["value"] - bao_theory(
+        sixdF_bao_data["z"], qty_6dF, params, DM_6dF
+    )
+    chi2_6dF_bao = delta_bao_6dF @ inv_cov_6dF_bao @ delta_bao_6dF
+    return chi2_desi_bao + chi2_des_bao + chi2_6dF_bao
+
+
+@njit
+def mu_corr(params, DM_interp):
     # Heaviside step at z = 0.2
     v_km_s = 100 * params[4] * np.where(z_cmb <= 0.2, 1.0, -1.0)
     z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + v_km_s / c)
-    return 5.0 * np.log10(DM_z(z_cosmo, params) / DM_obs)
+
+    DM_obs = interp_hermite(z_cmb, z_grid, *DM_interp)
+    DM_cosmo = interp_hermite(z_cosmo, z_grid, *DM_interp)
+    return 5.0 * np.log10(DM_cosmo / DM_obs)
 
 
 @njit
@@ -116,26 +138,10 @@ def mu_theory(params, DM):
 
 
 @njit
-def chi2_sn(params):
-    DM = DM_z(z_cmb, params)
-    delta_sn = mu_vals - mu_theory(params, DM) - mu_corr(params, DM)
+def chi2_sn(params, DM_interp):
+    DM = interp_hermite(z_cmb, z_grid, *DM_interp)
+    delta_sn = mu_vals - mu_theory(params, DM) - mu_corr(params, DM_interp)
     return delta_sn @ inv_cov_sn @ delta_sn
-
-
-@njit
-def chi2_bao(params):
-    delta_bao_des = des_bao_data["value"] - bao_theory(
-        des_bao_data["z"], qty_des, params
-    )
-    chi2_des_bao = delta_bao_des @ inv_cov_des_bao @ delta_bao_des
-    delta_bao = bao_data["value"] - bao_theory(bao_data["z"], qty_desi, params)
-    chi2_desi_bao = delta_bao @ inv_cov_bao @ delta_bao
-
-    delta_bao_6dF = sixdF_bao_data["value"] - bao_theory(
-        sixdF_bao_data["z"], qty_6dF, params
-    )
-    chi2_6dF_bao = delta_bao_6dF @ inv_cov_6dF_bao @ delta_bao_6dF
-    return chi2_desi_bao + chi2_des_bao + chi2_6dF_bao
 
 
 @njit
@@ -146,7 +152,13 @@ def chi2_cmb(params):
 
 @njit
 def chi_squared(params):
-    return chi2_cmb(params) + chi2_bao(params) + chi2_sn(params)
+    DM, DM_prime = DM_grid(params)
+
+    return (
+        chi2_cmb(params)
+        + chi2_bao(params, (DM, DM_prime))
+        + chi2_sn(params, (DM, DM_prime))
+    )
 
 
 def log_likelihood(params):
@@ -232,20 +244,28 @@ def main():
     print(f"Log evidence: {sampler.log_z:.1f}")
     print(f"Degrees of freedom: {degs_of_freedom}")
 
+    DM_grid_best = DM_grid(best_fit)
+
     plot_bao_predictions(
-        theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
+        theory_predictions=lambda z, qty: bao_theory(
+            z, qty, best_fit, interp_hermite(z, z_grid, *DM_grid_best)
+        ),
         data=bao_data,
         errors=np.sqrt(np.diag(bao_cov_matrix)),
         title=bao_legend,
     )
     plot_bao_predictions(
-        theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
+        theory_predictions=lambda z, qty: bao_theory(
+            z, qty, best_fit, interp_hermite(z, z_grid, *DM_grid_best)
+        ),
         data=des_bao_data,
         errors=np.sqrt(np.diag(des_bao_cov_matrix)),
         title=des_bao_legend,
     )
     plot_bao_predictions(
-        theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
+        theory_predictions=lambda z, qty: bao_theory(
+            z, qty, best_fit, interp_hermite(z, z_grid, *DM_grid_best)
+        ),
         data=sixdF_bao_data,
         errors=np.sqrt(np.diag(sixdF_bao_cov_matrix)),
         title=sixdF_bao_legend,
@@ -253,9 +273,9 @@ def main():
     plot_sn_predictions(
         legend=sn_legend,
         x=z_cmb,
-        y=mu_vals - mu_corr(best_fit, DM_z(z_cmb, best_fit)),
+        y=mu_vals - mu_corr(best_fit, DM_grid_best),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=mu_theory(best_fit, DM_z(z_cmb, best_fit)),
+        y_model=mu_theory(best_fit, interp_hermite(z_cmb, z_grid, *DM_grid_best)),
         label=f"$Ω_m$={gd_samples.mean('om'):.3f}",
         x_scale="log",
     )
@@ -296,18 +316,18 @@ Flat ΛCDM w(z) = -1
 Isotropic velocity SNe observed redshifts (turning point z <= 0.2 inflow z > 0.2 outflow)
 z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-ΔM: -0.0501 ± 0.0070 mag
+ΔM: -0.0502 ± 0.0070 mag
 v: -3.1 ± 1.0 (prior U(-10, 4)) x 100 km/s
 v / (z_cut=0.2): -1590 ± 500 km/s
 H0: 68.51 ± 0.27 km/s/Mpc
 Ωm: 0.2992 ± 0.0036
 ωb: 0.02258 ± 0.00010
-ωc: 0.11720 ± 0.00065
+ωc: 0.11719 ± 0.00065
 ωm: 0.1404 ± 0.0006
 z*: 1089.38 ± 0.15
 z_d: 1060.21 ± 0.23
 r_d: 147.61 ± 0.19 Mpc
-Chi2 (MAP): 37.48 (2.94 sigma significance)
+Chi2 (MAP): 37.51 (2.94 sigma significance)
 Log evidence: -39.4 (Δ logZ = 2.6 in favour of flow corrections)
 Degs of freedom: 35
 """
