@@ -91,6 +91,7 @@ def bao_theory(z, qty, params):
     return results / rd
 
 
+@njit
 def chi_squared(params):
     delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(params[1], params[2], params)
     chi2_cmb = delta_cmb @ cmb.inv_cov_mat @ delta_cmb

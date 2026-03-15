@@ -8,8 +8,8 @@ from cmb.data_planck_compression import r_drag, c
 legend, data, cov_matrix = get_data()
 inv_cov = np.linalg.inv(cov_matrix)
 
-z_grid = np.linspace(0, np.max(data["z"]) + 0.1, num=3000)
-dx = np.diff(z_grid)
+z_grid = np.linspace(0, np.max(data["z"]) + 0.1, num=4000)
+dz = np.diff(z_grid)
 
 
 @njit
@@ -35,7 +35,7 @@ def DM_z(z, params):
     dh_grid = DH_z(z_grid, params)
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size, dtype=np.float64)
-    cum_dm[1:] = np.cumsum(dx * dy)
+    cum_dm[1:] = np.cumsum(dz * dy)
     return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
@@ -64,6 +64,7 @@ def bao_theory(z, qty, params):
     return results / rd
 
 
+@njit
 def chi_squared(params):
     bbn_delta = bbn.Obh2 - params[2]
     bbn_chi2 = (bbn_delta / bbn.Obh2_sigma) ** 2

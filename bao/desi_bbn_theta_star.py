@@ -88,6 +88,7 @@ def bao_theory(z, qty, params):
     return results / rd
 
 
+@njit
 def chi_squared(params):
     delta_thetastar = (
         cmb.DISTANCE_PRIORS[1] - cmb.cmb_distances(params[1], params[2], params)[1]

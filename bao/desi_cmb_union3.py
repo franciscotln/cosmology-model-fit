@@ -102,13 +102,10 @@ def bao_theory(z, qty, params):
     return results / rd
 
 
-pivot_mask = z_cmb <= 0.2
-
-
 @njit
 def mu_corr(params, DM_obs):
     # Heaviside step at z = 0.2
-    v_km_s = 100 * params[4] * np.where(pivot_mask, 1.0, -1.0)
+    v_km_s = 100 * params[4] * np.where(z_cmb <= 0.2, 1.0, -1.0)
     z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + v_km_s / c)
     return 5.0 * np.log10(DM_z(z_cosmo, params) / DM_obs)
 
@@ -141,11 +138,15 @@ def chi2_bao(params):
     return chi2_desi_bao + chi2_des_bao + chi2_6dF_bao
 
 
-def chi_squared(params):
+@njit
+def chi2_cmb(params):
     delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(params[2], params[3], params)
-    chi2_cmb = delta_cmb @ cmb.inv_cov_mat @ delta_cmb
+    return delta_cmb @ cmb.inv_cov_mat @ delta_cmb
 
-    return chi2_cmb + chi2_bao(params) + chi2_sn(params)
+
+@njit
+def chi_squared(params):
+    return chi2_cmb(params) + chi2_bao(params) + chi2_sn(params)
 
 
 def log_likelihood(params):
