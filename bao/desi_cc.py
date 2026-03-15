@@ -9,8 +9,8 @@ from y2025BAO.data import get_data as get_bao_data
 cc_legend, z_cc_vals, H_cc_vals, cc_cov_matrix = get_cc_data()
 bao_legend, data, bao_cov_matrix = get_bao_data()
 
-cho_bao = cho_factor(bao_cov_matrix, lower=True)[0]
-cho_cc = cho_factor(cc_cov_matrix, lower=True)[0]
+inv_cov_bao = np.linalg.inv(bao_cov_matrix)
+inv_cov_cc = np.linalg.inv(cc_cov_matrix)
 
 logdet_cc = np.linalg.slogdet(cc_cov_matrix)[1]
 N_cc = len(z_cc_vals)
@@ -18,17 +18,20 @@ N_cc = len(z_cc_vals)
 c = c0 / 1000  # Speed of light in km/s
 
 z_max = np.max(data["z"]) + 0.1
-z_grid = np.linspace(0, z_max, num=3000)
-dx = np.diff(z_grid)
+z_grid = np.linspace(0, z_max, num=4000)
+dz = np.diff(z_grid)
+
+
+@njit
+def Ode_z(z, w0):
+    cubic = (1.0 + z) ** 3
+    return (2 * cubic / (1.0 + w0 + (1.0 - w0) * cubic)) ** 2
 
 
 @njit
 def Ez(z, params):
-    O_m, w0 = params[3], params[4]
-    one_plus_z = 1.0 + z
-    cubic = one_plus_z**3
-    rho_de = (2 * cubic / (1.0 + w0 + (1.0 - w0) * cubic)) ** 2
-    return np.sqrt(O_m * cubic + (1.0 - O_m) * rho_de)
+    O_m = params[3]
+    return np.sqrt(O_m * (1.0 + z) ** 3 + (1.0 - O_m) * Ode_z(z, w0=params[4]))
 
 
 @njit
@@ -42,11 +45,11 @@ def DH_z(z, params):
 
 
 @njit
-def DM_z(z, theta):
-    dh_grid = DH_z(z_grid, theta)
-    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+def DM_z(z, params):
+    dh_grid = DH_z(z_grid, params)
+    dh = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size, dtype=np.float64)
-    cum_dm[1:] = np.cumsum(dx * dy)
+    cum_dm[1:] = np.cumsum(dh * dz)
     return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
@@ -58,7 +61,7 @@ def DV_z(z, params):
 
 
 qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
-quantities = np.array([qty_map[q] for q in data["quantity"]], dtype=np.int32)
+desi_qty = np.array([qty_map[q] for q in data["quantity"]], dtype=np.int32)
 
 
 @njit
@@ -73,18 +76,14 @@ def theory_bao(z, qty, params):
     return results / params[2]
 
 
-def solve_triang(cho_L, delta):
-    y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
-    return np.dot(y, y)
-
-
+@njit
 def chi_squared(params):
     f_cc = params[0]
     delta_cc = H_cc_vals - H_z(z_cc_vals, params)
-    chi_cc = f_cc**2 * solve_triang(cho_cc, delta_cc)
+    chi_cc = f_cc**2 * delta_cc @ inv_cov_cc @ delta_cc
 
-    delta_bao = data["value"] - theory_bao(data["z"], quantities, params)
-    chi_bao = solve_triang(cho_bao, delta_bao)
+    delta_bao = data["value"] - theory_bao(data["z"], desi_qty, params)
+    chi_bao = delta_bao @ inv_cov_bao @ delta_bao
     return chi_cc + chi_bao
 
 
@@ -95,8 +94,7 @@ bounds = np.array(
         (120.0, 175.0),  # r_d
         (0.1, 0.7),  # Ωm
         (-1.0, 0.0),  # w0
-    ],
-    dtype=np.float64,
+    ]
 )
 
 normalization = -np.log(np.prod(bounds[:, 1] - bounds[:, 0]))
@@ -213,10 +211,10 @@ Dataset: DESI 2025
 Flat ΛCDM
 f_cc: 1.48 +0.18 -0.17
 H0: 69.0 +2.3 -2.3 km/s/Mpc
-r_d: 147.1 +4.9 -4.6 Mpc
+r_d: 147.1 +5.0 -4.6 Mpc
 Ωm: 0.299 +0.009 -0.008
-ωm: 0.1422 +0.0094 -0.0092
-Chi squared: 45.63
+ωm: 0.1422 +0.0094 -0.0093
+Chi squared: 45.54
 log likelihood: -147.01
 Log evidence: -158.0
 Degrees of freedom: 45
@@ -239,13 +237,13 @@ Degrees of freedom: 44
 
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
 f_cc: 1.47 +0.18 -0.17
-H0: 66.5 +2.6 -2.6 km/s/Mpc
-r_d: 147.4 +5.0 -4.6 Mpc
+H0: 66.6 +2.6 -2.6 km/s/Mpc
+r_d: 147.3 +5.0 -4.6 Mpc
 Ωm: 0.312 +0.012 -0.011
-ωm: 0.1380 +0.0096 -0.0092
-w0: -0.787 +0.129 -0.123 (prior from -1.0 to 0.0. Posterior truncated at 1.72 sigma to the left of the mean)
+ωm: 0.1382 +0.0096 -0.0092
+w0: -0.786 +0.128 -0.124 (prior from -1.0 to 0.0. Posterior truncated at 1.72 sigma to the left of the mean)
 wa: d w(z)/dz at z=0 = -1.5 * (1 - w0**2)
-Chi squared: 43.58
+Chi squared: 43.65
 log likelihood: -146.21
 Log evidence: -158.1
 Degrees of freedom: 44
