@@ -27,9 +27,7 @@ def chi_squared(params):
     f = params[-1]
 
     delta = H_values - H_z(z_values, params)
-    chi2_cc = f**2 * solve_triang(cho, delta)
-
-    return chi2_cc
+    return f**2 * solve_triang(cho, delta)
 
 
 def log_likelihood(params):
@@ -46,9 +44,9 @@ def main():
     from .plot_predictions import plot_cc_predictions
 
     prior = Prior()
-    prior.add_parameter("H0", dist=(40, 100))
+    prior.add_parameter("H0", dist=(30, 100))
     prior.add_parameter("Om", dist=(0.0, 1.0))
-    prior.add_parameter("f", dist=(0.3, 2.6))
+    prior.add_parameter("f", dist=(0.1, 3.3))
 
     with Pool(5) as pool:
         sampler = Sampler(
@@ -117,35 +115,35 @@ Flat ΛCDM: w(z) = -1
 
 -------------------------------
 
-Varying f in U(0.3, 2.6):
-H0: 66.6 +3.7 -3.7
-Ωm: 0.335 +0.051 -0.044
+Varying f in U(0.1, 3.3):
+H0: 66.6 +3.7 -3.6
+Ωm: 0.33 +0.05 -0.04
 f: 1.47 +0.18 -0.17
-Chi squared: 34.30
-Log likelihood: -141.63
-Log evidence: -147.83 (diff: -2.21 in evidence favouring the model with f)
+Chi squared: 34.32
+Log likelihood: -141.64
+Log evidence: -148.32 (diff: -1.89 in evidence favouring the model with f)
 Degs of freedom: 33
 
 -------------------------------
 
 With fixed f = 1:
-H0: 66.2 +5.4 -5.4
-Ωm: 0.340 +0.079 -0.063
+H0: 66.2 +5.3 -5.5
+Ωm: 0.34 +0.08 -0.06
 f: 1
-Chi squared: 15.92
-Log likelihood: -146.28
-Log evidence: -150.04
+Chi squared: 15.93
+Log likelihood: -146.29
+Log evidence: -150.21
 Degs of freedom: 34
 
 *******************************
 
 Log likelihood ratio test:
 -2 * log(L0/L1) = -2 * log(L0) + 2 * log(L1)
--2 * (-146.28) + 2 * (-141.63) = 9.30
+-2 * (-146.29) + 2 * (-141.64) = 9.3
 
 Degrees of freedom = 1
 p-value = 0.0023
 We are 99.77% confident that the model with f is better than the one without f.
 So the uncertainties in the H(z) dataset are overestimated and should be scaled down.
-2.5 sigma between f=1 and f=1.46
+3.05 sigma significance.
 """
