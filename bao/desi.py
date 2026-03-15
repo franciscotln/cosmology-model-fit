@@ -1,6 +1,7 @@
 from numba import njit
 import numpy as np
 from scipy.constants import c as c0
+from scipy.linalg import block_diag
 from interpolator import interp_pchip, interp_hermite
 from y2025BAO.data import get_data
 from y2024DESBAO.data import get_data as get_des_data
@@ -8,11 +9,13 @@ from y2024DESBAO.data import get_data as get_des_data
 c = c0 / 1000  # Speed of light in km/s
 rd = 147.09  # Mpc, fixed
 
-legend, data, cov_matrix = get_data()
-inv_cov_bao = np.linalg.inv(cov_matrix)
-
+legend_desi, data_desi, cov_desi = get_data()
 legend_des, data_des, cov_des = get_des_data()
-inv_cov_des = np.linalg.inv(cov_des)
+
+data = np.concatenate((data_desi, data_des))
+cov_matrix = block_diag(cov_desi, cov_des)
+
+inv_cov_bao = np.linalg.inv(cov_matrix)
 
 z_max = np.max(data["z"]) + 0.1
 z_grid = np.linspace(0, z_max, num=4000)
@@ -20,13 +23,16 @@ dz = np.diff(z_grid)
 
 
 @njit
+def Ode_z(z, w0):
+    cubed = (1.0 + z) ** 3
+    return (2 * cubed / (1.0 + w0 + (1.0 - w0) * cubed)) ** 2
+
+
+@njit
 def H_z(z, params):
     h, Om, w0 = params
     OL = 1.0 - Om
-    zp1 = 1.0 + z
-    cubed = zp1**3
-    rho_de = (2 * cubed / (1.0 + w0 + (1.0 - w0) * cubed)) ** 2
-    return 100 * h * np.sqrt(Om * cubed + OL * rho_de)
+    return 100 * h * np.sqrt(Om * (1.0 + z) ** 3 + OL * Ode_z(z, w0))
 
 
 @njit
@@ -37,7 +43,6 @@ def DH_z(z, theta):
 @njit
 def bao_theory(z, qty, theta):
     dh_grid = DH_z(z_grid, theta)
-
     dh = (dh_grid[:-1] + dh_grid[1:]) / 2
     dm_grid = np.zeros(z_grid.size, dtype=np.float64)
     dm_grid[1:] = np.cumsum(dz * dh)
@@ -59,16 +64,12 @@ def bao_theory(z, qty, theta):
 
 qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
 qty = np.array([qty_map[q] for q in data["quantity"]], dtype=np.int32)
-qty_des = np.array([qty_map[q] for q in data_des["quantity"]], dtype=np.int32)
 
 
 @njit
 def chi_squared(theta):
-    delta_bao_des = data_des["value"] - bao_theory(data_des["z"], qty_des, theta)
     delta_bao = data["value"] - bao_theory(data["z"], qty, theta)
-    chi_bao = delta_bao @ inv_cov_bao @ delta_bao
-    chi_bao_des = delta_bao_des @ inv_cov_des @ delta_bao_des
-    return chi_bao + chi_bao_des
+    return delta_bao @ inv_cov_bao @ delta_bao
 
 
 bounds = np.array(
@@ -112,11 +113,10 @@ def main():
     n_walkers = 100
     burn_in = 500
     nsteps = 5000 + burn_in
-    np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (n_walkers, n_dim))
     moves = [
-        (emcee.moves.KDEMove(bw_method="silverman"), 0.30),
-        (emcee.moves.DEMove(), 0.70),
+        (emcee.moves.KDEMove(bw_method="silverman"), 0.20),
+        (emcee.moves.DEMove(), 0.80),
     ]
 
     sampler = emcee.EnsembleSampler(n_walkers, n_dim, log_probability, moves=moves)
@@ -169,13 +169,7 @@ def main():
         theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
         data=data,
         errors=np.sqrt(np.diag(cov_matrix)),
-        title=legend,
-    )
-    plot_bao_predictions(
-        theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
-        data=data_des,
-        errors=np.sqrt(np.diag(cov_des)),
-        title=legend_des,
+        title=f"{legend_des} + {legend_desi}",
     )
     plot_bao_residuals(data, residuals, np.sqrt(np.diag(cov_matrix)))
 
@@ -218,14 +212,14 @@ RMSD: 0.279
 """
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
 rd: 147.09 Mpc (fixed)
-h: 0.666 +0.015 -0.015
+h: 0.666 +0.014 -0.015
 Ωm: 0.312 +0.012 -0.012
-w0: -0.766 +0.132 -0.131 (prior width 1.0: from -1.0 to 0.0) - left side truncated
+w0: -0.768 +0.133 -0.130 (prior width 1.0: from -1.0 to 0.0) - left side truncated
 Chi squared: 8.81
 Log evidence: -12.45
 Degs of freedom: 11
-R^2: 0.9991
-RMSD: 0.261
+R^2: 0.9989
+RMSD: 0.277
 """
 
 """
