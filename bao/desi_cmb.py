@@ -204,7 +204,8 @@ def main():
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Degs of freedom: {degs_of_freedom}")
 
-    labels = ["$H_0$", "$ω_b$", "$ω_c$", "$w_0$"]
+    samples = np.column_stack((Om_samples, samples))
+    labels = ["$Ω_m$", "$H_0$", "$ω_b$", "$ω_c$", "$w_0$"]
     plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
     plot_bao_predictions(
         theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
