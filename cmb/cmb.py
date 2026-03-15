@@ -78,7 +78,7 @@ def main():
     from getdist import MCSamples, plots
 
     ndim = len(bounds)
-    nwalkers = 160
+    nwalkers = 200
     burn_in = 500
     nsteps = 2500 + burn_in
     np.random.seed(42)
