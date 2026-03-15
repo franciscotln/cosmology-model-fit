@@ -71,6 +71,7 @@ def mu_theory(offset, DM):
     return offset + 25.0 + 5 * np.log10((1.0 + z_hel) * DM)
 
 
+@njit
 def chi_squared(params):
     delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(params[2], params[3], params)
     chi2_cmb = delta_cmb @ cmb.inv_cov_mat @ delta_cmb

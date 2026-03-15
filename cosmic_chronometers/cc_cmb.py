@@ -49,6 +49,7 @@ bounds = np.array(
 )
 
 
+@njit
 def chi_squared(params):
     delta_cc = H_values - H_z(z_values, params)
     chi2_cc = params[3] ** 2 * delta_cc @ inv_cov_cc @ delta_cc
@@ -167,14 +168,14 @@ Flat ΛCDM
 -------------------------------
 
 f: 1.50 +0.19 -0.18
-H0: 67.59 +0.49 -0.49
-Ωm: 0.3120 +0.0071 -0.0069
+H0: 67.58 +0.50 -0.50
+Ωm: 0.3121 +0.0072 -0.0070
 ωb: 0.02249 +0.00011 -0.00011
 ωc: 0.11939 +0.00121 -0.00120
 f: 1.51 +0.18 -0.17
-Chi squared: 36.36
+Chi squared: 36.24
 Log likelihood: -141.72
-Log evidence: -158.19 (Δ logZ = 3.79 compared to fixed f)
+Log evidence: -158.20 (Δ logZ = 3.78 compared to fixed f)
 Degs of freedom: 35
 
 -------------------------------

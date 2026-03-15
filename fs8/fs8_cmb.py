@@ -76,7 +76,7 @@ cmb.set_HZ(Hz)
 
 
 @njit
-def dH_da(z, theta):
+def dH_da(z, H_val, theta):
     H0, Obh2, Och2, w0 = theta[0:4]
     h = H0 / 100
 
@@ -85,13 +85,13 @@ def dH_da(z, theta):
     Onu = Omnuh2 / h**2
     Ode = 1.0 - Obc - Or - Onu
 
-    matter = 3 * Obc * (1.0 + z) ** 2
-    rad = 4 * Or * (1.0 + z) ** 3
+    matter = Obc * 3 * (1.0 + z) ** 2
+    rad = Or * 4 * (1.0 + z) ** 3
     nu = Onu * d_Omnu_dz(z)
     de = Ode * d_Ode_dz(z, w0)
 
     numerator = matter + rad + nu + de
-    denominator = 2 * Hz(z, theta) / (1.0 + z) ** 2
+    denominator = 2 * H_val / (1.0 + z) ** 2
     return -numerator * H0**2 / denominator
 
 
@@ -112,7 +112,7 @@ def growth_ODE(a, y, params):
 
     z = 1 / a - 1.0
     H_val = Hz(z, params)
-    dH_da_val = dH_da(z, params)
+    dH_da_val = dH_da(z, H_val, params)
 
     delta, d_delta_da = y
 
@@ -166,6 +166,7 @@ def chi2_fs8(theta):
     return delta @ (inv_cov * theta[-1] ** 2) @ delta
 
 
+@njit
 def chi2_cmb(theta):
     delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(theta[1], theta[2], theta)
     return delta_cmb @ cmb.inv_cov_mat @ delta_cmb

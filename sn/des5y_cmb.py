@@ -77,15 +77,20 @@ def solve_triang(cho_L, delta):
     return np.dot(y, y)
 
 
-def chi_squared(params):
-    delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(params[2], params[3], params)
-    chi2_cmb = np.dot(delta, np.dot(cmb.inv_cov_mat, delta))
-
+def chi2_sn(params):
     DM = DM_z(z_cmb, params)
     delta_sn = mu_vals - theory_mu(params, DM) - mu_corr(params, DM)
-    chi_sn = solve_triang(cho_sn, delta_sn)
+    return solve_triang(cho_sn, delta_sn)
 
-    return chi2_cmb + chi_sn
+
+@njit
+def chi2_cmb(params):
+    delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(params[2], params[3], params)
+    return delta @ cmb.inv_cov_mat @ delta
+
+
+def chi_squared(params):
+    return chi2_cmb(params) + chi2_sn(params)
 
 
 bounds = np.array(
