@@ -21,6 +21,7 @@ def plot_corner_and_chains(labels, flat_samples, samples):
     )
     plt.show()
 
+    ndim = samples.shape[2]
     plt.figure(figsize=(16, 1.5 * ndim))
     for n in range(ndim):
         plt.subplot2grid((ndim, 1), (n, 0))
