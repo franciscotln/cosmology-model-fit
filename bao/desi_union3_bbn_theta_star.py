@@ -129,11 +129,13 @@ def chi2_bao(theta):
     return chi2_bao + chi2_bao_des
 
 
+@njit
 def chi2_cmb(theta):
     delta_lA = cmb.DISTANCE_PRIORS[1] - cmb.cmb_distances(theta[2], theta[3], theta)[1]
     return delta_lA**2 / cmb.covariance[1, 1]
 
 
+@njit
 def chi_squared(theta):
     return chi2_sn(theta) + chi2_bao(theta) + chi2_cmb(theta)
 

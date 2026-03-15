@@ -113,6 +113,7 @@ def mu_theory(theta, DM):
     return theta[1] + 25.0 + 5 * np.log10((1.0 + z_hel) * DM)
 
 
+@njit
 def chi_squared(theta):
     delta = (cmb.DISTANCE_PRIORS - cmb.cmb_distances(theta[3], theta[4], theta))[1]
     thetastar_cov = cmb.covariance[1, 1]

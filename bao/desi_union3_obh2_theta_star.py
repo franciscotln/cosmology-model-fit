@@ -120,12 +120,17 @@ def chi2_bao(theta):
     return delta_bao @ inv_cov_bao @ delta_bao
 
 
-def chi_squared(theta):
+@njit
+def chi2_cmb(theta):
     # Planck + ACT compressed priors for π/θ* and ωb,
     # without the shift parameter R (arXiv:1808.05724v1)
     delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(theta[2], theta[3], theta)
-    chi_cmb = delta_cmb[1:] @ inv_cov_cmb @ delta_cmb[1:]
-    return chi2_sn(theta) + chi2_bao(theta) + chi_cmb
+    return delta_cmb[1:] @ inv_cov_cmb @ delta_cmb[1:]
+
+
+@njit
+def chi_squared(theta):
+    return chi2_sn(theta) + chi2_bao(theta) + chi2_cmb(theta)
 
 
 def log_likelihood(theta):

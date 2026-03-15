@@ -216,6 +216,7 @@ def chi2_bao(theta):
     return delta_bao @ inv_cov_bao @ delta_bao
 
 
+@njit
 def chi2_cmb(theta):
     # thetastar only
     delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(theta[2], theta[3], theta)

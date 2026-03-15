@@ -105,6 +105,7 @@ def theory_mu(theta, DM):
     return theta[0] + 25.0 + 5 * np.log10((1.0 + z_hel) * DM)
 
 
+@njit
 def chi_squared(theta):
     delta_cmb = (cmb.DISTANCE_PRIORS - cmb.cmb_distances(theta[2], theta[3], theta))[
         [0, 2]
