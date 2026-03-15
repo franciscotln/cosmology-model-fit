@@ -1,6 +1,7 @@
 from numba import njit
 import numpy as np
 from scipy.constants import c as c0
+from scipy.linalg import block_diag
 from interpolator import interp_hermite
 import y2024BBN.prior_lcdm_schoneberg as bbn
 from y2026union3_1.data import get_data as get_sn_data
@@ -14,13 +15,16 @@ sn_legend, z_cmb, z_hel, mu_values, cov_matrix_sn = get_sn_data()
 bao_desi_legend, desi_bao_data, desi_bao_cov_mat = get_bao_data()
 des_bao_legend, des_bao_data, des_bao_cov_mat = get_des_bao_data()
 
-inv_cov_sn = np.linalg.inv(cov_matrix_sn)
-inv_cov_bao = np.linalg.inv(desi_bao_cov_mat)
-inv_cov_des_bao = np.linalg.inv(des_bao_cov_mat)
+# combine bao data and covariances
+bao_data = np.concatenate((desi_bao_data, des_bao_data))
+bao_cov_mat = block_diag(desi_bao_cov_mat, des_bao_cov_mat)
 
-z_max = max(np.max(z_cmb), np.max(desi_bao_data["z"])) + 0.1
+inv_cov_sn = np.linalg.inv(cov_matrix_sn)
+inv_cov_bao = np.linalg.inv(bao_cov_mat)
+
+z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
 z_grid = np.linspace(0, z_max, num=4000)
-dx = np.diff(z_grid)
+dz = np.diff(z_grid)
 
 
 @njit
@@ -63,9 +67,9 @@ def DH_z(z, params):
 @njit
 def DM_z(z, theta):
     dh_grid = DH_z(z_grid, theta)
-    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
+    dh = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size, dtype=np.float64)
-    cum_dm[1:] = np.cumsum(dx * dy)
+    cum_dm[1:] = np.cumsum(dh * dz)
     return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
@@ -77,8 +81,7 @@ def DV_z(z, params):
 
 
 qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
-desi_qty = np.array([qty_map[q] for q in desi_bao_data["quantity"]], dtype=np.int64)
-des_qty = np.array([qty_map[q] for q in des_bao_data["quantity"]], dtype=np.int64)
+bao_qty = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int64)
 
 
 @njit
@@ -96,46 +99,30 @@ def bao_theory(z, qty, params):
     return results / r_drag(Obh2, Omh2)
 
 
-pivot_mask = z_cmb <= 0.2
+@njit
+def mu_corr(params, DM_obs):
+    # Heaviside step at z = 0.2
+    v_km_s = 100 * params[3] * np.where(z_cmb <= 0.2, 1.0, -1.0)
+    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + v_km_s / c)
+    return 5.0 * np.log10(DM_z(z_cosmo, params) / DM_obs)
 
 
 @njit
-def mu_corr(params):
-    z_pec = 100 * params[3] / c
-    z_cosmo1 = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
-    z_cosmo2 = -1.0 + (1.0 + z_cmb) / (1.0 - z_pec)
-
-    DM_ref = DM_z(z_cmb, params)
-
-    return np.where(
-        pivot_mask,
-        5.0 * np.log10(DM_z(z_cosmo1, params) / DM_ref),
-        5.0 * np.log10(DM_z(z_cosmo2, params) / DM_ref),
-    )
-
-
-@njit
-def theory_mu(params):
-    dL = (1.0 + z_hel) * DM_z(z_cmb, params)
+def theory_mu(params, DM):
+    dL = (1.0 + z_hel) * DM
     return params[4] + 25.0 + 5 * np.log10(dL)
 
 
 @njit
 def chi_squared(params):
-    delta_bao = desi_bao_data["value"] - bao_theory(
-        desi_bao_data["z"], desi_qty, params
-    )
-    chi_bao_desi = delta_bao @ inv_cov_bao @ delta_bao
+    delta_bao = bao_data["value"] - bao_theory(bao_data["z"], bao_qty, params)
+    chi_bao = delta_bao @ inv_cov_bao @ delta_bao
 
-    delta_bao_des = des_bao_data["value"] - bao_theory(
-        des_bao_data["z"], des_qty, params
-    )
-    chi_bao_des = delta_bao_des @ inv_cov_des_bao @ delta_bao_des
-
-    delta_sn = mu_values - theory_mu(params) - mu_corr(params)
+    DM_sn = DM_z(z_cmb, params)
+    delta_sn = mu_values - theory_mu(params, DM_sn) - mu_corr(params, DM_sn)
     chi_sn = delta_sn @ inv_cov_sn @ delta_sn
 
-    return chi_bao_desi + chi_bao_des + chi_sn
+    return chi_bao + chi_sn
 
 
 def log_likelihood(params):
@@ -197,7 +184,7 @@ def main():
 
     best_fit = [H0_50, Om_50, Obh2_50, v_50, dM_50]
     MAP_params = samples[np.argmax(log_l)]
-    deg_of_freedom = len(des_bao_data) + len(desi_bao_data) + len(z_cmb) - len(best_fit)
+    deg_of_freedom = len(bao_data) + len(z_cmb) - len(best_fit)
 
     print(f"H0: {H0_50:.1f} +{(H0_84 - H0_50):.1f} -{(H0_50 - H0_16):.1f} km/s/Mpc")
     print(f"Ωm: {Om_50:.4f} +{(Om_84 - Om_50):.4f} -{(Om_50 - Om_16):.4f}")
@@ -230,16 +217,16 @@ def main():
     plt.show()
     plot_bao_predictions(
         theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
-        data=desi_bao_data,
-        errors=np.sqrt(np.diag(desi_bao_cov_mat)),
-        title=bao_desi_legend,
+        data=bao_data,
+        errors=np.sqrt(np.diag(bao_cov_mat)),
+        title="BAO DESI + DES",
     )
     plot_sn_predictions(
         legend=sn_legend,
         x=z_cmb,
-        y=mu_values - mu_corr(best_fit),
+        y=mu_values - mu_corr(best_fit, DM_z(z_cmb, best_fit)),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=theory_mu(best_fit),
+        y_model=theory_mu(best_fit, DM_z(z_cmb, best_fit)),
         label=f"$Ω_m$={Om_50:.3f}",
         x_scale="log",
     )
