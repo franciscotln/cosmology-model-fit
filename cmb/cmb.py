@@ -84,8 +84,8 @@ def main():
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
     moves = [
-        (emcee.moves.KDEMove(bw_method="silverman"), 0.20),
-        (emcee.moves.DEMove(), 0.80),
+        (emcee.moves.KDEMove(bw_method="silverman"), 0.15),
+        (emcee.moves.DEMove(), 0.85),
     ]
 
     with Pool(5) as pool:
