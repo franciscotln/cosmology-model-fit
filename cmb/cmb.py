@@ -45,6 +45,7 @@ def log_prior(params):
     return normalization
 
 
+@njit
 def log_likelihood(params):
     Obh2, Och2 = params[1], params[2]
     Omh2 = Obh2 + Och2 + Omnu_h2

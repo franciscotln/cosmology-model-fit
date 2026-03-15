@@ -145,29 +145,61 @@ def set_HZ(Hz_fun):
     _HZ_FUNC = Hz_fun
 
 
+# Pre-compute a 100-point Gauss-Legendre
+GL_X, GL_W = np.polynomial.legendre.leggauss(100)
+N_legendre = len(GL_X)
+
+
 @njit
-def _DH(z, params):
+def _DM_integ(z, params):
+    """The integrand for the comoving distance."""
     return c / _HZ_FUNC(z, params)
 
 
 @njit
-def _rs_integ(z, Obh2, params):
-    Rb = (3 / 4) * (Obh2 / O_GAMMA_H2) / (1.0 + z)
-    return _DH(z, params) / np.sqrt(3 * (1.0 + Rb))
-
-
-def rs_z(z_lim, Obh2, params):
-    args = (Obh2, params)
-    return quad(_rs_integ, z_lim, np.inf, args=args)[0]
-
-
 def DM_z(z_lim, params):
-    return quad(_DH, 0.0, z_lim, args=(params,))[0]
+    """Gauss-Legendre integration for DM from 0 to z_lim."""
+    # Map from [-1, 1] to [0, z_lim]
+    half_width = z_lim / 2.0
+    midpoint = z_lim / 2.0
+
+    integral = 0.0
+    for i in range(N_legendre):
+        z_eval = half_width * GL_X[i] + midpoint
+        integral += GL_W[i] * _DM_integ(z_eval, params)
+
+    return half_width * integral
 
 
+@njit
+def _rs_integ_a(a, Obh2, params):
+    """The integrand for the sound horizon, written in terms of scale factor 'a'."""
+    z = (1.0 / a) - 1.0
+    Rb = (3.0 / 4.0) * (Obh2 / O_GAMMA_H2) * a
+    return c / (a**2 * _HZ_FUNC(z, params) * np.sqrt(3.0 * (1.0 + Rb)))
+
+
+@njit
+def rs_z(z_lim, Obh2, params):
+    """Gauss-Legendre integration for rs from a=0 to a=1/(1+z_lim)."""
+    a_lim = 1.0 / (1.0 + z_lim)
+
+    # Map from [-1, 1] to [0, a_lim]
+    half_width = a_lim / 2.0
+    midpoint = a_lim / 2.0
+
+    integral = 0.0
+    for i in range(N_legendre):
+        a_eval = half_width * GL_X[i] + midpoint
+        integral += GL_W[i] * _rs_integ_a(a_eval, Obh2, params)
+
+    return half_width * integral
+
+
+@njit
 def cmb_distances(Ob_h2, Oc_h2, params):
     """
-    return (R, lA=π / θ*, ωb=Ωb*h^2)
+    return (R, lA = π / θ*, ωb = Ωb*h^2)
     """
     Om_h2 = Oc_h2 + Ob_h2 + Omnu_h2
     zstar = z_star(Ob_h2, Om_h2)
