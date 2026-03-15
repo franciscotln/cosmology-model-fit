@@ -1,9 +1,8 @@
 from numba import njit
 import numpy as np
-from scipy.constants import c as c0
 from scipy.linalg import cho_factor, solve_triangular
 from interpolator import interp_hermite
-import y2025cmb_p_actbase_lcdm_camb.data as cmb
+import cmb.data_planck_act_compression as cmb
 from y2025DESdovekie.data import get_data, effective_sample_size as sn_size
 from y2025BAO.data import get_data as get_bao_data
 
@@ -13,7 +12,7 @@ bao_legend, bao_data, cov_matrix_bao = get_bao_data()
 cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
 cho_bao = cho_factor(cov_matrix_bao, lower=True)[0]
 
-c = c0 / 1000  # Speed of light in km/s
+c = cmb.c  # Speed of light in km/s
 
 z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
 z_grid = np.linspace(0, z_max, num=4000)
@@ -91,8 +90,8 @@ def solve_triang(cho_L, delta):
     return np.dot(y, y)
 
 
-rd_prior = cmb.DISTANCE_PRIORS[1]
-rd_prior_std = cmb.covariance[1, 1] ** 0.5
+rd_prior = 147.14
+rd_prior_std = 0.29
 
 
 def chi_squared(params):
