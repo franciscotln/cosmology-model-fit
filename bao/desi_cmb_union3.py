@@ -1,5 +1,6 @@
 from numba import njit
 import numpy as np
+from scipy.linalg import block_diag
 from interpolator import interp_hermite
 from y2026union3_1.data import get_data
 from y2025BAO.data import get_data as get_bao_data
@@ -12,14 +13,15 @@ Orh2 = cmb.Or_h2
 Omnuh2 = cmb.Omnu_h2
 
 sn_legend, z_cmb, z_hel, mu_vals, cov_matrix_sn = get_data()
-bao_legend, bao_data, bao_cov_matrix = get_bao_data()
-des_bao_legend, des_bao_data, des_bao_cov_matrix = get_des_bao_data()
-sixdF_bao_legend, sixdF_bao_data, sixdF_bao_cov_matrix = get_6dF_bao_data()
+desi_legend, desi_bao_data, desi_bao_cov_matrix = get_bao_data()
+des_legend, des_bao_data, des_bao_cov_matrix = get_des_bao_data()
+sixdF_legend, sixdF_bao_data, sixdF_bao_cov_matrix = get_6dF_bao_data()
+
+bao_data = np.concatenate((desi_bao_data, des_bao_data, sixdF_bao_data))
+bao_cov_mat = block_diag(desi_bao_cov_matrix, des_bao_cov_matrix, sixdF_bao_cov_matrix)
 
 inv_cov_sn = np.linalg.inv(cov_matrix_sn)
-inv_cov_bao = np.linalg.inv(bao_cov_matrix)
-inv_cov_des_bao = np.linalg.inv(des_bao_cov_matrix)
-inv_cov_6dF_bao = np.linalg.inv(sixdF_bao_cov_matrix)
+inv_cov_bao = np.linalg.inv(bao_cov_mat)
 
 z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
 z_grid = np.linspace(0, z_max, 4000)
@@ -80,9 +82,7 @@ def DV_z(z, DM, params):
 
 
 qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
-qty_desi = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int32)
-qty_des = np.array([qty_map[q] for q in des_bao_data["quantity"]], dtype=np.int32)
-qty_6dF = np.array([qty_map[q] for q in sixdF_bao_data["quantity"]], dtype=np.int32)
+bao_qty = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int32)
 
 
 @njit
@@ -103,22 +103,9 @@ def bao_theory(z, qty, params, DM):
 
 @njit
 def chi2_bao(params, DM_interp):
-    DM_desi = interp_hermite(bao_data["z"], z_grid, *DM_interp)
-    DM_des = interp_hermite(des_bao_data["z"], z_grid, *DM_interp)
-    DM_6dF = interp_hermite(sixdF_bao_data["z"], z_grid, *DM_interp)
-
-    delta_bao_des = des_bao_data["value"] - bao_theory(
-        des_bao_data["z"], qty_des, params, DM_des
-    )
-    chi2_des_bao = delta_bao_des @ inv_cov_des_bao @ delta_bao_des
-    delta_bao = bao_data["value"] - bao_theory(bao_data["z"], qty_desi, params, DM_desi)
-    chi2_desi_bao = delta_bao @ inv_cov_bao @ delta_bao
-
-    delta_bao_6dF = sixdF_bao_data["value"] - bao_theory(
-        sixdF_bao_data["z"], qty_6dF, params, DM_6dF
-    )
-    chi2_6dF_bao = delta_bao_6dF @ inv_cov_6dF_bao @ delta_bao_6dF
-    return chi2_desi_bao + chi2_des_bao + chi2_6dF_bao
+    DM = interp_hermite(bao_data["z"], z_grid, *DM_interp)
+    delta_bao = bao_data["value"] - bao_theory(bao_data["z"], bao_qty, params, DM)
+    return delta_bao @ inv_cov_bao @ delta_bao
 
 
 @njit
@@ -228,12 +215,7 @@ def main():
 
     best_fit = gd_samples.mean(prior.keys)
     degs_of_freedom = (
-        len(z_cmb)
-        + len(sixdF_bao_data)
-        + len(des_bao_data)
-        + len(bao_data)
-        + len(cmb.DISTANCE_PRIORS)
-        - len(best_fit)
+        len(z_cmb) + len(bao_data) + len(cmb.DISTANCE_PRIORS) - len(best_fit)
     )
 
     for par in gd_samples.getParamNames().names:
@@ -251,24 +233,8 @@ def main():
             z, qty, best_fit, interp_hermite(z, z_grid, *DM_grid_best)
         ),
         data=bao_data,
-        errors=np.sqrt(np.diag(bao_cov_matrix)),
-        title=bao_legend,
-    )
-    plot_bao_predictions(
-        theory_predictions=lambda z, qty: bao_theory(
-            z, qty, best_fit, interp_hermite(z, z_grid, *DM_grid_best)
-        ),
-        data=des_bao_data,
-        errors=np.sqrt(np.diag(des_bao_cov_matrix)),
-        title=des_bao_legend,
-    )
-    plot_bao_predictions(
-        theory_predictions=lambda z, qty: bao_theory(
-            z, qty, best_fit, interp_hermite(z, z_grid, *DM_grid_best)
-        ),
-        data=sixdF_bao_data,
-        errors=np.sqrt(np.diag(sixdF_bao_cov_matrix)),
-        title=sixdF_bao_legend,
+        errors=np.sqrt(np.diag(bao_cov_mat)),
+        title="DESI + DES + 6dF BAO",
     )
     plot_sn_predictions(
         legend=sn_legend,
@@ -327,7 +293,7 @@ H0: 68.51 ± 0.27 km/s/Mpc
 z*: 1089.38 ± 0.15
 z_d: 1060.21 ± 0.23
 r_d: 147.61 ± 0.19 Mpc
-Chi2 (MAP): 37.51 (2.94 sigma significance)
+Chi2 (MAP): 37.51 (2.93 sigma significance)
 Log evidence: -39.4 (Δ logZ = 2.6 in favour of flow corrections)
 Degs of freedom: 35
 """
