@@ -10,12 +10,12 @@ legend, z_cmb, z_hel, mb_vals, cov_matrix_sn = get_data()
 bao_legend, data, bao_cov_matrix = get_bao_data()
 
 cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
-cho_bao = cho_factor(bao_cov_matrix, lower=True)[0]
+inv_cov_bao = np.linalg.inv(bao_cov_matrix)
 
 c = c0 / 1000  # Speed of light in km/s
 
 z_max = max(np.max(z_cmb), np.max(data["z"])) + 0.1
-z_grid = np.linspace(0, z_max, num=3000)
+z_grid = np.linspace(0, z_max, num=4000)
 dz = np.diff(z_grid)
 
 
@@ -27,16 +27,9 @@ def Ode_z(z, w0):
 
 
 @njit
-def Ez(z, theta):
-    Om, w0 = theta[2], theta[4]
-    zp1 = 1.0 + z
-    cubed = zp1**3
-    return np.sqrt(Om * cubed + (1.0 - Om) * Ode_z(z, w0))
-
-
-@njit
 def H_z(z, theta):
-    return theta[1] * Ez(z, theta)
+    H0, Om, w0 = theta[1], theta[2], theta[4]
+    return H0 * np.sqrt(Om * (1.0 + z) ** 3 + (1.0 - Om) * Ode_z(z, w0))
 
 
 @njit
@@ -45,41 +38,39 @@ def DH_z(z, theta):
 
 
 @njit
-def DM_z(z, theta):
+def DM_grid(theta):
     dh_grid = DH_z(z_grid, theta)
     dh = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size, dtype=np.float64)
     cum_dm[1:] = np.cumsum(dz * dh)
-    return interp_hermite(z, z_grid, cum_dm, dh_grid)
+    return (cum_dm, dh_grid)
 
 
 @njit
-def DV_z(z, theta):
+def DV_z(z, DM, theta):
     DH = DH_z(z, theta)
-    DM = DM_z(z, theta)
     return (z * DH * DM**2) ** (1 / 3)
 
 
 qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
-quantities = np.array([qty_map[q] for q in data["quantity"]], dtype=np.int32)
+desi_qty = np.array([qty_map[q] for q in data["quantity"]], dtype=np.int32)
 
 
 @njit
-def bao_theory(z, qty, theta):
+def bao_theory(z, qty, theta, DM):
     DV_mask = qty == 0
     DM_mask = qty == 1
     DH_mask = qty == 2
     results = np.empty(z.size, dtype=np.float64)
+    results[DM_mask] = DM[DM_mask]
     results[DH_mask] = DH_z(z[DH_mask], theta)
-    results[DM_mask] = DM_z(z[DM_mask], theta)
-    results[DV_mask] = DV_z(z[DV_mask], theta)
+    results[DV_mask] = DV_z(z[DV_mask], DM[DV_mask], theta)
     return results / theta[3]
 
 
 @njit
-def apparent_mag(theta):
-    dL = (1.0 + z_hel) * DM_z(z_cmb, theta)
-    return theta[0] + 25 + 5 * np.log10(dL)
+def mB_theory(theta, DM):
+    return theta[0] + 25 + 5 * np.log10((1.0 + z_hel) * DM)
 
 
 bounds = np.array(
@@ -99,11 +90,15 @@ def solve_triang(cho_L, delta):
 
 
 def chi_squared(theta):
-    delta_sn = mb_vals - apparent_mag(theta)
+    dm, dm_prime = DM_grid(theta)
+    DM_sn = interp_hermite(z_cmb, z_grid, dm, dm_prime)
+    DM_bao = interp_hermite(data["z"], z_grid, dm, dm_prime)
+
+    delta_sn = mb_vals - mB_theory(theta, DM=DM_sn)
     chi_sn = solve_triang(cho_sn, delta_sn)
 
-    delta_bao = data["value"] - bao_theory(data["z"], quantities, theta)
-    chi_bao = solve_triang(cho_bao, delta_bao)
+    delta_bao = data["value"] - bao_theory(data["z"], desi_qty, theta, DM=DM_bao)
+    chi_bao = delta_bao @ inv_cov_bao @ delta_bao
     return chi_sn + chi_bao
 
 
@@ -186,10 +181,15 @@ def main():
     print(f"Log evidence: {log_evd:.1f}")
     print(f"Degrees of freedom: {data['z'].size + z_cmb.size - len(best_fit)}")
 
+    DM_grid_bf, DM_prime_bf = DM_grid(best_fit)
+    DM_sn_bf = interp_hermite(z_cmb, z_grid, DM_grid_bf, DM_prime_bf)
+
     labels = ["$M_0$", "$H_0$", "$Ω_m$", "$r_{drag}$", "$w_0$"]
     plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
     plot_bao_predictions(
-        theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
+        theory_predictions=lambda z, qty: bao_theory(
+            z, qty, best_fit, DM=interp_hermite(z, z_grid, DM_grid_bf, DM_prime_bf)
+        ),
         data=data,
         errors=np.sqrt(np.diag(bao_cov_matrix)),
         title=bao_legend,
@@ -199,7 +199,7 @@ def main():
         x=z_cmb,
         y=mb_vals - M_50,
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=apparent_mag(best_fit) - M_50,
+        y_model=mB_theory(best_fit, DM_sn_bf) - M_50,
         label=f"Best fit: $Ω_m$={Om_50:.3f}",
         x_scale="log",
     )
