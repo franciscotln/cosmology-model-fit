@@ -13,11 +13,16 @@ dz = np.diff(z_grid)
 
 
 @njit
-def Ez(z, params):
-    Om, w0 = params[1], params[3]
+def Ode_z(z, w0):
     cubic = (1.0 + z) ** 3
-    rho_de = (2 * cubic / (1 + w0 + (1 - w0) * cubic)) ** 2
-    return np.sqrt(Om * cubic + (1.0 - Om) * rho_de)
+    return (2 * cubic / (1.0 + w0 + (1.0 - w0) * cubic)) ** 2
+
+
+@njit
+def Ez(z, params):
+    Om = params[1]
+    cubic = (1.0 + z) ** 3
+    return np.sqrt(Om * cubic + (1.0 - Om) * Ode_z(z, w0=params[3]))
 
 
 @njit
