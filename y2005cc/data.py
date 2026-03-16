@@ -5,9 +5,9 @@ from interpolator import interp_pchip
 data = pd.read_csv("y2005cc/raw-data/data.csv")
 cov_components = pd.read_csv("y2005cc/raw-data/cov_components.csv")
 
-z = data["z"].to_numpy(dtype=np.float64)
-Hz = data["H"].to_numpy(dtype=np.float64)
-sigma_H = data["sigma_H"].to_numpy(dtype=np.float64)
+z = data["z"].to_numpy()
+Hz = data["H"].to_numpy()
+sigma_H = data["sigma_H"].to_numpy()
 
 zmod = cov_components["z"].to_numpy(dtype=np.float64)
 imf_intp = interp_pchip(z, zmod, cov_components["imf"].to_numpy()) / 100
@@ -37,12 +37,7 @@ cov_matrix = cov_mat_spsooo + cov_mat_imf + cov_mat_diag
 
 
 def get_data():
-    return (
-        f"Cosmic Chronometers ({N} data points)",
-        z,
-        Hz,
-        cov_matrix,
-    )
+    return (f"Cosmic Chronometers ({N} data points)", z, Hz, cov_matrix)
 
 
 """
