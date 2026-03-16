@@ -51,20 +51,23 @@ cmb.set_HZ(H_z)
 
 
 @njit
-def DM_z(z, theta):
+def DM_grid(theta):
     dh_grid = c / H_z(z_grid, theta)
     dh = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size, dtype=np.float64)
     cum_dm[1:] = np.cumsum(dh * dz)
-    return interp_hermite(z, z_grid, cum_dm, dh_grid)
+    return (cum_dm, dh_grid)
 
 
 @njit
-def mu_corr(params, DM_obs):
+def mu_corr(params, DM_inter):
     v_km_s = 100 * params[4] * np.where(z_cmb <= 0.11, 1, -1)
     z_pec = v_km_s / c
     z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
-    return 5.0 * np.log10(DM_z(z_cosmo, params) / DM_obs)
+
+    DM_obs = interp_hermite(z_cmb, z_grid, *DM_inter)
+    DM_cosmo = interp_hermite(z_cosmo, z_grid, *DM_inter)
+    return 5.0 * np.log10(DM_cosmo / DM_obs)
 
 
 @njit
@@ -78,8 +81,9 @@ def solve_triang(cho_L, delta):
 
 
 def chi2_sn(params):
-    DM = DM_z(z_cmb, params)
-    delta_sn = mu_vals - theory_mu(params, DM) - mu_corr(params, DM)
+    DM_inter = DM_grid(params)
+    DM = interp_hermite(z_cmb, z_grid, *DM_inter)
+    delta_sn = mu_vals - theory_mu(params, DM) - mu_corr(params, DM_inter)
     return solve_triang(cho_sn, delta_sn)
 
 
@@ -204,9 +208,9 @@ def main():
     plot_sn_predictions(
         legend=sn_legend,
         x=z_cmb,
-        y=mu_vals - mu_corr(best_fit, DM_z(z_cmb, best_fit)),
+        y=mu_vals - mu_corr(best_fit, DM_grid(best_fit)),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=theory_mu(best_fit, DM_z(z_cmb, best_fit)),
+        y_model=theory_mu(best_fit, interp_hermite(z_cmb, z_grid, *DM_grid(best_fit))),
         label=f"$Ω_m$={Om_50:.3f}",
         x_scale="log",
     )
