@@ -16,8 +16,4 @@ cov_matrix = np.loadtxt(file_path + "covariance.txt", delimiter=" ", dtype=np.fl
 
 
 def get_data():
-    return (
-        "DESI BAO DR2",
-        data[["z", "value", "quantity"]],
-        cov_matrix,
-    )
+    return ("DESI BAO DR2", data, cov_matrix)
