@@ -63,12 +63,17 @@ def log_likelihood(params):
     return log_like, np.array([100 * thetastar, rs_star, DM_star / 1000, zstar])
 
 
-def log_probability(params):
+@njit
+def log_probability_single(params):
     lp = log_prior(params)
     if np.isinf(lp):
         return -np.inf, np.empty(4)
     ll, blobs = log_likelihood(params)
     return lp + ll, blobs
+
+
+def log_probability(params_batch):
+    return [log_probability_single(params) for params in params_batch]
 
 
 def main():
@@ -80,19 +85,19 @@ def main():
     ndim = len(bounds)
     nwalkers = 200
     burn_in = 500
-    nsteps = 2500 + burn_in
+    nsteps = 3000 + burn_in
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
     moves = [
         (emcee.moves.KDEMove(bw_method="silverman"), 0.15),
         (emcee.moves.DEMove(), 0.85),
     ]
-
-    with Pool(5) as pool:
-        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
-        sampler.run_mcmc(
-            initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#ff5a00"}
-        )
+    sampler = emcee.EnsembleSampler(
+        nwalkers, ndim, log_probability, moves=moves, vectorize=True
+    )
+    sampler.run_mcmc(
+        initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#ff5a00"}
+    )
 
     try:
         tau = sampler.get_autocorr_time()
