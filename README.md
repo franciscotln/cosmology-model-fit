@@ -39,7 +39,7 @@ $$mask = (z \le z_{turn}, -1, 1)$$
 $$z_{cosmo} = -1 + \frac{1+z_{obs}}{1+z_{pec}} $$
 
 For 3 different SN1a datasets the value of `z_turn` is respectively:
-- `DES5Y` (previous and Dovekie analysis): 0.10563
+- `DES5Y` (previous and Dovekie analysis): 0.10563 (almost exactly where the low-z sample ends)
 - `Union3` and `Union3.1`: node at z = 0.2
 - `Pantheon+`: 0.15
 
