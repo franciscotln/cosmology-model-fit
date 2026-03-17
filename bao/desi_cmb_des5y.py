@@ -1,7 +1,7 @@
 from numba import njit
 import numpy as np
 from scipy.linalg import cho_factor, solve_triangular
-from interpolator import interp_hermite
+from interpolator import interp_hermite, interp_pchip
 from y2025DESdovekie.data import get_data as get_sn_data, effective_sample_size
 from y2025BAO.data import get_data as get_bao_data
 import cmb.data_planck_act_compression as cmb
@@ -11,12 +11,12 @@ Orh2 = cmb.Or_h2
 Omnuh2 = cmb.Omnu_h2
 
 sn_legend, z_cmb, z_hel, mu_values, cov_matrix_sn = get_sn_data()
-bao_legend, bao_data, bao_cov_matrix = get_bao_data()
+bao_legend, bao, bao_cov_matrix = get_bao_data()
 
 cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
 inv_cov_bao = np.linalg.inv(bao_cov_matrix)
 
-z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
+z_max = max(np.max(z_cmb), np.max(bao["z"])) + 0.1
 z_grid = np.linspace(0, z_max, num=4000)
 dz = np.diff(z_grid)
 
@@ -31,8 +31,7 @@ def Ode_z(z, w0):
 
 
 @njit
-def Ez(z, H0, Obh2, Och2):
-    h = H0 / 100
+def Ez(z, h, Obh2, Och2):
     Onu = Omnuh2 / h**2
     Or = Orh2 / h**2
     Obc = (Obh2 + Och2) / h**2
@@ -51,7 +50,7 @@ def Ez(z, H0, Obh2, Och2):
 @njit
 def H_z(z, params):
     H0 = params[1]
-    return H0 * Ez(z, H0=H0, Obh2=params[2], Och2=params[3])
+    return H0 * Ez(z, h=H0 / 100, Obh2=params[2], Och2=params[3])
 
 
 cmb.set_HZ(H_z)
@@ -63,55 +62,60 @@ def DH_z(z, params):
 
 
 @njit
-def DM_z(z, params):
+def DM_grid(params):
     dh_grid = DH_z(z_grid, params)
     dh = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size, dtype=np.float64)
     cum_dm[1:] = np.cumsum(dz * dh)
-    return interp_hermite(z, z_grid, cum_dm, dh_grid)
+    return (cum_dm, dh_grid)
 
 
 @njit
-def DV_z(z, params):
-    DH = DH_z(z, params)
-    DM = DM_z(z, params)
+def DV_z(z, DM, DH):
     return (z * DH * DM**2) ** (1 / 3)
 
 
 qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
-quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int64)
+bao_qty = np.array([qty_map[q] for q in bao["quantity"]], dtype=np.int64)
 
 
 @njit
-def bao_theory(z, qty, params):
+def bao_theory(z, qty, params, DM_interp):
     Obh2, Och2 = params[2], params[3]
     Omh2 = Obh2 + Och2 + Omnuh2
-    rd = cmb.r_drag(wb=Obh2, wm=Omh2)
+    rd = cmb.r_drag(Obh2, Omh2)
 
-    results = np.empty(z.size, dtype=np.float64)
     DV_mask = qty == 0
     DM_mask = qty == 1
     DH_mask = qty == 2
-    results[DH_mask] = DH_z(z[DH_mask], params)
-    results[DM_mask] = DM_z(z[DM_mask], params)
-    results[DV_mask] = DV_z(z[DV_mask], params)
+    results = np.empty(z.size, dtype=np.float64)
+
+    DM, DH = DM_interp
+
+    results[DH_mask] = interp_pchip(z[DH_mask], z_grid, DH)
+    results[DM_mask] = interp_hermite(z[DM_mask], z_grid, DM, DH)
+    results[DV_mask] = DV_z(
+        z[DV_mask],
+        interp_hermite(z[DV_mask], z_grid, y=DM, y_prime=DH),
+        interp_pchip(z[DV_mask], z_grid, y=DH),
+    )
     return results / rd
 
 
-pivot_mask = z_cmb <= 0.11
-
-
 @njit
-def mu_corr(params, DM_obs):
-    # Heaviside step at z = 0.11
-    v_km_s = 100 * params[4] * np.where(pivot_mask, 1.0, -1.0)
+def mu_corr(v_100, DM_interp):
+    # Heaviside step at z = 0.10563
+    v_km_s = 100 * v_100 * np.where(z_cmb <= 0.10563, 1, -1)
     z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + v_km_s / c)
-    return 5.0 * np.log10(DM_z(z_cosmo, params) / DM_obs)
+
+    DM_cosmo = interp_hermite(z_cosmo, z_grid, *DM_interp)
+    DM_obs = interp_hermite(z_cmb, z_grid, *DM_interp)
+    return 5.0 * np.log10(DM_cosmo / DM_obs)
 
 
 @njit
-def theory_mu(params, DM):
-    return params[0] + 25.0 + 5 * np.log10((1.0 + z_hel) * DM)
+def theory_mu(offset, DM):
+    return offset + 25.0 + 5 * np.log10((1.0 + z_hel) * DM)
 
 
 def solve_triang(cho_L, delta):
@@ -119,18 +123,27 @@ def solve_triang(cho_L, delta):
     return np.dot(y, y)
 
 
-def chi_squared(params):
+def chi2_sn(params, DM_interp):
+    DM_sn = interp_hermite(z_cmb, z_grid, *DM_interp)
+    delta_sn = mu_values - theory_mu(params[0], DM_sn) - mu_corr(params[4], DM_interp)
+    return solve_triang(cho_sn, delta_sn)
+
+
+@njit
+def chi2_cmb(params):
     delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(params[2], params[3], params)
-    chi2_cmb = delta @ cmb.inv_cov_mat @ delta
+    return delta @ cmb.inv_cov_mat @ delta
 
-    delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
-    chi_bao = delta_bao @ inv_cov_bao @ delta_bao
 
-    DM = DM_z(z_cmb, params)
-    delta_sn = mu_values - theory_mu(params, DM) - mu_corr(params, DM)
-    chi_sn = solve_triang(cho_sn, delta_sn)
+@njit
+def chi2_bao(params, DM_interp):
+    delta_bao = bao["value"] - bao_theory(bao["z"], bao_qty, params, DM_interp)
+    return delta_bao @ inv_cov_bao @ delta_bao
 
-    return chi2_cmb + chi_bao + chi_sn
+
+def chi_squared(params):
+    DM_interp = DM_grid(params)
+    return chi2_cmb(params) + chi2_bao(params, DM_interp) + chi2_sn(params, DM_interp)
 
 
 def log_likelihood(params):
@@ -194,10 +207,7 @@ def main():
 
     best_fit = gd_samples.mean(prior.keys)
     degs_of_freedom = (
-        effective_sample_size
-        + len(bao_data)
-        + len(cmb.DISTANCE_PRIORS)
-        - len(prior.keys)
+        effective_sample_size + len(bao) + len(cmb.DISTANCE_PRIORS) - len(prior.keys)
     )
 
     for par in gd_samples.getParamNames().names:
@@ -210,17 +220,21 @@ def main():
     print(f"Degrees of freedom: {degs_of_freedom}")
 
     plot_bao_predictions(
-        theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
-        data=bao_data,
+        theory_predictions=lambda z, qty: bao_theory(
+            z, qty, best_fit, DM_grid(best_fit)
+        ),
+        data=bao,
         errors=np.sqrt(np.diag(bao_cov_matrix)),
         title=bao_legend,
     )
     plot_sn_predictions(
         legend=sn_legend,
         x=z_cmb,
-        y=mu_values - mu_corr(best_fit, DM_z(z_cmb, best_fit)),
+        y=mu_values - mu_corr(best_fit[4], DM_grid(best_fit)),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=theory_mu(best_fit, DM_z(z_cmb, best_fit)),
+        y_model=theory_mu(
+            best_fit[0], interp_hermite(z_cmb, z_grid, *DM_grid(best_fit))
+        ),
         label=f"$Ω_m$={gd_samples.mean('om'):.3f}",
         x_scale="log",
     )
@@ -255,21 +269,21 @@ Degrees of freedom: 1726
 
 """
 Flat ΛCDM
-Isotropic velocity SNe observed redshifts (turning point z <= 0.11 inflow z > 0.11 outflow)
+Isotropic velocity SNe observed redshifts (turning point z <= 0.10563 inflow z > 0.10563 outflow)
 z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-ΔM: -0.0617 ± 0.0079 mag
-v: -1.58 ± 0.56 (prior ~ U(-6, 2)) x 100 km/s
-v / (z_cut=0.11): -1436 ± 509 km/s
-H0: 68.45 ± 0.27 km/s/Mpc
+ΔM: -0.0619 ± 0.0079 mag
+v: -1.58 ± 0.55 (prior ~ U(-6, 2)) x 100 km/s
+v / (z_cut=0.10563): -1496 ± 521 km/s
+H0: 68.44 ± 0.27 km/s/Mpc
 Ωm: 0.3001 ± 0.0036
 ωb: 0.02258 ± 0.00010
 ωc: 0.11734 ± 0.00065
-ωm: 0.1405 ± 0.0006
+ωm: 0.1406 ± 0.0006
 z*: 1089.40 ± 0.15
 z_d: 1060.20 ± 0.23
-r_d: 147.57 ± 0.19 Mpc
-χ2 (MAP): 1641.48 (2.87 sigma significance)
+r_d: 147.58 ± 0.19 Mpc
+χ2 (MAP): 1641.50 (2.87 sigma significance)
 Log evidence: -840.6 (Δ logZ = 2.4 in favour of in/outflow)
 Degrees of freedom: 1725
 """
