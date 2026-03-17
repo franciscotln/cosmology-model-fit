@@ -14,7 +14,7 @@ cho = cho_factor(cov_matrix, lower=True)[0]
 
 c = c0 / 1000  # Speed of light (km/s)
 
-z_grid = np.linspace(0, np.max(z_cmb) + 0.1, num=3000)
+z_grid = np.linspace(0, np.max(z_cmb) + 0.1, num=4000)
 dz = np.diff(z_grid)
 
 zp1 = 1.0 + z_grid

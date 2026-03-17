@@ -10,7 +10,7 @@ bao_legend, bao_data, bao_cov_matrix = get_bao_data()
 
 inv_cov_mat = np.linalg.inv(bao_cov_matrix)
 
-z_grid = np.linspace(0, np.max(bao_data["z"]) + 0.1, num=3000)
+z_grid = np.linspace(0, np.max(bao_data["z"]) + 0.1, num=4000)
 dx = np.diff(z_grid)
 
 

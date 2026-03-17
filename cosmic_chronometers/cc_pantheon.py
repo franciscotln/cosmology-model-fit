@@ -17,7 +17,7 @@ cho_cc = cho_factor(cov_matrix_cc, lower=True)[0]
 logdet_cc = np.linalg.slogdet(cov_matrix_cc)[1]
 N_cc = len(z_cc_vals)
 
-z_grid = np.linspace(0, np.max(z_vals) + 0.1, num=1000)
+z_grid = np.linspace(0, np.max(z_vals) + 0.1, num=4000)
 dx = np.diff(z_grid)
 
 c = c0 / 1000  # Speed of light in km/s

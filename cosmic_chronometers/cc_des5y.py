@@ -13,7 +13,7 @@ inv_cov_cc = np.linalg.inv(cov_matrix_cc)
 logdet_cc = np.linalg.slogdet(cov_matrix_cc)[1]
 N_cc = len(z_cc_vals)
 
-grid = np.linspace(0, np.max(z_cmb) + 0.1, num=3000)
+grid = np.linspace(0, np.max(z_cmb) + 0.1, num=4000)
 dx = np.diff(grid)
 
 c = 299792.458  # Speed of light in km/s

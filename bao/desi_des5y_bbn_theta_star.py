@@ -18,7 +18,7 @@ cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
 inv_cov_bao = np.linalg.inv(cov_matrix_bao)
 
 z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
-z_grid = np.linspace(0, z_max, num=3000)
+z_grid = np.linspace(0, z_max, num=4000)
 dz = np.diff(z_grid)
 
 
