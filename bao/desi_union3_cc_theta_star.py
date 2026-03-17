@@ -132,10 +132,19 @@ def chi_squared(theta):
     return chi_theta_star + chi_sn + chi_bao + chi_cc
 
 
-def log_likelihood(theta):
+@njit
+def log_likelihood_single(theta):
     f_cc = theta[0]
     normalization_cc = N_cc * np.log(2 * np.pi) + logdet_cc - 2 * N_cc * np.log(f_cc)
     return -0.5 * chi_squared(theta) - 0.5 * normalization_cc
+
+
+def log_likelihood(batch):
+    N = batch.shape[0]
+    log_likes = np.empty(N, dtype=np.float32)
+    for i in range(N):
+        log_likes[i] = log_likelihood_single(batch[i])
+    return log_likes
 
 
 def main():
@@ -163,7 +172,13 @@ def main():
 
     with Pool(8) as pool:
         sampler = Sampler(
-            prior, log_likelihood, n_live=8_000, pool=pool, seed=42, pass_dict=False
+            prior,
+            log_likelihood,
+            n_live=8_000,
+            pool=pool,
+            seed=42,
+            pass_dict=False,
+            vectorized=True,
         )
         sampler.run(verbose=True)
 
