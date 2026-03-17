@@ -57,8 +57,16 @@ def chi_squared(params):
 
 
 @njit
-def log_likelihood(params):
+def log_likelihood_single(params):
     return -0.5 * chi_squared(params)
+
+
+def log_likelihood(batch):
+    N = batch.shape[0]
+    log_likes = np.empty(N, dtype=np.float32)
+    for i in range(N):
+        log_likes[i] = log_likelihood_single(batch[i])
+    return log_likes
 
 
 def main():
@@ -78,7 +86,13 @@ def main():
 
     with Pool(6) as pool:
         sampler = Sampler(
-            prior, log_likelihood, n_live=6_000, pool=pool, seed=42, pass_dict=False
+            prior,
+            log_likelihood,
+            n_live=6_000,
+            pool=pool,
+            seed=42,
+            pass_dict=False,
+            vectorized=True,
         )
         sampler.run(verbose=True)
 
@@ -158,11 +172,11 @@ Flat ΛCDM
 Isotropic velocity SNe observed redshifts (turning point z <= 0.2 inflow z > 0.2 outflow)
 z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-ΔM: 0.007 ± 0.060 mag
+ΔM: 0.008 ± 0.059 mag
 v: -3.1 ± 1.2 (prior ~ U(-10.5, 4.0)) x 100 km/s
 v / (z_cut=0.2): -1550 ± 600 km/s
 H0: 70.4 ± 1.8 km/s/Mpc
-Ωm: 0.299 +0.027/-0.027 (agreement with ΛCDM from BAO)
+Ωm: 0.299 +0.025/-0.028 (agreement with ΛCDM from BAO)
 Ωm h^2: 0.148 +0.014/-0.016
 χ2 (MAP): 22.15 (2.58 sigma significance)
 Log evidence: -20.3 (Δ logZ = 1.7 in favour of in/outflow)

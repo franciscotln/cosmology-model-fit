@@ -96,8 +96,17 @@ def chi_squared(params):
     return chi2_cmb + chi_sn
 
 
-def log_likelihood(params):
+@njit
+def log_likelihood_single(params):
     return -0.5 * chi_squared(params)
+
+
+def log_likelihood(batch):
+    N = batch.shape[0]
+    log_likes = np.empty(N, dtype=np.float32)
+    for i in range(N):
+        log_likes[i] = log_likelihood_single(batch[i])
+    return log_likes
 
 
 def main():
@@ -122,7 +131,7 @@ def main():
             pool=pool,
             seed=42,
             pass_dict=False,
-            n_networks=5,
+            vectorized=True,
         )
         sampler.run(verbose=True)
 
@@ -207,8 +216,8 @@ z_cosmo = -1 + (1 + z) / (1 + v/c)
 ΔM: -0.067 ± 0.011 mag
 v: -2.8 ± 1.1 (prior ~ U(-10, 4)) x 100 km/s
 v / (z_cut=0.2): -1400 ± 550 km/s
-H0: 67.69 ± 0.48 km/s/Mpc
-Ωm: 0.3107 ± 0.0068
+H0: 67.68 ± 0.49 km/s/Mpc
+Ωm: 0.3107 ± 0.0069
 Chi2 (MAP): 22.4 (2.66 sigma significance)
 Log Evidence: -31.2 (delta logZ = 1.9 in favour of flow)
 Degrees of freedom: 20
