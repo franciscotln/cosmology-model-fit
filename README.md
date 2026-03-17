@@ -57,9 +57,11 @@ Most relevant files (SNe alone)
 - sn/des5y.py
 - sn/pantheon.py
 
-The `DES5Y` results in the files above are related to the Dovekie re-analysis. The previous original analysis yielded an even higher bayesian evidence and frequentist significance such has:
+The `DES5Y` results in the files above are related to the Dovekie re-analysis. The previous original analysis yielded an even higher bayesian evidence and frequentist significance such as:
+
 $$ \Delta ln(Z) = 5.8 $$
 $$ \Delta \chi^2 = 15.19 $$
+
 when fitting `SNe+BAO+CMB compressed likelihood` adding the additional parameter `v`.
 
 Adding `v` while also fitting any other model with evolving dark energy consistently falls right back into the predicted ΛCDM values for `w0` and/or `wa`.
