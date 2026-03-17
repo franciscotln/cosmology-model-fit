@@ -289,7 +289,7 @@ z*: 1089.40 ± 0.15
 zd: 1060.20 ± 0.23
 rd: 147.57 ± 0.19 Mpc
 MAP chi^2: 1415.03 (2.18 sigma significance)
-Log evidence: -726.3 (Δ logZ = 1.1 against no v correction)
+Log evidence: -726.3 (Δ logZ = 1.1 in favour of v correction)
 Degrees of freedom: 1601
 """
 
