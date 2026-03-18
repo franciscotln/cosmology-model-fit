@@ -64,7 +64,7 @@ def log_likelihood(params):
 
 
 @njit
-def log_probability_single(params):
+def log_probability(params):
     lp = log_prior(params)
     if np.isinf(lp):
         return -np.inf, np.empty(4)
@@ -72,14 +72,9 @@ def log_probability_single(params):
     return lp + ll, blobs
 
 
-def log_probability(params_batch):
-    return [log_probability_single(params) for params in params_batch]
-
-
 def main():
     import emcee
     import matplotlib.pyplot as plt
-    from multiprocessing import Pool
     from getdist import MCSamples, plots
 
     ndim = len(bounds)
@@ -92,9 +87,7 @@ def main():
         (emcee.moves.KDEMove(bw_method="silverman"), 0.15),
         (emcee.moves.DEMove(), 0.85),
     ]
-    sampler = emcee.EnsembleSampler(
-        nwalkers, ndim, log_probability, moves=moves, vectorize=True
-    )
+    sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, moves=moves)
     sampler.run_mcmc(
         initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#ff5a00"}
     )
