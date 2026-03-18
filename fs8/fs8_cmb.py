@@ -16,7 +16,7 @@ a_vals = 1 / (1.0 + z_vals)
 
 N = len(data)
 logdet = np.linalg.slogdet(fs8_data.cov_mat)[1]
-norm_fact_1 = N * np.log(2 * np.pi) + logdet
+norm_factor = N * np.log(2 * np.pi) + logdet
 
 inv_cov = np.linalg.inv(fs8_data.cov_mat)
 
@@ -163,7 +163,7 @@ def chi2_fs8(theta):
     q = Hz(z_vals, theta) * DM(z_vals, theta) / Hz_DMz_fid
     delta = fs8_vals - fs8_theory(a_vals, theta) / q
 
-    return delta @ (inv_cov * theta[-1] ** 2) @ delta
+    return theta[-1] ** 2 * (delta @ inv_cov @ delta)
 
 
 @njit
@@ -177,7 +177,7 @@ def chi_squared(theta):
 
 
 def log_likelihood(theta):
-    norm_fact = norm_fact_1 - 2 * N * np.log(theta[-1])
+    norm_fact = norm_factor - 2 * N * np.log(theta[-1])
     return -0.5 * (chi_squared(theta) + norm_fact)
 
 
@@ -296,49 +296,49 @@ if __name__ == "__main__":
 """
 flat ΛCDM
 
-H0 = 67.59 +0.48 -0.47 km/s/Mpc
+H0 = 67.60 +0.47 -0.47 km/s/Mpc
 Ωbh2 = 0.02249 +0.00011 -0.00011
-Ωch2 = 0.11939 +0.00112 -0.00116
+Ωch2 = 0.11936 +0.00114 -0.00113
 Ωmh2 = 0.1425 +0.0011 -0.0011
 Ωm = 0.312 +0.007 -0.007 (same as Planck+ACT)
-σ8 = 0.792 +0.009 -0.009 (2.08 sigma from Planck+ACT)
-S8 = 0.806 +0.011 -0.011 (1.35 sigma from Planck+ACT)
-f = 1.86 +0.18 -0.17 (error overestimation factor)
-chi2 = 56.85
-log likelihood = 106.5
+σ8 = 0.793 +0.009 -0.009 (2.08 sigma from Planck+ACT)
+S8 = 0.807 +0.011 -0.011 (1.35 sigma from Planck+ACT)
+f = 1.88 +0.18 -0.17 (error overestimation factor)
+chi2 = 54.35
+log likelihood = 105.7
 degs of freedom = 54
 """
 
 """
 flat wCDM
 
-H0 = 66.00 +1.50 -1.43 km/s/Mpc
+H0 = 66.12 +1.50 -1.44 km/s/Mpc
 Ωbh2 = 0.02251 +0.00011 -0.00011
-Ωch2 = 0.11895 +0.00122 -0.00119
+Ωch2 = 0.11898 +0.00120 -0.00120
 Ωmh2 = 0.1421 +0.0012 -0.0012
-Ωm = 0.326 +0.015 -0.014
-σ8 = 0.799 +0.011 -0.011
-S8 = 0.832 +0.025 -0.025
-w0 = -0.941 +0.051 -0.053 (prior U(-1.5, -0.5))
-f = 1.87 +0.18 -0.18 (error overestimation factor)
-chi2 = 57.03
-log likelihood = 107.1
+Ωm = 0.325 +0.015 -0.014
+σ8 = 0.800 +0.011 -0.011
+S8 = 0.831 +0.025 -0.025
+w0 = -0.945 +0.051 -0.053 (prior U(-1.5, -0.5))
+f = 1.89 +0.18 -0.18 (error overestimation factor)
+chi2 = 54.66
+log likelihood = 106.3
 degs of freedom = 53
 """
 
 """
 flat wzCDM
 
-H0 = 64.99 +1.40 -1.44 km/s/Mpc
+H0 = 65.12 +1.38 -1.44 km/s/Mpc
 Ωbh2 = 0.02252 +0.00011 -0.00011
-Ωch2 = 0.11881 +0.00117 -0.00116
+Ωch2 = 0.11884 +0.00118 -0.00115
 Ωmh2 = 0.1420 +0.0011 -0.0011
-Ωm = 0.336 +0.016 -0.014
+Ωm = 0.335 +0.016 -0.014
 σ8 = 0.806 +0.012 -0.011
-S8 = 0.851 +0.027 -0.026
-w0 = -0.797 +0.105 -0.104 (prior U(-1.0, 0.0))
-f = 1.90 +0.18 -0.18 (error overestimation factor)
-chi2 = 56.49
-log likelihood = 108.0
+S8 = 0.849 +0.027 -0.025
+w0 = -0.809 +0.105 -0.102 (prior U(-1.0, 0.0))
+f = 1.91 +0.18 -0.18 (error overestimation factor)
+chi2 = 56.70
+log likelihood = 107.0
 degs of freedom = 53
 """
