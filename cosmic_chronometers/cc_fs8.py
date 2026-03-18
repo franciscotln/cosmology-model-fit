@@ -132,10 +132,14 @@ def chi_squared(params):
     return chi2_cc(params) + chi2_fs8(params)
 
 
-def log_likelihood(params):
+def log_likelihood_single(params):
     normalization_cc = -2 * N_cc * np.log(params[3])
     normalization_fs8 = -2 * N_fs8 * np.log(params[4])
     return -0.5 * (chi_squared(params) + normalization_cc + normalization_fs8)
+
+
+def log_likelihood(batch):
+    return np.array([log_likelihood_single(params) for params in batch])
 
 
 def main():
@@ -156,7 +160,13 @@ def main():
 
     with Pool(6) as pool:
         sampler = Sampler(
-            prior, log_likelihood, n_live=6_000, pool=pool, seed=42, pass_dict=False
+            prior,
+            log_likelihood,
+            n_live=6_000,
+            pool=pool,
+            seed=42,
+            pass_dict=False,
+            vectorized=True,
         )
         sampler.run(verbose=True)
 
@@ -203,7 +213,7 @@ def main():
     print(f"f_fs8: {fs_50:.2f} +{(fs_84 - fs_50):.2f} -{(fs_50 - fs_16):.2f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
-    print(f"Log likelihood: {log_likelihood(best_fit):.2f}")
+    print(f"Log likelihood: {log_likelihood_single(best_fit):.2f}")
     print(f"Log evidence: {log_evd:.1f}")
     print(f"Degs of freedom: {len(z_cc) + len(z_fs8) - len(best_fit)}")
 
@@ -228,47 +238,47 @@ if __name__ == "__main__":
 """
 Flat ΛCDM
 
-H0: 67.8 +2.5 -2.5 km/s/Mpc (0.2 sigma from Planck)
-Ωm: 0.317 +0.018 -0.017 (identical to Planck)
-σ8: 0.789 +0.011 -0.011 (1.7 sigma from Planck)
-S8: 0.810 +0.018 -0.018 (1.0 sigma from Planck)
+H0: 67.86 +2.55 -2.55 km/s/Mpc (0.2 sigma from Planck)
+Ωm: 0.317 +0.018 -0.017 (0.02 sigma from Planck)
+σ8: 0.790 +0.011 -0.011 (1.67 sigma from Planck)
+S8: 0.811 +0.018 -0.018 (0.96 sigma from Planck)
 f_cc: 1.48 +0.18 -0.17
-f_fs8: 1.85 +0.18 -0.17
-Chi squared: 89.52
-Log likelihood: 3.76
-Log evidence: -9.2
+f_fs8: 1.87 +0.18 -0.17
+Chi squared: 89.76
+Log likelihood: 4.36
+Log evidence: -8.6
 Degs of freedom: 87
 """
 
 """
 Flat wCDM: w(z) = w0
 
-H0: 64.7 +2.7 -2.7 km/s/Mpc
-Ωm: 0.290 +0.022 -0.023
-σ8: 0.874 +0.055 -0.042
-S8: 0.862 +0.030 -0.028
+H0: 64.9 +2.8 -2.7 km/s/Mpc
+Ωm: 0.292 +0.021 -0.023
+σ8: 0.869 +0.055 -0.042
+S8: 0.860 +0.030 -0.028
 f_cc: 1.47 +0.18 -0.17
-f_fs8: 1.95 +0.19 -0.18
-w0: -0.727 +0.104 -0.109 (prior -1.6 to 0.0)
-Chi squared: 88.75
-Log likelihood: 6.69 (2.42 sigma significance)
-Log evidence: -8.0 (Δ logZ = 1.2 against ΛCDM)
+f_fs8: 1.95 +0.19 -0.19
+w0: -0.740 +0.107 -0.112 (prior -1.6 to 0.0)
+Chi squared: 88.56
+Log likelihood: 6.99 (2.3 sigma significance)
+Log evidence: -7.8 (Δ logZ = 0.8 against ΛCDM)
 Degs of freedom: 86
 """
 
 """
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
 
-H0: 65.1 +2.7 -2.6 km/s/Mpc
-Ωm: 0.320 +0.017 -0.017
-σ8: 0.831 +0.024 -0.022
-S8: 0.859 +0.028 -0.027
+H0: 65.2 +2.7 -2.6 km/s/Mpc
+Ωm: 0.320 +0.017 -0.016
+σ8: 0.828 +0.024 -0.022
+S8: 0.857 +0.028 -0.027
 f_cc: 1.46 +0.18 -0.17
-f_fs8: 1.93 +0.19 -0.18
-w0: -0.653 +0.130 -0.143 (prior -1.0 to 0.0)
-Chi squared: 88.78
-Log likelihood: 6.24 (2.2 sigma significance)
-Log evidence: -7.8 (Δ logZ = 1.4 against ΛCDM)
+f_fs8: 1.94 +0.19 -0.18
+w0: -0.672 +0.135 -0.148 (prior -1.0 to 0.0)
+Chi squared: 88.74
+Log likelihood: 6.44 (2.0 sigma significance)
+Log evidence: -7.6 (Δ logZ = 1.0 against ΛCDM)
 Degs of freedom: 86
 """
 
