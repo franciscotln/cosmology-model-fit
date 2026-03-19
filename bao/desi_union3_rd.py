@@ -1,19 +1,19 @@
 from numba import njit
 import numpy as np
 from scipy.constants import c as c0
-from interpolator import interp_hermite
+from interpolator import interp_hermite, interp_pchip
 from y2026union3_1.data import get_data as get_sn_data
 from y2025BAO.data import get_data as get_bao_data
 
 sn_legend, z_cmb, z_hel, mu_vals, cov_matrix_sn = get_sn_data()
-bao_legend, bao_data, bao_cov_matrix = get_bao_data()
+bao_legend, bao, bao_cov_matrix = get_bao_data()
 
 inv_cov_sn = np.linalg.inv(cov_matrix_sn)
 inv_cov_bao = np.linalg.inv(bao_cov_matrix)
 
 c = c0 / 1000  # Speed of light in km/s
 
-z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
+z_max = max(np.max(z_cmb), np.max(bao["z"])) + 0.1
 z_grid = np.linspace(0, z_max, num=4000)
 dz = np.diff(z_grid)
 
@@ -32,39 +32,45 @@ def H_z(z, params):
 
 
 @njit
-def DH_z(z, params):
-    return c / H_z(z, params)
-
-
-@njit
-def DM_z(z, params):
-    dh_grid = DH_z(z_grid, params)
+def DM_grid(params):
+    dh_grid = c / H_z(z_grid, params)
     dh = (dh_grid[:-1] + dh_grid[1:]) / 2
-    cum_dm = np.zeros(z_grid.size, dtype=np.float64)
-    cum_dm[1:] = np.cumsum(dz * dh)
-    return interp_hermite(z, z_grid, cum_dm, dh_grid)
+    dm_grid = np.zeros(z_grid.size, dtype=np.float64)
+    dm_grid[1:] = np.cumsum(dz * dh)
+    return (dm_grid, dh_grid)
 
 
 @njit
-def DV_z(z, params):
-    DH = DH_z(z, params)
-    DM = DM_z(z, params)
+def DM_z(z, dm_interp):
+    return interp_hermite(z, z_grid, *dm_interp)
+
+
+@njit
+def DH_z(z, dm_interp):
+    return interp_pchip(z, z_grid, dm_interp[1])
+
+
+@njit
+def DV_z(z, DH, DM):
     return (z * DH * DM**2) ** (1 / 3)
 
 
 qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
-desi_qty = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int32)
+bao_qty = np.array([qty_map[q] for q in bao["quantity"]], dtype=np.int32)
 
 
 @njit
-def bao_theory(z, qty, params):
+def bao_theory(z, qty, params, dm_interp):
+    DM = DM_z(z, dm_interp)
+    DH = DH_z(z, dm_interp)
+
     DV_mask = qty == 0
     DM_mask = qty == 1
     DH_mask = qty == 2
     results = np.empty(z.size, dtype=np.float64)
-    results[DH_mask] = DH_z(z[DH_mask], params)
-    results[DM_mask] = DM_z(z[DM_mask], params)
-    results[DV_mask] = DV_z(z[DV_mask], params)
+    results[DH_mask] = DH[DH_mask]
+    results[DM_mask] = DM[DM_mask]
+    results[DV_mask] = DV_z(z[DV_mask], DH[DV_mask], DM[DV_mask])
     return results / params[1]
 
 
@@ -97,30 +103,31 @@ z node
 
 
 @njit
-def mu_corr(params, DM):
+def mu_corr(params, dm_interp):
     # Heaviside step at z = 0.2
-    v_km_s = 100 * params[4] * np.where(pivot_mask, 1.0, -1.0)
+    v_km_s = 100 * params[4] * np.where(pivot_mask, 1, -1)
     z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + v_km_s / c)
-
-    return 5.0 * np.log10(DM_z(z_cosmo, params) / DM)
+    return 5.0 * np.log10(DM_z(z_cosmo, dm_interp) / DM_z(z_cmb, dm_interp))
 
 
 @njit
-def mu_theory(params, DM):
-    return params[0] + 25.0 + 5 * np.log10((1.0 + z_hel) * DM)
+def mu_theory(params, dm_interp):
+    return params[0] + 25.0 + 5 * np.log10((1.0 + z_hel) * DM_z(z_cmb, dm_interp))
 
 
 @njit
 def chi_squared(params):
-    DM = DM_z(z_cmb, params)
-    delta_sn = mu_vals - mu_theory(params, DM) - mu_corr(params, DM)
+    dm_interp = DM_grid(params)
+
+    delta_sn = mu_vals - mu_theory(params, dm_interp) - mu_corr(params, dm_interp)
     chi_sn = delta_sn @ inv_cov_sn @ delta_sn
 
-    delta_bao = bao_data["value"] - bao_theory(bao_data["z"], desi_qty, params)
+    delta_bao = bao["value"] - bao_theory(bao["z"], bao_qty, params, dm_interp)
     chi_bao = delta_bao @ inv_cov_bao @ delta_bao
     return chi_sn + chi_bao
 
 
+@njit
 def log_likelihood(params):
     return -0.5 * chi_squared(params)
 
@@ -139,17 +146,11 @@ def main():
     prior.add_parameter("rd", dist=norm(loc=147.09, scale=0.26))  # Planck prior
     prior.add_parameter("H0", dist=(50.0, 85.0))
     prior.add_parameter("Ωm", dist=(0.1, 0.6))
-    prior.add_parameter("v", dist=(-9.5, 3.5))
+    prior.add_parameter("v", dist=(-10.5, 4.5))
 
     with Pool(8) as pool:
         sampler = Sampler(
-            prior,
-            log_likelihood,
-            n_live=10_000,
-            pool=pool,
-            seed=42,
-            pass_dict=False,
-            n_networks=5,
+            prior, log_likelihood, n_live=8_000, pool=pool, seed=42, pass_dict=False
         )
         sampler.run(verbose=True)
 
@@ -185,7 +186,7 @@ def main():
     )
     plt.show()
 
-    degs_of_freedom = len(bao_data) + len(z_cmb) - len(best_fit)
+    degs_of_freedom = len(bao) + len(z_cmb) - len(best_fit)
 
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
     print(f"rd: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
@@ -198,17 +199,19 @@ def main():
     print(f"Degs of freedom: {degs_of_freedom}")
 
     plot_bao_predictions(
-        theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
-        data=bao_data,
+        theory_predictions=lambda z, qty: bao_theory(
+            z, qty, best_fit, DM_grid(best_fit)
+        ),
+        data=bao,
         errors=np.sqrt(np.diag(bao_cov_matrix)),
         title=bao_legend,
     )
     plot_sn_predictions(
         legend=sn_legend,
         x=z_cmb,
-        y=mu_vals - mu_corr(best_fit, DM_z(z_cmb, best_fit)),
+        y=mu_vals - mu_corr(best_fit, DM_grid(best_fit)),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=mu_theory(best_fit, DM_z(z_cmb, best_fit)),
+        y_model=mu_theory(best_fit, DM_grid(best_fit)),
         label=f"$Ω_m$={Om_50:.3f}",
         x_scale="log",
     )
@@ -229,7 +232,7 @@ H0 ~U(50.0, 85.0)
 Ωm ~U(0.1, 0.6)
 
 flow correction:
-v ~U(-9.5, 3.5) x 100 km/s
+v ~U(-10.5, 4.5) x 100 km/s
 
 wCDM:
 w0 ~U(-1.5, 0.0)
@@ -269,7 +272,7 @@ H0: 69.03 +0.50 -0.49 km/s/Mpc
 Ωm: 0.298 +0.008 -0.008
 ωm: 0.1418 +0.0023 -0.0023
 Chi squared: 32.4 (2.95 sigma significance)
-Log evidence: -30.6 (Δ logZ = 2.7 in favour of flow corrections)
+Log evidence: -30.7 (Δ logZ = 2.6 in favour of flow corrections)
 Degs of freedom: 30
 """
 
