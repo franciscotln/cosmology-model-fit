@@ -34,7 +34,7 @@ This model is within the limits of thawing quintessence models as described in h
 
 $$z_{pec} \approx \frac{v_{pec}}{c} \times mask$$
 
-$$mask = (z \le z_{turn}, -1, 1)$$
+$$mask = (z \le z_{turn}, 1, -1)$$
 
 $$z_{cosmo} = -1 + \frac{1+z_{obs}}{1+z_{pec}} $$
 
