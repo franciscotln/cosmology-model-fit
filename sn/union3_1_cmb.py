@@ -101,6 +101,7 @@ def log_likelihood_single(params):
     return -0.5 * chi_squared(params)
 
 
+@njit
 def log_likelihood(batch):
     N = batch.shape[0]
     log_likes = np.empty(N, dtype=np.float32)
