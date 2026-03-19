@@ -41,7 +41,7 @@ cmb.set_HZ(H_z)
 
 bounds = np.array(
     [
-        (50.0, 85.0),  # H0
+        (63.0, 73.0),  # H0
         (0.0210, 0.0235),  # Ωb * h^2
         (0.05, 0.30),  # Ωc * h^2
         (0.30, 2.75),  # f_cc
@@ -59,6 +59,7 @@ def chi_squared(params):
     return chi2_cc + chi2_cmb
 
 
+@njit
 def log_likelihood(params):
     N = len(z_values)
     normalization = N * np.log(2 * np.pi) + logdet - 2 * N * np.log(params[3])
@@ -96,7 +97,7 @@ def main():
         (emcee.moves.DEMove(), 0.80),
     ]
 
-    with Pool(5) as pool:
+    with Pool(6) as pool:
         sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
         sampler.run_mcmc(
             initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#ff5a00"}
@@ -167,13 +168,12 @@ Flat ΛCDM
 
 -------------------------------
 
-f: 1.50 +0.19 -0.18
-H0: 67.58 +0.50 -0.50
-Ωm: 0.3121 +0.0072 -0.0070
-ωb: 0.02249 +0.00011 -0.00011
-ωc: 0.11939 +0.00121 -0.00120
 f: 1.51 +0.18 -0.17
-Chi squared: 36.24
+H0: 67.59 +0.49 -0.49 km/s/Mpc
+Ωm: 0.3120 +0.0071 -0.0069
+ωb: 0.02249 +0.00011 -0.00011
+ωc: 0.11939 +0.00120 -0.00119
+Chi squared: 36.26 (3.03 sigma significance)
 Log likelihood: -141.72
 Log evidence: -158.20 (Δ logZ = 3.78 compared to fixed f)
 Degs of freedom: 35
@@ -181,8 +181,8 @@ Degs of freedom: 35
 -------------------------------
 
 f: 1.0 (fixed - assuming no overestimaded errors in CCH sample)
-H0: 67.61 +0.50 -0.50
-Ωm: 0.3117 +0.0072 -0.0070
+H0: 67.60 +0.50 -0.50 km/s/Mpc
+Ωm: 0.3118 +0.0072 -0.0070
 ωb: 0.02250 +0.00011 -0.00011
 ωc: 0.11934 +0.00122 -0.00120
 Chi squared: 16.00
