@@ -36,39 +36,33 @@ def H_z(z, params):
 
 
 @njit
-def DH_z(z, theta):
-    return c / H_z(z, theta)
-
-
-@njit
 def bao_theory(z, qty, theta):
-    dh_grid = DH_z(z_grid, theta)
-    dh = (dh_grid[:-1] + dh_grid[1:]) / 2
-    dm_grid = np.zeros(z_grid.size, dtype=np.float64)
-    dm_grid[1:] = np.cumsum(dz * dh)
+    DH_grid = c / H_z(z_grid, theta)
+    dh = (DH_grid[:-1] + DH_grid[1:]) / 2
+    DM_grid = np.zeros(z_grid.size, dtype=np.float64)
+    DM_grid[1:] = np.cumsum(dz * dh)
+
+    DH = interp_pchip(z, x=z_grid, y=DH_grid)
+    DM = interp_hermite(z, x=z_grid, y=DM_grid, y_prime=DH_grid)
 
     DV_mask = qty == 0
     DM_mask = qty == 1
     DH_mask = qty == 2
 
     results = np.empty(z.size, dtype=np.float64)
-
-    results[DH_mask] = interp_pchip(z[DH_mask], z_grid, dh_grid)
-    results[DM_mask] = interp_hermite(z[DM_mask], x=z_grid, y=dm_grid, y_prime=dh_grid)
-
-    dh_at_z = interp_pchip(z[DV_mask], z_grid, dh_grid)
-    dm_at_z = interp_hermite(z[DV_mask], x=z_grid, y=dm_grid, y_prime=dh_grid)
-    results[DV_mask] = (z[DV_mask] * dh_at_z * dm_at_z**2) ** (1 / 3)
+    results[DH_mask] = DH[DH_mask]
+    results[DM_mask] = DM[DM_mask]
+    results[DV_mask] = (z[DV_mask] * DH[DV_mask] * DM[DV_mask] ** 2) ** (1 / 3)
     return results / rd
 
 
 qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
-qty = np.array([qty_map[q] for q in data["quantity"]], dtype=np.int32)
+bao_qty = np.array([qty_map[q] for q in data["quantity"]], dtype=np.int32)
 
 
 @njit
 def chi_squared(theta):
-    delta_bao = data["value"] - bao_theory(data["z"], qty, theta)
+    delta_bao = data["value"] - bao_theory(data["z"], bao_qty, theta)
     return delta_bao @ inv_cov_bao @ delta_bao
 
 
@@ -90,10 +84,12 @@ def log_prior(params):
     return normalization
 
 
+@njit
 def log_likelihood(params):
     return -0.5 * chi_squared(params)
 
 
+@njit
 def log_probability(params):
     lp = log_prior(params)
     if np.isinf(lp):
@@ -149,7 +145,7 @@ def main():
     best_fit = np.percentile(samples, 50, axis=0)
     degs_of_freedom = data["value"].size + data_des["value"].size - len(best_fit)
 
-    residuals = data["value"] - bao_theory(data["z"], qty, best_fit)
+    residuals = data["value"] - bao_theory(data["z"], bao_qty, best_fit)
     SS_res = np.sum(residuals**2)
     SS_tot = np.sum((data["value"] - np.mean(data["value"])) ** 2)
     r2 = 1 - SS_res / SS_tot
