@@ -1,4 +1,4 @@
-from numba import njit
+from numba import njit, prange
 import numpy as np
 from scipy.constants import c as c0
 from scipy.linalg import block_diag
@@ -97,6 +97,15 @@ def log_probability(params):
     return lp + log_likelihood(params)
 
 
+@njit(parallel=True)
+def log_probs_vectorized(batch):
+    N = batch.shape[0]
+    log_probs = np.empty(N, dtype=np.float32)
+    for i in prange(N):
+        log_probs[i] = log_probability(batch[i])
+    return log_probs
+
+
 def main():
     import emcee
     from bao.plot_predictions import plot_bao_predictions, plot_bao_residuals
@@ -115,7 +124,9 @@ def main():
         (emcee.moves.DEMove(), 0.80),
     ]
 
-    sampler = emcee.EnsembleSampler(n_walkers, n_dim, log_probability, moves=moves)
+    sampler = emcee.EnsembleSampler(
+        n_walkers, n_dim, log_probs_vectorized, moves=moves, vectorize=True
+    )
     sampler.run_mcmc(
         initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#ff5a00"}
     )

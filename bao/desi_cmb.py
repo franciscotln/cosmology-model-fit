@@ -1,4 +1,4 @@
-from numba import njit
+from numba import njit, prange
 import numpy as np
 from interpolator import interp_hermite
 from y2025BAO.data import get_data as get_bao_data
@@ -121,10 +121,12 @@ def log_prior(params):
     return -np.inf
 
 
+@njit
 def log_likelihood(params):
     return -0.5 * chi_squared(params)
 
 
+@njit
 def log_probability(params):
     lp = log_prior(params)
     if np.isinf(lp):
@@ -132,9 +134,17 @@ def log_probability(params):
     return lp + log_likelihood(params)
 
 
+@njit(parallel=True)
+def log_probability_vect(params):
+    N = params.shape[0]
+    log_probs = np.empty(N, dtype=np.float32)
+    for i in prange(N):
+        log_probs[i] = log_probability(params[i])
+    return log_probs
+
+
 def main():
     import emcee
-    from multiprocessing import Pool
     from corner_plot import plot_corner_and_chains
     from gelman_rubin import gelman_rubin
     from log_evidence import log_evidence
@@ -147,15 +157,16 @@ def main():
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
     moves = [
-        (emcee.moves.KDEMove(bw_method="silverman"), 0.30),
-        (emcee.moves.DEMove(), 0.70),
+        (emcee.moves.KDEMove(bw_method="silverman"), 0.20),
+        (emcee.moves.DEMove(), 0.80),
     ]
 
-    with Pool(6) as pool:
-        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
-        sampler.run_mcmc(
-            initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#ff5a00"}
-        )
+    sampler = emcee.EnsembleSampler(
+        nwalkers, ndim, log_probability_vect, vectorize=True, moves=moves
+    )
+    sampler.run_mcmc(
+        initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#ff5a00"}
+    )
 
     try:
         tau = sampler.get_autocorr_time()
@@ -261,18 +272,18 @@ Degs of freedom: 12
 
 """
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
-H0: 67.25 +0.81 -1.14 km/s/Mpc
+H0: 67.26 +0.81 -1.12 km/s/Mpc
 ωb: 0.02241 +0.00012 -0.00012
 ωc: 0.1168 +0.0007 -0.0007
 ωm: 0.1398 +0.0007 -0.0007
-Ωm: 0.309 +0.010 -0.008
-w0: -0.911 +0.088 -0.061 (prior width 1.0: -1.0 to 0.0; truncated posterior on the left)
+Ωm: 0.309 +0.010 -0.007
+w0: -0.912 +0.087 -0.061 (prior width 1.0: -1.0 to 0.0; truncated posterior on the left)
 wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
 r*: 145.24 Mpc
-z*: 1089.69 +0.18 -0.19
+z*: 1089.68 +0.19 -0.19
 r_d: 147.91 +0.20 -0.20 Mpc
-Log Z: -20.60
-Chi squared: 13.91
+Log Z: -20.61
+Chi squared: 14.00
 Degs of freedom: 12
 """
 
