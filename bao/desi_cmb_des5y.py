@@ -57,22 +57,12 @@ cmb.set_HZ(H_z)
 
 
 @njit
-def DH_z(z, params):
-    return c / H_z(z, params)
-
-
-@njit
 def DM_grid(params):
-    dh_grid = DH_z(z_grid, params)
+    dh_grid = c / H_z(z_grid, params)
     dh = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size, dtype=np.float64)
     cum_dm[1:] = np.cumsum(dz * dh)
     return (cum_dm, dh_grid)
-
-
-@njit
-def DV_z(z, DM, DH):
-    return (z * DH * DM**2) ** (1 / 3)
 
 
 qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
@@ -83,23 +73,20 @@ bao_qty = np.array([qty_map[q] for q in bao["quantity"]], dtype=np.int64)
 def bao_theory(z, qty, params, DM_interp):
     Obh2, Och2 = params[2], params[3]
     Omh2 = Obh2 + Och2 + Omnuh2
-    rd = cmb.r_drag(Obh2, Omh2)
+    rdrag = cmb.r_drag(Obh2, Omh2)
+
+    DM = interp_hermite(z, z_grid, *DM_interp)
+    DH = interp_pchip(z, z_grid, DM_interp[1])
 
     DV_mask = qty == 0
     DM_mask = qty == 1
     DH_mask = qty == 2
     results = np.empty(z.size, dtype=np.float64)
 
-    DM, DH = DM_interp
-
-    results[DH_mask] = interp_pchip(z[DH_mask], z_grid, DH)
-    results[DM_mask] = interp_hermite(z[DM_mask], z_grid, DM, DH)
-    results[DV_mask] = DV_z(
-        z[DV_mask],
-        interp_hermite(z[DV_mask], z_grid, y=DM, y_prime=DH),
-        interp_pchip(z[DV_mask], z_grid, y=DH),
-    )
-    return results / rd
+    results[DH_mask] = DH[DH_mask]
+    results[DM_mask] = DM[DM_mask]
+    results[DV_mask] = (z[DV_mask] * DH[DV_mask] * DM[DV_mask] ** 2) ** (1 / 3)
+    return results / rdrag
 
 
 @njit
@@ -110,11 +97,12 @@ def mu_corr(v_100, DM_interp):
 
     DM_cosmo = interp_hermite(z_cosmo, z_grid, *DM_interp)
     DM_obs = interp_hermite(z_cmb, z_grid, *DM_interp)
-    return 5.0 * np.log10(DM_cosmo / DM_obs)
+    return 5 * np.log10(DM_cosmo / DM_obs)
 
 
 @njit
-def theory_mu(offset, DM):
+def theory_mu(offset, DM_interp):
+    DM = interp_hermite(z_cmb, z_grid, *DM_interp)
     return offset + 25.0 + 5 * np.log10((1.0 + z_hel) * DM)
 
 
@@ -124,9 +112,8 @@ def solve_triang(cho_L, delta):
 
 
 def chi2_sn(params, DM_interp):
-    DM_sn = interp_hermite(z_cmb, z_grid, *DM_interp)
-    delta_sn = mu_values - theory_mu(params[0], DM_sn) - mu_corr(params[4], DM_interp)
-    return solve_triang(cho_sn, delta_sn)
+    delta = mu_values - theory_mu(params[0], DM_interp) - mu_corr(params[4], DM_interp)
+    return solve_triang(cho_sn, delta)
 
 
 @njit
@@ -163,13 +150,14 @@ def main():
     prior.add_parameter("H0", dist=(60.0, 75.0))
     prior.add_parameter("obh2", dist=(0.010, 0.030))
     prior.add_parameter("och2", dist=(0.01, 0.25))
-    prior.add_parameter("v", dist=(-6.0, 2.0))
+    prior.add_parameter("v", dist=(-5.5, 2.5))  # x100 km/s
 
     with Pool(6) as pool:
         sampler = Sampler(
             prior, log_likelihood, n_live=6_000, pool=pool, seed=42, pass_dict=False
         )
-        sampler.run(verbose=True)
+        print("Running sampler... It may take a few minutes.")
+        sampler.run()
 
     samples, log_w, log_l = sampler.posterior()
     labels = ["ΔM", "H_0", "ω_b", "ω_c", "v"]
@@ -232,9 +220,7 @@ def main():
         x=z_cmb,
         y=mu_values - mu_corr(best_fit[4], DM_grid(best_fit)),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=theory_mu(
-            best_fit[0], interp_hermite(z_cmb, z_grid, *DM_grid(best_fit))
-        ),
+        y_model=theory_mu(best_fit[0], DM_grid(best_fit)),
         label=f"$Ω_m$={gd_samples.mean('om'):.3f}",
         x_scale="log",
     )
@@ -273,17 +259,17 @@ Isotropic velocity SNe observed redshifts (turning point z <= 0.10563 inflow z >
 z_cosmo = -1 + (1 + z) / (1 + v/c)
 
 ΔM: -0.0619 ± 0.0079 mag
-v: -1.58 ± 0.55 (prior ~ U(-6, 2)) x 100 km/s
+v: -1.58 ± 0.56 (prior ~ U(-5.5, 2.5)) x 100 km/s
 v / (z_cut=0.10563): -1496 ± 521 km/s
 H0: 68.44 ± 0.27 km/s/Mpc
 Ωm: 0.3001 ± 0.0036
 ωb: 0.02258 ± 0.00010
-ωc: 0.11734 ± 0.00065
+ωc: 0.11733 ± 0.00065
 ωm: 0.1406 ± 0.0006
 z*: 1089.40 ± 0.15
 z_d: 1060.20 ± 0.23
 r_d: 147.58 ± 0.19 Mpc
-χ2 (MAP): 1641.50 (2.87 sigma significance)
+χ2 (MAP): 1641.51 (2.87 sigma significance)
 Log evidence: -840.6 (Δ logZ = 2.4 in favour of in/outflow)
 Degrees of freedom: 1725
 """
