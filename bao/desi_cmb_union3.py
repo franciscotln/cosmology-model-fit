@@ -1,7 +1,7 @@
-from numba import njit
+from numba import njit, prange
 import numpy as np
 from scipy.linalg import block_diag
-from interpolator import interp_hermite
+from interpolator import interp_hermite, interp_pchip
 from y2026union3_1.data import get_data
 from y2025BAO.data import get_data as get_bao_data
 from y2024DESBAO.data import get_data as get_des_bao_data
@@ -17,13 +17,13 @@ desi_legend, desi_bao_data, desi_bao_cov_matrix = get_bao_data()
 des_legend, des_bao_data, des_bao_cov_matrix = get_des_bao_data()
 sixdF_legend, sixdF_bao_data, sixdF_bao_cov_matrix = get_6dF_bao_data()
 
-bao_data = np.concatenate((desi_bao_data, des_bao_data, sixdF_bao_data))
+bao = np.concatenate((desi_bao_data, des_bao_data, sixdF_bao_data))
 bao_cov_mat = block_diag(desi_bao_cov_matrix, des_bao_cov_matrix, sixdF_bao_cov_matrix)
 
 inv_cov_sn = np.linalg.inv(cov_matrix_sn)
 inv_cov_bao = np.linalg.inv(bao_cov_mat)
 
-z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
+z_max = max(np.max(z_cmb), np.max(bao["z"])) + 0.1
 z_grid = np.linspace(0, z_max, 4000)
 dz = np.diff(z_grid)
 
@@ -35,8 +35,7 @@ def Ode_z(z, w0):
 
 
 @njit
-def Ez(z, H0, Obh2, Och2):
-    h = H0 / 100
+def Ez(z, h, Obh2, Och2):
     Onu = Omnuh2 / h**2
     Or = Orh2 / h**2
     Obc = (Obh2 + Och2) / h**2
@@ -55,63 +54,54 @@ def Ez(z, H0, Obh2, Och2):
 @njit
 def H_z(z, params):
     H0 = params[1]
-    return H0 * Ez(z, H0, Obh2=params[2], Och2=params[3])
+    return H0 * Ez(z, H0 / 100, Obh2=params[2], Och2=params[3])
 
 
 cmb.set_HZ(H_z)
 
 
 @njit
-def DH_z(z, params):
-    return c / H_z(z, params)
-
-
-@njit
 def DM_grid(params):
-    dh_grid = DH_z(z_grid, params)
+    dh_grid = c / H_z(z_grid, params)
     dh = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size, dtype=np.float64)
     cum_dm[1:] = np.cumsum(dh * dz)
     return (cum_dm, dh_grid)
 
 
-@njit
-def DV_z(z, DM, params):
-    DH = DH_z(z, params)
-    return (z * DH * DM**2) ** (1 / 3)
-
-
 qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
-bao_qty = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int32)
+bao_qty = np.array([qty_map[q] for q in bao["quantity"]], dtype=np.int32)
 
 
 @njit
-def bao_theory(z, qty, params, DM):
+def bao_theory(z, qty, params, DM_interp):
     Obh2, Och2 = params[2], params[3]
     Omh2 = Obh2 + Och2 + Omnuh2
-    rd = cmb.r_drag(Obh2, Omh2)
+    rdrag = cmb.r_drag(Obh2, Omh2)
+
+    DM = interp_hermite(z, z_grid, *DM_interp)
+    DH = interp_pchip(z, z_grid, DM_interp[1])
 
     results = np.empty(z.size, dtype=np.float64)
     DV_mask = qty == 0
     DM_mask = qty == 1
     DH_mask = qty == 2
     results[DM_mask] = DM[DM_mask]
-    results[DH_mask] = DH_z(z[DH_mask], params)
-    results[DV_mask] = DV_z(z[DV_mask], DM[DV_mask], params)
-    return results / rd
+    results[DH_mask] = DH[DH_mask]
+    results[DV_mask] = (z[DV_mask] * DH[DV_mask] * DM[DV_mask] ** 2) ** (1 / 3)
+    return results / rdrag
 
 
 @njit
 def chi2_bao(params, DM_interp):
-    DM = interp_hermite(bao_data["z"], z_grid, *DM_interp)
-    delta_bao = bao_data["value"] - bao_theory(bao_data["z"], bao_qty, params, DM)
+    delta_bao = bao["value"] - bao_theory(bao["z"], bao_qty, params, DM_interp)
     return delta_bao @ inv_cov_bao @ delta_bao
 
 
 @njit
-def mu_corr(params, DM_interp):
+def mu_corr(v100, DM_interp):
     # Heaviside step at z = 0.2
-    v_km_s = 100 * params[4] * np.where(z_cmb <= 0.2, 1.0, -1.0)
+    v_km_s = 100 * v100 * np.where(z_cmb <= 0.2, 1, -1)
     z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + v_km_s / c)
 
     DM_obs = interp_hermite(z_cmb, z_grid, *DM_interp)
@@ -120,14 +110,14 @@ def mu_corr(params, DM_interp):
 
 
 @njit
-def mu_theory(params, DM):
-    return params[0] + 25.0 + 5 * np.log10((1.0 + z_hel) * DM)
+def mu_theory(offset, DM_interp):
+    DM = interp_hermite(z_cmb, z_grid, *DM_interp)
+    return offset + 25.0 + 5 * np.log10((1.0 + z_hel) * DM)
 
 
 @njit
 def chi2_sn(params, DM_interp):
-    DM = interp_hermite(z_cmb, z_grid, *DM_interp)
-    delta_sn = mu_vals - mu_theory(params, DM) - mu_corr(params, DM_interp)
+    delta_sn = mu_vals - mu_theory(params[0], DM_interp) - mu_corr(params[4], DM_interp)
     return delta_sn @ inv_cov_sn @ delta_sn
 
 
@@ -139,26 +129,33 @@ def chi2_cmb(params):
 
 @njit
 def chi_squared(params):
-    DM, DM_prime = DM_grid(params)
-
-    return (
-        chi2_cmb(params)
-        + chi2_bao(params, (DM, DM_prime))
-        + chi2_sn(params, (DM, DM_prime))
-    )
+    DM_interp = DM_grid(params)
+    return chi2_cmb(params) + chi2_bao(params, DM_interp) + chi2_sn(params, DM_interp)
 
 
+@njit
 def log_likelihood(params):
     return -0.5 * chi_squared(params)
 
 
+@njit(parallel=True)
+def log_likelihood_vec(batch):
+    n = batch.shape[0]
+    log_likelihoods = np.empty(n, dtype=np.float32)
+    for i in prange(n):
+        log_likelihoods[i] = log_likelihood(batch[i])
+    return log_likelihoods
+
+
 def main():
+    import os
     from getdist import plots, MCSamples
     import matplotlib.pyplot as plt
     from nautilus import Sampler, Prior
-    from multiprocessing import Pool
     from sn.plotting import plot_predictions as plot_sn_predictions
     from bao.plot_predictions import plot_bao_predictions
+
+    os.environ["OMP_NUM_THREADS"] = "1"
 
     prior = Prior()
     prior.add_parameter("dM", dist=(-1, +1))  # mag
@@ -167,19 +164,18 @@ def main():
     prior.add_parameter("och2", dist=(0.01, 0.25))
     prior.add_parameter("v", dist=(-10, 4))  # x 100 km/s
 
-    with Pool(6) as pool:
-        sampler = Sampler(
-            prior,
-            log_likelihood,
-            n_live=10_000,
-            pool=pool,
-            seed=42,
-            pass_dict=False,
-            n_networks=5,
-        )
-        sampler.run(verbose=True)
-
+    sampler = Sampler(
+        prior,
+        log_likelihood_vec,
+        n_live=6_000,
+        pool=(None, 4),
+        seed=42,
+        pass_dict=False,
+        vectorized=True,
+    )
+    sampler.run()
     samples, log_w, log_l = sampler.posterior()
+
     labels = ["ΔM", "H_0", "ω_b", "ω_c", "v"]
     gd_samples = MCSamples(
         samples=samples,
@@ -214,9 +210,7 @@ def main():
     plt.show()
 
     best_fit = gd_samples.mean(prior.keys)
-    degs_of_freedom = (
-        len(z_cmb) + len(bao_data) + len(cmb.DISTANCE_PRIORS) - len(best_fit)
-    )
+    degs_of_freedom = len(z_cmb) + len(bao) + len(cmb.DISTANCE_PRIORS) - len(best_fit)
 
     for par in gd_samples.getParamNames().names:
         print(f"{par}: {gd_samples.mean(par):.5f} ± {gd_samples.std(par):.5f}")
@@ -229,19 +223,17 @@ def main():
     DM_grid_best = DM_grid(best_fit)
 
     plot_bao_predictions(
-        theory_predictions=lambda z, qty: bao_theory(
-            z, qty, best_fit, interp_hermite(z, z_grid, *DM_grid_best)
-        ),
-        data=bao_data,
+        theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit, DM_grid_best),
+        data=bao,
         errors=np.sqrt(np.diag(bao_cov_mat)),
         title="DESI + DES + 6dF BAO",
     )
     plot_sn_predictions(
         legend=sn_legend,
         x=z_cmb,
-        y=mu_vals - mu_corr(best_fit, DM_grid_best),
+        y=mu_vals - mu_corr(best_fit[4], DM_grid_best),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=mu_theory(best_fit, interp_hermite(z_cmb, z_grid, *DM_grid_best)),
+        y_model=mu_theory(best_fit[0], DM_grid_best),
         label=f"$Ω_m$={gd_samples.mean('om'):.3f}",
         x_scale="log",
     )
@@ -285,7 +277,7 @@ z_cosmo = -1 + (1 + z) / (1 + v/c)
 ΔM: -0.0502 ± 0.0070 mag
 v: -3.1 ± 1.0 (prior U(-10, 4)) x 100 km/s
 v / (z_cut=0.2): -1590 ± 500 km/s
-H0: 68.51 ± 0.27 km/s/Mpc
+H0: 68.50 ± 0.27 km/s/Mpc
 Ωm: 0.2992 ± 0.0036
 ωb: 0.02258 ± 0.00010
 ωc: 0.11719 ± 0.00065
@@ -293,7 +285,7 @@ H0: 68.51 ± 0.27 km/s/Mpc
 z*: 1089.38 ± 0.15
 z_d: 1060.21 ± 0.23
 r_d: 147.61 ± 0.19 Mpc
-Chi2 (MAP): 37.51 (2.93 sigma significance)
+Chi2 (MAP): 37.52 (2.93 sigma significance)
 Log evidence: -39.4 (Δ logZ = 2.6 in favour of flow corrections)
 Degs of freedom: 35
 """
