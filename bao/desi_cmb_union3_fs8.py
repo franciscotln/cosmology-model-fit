@@ -63,7 +63,7 @@ def Ez(z, h, Obh2, Och2):
     radiation_term = Or * zp1**4
     matter_term = Obc * zp1**3
     neutrino_term = Onu * cmb.Omnu_z(z)
-    dark_energy_term = Ode
+    dark_energy_term = Ode  # ΛCDM
 
     return np.sqrt(radiation_term + matter_term + neutrino_term + dark_energy_term)
 
@@ -118,11 +118,11 @@ def bao_theory(z, qty, theta):
 
 
 @njit
-def mu_corr(params, DM_ref):
+def mu_corr(params, DM_obs):
     v_km_s = 100 * params[4] * np.where(z_cmb <= 0.2, 1, -1)
     z_pec = v_km_s / c
     z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
-    return 5.0 * np.log10(DM_z(z_cosmo, params) / DM_ref)
+    return 5.0 * np.log10(DM_z(z_cosmo, params) / DM_obs)
 
 
 @njit
@@ -162,7 +162,7 @@ def growth_ODE(a, y, theta):
     return [d_delta_da, d2_delta_da]
 
 
-a_span = np.logspace(-2.7, 0, 5000, dtype=np.float64)
+a_span = np.logspace(-2.7, 0, 2500, dtype=np.float64)
 
 
 def fs8_theory(a, theta):
@@ -217,6 +217,7 @@ def chi2_bao(theta):
     return delta_bao @ inv_cov_bao @ delta_bao
 
 
+@njit
 def chi2_cmb(theta):
     delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(theta[2], theta[3], theta)
     return delta_cmb @ cmb.inv_cov_mat @ delta_cmb
@@ -259,9 +260,10 @@ def main():
 
     with Pool(8) as pool:
         sampler = Sampler(
-            prior, log_likelihood, n_live=8_000, pool=pool, seed=42, pass_dict=False
+            prior, log_likelihood, n_live=6_000, pool=pool, seed=42, pass_dict=False
         )
-        sampler.run(verbose=True)
+        print("Running sampler... It may take a few minutes.")
+        sampler.run()
 
     samples, log_w, log_l = sampler.posterior()
     w = np.exp(log_w)
@@ -417,14 +419,14 @@ H0: 68.46 +- 0.27 km/s/Mpc
 ωc: 0.1173 +- 0.0006
 ωm: 0.1405 +- 0.0006
 Ωm: 0.300 +- 0.004
-σ8: 0.797 +- 0.016
-S8: 0.797 +- 0.017
+σ8: 0.798 +- 0.017
+S8: 0.798 +- 0.017
 r_d: 147.58 +- 0.19 Mpc
 q0: -0.550 +- 0.005
 j0: 1
-Chi2 (MAP): 52.70 (2.93 sigma significance)
-Log Likelihood (MAP): -26.35
-Log Evidence: -51.24 (Δ logZ = 2.54 in favour of v corrections)
+Chi2 (MAP): 52.41 (2.93 sigma significance)
+Log Likelihood (MAP): -26.20
+Log Evidence: -51.08 (Δ logZ = 2.54 in favour of v corrections)
 Degrees of freedom: 85
 """
 
