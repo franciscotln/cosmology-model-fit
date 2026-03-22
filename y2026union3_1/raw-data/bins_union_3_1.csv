@@ -1,4 +1,4 @@
-name,zcmb,zhel,dz,mb,dmb,x1,dx1,color,dcolor,3rdvar,d3rdvar,cov_m_s,cov_m_c,cov_s_c,set,ra,dec,biascor
+name,zcmb,zhel,dz,mb,dmb,x1,dx1,color,dcolor,3rdvar,d3rdvar,cov_m_s,cov_m_c,cov_s_c,set,ra,dec
 bin00,0.050000,0.050000,0.0,36.765281,0.0001,0,0,0,0,0,0,0,0,0,0,0,0
 bin01,0.100000,0.100000,0.0,38.370770,0.0001,0,0,0,0,0,0,0,0,0,0,0,0
 bin02,0.150000,0.150000,0.0,39.267049,0.0001,0,0,0,0,0,0,0,0,0,0,0,0

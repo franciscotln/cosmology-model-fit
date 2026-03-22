@@ -9,7 +9,7 @@ from y2018quasars.data import get_binned_data as get_quasar_data
 from y2023union3.data import get_data as get_union3_data
 
 legend, z, mu, sigma_mu = get_quasar_data(22)
-sn_legend, sn_z, sn_mu, sn_cov = get_union3_data()
+sn_legend, sn_z, sn_zhel, sn_mu, sn_cov = get_union3_data()
 cho_sn = cho_factor(sn_cov)
 
 c = 299792.458  # Speed of light (km/s)
