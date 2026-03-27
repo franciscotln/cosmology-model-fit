@@ -34,35 +34,40 @@ def H_z(z, params):
 
 
 @njit
-def DM_z(z, params):
+def DM_grid(params):
     dh_grid = c / H_z(z_grid, params)
     dh = (dh_grid[:-1] + dh_grid[1:]) / 2
-    cum_dm = np.zeros(z_grid.size, dtype=np.float64)
-    cum_dm[1:] = np.cumsum(dh * dz)
-    return interp_hermite(z, x=z_grid, y=cum_dm, y_prime=dh_grid)
+    dm_grid = np.zeros(z_grid.size, dtype=np.float64)
+    dm_grid[1:] = np.cumsum(dh * dz)
+    return (dm_grid, dh_grid)
 
 
 @njit
-def mu_corr(params, DM_obs):
+def DM_z(z, DM_interp):
+    return interp_hermite(z, z_grid, *DM_interp)
+
+
+@njit
+def mu_corr(v100, DM_interp):
     # Heaviside step at z = 0.2
-    v_km_s = 100 * params[4] * np.where(z_cmb <= 0.2, 1, -1)
+    v_km_s = 100 * v100 * np.where(z_cmb <= 0.2, 1, -1)
     z_pec = v_km_s / c
     z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
 
-    return 5 * np.log10(DM_z(z_cosmo, params) / DM_obs)
+    return 5 * np.log10(DM_z(z_cosmo, DM_interp) / DM_z(z_cmb, DM_interp))
 
 
 @njit
-def mu_theory(offset, DM):
-    return offset + 25.0 + 5 * np.log10((1.0 + z_hel) * DM)
+def mu_theory(offset, DM_interp):
+    return offset + 25.0 + 5 * np.log10((1.0 + z_hel) * DM_z(z_cmb, DM_interp))
 
 
 @njit
 def chi_squared(params):
-    f_cc, offset = params[0], params[1]
+    f_cc, offset, v100 = params[0], params[1], params[4]
 
-    DM_obs = DM_z(z_cmb, params)
-    delta_sn = mu_vals - mu_theory(offset, DM_obs) - mu_corr(params, DM_obs)
+    DM_interp = DM_grid(params)
+    delta_sn = mu_vals - mu_theory(offset, DM_interp) - mu_corr(v100, DM_interp)
     chi_sn = delta_sn @ inv_cov_sn @ delta_sn
 
     cc_delta = H_cc_vals - H_z(z_cc_vals, params)
@@ -154,9 +159,9 @@ def main():
     plot_sn_predictions(
         legend=legend_sn,
         x=z_cmb,
-        y=mu_vals - mu_corr(best_fit, DM_z(z_cmb, best_fit)),
+        y=mu_vals - mu_corr(v_50, DM_grid(best_fit)),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=mu_theory(dM_50, DM_z(z_cmb, best_fit)),
+        y_model=mu_theory(dM_50, DM_grid(best_fit)),
         label=f"$Ω_m$={Om_50:.4f}",
         x_scale="log",
     )
