@@ -60,19 +60,22 @@ def DM_grid(theta):
 
 
 @njit
+def DM_z(z, DM_interp):
+    return interp_hermite(z, z_grid, *DM_interp)
+
+
+@njit
 def mu_corr(params, DM_inter):
     v_km_s = 100 * params[4] * np.where(z_cmb <= 0.11, 1, -1)
     z_pec = v_km_s / c
     z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
 
-    DM_obs = interp_hermite(z_cmb, z_grid, *DM_inter)
-    DM_cosmo = interp_hermite(z_cosmo, z_grid, *DM_inter)
-    return 5.0 * np.log10(DM_cosmo / DM_obs)
+    return 5.0 * np.log10(DM_z(z_cosmo, DM_inter) / DM_z(z_cmb, DM_inter))
 
 
 @njit
-def theory_mu(params, DM):
-    return params[0] + 25 + 5 * np.log10((1.0 + z_hel) * DM)
+def theory_mu(params, DM_inter):
+    return params[0] + 25 + 5 * np.log10((1.0 + z_hel) * DM_z(z_cmb, DM_inter))
 
 
 def solve_triang(cho_L, delta):
@@ -82,8 +85,7 @@ def solve_triang(cho_L, delta):
 
 def chi2_sn(params):
     DM_inter = DM_grid(params)
-    DM = interp_hermite(z_cmb, z_grid, *DM_inter)
-    delta_sn = mu_vals - theory_mu(params, DM) - mu_corr(params, DM_inter)
+    delta_sn = mu_vals - theory_mu(params, DM_inter) - mu_corr(params, DM_inter)
     return solve_triang(cho_sn, delta_sn)
 
 
@@ -210,7 +212,7 @@ def main():
         x=z_cmb,
         y=mu_vals - mu_corr(best_fit, DM_grid(best_fit)),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=theory_mu(best_fit, interp_hermite(z_cmb, z_grid, *DM_grid(best_fit))),
+        y_model=theory_mu(best_fit, DM_grid(best_fit)),
         label=f"$Ω_m$={Om_50:.3f}",
         x_scale="log",
     )
