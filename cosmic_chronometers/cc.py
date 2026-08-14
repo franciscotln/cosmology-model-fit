@@ -113,40 +113,45 @@ https://arxiv.org/pdf/2511.02730v1
 
 1 data point from
 https://arxiv.org/pdf/2606.07298v1
-*******************************
 
-Flat ΛCDM: w(z) = -1
+1 data point from
+https://arxiv.org/pdf/2608.13178
+*******************************
+"""
+
+"""
+Flat ΛCDM
 
 -------------------------------
 
 Varying f in U(0.1, 3.3):
-H0: 66.7 +3.6 -3.7
-Ωm: 0.33 +0.05 -0.04
+H0: 66.9 +3.6 -3.6 km/s/Mpc
+Ωm: 0.329 +0.049 -0.042
 f: 1.49 +0.18 -0.17
-Chi squared: 35.36
-Log likelihood: -145.59
-Log evidence: -152.31 (diff: 2.24 in evidence favouring the model with f)
-Degs of freedom: 33
+Chi squared: 36.31
+Log likelihood: -149.17
+Log evidence: -155.91 (diff: 2.35 in evidence favouring the model with f)
+Degs of freedom: 35
 
 -------------------------------
 
 With fixed f = 1:
-H0: 66.2 +5.4 -5.4
+H0: 66.3 +5.4 -5.4 km/s/Mpc
 Ωm: 0.34 +0.08 -0.06
-Chi squared: 15.97
-Log likelihood: -150.63
-Log evidence: -154.55
-Degs of freedom: 34
+Chi squared: 16.42
+Log likelihood: -154.33
+Log evidence: -158.26
+Degs of freedom: 36
+"""
 
-*******************************
-
+"""
 Log likelihood ratio test:
 -2 * log(L0/L1) = -2 * log(L0) + 2 * log(L1)
--2 * (-150.63) + 2 * (-145.59) = 10.08
+-2 * (-154.33) + 2 * (-149.17) = 10.32
 
 Degrees of freedom = 1
-p-value = 0.0015
-We are 99.85% confident that the model with f is better than the one without f.
+p-value = 0.0013
+We are 99.87% confident that the model with f is better than the one without f.
 So the uncertainties in the H(z) dataset are overestimated and should be scaled down.
-3.17 sigma significance.
+3.21 sigma significance.
 """
