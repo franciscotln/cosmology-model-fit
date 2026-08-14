@@ -5,13 +5,15 @@ color_map = {
     "DV_over_rs": "red",
     "DM_over_rs": "blue",
     "DH_over_rs": "green",
+    "F_AP": "orange",
 }
 latex_labels = {
     "DV_over_rs": "$D_V$ / $r_d$",
     "DM_over_rs": "$D_M$ / $r_d$",
     "DH_over_rs": "$D_H$ / $r_d$",
+    "F_AP": "$F_{AP}$",
 }
-quantities_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
+quantities_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2, "F_AP": 3}
 
 
 def plot_bao_predictions(theory_predictions, data, errors, title):
