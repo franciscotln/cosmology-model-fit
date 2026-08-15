@@ -234,27 +234,30 @@ Effective deg of freedom: 1710
 """
 
 """
-RERUN
 Flat wCDM w(z) = w0
-Ωm: 0.260 +0.065 -0.085
-w0: -0.83 +0.14 -0.15
+ΔM: 0.029 +0.056 -0.058 mag
+Ωm: 0.260 +0.066 -0.086
+H0: 70.39 +1.78 -1.80 km/s/Mpc
+w0: -0.83 +0.14 -0.15 (prior ~ U(-1.5, 0))
 R-squared (%): 98.37
 RMSD (mag): 0.268
 Skewness of residuals: 3.2
-Chi squared: 1630.18
+Log evidence: -826.4
+Chi2 (MAP): 1630.18 (1.11 sigma significance)
 Effective deg of freedom: 1710
 """
 
 """
-RERUN
 Flat w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
+ΔM: 0.034 +0.056 -0.057 mag
+H0: 70.38 +1.81 -1.78 km/s/Mpc
 Ωm: 0.287 +0.030 -0.035
 w0: -0.81 +0.11 -0.11
-wa: d w(z)/dz at z=0 = -(3/2) * (1 - w0^2)
+wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
 R-squared (%): 98.37
 RMSD (mag): 0.268
 Skewness of residuals: 3.2
-Chi squared: 1629.55
+Chi squared: 1629.53 (1.37 sigma significance)
 Log evidence: -825.9
 Effective deg of freedom: 1710
 """
