@@ -173,14 +173,14 @@ if __name__ == "__main__":
 
 """
 Flat ΛCDM
-ΔM: -0.077 +0.072 -0.074 mag
-H0: 66.7 +2.5 -2.5 km/s/Mpc
-Ωm: 0.333 +0.022 -0.021
+ΔM: -0.078 +0.072 -0.076 mag
+H0: 66.8 +2.5 -2.5 km/s/Mpc
+Ωm: 0.332 +0.022 -0.021
 ωm: 0.148 +0.010 -0.010
-f_cc: 1.51 +0.18 -0.17
-Chi squared: 64.89
-Log evidence: -172.0
-Degrees of freedom: 55
+f_cc: 1.50 +0.18 -0.17
+Chi squared: 65.89
+Log evidence: -175.6
+Degrees of freedom: 56
 """
 
 """
@@ -188,28 +188,28 @@ Flat ΛCDM
 Isotropic velocity SNe observed redshifts (turning point z <= 0.2 inflow z > 0.2 outflow)
 z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-v: -289 +117 -116 km/s (prior U(-11.0, 5.5) x 100 km/s)
-ΔM: -0.044 +0.074 -0.075 mag
-H0: 68.5 +2.7 -2.6 km/s/Mpc
-Ωm: 0.307 +0.023 -0.022
+v: -291 +116 -116 km/s (prior U(-11.0, 5.5) x 100 km/s)
+ΔM: -0.047 +0.074 -0.076 mag
+H0: 68.4 +2.7 -2.6 km/s/Mpc
+Ωm: 0.306 +0.023 -0.022
 ωm: 0.144 +0.010 -0.010
 f_cc: 1.50 +0.18 -0.17
-Chi squared: 58.36 (2.56 sigma significance)
-Log evidence: -170.7 (ΔlogZ = 1.3 in favour of v corrections)
-Degrees of freedom: 54
+Chi squared: 59.29 (2.57 sigma significance)
+Log evidence: -174.2 (ΔlogZ = 1.4 in favour of v corrections)
+Degrees of freedom: 55
 """
 
 """
 Flat wCDM: w(z) = w0
-ΔM: -0.058 +0.078 -0.080 mag
-H0: 67.1 +2.6 -2.6 km/s/Mpc
-Ωm: 0.307 +0.042 -0.048
-ωm: 0.1379 +0.0172 -0.0198
+ΔM: -0.062 +0.079 -0.081 mag
+H0: 67.0 +2.6 -2.6 km/s/Mpc
+Ωm: 0.307 +0.041 -0.048
+ωm: 0.138 +0.017 -0.019
 w0: -0.91 +0.12 -0.13 (prior U(-1.5, -0.5))
 f_cc: 1.49 +0.18 -0.17
-Chi squared: 63.52 (1.17 sigma significance)
-Log evidence: -172.9 (ΔlogZ = -0.9 in favour of ΛCDM)
-Degrees of freedom: 54
+Chi squared: 64.47 (1.19 sigma significance)
+Log evidence: -176.5 (ΔlogZ = -0.9 in favour of ΛCDM)
+Degrees of freedom: 55
 """
 
 """
