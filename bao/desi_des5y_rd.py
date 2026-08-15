@@ -243,10 +243,10 @@ Flat ΛCDM
 Velocity-like step correction in observed redshifts (turning point z <= 0.11 inflow z > 0.11 outflow)
 z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-v: -1.592 +0.573 -0.575 x 100 km/s
+v: -1.595 +0.571 -0.570 x 100 km/s
 ΔM: -0.047 +0.012 -0.012 mag
 rd: 147.09 +0.26 -0.26 Mpc
-H0: 68.91 +0.48 -0.46 km/s/Mpc
+H0: 68.92 +0.47 -0.48 km/s/Mpc
 Ωm: 0.300 +0.008 -0.008
 ωm: 0.1423 +0.0022 -0.0022
 Chi squared: 1637.4 (2.81 sigma significance)
