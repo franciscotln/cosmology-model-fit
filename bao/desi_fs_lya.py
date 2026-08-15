@@ -159,9 +159,9 @@ def main():
     print(f"h * rd: {rd * h_50:.2f} +{rd * (h_84 - h_50):.2f} -{rd * (h_50 - h_16):.2f}")
     print(f"Ωm: {Om_50:.4f} +{Om_84-Om_50:.4f} -{Om_50-Om_16:.4f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
-    print(f"Chi squared: {chi_squared(best_fit):.2f}")
+    print(f"χ2: {chi_squared(best_fit):.2f}")
     print(f"Log evidence: {log_evd:.2f}")
-    print(f"Degs of freedom: {degs_of_freedom}")
+    print(f"DOF: {degs_of_freedom}")
     print(f"R^2: {r2:.4f}")
     print(f"RMSD: {np.sqrt(np.mean(residuals**2)):.3f}")
 
@@ -189,8 +189,9 @@ rd: 147.09 Mpc (fixed)
 Flat ΛCDM:
 h * rd: 101.17 +0.67 -0.67
 Ωm: 0.3016 +0.0078 -0.0076
-Chi squared: 12.81
-Degs of freedom: 12
+χ2: 12.81
+DOF: 12
+χ2/dof: 1.07
 R^2: 0.9987
 RMSD: 0.298
 """
@@ -200,8 +201,9 @@ Flat wCDM:
 h * rd: 100.46 +1.77 -1.62
 Ωm: 0.3021 +0.0083 -0.0081
 w0: -0.967 +0.072 -0.075 (prior width 1: from -1.4 to -0.4)
-Chi squared: 12.61
-Degs of freedom: 11
+χ2: 12.61
+DOF: 11
+χ2/dof: 1.15
 R^2: 0.9988
 RMSD: 0.287
 """
@@ -211,16 +213,22 @@ Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
 h * rd: 98.49 +1.76 -2.08
 Ωm: 0.3140 +0.0120 -0.0108
 w0: -0.833 +0.124 -0.106 (prior width 1: from -1 to 0) - left side truncated
-Chi squared: 12.08
-Degs of freedom: 11
+χ2: 12.08
+DOF: 11
+χ2/dof: 1.10
 R^2: 0.9990
 RMSD: 0.268
 """
 
 """
 Flat w0waCDM:
-TODO
-w0: (prior width 2.5: -1.5 to 1.0)
-wa: (prior width 10.0: -8.0 to 2.0)
-
+h * rd: 90.04 +4.59 -4.10
+Ωm: 0.403 +0.044 -0.043
+w0: -0.045 +0.435 -0.423 (prior width 5: -2.5 to 2.5)
+wa: -3.28 +1.44 -1.47 (prior width 14: -10 to 4)
+χ2: 7.21
+DOF: 10
+χ2/dof: 0.72
+R^2: 0.9995
+RMSD: 0.195
 """
