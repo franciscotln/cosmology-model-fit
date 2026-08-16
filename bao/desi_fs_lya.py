@@ -139,7 +139,7 @@ def main():
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
     best_fit = np.percentile(samples, 50, axis=0)
-    degs_of_freedom = data["value"].size - len(best_fit)
+    dof = len(data["value"]) - len(best_fit)
 
     residuals = data["value"] - bao_theory(data["z"], bao_qty, best_fit)
     ss_res = np.sum(residuals**2)
@@ -151,7 +151,7 @@ def main():
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"χ2: {chi_squared(best_fit):.2f}")
     print(f"Log evidence: {log_evd:.2f}")
-    print(f"DOF: {degs_of_freedom}")
+    print(f"DOF: {dof}")
     print(f"R^2: {r2:.4f}")
     print(f"RMSD: {np.sqrt(np.mean(residuals**2)):.3f}")
 
@@ -172,7 +172,6 @@ if __name__ == "__main__":
 
 # *******************************
 # Dataset: DESI DR2 2025 + FS Lyman-alpha
-# rd: 147.09 Mpc (fixed)
 # *******************************
 
 # Flat ΛCDM:
@@ -187,7 +186,7 @@ if __name__ == "__main__":
 # Flat wCDM:
 # h * rd: 100.42 +1.78 -1.67
 # Ωm: 0.3021 +0.0082 -0.0080
-# w0: -0.966 +0.072 -0.075 (prior width 1: from -1.4 to -0.4)
+# w0: -0.966 +0.072 -0.075 (prior ~U(-1.4, -0.4))
 # χ2: 12.61
 # DOF: 11
 # χ2/dof: 1.15
@@ -197,7 +196,7 @@ if __name__ == "__main__":
 # Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
 # h * rd: 98.49 +1.77 -2.09
 # Ωm: 0.3141 +0.0120 -0.0108
-# w0: -0.833 +0.124 -0.105 (prior width 1: from -1 to 0) - left side truncated
+# w0: -0.833 +0.124 -0.105 (prior ~U(-1, 0)) - left side truncated
 # χ2: 12.08
 # DOF: 11
 # χ2/dof: 1.10
@@ -205,10 +204,10 @@ if __name__ == "__main__":
 # RMSD: 0.267
 
 # Flat w0waCDM:
-# h * rd: 90.04 +4.59 -4.10
-# Ωm: 0.403 +0.044 -0.043
-# w0: -0.045 +0.435 -0.423 (prior width 5: -2.5 to 2.5)
-# wa: -3.28 +1.44 -1.47 (prior width 14: -10 to 4)
+# h * rd: 90.02 +4.63 -4.16
+# Ωm: 0.403 +0.044 -0.044 (prior ~U(0.1, 0.8))
+# w0: -0.042 +0.441 -0.429 (prior ~U(-2.5, 2.5))
+# wa: -3.30 +1.45 -1.48 (prior ~U(-10, 4))
 # χ2: 7.21
 # DOF: 10
 # χ2/dof: 0.72
