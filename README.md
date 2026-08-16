@@ -2,7 +2,7 @@
 ## Necessary packages to run the code in python3
 All files have to be executed as a module with the `-m` flag
 ```bash
-pip3 install numpy getdist pandas matplotlib scipy emcee nautilus-sampler corner numba numdifftools
+pip3 install numpy getdist pandas matplotlib scipy emcee nautilus-sampler tqdm corner numba numdifftools
 ```
 
 ## To run Hubble fits (example below for Pantheon+ sample) as a module
