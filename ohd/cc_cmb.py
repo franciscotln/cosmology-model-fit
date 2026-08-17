@@ -85,12 +85,12 @@ def main():
     from multiprocessing import Pool
     from log_evidence import log_evidence
     from corner_plot import plot_corner_and_chains
-    from .plot_predictions import plot_cc_predictions
+    from ohd.plot_predictions import plot_cc_predictions
 
     ndim = len(bounds)
     nwalkers = 150
     burn_in = 500
-    nsteps = 3500 + burn_in
+    nsteps = 4500 + burn_in
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
     moves = [
         (emcee.moves.KDEMove(bw_method="silverman"), 0.20),
@@ -153,40 +153,33 @@ def main():
 if __name__ == "__main__":
     main()
 
-"""
-*******************************
-Results for data from
-https://arxiv.org/pdf/2307.09501
-and 4 data points from
-https://arxiv.org/pdf/2506.03836
-https://arxiv.org/pdf/2511.02730v1
-*******************************
-"""
 
-"""
-Flat ΛCDM
+# *******************************************
+# CMB (ACT+Planck) + Cosmic Chronometers (CC)
+# Model: Flat ΛCDM
+# *******************************************
 
--------------------------------
 
-f: 1.51 +0.18 -0.17
-H0: 67.59 +0.49 -0.49 km/s/Mpc
-Ωm: 0.3120 +0.0071 -0.0069
-ωb: 0.02249 +0.00011 -0.00011
-ωc: 0.11939 +0.00120 -0.00119
-Chi squared: 36.26 (3.03 sigma significance)
-Log likelihood: -141.72
-Log evidence: -158.20 (Δ logZ = 3.78 compared to fixed f)
-Degs of freedom: 35
+# --------- Overestimation factor f ---------
+# f: 1.53 +0.18 -0.17
+# H0: 67.59 +0.49 -0.49 km/s/Mpc
+# Ωm: 0.3120 +0.0071 -0.0069
+# ωb: 0.02249 +0.00011 -0.00011
+# ωc: 0.11937 +0.00121 -0.00119
+# Chi squared: 38.31
+# Log likelihood: -149.21 (3.20 sigma significance)
+# Log evidence: -165.70 (Δ logZ = 4.30 compared to fixed f)
+# Degs of freedom: 37
 
--------------------------------
 
-f: 1.0 (fixed - assuming no overestimaded errors in CCH sample)
-H0: 67.60 +0.50 -0.50 km/s/Mpc
-Ωm: 0.3118 +0.0072 -0.0070
-ωb: 0.02250 +0.00011 -0.00011
-ωc: 0.11934 +0.00122 -0.00120
-Chi squared: 16.00
-Log likelihood: -146.32
-Log evidence: -161.98
-Degs of freedom: 36
-"""
+# --------- Fixed factor f = 1 ---------
+# f: 1 (assuming no overestimaded errors in CCH sample)
+# H0: 67.60 +0.50 -0.50 km/s/Mpc
+# Ωm: 0.3118 +0.0071 -0.0070
+# ωb: 0.02250 +0.00011 -0.00011
+# ωc: 0.11934 +0.00121 -0.00121
+# Chi squared: 16.45
+# Log likelihood: -154.34
+# Log evidence: -170.00
+# Degs of freedom: 38
+# """
