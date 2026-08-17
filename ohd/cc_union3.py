@@ -48,9 +48,9 @@ def DM_z(z, DM_interp):
 
 
 @njit
-def mu_corr(v100, DM_interp):
+def mu_corr(v, DM_interp):
     # Heaviside step at z = 0.2
-    v_km_s = 100 * v100 * np.where(z_cmb <= 0.2, 1, -1)
+    v_km_s = v * np.where(z_cmb <= 0.2, 1, -1)
     z_pec = v_km_s / c
     z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
 
@@ -64,10 +64,10 @@ def mu_theory(offset, DM_interp):
 
 @njit
 def chi_squared(params):
-    f_cc, offset, v100 = params[0], params[1], params[4]
+    f_cc, offset, v = params[0], params[1], params[4]
 
     DM_interp = DM_grid(params)
-    delta_sn = mu_vals - mu_theory(offset, DM_interp) - mu_corr(v100, DM_interp)
+    delta_sn = mu_vals - mu_theory(offset, DM_interp) - mu_corr(v, DM_interp)
     chi_sn = delta_sn @ inv_cov_sn @ delta_sn
 
     cc_delta = H_cc_vals - H_z(z_cc_vals, params)
@@ -84,19 +84,21 @@ def log_likelihood(params):
 
 
 def main():
+    from getdist import plots, MCSamples
+    import matplotlib.pyplot as plt
     from nautilus import Sampler, Prior
-    from corner import corner, quantile
+    from corner import quantile
     import matplotlib.pyplot as plt
     from multiprocessing import Pool
     from sn.plotting import plot_predictions as plot_sn_predictions
-    from .plot_predictions import plot_cc_predictions
+    from ohd.plot_predictions import plot_cc_predictions
 
     prior = Prior()
     prior.add_parameter("f_cc", dist=(0.05, 3.35))
     prior.add_parameter("dM", dist=(-1.0, 1.0))
     prior.add_parameter("H0", dist=(40.0, 95.0))
     prior.add_parameter("Om", dist=(0.1, 0.7))
-    prior.add_parameter("v", dist=(-11.0, 5.5))
+    prior.add_parameter("v", dist=(-1100, 550))
 
     with Pool(6) as pool:
         sampler = Sampler(
@@ -107,25 +109,22 @@ def main():
     samples, log_w, log_l = sampler.posterior()
     w = np.exp(log_w)
     log_evd = sampler.log_z
-    one_sigma_ci = [0.159, 0.5, 0.841]
-    labels = ["$f_{cc}$", "$ΔM$", "$H_0$", "$Ω_m$", "$v_{100}$"]
+    labels = ["f_{cc}", "ΔM", "H_0", "Ω_m", "v"]
 
-    corner(
-        samples,
-        weights=w,
+    gd_samples = MCSamples(
+        samples=samples,
+        weights=np.exp(log_w),
+        loglikes=log_l,
+        names=prior.keys,
         labels=labels,
-        quantiles=one_sigma_ci,
-        show_titles=True,
-        title_fmt=".4f",
-        bins=100,
-        fill_contours=False,
-        plot_datapoints=False,
-        smooth=2.0,
-        smooth1d=2.0,
-        levels=(0.393, 0.864),
-        range=np.repeat(0.9999, len(labels)),
+    )
+
+    plots.get_subplot_plotter().triangle_plot(
+        gd_samples, prior.keys, title_limit=1, contour_colors=["C0"]
     )
     plt.show()
+
+    one_sigma_ci = [0.159, 0.5, 0.841]
 
     fcc_16, fcc_50, fcc_84 = quantile(samples[:, 0], one_sigma_ci, weights=w)
     dM_16, dM_50, dM_84 = quantile(samples[:, 1], one_sigma_ci, weights=w)
@@ -133,21 +132,17 @@ def main():
     Om_16, Om_50, Om_84 = quantile(samples[:, 3], one_sigma_ci, weights=w)
     v_16, v_50, v_84 = quantile(samples[:, 4], one_sigma_ci, weights=w)
 
-    Omh2_samples = samples[:, 3] * (samples[:, 2] / 100) ** 2
-    Omh2_16, Omh2_50, Omh2_84 = quantile(Omh2_samples, one_sigma_ci, weights=w)
-
     best_fit = [fcc_50, dM_50, h0_50, Om_50, v_50]
-    deg_of_freedom = len(z_cmb) + N_cc - len(labels)
+    DOF = len(z_cmb) + N_cc - len(prior.keys)
 
     print(f"f_cc: {fcc_50:.2f} +{(fcc_84 - fcc_50):.2f} -{(fcc_50 - fcc_16):.2f}")
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
     print(f"H0: {h0_50:.1f} +{(h0_84 - h0_50):.1f} -{(h0_50 - h0_16):.1f} km/s/Mpc")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
-    print(f"ωm: {Omh2_50:.4f} +{(Omh2_84 - Omh2_50):.4f} -{(Omh2_50 - Omh2_16):.4f}")
-    print(f"v: {v_50:.2f} +{(v_84 - v_50):.2f} -{(v_50 - v_16):.2f} x 100 km/s")
+    print(f"v: {v_50:.2f} +{(v_84 - v_50):.2f} -{(v_50 - v_16):.2f} km/s")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Log evidence: {log_evd:.1f}")
-    print(f"Degrees of freedom: {deg_of_freedom}")
+    print(f"DOF: {DOF}")
 
     plot_cc_predictions(
         H_z=lambda z: H_z(z, best_fit),
@@ -171,48 +166,52 @@ if __name__ == "__main__":
     main()
 
 
-"""
-Flat ΛCDM
-ΔM: -0.078 +0.072 -0.076 mag
-H0: 66.8 +2.5 -2.5 km/s/Mpc
-Ωm: 0.332 +0.022 -0.021
-ωm: 0.148 +0.010 -0.010
-f_cc: 1.50 +0.18 -0.17
-Chi squared: 65.89
-Log evidence: -175.6
-Degrees of freedom: 56
-"""
+# ---------------- Flat ΛCDM ----------------
+# ΔM: -0.079 +- 0.075 mag
+# H0: 66.8 +- 2.5 km/s/Mpc
+# Ωm: 0.333 +- 0.022
+# f_cc: 1.51 +- 0.17
+# Chi squared: 65.89
+# Log evidence: -175.6
+# DOF: 56
+# -------------------------------------------
 
-"""
-Flat ΛCDM
-Isotropic velocity SNe observed redshifts (turning point z <= 0.2 inflow z > 0.2 outflow)
-z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-v: -291 +116 -116 km/s (prior U(-11.0, 5.5) x 100 km/s)
-ΔM: -0.047 +0.074 -0.076 mag
-H0: 68.4 +2.7 -2.6 km/s/Mpc
-Ωm: 0.306 +0.023 -0.022
-ωm: 0.144 +0.010 -0.010
-f_cc: 1.50 +0.18 -0.17
-Chi squared: 59.29 (2.57 sigma significance)
-Log evidence: -174.2 (ΔlogZ = 1.4 in favour of v corrections)
-Degrees of freedom: 55
-"""
+# ---------------- Flat ΛCDM ----------------
+# velocity step correction SNe observed redshifts (turning point z <= 0.2 inflow z > 0.2 outflow)
+# z_cosmo = -1 + (1 + z) / (1 + v/c)
+# v: -291 +- 120 km/s (prior U(-1100, 550) km/s)
+# ΔM: -0.047 +- 0.076 mag
+# H0: 68.5 +- 2.7 km/s/Mpc
+# Ωm: 0.306 +- 0.023
+# f_cc: 1.50 +- 0.17
+# Chi squared: 59.29 (2.57 sigma significance)
+# Log evidence: -174.2 (ΔlogZ = 1.4 in favour of v corrections)
+# DOF: 55
+# -------------------------------------------
 
-"""
-Flat wCDM: w(z) = w0
-ΔM: -0.062 +0.079 -0.081 mag
-H0: 67.0 +2.6 -2.6 km/s/Mpc
-Ωm: 0.307 +0.041 -0.048
-ωm: 0.138 +0.017 -0.019
-w0: -0.91 +0.12 -0.13 (prior U(-1.5, -0.5))
-f_cc: 1.49 +0.18 -0.17
-Chi squared: 64.47 (1.19 sigma significance)
-Log evidence: -176.5 (ΔlogZ = -0.9 in favour of ΛCDM)
-Degrees of freedom: 55
-"""
 
-"""
-Flat CPL: w(z) = w0 + wa * z / (1 + z)
-TODO
-"""
+# ---------------- Flat wCDM ----------------
+# ΔM: -0.062 +- 0.081 mag
+# H0: 67.0 +- 2.6 km/s/Mpc
+# Ωm: 0.304 +0.049 -0.038
+# w0: -0.92 +0.13 -0.11 (prior U(-1.5, -0.5))
+# f_cc: 1.49 +- 0.17
+# Chi squared: 64.47 (1.19 sigma significance)
+# Log evidence: -176.5 (ΔlogZ = -0.9 in favour of ΛCDM)
+# DOF: 55
+# -------------------------------------------
+
+
+# --------------- Flat w0waCDM --------------
+# w0 + wa < 0 enforced in the likelihood
+# ΔM: -0.085 +- 0.081 mag
+# H0: 65.9 +- 2.6 km/s/Mpc
+# Ωm: 0.365 +0.052 -0.024
+# w0: -0.81 +0.14 -0.12 (prior U(-3, 1))
+# wa: < -1.65 (prior U(-3, 2) truncated posterior)
+# f_cc: 1.50 +- 0.17
+# Chi squared: 62.90 (1.22 sigma significance)
+# Log evidence: -177.4 + 0.3 (ΔlogZ = -1.5 in favour of ΛCDM)
+# DOF: 54
+# -------------------------------------------
