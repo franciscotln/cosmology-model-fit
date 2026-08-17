@@ -124,7 +124,7 @@ def main():
     import emcee
     from corner_plot import plot_corner_and_chains
     from multiprocessing import Pool
-    from cosmic_chronometers.plot_predictions import plot_cc_predictions
+    from ohd.plot_predictions import plot_cc_predictions
     from gelman_rubin import gelman_rubin
     from log_evidence import log_evidence
     from bao.plot_predictions import plot_bao_predictions

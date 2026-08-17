@@ -186,7 +186,7 @@ def main():
     from corner import corner, quantile
     import matplotlib.pyplot as plt
     from multiprocessing import Pool
-    from cosmic_chronometers.plot_predictions import plot_cc_predictions
+    from ohd.plot_predictions import plot_cc_predictions
     from fs8.plot_predictions import plot_predictions as plot_fs8_predictions
     from bao.plot_predictions import plot_bao_predictions
 

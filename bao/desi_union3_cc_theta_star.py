@@ -153,7 +153,7 @@ def main():
     from nautilus import Sampler, Prior
     from multiprocessing import Pool
     from sn.plotting import plot_predictions as plot_sn_predictions
-    from cosmic_chronometers.plot_predictions import plot_cc_predictions
+    from ohd.plot_predictions import plot_cc_predictions
     from bao.plot_predictions import plot_bao_predictions
 
     prior = Prior()

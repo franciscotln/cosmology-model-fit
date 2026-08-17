@@ -101,7 +101,7 @@ plt.ylabel("q(z)")
 plt.legend()
 plt.title("Deceleration Parameter from GP")
 plt.grid(True)
-plt.savefig("cosmic_chronometers/cc_gp_qz.png", dpi=300)
+plt.savefig("ohd/cc_gp_qz.png", dpi=300)
 plt.close()
 
 
@@ -125,7 +125,7 @@ plt.ylabel("H(z) [km/s/Mpc]")
 plt.title(f"GP $H_0$: {H_pred[0]:.1f} ± {pred_std[0]:.1f} km/s/Mpc")
 plt.legend()
 plt.grid(True)
-plt.savefig("cosmic_chronometers/cc_gp_Hz.png", dpi=300)
+plt.savefig("ohd/cc_gp_Hz.png", dpi=300)
 plt.close()
 
 plt.imshow(cov_pred, cmap="hot", interpolation="none")
