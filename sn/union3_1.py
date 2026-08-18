@@ -74,7 +74,7 @@ def main():
     # TRGB Freedman et al. 2025
     prior.add_parameter("H0", dist=norm(loc=70.39, scale=1.80))
     prior.add_parameter("om", dist=(0.1, 0.7))
-    prior.add_parameter("v", dist=(-10.5, 4.0))
+    prior.add_parameter("v", dist=(-9.0, 9.0)) # x 100 km/s
 
     with Pool(7) as pool:
         sampler = Sampler(
@@ -95,6 +95,9 @@ def main():
     gd_samples.addDerived(
         gd_samples["om"] * (gd_samples["H0"] / 100) ** 2, name="omh2", label="Ω_m h^2"
     )
+    gd_samples.addDerived(
+        100 * gd_samples["v"], name="v_km_s", label="v_{km/s}"
+    )
 
     for par in gd_samples.getParamNames().names:
         print(f"{par}: {gd_samples.mean(par):.5f} ± {gd_samples.std(par):.5f}")
@@ -112,7 +115,10 @@ def main():
     mu_std = np.sqrt(np.diag(cov_matrix))
 
     plots.get_subplot_plotter().triangle_plot(
-        gd_samples, title_limit=1, contour_colors=["C0"]
+        roots=gd_samples,
+        params=["dM", "om", "omh2", "v_km_s"],
+        title_limit=1,
+        contour_colors=["C0"],
     )
     plt.show()
 
@@ -154,55 +160,55 @@ if __name__ == "__main__":
 # (turning point z <= 0.2 inflow z > 0.2 outflow)
 # z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-# v: -3.1 ± 1.2 (prior ~ U(-10.5, 4.0)) x 100 km/s
-# v / (z_cut=0.2): -1550 ± 600 km/s
+# v: -308 ± 120 km/s (prior ~ U[-9, 9] x 100 km/s)
+# v / (z_cut=0.2): -1540 ± 600 km/s
 
-# ΔM: 0.007 ± 0.059 mag
+# ΔM: 0.008 ± 0.059 mag
 # H0: 70.4 ± 1.8 km/s/Mpc
-# Ωm: 0.299 ± 0.027 (agreement with ΛCDM from BAO)
+# Ωm: 0.299 ± 0.027 (0.1 sigma agreement with ΛCDM from BAO)
 # Ωm h^2: 0.148 +0.014/-0.016
-# χ2 (MAP): 22.15 (2.58 sigma significance)
-# Log evidence: -20.3 (Δ logZ = 1.7 in favour of step correction)
+# χ2 (MAP): 22.15 (2.57 sigma significance)
+# Log evidence: -20.5 (Δ logZ = 1.5 in favour of step correction)
 # Degs of freedom: 18
 # ---------------------------------
 
 
 # ----------- Flat wCDM -----------
-# w0: -0.82 +0.18/-0.10 (prior ~ U(-1.5, 0.0))
+# w0: -0.82 +0.18/-0.10 (prior ~ U[-1.5, 0.0])
 
 # ΔM: 0.044 ± 0.059
 # H0 (km/s/Mpc): 70.3 ± 1.8
 # Ωm: 0.253 +0.083/-0.074
 # Ωm h^2: 0.125 ± 0.037
 # χ2 (MAP): 27.2 (1.26 sigma away from ΛCDM)
-# Log evidence: -22.5
+# Log evidence: -22.5 (Δ logZ = -0.5 in favour of ΛCDM)
 # Degs of freedom: 18
 # ---------------------------------
 
 
 # ----------- Flat wzCDM -----------
 # w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
-# w0: -0.75 ± 0.13 (prior ~ U(-1.0, -1/3))
+# w0: -0.75 ± 0.13 (prior ~ U[-1.0, -1/3])
 
 # ΔM: 0.054 ± 0.059
 # H0 (km/s/Mpc): 70.4 ± 1.8
 # Ωm: 0.278 +0.045/-0.038
 # Ωm h^2: 0.138 +0.023/-0.020
 # χ2 (MAP): 26.5 (1.52 sigma away from ΛCDM)
-# Log evidence: -21.4
+# Log evidence: -21.4 (Δ logZ = 0.6 in favour of wzCDM)
 # Degs of freedom: 18
 # ---------------------------------
 
 
 # ----------- Flat w0waCDM -----------
-# w0: -0.40 +0.27 -0.40 (prior ~ U(-2.0, 0.5))
-# wa: -6.6 +4.8 -3.1 (prior ~ U(-16.0, 3.0))
+# w0: -0.40 +0.27 -0.40 (prior ~ U[-2.0, 0.5])
+# wa: -6.6 +4.8 -3.1 (prior ~ U[-16.0, 3.0])
 
 # ΔM: 0.096 ± 0.063
 # H0 (km/s/Mpc): 70.4 ± 1.7
 # Ωm: 0.447 +0.080/-0.038
 # Ωm h^2: 0.222 +0.040/-0.023
 # χ2 (MAP): 24.43 (1.59 sigma away from ΛCDM)
-# Log evidence: -22.5
+# Log evidence: -22.5 (Δ logZ = -0.5 in favour of ΛCDM)
 # Degrees of freedom: 17
 # ---------------------------------
