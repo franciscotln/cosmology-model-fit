@@ -211,7 +211,7 @@ if __name__ == "__main__":
 # ΔM: 0.057 ± 0.056 mag
 # H0: 70.4 ± 1.7 km/s/Mpc
 # Ωm: 0.465 +0.053 -0.026
-# χ2 (MAP): 1625.31 (2.47 sigma significance)
+# χ2 (MAP): 1625.31 (1.99 sigma significance)
 # Log evidence: -826.1 (ΛCDM preferred)
 # DOF: 1709
 # ---------------------------------
