@@ -214,9 +214,14 @@ if __name__ == "__main__":
 
 
 # *******************************************
-# Dataset: BAO DESI DR2 + FS Lya + SN1a Union3.1 + Cosmic Chronometers
+# Data sets:
+# BAO DESI DR2 + FS Lya
+# SN1a Union3.1
+# Cosmic Chronometers
+# *******************************************
 
-# Priors:
+
+# ----------------- Priors ------------------
 # f_cc: U(0.01, 3.0)
 # ΔM:   U(-1.0, 1.0)
 # H0:   U(45.0, 90.0)
@@ -234,9 +239,9 @@ if __name__ == "__main__":
 # wa:   U(-5.0, 3.0)
 # Enforced w0 + wa < 0, forbidden prior region removed in evidence calculation.
 
-# Velocity step correction:
+# Velocity step correction in observed redshift SNe:
 # v ~U(-10.5, 4.5) x 100 km/s
-# *******************************************
+# -------------------------------------------
 
 
 # --------------- Flat ΛCDM -----------------
@@ -264,7 +269,7 @@ if __name__ == "__main__":
 # Ωm h^2: 0.1426 +- 0.0093
 # f_cc: 1.51 +- 0.17
 # Chi squared: 72.32 (2.88 sigma significance)
-# Log evidence: -185.26 (Δ logZ = 2.35 against no velocity step correction)
+# Log evidence: -185.26 (Δ logZ = 2.35 in favour of velocity step correction)
 # Degrees of freedom: 68
 # -------------------------------------------
 
@@ -291,10 +296,10 @@ if __name__ == "__main__":
 # Ωm: 0.3120 +- 0.0081
 # Ωm h^2: 0.1403 +- 0.0093
 # w0: -0.856 +- 0.066
-# wa: d w(z)/d z at z=0 = -1.5 * (1 - w0^2)
+# wa: d w(z)/d z at z=0 = -1.5 * (1 - w0^2) = -0.40
 # f_cc: 1.50 +- 0.17
 # Chi squared: 76.50 (2.02 sigma significance)
-# Log evidence: -187.10 (Δ logZ = 0.51 against ΛCDM)
+# Log evidence: -187.10 (Δ logZ = 0.51 in favour of wzCDM)
 # Degrees of freedom: 68
 # -------------------------------------------
 
