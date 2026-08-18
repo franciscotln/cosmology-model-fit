@@ -57,17 +57,8 @@ def chi_squared(params):
 
 
 @njit
-def log_likelihood_single(params):
+def log_likelihood(params):
     return -0.5 * chi_squared(params)
-
-
-@njit
-def log_likelihood(batch):
-    N = batch.shape[0]
-    log_likes = np.empty(N, dtype=np.float32)
-    for i in range(N):
-        log_likes[i] = log_likelihood_single(batch[i])
-    return log_likes
 
 
 def main():
@@ -85,21 +76,15 @@ def main():
     prior.add_parameter("om", dist=(0.1, 0.7))
     prior.add_parameter("v", dist=(-10.5, 4.0))
 
-    with Pool(6) as pool:
+    with Pool(7) as pool:
         sampler = Sampler(
-            prior,
-            log_likelihood,
-            n_live=6_000,
-            pool=pool,
-            seed=42,
-            pass_dict=False,
-            vectorized=True,
+            prior, log_likelihood, n_live=7_000, pool=pool, seed=42, pass_dict=False,
         )
         sampler.run(verbose=True)
 
     samples, log_w, log_l = sampler.posterior()
 
-    labels = ["ΔM", "H_0", "Ω_m", "v_{flow}"]
+    labels = ["ΔM", "H_0", "Ω_m", "v_{100}"]
     gd_samples = MCSamples(
         samples=samples,
         weights=np.exp(log_w),
@@ -111,27 +96,25 @@ def main():
         gd_samples["om"] * (gd_samples["H0"] / 100) ** 2, name="omh2", label="Ω_m h^2"
     )
 
-    plots.get_subplot_plotter().triangle_plot(
-        gd_samples, title_limit=1, contour_colors=["C0"]
-    )
-    plt.show()
-
-    best_fit = gd_samples.mean(prior.keys)
-    degs_of_freedom = len(z_cmb) - len(best_fit)
-
     for par in gd_samples.getParamNames().names:
         print(f"{par}: {gd_samples.mean(par):.5f} ± {gd_samples.std(par):.5f}")
 
     index_MAP = np.argmax(log_l)
     print(f"χ2 (MAP): {chi_squared(samples[index_MAP]):.2f}")
     print(f"Log evidence: {sampler.log_z:.1f}")
-    print(f"Degrees of freedom: {degs_of_freedom}")
+    print(f"DOF: {len(z_cmb) - len(prior.keys)}")
 
+    best_fit = gd_samples.mean(prior.keys)
     DM_best = DM_z(z_cmb, best_fit)
     mu_pred = mu_theory(best_fit, DM_best)
     mu_corrected = mu_vals - mu_corr(best_fit, DM_best)
     residuals = mu_corrected - mu_pred
     mu_std = np.sqrt(np.diag(cov_matrix))
+
+    plots.get_subplot_plotter().triangle_plot(
+        gd_samples, title_limit=1, contour_colors=["C0"]
+    )
+    plt.show()
 
     plot_predictions(
         legend=legend,
@@ -148,78 +131,78 @@ def main():
 if __name__ == "__main__":
     main()
 
-"""
-*******************************
-Dataset: Union 3 Bins
-z range: 0.050 - 2.262
-Sample size: 22
-*******************************
-"""
+# *******************************
+# Dataset: Union 3.1 (2026)
+# z range: 0.050 - 2.262
+# Sample size: 22
+# *******************************
 
-"""
-Flat ΛCDM
 
-ΔM: 0.038 ± 0.060
-H0 (km/s/Mpc): 70.4 ± 1.8
-Ωm: 0.336 ± 0.025
-Ωm h^2: 0.166 +0.014/-0.016
-χ2 (MAP): 28.8
-Log evidence: -22.0
-Degs of freedom: 19
-"""
+# ----------- Flat ΛCDM -----------
+# ΔM: 0.039 ± 0.059
+# H0 (km/s/Mpc): 70.4 ± 1.8
+# Ωm: 0.336 ± 0.025
+# Ωm h^2: 0.166 +0.014/-0.016
+# χ2 (MAP): 28.76
+# Log evidence: -22.0
+# Degs of freedom: 19
+# ---------------------------------
 
-"""
-Flat ΛCDM
-Isotropic velocity SNe observed redshifts (turning point z <= 0.2 inflow z > 0.2 outflow)
-z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-ΔM: 0.008 ± 0.059 mag
-v: -3.1 ± 1.2 (prior ~ U(-10.5, 4.0)) x 100 km/s
-v / (z_cut=0.2): -1550 ± 600 km/s
-H0: 70.4 ± 1.8 km/s/Mpc
-Ωm: 0.299 +0.025/-0.028 (agreement with ΛCDM from BAO)
-Ωm h^2: 0.148 +0.014/-0.016
-χ2 (MAP): 22.15 (2.58 sigma significance)
-Log evidence: -20.3 (Δ logZ = 1.7 in favour of in/outflow)
-Degs of freedom: 18
-"""
+# ----------- Flat ΛCDM -----------
+# Velocity step correction SNe observed redshifts
+# (turning point z <= 0.2 inflow z > 0.2 outflow)
+# z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-"""
-Flat wCDM: w(z) = w0
+# v: -3.1 ± 1.2 (prior ~ U(-10.5, 4.0)) x 100 km/s
+# v / (z_cut=0.2): -1550 ± 600 km/s
 
-ΔM: 0.044 ± 0.059
-H0 (km/s/Mpc): 70.3 ± 1.8
-Ωm: 0.253 +0.083/-0.074
-w0: -0.82 +0.18/-0.10 (prior ~ U(-1.5, 0.0))
-Ωm h^2: 0.125 ± 0.037
-χ2 (MAP): 27.2 (1.26 sigma away from ΛCDM)
-Log evidence: -22.5
-Degs of freedom: 18
+# ΔM: 0.007 ± 0.059 mag
+# H0: 70.4 ± 1.8 km/s/Mpc
+# Ωm: 0.299 ± 0.027 (agreement with ΛCDM from BAO)
+# Ωm h^2: 0.148 +0.014/-0.016
+# χ2 (MAP): 22.15 (2.58 sigma significance)
+# Log evidence: -20.3 (Δ logZ = 1.7 in favour of step correction)
+# Degs of freedom: 18
+# ---------------------------------
 
-===============================
 
-Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
+# ----------- Flat wCDM -----------
+# w0: -0.82 +0.18/-0.10 (prior ~ U(-1.5, 0.0))
 
-ΔM: 0.054 ± 0.059
-H0 (km/s/Mpc): 70.4 ± 1.8
-Ωm: 0.278 +0.045/-0.038
-w0: -0.75 ± 0.13 (prior ~ U(-1.0, -1/3))
-Ωm h^2: 0.138 +0.023/-0.020
-χ2 (MAP): 26.5 (1.52 sigma away from ΛCDM)
-Log evidence: -21.4
-Degs of freedom: 18
+# ΔM: 0.044 ± 0.059
+# H0 (km/s/Mpc): 70.3 ± 1.8
+# Ωm: 0.253 +0.083/-0.074
+# Ωm h^2: 0.125 ± 0.037
+# χ2 (MAP): 27.2 (1.26 sigma away from ΛCDM)
+# Log evidence: -22.5
+# Degs of freedom: 18
+# ---------------------------------
 
-===============================
 
-Flat w0waCDM: w(z) = w0 + wa * z / (1 + z)
+# ----------- Flat wzCDM -----------
+# w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
+# w0: -0.75 ± 0.13 (prior ~ U(-1.0, -1/3))
 
-ΔM: 0.096 ± 0.063
-H0 (km/s/Mpc): 70.4 ± 1.7
-Ωm: 0.447 +0.080/-0.038
-w0: -0.40 +0.27 -0.40 (prior ~ U(-2.0, 0.5))
-wa: -6.6 +4.8 -3.1 (prior ~ U(-16.0, 3.0))
-Ωm h^2: 0.222 +0.040/-0.023
-χ2 (MAP): 24.43 (1.59 sigma away from ΛCDM)
-Log evidence: -22.5
-Degrees of freedom: 17
-"""
+# ΔM: 0.054 ± 0.059
+# H0 (km/s/Mpc): 70.4 ± 1.8
+# Ωm: 0.278 +0.045/-0.038
+# Ωm h^2: 0.138 +0.023/-0.020
+# χ2 (MAP): 26.5 (1.52 sigma away from ΛCDM)
+# Log evidence: -21.4
+# Degs of freedom: 18
+# ---------------------------------
+
+
+# ----------- Flat w0waCDM -----------
+# w0: -0.40 +0.27 -0.40 (prior ~ U(-2.0, 0.5))
+# wa: -6.6 +4.8 -3.1 (prior ~ U(-16.0, 3.0))
+
+# ΔM: 0.096 ± 0.063
+# H0 (km/s/Mpc): 70.4 ± 1.7
+# Ωm: 0.447 +0.080/-0.038
+# Ωm h^2: 0.222 +0.040/-0.023
+# χ2 (MAP): 24.43 (1.59 sigma away from ΛCDM)
+# Log evidence: -22.5
+# Degrees of freedom: 17
+# ---------------------------------
