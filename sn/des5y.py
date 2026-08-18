@@ -26,7 +26,8 @@ def Ode_z(w0):
 @njit
 def Hz(params):
     H0, Om = params[1], params[2]
-    return H0 * np.sqrt(Om * zp1**3 + 1.0 - Om)
+    Ol = 1.0 - Om
+    return H0 * np.sqrt(Om * zp1**3 + Ol)
 
 
 @njit
@@ -67,202 +68,150 @@ def log_likelihood(params):
     return -0.5 * chi_squared(params)
 
 
-bounds = np.array(
-    [
-        (-1.0, 1.0),  # ΔM
-        (56.0, 85.0),  # H0
-        (0.0, 0.8),  # Ωm
-        (-6.0, 3.0),  # v x 100 km/s
-    ]
-)
-
-normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
-
-
-@njit
-def log_prior(params):
-    if not np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
-        return -np.inf
-    # H0 prior from TRGB Freedman et al
-    return normalization - 0.5 * (params[1] - 70.39) ** 2 / 1.80**2
-
-
-def log_probability(params):
-    lp = log_prior(params)
-    if np.isinf(lp):
-        return -np.inf
-    return lp + log_likelihood(params)
-
-
 def main():
-    import emcee
+    from scipy.stats import norm
+    from getdist import plots, MCSamples
+    import matplotlib.pyplot as plt
+    from nautilus import Sampler, Prior
     from multiprocessing import Pool
-    from corner_plot import plot_corner_and_chains
-    from gelman_rubin import gelman_rubin
-    from log_evidence import log_evidence
-    from sn.plotting import plot_predictions, print_color, plot_residuals
+    from sn.plotting import plot_predictions, plot_residuals
 
-    ndim = len(bounds)
-    nwalkers = 150
-    burn_in = 500
-    nsteps = burn_in + 2500
-    np.random.seed(42)
-    initial_state = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
-    moves = [
-        (emcee.moves.KDEMove(bw_method="silverman"), 0.25),
-        (emcee.moves.DEMove(), 0.75),
-    ]
+
+    prior = Prior()
+    prior.add_parameter("dM", dist=(-1.0, +1.0))
+    # TRGB Freedman et al. 2025
+    prior.add_parameter("H0", dist=norm(loc=70.39, scale=1.80))
+    prior.add_parameter("om", dist=(0.0, 0.8))
+    prior.add_parameter("v", dist=(-5.0, 5.0)) # x 100 km/s
 
     with Pool(6) as pool:
-        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
-        sampler.run_mcmc(
-            initial_state, nsteps, progress=True, progress_kwargs={"colour": "#ff5a00"}
+        sampler = Sampler(
+            prior, log_likelihood, n_live=6_000, pool=pool, seed=42, pass_dict=False,
         )
+        sampler.run(verbose=True)
 
-    samples = sampler.get_chain(discard=burn_in, flat=True)
-    chains_samples = sampler.get_chain(discard=burn_in, flat=False)
-    log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
-    log_evd = log_evidence(samples, log_probs, log_probability, bounds)
-    print(f"Gelman-Rubin: {gelman_rubin(chains_samples)}")
-    MAP_params = samples[np.argmax(log_probs)]
+    samples, log_w, log_l = sampler.posterior()
 
-    try:
-        tau = sampler.get_autocorr_time()
-        print_color("Autocorrelation time", tau)
-        print_color("Acceptance fraction", np.mean(sampler.acceptance_fraction))
-        print_color(
-            "effective samples", ndim * nwalkers * (nsteps - burn_in) / np.max(tau)
-        )
-    except Exception as e:
-        print("Autocorrelation time could not be computed")
+    labels = ["ΔM", "H_0", "Ω_m", "v_{100}"]
+    gd_samples = MCSamples(
+        samples=samples,
+        weights=np.exp(log_w),
+        loglikes=log_l,
+        names=prior.keys,
+        labels=labels,
+    )
+    gd_samples.addDerived(
+        100 * gd_samples["v"], name="v_km_s", label="v_{km/s}"
+    )
 
-    [
-        (M_16, M_50, M_84),
-        (H0_16, H0_50, H0_84),
-        (Om_16, Om_50, Om_84),
-        (vflow_16, vflow_50, vflow_84),
-    ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
+    for par in gd_samples.getParamNames().names:
+        print(f"{par}: {gd_samples.mean(par):.5f} ± {gd_samples.std(par):.5f}")
 
-    best_fit = np.percentile(samples, 50, axis=0)
+    index_MAP = np.argmax(log_l)
+    print(f"χ2 (MAP): {chi_squared(samples[index_MAP]):.2f}")
+    print(f"Log evidence: {sampler.log_z:.1f}")
+    print(f"DOF: {effective_sample_size - len(prior.keys)}")
 
+    best_fit = gd_samples.mean(prior.keys)
     DM_best = DM_z(z_cmb, best_fit)
-    mu_pred = theory_mu(offset=M_50, DM=DM_best)
-    corrected_mu = mu_vals - mu_corr(best_fit, DM_best)
-    residuals = corrected_mu - mu_pred
+    mu_pred = theory_mu(offset=best_fit[0], DM=DM_best)
+    mu_corrected = mu_vals - mu_corr(best_fit, DM_best)
+    residuals = mu_corrected - mu_pred
+    mu_std = np.sqrt(np.diag(covmat))
 
-    ss_res = np.sum(residuals**2)
-    ss_tot = np.sum((mu_vals - np.mean(mu_vals)) ** 2)
-    r_squared = 1.0 - (ss_res / ss_tot)
+    plots.get_subplot_plotter().triangle_plot(
+        roots=gd_samples,
+        params=["dM", "H0", "om", "v_km_s"],
+        title_limit=1,
+        contour_colors=["C0"],
+    )
+    plt.show()
 
-    rmsd = np.sqrt(np.mean(residuals**2))
-
-    H_label = f"{H0_50:.2f} +{H0_84-H0_50:.2f} -{H0_50-H0_16:.2f} km/s/Mpc"
-    M_label = f"{M_50:.3f} +{M_84-M_50:.3f} -{M_50-M_16:.3f} mag"
-    Om_label = f"{Om_50:.3f} +{Om_84-Om_50:.3f} -{Om_50-Om_16:.3f}"
-    v_label = f"{vflow_50:.2f} +{vflow_84-vflow_50:.2f} -{vflow_50-vflow_16:.2f} km/s"
-
-    print_color("Dataset", legend)
-    print_color("z range", f"{z_cmb[0]:.3f} - {z_cmb[-1]:.3f}")
-    print_color("Sample size", len(z_cmb))
-    print_color("ΔM", M_label)
-    print_color("H0", H_label)
-    print_color("Ωm", Om_label)
-    print_color("v_flow", v_label)
-    print_color("R-squared (%)", f"{100 * r_squared:.2f}")
-    print_color("RMSD (mag)", f"{rmsd:.3f}")
-    print_color("Skewness of residuals", f"{stats.skew(residuals):.3f}")
-    print_color("Log evidence", f"{log_evd:.1f}")
-    print_color("Chi2 (MAP)", f"{chi_squared(MAP_params):.2f}")
-    print_color("Effective deg of freedom", effective_sample_size - ndim)
-
-    y_err = np.sqrt(covmat.diagonal())
-
-    labels = ["$ΔM$", "$H_0$", "$Ω_m$", "$v_{flow}$"]
-    plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
     plot_predictions(
         legend=legend,
         x=z_cmb,
-        y=corrected_mu,
-        y_err=y_err,
+        y=mu_corrected,
+        y_err=mu_std,
         y_model=mu_pred,
-        label=f"$Ω_m$={Om_label}",
+        label=f"$Ω_m$={gd_samples.mean('om'):.3f}",
         x_scale="log",
     )
-    plot_residuals(z_values=z_cmb, residuals=residuals, y_err=y_err, bins=60)
+    plot_residuals(z_values=z_cmb, residuals=residuals, y_err=mu_std, bins=60)
 
 
 if __name__ == "__main__":
     main()
 
-"""
-********************************
-Dataset: DES-SN5YR Dovekie - effective: 1714 SNe
-z range: 0.025 - 1.144
-Sample size: 1820
-********************************
-"""
 
-"""
-Flat ΛCDM
-ΔM: 0.020 +0.056 -0.058 mag
-H0: 70.39 +1.80 -1.81 km/s/Mpc
-Ωm: 0.331 +0.015 -0.015
-R-squared (%): 98.38
-RMSD (mag): 0.268
-Skewness of residuals: 3.2
-Log evidence: -825.7
-Chi2 (MAP): 1631.42
-Effective deg of freedom: 1711
-"""
+# ********************************
+# Data set: DES-SN5YR Dovekie 
+# z range: 0.025 - 1.144
+# Sample size: 1820 (effective: 1714 SNe)
+# ********************************
 
-"""
-Flat ΛCDM w(z) = -1
-Isotropic velocity SNe observed redshifts (turning point z <= 0.10563 inflow z > 0.10563 outflow)
-z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-ΔM: 0.005 +0.056 -0.057 mag
-v: -1.41 +0.66 -0.65 km/s (prior ~ U(-6, 3)) x 100 km/s
-v / (z_cut=0.10563): -1335 ± 625 km/s
-H0: 70.40 +1.78 -1.79 km/s/Mpc
-Ωm: 0.308 +0.018 -0.018
-R-squared (%): 98.37
-RMSD (mag): 0.269
-Skewness of residuals: 3.2
-Log evidence: -825.2
-Chi2 (MAP): 1626.91 (2.12 sigma significance)
-Effective deg of freedom: 1710
-"""
+# ----------- Flat ΛCDM -----------
+# ΔM: 0.020 ± 0.057 mag
+# H0: 70.4 ± 1.8 km/s/Mpc
+# Ωm: 0.331 ± 0.015
+# χ2 (MAP): 1631.42
+# Log evidence: -823.9
+# DOF: 1711
+# ---------------------------------
 
-"""
-Flat wCDM w(z) = w0
-ΔM: 0.029 +0.056 -0.058 mag
-Ωm: 0.260 +0.066 -0.086
-H0: 70.39 +1.78 -1.80 km/s/Mpc
-w0: -0.83 +0.14 -0.15 (prior ~ U(-1.5, 0))
-R-squared (%): 98.37
-RMSD (mag): 0.268
-Skewness of residuals: 3.2
-Log evidence: -826.4
-Chi2 (MAP): 1630.18 (1.11 sigma significance)
-Effective deg of freedom: 1710
-"""
 
-"""
-Flat w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
-ΔM: 0.034 +0.056 -0.057 mag
-H0: 70.38 +1.81 -1.78 km/s/Mpc
-Ωm: 0.287 +0.030 -0.035
-w0: -0.81 +0.11 -0.11
-wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
-R-squared (%): 98.37
-RMSD (mag): 0.268
-Skewness of residuals: 3.2
-Chi squared: 1629.53 (1.37 sigma significance)
-Log evidence: -825.9
-Effective deg of freedom: 1710
-"""
+# ----------- Flat ΛCDM -----------
+# Velocity step correction in SNe observed redshifts
+# turning point z <= 0.10563 inflow z > 0.10563 outflow
+# z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-"""
-Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
-TODO
-"""
+# v: -140 ± 67 km/s (prior ~ U[-5, 5] x 100 km/s)
+# v / z_turn: -1325 ± 634 km/s
+
+# ΔM: 0.004 ± 0.056 mag
+# H0: 70.4 ± 1.8 km/s/Mpc
+# Ωm: 0.309 ± 0.018
+# χ2 (MAP): 1626.90 (2.13 sigma significance)
+# Log evidence: -823.4 (Δ logZ = 0.5 in favour of velocity step correction)
+# DOF: 1710
+# ---------------------------------
+
+
+# ----------- Flat wCDM -----------
+# w0: -0.84 +0.15 -0.13 (prior ~ U[-1.5, 0])
+
+# ΔM: 0.028 ± 0.057 mag
+# H0: 70.4 ± 1.8 km/s/Mpc
+# Ωm: 0.251 +0.089 -0.055
+# χ2 (MAP): 1630.18 (1.11 sigma significance)
+# Log evidence: -824.6 (ΛCDM preferred)
+# DOF: 1710
+# ---------------------------------
+
+
+# ----------- Flat wzCDM ----------
+# w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
+
+# w0: -0.806 +0.098 -0.120 (prior ~ U[-1.0, 0])
+# wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
+
+# ΔM: 0.033 ± 0.056 mag
+# H0: 70.4 ± 1.8 km/s/Mpc
+# Ωm: 0.284 +0.037 -0.027
+# χ2 (MAP): 1629.53 (1.37 sigma significance)
+# Log evidence: -824.1 (ΛCDM preferred)
+# DOF: 1710
+# ---------------------------------
+
+
+# ---------- Flat w0waCDM ---------
+# w0: -0.46 +0.23 -0.35 (prior ~ U[-10, 5])
+# wa: -7.8 +4.5 -3.2 (prior ~ U[-20, 10])
+
+# ΔM: 0.057 ± 0.056 mag
+# H0: 70.4 ± 1.7 km/s/Mpc
+# Ωm: 0.465 +0.053 -0.026
+# χ2 (MAP): 1625.31 (2.47 sigma significance)
+# Log evidence: -826.1 (ΛCDM preferred)
+# DOF: 1709
+# ---------------------------------
