@@ -97,17 +97,8 @@ def chi_squared(params):
 
 
 @njit
-def log_likelihood_single(params):
+def log_likelihood(params):
     return -0.5 * chi_squared(params)
-
-
-@njit
-def log_likelihood(batch):
-    N = batch.shape[0]
-    log_likes = np.empty(N, dtype=np.float32)
-    for i in range(N):
-        log_likes[i] = log_likelihood_single(batch[i])
-    return log_likes
 
 
 def main():
@@ -122,17 +113,11 @@ def main():
     prior.add_parameter("H0", dist=(60.0, 75.0))
     prior.add_parameter("obh2", dist=(0.01, 0.03))
     prior.add_parameter("och2", dist=(0.01, 0.25))
-    prior.add_parameter("v", dist=(-10.0, 4.0))
+    prior.add_parameter("v", dist=(-9.0, 9.0))  # x 100 km/s
 
     with Pool(6) as pool:
         sampler = Sampler(
-            prior,
-            log_likelihood,
-            n_live=8_000,
-            pool=pool,
-            seed=42,
-            pass_dict=False,
-            vectorized=True,
+            prior, log_likelihood, n_live=6_000, pool=pool, seed=42, pass_dict=False,
         )
         sampler.run(verbose=True)
 
@@ -143,7 +128,7 @@ def main():
         weights=np.exp(log_w),
         loglikes=log_l,
         names=prior.keys,
-        labels=["ΔM", "H_0", "ω_b", "ω_c", "v_{flow}"],
+        labels=["ΔM", "H_0", "ω_b", "ω_c", "v_{100}"],
         label="Union3.1 + CMB(R, lA, ωb)",
     )
     gd_samples.addDerived(
@@ -152,11 +137,14 @@ def main():
     gd_samples.addDerived(
         gd_samples["omh2"] / (gd_samples["H0"] / 100) ** 2, name="om", label="Ω_m"
     )
+    gd_samples.addDerived(
+        100 * gd_samples["v"], name="v_km_s", label="v_{km/s}"
+    )
 
     g = plots.get_subplot_plotter()
     g.triangle_plot(
         gd_samples,
-        params=["dM", "v", "H0", "om"],
+        params=["dM", "H0", "om", "v_km_s"],
         title_limit=1,
         filled=True,
         contour_colors=["C0"],
@@ -165,7 +153,7 @@ def main():
     plt.show()
 
     best_fit = np.percentile(samples, 50, axis=0)
-    degs_of_freedom = len(mu_vals) + len(cmb.DISTANCE_PRIORS) - len(best_fit)
+    DOF = len(mu_vals) + len(cmb.DISTANCE_PRIORS) - len(best_fit)
 
     for par in gd_samples.getParamNames().names:
         print(f"{par}: {gd_samples.mean(par):.5f} ± {gd_samples.std(par):.5f}")
@@ -173,7 +161,7 @@ def main():
     MAP_index = np.argmax(log_l)
     print(f"Chi2 (MAP): {chi_squared(samples[MAP_index]):.1f}")
     print(f"Log Evidence: {sampler.log_z:.1f}")
-    print(f"Degrees of freedom: {degs_of_freedom}")
+    print(f"DOF: {DOF}")
 
     plot_predictions(
         legend=sn_legend,
@@ -191,79 +179,75 @@ def main():
 if __name__ == "__main__":
     main()
 
-"""
-*******************************
-Dataset: Union 3.1 (22 bins)
-CMB(R, lA = π / θ*, ωb) ACT+Planck compressed
-z range: 0.050 - 2.262
-*******************************
-"""
 
-"""
-Flat ΛCDM w(z) = -1
-ΔM: -0.069 +- 0.011
-H0: 67.50 +- 0.48 km/s/Mpc
-Ωm: 0.3134 +- 0.0069
-Chi2 (MAP): 29.6
-Log Evidence: -33.1
-Degrees of freedom: 21
-"""
+# *********************************
+# Data sets:
+# Union 3.1 (2026 - 22 bins)
+# CMB(R, lA = π / θ*, ωb) ACT+Planck compressed
+# *********************************
 
-"""
-Flat ΛCDM w(z) = -1
-Isotropic velocity SNe observed redshifts (turning point z <= 0.2 inflow z > 0.2 outflow)
-z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-ΔM: -0.067 ± 0.011 mag
-v: -2.8 ± 1.1 (prior ~ U(-10, 4)) x 100 km/s
-v / (z_cut=0.2): -1400 ± 550 km/s
-H0: 67.68 ± 0.49 km/s/Mpc
-Ωm: 0.3107 ± 0.0069
-Chi2 (MAP): 22.4 (2.66 sigma significance)
-Log Evidence: -31.2 (delta logZ = 1.9 in favour of flow)
-Degrees of freedom: 20
-"""
+# ----------- Flat ΛCDM -----------
+# ΔM: -0.069 +- 0.011 mag
+# H0: 67.49 +- 0.48 km/s/Mpc
+# Ωm: 0.3135 +- 0.0068
+# Chi2 (MAP): 29.5
+# Log Evidence: -33.1
+# DOF: 21
+# ---------------------------------
 
-"""
-Flat wCDM w(z) = w0
-ΔM: -0.086 +0.018 -0.019
-H0: 66.35 +1.15 -1.14 km/s/Mpc
-Ωm: 0.324 +0.012 -0.012
-ωm: 0.14241 +0.00118 -0.00117
-ωb: 0.02250 +0.00011 -0.00011
-ωc: 0.1193 +0.0012 -0.0012
-w0: -0.957 +0.040 -0.039 (prior ~ U(-1.5, -0.5))
-z*: 1089.68 +0.21 -0.21
-z_drag: 1060.17 +0.23 -0.23
-r*: 144.53 Mpc
-r_d: 147.15 Mpc
-Chi squared: 28.3
-Log Evidence: -34.9
-Degrees of freedom: 20
-"""
 
-"""
-Flat w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
-ΔM: -0.081 +0.013 -0.013
-H0: 66.15 +0.96 -0.80 km/s/Mpc
-Ωm: 0.325 +0.009 -0.011
-ωm: 0.14230 +0.00116 -0.00116
-ωb: 0.02250 +0.00011 -0.00011
-ωc: 0.1192 +0.0012 -0.0012
-w0: -0.890 +0.051 -0.073 (prior ~ U(-1, -1/3))
-wa: d w(z)/d z at z=0 = -1.5 * (1 - w0^2) = -0.312
-z*: 1089.66 +0.21 -0.21
-z_drag: 1060.18 +0.23 -0.23
-r*: 144.56 Mpc
-r_d: 147.17 Mpc
-Chi2 (MAP): 27.6
-Log Evidence: -33.6
-Degrees of freedom: 20
-"""
+# ----------- Flat ΛCDM -----------
+# Velocity step correction in SNe observed redshifts
+# turning point z <= 0.2 inflow z > 0.2 outflow
+# z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-"""
-Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
-TODO
-w0: (prior ~ U(-1.5, 0.0))
-wa: (prior ~ U(-5.5, 3.0))
-"""
+# v: -280 ± 110 km/s (prior ~ U[-9, 9] x 100 km/s)
+# v / (z_turn=0.2): -1400 ± 550 km/s
+
+# ΔM: -0.067 ± 0.011 mag
+# H0: 67.68 ± 0.49 km/s/Mpc
+# Ωm: 0.3107 ± 0.0069
+# Chi2 (MAP): 22.4 (2.66 sigma significance)
+# Log Evidence: -31.5 (delta logZ = 1.6 in favour of step correction)
+# DOF: 20
+# ---------------------------------
+
+
+# ----------- Flat wCDM -----------
+# w0: -0.957 ± 0.040 (prior ~ U[-1.5, -0.5])
+
+# ΔM: -0.086 ± 0.018 mag
+# H0: 66.4 ± 1.2 km/s/Mpc
+# Ωm: 0.324 ± 0.012
+# Chi2 (MAP): 28.3 (1.10 sigma significance)
+# Log Evidence: -34.8
+# DOF: 20
+# ---------------------------------
+
+
+# ----------- Flat wzCDM ----------
+# w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
+# w0: -0.890 +0.051 -0.074 (prior ~ U[-1, -1/3])
+# wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2) = -0.312
+
+# ΔM: -0.082 ± 0.013 mag
+# H0: 66.14 +0.97 -0.81 km/s/Mpc
+# Ωm: 0.3255 +0.0090 -0.0110
+# Chi2 (MAP): 27.6 (1.38 sigma significance)
+# Log Evidence: -33.6
+# DOF: 20
+# ---------------------------------
+
+
+# --------- Flat w0waCDM ----------
+# w0: -0.72 ± 0.15 (prior ~ U[-1.5, 0.0])
+# wa: -1.15 ± 0.74 (prior ~ U[-5.5, 3.0])
+
+# ΔM: -0.028 +0.042 -0.031 mag
+# H0: 67.7 +1.4 -1.2 km/s/Mpc
+# Ωm: 0.311 +0.011 -0.014
+# Chi2 (MAP): 26.2
+# Log Evidence: -35.6
+# DOF: 19
+# ---------------------------------
