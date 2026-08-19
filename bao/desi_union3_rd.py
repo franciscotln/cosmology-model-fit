@@ -74,30 +74,28 @@ def bao_theory(z, qty, params, dm_interp):
     return results / params[1]
 
 
-"""
-z node
-0.05   v: -0.182 +1.030 -1.046 x 100 km/s   Chi squared: 41.1   Log evidence: -34.9
-0.10   v: -2.285 +0.960 -0.952 x 100 km/s   Chi squared: 35.4   Log evidence: -32.2
-0.15   v: -2.160 +0.969 -0.958 x 100 km/s   Chi squared: 36.1   Log evidence: -32.5
-0.20   v: -3.100 +1.040 -1.060 x 100 km/s   Chi squared: 32.4   Log evidence: -30.6 <-- best node
-0.25   v: -1.542 +1.135 -1.148 x 100 km/s   Chi squared: 39.3   Log evidence: -33.9
-0.30   v: -1.451 +1.291 -1.288 x 100 km/s   Chi squared: 39.8   Log evidence: -34.1
-0.35   v: -1.802 +1.407 -1.415 x 100 km/s   Chi squared: 39.4   Log evidence: -33.8
-0.40   v: -2.914 +1.499 -1.513 x 100 km/s   Chi squared: 37.3   Log evidence: -32.7
-0.45   v: -2.887 +1.591 -1.563 x 100 km/s   Chi squared: 37.7   Log evidence: -32.9
-0.50   v: -3.336 +1.655 -1.704 x 100 km/s   Chi squared: 37.0   Log evidence: -32.4
-0.55   v: -3.710 +1.736 -1.733 x 100 km/s   Chi squared: 36.4   Log evidence: -32.1
-0.60   v: -4.145 +1.750 -1.801 x 100 km/s   Chi squared: 35.5   Log evidence: -31.6
-0.65   v: -4.247 +1.770 -1.786 x 100 km/s   Chi squared: 35.3   Log evidence: -31.5
-0.70   v: -3.911 +1.776 -1.787 x 100 km/s   Chi squared: 36.2   Log evidence: -32.0
-0.75   v: -3.620 +1.818 -1.828 x 100 km/s   Chi squared: 36.9   Log evidence: -32.3
-0.80   v: -3.644 +1.790 -1.803 x 100 km/s   Chi squared: 37.0   Log evidence: -32.3
-0.90   v: -3.655 +1.819 -1.820 x 100 km/s   Chi squared: 37.0   Log evidence: -32.3
-1.00   v: -3.900 +1.819 -1.810 x 100 km/s   Chi squared: 36.5   Log evidence: -32.1
-1.10   v: -3.803 +1.810 -1.836 x 100 km/s   Chi squared: 36.7   Log evidence: -32.2
-1.25   v: -3.932 +1.799 -1.830 x 100 km/s   Chi squared: 36.3   Log evidence: -32.0
-1.40   v: -3.871 +1.790 -1.831 x 100 km/s   Chi squared: 36.5   Log evidence: -32.1
-"""
+# z node
+# 0.05   v: -0.182 +1.030 -1.046 x 100 km/s   Chi squared: 41.1   Log evidence: -34.9
+# 0.10   v: -2.285 +0.960 -0.952 x 100 km/s   Chi squared: 35.4   Log evidence: -32.2
+# 0.15   v: -2.160 +0.969 -0.958 x 100 km/s   Chi squared: 36.1   Log evidence: -32.5
+# 0.20   v: -3.100 +1.040 -1.060 x 100 km/s   Chi squared: 32.4   Log evidence: -30.6 <-- best node
+# 0.25   v: -1.542 +1.135 -1.148 x 100 km/s   Chi squared: 39.3   Log evidence: -33.9
+# 0.30   v: -1.451 +1.291 -1.288 x 100 km/s   Chi squared: 39.8   Log evidence: -34.1
+# 0.35   v: -1.802 +1.407 -1.415 x 100 km/s   Chi squared: 39.4   Log evidence: -33.8
+# 0.40   v: -2.914 +1.499 -1.513 x 100 km/s   Chi squared: 37.3   Log evidence: -32.7
+# 0.45   v: -2.887 +1.591 -1.563 x 100 km/s   Chi squared: 37.7   Log evidence: -32.9
+# 0.50   v: -3.336 +1.655 -1.704 x 100 km/s   Chi squared: 37.0   Log evidence: -32.4
+# 0.55   v: -3.710 +1.736 -1.733 x 100 km/s   Chi squared: 36.4   Log evidence: -32.1
+# 0.60   v: -4.145 +1.750 -1.801 x 100 km/s   Chi squared: 35.5   Log evidence: -31.6
+# 0.65   v: -4.247 +1.770 -1.786 x 100 km/s   Chi squared: 35.3   Log evidence: -31.5
+# 0.70   v: -3.911 +1.776 -1.787 x 100 km/s   Chi squared: 36.2   Log evidence: -32.0
+# 0.75   v: -3.620 +1.818 -1.828 x 100 km/s   Chi squared: 36.9   Log evidence: -32.3
+# 0.80   v: -3.644 +1.790 -1.803 x 100 km/s   Chi squared: 37.0   Log evidence: -32.3
+# 0.90   v: -3.655 +1.819 -1.820 x 100 km/s   Chi squared: 37.0   Log evidence: -32.3
+# 1.00   v: -3.900 +1.819 -1.810 x 100 km/s   Chi squared: 36.5   Log evidence: -32.1
+# 1.10   v: -3.803 +1.810 -1.836 x 100 km/s   Chi squared: 36.7   Log evidence: -32.2
+# 1.25   v: -3.932 +1.799 -1.830 x 100 km/s   Chi squared: 36.3   Log evidence: -32.0
+# 1.40   v: -3.871 +1.790 -1.831 x 100 km/s   Chi squared: 36.5   Log evidence: -32.1
 
 
 @njit
