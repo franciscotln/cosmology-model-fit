@@ -41,7 +41,7 @@ def DM_z(z, params):
 
 @njit
 def mu_corr(params, DM_obs):
-    # pivot_z = 0.10563
+    # z_turn = 0.10563
     v_km_s = 100 * params[3] * np.where(z_cmb <= 0.11, 1, -1)
     z_pec = v_km_s / c
     z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
@@ -75,7 +75,6 @@ def main():
     from nautilus import Sampler, Prior
     from multiprocessing import Pool
     from sn.plotting import plot_predictions, plot_residuals
-
 
     prior = Prior()
     prior.add_parameter("dM", dist=(-1.0, +1.0))
