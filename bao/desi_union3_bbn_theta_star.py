@@ -5,7 +5,7 @@ import cmb.data_planck_act_compression as cmb
 from interpolator import interp_hermite
 import y2024BBN.prior_lcdm_schoneberg as bbn
 from y2026union3_1.data import get_data as get_sn_data
-from y2025BAO.data import get_data as get_bao_data
+from y2025BAO.data_fs_lya import get_data as get_bao_data
 from y2024DESBAO.data import get_data as get_bao_des_data
 
 c = cmb.c  # Speed of light in km/s
@@ -81,7 +81,7 @@ def DV_z(z, theta):
     return (z * DH * DM**2) ** (1 / 3)
 
 
-qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
+qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2, "F_AP": 3}
 bao_qty = np.array([qty_map[q] for q in bao["quantity"]], dtype=np.int64)
 
 
@@ -93,11 +93,13 @@ def bao_theory(z, qty, theta):
     DV_mask = qty == 0
     DM_mask = qty == 1
     DH_mask = qty == 2
+    FAP_mask = qty == 3
     results = np.empty(z.size, dtype=np.float64)
-    results[DH_mask] = DH_z(z[DH_mask], theta)
-    results[DM_mask] = DM_z(z[DM_mask], theta)
-    results[DV_mask] = DV_z(z[DV_mask], theta)
-    return results / rd
+    results[DH_mask] = DH_z(z[DH_mask], theta) / rd
+    results[DM_mask] = DM_z(z[DM_mask], theta) / rd
+    results[DV_mask] = DV_z(z[DV_mask], theta) / rd
+    results[FAP_mask] = (DM_z(z[FAP_mask], theta) / DH_z(z[FAP_mask], theta))
+    return results
 
 
 @njit
@@ -127,14 +129,14 @@ def chi2_bao(theta):
 
 
 @njit
-def chi2_cmb(theta):
+def chi2_thetastar(theta):
     delta_lA = cmb.DISTANCE_PRIORS[1] - cmb.cmb_distances(theta[2], theta[3], theta)[1]
     return delta_lA**2 / cmb.covariance[1, 1]
 
 
 @njit
 def chi_squared(theta):
-    return chi2_sn(theta) + chi2_bao(theta) + chi2_cmb(theta)
+    return chi2_sn(theta) + chi2_bao(theta) + chi2_thetastar(theta)
 
 
 def log_likelihood(theta):
@@ -165,7 +167,7 @@ def main():
     prior.add_parameter("H0", dist=(50.0, 90.0))
     prior.add_parameter("ωb", dist=norm(loc=bbn.Obh2, scale=bbn.Obh2_sigma))
     prior.add_parameter("ωc", dist=(0.05, 0.30))
-    prior.add_parameter("v100", dist=(-10.5, 4.5))
+    prior.add_parameter("v100", dist=(-8.5, 8.5))
 
     with Pool(8) as pool:
         sampler = Sampler(
@@ -196,7 +198,7 @@ def main():
     j0_16, j0_50, j0_84 = quantile(j0_samples, one_sigma_ci, weights=w)
 
     best_fit = [dM_50, H0_50, Obh2_50, Och2_50, v100_50]
-    degrees_of_freedom = 1 + len(bao) + len(z_cmb) - len(best_fit)
+    DOF = 1 + len(bao) + len(z_cmb) - len(best_fit)
 
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
@@ -204,15 +206,13 @@ def main():
     print(f"ωc: {Och2_50:.4f} +{(Och2_84 - Och2_50):.4f} -{(Och2_50 - Och2_16):.4f}")
     print(f"ωm: {Omh2_50:.4f} +{(Omh2_84 - Omh2_50):.4f} -{(Omh2_50 - Omh2_16):.4f}")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
-    print(
-        f"v: {v100_50:.3f} +{(v100_84 - v100_50):.3f} -{(v100_50 - v100_16):.3f} x 100 km/s"
-    )
+    print(f"v: {v100_50:.3f} +{(v100_84 - v100_50):.3f} -{(v100_50 - v100_16):.3f} x 100 km/s")
     print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
     print(f"q0: {q0_50:.3f} +{(q0_84 - q0_50):.3f} -{(q0_50 - q0_16):.3f}")
     print(f"j0: {j0_50:.3f} +{(j0_84 - j0_50):.3f} -{(j0_50 - j0_16):.3f}")
     print(f"Chi2 (MAP): {chi_squared(samples[np.argmax(log_l)]):.2f}")
     print(f"Log Evidence: {sampler.log_z:.2f}")
-    print(f"Degrees of freedom: {degrees_of_freedom}")
+    print(f"DOF: {DOF}")
 
     corner(
         samples,
@@ -252,131 +252,123 @@ if __name__ == "__main__":
     main()
 
 
-"""
-BAO: DESI DR2 + DES BAO 2025
-Prior on ωb from BBN (Y2024)
-SN1a: Union3.1 compilation
+# *********************************
+# BAO: DESI DR2 + FS Lya + DES BAO 2025
+# Prior on ωb from BBN (Y2024)
+# SN1a: Union3.1 compilation (Y2026)
+# *********************************
+# 
+# Priors:
+#
+# all models:
+# ΔM: U[-1.0, 1.0]
+# H0: U[50, 90]
+# ωb: N(loc=0.02218, scale=0.00055)
+# ωc: U[0.05, 0.30]
+#
+# flow correction:
+# v_100 ~U[-8.5, 8.5] x 100 km/s
+#
+# wCDM:
+# w0: U[-1.5, -0.5]
+#
+# wzCDM
+# w0: U[-1.0, -1/3]
+#
+# w0waCDM:
+# w0: U[-1.5, 0.0]
+# wa: U[-3.0, 1.0]
+# w0 + wa < 0 enforced
+# ---------------------------------
 
-Priors:
 
-all models:
-ΔM: U(-1.0, 1.0)
-H0: U(50, 90)
-ωb: N(loc=0.02218, scale=0.00055)
-ωc: U(0.05, 0.30)
+# ----------- Flat ΛCDM -----------
+# ΔM: -0.057 +0.012 -0.012 mag
+# H0: 68.25 +0.46 -0.46 km/s/Mpc
+# ωb: 0.02207 +0.00053 -0.00053
+# ωc: 0.1165 +0.0008 -0.0008
+# ωm: 0.1392 +0.0011 -0.0011
+# Ωm: 0.299 +0.004 -0.004
+# r_d: 148.37 +0.70 -0.70 Mpc
+# q0: -0.552 +0.007 -0.006
+# j0: 1
+# Chi2 (MAP): 43.91
+# Log Evidence: -37.73
+# DOF: 34
+# ---------------------------------
 
-flow correction:
-v_100 ~U(-10.5, 4.5) x 100 km/s
 
-wCDM:
-w0: U(-1.2, -0.6)
+# ----------- Flat ΛCDM -----------
+# Velocity step correction in SNe observed redshifts
+# turning point z <= 0.2 inflow z > 0.2 outflow
+# z_cosmo = -1 + (1 + z) / (1 + v/c)
+#
+# v: -3.1 +1.0 -1.0 x 100 km/s
+# ΔM: -0.056 +0.012 -0.012 mag
+# H0: 68.36 +0.45 -0.46 km/s/Mpc
+# ωb: 0.02212 +0.00053 -0.00053
+# ωc: 0.1163 +0.0008 -0.0008
+# ωm: 0.1391 +0.0011 -0.0011
+# Ωm: 0.298 +0.004 -0.004
+# r_d: 148.36 +0.70 -0.70 Mpc
+# q0: -0.553 +0.007 -0.006
+# j0: 1
+# Chi2 (MAP): 35.57 (2.89 sigma significance)
+# Log Evidence: -35.19 (Δ logZ = 2.54 in favour of ΛCDM with v step correction)
+# DOF: 33
+# ---------------------------------
 
-wzCDM
-w0: U(-1.0, -1/3)
 
-w0waCDM:
-w0: U(-1.5, 0.0)
-wa: U(-3.0, 1.0)
-w0 + wa < 0 enforced
-"""
+# ----------- Flat wCDM -----------
+# ΔM: -0.069 +0.014 -0.014 mag
+# H0: 67.13 +0.79 -0.78 km/s/Mpc
+# ωb: 0.02223 +0.00054 -0.00054
+# ωc: 0.1148 +0.0013 -0.0014
+# ωm: 0.1377 +0.0014 -0.0015
+# Ωm: 0.305 +0.006 -0.006
+# w0: -0.942 +0.034 -0.034
+# r_d: 148.66 +0.72 -0.70 Mpc
+# q0: -0.481 +0.041 -0.042
+# j0: 0.828 +0.098 -0.088
+# Chi2 (MAP): 41.42 (1.58 sigma away from ΛCDM)
+# Log Evidence: -38.75 (Δ logZ = -1.02 in favour of ΛCDM)
+# DOF: 33
+# ---------------------------------
 
-"""
-Flat ΛCDM  w(z) = -1
-ΔM: -0.054 +0.013 -0.012 mag
-H0: 68.38 +0.47 -0.46 km/s/Mpc
-ωb: 0.02211 +0.00053 -0.00054
-ωc: 0.1163 +0.0008 -0.0008
-ωm: 0.1390 +0.0011 -0.0011
-Ωm: 0.297 +0.005 -0.004
-r_d: 148.39 +0.70 -0.69 Mpc
-q0: -0.554 +0.007 -0.007
-j0: 1
-Chi2 (MAP): 41.70
-Log Evidence: -36.41
-Degrees of freedom: 33
 
-===============================
+# ----------- Flat wzCDM ----------
+# w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
+# 
+# ΔM: -0.069 +0.013 -0.013 mag
+# H0: 66.64 +0.83 -0.83 km/s/Mpc
+# ωb: 0.02221 +0.00053 -0.00054
+# ωc: 0.1155 +0.0009 -0.0009
+# ωm: 0.1383 +0.0012 -0.0011
+# Ωm: 0.312 +0.007 -0.007
+# w0: -0.858 +0.063 -0.062
+# wa: -0.396 [derived wa = -1.5 * (1 - w0^2)]
+# r_d: 148.49 +0.70 -0.70 Mpc
+# q0: -0.385 +0.071 -0.072
+# j0: 0.213 +0.316 -0.278
+# Chi2 (MAP): 39.72 (2.05 sigma away from ΛCDM)
+# Log Evidence: -36.82 (Δ logZ = 0.91 in favour of wzCDM)
+# DOF: 33
+# ---------------------------------
 
-Flat ΛCDM w(z) = -1
-Isotropic velocity SNe observed redshifts (turning point z <= 0.2 inflow z > 0.2 outflow)
-z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-v: -314 +104 -105 km/s
-ΔM: -0.053 +0.012 -0.012 mag
-H0: 68.51 +0.47 -0.47 km/s/Mpc
-ωb: 0.02218 +0.00053 -0.00053
-ωc: 0.1161 +0.0008 -0.0008
-ωm: 0.1389 +0.0011 -0.0011
-Ωm: 0.296 +0.004 -0.004
-r_d: 148.38 +0.70 -0.69 Mpc
-q0: -0.556 +0.007 -0.007
-j0: 1
-Chi2 (MAP): 32.95 (2.96 sigma significance)
-Log Evidence: -33.63 (Δ logZ = 2.78 in favour of ΛCDM with v correction)
-Degrees of freedom: 32
-"""
-
-"""
-Flat wCDM w(z) = w0
-ΔM: -0.067 +0.014 -0.014 mag
-H0: 67.20 +0.80 -0.79 km/s/Mpc
-ωb: 0.02227 +0.00054 -0.00054
-ωc: 0.1144 +0.0013 -0.0014
-ωm: 0.1373 +0.0015 -0.0015
-Ωm: 0.304 +0.006 -0.006
-w0: -0.938 +0.033 -0.034
-z_d: 1059.29 +1.23 -1.25
-r_d: 148.72 +0.73 -0.71 Mpc
-z*: 1089.52 +0.72 -0.71
-r*: 145.99 Mpc
-100 θ*: 1.04093
-q0: -0.480 +0.041 -0.042
-j0: 0.819 +0.097 -0.087
-Chi2 (MAP): 37.88 (1.95 sigma away from ΛCDM)
-Log Evidence: -36.73 (Δ logZ = -0.32 in favour of ΛCDM)
-Degrees of freedom: 32
-
-===============================
-
-Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
-ΔM: -0.066 +0.013 -0.013 mag
-H0: 66.68 +0.84 -0.83 km/s/Mpc
-ωb: 0.02227 +0.00053 -0.00053
-ωc: 0.1151 +0.0010 -0.0010
-ωm: 0.1381 +0.0012 -0.0012
-Ωm: 0.311 +0.007 -0.007
-w0: -0.849 +0.063 -0.063
-wa: -0.420 +0.167 -0.153 [derived wa = -1.5 * (1 - w0^2)]
-z_d: 1059.33 +1.22 -1.24
-r_d: 148.52 +0.70 -0.69 Mpc
-z*: 1089.60 +0.70 -0.68
-r*: 145.80 Mpc
-100 θ*: 1.04092
-q0: -0.378 +0.072 -0.073
-j0: 0.167 +0.317 -0.271
-Chi2 (MAP): 36.01 (2.39 sigma away from ΛCDM)
-Log Evidence: -35.18 (Δ logZ = 1.23 against ΛCDM)
-Degrees of freedom: 32
-
-===============================
-
-Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
-ΔM: -0.058 +0.015 -0.015 mag
-H0: 66.62 +0.84 -0.83 km/s/Mpc
-ωb: 0.02215 +0.00055 -0.00054
-ωc: 0.1176 +0.0018 -0.0020
-ωm: 0.1404 +0.0018 -0.0020
-Ωm: 0.316 +0.009 -0.009
-w0: -0.785 +0.092 -0.089
-wa: -0.647 +0.347 -0.372
-z_d: 1059.24 +1.24 -1.25
-r_d: 148.00 +0.79 -0.77 Mpc
-z*: 1089.98 +0.76 -0.74
-r*: 145.23 Mpc
-100 θ*: 1.04092
-q0: -0.305 +0.103 -0.101
-j0: -0.182 +0.518 -0.493
-Chi2 (MAP): 35.22 (2.06 sigma away from ΛCDM)
-Log Evidence: -37.44 + 0.09 = -37.35 (Δ logZ = -1.97 in favour of ΛCDM)
-Degrees of freedom: 31
-"""
+# ---------- Flat w0waCDM ---------
+# ΔM: -0.061 +0.015 -0.015 mag
+# H0: 66.61 +0.85 -0.84 km/s/Mpc
+# ωb: 0.02208 +0.00054 -0.00054
+# ωc: 0.1179 +0.0018 -0.0021
+# ωm: 0.1406 +0.0019 -0.0021
+# Ωm: 0.317 +0.009 -0.009
+# w0: -0.803 +0.094 -0.090
+# wa: -0.597 +0.359 -0.382
+# r_d: 148.03 +0.78 -0.77 Mpc
+# q0: -0.323 +0.105 -0.103
+# j0: -0.098 +0.545 -0.516
+# Chi2 (MAP): 38.25 (1.89 sigma away from ΛCDM)
+# Log Evidence: -39.27 + 0.09 = -39.18 (Δ logZ = -1.45 in favour of ΛCDM)
+# DOF: 32
+# ---------------------------------
