@@ -1,7 +1,6 @@
 from numba import njit
 import numpy as np
 from scipy.constants import c as c0
-import scipy.stats as stats
 from scipy.linalg import cho_factor, solve_triangular
 from interpolator import interp_hermite
 from y2025DESdovekie.data import get_data, effective_sample_size
