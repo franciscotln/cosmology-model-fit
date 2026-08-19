@@ -316,7 +316,7 @@ if __name__ == "__main__":
 # r_d: 147.2 +4.9 -4.5 Mpc
 # Ωm: 0.321 +0.011 -0.012
 # f_cc: 1.49 +0.17 -0.17
-# Chi squared: 1677.85 (2.55 sigma away from ΛCDM)
+# Chi squared: 1677.85 (2.07 sigma away from ΛCDM)
 # Log evidence: -989.61 (Δ logZ = -1.5 in favour of ΛCDM)
 # DOF: 1759
 # ---------------------------------
