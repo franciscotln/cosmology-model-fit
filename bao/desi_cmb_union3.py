@@ -1,4 +1,4 @@
-from numba import njit, prange
+from numba import njit
 import numpy as np
 from scipy.linalg import block_diag
 from interpolator import interp_hermite, interp_pchip
@@ -140,42 +140,27 @@ def log_likelihood(params):
     return -0.5 * chi_squared(params)
 
 
-@njit(parallel=True)
-def log_likelihood_vec(batch):
-    n = batch.shape[0]
-    log_likelihoods = np.empty(n, dtype=np.float32)
-    for i in prange(n):
-        log_likelihoods[i] = log_likelihood(batch[i])
-    return log_likelihoods
-
-
 def main():
-    import os
+    from multiprocessing import Pool
     from getdist import plots, MCSamples
     import matplotlib.pyplot as plt
     from nautilus import Sampler, Prior
     from sn.plotting import plot_predictions as plot_sn_predictions
     from bao.plot_predictions import plot_bao_predictions
 
-    os.environ["OMP_NUM_THREADS"] = "1"
-
     prior = Prior()
     prior.add_parameter("dM", dist=(-1, +1))  # mag
     prior.add_parameter("H0", dist=(60, 75))  # km/s/Mpc
     prior.add_parameter("obh2", dist=(0.01, 0.03))
     prior.add_parameter("och2", dist=(0.01, 0.25))
-    prior.add_parameter("v", dist=(-10, 4))  # x 100 km/s
+    prior.add_parameter("v", dist=(-8, 8))  # x 100 km/s
 
-    sampler = Sampler(
-        prior,
-        log_likelihood_vec,
-        n_live=6_000,
-        pool=(None, 4),
-        seed=42,
-        pass_dict=False,
-        vectorized=True,
-    )
-    sampler.run(verbose=True)
+    with Pool(6) as pool:
+        sampler = Sampler(
+            prior, log_likelihood, n_live=6_000, pool=pool, seed=42, pass_dict=False,
+        )
+        sampler.run(verbose=True)
+
     samples, log_w, log_l = sampler.posterior()
 
     gd_samples = MCSamples(
@@ -274,32 +259,34 @@ if __name__ == "__main__":
 # Velocity step correction SNe observed redshifts
 # (turning point z <= 0.2 inflow z > 0.2 outflow)
 # z_cosmo = -1 + (1 + z) / (1 + v/c)
+# 
+# v: -3.0 ± 1.0 (prior U[-8, 8]) x 100 km/s
+# v / (z_turn=0.2): -1500 ± 500 km/s
 
 # ΔM: -0.0519 ± 0.0069 mag
-# v: -3.0 ± 1.0 (prior U(-10, 4)) x 100 km/s
-# v / (z_turn=0.2): -1500 ± 500 km/s
-# H0: 68.42 ± 0.26 km/s/Mpc
-# Ωm: 0.30036 ± 0.00350
+# H0: 68.42 ± 0.27 km/s/Mpc
+# Ωm: 0.3003 ± 0.0035
 # ωb: 0.02257 ± 0.00010
-# ωc: 0.11739 ± 0.00063
-# ωm: 0.1404 ± 0.0006
-# z*: 1089.41 ± 0.15
+# ωc: 0.11738 ± 0.00064
+# ωm: 0.14060 ± 0.00063
+# z*: 1089.40 ± 0.15
 # z_d: 1060.20 ± 0.23
 # r_d: 147.57 ± 0.19 Mpc
 # χ2 (MAP): 39.70 (2.92 sigma significance)
-# Log evidence: -40.5 (Δ logZ = 2.6 in favour of step correction)
+# Log evidence: -40.6 (Δ logZ = 2.5 in favour of step correction)
 # DOF: 36
 # ---------------------------------
 
 
 # ----------- Flat wCDM -----------
+# w0: -0.988 ± 0.027 (prior U[-1.5, -0.5])
+# 
 # ΔM: -0.0550 ± 0.0103 mag
 # H0: 68.09 ± 0.67 km/s/Mpc
 # Ωm: 0.3031 ± 0.0056
 # ωb: 0.02258 ± 0.00011
 # ωc: 0.1173 ± 0.0009
 # ωm: 0.14049 ± 0.00082
-# w0: -0.988 ± 0.027 (prior U(-1.5, -0.5))
 # z*: 1089.39 ± 0.17
 # z_d: 1060.20 ± 0.23
 # r_d: 147.59 ± 0.22 Mpc
@@ -311,13 +298,14 @@ if __name__ == "__main__":
 
 # ----------- Flat wzCDM ----------
 # w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
+# w0: -0.900 +0.046 -0.062 (prior U[-1, -1/3])
+# 
 # ΔM: -0.0620 ± 0.0089 mag
 # H0: 67.14 +0.78 -0.63 km/s/Mpc
 # Ωm: 0.3112 +0.0059 -0.0072
 # ωb: 0.02259 ± 0.00010
 # ωc: 0.1170 ± 0.0007
 # ωm: 0.14023 ± 0.00069
-# w0: -0.900 +0.046 -0.062 (prior U(-1, -1/3)
 # z*: 1089.35 ± 0.16
 # z_d: 1060.21 ± 0.23
 # r_d: 147.65 ± 0.20 Mpc
@@ -329,14 +317,15 @@ if __name__ == "__main__":
 
 # ----------- Flat w0waCDM --------
 # Enforced wa + w0 < 0 in the likelihood (corrected evidence calculation)
+# w0: -0.781 ± 0.081 (prior U[-1.5, 0.0])
+# wa: -0.73 +0.29 -0.26 (prior U[-2.5, 1.0])
+# 
 # ΔM: -0.0492 ± 0.0107 mag
 # H0: 66.94 ± 0.79 km/s/Mpc
 # Ωm: 0.3171 ± 0.0078
 # ωb: 0.02251 ± 0.00011
 # ωc: 0.1189 ± 0.0010
 # ωm: 0.14204 ± 0.00095
-# w0: -0.781 ± 0.081 (prior U(-1.5, 0.0))
-# wa: -0.73 +0.29 -0.26 (prior U(-2.5, 1.0))
 # z*: 1089.63 ± 0.19
 # z_d: 1060.17 ± 0.23
 # r_d: 147.24 ± 0.25 Mpc
