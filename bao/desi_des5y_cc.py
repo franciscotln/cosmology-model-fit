@@ -4,7 +4,7 @@ from scipy.constants import c as c0
 from scipy.linalg import cho_factor, solve_triangular
 from interpolator import interp_hermite
 from y2005cc.data import get_data as get_cc_data
-from y2025BAO.data import get_data as get_bao_data
+from y2025BAO.data_fs_lya import get_data as get_bao_data
 from y2025DESdovekie.data import (
     effective_sample_size as sn_sample,
     get_data as get_sn_data,
@@ -64,38 +64,33 @@ def DV_z(z, theta):
     return (z * DH * DM**2) ** (1 / 3)
 
 
-qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
+qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2, "F_AP": 3}
 quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int32)
 
 
 @njit
 def bao_theory(z, qty, theta):
+    rd = theta[3]
     DV_mask = qty == 0
     DM_mask = qty == 1
     DH_mask = qty == 2
+    FAP_mask = qty == 3
     results = np.empty(z.size, dtype=np.float64)
-    results[DH_mask] = DH_z(z[DH_mask], theta)
-    results[DM_mask] = DM_z(z[DM_mask], theta)
-    results[DV_mask] = DV_z(z[DV_mask], theta)
-    return results / theta[3]
-
-
-pivot_mask = z_cmb <= 0.11
+    results[DH_mask] = DH_z(z[DH_mask], theta) / rd
+    results[DM_mask] = DM_z(z[DM_mask], theta) / rd
+    results[DV_mask] = DV_z(z[DV_mask], theta) / rd
+    results[FAP_mask] = DM_z(z[FAP_mask], theta) / DH_z(z[FAP_mask], theta)
+    return results
 
 
 @njit
 def mu_corr(params):
-    z_pec = 100 * params[5] / c
-    z_cosmo1 = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
-    z_cosmo2 = -1.0 + (1.0 + z_cmb) / (1.0 - z_pec)
+    # Heaviside step function
+    v_km_s = 100 * params[5] * np.where(z_cmb <= 0.10563, 1, -1)
+    z_pec = v_km_s / c
+    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
 
-    DM_ref = DM_z(z_cmb, params)
-
-    return np.where(
-        pivot_mask,
-        5.0 * np.log10(DM_z(z_cosmo1, params) / DM_ref),
-        5.0 * np.log10(DM_z(z_cosmo2, params) / DM_ref),
-    )
+    return 5.0 * np.log10(DM_z(z_cosmo, params) / DM_z(z_cmb, params))
 
 
 @njit
@@ -111,7 +106,7 @@ def solve_triang(cho_L, delta):
 
 
 def chi_squared(theta):
-    delta_sn = mu_values - mu_theory(theta) - mu_corr(theta)
+    delta_sn = mu_values - mu_corr(theta) - mu_theory(theta)
     chi_sn = solve_triang(cho_sn, delta_sn)
 
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, theta)
@@ -207,7 +202,7 @@ def main():
 
     best_fit = np.percentile(samples, 50, axis=0)
 
-    deg_of_freedom = sn_sample + len(bao_data) + N_cc - ndim
+    DOF = sn_sample + len(bao_data) + N_cc - ndim
 
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
     print(f"H0: {h0_50:.1f} +{(h0_84 - h0_50):.1f} -{(h0_50 - h0_16):.1f} km/s/Mpc")
@@ -217,7 +212,7 @@ def main():
     print(f"v: {v_50:.3f} +{(v_84 - v_50):.3f} -{(v_50 - v_16):.3f} x 100 km/s")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Log evidence: {log_evd:.2f}")
-    print(f"Degrees of freedom: {deg_of_freedom}")
+    print(f"DOF: {DOF}")
 
     labels = ["$f_{CCH}$", "ΔM", "$H_0$", "$r_d$", "$Ω_m$", "$v_{100}$"]
     plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
@@ -249,71 +244,79 @@ if __name__ == "__main__":
     main()
 
 
-"""
-Flat ΛCDM: w(z) = -1
-ΔM: -0.057 +0.070 -0.072 mag
-H0: 68.4 +2.2 -2.3 km/s/Mpc
-r_d: 147.4 +4.9 -4.6 Mpc
-Ωm: 0.307 +0.008 -0.007
-f_cc: 1.48 +0.18 -0.17
-Chi squared: 1680.55
-Log evidence: -979.53
-Degrees of freedom: 1758
-"""
+# ----------- Flat ΛCDM -----------
+# ΔM: -0.06 +0.07 -0.07 mag
+# H0: 68.3 +2.2 -2.2 km/s/Mpc
+# r_d: 147.4 +4.8 -4.5 Mpc
+# Ωm: 0.308 +0.007 -0.007
+# f_cc: 1.50 +0.18 -0.17
+# Chi squared: 1684.37
+# Log evidence: -988.11
+# DOF: 1761
+# ---------------------------------
 
-"""
-Flat ΛCDM
-Isotropic velocity SNe observed redshifts (turning point z <= 0.11 inflow z > 0.11 outflow)
-z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-v: -1.57 +0.56 -0.56 x 100 km/s
-ΔM: -0.049 +0.069 -0.072 mag
-H0: 68.8 +2.3 -2.3 km/s/Mpc
-r_d: 147.1 +4.9 -4.6 Mpc
-Ωm: 0.301 +0.008 -0.008
-f_cc: 1.48 +0.18 -0.17
-Chi squared: 1672.82 (2.78 sigma significance)
-Log evidence: -977.49 (Δ logZ = 2.04 in favour of corrections)
-Degrees of freedom: 1757
-"""
+# ----------- Flat ΛCDM -----------
+# Velocity step correction in SNe observed redshifts
+# turning point z <= 0.10563 inflow z > 0.10563 outflow
+# z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-"""
-Flat wCDM: w(z) = w0
-ΔM: -0.060 +0.070 -0.073 mag
-H0: 67.7 +2.3 -2.3 km/s/Mpc
-r_d: 147.3 +5.0 -4.6 Mpc
-Ωm: 0.298 +0.009 -0.008
-f_cc: 1.48 +0.18 -0.17
-w0: -0.911 +0.037 -0.038 (prior ~ U(-1.5, -0.5))
-Chi squared: 1674.85 (2.39 sigma away from ΛCDM)
-Log evidence: -979.18 (Δ logZ = 0.35 against ΛCDM)
-Degrees of freedom: 1757
-"""
+# v: -1.52 +0.56 -0.57 x 100 km/s (prior ~ U[-6, 2])
 
-"""
-Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
-ΔM: -0.058 +0.070 -0.072 mag
-H0: 67.6 +2.2 -2.2 km/s/Mpc
-r_d: 147.2 +4.9 -4.6 Mpc
-Ωm: 0.306 +0.008 -0.007
-f_cc: 1.48 +0.18 -0.17
-w0: -0.866 +0.051 -0.052 (prior ~ U(-1.0, -1/3))
-wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
-Chi squared: 1673.83 (2.59 sigma away from ΛCDM)
-Log evidence: -978.04 (Δ logZ = 1.49 against ΛCDM)
-Degrees of freedom: 1757
-"""
+# ΔM: -0.05 +0.07 -0.07 mag
+# H0: 68.6 +2.2 -2.2 km/s/Mpc
+# r_d: 147.3 +4.8 -4.5 Mpc
+# Ωm: 0.303 +0.007 -0.007
+# f_cc: 1.50 +0.18 -0.17
+# Chi squared: 1677.15 (2.69 sigma significance)
+# Log evidence: -986.22 (Δ logZ = 1.89 in favour of v step corrections)
+# DOF: 1760
+# ---------------------------------
 
-"""
-Flat w0waCDM: w(z) = w0 + wa * z / (1 + z)
-ΔM: -0.056 +0.071 -0.072 mag
-H0: 67.6 +2.3 -2.2 km/s/Mpc
-r_d: 147.2 +4.9 -4.7 Mpc
-Ωm: 0.312 +0.014 -0.019
-f_cc: 1.47 +0.18 -0.17
-w0: -0.859 +0.071 -0.064
-wa: -0.424 +0.483 -0.472
-Chi squared: 1673.50 (1.9 sigma away from ΛCDM)
-Log evidence: -980.78 (Δ logZ = -1.25 in favour of ΛCDM)
-Degrees of freedom: 1756
-"""
+
+# ----------- Flat wCDM -----------
+# w0: -0.935 +0.035 -0.035 (prior ~ U[-1.5, -0.5])
+
+# ΔM: -0.07 +0.07 -0.07 mag
+# H0: 67.6 +2.2 -2.2 km/s/Mpc
+# r_d: 147.5 +4.8 -4.5 Mpc
+# Ωm: 0.305 +0.007 -0.007
+# f_cc: 1.50 +0.18 -0.17
+# Chi squared: 1680.80 (1.89 sigma away from ΛCDM)
+# Log evidence: -988.77 (Δ logZ = -0.66 in favour of ΛCDM)
+# DOF: 1760
+# ---------------------------------
+
+
+# ----------- Flat wzCDM ----------
+# w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
+#
+# w0: -0.887 +0.049 -0.049 (prior ~ U[-1, -1/3])
+# wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
+# 
+# ΔM: -0.07 +0.07 -0.07 mag
+# H0: 67.4 +2.2 -2.2 km/s/Mpc
+# r_d: 147.5 +4.9 -4.6 Mpc
+# Ωm: 0.310 +0.007 -0.007
+# f_cc: 1.50 +0.18 -0.17
+# Chi squared: 1679.33 (2.24 sigma away from ΛCDM)
+# Log evidence: -987.36 (Δ logZ = 0.75 in favour of wzCDM)
+# DOF: 1760
+# ---------------------------------
+
+
+# ---------- Flat w0waCDM ---------
+# w0 + wa < 0 enforced in the likelihood
+# 
+# w0: -0.845 +0.073 -0.070 (prior ~ U[-1.5, 0])
+# wa: -0.654 +0.438 -0.434 (prior ~ U[-3, 2])
+
+# ΔM: -0.06 +0.07 -0.07 mag
+# H0: 67.4 +2.2 -2.2 km/s/Mpc
+# r_d: 147.2 +4.9 -4.5 Mpc
+# Ωm: 0.321 +0.011 -0.012
+# f_cc: 1.49 +0.17 -0.17
+# Chi squared: 1677.85 (2.07 sigma away from ΛCDM)
+# Log evidence: -989.61 (Δ logZ = -1.5 in favour of ΛCDM)
+# DOF: 1759
+# ---------------------------------
