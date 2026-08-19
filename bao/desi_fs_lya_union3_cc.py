@@ -133,7 +133,7 @@ def main():
     # Ωm: matter density parameter today
     prior.add_parameter("Om", dist=(0.2, 0.50))
     # v: velocity step correction observed redshift SNe
-    prior.add_parameter("v", dist=(-10.5, 4.5))
+    prior.add_parameter("v", dist=(-8.5, 8.5))
 
     with Pool(8) as pool:
         sampler = Sampler(prior, log_likelihood, n_live=6_000, pool=pool, seed=42, pass_dict=False)
@@ -222,25 +222,25 @@ if __name__ == "__main__":
 
 
 # ----------------- Priors ------------------
-# f_cc: U(0.01, 3.0)
-# ΔM:   U(-1.0, 1.0)
-# H0:   U(45.0, 90.0)
-# rd:   U(100.0, 200.0)
-# Ωm:   U(0.2, 0.50)
+# f_cc: U[0.01, 3.0]
+# ΔM:   U[-1.0, 1.0]
+# H0:   U[45.0, 90.0]
+# rd:   U[100.0, 200.0]
+# Ωm:   U[0.2, 0.50]
 
 # wzCDM:
-# w0:   U(-1.0, -1/3)
+# w0:   U[-1.0, -1/3]
 
 # wCDM:
-# w0:   U(-1.5, -0.5)
+# w0:   U[-1.5, -0.5]
 
 # w0waCDM:
-# w0:   U(-1.5, 0.0)
-# wa:   U(-5.0, 3.0)
+# w0:   U[-1.5, 0.0]
+# wa:   U[-5.0, 3.0]
 # Enforced w0 + wa < 0, forbidden prior region removed in evidence calculation.
 
 # Velocity step correction in observed redshift SNe:
-# v ~U(-10.5, 4.5) x 100 km/s
+# v:    U[-8.5, 8.5] x 100 km/s
 # -------------------------------------------
 
 
@@ -258,18 +258,19 @@ if __name__ == "__main__":
 
 
 # --------------- Flat ΛCDM -----------------
-# Velocity step correction SNe redshift (turning point z <= 0.2 inflow z > 0.2 outflow)
+# Velocity step correction SNe redshift
+# turning point z <= 0.2 inflow z > 0.2 outflow
 # z_cosmo = -1 + (1 + z) / (1 + v/c)
 
 # v: -3.0 +- 1.1 x 100 km/s
-# ΔM: -0.043 +-0.071 mag
+# ΔM: -0.044 +-0.071 mag
 # H0: 68.7 +- 2.3 km/s/Mpc
-# r_d: 147.4 +4.4 -4.9 Mpc
+# r_d: 147.4 +4.4 -5.0 Mpc
 # Ωm: 0.3020 +- 0.0073
 # Ωm h^2: 0.1426 +- 0.0093
 # f_cc: 1.51 +- 0.17
-# Chi squared: 72.32 (2.88 sigma significance)
-# Log evidence: -185.26 (Δ logZ = 2.35 in favour of velocity step correction)
+# Chi squared: 72.33 (2.88 sigma significance)
+# Log evidence: -185.39 (Δ logZ = 2.22 in favour of velocity step correction)
 # Degrees of freedom: 68
 # -------------------------------------------
 
