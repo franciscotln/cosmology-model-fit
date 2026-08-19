@@ -160,7 +160,7 @@ def main():
     prior.add_parameter("H0", dist=(60.0, 75.0))
     prior.add_parameter("obh2", dist=(0.010, 0.030))
     prior.add_parameter("och2", dist=(0.01, 0.25))
-    prior.add_parameter("v", dist=(-5.5, 2.5))  # x100 km/s
+    prior.add_parameter("v", dist=(-4.5, 4.5))  # x100 km/s
 
     with Pool(6) as pool:
         sampler = Sampler(
@@ -238,7 +238,7 @@ def main():
 if __name__ == "__main__":
     main()
 
-# """
+
 # *********************************
 # BAO: DESI DR2 + FS Lya
 # SNe1A: DES5Y Dovekie
@@ -265,23 +265,23 @@ if __name__ == "__main__":
 
 # ----------- Flat ΛCDM -----------
 # velocity step correction in SNe observed redshifts
-# (turning point z <= 0.10563 inflow z > 0.10563 outflow)
+# turning point z <= 0.10563 inflow z > 0.10563 outflow
 # z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-# H0: 68.36 ± 0.26 km/s/Mpc
+# H0: 68.37 ± 0.26 km/s/Mpc
 # r_d: 147.54 ± 0.19 Mpc
-# Ωm: 0.3012 ± 0.0035
-# v: -1.56 ± 0.55 (prior ~ U(-5.5, 2.5)) x 100 km/s
+# Ωm: 0.3011 ± 0.0035
+# v: -1.56 ± 0.55 (prior ~ U(-4.5, 4.5)) x 100 km/s
 # v / (z_turn=0.10563): -1477 ± 521 km/s
-# ΔM: -0.0637 ± 0.0078 mag
+# ΔM: -0.0636 ± 0.0078 mag
 
 # ωb: 0.02257 ± 0.00010
-# ωc: 0.11753 ± 0.00064
-# ωm: 0.14074 ± 0.00063
+# ωc: 0.11752 ± 0.00064
+# ωm: 0.14073 ± 0.00063
 # z*: 1089.43 ± 0.15
 # z_d: 1060.20 ± 0.23
-# χ2 (MAP): 1643.55 (2.87 sigma significance)
-# Log evidence: -841.7 (Δ logZ = 2.83 in favour of velocity step correction)
+# χ2 (MAP): 1643.54 (2.83 sigma significance)
+# Log evidence: -841.8 (Δ logZ = 2.1 in favour of velocity step correction)
 # Degrees of freedom: 1726
 # ---------------------------------
 

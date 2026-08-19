@@ -125,7 +125,7 @@ bounds = np.array(
         (50.0, 80.0),  # H0: Hubble constant at present
         (110.0, 175.0),  # r_d: sound horizon at drag epoch
         (0.2, 0.7),  # Ωm: matter density parameter at present
-        (-6, 2),  # v x 100 km/s
+        (-4.5, 4.5),  # v x 100 km/s
     ]
 )
 
@@ -261,15 +261,15 @@ if __name__ == "__main__":
 # turning point z <= 0.10563 inflow z > 0.10563 outflow
 # z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-# v: -1.52 +0.56 -0.57 x 100 km/s (prior ~ U[-6, 2])
+# v: -1.51 +0.57 -0.57 x 100 km/s (prior ~ U[-4.5, 4.5])
 
 # ΔM: -0.05 +0.07 -0.07 mag
 # H0: 68.6 +2.2 -2.2 km/s/Mpc
-# r_d: 147.3 +4.8 -4.5 Mpc
+# r_d: 147.2 +4.8 -4.5 Mpc
 # Ωm: 0.303 +0.007 -0.007
 # f_cc: 1.50 +0.18 -0.17
-# Chi squared: 1677.15 (2.69 sigma significance)
-# Log evidence: -986.22 (Δ logZ = 1.89 in favour of v step corrections)
+# Chi squared: 1677.11 (2.69 sigma significance)
+# Log evidence: -986.36 (Δ logZ = 1.75 in favour of v step corrections)
 # DOF: 1760
 # ---------------------------------
 
