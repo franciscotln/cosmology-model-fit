@@ -255,15 +255,14 @@ def main():
     prior.add_parameter("H0", dist=(50, 90))
     prior.add_parameter("obh2", dist=(0.01, 0.03))
     prior.add_parameter("och2", dist=(0.01, 0.25))
-    prior.add_parameter("v", dist=(-10.5, 4.5))
+    prior.add_parameter("v", dist=(-8.5, 8.5))
     prior.add_parameter("sig8", dist=(0.5, 1.5))
 
     with Pool(8) as pool:
         sampler = Sampler(
             prior, log_likelihood, n_live=6_000, pool=pool, seed=42, pass_dict=False
         )
-        print("Running sampler... It may take a few minutes.")
-        sampler.run()
+        sampler.run(verbose=True)
 
     samples, log_w, log_l = sampler.posterior()
     w = np.exp(log_w)
@@ -355,124 +354,123 @@ if __name__ == "__main__":
     main()
 
 
-"""
-****************************************************
-BAO: DESI DR2 2025
-SN1a: Union3.1 (2026)
-CMB compressed likelihood Planck+ACT (R, π / θ*, ωb)
-fs8 compilation
-****************************************************
+# ****************************************************
+# BAO: DESI DR2 2025
+# SN1a: Union3.1 (2026)
+# CMB compressed likelihood Planck+ACT (R, π / θ*, ωb)
+# fs8 compilation
+# ****************************************************
+#
+# Priors:
+#
+# all models:
+# ΔM: U[-1.0, 1.0]
+# H0: U[50, 90]
+# ωb: U[0.01, 0.03]
+# ωc: U[0.01, 0.25]
+# sig8: U[0.5, 1.5]
+#
+# wCDM:
+# w0: U[-1.2, -0.5]
+#
+# wzCDM:
+# w0: U[-1.0, -1/3]
+#
+# w0waCDM:
+# w0: U[-1.5, 0.0]
+# wa: U[-2.5, 1.5]
+# w0 + wa < 0 enforced
+#
+# v_pec step correction:
+# v: U[-8.5, 8.5] x 100 km/s
+# ----------------------------------------------------
 
-Priors:
 
-all models:
-ΔM: U(-1.0, 1.0)
-H0: U(50, 90)
-ωb: U(0.01, 0.03)
-ωc: U(0.01, 0.25)
-sig8: U(0.5, 1.5)
+# -------------------- Flat ΛCDM ---------------------
+# ΔM: -0.051 +- 0.007 mag
+# H0: 68.40 +- 0.27 km/s/Mpc
+# ωb: 0.02257 +- 0.00010
+# ωc: 0.1175 +- 0.0007
+# ωm: 0.1407 +- 0.0006
+# Ωm: 0.301 +- 0.004
+# σ8: 0.797 +- 0.016
+# S8: 0.797 +- 0.017
+# r_d: 147.55 +- 0.19 Mpc
+# q0: -0.549 +- 0.005
+# j0: 1
+# Chi2 (MAP): 61.26
+# Log Likelihood (MAP): -30.63
+# Log Evidence: -53.78
+# Degrees of freedom: 86
+# ----------------------------------------------------
 
-wCDM:
-w0: U(-1.2, -0.5)
 
-wzCDM:
-w0: U(-1.0, -1/3)
+# -------------------- Flat ΛCDM ---------------------
+# Velocity step correction in SNe observed redshifts
+# turning point z <= 0.2 inflow z > 0.2 outflow
+# z_cosmo = -1 + (1 + z) / (1 + v/c)
+#
+# v: -305 +104 -106 km/s
+# ΔM: -0.051 +- 0.007 mag
+# H0: 68.46 +- 0.27 km/s/Mpc
+# ωb: 0.02258 +- 0.00010
+# ωc: 0.1173 +- 0.0006
+# ωm: 0.1405 +- 0.0006
+# Ωm: 0.300 +- 0.004
+# σ8: 0.798 +- 0.017
+# S8: 0.798 +- 0.017
+# r_d: 147.59 +- 0.19 Mpc
+# q0: -0.550 +- 0.005
+# j0: 1
+# Chi2 (MAP): 52.44 (2.97 sigma significance)
+# Log Likelihood (MAP): -26.22
+# Log Evidence: -51.21 (Δ logZ = 2.57 in favour of v corrections)
+# Degrees of freedom: 85
+# ----------------------------------------------------
 
-w0waCDM:
-w0: U(-1.5, 0.0)
-wa: U(-2.5, 1.5)
-w0 + wa < 0 enforced
 
-v_pec coherent motion:
-v: U(-10.5, 4.5) x 100 km/s
-"""
+# -------------------- Flat wCDM ---------------------
+# ΔM: -0.057 +- 0.010 mag
+# H0: 67.94 +0.67 -0.66 km/s/Mpc
+# ωb: 0.02259 +- 0.00011
+# ωc: 0.1170 +0.0009 -0.0008
+# ωm: 0.1403 +- 0.0008
+# Ωm: 0.304 +- 0.006
+# σ8: 0.800 +- 0.017
+# S8: 0.805 +0.020 -0.019
+# w0: -0.980 +0.026 -0.027
+# r_d: 147.64 +- 0.22 Mpc
+# q0: -0.523 +0.034 -0.035
+# j0: 0.938 +0.085 -0.076
+# Chi2 (MAP): 60.67 (0.77 sigma significance)
+# Log Likelihood (MAP): -30.34
+# Log Evidence: -55.83 (Δ logZ = -2.05 in favour of ΛCDM)
+# Degrees of freedom: 85
+# ----------------------------------------------------
 
-"""
-Flat ΛCDM
 
-ΔM: -0.051 +- 0.007 mag
-H0: 68.40 +- 0.27 km/s/Mpc
-ωb: 0.02257 +- 0.00010
-ωc: 0.1175 +- 0.0007
-ωm: 0.1407 +- 0.0006
-Ωm: 0.301 +- 0.004
-σ8: 0.797 +- 0.016
-S8: 0.797 +- 0.017
-r_d: 147.55 +- 0.19 Mpc
-q0: -0.549 +- 0.005
-j0: 1
-Chi2 (MAP): 61.26
-Log Likelihood (MAP): -30.63
-Log Evidence: -53.78
-Degrees of freedom: 86
-"""
+# -------------------- Flat wzCDM --------------------
+# w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
+#
+# ΔM: -0.063 +0.009 -0.009 mag
+# H0: 66.96 +0.73 -0.75 km/s/Mpc
+# ωb: 0.02260 +0.00010 -0.00010
+# ωc: 0.1168 +0.0007 -0.0007
+# ωm: 0.1401 +0.0007 -0.0007
+# Ωm: 0.312 +0.007 -0.007
+# σ8: 0.805 +0.017 -0.017
+# S8: 0.822 +0.021 -0.021
+# w0: -0.884 +0.057 -0.055
+# r_d: 147.69 +0.20 -0.20 Mpc
+# q0: -0.411 +0.066 -0.065
+# j0:
+# Chi2 (MAP): 57.57 (1.92 sigma significance)
+# Log Likelihood (MAP): -28.79
+# Log Evidence: -53.47 (Δ logZ = 0.31 against ΛCDM)
+# Degrees of freedom: 85
+# ----------------------------------------------------
 
-"""
-Flat ΛCDM
-Isotropic velocity SNe observed redshifts (turning point z <= 0.2 inflow z > 0.2 outflow)
-z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-v: -305 +- 105 km/s
-ΔM: -0.051 +- 0.007 mag
-H0: 68.46 +- 0.27 km/s/Mpc
-ωb: 0.02258 +- 0.00010
-ωc: 0.1173 +- 0.0006
-ωm: 0.1405 +- 0.0006
-Ωm: 0.300 +- 0.004
-σ8: 0.798 +- 0.017
-S8: 0.798 +- 0.017
-r_d: 147.58 +- 0.19 Mpc
-q0: -0.550 +- 0.005
-j0: 1
-Chi2 (MAP): 52.41 (2.93 sigma significance)
-Log Likelihood (MAP): -26.20
-Log Evidence: -51.08 (Δ logZ = 2.54 in favour of v corrections)
-Degrees of freedom: 85
-"""
-
-"""
-Flat wCDM w(z) = w0
-
-ΔM: -0.057 +- 0.010 mag
-H0: 67.94 +0.67 -0.66 km/s/Mpc
-ωb: 0.02259 +- 0.00011
-ωc: 0.1170 +0.0009 -0.0008
-ωm: 0.1403 +- 0.0008
-Ωm: 0.304 +- 0.006
-σ8: 0.800 +- 0.017
-S8: 0.805 +0.020 -0.019
-w0: -0.980 +0.026 -0.027
-r_d: 147.64 +- 0.22 Mpc
-q0: -0.523 +0.034 -0.035
-j0: 0.938 +0.085 -0.076
-Chi2 (MAP): 60.67 (0.77 sigma significance)
-Log Likelihood (MAP): -30.34
-Log Evidence: -55.83 (Δ logZ = -2.05 in favour of ΛCDM)
-Degrees of freedom: 85
-"""
-
-"""
-Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
-
-ΔM: -0.063 +0.009 -0.009 mag
-H0: 66.96 +0.73 -0.75 km/s/Mpc
-ωb: 0.02260 +0.00010 -0.00010
-ωc: 0.1168 +0.0007 -0.0007
-ωm: 0.1401 +0.0007 -0.0007
-Ωm: 0.312 +0.007 -0.007
-σ8: 0.805 +0.017 -0.017
-S8: 0.822 +0.021 -0.021
-w0: -0.884 +0.057 -0.055
-r_d: 147.69 +0.20 -0.20 Mpc
-q0: -0.411 +0.066 -0.065
-j0:
-Chi2 (MAP): 57.57 (1.92 sigma significance)
-Log Likelihood (MAP): -28.79
-Log Evidence: -53.47 (Δ logZ = 0.31 against ΛCDM)
-Degrees of freedom: 85
-"""
-
-"""
-Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
-
-"""
+# -------------------- Flat w0waCDM ------------------
+# TODO
+# ----------------------------------------------------

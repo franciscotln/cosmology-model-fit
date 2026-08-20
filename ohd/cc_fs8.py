@@ -148,7 +148,7 @@ def main():
     import matplotlib.pyplot as plt
     from multiprocessing import Pool
     from fs8.plot_predictions import plot_predictions as plot_fs8_predictions
-    from cosmic_chronometers.plot_predictions import plot_cc_predictions
+    from .plot_predictions import plot_cc_predictions
 
     prior = Prior()
     prior.add_parameter("H0", dist=(35, 100))
@@ -235,54 +235,53 @@ def main():
 if __name__ == "__main__":
     main()
 
-"""
-Flat ΛCDM
 
-H0: 67.86 +2.55 -2.55 km/s/Mpc (0.2 sigma from Planck)
-Ωm: 0.317 +0.018 -0.017 (0.02 sigma from Planck)
-σ8: 0.790 +0.011 -0.011 (1.67 sigma from Planck)
-S8: 0.811 +0.018 -0.018 (0.96 sigma from Planck)
-f_cc: 1.48 +0.18 -0.17
-f_fs8: 1.87 +0.18 -0.17
-Chi squared: 89.76
-Log likelihood: 4.36
-Log evidence: -8.6
-Degs of freedom: 87
-"""
+# ----------- Flat ΛCDM -----------
+# H0: 67.86 +2.55 -2.55 km/s/Mpc (0.2 sigma from Planck)
+# Ωm: 0.317 +0.018 -0.017 (0.02 sigma from Planck)
+# σ8: 0.790 +0.011 -0.011 (1.67 sigma from Planck)
+# S8: 0.811 +0.018 -0.018 (0.96 sigma from Planck)
+# f_cc: 1.48 +0.18 -0.17
+# f_fs8: 1.87 +0.18 -0.17
+# Chi squared: 89.76
+# Log likelihood: 4.36
+# Log evidence: -8.6
+# Degs of freedom: 87
+# ---------------------------------
 
-"""
-Flat wCDM: w(z) = w0
 
-H0: 64.9 +2.8 -2.7 km/s/Mpc
-Ωm: 0.292 +0.021 -0.023
-σ8: 0.869 +0.055 -0.042
-S8: 0.860 +0.030 -0.028
-f_cc: 1.47 +0.18 -0.17
-f_fs8: 1.95 +0.19 -0.19
-w0: -0.740 +0.107 -0.112 (prior -1.6 to 0.0)
-Chi squared: 88.56
-Log likelihood: 6.99 (2.3 sigma significance)
-Log evidence: -7.8 (Δ logZ = 0.8 against ΛCDM)
-Degs of freedom: 86
-"""
+# ----------- Flat wCDM -----------
+# H0: 64.9 +2.8 -2.7 km/s/Mpc
+# Ωm: 0.292 +0.021 -0.023
+# σ8: 0.869 +0.055 -0.042
+# S8: 0.860 +0.030 -0.028
+# f_cc: 1.47 +0.18 -0.17
+# f_fs8: 1.95 +0.19 -0.19
+# w0: -0.740 +0.107 -0.112 (prior -1.6 to 0.0)
+# Chi squared: 88.56
+# Log likelihood: 6.99 (2.3 sigma significance)
+# Log evidence: -7.8 (Δ logZ = 0.8 against ΛCDM)
+# Degs of freedom: 86
+# ---------------------------------
 
-"""
-Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
 
-H0: 65.2 +2.7 -2.6 km/s/Mpc
-Ωm: 0.320 +0.017 -0.016
-σ8: 0.828 +0.024 -0.022
-S8: 0.857 +0.028 -0.027
-f_cc: 1.46 +0.18 -0.17
-f_fs8: 1.94 +0.19 -0.18
-w0: -0.672 +0.135 -0.148 (prior -1.0 to 0.0)
-Chi squared: 88.74
-Log likelihood: 6.44 (2.0 sigma significance)
-Log evidence: -7.6 (Δ logZ = 1.0 against ΛCDM)
-Degs of freedom: 86
-"""
+# ----------- Flat wzCDM ----------
+# w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
+#
+# H0: 65.2 +2.7 -2.6 km/s/Mpc
+# Ωm: 0.320 +0.017 -0.016
+# σ8: 0.828 +0.024 -0.022
+# S8: 0.857 +0.028 -0.027
+# f_cc: 1.46 +0.18 -0.17
+# f_fs8: 1.94 +0.19 -0.18
+# w0: -0.672 +0.135 -0.148 (prior -1.0 to 0.0)
+# Chi squared: 88.74
+# Log likelihood: 6.44 (2.0 sigma significance)
+# Log evidence: -7.6 (Δ logZ = 1.0 against ΛCDM)
+# Degs of freedom: 86
+# ---------------------------------
 
-"""
-Flat w0waCDM: w(z) = w0 + wa * z / (1 + z)
-TODO
-"""
+
+# ---------- Flat w0waCDM ---------
+# TODO
+# ---------------------------------
