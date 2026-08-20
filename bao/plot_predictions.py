@@ -1,5 +1,8 @@
 import numpy as np
+import matplotlib
+matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
+
 
 color_map = {
     "DV_over_rs": "red",

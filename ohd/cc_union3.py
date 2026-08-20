@@ -98,7 +98,7 @@ def main():
     prior.add_parameter("dM", dist=(-1.0, 1.0))
     prior.add_parameter("H0", dist=(40.0, 95.0))
     prior.add_parameter("Om", dist=(0.1, 0.7))
-    prior.add_parameter("v", dist=(-1100, 550))
+    prior.add_parameter("v", dist=(-900, 900))
 
     with Pool(6) as pool:
         sampler = Sampler(
@@ -180,13 +180,13 @@ if __name__ == "__main__":
 # ---------------- Flat ΛCDM ----------------
 # velocity step correction SNe observed redshifts (turning point z <= 0.2 inflow z > 0.2 outflow)
 # z_cosmo = -1 + (1 + z) / (1 + v/c)
-# v: -291 +- 120 km/s (prior U(-1100, 550) km/s)
-# ΔM: -0.047 +- 0.076 mag
+# v: -291 +- 120 km/s (prior U[-900, 900])
+# ΔM: -0.047 +- 0.075 mag
 # H0: 68.5 +- 2.7 km/s/Mpc
 # Ωm: 0.306 +- 0.023
 # f_cc: 1.50 +- 0.17
-# Chi squared: 59.29 (2.57 sigma significance)
-# Log evidence: -174.2 (ΔlogZ = 1.4 in favour of v corrections)
+# Chi squared: 59.37 (2.55 sigma significance)
+# Log evidence: -174.3 (ΔlogZ = 1.3 in favour of v corrections)
 # DOF: 55
 # -------------------------------------------
 
@@ -195,7 +195,7 @@ if __name__ == "__main__":
 # ΔM: -0.062 +- 0.081 mag
 # H0: 67.0 +- 2.6 km/s/Mpc
 # Ωm: 0.304 +0.049 -0.038
-# w0: -0.92 +0.13 -0.11 (prior U(-1.5, -0.5))
+# w0: -0.92 +0.13 -0.11 (prior U[-1.5, -0.5])
 # f_cc: 1.49 +- 0.17
 # Chi squared: 64.47 (1.19 sigma significance)
 # Log evidence: -176.5 (ΔlogZ = -0.9 in favour of ΛCDM)
@@ -208,8 +208,8 @@ if __name__ == "__main__":
 # ΔM: -0.085 +- 0.081 mag
 # H0: 65.9 +- 2.6 km/s/Mpc
 # Ωm: 0.365 +0.052 -0.024
-# w0: -0.81 +0.14 -0.12 (prior U(-3, 1))
-# wa: < -1.65 (prior U(-3, 2) truncated posterior)
+# w0: -0.81 +0.14 -0.12 (prior U[-3, 1])
+# wa: < -1.65 (prior U[-3, 2] truncated posterior)
 # f_cc: 1.50 +- 0.17
 # Chi squared: 62.90 (1.22 sigma significance)
 # Log evidence: -177.4 + 0.3 (ΔlogZ = -1.5 in favour of ΛCDM)

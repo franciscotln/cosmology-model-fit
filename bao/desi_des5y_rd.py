@@ -80,8 +80,8 @@ def bao_theory(z, qty, params, dm_interp):
 
 @njit
 def mu_corr(params, dm_interp):
-    # Heaviside step at z = 0.11
-    v_km_s = 100 * params[4] * np.where(z_cmb <= 0.11, 1, -1)
+    # Heaviside step at z = 0.10563
+    v_km_s = 100 * params[4] * np.where(z_cmb <= 0.10563, 1, -1)
     z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + v_km_s / c)
     return 5.0 * np.log10(DM_z(z_cosmo, dm_interp) / DM_z(z_cmb, dm_interp))
 
@@ -125,7 +125,7 @@ def main():
     prior.add_parameter("rd", dist=norm(loc=147.09, scale=0.26))  # Planck prior
     prior.add_parameter("H0", dist=(50.0, 85.0))
     prior.add_parameter("Ωm", dist=(0.1, 0.6))
-    prior.add_parameter("v", dist=(-6.0, 2.0))
+    prior.add_parameter("v", dist=(-4.5, 4.5))
 
     with Pool(8) as pool:
         sampler = Sampler(
@@ -199,98 +199,102 @@ def main():
 if __name__ == "__main__":
     main()
 
-"""
-DESI BAO DR2 2025
-DESY5 Dovekie
-rdrag prior from Planck 2018
+# *********************************
+# DESI BAO DR2 2025
+# DESY5 Dovekie
+# rdrag prior from Planck 2018
+# ---------------------------------
+#
+# Priors:
+# ΔM ~U[-0.4, +0.4]
+# rd ~N(147.09, 0.26)
+# H0 ~U[50.0, 85.0]
+# Ωm ~U[0.1, 0.6]
+#
+# Velocity-like step correction at z = 0.10563:
+# v ~U[-4.5, 4.5] x 100 km/s
+#
+# wCDM:
+# w0 ~U[-1.5, 0.0]
+#
+# wzCDM thawing quintessence:
+# w0 ~U[-1.0, -1/3]
+#
+# w0waCDM:
+# w0 ~U[-1.5, 0.0]
+# wa ~U[-3.5, 2.5]
+#
+# w0 + wa < 0 enforced
+# *********************************
 
-Priors:
-ΔM ~U(-0.4, +0.4)
-rd ~N(147.09, 0.26)
-H0 ~U(50.0, 85.0)
-Ωm ~U(0.1, 0.6)
 
-Velocity-like step correction at z = 0.10563:
-v ~U(-6.0, 2.0) x 100 km/s
+# ----------- Flat ΛCDM -----------
+# ΔM: -0.052 +0.012 -0.012 mag
+# rd: 147.09 +0.26 -0.26 Mpc
+# H0: 68.57 +0.46 -0.46 km/s/Mpc
+# Ωm: 0.306 +0.008 -0.008
+# ωm: 0.1440 +0.0022 -0.0021
+# Chi squared: 1645.3
+# Log evidence: -834.4
+# Degs of freedom: 1723
+# ---------------------------------
 
-wCDM:
-w0 ~U(-1.5, 0.0)
 
-wzCDM thawing quintessence:
-w0 ~U(-1.0, -1/3)
+# ----------- Flat ΛCDM -----------
+# Velocity-like step correction in observed redshifts
+# turning point z <= 0.11 inflow z > 0.11 outflow
+# z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-w0waCDM:
-w0 ~U(-1.5, 0.0)
-wa ~U(-3.5, 2.5)
+# v: -1.589 +0.576 -0.574 x 100 km/s
+# ΔM: -0.047 +0.012 -0.012 mag
+# rd: 147.09 +0.26 -0.26 Mpc
+# H0: 68.91 +0.48 -0.47 km/s/Mpc
+# Ωm: 0.300 +0.008 -0.008
+# ωm: 0.1423 +0.0022 -0.0022
+# Chi squared: 1637.4 (2.81 sigma significance)
+# Log evidence: -832.3 (Δ logZ = 2.1 in favour of step correction)
+# Degs of freedom: 1722
+# ---------------------------------
 
-w0 + wa < 0 enforced
-"""
 
-"""
-Flat ΛCDM
-ΔM: -0.052 +0.012 -0.012 mag
-rd: 147.09 +0.26 -0.26 Mpc
-H0: 68.57 +0.46 -0.46 km/s/Mpc
-Ωm: 0.306 +0.008 -0.008
-ωm: 0.1440 +0.0022 -0.0021
-Chi squared: 1645.3
-Log evidence: -834.4
-Degs of freedom: 1723
-"""
+# ----------- Flat wCDM -----------
+# ΔM: -0.057 +0.012 -0.012 mag
+# rd: 147.09 +0.26 -0.26 Mpc
+# H0: 67.78 +0.56 -0.55 km/s/Mpc
+# Ωm: 0.297 +0.009 -0.009
+# ωm: 0.1366 +0.0038 -0.0039
+# w0: -0.908 +0.037 -0.038
+# Chi squared: 1639.5 (2.41 sigma significance)
+# Log evidence: -834.3 (Δ logZ = 0.1 against ΛCDM)
+# Degs of freedom: 1722
+# ---------------------------------
 
-"""
-Flat ΛCDM
-Velocity-like step correction in observed redshifts (turning point z <= 0.11 inflow z > 0.11 outflow)
-z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-v: -1.595 +0.571 -0.570 x 100 km/s
-ΔM: -0.047 +0.012 -0.012 mag
-rd: 147.09 +0.26 -0.26 Mpc
-H0: 68.92 +0.47 -0.48 km/s/Mpc
-Ωm: 0.300 +0.008 -0.008
-ωm: 0.1423 +0.0022 -0.0022
-Chi squared: 1637.4 (2.81 sigma significance)
-Log evidence: -832.2 (Δ logZ = 2.2 in favour of step correction)
-Degs of freedom: 1722
-"""
+# ----------- Flat wzCDM ----------
+# w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
+#
+# ΔM: -0.055 +0.012 -0.012 mag
+# rd: 147.09 +0.26 -0.26 Mpc
+# H0: 67.62 +0.57 -0.56 km/s/Mpc
+# Ωm: 0.305 +0.008 -0.008
+# ωm: 0.1394 +0.0027 -0.0027
+# w0: -0.861 +0.051 -0.052
+# Chi squared: 1638.5 (2.61 sigma significance)
+# Log evidence: -832.6 (Δ logZ = 1.8 against ΛCDM)
+# Degs of freedom: 1722
+# ---------------------------------
 
-"""
-Flat wCDM: w(z) = w0
-ΔM: -0.057 +0.012 -0.012 mag
-rd: 147.09 +0.26 -0.26 Mpc
-H0: 67.78 +0.56 -0.55 km/s/Mpc
-Ωm: 0.297 +0.009 -0.009
-ωm: 0.1366 +0.0038 -0.0039
-w0: -0.908 +0.037 -0.038
-Chi squared: 1639.5 (2.41 sigma significance)
-Log evidence: -834.3 (Δ logZ = 0.1 against ΛCDM)
-Degs of freedom: 1722
-"""
 
-"""
-Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
-ΔM: -0.055 +0.012 -0.012 mag
-rd: 147.09 +0.26 -0.26 Mpc
-H0: 67.62 +0.57 -0.56 km/s/Mpc
-Ωm: 0.305 +0.008 -0.008
-ωm: 0.1394 +0.0027 -0.0027
-w0: -0.861 +0.051 -0.052
-Chi squared: 1638.5 (2.61 sigma significance)
-Log evidence: -832.6 (Δ logZ = 1.8 against ΛCDM)
-Degs of freedom: 1722
-"""
-
-"""
-Flat w0waCDM: w(z) = w0 + wa * z / (1 + z)
-ΔM: -0.053 +0.012 -0.012 mag
-rd: 147.09 +0.26 -0.26 Mpc
-H0: 67.60 +0.58 -0.58 km/s/Mpc
-Ωm: 0.313 +0.014 -0.017
-ωm: 0.143 +0.005 -0.007
-w0: -0.85 +0.07 -0.07
-wa: -0.52 +0.48 -0.47
-Chi squared: 1638.1 (2.21 sigma away from ΛCDM)
-Log evidence: -835.3 (Δ logZ = -0.9 in favour of ΛCDM)
-Degs of freedom: 1721
-TODO: remove forbidden volume on w0-wa plane, still ΛCDM is preferred
-"""
+# ----------- Flat w0waCDM --------
+# ΔM: -0.053 +0.012 -0.012 mag
+# rd: 147.09 +0.26 -0.26 Mpc
+# H0: 67.60 +0.58 -0.58 km/s/Mpc
+# Ωm: 0.313 +0.014 -0.017
+# ωm: 0.143 +0.005 -0.007
+# w0: -0.85 +0.07 -0.07
+# wa: -0.52 +0.48 -0.47
+# Chi squared: 1638.1 (2.21 sigma away from ΛCDM)
+# Log evidence: -835.3 (Δ logZ = -0.9 in favour of ΛCDM)
+# Degs of freedom: 1721
+# TODO: remove forbidden volume on w0-wa plane, still ΛCDM is preferred
+# ---------------------------------

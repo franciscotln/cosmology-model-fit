@@ -1,3 +1,5 @@
+import matplotlib
+matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 from matplotlib.ticker import ScalarFormatter
 from matplotlib.widgets import CheckButtons

@@ -5,7 +5,12 @@ import gpytorch
 from gpytorch.likelihoods import _GaussianLikelihoodBase
 from gpytorch.distributions import MultivariateNormal
 from gpytorch.likelihoods.noise_models import HomoskedasticNoise
-from gpytorch.lazy import DiagLazyTensor, NonLazyTensor, ZeroLazyTensor, LinearOperator
+from linear_operator.operators import (
+    DenseLinearOperator,
+    DiagLinearOperator,
+    LinearOperator,
+    ZeroLinearOperator,
+)
 import gpytorch.settings as settings
 import gpytorch.utils.warnings as warnings
 
@@ -58,9 +63,9 @@ class FixedGaussianNoise(gpytorch.Module):
         scaled_noise = raw_noise * self.noise_scale
 
         if scaled_noise.ndim == 2:
-            return NonLazyTensor(scaled_noise)
+            return DenseLinearOperator(scaled_noise)
         else:
-            return DiagLazyTensor(scaled_noise)
+            return DiagLinearOperator(scaled_noise)
 
     def _apply(self, fn):
         self.noise = fn(self.noise)
@@ -192,7 +197,7 @@ class FixedNoiseGaussianLikelihood(_GaussianLikelihoodBase):
 
         if self.second_noise_covar is not None:
             res = res + self.second_noise_covar(*params, shape=shape, **kwargs)
-        elif isinstance(res, ZeroLazyTensor):
+        elif isinstance(res, ZeroLinearOperator):
             warnings.warn(
                 "You have passed data through a FixedNoiseGaussianLikelihood that did not match the size "
                 "of the fixed noise, *and* you did not specify noise. This is treated as a no-op.",

@@ -73,7 +73,7 @@ bounds = np.array(
         (-20.0, -19.0),  # M
         (50.0, 90.0),  # H0
         (0.0, 0.7),  # Ωm
-        (-3.25, 2.00),  # v x 100 km/s
+        (-3.0, 3.0),  # v x 100 km/s
     ]
 )
 
@@ -230,17 +230,17 @@ Flat ΛCDM
 Isotropic velocity SNe observed redshifts (turning point z <= 0.15 inflow z > 0.15 outflow)
 z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-M: -19.351 +0.056/-0.057
-H0: 70.39 +1.79/-1.80 km/s/Mpc
+M: -19.351 +0.055/-0.057
+H0: 70.40 +1.79/-1.80 km/s/Mpc
 Ωm: 0.315 +0.021/-0.020
-v: -0.68 +0.41/-0.41 x 100 km/s (prior ~ U(-3.25, 2.00))
+v: -0.68 +0.41/-0.41 x 100 km/s (prior ~ U[-3, 3])
 R-squared (%): 99.75
 RMSD (mag): 0.154
 Skewness of residuals: 0.055
 kurtosis of residuals: 1.586
 Degs of freedom: 1586
 Chi squared: 1400.15 (1.55 sigma significance)
-Log Evidence: -711.3
+Log Evidence: -711.4
 """
 
 """
@@ -248,7 +248,7 @@ wCDM
 M: -19.335 +0.055/-0.057
 H0: 70.39 +1.80/-1.79 km/s/Mpc
 Ωm: 0.292 +0.063/-0.076
-w0: -0.901 +0.140/-0.159 (prior width 1: -1.5 to -0.5)
+w0: -0.901 +0.140/-0.159 (prior ~ U[-1.5, -0.5])
 R-squared (%): 99.74
 RMSD (mag): 0.154
 Skewness of residuals: 0.079
@@ -263,7 +263,7 @@ Flat w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
 M: -19.332 +0.055/-0.057 mag
 H0: 70.40 +1.79/-1.81 km/s/Mpc
 Ωm: 0.299 +0.028/-0.034
-w0: -0.873 +0.102/-0.083 (prior width 2/3: -1.0 to -1/3) truncated posterior
+w0: -0.873 +0.102/-0.083 (prior ~ U[-1.0, -1/3]) truncated posterior
 wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
 R-squared (%): 99.74
 RMSD (mag): 0.154
