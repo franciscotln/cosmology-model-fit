@@ -138,9 +138,13 @@ def dH_da(z, H_vals, theta):
     Obc = (Obh2 + Och2) / h**2
     Or = Orh2 / h**2
     Onu = Omnuh2 / h**2
-    numerator = 3 * Obc * (1.0 + z) ** 2 + 4 * Or * (1.0 + z) ** 3 + Onu * d_Omnu_dz(z)
+    Ode = 1.0 - Obc - Or - Onu
+    deriv_matter = 3 * Obc * (1.0 + z) ** 2
+    deriv_rad = 4 * Or * (1.0 + z) ** 3
+    deriv_nu = Onu * d_Omnu_dz(z)
+    deriv_de = Ode * d_Ode_dz(z, w0=-1.0)
     denominator = 2 * H_vals / (1.0 + z) ** 2
-    return -numerator * H0**2 / denominator
+    return -(deriv_matter + deriv_rad + deriv_nu + deriv_de) * H0**2 / denominator
 
 
 @njit
@@ -192,7 +196,7 @@ for i in range(N_fs8):
     Om_fid = fs8_data["omega_fid"][i]
     s8_fid = fs8_data["s8_fid"][i]
     Och2_fid = Om_fid * (H0_fid / 100) ** 2 - Obh2_fid - Omnuh2
-    params_fid = [0.0, H0_fid, Obh2_fid, Och2_fid, -1.0, s8_fid]
+    params_fid = [0.0, H0_fid, Obh2_fid, Och2_fid, 0.0, s8_fid]
     DM_i = DM_z(np.array([zi]), params_fid)[0]
     H_i = H_z(zi, params_fid)
     Hz_DMz_fid[i] = H_i * DM_i
@@ -265,32 +269,32 @@ def main():
         sampler.run(verbose=True)
 
     samples, log_w, log_l = sampler.posterior()
-    w = np.exp(log_w)
-    one_sigma_ci = [0.159, 0.5, 0.841]
+    WEIGHTS = np.exp(log_w)
+    ONE_SIGMA_CI = [0.159, 0.5, 0.841]
 
-    dM_16, dM_50, dM_84 = quantile(samples[:, 0], one_sigma_ci, weights=w)
-    H0_16, H0_50, H0_84 = quantile(samples[:, 1], one_sigma_ci, weights=w)
-    Obh2_16, Obh2_50, Obh2_84 = quantile(samples[:, 2], one_sigma_ci, weights=w)
-    Och2_16, Och2_50, Och2_84 = quantile(samples[:, 3], one_sigma_ci, weights=w)
-    v_16, v_50, v_84 = quantile(samples[:, 4], one_sigma_ci, weights=w)
-    sig8_16, sig8_50, sig8_84 = quantile(samples[:, 5], one_sigma_ci, weights=w)
+    dM_16, dM_50, dM_84 = quantile(samples[:, 0], ONE_SIGMA_CI, WEIGHTS)
+    H0_16, H0_50, H0_84 = quantile(samples[:, 1], ONE_SIGMA_CI, WEIGHTS)
+    Obh2_16, Obh2_50, Obh2_84 = quantile(samples[:, 2], ONE_SIGMA_CI, WEIGHTS)
+    Och2_16, Och2_50, Och2_84 = quantile(samples[:, 3], ONE_SIGMA_CI, WEIGHTS)
+    v_16, v_50, v_84 = quantile(samples[:, 4], ONE_SIGMA_CI, WEIGHTS)
+    sig8_16, sig8_50, sig8_84 = quantile(samples[:, 5], ONE_SIGMA_CI, WEIGHTS)
 
     Omh2_samples = samples[:, 2] + samples[:, 3] + Omnuh2
     Om_samples = Omh2_samples / (samples[:, 1] / 100) ** 2
-    S8_samples = samples[:, 5] * (Om_samples / 0.3) ** 0.5
+    s8_samples = samples[:, 5] * (Om_samples / 0.3) ** 0.5
     rd_samples = cmb.r_drag(samples[:, 2], Omh2_samples)
     q0_samples = q0(Om_samples)
     j0_samples = j0(Om_samples)
 
-    Omh2_16, Omh2_50, Omh2_84 = quantile(Omh2_samples, one_sigma_ci, weights=w)
-    Om_16, Om_50, Om_84 = quantile(Om_samples, one_sigma_ci, weights=w)
-    S8_16, S8_50, S8_84 = quantile(S8_samples, one_sigma_ci, weights=w)
-    rd_16, rd_50, rd_84 = quantile(rd_samples, one_sigma_ci, weights=w)
-    q0_16, q0_50, q0_84 = quantile(q0_samples, one_sigma_ci, weights=w)
-    j0_16, j0_50, j0_84 = quantile(j0_samples, one_sigma_ci, weights=w)
+    Omh2_16, Omh2_50, Omh2_84 = quantile(Omh2_samples, ONE_SIGMA_CI, WEIGHTS)
+    Om_16, Om_50, Om_84 = quantile(Om_samples, ONE_SIGMA_CI, WEIGHTS)
+    s8_16, s8_50, s8_84 = quantile(s8_samples, ONE_SIGMA_CI, WEIGHTS)
+    rd_16, rd_50, rd_84 = quantile(rd_samples, ONE_SIGMA_CI, WEIGHTS)
+    q0_16, q0_50, q0_84 = quantile(q0_samples, ONE_SIGMA_CI, WEIGHTS)
+    j0_16, j0_50, j0_84 = quantile(j0_samples, ONE_SIGMA_CI, WEIGHTS)
 
     best_fit = [dM_50, H0_50, Obh2_50, Och2_50, v_50, sig8_50]
-    degs_freedom = len(bao_data) + len(z_cmb) + N_fs8 - len(best_fit)
+    DOF = len(bao_data) + len(z_cmb) + N_fs8 - len(best_fit)
     chi2_MAP = chi_squared(samples[np.argmax(log_l)])
 
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
@@ -300,7 +304,7 @@ def main():
     print(f"ωm: {Omh2_50:.4f} +{(Omh2_84 - Omh2_50):.4f} -{(Omh2_50 - Omh2_16):.4f}")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"σ8: {sig8_50:.3f} +{(sig8_84 - sig8_50):.3f} -{(sig8_50 - sig8_16):.3f}")
-    print(f"S8: {S8_50:.3f} +{(S8_84 - S8_50):.3f} -{(S8_50 - S8_16):.3f}")
+    print(f"S8: {s8_50:.3f} +{(s8_84 - s8_50):.3f} -{(s8_50 - s8_16):.3f}")
     print(f"v: {v_50:.3f} +{(v_84 - v_50):.3f} -{(v_50 - v_16):.3f} x 100 km/s")
     print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
     print(f"q0: {q0_50:.3f} +{(q0_84 - q0_50):.3f} -{(q0_50 - q0_16):.3f}")
@@ -308,14 +312,14 @@ def main():
     print(f"Chi2 (MAP): {chi2_MAP:.2f}")
     print(f"Log Likelihood (MAP): {np.max(log_l):.2f}")
     print(f"Log Evidence: {sampler.log_z:.2f}")
-    print(f"Degrees of freedom: {degs_freedom}")
+    print(f"Degrees of freedom: {DOF}")
 
     labels = ["$Δ_M$", "$H_0$", "$Ω_b h^2$", "$Ω_c h^2$", "$v_{100}$", "$σ_8$"]
     corner(
         samples,
-        weights=w,
+        weights=WEIGHTS,
         labels=labels,
-        quantiles=one_sigma_ci,
+        quantiles=ONE_SIGMA_CI,
         show_titles=True,
         title_fmt=".4f",
         bins=100,
@@ -371,7 +375,7 @@ if __name__ == "__main__":
 # sig8: U[0.5, 1.5]
 #
 # wCDM:
-# w0: U[-1.2, -0.5]
+# w0: U[-1.5, -0.5]
 #
 # wzCDM:
 # w0: U[-1.0, -1/3]
@@ -390,17 +394,17 @@ if __name__ == "__main__":
 # ΔM: -0.051 +- 0.007 mag
 # H0: 68.40 +- 0.27 km/s/Mpc
 # ωb: 0.02257 +- 0.00010
-# ωc: 0.1175 +- 0.0007
+# ωc: 0.1174 +- 0.0006
 # ωm: 0.1407 +- 0.0006
 # Ωm: 0.301 +- 0.004
-# σ8: 0.797 +- 0.016
-# S8: 0.797 +- 0.017
-# r_d: 147.55 +- 0.19 Mpc
+# σ8: 0.793 +- 0.016
+# S8: 0.794 +- 0.016
+# r_d: 147.56 +- 0.19 Mpc
 # q0: -0.549 +- 0.005
 # j0: 1
-# Chi2 (MAP): 61.26
-# Log Likelihood (MAP): -30.63
-# Log Evidence: -53.78
+# Chi2 (MAP): 62.42
+# Log Likelihood (MAP): -31.21
+# Log Evidence: -54.40
 # Degrees of freedom: 86
 # ----------------------------------------------------
 
@@ -410,41 +414,41 @@ if __name__ == "__main__":
 # turning point z <= 0.2 inflow z > 0.2 outflow
 # z_cosmo = -1 + (1 + z) / (1 + v/c)
 #
-# v: -305 +104 -106 km/s
+# v: -306 +105 -104 km/s
 # ΔM: -0.051 +- 0.007 mag
 # H0: 68.46 +- 0.27 km/s/Mpc
 # ωb: 0.02258 +- 0.00010
 # ωc: 0.1173 +- 0.0006
 # ωm: 0.1405 +- 0.0006
 # Ωm: 0.300 +- 0.004
-# σ8: 0.798 +- 0.017
-# S8: 0.798 +- 0.017
+# σ8: 0.793 +- 0.016
+# S8: 0.793 +- 0.016
 # r_d: 147.59 +- 0.19 Mpc
 # q0: -0.550 +- 0.005
 # j0: 1
-# Chi2 (MAP): 52.44 (2.97 sigma significance)
-# Log Likelihood (MAP): -26.22
-# Log Evidence: -51.21 (Δ logZ = 2.57 in favour of v corrections)
+# Chi2 (MAP): 53.87 (2.92 sigma significance)
+# Log Likelihood (MAP): -26.94
+# Log Evidence: -51.99 (Δ logZ = 2.41 in favour of v corrections)
 # Degrees of freedom: 85
 # ----------------------------------------------------
 
 
 # -------------------- Flat wCDM ---------------------
 # ΔM: -0.057 +- 0.010 mag
-# H0: 67.94 +0.67 -0.66 km/s/Mpc
+# H0: 67.90 +0.67 -0.66 km/s/Mpc
 # ωb: 0.02259 +- 0.00011
-# ωc: 0.1170 +0.0009 -0.0008
-# ωm: 0.1403 +- 0.0008
+# ωc: 0.1170 +0.0008 -0.0009
+# ωm: 0.1402 +- 0.0008
 # Ωm: 0.304 +- 0.006
-# σ8: 0.800 +- 0.017
-# S8: 0.805 +0.020 -0.019
-# w0: -0.980 +0.026 -0.027
-# r_d: 147.64 +- 0.22 Mpc
-# q0: -0.523 +0.034 -0.035
-# j0: 0.938 +0.085 -0.076
-# Chi2 (MAP): 60.67 (0.77 sigma significance)
-# Log Likelihood (MAP): -30.34
-# Log Evidence: -55.83 (Δ logZ = -2.05 in favour of ΛCDM)
+# σ8: 0.797 +0.016 -0.017
+# S8: 0.802 +- 0.019
+# w0: -0.978 +0.026 -0.027
+# r_d: 147.65 +- 0.22 Mpc
+# q0: -0.521 +0.034 -0.035
+# j0: 0.93 +0.08 -0.08
+# Chi2 (MAP): 61.73 (0.82 sigma significance)
+# Log Likelihood (MAP): -30.87
+# Log Evidence: -56.76 (Δ logZ = -2.36 in favour of ΛCDM)
 # Degrees of freedom: 85
 # ----------------------------------------------------
 
@@ -452,21 +456,21 @@ if __name__ == "__main__":
 # -------------------- Flat wzCDM --------------------
 # w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
 #
-# ΔM: -0.063 +0.009 -0.009 mag
-# H0: 66.96 +0.73 -0.75 km/s/Mpc
+# ΔM: -0.064 +0.009 -0.009 mag
+# H0: 66.91 +0.73 -0.76 km/s/Mpc
 # ωb: 0.02260 +0.00010 -0.00010
 # ωc: 0.1168 +0.0007 -0.0007
-# ωm: 0.1401 +0.0007 -0.0007
-# Ωm: 0.312 +0.007 -0.007
-# σ8: 0.805 +0.017 -0.017
-# S8: 0.822 +0.021 -0.021
-# w0: -0.884 +0.057 -0.055
-# r_d: 147.69 +0.20 -0.20 Mpc
-# q0: -0.411 +0.066 -0.065
+# ωm: 0.1400 +0.0007 -0.0007
+# Ωm: 0.313 +0.007 -0.007
+# σ8: 0.803 +0.017 -0.017
+# S8: 0.820 +0.021 -0.021
+# w0: -0.879 +0.057 -0.056
+# r_d: 147.70 +0.20 -0.20 Mpc
+# q0: -0.406 +0.067 -0.066
 # j0:
-# Chi2 (MAP): 57.57 (1.92 sigma significance)
-# Log Likelihood (MAP): -28.79
-# Log Evidence: -53.47 (Δ logZ = 0.31 against ΛCDM)
+# Chi2 (MAP): 58.37 (2.01 sigma significance)
+# Log Likelihood (MAP): -29.18
+# Log Evidence: -53.93 (Δ logZ = 0.47 against ΛCDM)
 # Degrees of freedom: 85
 # ----------------------------------------------------
 
