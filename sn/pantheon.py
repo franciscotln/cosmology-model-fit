@@ -1,9 +1,10 @@
 from numba import njit
 import numpy as np
 import scipy.stats as stats
-from scipy.linalg import cho_factor, solve_triangular
+from scipy.linalg import cho_factor
 from scipy.constants import c as c0
 from interpolator import interp_hermite
+from solve_triangular import solve_triangular
 from y2022pantheonSHOES.data import get_data
 
 legend, z_cmb, z_hel, mb_vals, cov_matrix = get_data()
@@ -53,15 +54,11 @@ def mu_theory(DM):
     return 25.0 + 5 * np.log10((1.0 + z_hel) * DM)
 
 
-def solve_triang(cho_L, delta):
-    y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
-    return np.dot(y, y)
-
-
+@njit
 def chi_squared(params):
     DM = DM_z(params, z_cmb)
     delta = mb_vals - params[0] - mu_corr(params, DM) - mu_theory(DM)
-    return solve_triang(cho, delta)
+    return solve_triangular(cho, delta)
 
 
 def log_likelihood(params):
@@ -88,11 +85,16 @@ def log_prior(params):
     return normalization - 0.5 * (params[1] - 70.39) ** 2 / 1.80**2
 
 
-def log_probability(params):
+@njit
+def log_probability_jit(params):
     lp = log_prior(params)
     if np.isinf(lp):
         return -np.inf
-    return lp + log_likelihood(params)
+    return lp - 0.5 * chi_squared(params)
+
+
+def log_probability(params):
+    return log_probability_jit(params)
 
 
 def main():

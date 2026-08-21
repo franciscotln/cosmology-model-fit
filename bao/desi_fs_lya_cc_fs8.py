@@ -3,7 +3,7 @@ import numpy as np
 from scipy.constants import c as c0
 from scipy.integrate import solve_ivp
 from interpolator import interp_hermite, interp_pchip
-from y2025BAO.data import get_data as get_bao_data
+from y2025BAO.data_fs_lya import get_data as get_bao_data
 from y2005cc.data import get_data as get_cc_data
 import y2018fs8.data as fs8
 
@@ -143,7 +143,7 @@ def chi2_cc(params):
     return params[3] ** 2 * delta @ inv_cov_cc @ delta
 
 
-qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
+qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2, "F_AP": 3}
 desi_qty = np.array([qty_map[q] for q in data["quantity"]], dtype=np.int32)
 
 
@@ -153,10 +153,13 @@ def bao_theory(z, qty, params):
     DV_mask = qty == 0
     DM_mask = qty == 1
     DH_mask = qty == 2
-    results[DH_mask] = DH_z(z[DH_mask], params)
-    results[DM_mask] = DM_z(z[DM_mask], params)
-    results[DV_mask] = DV_z(z[DV_mask], params)
-    return results / params[5]
+    FAP_mask = qty == 3
+    rd = params[5]
+    results[DH_mask] = DH_z(z[DH_mask], params) / rd
+    results[DM_mask] = DM_z(z[DM_mask], params) / rd
+    results[DV_mask] = DV_z(z[DV_mask], params) / rd
+    results[FAP_mask] = DM_z(z[FAP_mask], params) / DH_z(z[FAP_mask], params)
+    return results
 
 
 @njit
@@ -212,8 +215,8 @@ def main():
 
     labels = [
         "$H_0$",
-        "$Ω_m$",
-        "$\sigma_8$",
+        "$\\Omega_m$",
+        "$\\sigma_8$",
         "$f_{cc}$",
         "$f_{fs8}$",
         "$r_{drag}$",
@@ -287,98 +290,54 @@ if __name__ == "__main__":
     main()
 
 
-"""
-Flat ΛCDM: w(z) = -1
+# ----------- Flat ΛCDM -----------
+# H0: 68.6 +2.2 -2.2 km/s/Mpc
+# Ωm: 0.304 +0.007 -0.007
+# σ8: 0.790 +0.009 -0.009
+# S8: 0.795 +0.011 -0.011
+# f_cc: 1.50 +0.18 -0.17
+# f_fs8: 1.79 +0.17 -0.17
+# rd: 147.3 +4.9 -4.5 Mpc
+# Chi squared: 105.38
+# Log likelihood: -49.13
+# Log evidence: -67.1
+# Degs of freedom: 102
+# ---------------------------------
 
-H0: 68.8 +2.3 -2.3 km/s/Mpc
-Ωm: 0.302 +0.008 -0.008 (1.26 sigma tension with Planck)
-σ8: 0.794 +0.009 -0.009 (1.55 sigma tension with Planck)
-S8: 0.797 +0.011 -0.011 (1.93 sigma tension with Planck)
-f_cc: 1.48 +0.18 -0.17 (error overestimation factor in CCH data)
-f_fs8: 1.85 +0.18 -0.17 (error overestimation factor in FS8 data)
-rd: 147.2 +4.9 -4.6 Mpc
-Chi squared: 101.01
-Log likelihood: -40.83
-Log evidence: -58.6
-Degs of freedom: 99
 
----
+# ----------- Flat wCDM -----------
+# H0: 66.7 +2.3 -2.3 km/s/Mpc
+# Ωm: 0.304 +0.007 -0.007
+# σ8: 0.820 +0.019 -0.018
+# S8: 0.826 +0.018 -0.018
+# f_cc: 1.50 +0.18 -0.17
+# f_fs8: 1.88 +0.19 -0.18
+# rd: 147.7 +4.9 -4.5 Mpc
+# w0: -0.878 +0.055 -0.056 (prior U[-1.5, -0.5])
+# Chi squared: 106.05
+# Log likelihood: -46.83 (2.14 sigma significance)
+# Log evidence: -66.7 (Δ logZ = 0.4 against ΛCDM)
+# Degs of freedom: 101
+# ---------------------------------
 
-without overestimation factors f_cc and f_fs8:
 
-H0: 68.8 +3.3 -3.4 km/s/Mpc
-Ωm: 0.299 +0.008 -0.008
-σ8: 0.795 +0.017 -0.017
-S8: 0.794 +0.018 -0.018
-rd: 147.3 +7.4 -6.8 Mpc
-Chi squared: 42.60
-Log likelihood: -60.27
-Degs of freedom: 101
-"""
+# ----------- Flat wzCDM ----------
+# w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
+# H0: 65.6 +2.4 -2.4 km/s/Mpc
+# Ωm: 0.320 +0.009 -0.009
+# σ8: 0.818 +0.014 -0.014
+# S8: 0.845 +0.021 -0.021
+# f_cc: 1.49 +0.18 -0.17
+# f_fs8: 1.91 +0.19 -0.18
+# rd: 147.7 +4.9 -4.6 Mpc
+# w0: -0.731 +0.085 -0.094 (prior U[-1, 0])
+# Chi squared: 104.70
+# Log likelihood: -45.45 (2.71 sigma significance)
+# Log evidence: -64.9 (Δ logZ = 2.2 against ΛCDM)
+# Degs of freedom: 101
+# ---------------------------------
 
-"""
-Flat wCDM: w(z) = w0
 
-H0: 66.6 +2.4 -2.4 km/s/Mpc
-Ωm: 0.298 +0.009 -0.008
-σ8: 0.834 +0.022 -0.020
-S8: 0.831 +0.018 -0.018
-f_cc: 1.48 +0.18 -0.17
-f_fs8: 1.94 +0.19 -0.18
-rd: 147.6 +5.0 -4.6 Mpc
-w0: -0.847 +0.060 -0.061 (prior -1.4 to -0.4)
-Chi squared: 100.10
-Log likelihood: -37.89 (2.24 sigma significance)
-Log evidence: -57.5 (Δ logZ = 1.1 against ΛCDM)
-Degs of freedom: 98
-
----
-
-without overestimation factors f_cc and f_fs8:
-
-H0: 67.2 +3.4 -3.4 km/s/Mpc
-Ωm: 0.298 +0.009 -0.009
-σ8: 0.823 +0.027 -0.025
-S8: 0.820 +0.025 -0.025
-rd: 147.6 +7.3 -6.7 Mpc
-w0: -0.889 +0.069 -0.074 (prior -1.4 to -0.4)
-Chi squared: 40.25
-Log likelihood: -59.10 (1.52 sigma significance)
-Degs of freedom: 100
-"""
-
-"""
-Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
-
-H0: 65.7 +2.4 -2.4 km/s/Mpc
-Ωm: 0.317 +0.009 -0.009
-σ8: 0.825 +0.015 -0.015
-S8: 0.848 +0.022 -0.022
-f_cc: 1.47 +0.18 -0.17
-f_fs8: 1.95 +0.19 -0.18
-rd: 147.5 +5.0 -4.7 Mpc
-w0: -0.704 +0.093 -0.102 (prior -1.0 to 0.0)
-Chi squared: 98.34
-Log likelihood: -37.08 (2.74 sigma significance)
-Log evidence: -56.2 (Δ logZ = 2.4 against ΛCDM)
-Degs of freedom: 98
-
----
-
-without overestimation factors f_cc and f_fs8:
-
-H0: 66.0 +3.5 -3.4 km/s/Mpc
-Ωm: 0.314 +0.011 -0.011
-σ8: 0.821 +0.022 -0.021
-S8: 0.840 +0.030 -0.029
-rd: 147.6 +7.2 -6.7 Mpc
-w0: -0.744 +0.116 -0.124 (prior -1.0 to 0.0)
-Chi squared: 39.20
-Log likelihood: -58.58 (1.84 sigma significance)
-Degs of freedom: 100
-"""
-
-"""
-Flat w0waCDM: w(z) = w0 + wa * z / (1 + z)
-TODO
-"""
+# ---------- Flat w0waCDM ---------
+# TODO
+# ---------------------------------

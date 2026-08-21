@@ -1,7 +1,8 @@
 from numba import njit
 import numpy as np
 from scipy.constants import c as c0
-from scipy.linalg import cho_factor, solve_triangular
+from scipy.linalg import cho_factor
+from solve_triangular import solve_triangular
 from y2005cc.data import get_data
 
 c = c0 / 1000  # Speed of light in km/s
@@ -18,22 +19,23 @@ def H_z(z, params):
     return H0 * np.sqrt(Om * (1.0 + z) ** 3 + (1.0 - Om))
 
 
-def solve_triang(cho_L, delta):
-    y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
-    return np.dot(y, y)
-
-
+@njit
 def chi_squared(params):
     f = params[-1]
-
     delta = H_values - H_z(z_values, params)
-    return f**2 * solve_triang(cho, delta)
+    return f**2 * solve_triangular(cho, delta)
+
+
+@njit
+def log_likelihood_jit(params):
+    N = len(z_values)
+    f = params[-1]
+    normalization = N * np.log(2 * np.pi) + logdet - 2 * N * np.log(f)
+    return -0.5 * (chi_squared(params) + normalization)
 
 
 def log_likelihood(params):
-    N = len(z_values)
-    normalization = N * np.log(2 * np.pi) + logdet - 2 * N * np.log(params[-1])
-    return -0.5 * (chi_squared(params) + normalization)
+    return log_likelihood_jit(params)
 
 
 def main():
@@ -126,9 +128,9 @@ Flat ΛCDM
 
 Varying f in U(0.1, 3.3):
 H0: 66.9 +3.6 -3.6 km/s/Mpc
-Ωm: 0.329 +0.049 -0.042
+Ωm: 0.33 +0.05 -0.04
 f: 1.49 +0.18 -0.17
-Chi squared: 36.31
+Chi squared: 36.34
 Log likelihood: -149.17
 Log evidence: -155.91 (diff: 2.35 in evidence favouring the model with f)
 Degs of freedom: 35

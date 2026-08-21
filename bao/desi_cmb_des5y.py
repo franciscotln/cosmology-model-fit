@@ -1,7 +1,8 @@
 from numba import njit
 import numpy as np
-from scipy.linalg import cho_factor, solve_triangular
+from scipy.linalg import cho_factor
 from interpolator import interp_hermite, interp_pchip
+from solve_triangular import solve_triangular
 from y2025DESdovekie.data import get_data as get_sn_data, effective_sample_size
 from y2025BAO.data_fs_lya import get_data as get_bao_data
 import cmb.data_planck_act_compression as cmb
@@ -116,14 +117,10 @@ def theory_mu(offset, DM_interp):
     return offset + 25.0 + 5 * np.log10((1.0 + z_hel) * DM)
 
 
-def solve_triang(cho_L, delta):
-    y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
-    return np.dot(y, y)
-
-
+@njit
 def chi2_sn(params, DM_interp):
     delta = mu_values - theory_mu(params[0], DM_interp) - mu_corr(params[4], DM_interp)
-    return solve_triang(cho_sn, delta)
+    return solve_triangular(cho_sn, delta)
 
 
 @njit
@@ -138,6 +135,7 @@ def chi2_bao(params, DM_interp):
     return delta_bao @ inv_cov_bao @ delta_bao
 
 
+@njit
 def chi_squared(params):
     DM_interp = DM_grid(params)
     return chi2_cmb(params) + chi2_bao(params, DM_interp) + chi2_sn(params, DM_interp)

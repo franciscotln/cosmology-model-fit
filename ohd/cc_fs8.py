@@ -2,15 +2,17 @@ from numba import njit
 import numpy as np
 from scipy.constants import c as c0
 from scipy.integrate import solve_ivp
+from scipy.linalg import cho_factor
 from interpolator import interp_hermite, interp_pchip
+from solve_triangular import solve_triangular
 from y2005cc.data import get_data
 import y2018fs8.data as fs8
 
 c = c0 / 1000  # Speed of light in km/s
 
 legend, z_cc, H_values, cov_matrix = get_data()
-inv_cov_cc = np.linalg.inv(cov_matrix)
-inv_cov_fs8 = np.linalg.inv(fs8.cov_mat)
+cho_cc = cho_factor(cov_matrix, lower=True)[0]
+cho_fs8 = cho_factor(fs8.cov_mat, lower=True)[0]
 
 z_fs8, fs8_values = fs8.data["z"], fs8.data["fs8"]
 a_vals_fs8 = 1 / (1.0 + z_fs8)
@@ -119,13 +121,13 @@ def chi2_fs8(params):
     q = H_z(z_fs8, params) * DM(z_fs8, params) / Hz_DMz_fid
 
     delta = fs8_values - fs8_theory(a_vals_fs8, params) / q
-    return delta @ (inv_cov_fs8 * params[4] ** 2) @ delta
+    return params[4] ** 2 * solve_triangular(cho_fs8, delta)
 
 
 @njit
 def chi2_cc(params):
-    delta_cc = H_values - H_z(z_cc, params)
-    return delta_cc @ (inv_cov_cc * params[3] ** 2) @ delta_cc
+    delta = H_values - H_z(z_cc, params)
+    return  params[3] ** 2 * solve_triangular(cho_cc, delta)
 
 
 def chi_squared(params):
@@ -148,7 +150,7 @@ def main():
     import matplotlib.pyplot as plt
     from multiprocessing import Pool
     from fs8.plot_predictions import plot_predictions as plot_fs8_predictions
-    from .plot_predictions import plot_cc_predictions
+    from ohd.plot_predictions import plot_cc_predictions
 
     prior = Prior()
     prior.add_parameter("H0", dist=(35, 100))
@@ -175,7 +177,7 @@ def main():
     log_evd = sampler.log_z
     one_sigma_ci = [0.159, 0.5, 0.841]
 
-    labels = ["$H_0$", "$\Omega_m$", "$\sigma_8$", "$f_{cc}$", "$f_{fs8}$", "$w_0$"]
+    labels = ["$H_0$", "$\\Omega_m$", "$\\sigma_8$", "$f_{cc}$", "$f_{fs8}$", "$w_0$"]
     corner(
         samples,
         weights=w,
@@ -237,48 +239,48 @@ if __name__ == "__main__":
 
 
 # ----------- Flat ΛCDM -----------
-# H0: 67.86 +2.55 -2.55 km/s/Mpc (0.2 sigma from Planck)
-# Ωm: 0.317 +0.018 -0.017 (0.02 sigma from Planck)
-# σ8: 0.790 +0.011 -0.011 (1.67 sigma from Planck)
-# S8: 0.811 +0.018 -0.018 (0.96 sigma from Planck)
-# f_cc: 1.48 +0.18 -0.17
-# f_fs8: 1.87 +0.18 -0.17
-# Chi squared: 89.76
-# Log likelihood: 4.36
-# Log evidence: -8.6
-# Degs of freedom: 87
+# H0: 67.9 +2.5 -2.4 km/s/Mpc
+# Ωm: 0.315 +0.018 -0.017
+# σ8: 0.786 +0.011 -0.010
+# S8: 0.805 +0.019 -0.018
+# f_cc: 1.50 +0.18 -0.17
+# f_fs8: 1.78 +0.17 -0.17
+# Chi squared: 91.63
+# Log likelihood: 2.09
+# Log evidence: -10.9
+# Degs of freedom: 89
 # ---------------------------------
 
 
 # ----------- Flat wCDM -----------
-# H0: 64.9 +2.8 -2.7 km/s/Mpc
-# Ωm: 0.292 +0.021 -0.023
-# σ8: 0.869 +0.055 -0.042
-# S8: 0.860 +0.030 -0.028
-# f_cc: 1.47 +0.18 -0.17
-# f_fs8: 1.95 +0.19 -0.19
-# w0: -0.740 +0.107 -0.112 (prior -1.6 to 0.0)
-# Chi squared: 88.56
-# Log likelihood: 6.99 (2.3 sigma significance)
-# Log evidence: -7.8 (Δ logZ = 0.8 against ΛCDM)
-# Degs of freedom: 86
+# H0: 64.7 +2.6 -2.6 km/s/Mpc
+# Ωm: 0.285 +0.021 -0.022
+# σ8: 0.882 +0.052 -0.042
+# S8: 0.862 +0.028 -0.027
+# f_cc: 1.48 +0.17 -0.17
+# f_fs8: 1.93 +0.19 -0.18
+# w0: -0.715 +0.092 -0.095 (prior U[-1.5, 0])
+# Chi squared: 90.73
+# Log likelihood: 6.25 (2.88 sigma significance)
+# Log evidence: -8.6 (Δ logZ = 2.3 against ΛCDM)
+# Degs of freedom: 88
 # ---------------------------------
 
 
 # ----------- Flat wzCDM ----------
 # w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
 #
-# H0: 65.2 +2.7 -2.6 km/s/Mpc
-# Ωm: 0.320 +0.017 -0.016
-# σ8: 0.828 +0.024 -0.022
-# S8: 0.857 +0.028 -0.027
-# f_cc: 1.46 +0.18 -0.17
-# f_fs8: 1.94 +0.19 -0.18
-# w0: -0.672 +0.135 -0.148 (prior -1.0 to 0.0)
-# Chi squared: 88.74
-# Log likelihood: 6.44 (2.0 sigma significance)
-# Log evidence: -7.6 (Δ logZ = 1.0 against ΛCDM)
-# Degs of freedom: 86
+# H0: 64.8 +2.5 -2.5 km/s/Mpc
+# Ωm: 0.318 +0.017 -0.016
+# σ8: 0.837 +0.023 -0.022
+# S8: 0.862 +0.026 -0.027
+# f_cc: 1.47 +0.17 -0.17
+# f_fs8: 1.93 +0.19 -0.18
+# w0: -0.62 +0.11 -0.12 (prior U[-1, 0])
+# Chi squared: 90.76
+# Log likelihood: 6.08 (2.82 sigma significance)
+# Log evidence: -8.2 (Δ logZ = 2.7 against ΛCDM)
+# Degs of freedom: 88
 # ---------------------------------
 
 

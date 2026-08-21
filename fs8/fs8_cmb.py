@@ -1,7 +1,9 @@
 from numba import njit
 import numpy as np
 from scipy.integrate import solve_ivp
+from scipy.linalg import cho_factor
 from interpolator import interp_hermite, interp_pchip
+from solve_triangular import solve_triangular
 import y2018fs8.data as fs8_data
 import cmb.data_planck_act_compression as cmb
 
@@ -18,7 +20,7 @@ N = len(data)
 logdet = np.linalg.slogdet(fs8_data.cov_mat)[1]
 norm_factor = N * np.log(2 * np.pi) + logdet
 
-inv_cov = np.linalg.inv(fs8_data.cov_mat)
+cho = cho_factor(fs8_data.cov_mat, lower=True)[0]
 
 z_max = np.max(z_vals) + 0.1
 z_grid = np.linspace(0, z_max, num=4000)
@@ -163,7 +165,7 @@ def chi2_fs8(theta):
     q = Hz(z_vals, theta) * DM(z_vals, theta) / Hz_DMz_fid
     delta = fs8_vals - fs8_theory(a_vals, theta) / q
 
-    return theta[-1] ** 2 * (delta @ inv_cov @ delta)
+    return theta[-1] ** 2 * solve_triangular(cho, delta)
 
 
 @njit
@@ -279,7 +281,7 @@ def main():
     print(f"log likelihood = {log_likelihood(MAP_samples):.1f}")
     print(f"degs of freedom = {N + len(cmb.DISTANCE_PRIORS) - len(best_fit)}")
 
-    labels = ["$H_0$", "$Ωbh^2$", "$Ωch^2$", "$w_0$", "$\sigma_8$", "$f_{err}$"]
+    labels = ["$H_0$", "$Ωbh^2$", "$Ωch^2$", "$w_0$", "$\\sigma_8$", "$f_{err}$"]
     plot_corner_and_chains(labels, samples, chains_samples)
     plot_predictions(
         fs8_theory=lambda z: fs8_theory(1 / (1 + z), best_fit),
@@ -293,52 +295,48 @@ if __name__ == "__main__":
     main()
 
 
-"""
-flat ΛCDM
+# ----------- flat ΛCDM -----------
+# H0 = 67.61 +0.47 -0.47 km/s/Mpc
+# Ωbh2 = 0.02249 +0.00011 -0.00011
+# Ωch2 = 0.11933 +0.00115 -0.00113
+# Ωmh2 = 0.1425 +0.0011 -0.0011
+# Ωm = 0.312 +0.007 -0.007
+# σ8 = 0.789 +0.009 -0.009
+# S8 = 0.802 +0.011 -0.011
+# f = 1.80 +0.17 -0.17 (error overestimation factor)
+# chi2 = 56.32
+# log likelihood = 106.7
+# degs of freedom = 54
+# ---------------------------------
 
-H0 = 67.60 +0.47 -0.47 km/s/Mpc
-Ωbh2 = 0.02249 +0.00011 -0.00011
-Ωch2 = 0.11936 +0.00114 -0.00113
-Ωmh2 = 0.1425 +0.0011 -0.0011
-Ωm = 0.312 +0.007 -0.007 (same as Planck+ACT)
-σ8 = 0.793 +0.009 -0.009 (2.08 sigma from Planck+ACT)
-S8 = 0.807 +0.011 -0.011 (1.35 sigma from Planck+ACT)
-f = 1.88 +0.18 -0.17 (error overestimation factor)
-chi2 = 54.35
-log likelihood = 105.7
-degs of freedom = 54
-"""
 
-"""
-flat wCDM
+# ----------- flat wCDM -----------
+# H0 = 65.79 +1.39 -1.35 km/s/Mpc
+# Ωbh2 = 0.02252 +0.00011 -0.00011
+# Ωch2 = 0.11886 +0.00120 -0.00118
+# Ωmh2 = 0.1420 +0.0012 -0.0011
+# Ωm = 0.328 +0.014 -0.014
+# σ8 = 0.798 +0.011 -0.011
+# S8 = 0.833 +0.025 -0.025
+# w0 = -0.93 +0.05 -0.05 (prior U[-1.5, -0.5])
+# f = 1.82 +0.18 -0.17 (error overestimation factor)
+# chi2 = 56.03
+# log likelihood = 107.8
+# degs of freedom = 53
+# ---------------------------------
 
-H0 = 66.12 +1.50 -1.44 km/s/Mpc
-Ωbh2 = 0.02251 +0.00011 -0.00011
-Ωch2 = 0.11898 +0.00120 -0.00120
-Ωmh2 = 0.1421 +0.0012 -0.0012
-Ωm = 0.325 +0.015 -0.014
-σ8 = 0.800 +0.011 -0.011
-S8 = 0.831 +0.025 -0.025
-w0 = -0.945 +0.051 -0.053 (prior U(-1.5, -0.5))
-f = 1.89 +0.18 -0.18 (error overestimation factor)
-chi2 = 54.66
-log likelihood = 106.3
-degs of freedom = 53
-"""
 
-"""
-flat wzCDM
-
-H0 = 65.12 +1.38 -1.44 km/s/Mpc
-Ωbh2 = 0.02252 +0.00011 -0.00011
-Ωch2 = 0.11884 +0.00118 -0.00115
-Ωmh2 = 0.1420 +0.0011 -0.0011
-Ωm = 0.335 +0.016 -0.014
-σ8 = 0.806 +0.012 -0.011
-S8 = 0.849 +0.027 -0.025
-w0 = -0.809 +0.105 -0.102 (prior U(-1.0, 0.0))
-f = 1.91 +0.18 -0.18 (error overestimation factor)
-chi2 = 56.70
-log likelihood = 107.0
-degs of freedom = 53
-"""
+# ----------- flat wzCDM ----------
+# H0 = 64.59 +1.37 -1.33 km/s/Mpc
+# Ωbh2 = 0.02253 +0.00011 -0.00011
+# Ωch2 = 0.11866 +0.00118 -0.00115
+# Ωmh2 = 0.1418 +0.0011 -0.0011
+# Ωm = 0.340 +0.015 -0.014
+# σ8 = 0.806 +0.012 -0.012
+# S8 = 0.856 +0.027 -0.026
+# w0 = -0.77 +0.10 -0.10 (prior U[-1, 0])
+# f = 1.87 +0.18 -0.18 (error overestimation factor)
+# chi2 = 57.39
+# log likelihood = 109.1
+# degs of freedom = 53
+# ---------------------------------

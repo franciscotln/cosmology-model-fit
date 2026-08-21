@@ -1,8 +1,9 @@
 from numba import njit
 import numpy as np
-from scipy.linalg import cho_factor, solve_triangular
+from scipy.linalg import cho_factor
 import cmb.data_planck_act_compression as cmb
 from interpolator import interp_hermite
+from solve_triangular import solve_triangular
 from y2022pantheonSHOES.data import get_data
 from y2025BAO.data import get_data as get_bao_data
 
@@ -103,17 +104,11 @@ pivot_mask = z_cmb <= 0.15
 
 @njit
 def mu_corr(params):
-    z_pec = 100 * params[4] / c
-    z_cosmo1 = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
-    z_cosmo2 = -1.0 + (1.0 + z_cmb) / (1.0 - z_pec)
+    v_km_s = 100 * params[4] * np.where(pivot_mask, 1, -1)
+    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + v_km_s / c)
 
     DM_ref = DM_z(z_cmb, params)
-
-    return np.where(
-        pivot_mask,
-        5.0 * np.log10(DM_z(z_cosmo1, params) / DM_ref),
-        5.0 * np.log10(DM_z(z_cosmo2, params) / DM_ref),
-    )
+    return 5.0 * np.log10(DM_z(z_cosmo, params) / DM_ref)
 
 
 @njit
@@ -122,11 +117,7 @@ def mB_theory(params):
     return params[0] + 25.0 + 5 * np.log10(dL)
 
 
-def solve_triang(cho_L, delta):
-    y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
-    return np.dot(y, y)
-
-
+@njit
 def chi_squared(params):
     delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(params[2], params[3], params)
     chi2_cmb = delta_cmb @ cmb.inv_cov_mat @ delta_cmb
@@ -135,7 +126,7 @@ def chi_squared(params):
     chi_bao = delta_bao @ inv_cov_bao @ delta_bao
 
     delta_sn = mb_values - mB_theory(params) - mu_corr(params)
-    chi_sn = solve_triang(cho_sn, delta_sn)
+    chi_sn = solve_triangular(cho_sn, delta_sn)
 
     return chi2_cmb + chi_bao + chi_sn
 
@@ -274,7 +265,8 @@ Degrees of freedom: 1602
 
 """
 Flat ΛCDM
-Isotropic velocity SNe observed redshifts (turning point z <= 0.15 inflow z > 0.15 outflow)
+Velocity step correction in SNe observed redshifts
+turning point z <= 0.15 inflow z > 0.15 outflow
 z_cosmo = -1 + (1 + z) / (1 + v/c)
 
 M: -19.4191 ± 0.0088 mag
@@ -288,7 +280,7 @@ H0: 68.43 ± 0.27 km/s/Mpc
 z*: 1089.40 ± 0.15
 zd: 1060.20 ± 0.23
 rd: 147.57 ± 0.19 Mpc
-MAP chi^2: 1415.03 (2.18 sigma significance)
+MAP chi^2: 1415.06 (2.18 sigma significance)
 Log evidence: -726.3 (Δ logZ = 1.1 in favour of v correction)
 Degrees of freedom: 1601
 """

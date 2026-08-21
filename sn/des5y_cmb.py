@@ -1,7 +1,8 @@
 from numba import njit
 import numpy as np
-from scipy.linalg import cho_factor, solve_triangular
+from scipy.linalg import cho_factor
 from interpolator import interp_hermite
+from solve_triangular import solve_triangular
 from y2025DESdovekie.data import get_data, effective_sample_size
 import cmb.data_planck_act_compression as cmb
 
@@ -79,15 +80,11 @@ def theory_mu(params, DM_inter):
     return params[0] + 25 + 5 * np.log10((1.0 + z_hel) * DM_z(z_cmb, DM_inter))
 
 
-def solve_triang(cho_L, delta):
-    y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
-    return np.dot(y, y)
-
-
+@njit
 def chi2_sn(params):
     DM_inter = DM_grid(params)
     delta_sn = mu_vals - theory_mu(params, DM_inter) - mu_corr(params, DM_inter)
-    return solve_triang(cho_sn, delta_sn)
+    return solve_triangular(cho_sn, delta_sn)
 
 
 @njit
@@ -96,6 +93,7 @@ def chi2_cmb(params):
     return delta @ cmb.inv_cov_mat @ delta
 
 
+@njit
 def chi_squared(params):
     return chi2_cmb(params) + chi2_sn(params)
 

@@ -1,7 +1,8 @@
 from numba import njit
 import numpy as np
-from scipy.linalg import cho_factor, solve_triangular
+from scipy.linalg import cho_factor
 from interpolator import interp_hermite
+from solve_triangular import solve_triangular
 from y2022pantheonSHOES.data import get_data
 import cmb.data_planck_act_compression as cmb
 
@@ -72,18 +73,14 @@ def mu_theory(DM):
     return 25.0 + 5 * np.log10((1.0 + z_hel) * DM)
 
 
-def solve_triang(cho_L, delta):
-    y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
-    return np.dot(y, y)
-
-
+@njit
 def chi_squared(params):
     delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(params[2], params[3], params)
     chi2_cmb = delta @ cmb.inv_cov_mat @ delta
 
     DM = DM_z(z_cmb, params)
     delta_sn = mb_values - params[0] - mu_theory(DM) - mu_corr(params, DM)
-    chi_sn = solve_triang(cho_sn, delta_sn)
+    chi_sn = solve_triangular(cho_sn, delta_sn)
 
     return chi2_cmb + chi_sn
 
@@ -108,15 +105,21 @@ def log_prior(params):
     return normalization
 
 
+@njit
 def log_likelihood(params):
     return -0.5 * chi_squared(params)
 
 
-def log_probability(params):
+@njit
+def log_probability_njit(params):
     lp = log_prior(params)
     if np.isinf(lp):
         return -np.inf
     return lp + log_likelihood(params)
+
+
+def log_probability(params):
+    return log_probability_njit(params)
 
 
 def main():
@@ -231,7 +234,7 @@ if __name__ == "__main__":
 # z_cosmo = -1 + (1 + z) / (1 + v/c)
 
 # v (x 100 km/s): -0.71 +0.37 -0.37 (prior ~ U[-2.5, 2.5])
-# M: -19.441 +0.013 -0.014 mag
+# M: -19.441 +0.013 -0.013 mag
 # H0: 67.60 +0.47 -0.47 km/s/Mpc
 # Ωm: 0.312 +0.007 -0.007
 # ωm: 0.14250 +0.00112 -0.00111

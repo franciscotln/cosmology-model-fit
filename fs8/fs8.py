@@ -2,7 +2,9 @@ from numba import njit
 import numpy as np
 from scipy.integrate import solve_ivp
 from scipy.constants import c as c0
+from scipy.linalg import cho_factor
 from interpolator import interp_hermite, interp_pchip
+from solve_triangular import solve_triangular
 import y2018fs8.data as fs8_data
 
 c = c0 / 1000  # km/s
@@ -11,7 +13,7 @@ data = fs8_data.data
 z_vals = data["z"]
 a_vals = 1 / (1.0 + z_vals)
 fs8_vals = data["fs8"]
-inv_cov_mat = np.linalg.inv(fs8_data.cov_mat)
+cho = cho_factor(fs8_data.cov_mat, lower=True)[0]
 
 z_grid = np.linspace(0, np.max(z_vals) + 0.1, num=4000)
 dz = np.diff(z_grid)
@@ -115,7 +117,7 @@ def chi_squared(theta):
     Om, sig8, w0, f_err = theta
     q = AP_factor(z_vals, Om, w0)
     delta = fs8_vals - fs8_theory(a_vals, Om, sig8, w0) / q
-    return f_err**2 * delta @ inv_cov_mat @ delta
+    return f_err**2 * solve_triangular(cho, delta)
 
 
 def log_likelihood(theta):
@@ -162,8 +164,8 @@ def main():
     nsteps = 2000 + burn_in
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
     moves = [
-        (emcee.moves.KDEMove(bw_method="silverman"), 0.25),
-        (emcee.moves.DEMove(), 0.75),
+        (emcee.moves.KDEMove(bw_method="silverman"), 0.20),
+        (emcee.moves.DEMove(), 0.80),
     ]
 
     with Pool(8) as pool:
@@ -214,7 +216,7 @@ def main():
     print(f"log likelihood = {log_likelihood(MAP_samples):.1f}")
     print(f"degs of freedom = {N - len(best_fit)}")
 
-    labels = ["$S_8$", "$Ω_m$", "$\sigma_8$", "$w_0$", "$f_{err}$"]
+    labels = ["$S_8$", "$Ω_m$", "$\\sigma_8$", "$w_0$", "$f_{err}$"]
     plot_corner_and_chains(labels, samples, chains_samples)
     plot_predictions(
         fs8_theory=lambda z: fs8_theory(1 / (1 + z), Om_50, s8_50, w0_50),
@@ -228,76 +230,36 @@ if __name__ == "__main__":
     main()
 
 
-"""
-flat ΛCDM
+# ----------- flat ΛCDM -----------
+# Ωm = 0.313 +0.020 -0.019
+# σ8 = 0.787 +0.011 -0.011
+# S8 = 0.803 +0.020 -0.020
+# f_err = 1.78 +0.17 -0.17
+# chi2 = 55.74
+# log likelihood = 5.2
+# degs of freedom = 53
+# ---------------------------------
 
-without f_err:
-Ωm = 0.316 +0.037 -0.034
-σ8 = 0.791 +0.021 -0.021
-S8 = 0.811 +0.037 -0.036
-chi2 = 15.64
-log likelihood = -7.8
-degs of freedom = 54
 
----
+# ----------- flat wCDM -----------
+# Ωm = 0.281 +0.021 -0.020
+# σ8 = 0.895 +0.050 -0.043
+# S8 = 0.868 +0.028 -0.028
+# w0 = -0.69 +0.09 -0.09 (prior ~ U[-1.5, 0])
+# f_err = 1.93 +0.19 -0.18
+# chi2 = 55.67
+# log likelihood = 10.1
+# degs of freedom = 52
+# ---------------------------------
 
-with f_err:
-Ωm = 0.315 +0.019 -0.018
-σ8 = 0.791 +0.011 -0.011
-S8 = 0.810 +0.019 -0.019
-f_err = 1.86 +0.18 -0.17
-chi2 = 56.07
-log likelihood = 7.7
-degs of freedom = 53
-"""
 
-"""
-flat wCDM
-
-without f_err:
-Ωm = 0.296 +0.040 -0.035
-σ8 = 0.861 +0.078 -0.068
-S8 = 0.859 +0.051 -0.053
-w0 = -0.756 +0.158 -0.211 (prior: U(-1.4, 0.0))
-chi2 = 14.04
-log likelihood = -7.0
-degs of freedom = 53
-
----
-
-with f_err:
-Ωm = 0.288 +0.022 -0.022
-σ8 = 0.881 +0.054 -0.044
-S8 = 0.866 +0.030 -0.030
-w0 = -0.713 +0.103 -0.112 (prior: U(-1.4, 0.0))
-f_err = 1.95 +0.19 -0.18
-chi2 = 56.27
-log likelihood = 10.7 (1.73 sigma significance)
-degs of freedom = 52
-"""
-
-"""
-flat wzCDM
-
-without f_err:
-Ωm = 0.320 +0.036 -0.033
-σ8 = 0.839 +0.049 -0.038
-S8 = 0.868 +0.052 -0.048
-w0 = -0.610 +0.227 -0.230  (prior: U(-1.0, 0.0))
-f_err = 1.70 +1.02 -1.03
-chi2 = 14.20
-log likelihood = -7.1
-degs of freedom = 53
-
----
-
-with f_err:
-Ωm = 0.318 +0.018 -0.018
-σ8 = 0.837 +0.026 -0.024
-S8 = 0.863 +0.029 -0.029
-w0 = -0.624 +0.134 -0.148 (prior: U(-1.0, 0.0))
-f_err = 1.94 +0.19 -0.19
-chi2 = 55.71
-log likelihood = 10.4 (1.64 sigma significance)
-degs of freedom = 52
-"""
+# ---------- flat wzCDM -----------
+# Ωm = 0.315 +0.017 -0.017
+# σ8 = 0.845 +0.025 -0.023
+# S8 = 0.867 +0.027 -0.027
+# w0 = -0.58 +0.11 -0.12 (prior ~ U[-1, 0])
+# f_err = 1.93 +0.19 -0.18
+# chi2 = 55.49
+# log likelihood = 10.1
+# degs of freedom = 52
+# ---------------------------------

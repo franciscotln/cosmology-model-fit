@@ -1,8 +1,9 @@
 from numba import njit
 import numpy as np
 from scipy.constants import c as c0
-from scipy.linalg import cho_factor, solve_triangular
+from scipy.linalg import cho_factor
 from interpolator import interp_hermite
+from solve_triangular import solve_triangular
 from y2025DESdovekie.data import get_data, effective_sample_size
 
 legend, z_cmb, z_hel, mu_vals, covmat = get_data()
@@ -52,15 +53,11 @@ def theory_mu(offset, DM):
     return offset + 25.0 + 5 * np.log10((1.0 + z_hel) * DM)
 
 
-def solve_triang(cho_L, delta):
-    y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
-    return np.dot(y, y)
-
-
+@njit
 def chi_squared(params):
     DM = DM_z(z_cmb, params)
     diff = mu_vals - mu_corr(params, DM) - theory_mu(params[0], DM)
-    return solve_triang(cho, diff)
+    return solve_triangular(cho, diff)
 
 
 def log_likelihood(params):
