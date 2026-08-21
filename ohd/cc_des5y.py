@@ -1,7 +1,9 @@
 from numba import njit
 import numpy as np
-from scipy.linalg import cho_factor, solve_triangular
+from scipy.linalg import cho_factor
+from scipy.constants import c as c0
 from interpolator import interp_hermite
+from solve_triangular import solve_triangular
 from y2025DESdovekie.data import get_data, effective_sample_size
 from y2005cc.data import get_data as get_cc_data
 
@@ -16,7 +18,7 @@ N_cc = len(z_cc_vals)
 grid = np.linspace(0, np.max(z_cmb) + 0.1, num=4000)
 dx = np.diff(grid)
 
-c = 299792.458  # Speed of light in km/s
+c = c0 / 1000  # Speed of light in km/s
 
 
 @njit
@@ -56,24 +58,20 @@ def theory_mu(params):
 
 bounds = np.array(
     [
-        (0.2, 3.0),  # f_cc
+        (0.2, 3),  # f_cc
         (-0.5, 0.5),  # ΔM
-        (50.0, 85.0),  # H0
+        (50, 85),  # H0
         (0.05, 0.6),  # Ωm
-        (-1.0, -1 / 3),  # w0
+        (-1, -1 / 3),  # w0
     ],
     dtype=np.float64,
 )
 
 
-def solve_triang(cho_L, delta):
-    y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
-    return np.dot(y, y)
-
-
+@njit
 def chi_squared(params):
     delta_sn = observed_mu_vals - theory_mu(params)
-    chi_sn = solve_triang(cho_sn, delta_sn)
+    chi_sn = solve_triangular(cho_sn, delta_sn)
 
     delta_cc = H_cc_vals - H_z(z_cc_vals, params)
     chi_cc = params[0] ** 2 * delta_cc.dot(np.dot(inv_cov_cc, delta_cc))
@@ -91,17 +89,23 @@ def log_prior(params):
     return -np.inf
 
 
+@njit
 def log_likelihood(params):
     f_cc = params[0]
     normalization_cc = N_cc * np.log(2 * np.pi) + logdet_cc - 2 * N_cc * np.log(f_cc)
     return -0.5 * chi_squared(params) - 0.5 * normalization_cc
 
 
-def log_probability(params):
+@njit
+def log_probability_jit(params):
     lp = log_prior(params)
     if np.isinf(lp):
         return -np.inf
     return lp + log_likelihood(params)
+
+
+def log_probability(params):
+    return log_probability_jit(params)
 
 
 def main():
@@ -186,60 +190,44 @@ if __name__ == "__main__":
     main()
 
 
-"""
-Flat ΛCDM
+# ----------- Flat ΛCDM -----------
+# f_cc: 1.49 +0.18 -0.17
+# ΔM: -0.090 +0.071 -0.074 mag
+# H0: 66.9 +2.3 -2.3 km/s/Mpc
+# Ωm: 0.330 +0.014 -0.014
+# Chi squared: 1666.61
+# Log evidence: -968.2
+# Degrees of freedom: 1746
+# ---------------------------------
 
-f_cc: 1.49 +0.18 -0.17
-ΔM: -0.090 +0.071 -0.074 mag
-H0: 66.9 +2.3 -2.3 km/s/Mpc
-Ωm: 0.330 +0.014 -0.014
-Chi squared: 1666.61
-Log evidence: -968.2
-Degrees of freedom: 1746
-"""
 
-"""
-Flat ΛCDM
-Outflow mag correction of SNe M(z) = M_inf - M'0 * z_c^2 / (z_c + z), z_c=0.043
+# ----------- Flat wCDM -----------
+# f_cc: 1.47 +0.18 -0.17
+# ΔM: -0.068 +0.081 -0.081 mag
+# H0: 67.4 +2.6 -2.5 km/s/Mpc
+# Ωm: 0.307 +0.038 -0.042
+# w0: -0.931 +0.100 -0.107 (prior width 1: -1.5 to -0.3)
+# Chi squared: 1665.49
+# Log evidence: -969.5
+# Degrees of freedom: 1745
+# ---------------------------------
 
-f_cc: 1.48 +0.18 -0.17
-M'0: -1.7 +- 1.0 (prior ~ U(-8, 4))
-ΔM: -0.060 +0.074 -0.076 mag
-H0: 68.7 +- 2.6 km/s/Mpc
-Ωm: 0.303 +- 0.021
-Chi squared: 1663.15 (1.86 sigma significance)
-Log evidence: -968.3
-Degrees of freedom: 1745
-"""
 
-"""
-Flat wCDM: w(z) = w0
+# ----------- Flat wzCDM ----------
+# w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
+#
+# f_cc: 1.47 +0.18 -0.17
+# ΔM: -0.055 +0.076 -0.076 mag
+# H0: 67.7 +2.4 -2.4 km/s/Mpc
+# Ωm: 0.306 +0.021 -0.023
+# w0: -0.875 +0.087 -0.078 (prior width 2/3: -1 to -1/3 - Truncated)
+# wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
+# Chi squared: 1664.70
+# Log evidence: -968.6 (inacurate: truncated posterior, needs to be done with Nautilus)
+# Degrees of freedom: 1745
+# ---------------------------------
 
-f_cc: 1.47 +0.18 -0.17
-ΔM: -0.068 +0.081 -0.081 mag
-H0: 67.4 +2.6 -2.5 km/s/Mpc
-Ωm: 0.307 +0.038 -0.042
-w0: -0.931 +0.100 -0.107 (prior width 1: -1.5 to -0.3)
-Chi squared: 1665.49
-Log evidence: -969.5
-Degrees of freedom: 1745
 
-==============================
-
-Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
-
-f_cc: 1.47 +0.18 -0.17
-ΔM: -0.055 +0.076 -0.076 mag
-H0: 67.7 +2.4 -2.4 km/s/Mpc
-Ωm: 0.306 +0.021 -0.023
-w0: -0.875 +0.087 -0.078 (prior width 2/3: -1 to -1/3 - Truncated)
-wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
-Chi squared: 1664.70
-Log evidence: -968.6 (inacurate: truncated posterior, needs to be done with Nautilus)
-Degrees of freedom: 1745
-
-==============================
-
-Flat w0waCDM: w(z) = w0 + wa * z / (1 + z)
-TODO
-"""
+# ---------- Flat w0waCDM ---------
+# TODO
+# ---------------------------------

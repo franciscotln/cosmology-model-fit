@@ -1,7 +1,6 @@
 from numba import njit
 import numpy as np
 from scipy.constants import c as c0
-from scipy.linalg import cho_factor, solve_triangular
 from interpolator import interp_hermite
 from y2005cc.data import get_data as get_cc_data
 from y2025BAO.data import get_data as get_bao_data
