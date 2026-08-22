@@ -151,7 +151,6 @@ if __name__ == "__main__":
 # M: -19.339 +- 0.055 mag
 # H0: 70.4 +- 1.8 km/s/Mpc
 # Ωm: 0.332 +- 0.018
-# Skewness of residuals: 0.090
 # DOF: 1587
 # χ2 (MAP): 1402.92
 # Log Evidence: -708.7
@@ -167,4 +166,3 @@ if __name__ == "__main__":
 # χ2 (MAP): 1391.22 (delta χ2 = 11.7)
 # Log Evidence: -704.5 (delta logZ = 4.2)
 # ---------------------------------
-
