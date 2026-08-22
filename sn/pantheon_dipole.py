@@ -6,7 +6,7 @@ from interpolator import interp_hermite
 from solve_triangular import solve_triangular
 from y2022pantheonSHOES.data import get_data_with_position
 
-legend, z_cmb, z_hel, mb_vals, ra, dec, cov_matrix = get_data_with_position()
+legend, z_cmb, z_hel, mb_vals, ra, dec, survey_id, cov_matrix = get_data_with_position()
 cho = cho_factor(cov_matrix, lower=True)[0]
 
 c = c0 / 1000  # Speed of light (km/s)
@@ -27,6 +27,9 @@ d1 = np.cos(dec_f_rad) * np.cos(ra_f_rad)
 d2 = np.cos(dec_f_rad) * np.sin(ra_f_rad)
 d3 = np.sin(dec_f_rad)
 cos_angle = nx * d1 + ny * d2 + nz * d3
+
+target_ids = [1, 5, 15, 50, 51, 56, 63, 150]
+survey_mask = np.isin(survey_id, target_ids).astype(int)
 
 z_grid = np.linspace(0, np.max(z_cmb) + 0.1, num=4000)
 dz = np.diff(z_grid)
@@ -59,7 +62,7 @@ def mu_corr(params, DM_obs):
     DZ = 0.02  # sharpness of the transition
     Z_C = 0.10  # redshift where the velocity drops by 50%
     attenuation = 0.5 * (1.0 - np.tanh((z_cmb - Z_C) / DZ))
-    v_km_s = 100 * params[3] * cos_angle * attenuation
+    v_km_s = 100 * params[3] * cos_angle * attenuation * survey_mask
     z_pec = v_km_s / c
     z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
     return 5.0 * np.log10(DM_z(params, z_cosmo) / DM_obs)
@@ -158,6 +161,7 @@ if __name__ == "__main__":
 
 
 # ----------- Flat ΛCDM -----------
+# No low-z survey exclusion
 # M: -19.341 +- 0.055
 # H0: 70.4 +- 1.8 km/s/Mpc
 # Ωm: 0.332 +- 0.018
@@ -165,4 +169,16 @@ if __name__ == "__main__":
 # DOF: 1586
 # χ2 (MAP): 1391.22 (delta χ2 = 11.7)
 # Log Evidence: -704.5 (delta logZ = 4.2)
+# ---------------------------------
+
+
+# ----------- Flat ΛCDM -----------
+# Selecting surveys with IDs (1, 5, 15, 50, 51, 56, 63, 150)
+# M: -19.340 +- 0.055
+# H0: 70.4 +- 1.8 km/s/Mpc
+# Ωm: 0.332 +- 0.018
+# v (dipole): 185 +- 40 km/s
+# DOF: 1586
+# χ2 (MAP): 1385.17 (delta χ2 = 17.75)
+# Log Evidence: -701.3 (delta logZ = 7.4)
 # ---------------------------------
