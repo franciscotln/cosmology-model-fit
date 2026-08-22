@@ -91,7 +91,7 @@ def main():
     prior.add_parameter("M", dist=(-20, -19))  # mag
     prior.add_parameter("H0", dist=norm(loc=70.39, scale=1.80))  # km/s/Mpc
     prior.add_parameter("om", dist=(0.1, 0.7))
-    prior.add_parameter("v", dist=(-1, 4))  # v (x 100 km/s) dipole towards the Shapley supercluster (v > 0)
+    prior.add_parameter("v", dist=(-0.5, 4.5))  # v (x 100 km/s) dipole towards the Shapley supercluster (v > 0)
 
     with Pool(6) as pool:
         sampler = Sampler(
@@ -143,7 +143,7 @@ def main():
         label=f"$Ω_m$={gd_samples.mean('om'):.3f}",
         x_scale="log",
     )
-    plot_residuals(z_values=z_cmb, residuals=residuals, y_err=mu_std, bins=50)
+    plot_residuals(z_values=z_cmb, residuals=residuals, y_err=mu_std, bins=40)
 
 
 if __name__ == "__main__":
@@ -161,24 +161,57 @@ if __name__ == "__main__":
 
 
 # ----------- Flat ΛCDM -----------
+# Fixed RA = 217 deg, DEC = -29 deg
 # No low-z survey exclusion
-# M: -19.341 +- 0.055
+#
+# M: -19.341 +- 0.055 mag
 # H0: 70.4 +- 1.8 km/s/Mpc
 # Ωm: 0.332 +- 0.018
 # v (dipole): 129 +- 40 km/s
 # DOF: 1586
-# χ2 (MAP): 1391.22 (delta χ2 = 11.7)
+# χ2 (MAP): 1391.22 (delta χ2 = 11.7 -> 3.4 sigma preference for the dipole)
 # Log Evidence: -704.5 (delta logZ = 4.2)
 # ---------------------------------
 
 
 # ----------- Flat ΛCDM -----------
+# Fixed RA = 217 deg, DEC = -29 deg
 # Selecting surveys with IDs (1, 5, 15, 50, 51, 56, 63, 150)
-# M: -19.340 +- 0.055
+#
+# M: -19.340 +- 0.055 mag
 # H0: 70.4 +- 1.8 km/s/Mpc
 # Ωm: 0.332 +- 0.018
 # v (dipole): 185 +- 40 km/s
 # DOF: 1586
-# χ2 (MAP): 1385.17 (delta χ2 = 17.75)
+# χ2 (MAP): 1385.16 (delta χ2 = 17.76 -> 4.2 sigma preference for the dipole)
 # Log Evidence: -701.3 (delta logZ = 7.4)
+# ---------------------------------
+
+
+# ----------- Flat ΛCDM -----------
+# Fixed RA = 229 deg, DEC = -29 deg
+# Selecting surveys with IDs (1, 5, 15, 50, 51, 56, 63, 150)
+#
+# M: -19.341 +- 0.054 mag
+# H0: 70.4 +- 1.8 km/s/Mpc
+# Ωm: 0.332 +- 0.018
+# v (dipole): 198 +- 50 km/s
+# DOF: 1586
+# χ2 (MAP): 1384.33 (delta χ2 = 18.59 -> 4.3 sigma preference for the dipole)
+# Log Evidence: -700.9 (delta logZ = 7.8)
+# ---------------------------------
+
+
+# ----------- Flat ΛCDM -----------
+# Fixed DEC = -29 deg
+# Selecting surveys with IDs (1, 5, 15, 50, 51, 56, 63, 150)
+#
+# M: -19.340 +- 0.054 mag
+# H0: 70.4 +- 1.7 km/s/Mpc
+# Ωm: 0.331 +- 0.018
+# v (dipole): 193 +- 50 km/s
+# RA: 229 +17 -13 deg (prior ~ U[160, 320])
+# DOF: 1585
+# χ2 (MAP): 1384.30 (delta χ2 = 18.62 -> 3.9 sigma preference for the dipole)
+# Log Evidence: -702.3 (delta logZ = 6.4)
 # ---------------------------------
