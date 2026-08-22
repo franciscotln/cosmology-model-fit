@@ -63,7 +63,6 @@ def log_likelihood(params):
 
 
 def main():
-    from scipy.stats import norm
     from getdist import plots, MCSamples
     import matplotlib.pyplot as plt
     from nautilus import Sampler, Prior

@@ -1,6 +1,5 @@
 from numba import njit
 import numpy as np
-import scipy.stats as stats
 from scipy.linalg import cho_factor
 from scipy.constants import c as c0
 from interpolator import interp_hermite
@@ -77,142 +76,95 @@ def log_likelihood(params):
     return -0.5 * chi_squared(params)
 
 
-bounds = np.array(
-    [
-        (-20, -19),  # M
-        (50, 90),  # H0
-        (0, 0.7),  # Ωm
-        (-1, 4), # v (x 100 km/s) dipole towards the Shapley supercluster (v > 0)
-    ]
-)
-
-normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
-
-
-@njit
-def log_prior(params):
-    if not np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
-        return -np.inf
-    # H0 prior from TRGB Freedman et al
-    return normalization - 0.5 * (params[1] - 70.39) ** 2 / 1.80**2
-
-
-@njit
-def log_probability_jit(params):
-    lp = log_prior(params)
-    if np.isinf(lp):
-        return -np.inf
-    return lp - 0.5 * chi_squared(params)
-
-
-def log_probability(params):
-    return log_probability_jit(params)
-
-
 def main():
-    import emcee
     from multiprocessing import Pool
-    from log_evidence import log_evidence
-    from corner_plot import plot_corner_and_chains
-    from sn.plotting import plot_predictions, print_color, plot_residuals
+    from getdist import plots, MCSamples
+    import matplotlib.pyplot as plt
+    from nautilus import Sampler, Prior
+    from scipy.stats import norm
+    from sn.plotting import plot_predictions, plot_residuals
 
-    n_dim = len(bounds)
-    n_walkers = 150
-    burn_in = 500
-    n_steps = burn_in + 2000
-    np.random.seed(42)
-    initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(n_walkers, n_dim))
-    moves = [
-        (emcee.moves.KDEMove(bw_method="silverman"), 0.20),
-        (emcee.moves.DEMove(), 0.80),
-    ]
+    prior = Prior()
+    prior.add_parameter("M", dist=(-20, -19))  # mag
+    prior.add_parameter("H0", dist=norm(loc=70.39, scale=1.80))  # km/s/Mpc
+    prior.add_parameter("om", dist=(0.1, 0.7))
+    prior.add_parameter("v", dist=(-1, 4))  # v (x 100 km/s) dipole towards the Shapley supercluster (v > 0)
 
     with Pool(6) as pool:
-        sampler = emcee.EnsembleSampler(
-            n_walkers, n_dim, log_probability, pool=pool, moves=moves
+        sampler = Sampler(
+            prior, log_likelihood, n_live=6_000, pool=pool, seed=42, pass_dict=False,
         )
-        sampler.run_mcmc(
-            initial_pos, n_steps, progress=True, progress_kwargs={"colour": "#ff5a00"}
-        )
+        sampler.run(verbose=True)
 
-    chains_samples = sampler.get_chain(discard=burn_in, flat=False)
-    samples = sampler.get_chain(discard=burn_in, flat=True)
-    log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
-    log_evd = log_evidence(samples, log_probs, log_probability, bounds)
+    samples, log_w, log_l = sampler.posterior()
+    gd_samples = MCSamples(
+        samples=samples,
+        weights=np.exp(log_w),
+        loglikes=log_l,
+        names=prior.keys,
+        labels=["M", "H_0", "Ω_m", "v_{100}"],
+    )
+    gd_samples.addDerived(100 * gd_samples["v"], name="v_km_s", label="v_{km/s}")
+    gd_samples.updateBaseStatistics()
 
-    [
-        (M0_16, M0_50, M0_84),
-        (H0_16, H0_50, H0_84),
-        (Om_16, Om_50, Om_84),
-        (v_16, v_50, v_84),
-    ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
+    for par in gd_samples.getParamNames().names:
+        print(f"{par}: {gd_samples.mean(par):.5f} ± {gd_samples.std(par):.5f}")
 
-    best_fit = np.percentile(samples, 50, axis=0)
+    index_MAP = np.argmax(log_l)
+    print(f"χ2 (MAP): {chi_squared(samples[index_MAP]):.2f}")
+    print(f"Log evidence: {sampler.log_z:.1f}")
+    print(f"DOF: {len(z_cmb) - len(prior.keys)}")
 
-    DM = DM_z(best_fit, z_cmb)
-    mB_pred = mu_theory(DM) + M0_50
-    corrected_mags = mb_vals - mu_corr(best_fit, DM)
-    residuals = corrected_mags - mB_pred
+    best_fit = gd_samples.mean(prior.keys)
+    DM_best = DM_z(best_fit, z_cmb)
+    mu_pred = mu_theory(DM_best)
+    mb_corrected = mb_vals - mu_corr(best_fit, DM_best)
+    residuals = mb_corrected - gd_samples.mean('M') - mu_pred
+    mu_std = np.sqrt(np.diag(cov_matrix))
 
-    skewness = stats.skew(residuals)
+    plots.get_subplot_plotter().triangle_plot(
+        roots=gd_samples,
+        params=["M", "H0", "om", "v_km_s"],
+        title_limit=1,
+        contour_colors=["C0"],
+        filled=True,
+    )
+    plt.show()
 
-    M_label = f"{M0_50:.3f} +{M0_84-M0_50:.3f}/-{M0_50-M0_16:.3f}"
-    H0_label = f"{H0_50:.2f} +{H0_84-H0_50:.2f}/-{H0_50-H0_16:.2f} km/s/Mpc"
-    omega_label = f"{Om_50:.3f} +{Om_84-Om_50:.3f}/-{Om_50-Om_16:.3f}"
-    v_label = f"{v_50:.3f} +{v_84-v_50:.3f}/-{v_50-v_16:.3f} x 100 km/s"
-
-    print_color("Dataset", legend)
-    print_color("z range", f"{z_cmb[0]:.4f} - {z_cmb[-1]:.4f}")
-    print_color("M", M_label)
-    print_color("H0", H0_label)
-    print_color("Ωm", omega_label)
-    print_color("v (dipole)", v_label)
-    print_color("Skewness of residuals", f"{skewness:.3f}")
-    print_color("DOF", len(z_cmb) - len(best_fit))
-    print_color("Chi squared", f"{chi_squared(best_fit):.2f}")
-    print_color("Log Evidence", f"{log_evd:.1f}")
-
-    labels = ["$M_0$", "$H_0$", "$Ω_m$", "$v/100$"]
-    plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
     plot_predictions(
         legend=legend,
         x=z_cmb,
-        y=corrected_mags - M0_50,
-        y_err=np.sqrt(np.diag(cov_matrix)),
-        y_model=mB_pred - M0_50,
-        label=f"$Ω_m$={Om_50:.3f}",
+        y=mb_corrected - gd_samples.mean('M'),
+        y_err=mu_std,
+        y_model=mu_pred,
+        label=f"$Ω_m$={gd_samples.mean('om'):.3f}",
         x_scale="log",
     )
-    plot_residuals(
-        z_values=z_cmb,
-        residuals=residuals,
-        y_err=np.sqrt(np.diag(cov_matrix)),
-        bins=40,
-    )
+    plot_residuals(z_values=z_cmb, residuals=residuals, y_err=mu_std, bins=50)
 
 
 if __name__ == "__main__":
     main()
 
 
-# ----------- Flat ΛCDM -----------
-# M: -19.341 +0.055/-0.057
-# H0: 70.4 +1.8/-1.8 km/s/Mpc
-# Ωm: 0.332 +0.018/-0.018
-# v (dipole): 129 +38/-38 km/s
-# Skewness of residuals: 0.085
-# DOF: 1586
-# Chi squared: 1391.22
-# Log Evidence: -706.8
-# ---------------------------------
-
-
 # ----------- Flat ΛCDM (v=0) -----
-# M: -19.339 +0.055/-0.057 mag
-# H0: 70.38 +- 1.80 km/s/Mpc
-# Ωm: 0.332 +0.018/-0.018
+# M: -19.339 +- 0.055 mag
+# H0: 70.4 +- 1.8 km/s/Mpc
+# Ωm: 0.332 +- 0.018
 # Skewness of residuals: 0.090
 # DOF: 1587
-# Chi squared: 1402.92
-# Log Evidence: -711.0
+# χ2 (MAP): 1402.92
+# Log Evidence: -708.7
 # ---------------------------------
+
+
+# ----------- Flat ΛCDM -----------
+# M: -19.341 +- 0.055
+# H0: 70.4 +- 1.8 km/s/Mpc
+# Ωm: 0.332 +- 0.018
+# v (dipole): 129 +- 40 km/s
+# DOF: 1586
+# χ2 (MAP): 1391.22 (delta χ2 = 11.7)
+# Log Evidence: -704.5 (delta logZ = 4.2)
+# ---------------------------------
+
