@@ -41,11 +41,16 @@ def DM_z(params, z):
 
 
 @njit
-def mu_corr(params, DM_ref):
+def get_z_cosmo(params):
     # Heaviside step at z = 0.15
     v_km_s = 100 * params[3] * np.where(z_cmb <= 0.15, 1, -1)
     z_pec = v_km_s / c
-    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+    return -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+
+
+def mu_corr(params, DM_ref):
+    # for plotting purposes
+    z_cosmo = get_z_cosmo(params)
     return 5.0 * np.log10(DM_z(params, z_cosmo) / DM_ref)
 
 
@@ -56,8 +61,9 @@ def mu_theory(DM):
 
 @njit
 def chi_squared(params):
-    DM = DM_z(params, z_cmb)
-    delta = mb_vals - params[0] - mu_corr(params, DM) - mu_theory(DM)
+    z_cosmo = get_z_cosmo(params)
+    M = params[0]
+    delta = mb_vals - M - mu_theory(DM_z(params, z_cosmo))
     return solve_triangular(cho, delta)
 
 
@@ -205,87 +211,88 @@ if __name__ == "__main__":
     main()
 
 
-"""
-*****************************
-Dataset: Pantheon+ (2022)
-z range: 0.0102 - 2.2614
-Sample size: 1590
-*****************************
-"""
+# *********************************
+# Dataset: Pantheon+ (2022)
+# z range: 0.0102 - 2.2614
+# Sample size: 1590
+# *********************************
 
-"""
-ΛCDM
-M: -19.339 +0.055/-0.057 mag
-H0: 70.38 +- 1.80 km/s/Mpc
-Ωm: 0.332 +0.018/-0.018
-R-squared (%): 99.74
-RMSD (mag): 0.153
-Skewness of residuals: 0.090
-kurtosis of residuals: 1.582
-Degs of freedom: 1587
-Chi squared: 1402.92
-Log Evidence: -711.0
 
-=============================
+# ----------- Flat ΛCDM -----------
+# M: -19.339 +0.055/-0.057 mag
+# H0: 70.38 +- 1.80 km/s/Mpc
+# Ωm: 0.332 +0.018/-0.018
+# R-squared (%): 99.74
+# RMSD (mag): 0.153
+# Skewness of residuals: 0.090
+# kurtosis of residuals: 1.582
+# Degs of freedom: 1587
+# Chi squared: 1402.92
+# Log Evidence: -711.0
+# ---------------------------------
 
-Flat ΛCDM
-Isotropic velocity SNe observed redshifts (turning point z <= 0.15 inflow z > 0.15 outflow)
-z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-M: -19.351 +0.055/-0.057
-H0: 70.40 +1.79/-1.80 km/s/Mpc
-Ωm: 0.315 +0.021/-0.020
-v: -0.68 +0.41/-0.41 x 100 km/s (prior ~ U[-3, 3])
-R-squared (%): 99.75
-RMSD (mag): 0.154
-Skewness of residuals: 0.055
-kurtosis of residuals: 1.586
-Degs of freedom: 1586
-Chi squared: 1400.15 (1.55 sigma significance)
-Log Evidence: -711.4
-"""
+# ----------- Flat ΛCDM -----------
+# Velocity step correction in SNe observed redshifts
+# turning point z <= 0.15 inflow z > 0.15 outflow
+# z_cosmo = -1 + (1 + z) / (1 + v/c)
+#
+# M: -19.351 +0.055/-0.057
+# H0: 70.40 +1.79/-1.80 km/s/Mpc
+# Ωm: 0.315 +0.021/-0.020
+# v: -0.68 +0.41/-0.41 x 100 km/s (prior ~ U[-3, 3])
+# R-squared (%): 99.75
+# RMSD (mag): 0.154
+# Skewness of residuals: 0.055
+# kurtosis of residuals: 1.586
+# Degs of freedom: 1586
+# Chi squared: 1400.15 (1.55 sigma significance)
+# Log Evidence: -711.4
+# ---------------------------------
 
-"""
-wCDM
-M: -19.335 +0.055/-0.057
-H0: 70.39 +1.80/-1.79 km/s/Mpc
-Ωm: 0.292 +0.063/-0.076
-w0: -0.901 +0.140/-0.159 (prior ~ U[-1.5, -0.5])
-R-squared (%): 99.74
-RMSD (mag): 0.154
-Skewness of residuals: 0.079
-kurtosis of residuals: 1.590
-Degs of freedom: 1586
-Chi squared: 1402.47
-Log Evidence: -711.7
-"""
 
-"""
-Flat w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
-M: -19.332 +0.055/-0.057 mag
-H0: 70.40 +1.79/-1.81 km/s/Mpc
-Ωm: 0.299 +0.028/-0.034
-w0: -0.873 +0.102/-0.083 (prior ~ U[-1.0, -1/3]) truncated posterior
-wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
-R-squared (%): 99.74
-RMSD (mag): 0.154
-Skewness of residuals: 0.074
-kurtosis of residuals: 1.592
-Degs of freedom: 1586
-Chi squared: 1402.70
-Log Evidence: -711.5 (not accurate due to truncation of w0 posterior)
-"""
+# ----------- Flat wCDM -----------
+# M: -19.335 +0.055/-0.057
+# H0: 70.39 +1.80/-1.79 km/s/Mpc
+# Ωm: 0.292 +0.063/-0.076
+# w0: -0.901 +0.140/-0.159 (prior ~ U[-1.5, -0.5])
+# R-squared (%): 99.74
+# RMSD (mag): 0.154
+# Skewness of residuals: 0.079
+# kurtosis of residuals: 1.590
+# Degs of freedom: 1586
+# Chi squared: 1402.47
+# Log Evidence: -711.7
+# ---------------------------------
 
-"""
-Flat w0waCDM
-TODO: re-run after adding H0 prior
-M0: 19.348 +0.010/-0.010 mag
-Ωm: 0.337 +0.082/-0.148
-w0: -0.919 +0.146/-0.162 (0.53 sigma)
-wa: -0.3614 +1.0279/-1.8010 (0.26 sigma)
-R-squared: 99.74 %
-RMSD (mag): 0.154
-Skewness of residuals: 0.076
-kurtosis of residuals: 1.601
-Degs of freedom: 1586
-"""
+
+# ----------- Flat wzCDM ----------
+# w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
+#
+# M: -19.332 +0.055/-0.057 mag
+# H0: 70.40 +1.79/-1.81 km/s/Mpc
+# Ωm: 0.299 +0.028/-0.034
+# w0: -0.873 +0.102/-0.083 (prior ~ U[-1.0, -1/3]) truncated posterior
+# wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
+# R-squared (%): 99.74
+# RMSD (mag): 0.154
+# Skewness of residuals: 0.074
+# kurtosis of residuals: 1.592
+# Degs of freedom: 1586
+# Chi squared: 1402.70
+# Log Evidence: -711.5 (not accurate due to truncation of w0 posterior)
+# ---------------------------------
+
+
+# ---------- Flat w0waCDM ---------
+# TODO: re-run after adding H0 prior
+# M0: 19.348 +0.010/-0.010 mag
+# Ωm: 0.337 +0.082/-0.148
+# w0: -0.919 +0.146/-0.162 (0.53 sigma)
+# wa: -0.3614 +1.0279/-1.8010 (0.26 sigma)
+# R-squared: 99.74 %
+# RMSD (mag): 0.154
+# Skewness of residuals: 0.076
+# kurtosis of residuals: 1.601
+# Degs of freedom: 1586
+# ---------------------------------
