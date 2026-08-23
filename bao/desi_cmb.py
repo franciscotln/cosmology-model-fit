@@ -1,6 +1,6 @@
-from numba import njit, prange
+from numba import njit
 import numpy as np
-from interpolator import interp_hermite
+from interpolator import interp_hermite, interp_pchip
 from y2025BAO.data import get_data as get_bao_data
 import cmb.data_early_lcdm_compression as cmb
 
@@ -12,7 +12,7 @@ bao_legend, bao_data, bao_cov_matrix = get_bao_data()
 inv_cov_bao = np.linalg.inv(bao_cov_matrix)
 
 z_grid = np.linspace(0, np.max(bao_data["z"]) + 0.1, num=4000)
-dx = np.diff(z_grid)
+dz = np.diff(z_grid)
 
 
 @njit
@@ -52,23 +52,26 @@ cmb.set_HZ(H_z)
 
 
 @njit
-def DH_z(z, params):
-    return c / H_z(z, params)
+def DM_grid(params):
+    dh_grid = c / H_z(z_grid, params)
+    dh = (dh_grid[:-1] + dh_grid[1:]) / 2
+    dm_grid = np.zeros(z_grid.size, dtype=np.float64)
+    dm_grid[1:] = np.cumsum(dz * dh)
+    return (dm_grid, dh_grid)
 
 
 @njit
-def DM_z(z, params):
-    dh_grid = DH_z(z_grid, params)
-    dy = (dh_grid[:-1] + dh_grid[1:]) / 2
-    cum_dm = np.zeros(z_grid.size, dtype=np.float64)
-    cum_dm[1:] = np.cumsum(dx * dy)
-    return interp_hermite(z, z_grid, cum_dm, dh_grid)
+def DH_z(z, dm_interp):
+    return interp_pchip(z, z_grid, dm_interp[1])
 
 
 @njit
-def DV_z(z, params):
-    DH = DH_z(z, params)
-    DM = DM_z(z, params)
+def DM_z(z, dm_interp):
+    return interp_hermite(z, z_grid, *dm_interp)
+
+
+@njit
+def DV_z(z, DH, DM):
     return (z * DH * DM**2) ** (1 / 3)
 
 
@@ -81,14 +84,19 @@ def bao_theory(z, qty, params):
     Obh2, Och2 = params[1], params[2]
     rd = cmb.r_drag(Obh2, Obh2 + Och2 + Omnu_h2)
 
-    results = np.empty(z.size, dtype=np.float64)
+    dm_interp = DM_grid(params)
+    DM = DM_z(z, dm_interp)
+    DH = DH_z(z, dm_interp)
+
     DV_mask = qty == 0
     DM_mask = qty == 1
     DH_mask = qty == 2
-    results[DH_mask] = DH_z(z[DH_mask], params)
-    results[DM_mask] = DM_z(z[DM_mask], params)
-    results[DV_mask] = DV_z(z[DV_mask], params)
-    return results / rd
+
+    results = np.empty(z.size, dtype=np.float64)
+    results[DH_mask] = DH[DH_mask] / rd
+    results[DM_mask] = DM[DM_mask] / rd
+    results[DV_mask] = DV_z(z[DV_mask], DH[DV_mask], DM[DV_mask]) / rd
+    return results
 
 
 @njit
@@ -127,23 +135,19 @@ def log_likelihood(params):
 
 
 @njit
-def log_probability(params):
+def log_probability_jit(params):
     lp = log_prior(params)
     if np.isinf(lp):
         return -np.inf
     return lp + log_likelihood(params)
 
 
-@njit(parallel=True)
-def log_probability_vect(params):
-    N = params.shape[0]
-    log_probs = np.empty(N, dtype=np.float32)
-    for i in prange(N):
-        log_probs[i] = log_probability(params[i])
-    return log_probs
+def log_probability(params):
+    return log_probability_jit(params)
 
 
 def main():
+    from multiprocessing import Pool
     import emcee
     from corner_plot import plot_corner_and_chains
     from gelman_rubin import gelman_rubin
@@ -160,13 +164,13 @@ def main():
         (emcee.moves.KDEMove(bw_method="silverman"), 0.20),
         (emcee.moves.DEMove(), 0.80),
     ]
-
-    sampler = emcee.EnsembleSampler(
-        nwalkers, ndim, log_probability_vect, vectorize=True, moves=moves
-    )
-    sampler.run_mcmc(
-        initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#ff5a00"}
-    )
+    with Pool(6) as pool:
+        sampler = emcee.EnsembleSampler(
+            nwalkers, ndim, log_probability, pool=pool, moves=moves
+        )
+        sampler.run_mcmc(
+            initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#ff5a00"}
+        )
 
     try:
         tau = sampler.get_autocorr_time()
@@ -229,142 +233,138 @@ def main():
 if __name__ == "__main__":
     main()
 
-"""
-*******************************
-Dataset: DESI DR2 2024
-CMB Compressed priors: (θ∗, ωb, ωbc)CMB Early Times ΛCDM
-*******************************
-"""
 
-"""
-Flat ΛCDM w(z) = -1
-H0: 68.40 +0.30 -0.30 km/s/Mpc
-ωb: 0.02237 +0.00012 -0.00012
-ωc: 0.1172 +0.0007 -0.0007
-ωm: 0.1402 +0.0006 -0.0006
-Ωm: 0.300 +0.004 -0.004
-w0: -1
-wa: 0
-r*: 145.16 Mpc
-z*: 1089.76 +0.18 -0.18
-r_d: 147.83 +0.19 -0.19 Mpc
-Log Z: -19.44
-Chi squared: 13.49
-Degs of freedom: 13
-"""
-
-"""
-Flat wCDM w(z) = w0
-H0: 68.88 +0.97 -0.94 km/s/Mpc
-ωb: 0.02235 +0.00013 -0.00013
-ωc: 0.1176 +0.0009 -0.0009
-ωm: 0.1406 +0.0009 -0.0009
-Ωm: 0.296 +0.007 -0.008
-w0: -1.021 +0.038 -0.040 (prior width 1.0: -1.5 to -0.5)
-wa: 0
-r*: 145.08 Mpc
-z*: 1089.83 +0.22 -0.21
-r_d: 147.77 +0.22 -0.22 Mpc
-Log Z: -21.65
-Chi squared: 13.28
-Degs of freedom: 12
-"""
-
-"""
-Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
-H0: 67.26 +0.81 -1.12 km/s/Mpc
-ωb: 0.02241 +0.00012 -0.00012
-ωc: 0.1168 +0.0007 -0.0007
-ωm: 0.1398 +0.0007 -0.0007
-Ωm: 0.309 +0.010 -0.007
-w0: -0.912 +0.087 -0.061 (prior width 1.0: -1.0 to 0.0; truncated posterior on the left)
-wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
-r*: 145.24 Mpc
-z*: 1089.68 +0.19 -0.19
-r_d: 147.91 +0.20 -0.20 Mpc
-Log Z: -20.61
-Chi squared: 14.00
-Degs of freedom: 12
-"""
-
-"""
-Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
-
-H0: 63.86 +2.10 -2.10 km/s/Mpc
-ωb: 0.02222 +0.00014 -0.00014
-ωc: 0.1193 +0.0011 -0.0011
-ωm: 0.1421 +0.0010 -0.0010
-Ωm: 0.348 +0.025 -0.023
-w0: -0.468 +0.255 -0.229 (prior width 3.0: -2.0 to 1.0)
-wa: -1.565 +0.658 -0.755 (prior width 8.5: -6.0 to 2.5)
-r*: 144.74 Mpc
-z*: 1090.07 +0.25 -0.25
-r_d: 147.46 +0.24 -0.24 Mpc
-Log Z: -20.93
-Chi squared: 7.04
-Degs of freedom: 11
-"""
+# *********************************
+# Dataset: DESI DR2 2024
+# CMB Compressed priors: (θ∗, ωb, ωbc)CMB Early Times ΛCDM
+# *********************************
 
 
-"""
-*******************************
-Dataset: DESI DR2 2024
-CMB Compressed priors: (R, lA = π / θ*, ωb)CMB Planck PR3 with lensing
-*******************************
-"""
+# Flat ΛCDM w(z) = -1
+# H0: 68.40 +0.30 -0.30 km/s/Mpc
+# ωb: 0.02237 +0.00012 -0.00012
+# ωc: 0.1172 +0.0007 -0.0007
+# ωm: 0.1402 +0.0006 -0.0006
+# Ωm: 0.300 +0.004 -0.004
+# w0: -1
+# wa: 0
+# r*: 145.16 Mpc
+# z*: 1089.76 +0.18 -0.18
+# r_d: 147.83 +0.19 -0.19 Mpc
+# Log Z: -19.44
+# Chi squared: 13.49
+# Degs of freedom: 13
+# ---------------------------------
 
-"""
-Flat ΛCDM w(z) = -1
-H0: 68.42 +0.29 -0.29 km/s/Mpc
-ωb: 0.02254 +0.00013 -0.00013
-ωc: 0.1177 +0.0006 -0.0006
-ωm: 0.1409 +0.0006 -0.0006
-Ωm: 0.301 +0.004 -0.004
-w0: -1
-wa: 0
-r*: 144.89 Mpc
-z*: 1089.50 +0.18 -0.18
-r_d: 147.50 +0.19 -0.19 Mpc
-Log Z: -20.39
-Chi squared: 15.81
-Degs of freedom: 13
-"""
 
-"""
-Flat wCDM w(z) = w0
-H0: 69.25 +0.97 -0.93 km/s/Mpc
-ωb: 0.02250 +0.00013 -0.00013
-ωc: 0.1183 +0.0009 -0.0009
-ωm: 0.1414 +0.0008 -0.0008
-Ωm: 0.295 +0.007 -0.007
-w0: -1.035 +0.037 -0.039
-wa: 0
-r*: 144.78 Mpc
-z*: 1089.61 +0.21 -0.21
-r_d: 147.40 +0.22 -0.22 Mpc
-Log Z: -22.34
-Chi squared: 15.08
-Degs of freedom: 12
-"""
+# Flat wCDM w(z) = w0
+# H0: 68.88 +0.97 -0.94 km/s/Mpc
+# ωb: 0.02235 +0.00013 -0.00013
+# ωc: 0.1176 +0.0009 -0.0009
+# ωm: 0.1406 +0.0009 -0.0009
+# Ωm: 0.296 +0.007 -0.008
+# w0: -1.021 +0.038 -0.040 (prior width 1.0: -1.5 to -0.5)
+# wa: 0
+# r*: 145.08 Mpc
+# z*: 1089.83 +0.22 -0.21
+# r_d: 147.77 +0.22 -0.22 Mpc
+# Log Z: -21.65
+# Chi squared: 13.28
+# Degs of freedom: 12
+# ---------------------------------
 
-"""
-Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
-H0: 67.44 +0.71 -1.05 km/s/Mpc
-ωb: 0.02257 +0.00013 -0.00013
-ωc: 0.1174 +0.0007 -0.0007
-ωm: 0.1406 +0.0007 -0.0007
-Ωm: 0.309 +0.009 -0.007
-w0: -0.925 +0.081 -0.053 (prior width 1.0: -1.0 to 0.0; truncated posterior on the left)
-wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
-r*: 144.95 Mpc
-z*: 1089.44 +0.18 -0.18
-r_d: 147.56 +0.20 -0.20 Mpc
-Log Z: -21.56
-Chi squared: 16.43
-Degs of freedom: 12
-"""
 
-"""
-Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
-TODO
-"""
+# Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
+# H0: 67.26 +0.81 -1.12 km/s/Mpc
+# ωb: 0.02241 +0.00012 -0.00012
+# ωc: 0.1168 +0.0007 -0.0007
+# ωm: 0.1398 +0.0007 -0.0007
+# Ωm: 0.309 +0.010 -0.007
+# w0: -0.912 +0.087 -0.061 (prior width 1.0: -1.0 to 0.0; truncated posterior on the left)
+# wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
+# r*: 145.24 Mpc
+# z*: 1089.68 +0.19 -0.19
+# r_d: 147.91 +0.20 -0.20 Mpc
+# Log Z: -20.61
+# Chi squared: 14.00
+# Degs of freedom: 12
+# ---------------------------------
+
+
+# Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
+# H0: 63.86 +2.10 -2.10 km/s/Mpc
+# ωb: 0.02222 +0.00014 -0.00014
+# ωc: 0.1193 +0.0011 -0.0011
+# ωm: 0.1421 +0.0010 -0.0010
+# Ωm: 0.348 +0.025 -0.023
+# w0: -0.468 +0.255 -0.229 (prior width 3.0: -2.0 to 1.0)
+# wa: -1.565 +0.658 -0.755 (prior width 8.5: -6.0 to 2.5)
+# r*: 144.74 Mpc
+# z*: 1090.07 +0.25 -0.25
+# r_d: 147.46 +0.24 -0.24 Mpc
+# Log Z: -20.93
+# Chi squared: 7.04
+# Degs of freedom: 11
+# ---------------------------------
+
+
+# *********************************
+# Dataset: DESI DR2 2024
+# CMB Compressed priors: (R, lA = π / θ*, ωb)CMB Planck PR3 with lensing
+# *********************************
+
+
+# Flat ΛCDM w(z) = -1
+# H0: 68.42 +0.29 -0.29 km/s/Mpc
+# ωb: 0.02254 +0.00013 -0.00013
+# ωc: 0.1177 +0.0006 -0.0006
+# ωm: 0.1409 +0.0006 -0.0006
+# Ωm: 0.301 +0.004 -0.004
+# w0: -1
+# wa: 0
+# r*: 144.89 Mpc
+# z*: 1089.50 +0.18 -0.18
+# r_d: 147.50 +0.19 -0.19 Mpc
+# Log Z: -20.39
+# Chi squared: 15.81
+# Degs of freedom: 13
+# ---------------------------------
+
+
+# Flat wCDM w(z) = w0
+# H0: 69.25 +0.97 -0.93 km/s/Mpc
+# ωb: 0.02250 +0.00013 -0.00013
+# ωc: 0.1183 +0.0009 -0.0009
+# ωm: 0.1414 +0.0008 -0.0008
+# Ωm: 0.295 +0.007 -0.007
+# w0: -1.035 +0.037 -0.039
+# wa: 0
+# r*: 144.78 Mpc
+# z*: 1089.61 +0.21 -0.21
+# r_d: 147.40 +0.22 -0.22 Mpc
+# Log Z: -22.34
+# Chi squared: 15.08
+# Degs of freedom: 12
+# ---------------------------------
+
+
+# Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
+# H0: 67.44 +0.71 -1.05 km/s/Mpc
+# ωb: 0.02257 +0.00013 -0.00013
+# ωc: 0.1174 +0.0007 -0.0007
+# ωm: 0.1406 +0.0007 -0.0007
+# Ωm: 0.309 +0.009 -0.007
+# w0: -0.925 +0.081 -0.053 (prior width 1.0: -1.0 to 0.0; truncated posterior on the left)
+# wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
+# r*: 144.95 Mpc
+# z*: 1089.44 +0.18 -0.18
+# r_d: 147.56 +0.20 -0.20 Mpc
+# Log Z: -21.56
+# Chi squared: 16.43
+# Degs of freedom: 12
+# ---------------------------------
+
+
+# Flat w0waCDM w(z) = w0 + wa * z / (1 + z)
+# TODO
+# ---------------------------------
