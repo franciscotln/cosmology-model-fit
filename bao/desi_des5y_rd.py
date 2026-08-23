@@ -1,8 +1,9 @@
 from numba import njit
 import numpy as np
-from scipy.linalg import cho_factor, solve_triangular
-from interpolator import interp_hermite, interp_pchip
+from scipy.linalg import cho_factor
 from scipy.constants import c as c0
+from interpolator import interp_hermite, interp_pchip
+from solve_triangular import solve_triangular
 from y2025DESdovekie.data import get_data, effective_sample_size as sn_size
 from y2025BAO.data import get_data as get_bao_data
 
@@ -91,16 +92,12 @@ def mu_theory(params, dm_interp):
     return params[0] + 25.0 + 5 * np.log10((1.0 + z_hel) * DM_z(z_cmb, dm_interp))
 
 
-def solve_triang(cho_L, delta):
-    y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
-    return np.dot(y, y)
-
-
+@njit
 def chi_squared(params):
     dm_interp = DM_grid(params)
 
     delta_sn = mu_vals - mu_theory(params, dm_interp) - mu_corr(params, dm_interp)
-    chi_sn = solve_triang(cho_sn, delta_sn)
+    chi_sn = solve_triangular(cho_sn, delta_sn)
 
     delta_bao = bao["value"] - bao_theory(bao["z"], bao_qty, params, dm_interp)
     chi_bao = delta_bao @ inv_cov_bao @ delta_bao
@@ -244,7 +241,7 @@ if __name__ == "__main__":
 # Velocity-like step correction in observed redshifts
 # turning point z <= 0.11 inflow z > 0.11 outflow
 # z_cosmo = -1 + (1 + z) / (1 + v/c)
-
+#
 # v: -1.589 +0.576 -0.574 x 100 km/s
 # ΔM: -0.047 +0.012 -0.012 mag
 # rd: 147.09 +0.26 -0.26 Mpc
