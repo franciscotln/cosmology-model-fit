@@ -1,9 +1,9 @@
 from numba import njit
 import numpy as np
-from scipy.integrate import solve_ivp
 from scipy.constants import c as c0
 from scipy.linalg import cho_factor
 from interpolator import interp_hermite, interp_pchip
+from solve_ivp import solve_ivp
 from solve_triangular import solve_triangular
 import y2018fs8.data as fs8_data
 
@@ -73,7 +73,7 @@ def growth_ODE(a, integr, Om, w0):
     friction = -(3 / a + dE_da_val / E_val) * d_delta_da
     d2_delta_da = friction + source
 
-    return [d_delta_da, d2_delta_da]
+    return np.array([d_delta_da, d2_delta_da])
 
 
 a_span = np.logspace(-2.15, 0, 1000)
@@ -81,6 +81,7 @@ a_init = a_span[0]
 a_end = a_span[-1]
 
 
+@njit
 def fs8_theory(a, Om, sigma8_0, w0):
     sol = solve_ivp(
         growth_ODE,
@@ -113,6 +114,7 @@ def AP_factor(z, Om, w0):
     return Ez(z, Om, w0) * DM(z, Om, w0) / Ez_DMz_fid
 
 
+@njit
 def chi_squared(theta):
     Om, sig8, w0, f_err = theta
     q = AP_factor(z_vals, Om, w0)
@@ -120,6 +122,7 @@ def chi_squared(theta):
     return f_err**2 * solve_triangular(cho, delta)
 
 
+@njit
 def log_likelihood(theta):
     f_err = theta[-1]
     return -0.5 * (chi_squared(theta) - 2 * N * np.log(f_err))
@@ -144,11 +147,16 @@ def log_prior(theta):
     return normalization
 
 
-def log_probability(theta):
+@njit
+def log_probability_jit(theta):
     lp = log_prior(theta)
     if np.isinf(lp):
         return -np.inf
     return lp + log_likelihood(theta)
+
+
+def log_probability(theta):
+    return log_probability_jit(theta)
 
 
 def main():
