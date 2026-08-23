@@ -104,10 +104,12 @@ def solve_ivp(fun, t_span, y0, t_eval, rtol=1e-6, atol=1e-8, args=()):
 
     t = t0
     while t < tf:
-        if t + h > tf:
-            h = tf - t
-
         while True:
+            is_last_step = False
+            if t + h >= tf:
+                h = tf - t
+                is_last_step = True
+
             k2 = fun(t + _C2 * h, y + h * _A21 * k1, *args)
             k3 = fun(t + _C3 * h, y + h * (_A31 * k1 + _A32 * k2), *args)
             k4 = fun(t + _C4 * h, y + h * (_A41 * k1 + _A42 * k2 + _A43 * k3), *args)
@@ -135,7 +137,10 @@ def solve_ivp(fun, t_span, y0, t_eval, rtol=1e-6, atol=1e-8, args=()):
                     if error_norm == 0.0
                     else min(_MAX_FACTOR, _SAFETY * error_norm**_ERR_EXPONENT)
                 )
-                t = t + h
+                if is_last_step:
+                    t = tf
+                else:
+                    t = t + h
                 y = y_new
                 k1 = k7
 
