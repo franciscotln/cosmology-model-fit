@@ -106,17 +106,23 @@ def log_prior(params):
     return normalization
 
 
+@njit
 def log_likelihood(params):
     f_cc = params[0]
     normalization_cc = N_cc * np.log(2 * np.pi) + logdet_cc - 2 * N_cc * np.log(f_cc)
     return -0.5 * chi_squared(params) - 0.5 * normalization_cc
 
 
-def log_probability(params):
+@njit
+def log_probability_jit(params):
     lp = log_prior(params)
     if np.isinf(lp):
         return -np.inf
     return lp + log_likelihood(params)
+
+
+def log_probability(params):
+    return log_probability_jit(params)
 
 
 def main():
@@ -202,63 +208,70 @@ def main():
 if __name__ == "__main__":
     main()
 
-"""
-*******************************
-Dataset: DESI 2025
-*******************************
 
-Flat ΛCDM
-f_cc: 1.48 +0.18 -0.17
-H0: 69.0 +2.3 -2.3 km/s/Mpc
-r_d: 147.1 +5.0 -4.6 Mpc
-Ωm: 0.299 +0.009 -0.008
-ωm: 0.1422 +0.0094 -0.0093
-Chi squared: 45.54
-log likelihood: -147.01
-Log evidence: -158.0
-Degrees of freedom: 45
+# ********************************
+# Data sets:
+# - DESI DR2
+# - CCH compilation
+# ********************************
 
-===============================
 
-Flat wCDM
-f_cc: 1.47 +0.18 -0.17
-H0: 67.7 +2.5 -2.5 km/s/Mpc
-r_d: 147.3 +4.9 -4.7 Mpc
-Ωm: 0.298 +0.009 -0.009
-ωm: 0.1369 +0.0106 -0.0101
-w0: -0.917 +0.074 -0.078 (prior -1.4 to -0.4)
-Chi squared: 44.15
-log likelihood: -146.41
-Log evidence: -159.0
-Degrees of freedom: 44
+# ----------- Flat ΛCDM -----------
+# f_cc: 1.50 +0.17 -0.17
+# H0: 68.9 +2.3 -2.3 km/s/Mpc
+# r_d: 147.2 +4.9 -4.6 Mpc
+# Ωm: 0.299 +0.009 -0.008
+# ωm: 0.1418 +0.0093 -0.0090
+# Chi squared: 47.60
+# log likelihood: -154.49
+# Log evidence: -165.5
+# Degrees of freedom: 47
+# ---------------------------------
 
-===============================
 
-Flat w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
-f_cc: 1.47 +0.18 -0.17
-H0: 66.6 +2.6 -2.6 km/s/Mpc
-r_d: 147.3 +5.0 -4.6 Mpc
-Ωm: 0.312 +0.012 -0.011
-ωm: 0.1382 +0.0096 -0.0092
-w0: -0.786 +0.128 -0.124 (prior from -1.0 to 0.0. Posterior truncated at 1.72 sigma to the left of the mean)
-wa: d w(z)/dz at z=0 = -1.5 * (1 - w0**2)
-Chi squared: 43.65
-log likelihood: -146.21
-Log evidence: -158.1
-Degrees of freedom: 44
+# ----------- Flat wCDM -----------
+# f_cc: 1.50 +0.18 -0.17
+# H0: 67.8 +2.5 -2.5 km/s/Mpc
+# r_d: 147.4 +4.9 -4.5 Mpc
+# Ωm: 0.298 +0.009 -0.009
+# ωm: 0.1369 +0.0103 -0.0100
+# w0: -0.922 +0.074 -0.077 (prior U[-2, 0])
+# Chi squared: 46.44
+# log likelihood: -153.97
+# Log evidence: -167.3
+# Degrees of freedom: 46
+# ---------------------------------
 
-===============================
 
-Flat w0waCDM
-TODO: re-run
-f_cc: 1.43 +0.18 -0.18
-H0: 64.6 +3.7 -3.7 km/s/Mpc
-r_d: 147.2 +5.1 -4.8 Mpc
-Ωm: 0.350 +0.044 -0.047
-ωm: 0.1450 +0.0119 -0.0128
-w0: -0.532 +0.399 -0.355
-wa: -1.541 +1.391 -1.414
-Chi squared: 38.38
-log likelihood: -134.66
-Degrees of freedom: 40
-"""
+# ----------- Flat wzCDM ----------
+# w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
+#
+# f_cc: 1.49 +0.17 -0.17
+# H0: 66.5 +2.6 -2.6 km/s/Mpc
+# r_d: 147.5 +4.9 -4.6 Mpc
+# Ωm: 0.311 +0.012 -0.011
+# ωm: 0.1380 +0.0094 -0.0092
+# w0: -0.795 +0.128 -0.120 (prior U[-1, 0]. Posterior truncated at 1.7 sigma to the left of the mean)
+# wa: d w(z)/dz at z=0 = -1.5 * (1 - w0**2)
+# Chi squared: 45.92
+# log likelihood: -153.82
+# Log evidence: -165.7 (needs Nautilus for better estimate)
+# Degrees of freedom: 46
+# ---------------------------------
+
+
+# ---------- Flat w0waCDM----------
+# Enforced w0 + wa < 0 in likelihood
+#
+# f_cc: 1.47 +0.17 -0.17
+# H0: 65.3 +3.3 -3.2 km/s/Mpc
+# r_d: 147.5 +4.9 -4.6 Mpc
+# Ωm: 0.339 +0.034 -0.045
+# ωm: 0.1430 +0.0113 -0.0127
+# w0: -0.63 +0.30 -0.30 (prior U[-2, 1])
+# wa: -1.2 +1.3 -1.1 (prior U[-3, 1])
+# Chi squared: 44.03
+# log likelihood: -153.41
+# Log evidence: -167.4
+# Degrees of freedom: 45
+# ---------------------------------
