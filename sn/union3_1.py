@@ -37,11 +37,15 @@ def DM_z(z, params):
 
 
 @njit
-def mu_corr(params, DM_obs):
+def get_z_cosmo(params):
     # Heaviside step at z = 0.2
     v_km_s = 100 * params[2] * np.where(z_cmb <= 0.2, 1, -1)
     z_pec = v_km_s / c
-    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+    return -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+
+
+def mu_corr(params, DM_obs):
+    z_cosmo = get_z_cosmo(params)
     return 5 * np.log10(DM_z(z_cosmo, params) / DM_obs)
 
 
@@ -52,8 +56,9 @@ def mu_theory(params, DM):
 
 @njit
 def chi_squared(params):
-    DM = DM_z(z_cmb, params)
-    delta = mu_vals - mu_corr(params, DM) - mu_theory(params, DM)
+    z_cosmo = get_z_cosmo(params)
+    DM = DM_z(z_cosmo, params)
+    delta = mu_vals - mu_theory(params, DM)
     return delta @ inv_cov @ delta
 
 
