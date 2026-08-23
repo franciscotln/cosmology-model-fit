@@ -1,19 +1,21 @@
-from numba import njit, prange
+from numba import njit
 import numpy as np
 from scipy.constants import c as c0
 from scipy.linalg import block_diag
 from interpolator import interp_pchip, interp_hermite
-from y2025BAO.data import get_data
+from y2025BAO.data import get_data as ge_desi_data
 from y2024DESBAO.data import get_data as get_des_data
+from y20116dFBAO.data import get_data as get_6dF_data
 
 c = c0 / 1000  # Speed of light in km/s
 rd = 147.09  # Mpc, fixed
 
-legend_desi, data_desi, cov_desi = get_data()
+legend_desi, data_desi, cov_desi = ge_desi_data()
 legend_des, data_des, cov_des = get_des_data()
+legend_6dF, data_6dF, cov_6dF = get_6dF_data()
 
-data = np.concatenate((data_desi, data_des))
-cov_matrix = block_diag(cov_desi, cov_des)
+data = np.concatenate((data_desi, data_des, data_6dF))
+cov_matrix = block_diag(cov_desi, cov_des, cov_6dF)
 
 inv_cov_bao = np.linalg.inv(cov_matrix)
 
@@ -90,24 +92,20 @@ def log_likelihood(params):
 
 
 @njit
-def log_probability(params):
+def log_probability_jit(params):
     lp = log_prior(params)
     if np.isinf(lp):
         return -np.inf
     return lp + log_likelihood(params)
 
 
-@njit(parallel=True)
-def log_probs_vectorized(batch):
-    N = batch.shape[0]
-    log_probs = np.empty(N, dtype=np.float32)
-    for i in prange(N):
-        log_probs[i] = log_probability(batch[i])
-    return log_probs
+def log_probability(params):
+    return log_probability_jit(params)
 
 
 def main():
     import emcee
+    from multiprocessing import Pool
     from bao.plot_predictions import plot_bao_predictions, plot_bao_residuals
     from gelman_rubin import gelman_rubin
     from log_evidence import log_evidence
@@ -120,16 +118,17 @@ def main():
     nsteps = 5000 + burn_in
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (n_walkers, n_dim))
     moves = [
-        (emcee.moves.KDEMove(bw_method="silverman"), 0.20),
+        (emcee.moves.KDEMove(), 0.20),
         (emcee.moves.DEMove(), 0.80),
     ]
 
-    sampler = emcee.EnsembleSampler(
-        n_walkers, n_dim, log_probs_vectorized, moves=moves, vectorize=True
-    )
-    sampler.run_mcmc(
-        initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#ff5a00"}
-    )
+    with Pool(6) as pool:
+        sampler = emcee.EnsembleSampler(
+            n_walkers, n_dim, log_probability, moves=moves, pool=pool
+        )
+        sampler.run_mcmc(
+            initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#ff5a00"}
+        )
 
     try:
         tau = sampler.get_autocorr_time()
@@ -148,9 +147,9 @@ def main():
     print("Gelman-Rubin:", gelman_rubin(chain_samples))
 
     [
-        [h_16, h_50, h_84],
-        [Om_16, Om_50, Om_84],
-        [w0_16, w0_50, w0_84],
+        (h_16, h_50, h_84),
+        (Om_16, Om_50, Om_84),
+        (w0_16, w0_50, w0_84),
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
     best_fit = np.percentile(samples, 50, axis=0)
@@ -185,60 +184,62 @@ if __name__ == "__main__":
     main()
 
 
-"""
-*******************************
-Dataset: DESI DR2 2024 + DES6Y BAO
-*******************************
+# *********************************
+# Dataset: DESI DR2 + DES6Y BAO + 6dF BAO
+# *********************************
 
-Flat ΛCDM:
-rd: 147.09 Mpc (fixed)
-h: 0.691 +0.005 -0.005
-Ωm: 0.297 +0.009 -0.008
-w0: -1
-wa: 0
-Chi squared: 10.79
-Log evidence: -12.46
-Degs of freedom: 11
-R^2: 0.9987
-RMSD: 0.305
-"""
 
-"""
-Flat wCDM:
-rd: 147.09 Mpc (fixed)
-h: 0.679 +0.012 -0.011
-Ωm: 0.297 +0.009 -0.009
-w0: -0.916 +0.076 -0.080 (prior width 1.0: from -1.4 to -0.4)
-Chi squared: 9.66
-Log evidence: -13.49
-Degs of freedom: 11
-R^2: 0.9989
-RMSD: 0.279
-"""
+# ----------- Flat ΛCDM -----------
+# rd: 147.09 Mpc (fixed)
+# h: 0.691 +0.005 -0.005
+# Ωm: 0.297 +0.009 -0.008
+# Chi squared: 10.93
+# Log evidence: -12.54
+# Degs of freedom: 14
+# R^2: 0.9988
+# RMSD: 0.305
+# ---------------------------------
 
-"""
-Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
-rd: 147.09 Mpc (fixed)
-h: 0.666 +0.014 -0.015
-Ωm: 0.312 +0.012 -0.012
-w0: -0.768 +0.133 -0.130 (prior width 1.0: from -1.0 to 0.0) - left side truncated
-Chi squared: 8.81
-Log evidence: -12.45
-Degs of freedom: 11
-R^2: 0.9989
-RMSD: 0.277
-"""
 
-"""
-Flat w0waCDM:
-rd: 147.09 Mpc (fixed)
-h: 0.621 +0.032 -0.029
-Ωm: 0.386 +0.046 -0.046
-w0: -0.184 +0.443 -0.422 (prior width 2.5: -1.5 to 1.0)
-wa: -2.721 +1.492 -1.535 (prior width 10.0: -8.0 to 2.0)
-Chi squared: 5.63
-Log evidence: -14.50
-Degs of freedom: 9
-R^2: 0.9994
-RMSD: 0.202
-"""
+# ----------- Flat wCDM -----------
+# rd: 147.09 Mpc (fixed)
+# h: 0.681 +0.012 -0.011
+# Ωm: 0.296 +0.009 -0.009
+# w0: -0.927 +0.075 -0.078 (prior U[-2, 0])
+# Chi squared: 10.02
+# Log evidence: -14.41
+# Degs of freedom: 13
+# R^2: 0.9990
+# RMSD: 0.286
+# ---------------------------------
+
+
+# ----------- Flat wzCDM ----------
+# w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
+#
+# rd: 147.09 Mpc (fixed)
+# h: 0.670 +0.013 -0.014
+# Ωm: 0.309 +0.012 -0.011
+# w0: -0.799 +0.127 -0.119 (prior U[-1, 0]) - left side truncated
+# Chi squared: 9.49
+# Log evidence: -12.81
+# Degs of freedom: 13
+# R^2: 0.9991
+# RMSD: 0.272
+# ---------------------------------
+
+
+# ---------- Flat w0waCDM ---------
+# w0 + wa < 0 enforced in the likelihood
+#
+# rd: 147.09 Mpc (fixed)
+# h: 0.652 +0.027 -0.021
+# Ωm: 0.343 +0.030 -0.041
+# w0: -0.57 +0.27 -0.32 (prior U[-3, 1])
+# wa: < -1.412 (prior U[-3, 2]) truncated posterior
+# Chi squared: 8.23
+# Log evidence: -14.77
+# Degs of freedom: 12
+# R^2: 0.9992
+# RMSD: 0.246
+# ---------------------------------
