@@ -47,21 +47,26 @@ def mu_theory(DM):
 
 
 @njit
-def mu_corr(params, DM_obs):
+def get_z_cosmo(params):
     DZ = 0.02  # sharpness of the transition
     Z_C = 0.10  # redshift where the velocity drops by 50%
     attenuation = 0.5 * (1.0 - np.tanh((z_cmb - Z_C) / DZ))
     v_los = nx * params[3] + ny * params[4] + nz * params[5]
     v_km_s = 100 * v_los * attenuation * survey_mask
     z_pec = v_km_s / c
-    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+    return -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+
+
+def mu_corr(params, DM_obs):
+    z_cosmo = get_z_cosmo(params)
     return 5.0 * np.log10(DM_z(params, z_cosmo) / DM_obs)
 
 
 @njit
 def chi_squared(params):
-    DM = DM_z(params, z_cmb)
-    delta = mb_vals - params[0] - mu_corr(params, DM) - mu_theory(DM)
+    M = params[0]
+    z_cosmo = get_z_cosmo(params)
+    delta = mb_vals - M - mu_theory(DM_z(params, z_cosmo))
     return solve_triangular(cho, delta)
 
 
