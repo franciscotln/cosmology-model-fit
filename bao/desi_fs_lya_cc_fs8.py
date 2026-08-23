@@ -1,8 +1,8 @@
 from numba import njit
 import numpy as np
 from scipy.constants import c as c0
-from scipy.integrate import solve_ivp
 from interpolator import interp_hermite, interp_pchip
+from solve_ivp import solve_ivp
 from y2025BAO.data_fs_lya import get_data as get_bao_data
 from y2005cc.data import get_data as get_cc_data
 import y2018fs8.data as fs8
@@ -106,13 +106,14 @@ def growth_ODE(a, y, params):
     friction = -(3 / a + dH_da_val / H_val) * d_delta_da
     d2_delta_da = friction + source
 
-    return [d_delta_da, d2_delta_da]
+    return np.array([d_delta_da, d2_delta_da])
 
 
 max_z = 200
 a_span = np.logspace(np.log10(1 / (1 + max_z)), 0, 2000)
 
 
+@njit
 def fs8_theory(a, params):
     sol = solve_ivp(
         growth_ODE,
@@ -131,6 +132,7 @@ def fs8_theory(a, params):
     return (sigma8_0 / delta_0) * a * interp_pchip(a, a_span, d_delta_da)
 
 
+@njit
 def chi2_fs8(params):
     q = H_z(z_fs8, params) * DM_z(z_fs8, params) / Hz_DMz_fid
     delta = fs8_values - fs8_theory(a_fs8, params) / q
@@ -168,11 +170,13 @@ def chi2_bao(params):
     return delta @ inv_cov_bao @ delta
 
 
+@njit
 def chi_squared(params):
     return chi2_cc(params) + chi2_fs8(params) + chi2_bao(params)
 
 
-def log_likelihood(params):
+@njit
+def log_likelihood_jit(params):
     normalization_cc = (
         N_cc * np.log(2 * np.pi) + logdet_cc - 2 * N_cc * np.log(params[3])
     )
@@ -182,6 +186,10 @@ def log_likelihood(params):
     )
 
     return -0.5 * (chi_squared(params) + normalization_cc + normalization_fs8)
+
+
+def log_likelihood(params):
+    return log_likelihood_jit(params)
 
 
 def main():
