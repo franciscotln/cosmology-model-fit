@@ -49,12 +49,8 @@ cmb.set_HZ(Hz)
 
 
 @njit
-def DM_z(z, params):
-    dh_grid = c / Hz(z_grid, params)
-    dh = (dh_grid[:-1] + dh_grid[1:]) / 2
-    cum_dm = np.zeros(z_grid.size, dtype=np.float64)
-    cum_dm[1:] = np.cumsum(dz * dh)
-    return interp_hermite(z, z_grid, cum_dm, dh_grid)
+def DM_z(z, dm_grid):
+    return interp_hermite(z, z_grid, *dm_grid)
 
 
 @njit
@@ -67,14 +63,19 @@ def DM_grid(params):
 
 
 @njit
-def mu_corr(params, DM_interp):
+def get_z_cosmo(params):
     # Heaviside step at z = 0.2
     v_km_s = 100 * params[4] * np.where(z_cmb <= 0.2, 1, -1)
     z_pec = v_km_s / c
-    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+    return -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
 
-    DM_cosmo = interp_hermite(z_cosmo, z_grid, *DM_interp)
-    DM_obs = interp_hermite(z_cmb, z_grid, *DM_interp)
+
+def mu_corr(params):
+    # For plotting purposes only
+    dm_interp = DM_grid(params)
+    z_cosmo = get_z_cosmo(params)
+    DM_cosmo = DM_z(z_cosmo, dm_interp)
+    DM_obs = DM_z(z_cmb, dm_interp)
     return 5 * np.log10(DM_cosmo / DM_obs)
 
 
@@ -88,9 +89,9 @@ def chi_squared(params):
     delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(params[2], params[3], params)
     chi2_cmb = delta_cmb @ cmb.inv_cov_mat @ delta_cmb
 
-    DM_interp = DM_grid(params)
-    DM = interp_hermite(z_cmb, z_grid, *DM_interp)
-    delta_sn = mu_vals - mu_theory(params[0], DM) - mu_corr(params, DM_interp)
+    z_cosmo = get_z_cosmo(params)
+    dm_cosmo = DM_z(z_cosmo, DM_grid(params))
+    delta_sn = mu_vals - mu_theory(offset=params[0], DM=dm_cosmo)
     chi_sn = delta_sn @ inv_cov_sn @ delta_sn
 
     return chi2_cmb + chi_sn
@@ -166,7 +167,7 @@ def main():
     plot_predictions(
         legend=sn_legend,
         x=z_cmb,
-        y=mu_vals - mu_corr(best_fit, DM_grid(best_fit)),
+        y=mu_vals - mu_corr(best_fit),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=mu_theory(
             best_fit[0], interp_hermite(z_cmb, z_grid, *DM_grid(best_fit))

@@ -66,25 +66,32 @@ def DM_z(z, DM_interp):
 
 
 @njit
-def mu_corr(params, DM_inter):
+def get_z_cosmo(params):
     # z_turn = 0.10563
     v_km_s = 100 * params[4] * np.where(z_cmb <= 0.11, 1, -1)
     z_pec = v_km_s / c
-    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+    return -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
 
+
+def mu_corr(params, DM_inter):
+    # For plotting purposes only
+    z_cosmo = get_z_cosmo(params)
     return 5.0 * np.log10(DM_z(z_cosmo, DM_inter) / DM_z(z_cmb, DM_inter))
 
 
 @njit
-def theory_mu(params, DM_inter):
-    return params[0] + 25 + 5 * np.log10((1.0 + z_hel) * DM_z(z_cmb, DM_inter))
+def theory_mu(params, DM):
+    return params[0] + 25 + 5 * np.log10((1.0 + z_hel) * DM)
 
 
 @njit
 def chi2_sn(params):
+    z_cosmo = get_z_cosmo(params)
     DM_inter = DM_grid(params)
-    delta_sn = mu_vals - theory_mu(params, DM_inter) - mu_corr(params, DM_inter)
-    return solve_triangular(cho_sn, delta_sn)
+    DM = DM_z(z_cosmo, DM_inter)
+
+    delta = mu_vals - theory_mu(params, DM)
+    return solve_triangular(cho_sn, delta)
 
 
 @njit
@@ -154,7 +161,7 @@ def main():
 
     best_fit = gd_samples.mean(prior.keys)
     dm_inter = DM_grid(best_fit)
-    mu_pred = theory_mu(best_fit, dm_inter)
+    mu_pred = theory_mu(best_fit, DM_z(z_cmb, dm_inter))
     mu_corrected = mu_vals - mu_corr(best_fit, dm_inter)
     residuals = mu_corrected - mu_pred
     mu_std = np.sqrt(np.diag(cov_matrix_sn))
