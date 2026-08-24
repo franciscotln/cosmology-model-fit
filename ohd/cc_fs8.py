@@ -1,9 +1,9 @@
 from numba import njit
 import numpy as np
 from scipy.constants import c as c0
-from scipy.integrate import solve_ivp
 from scipy.linalg import cho_factor
 from interpolator import interp_hermite, interp_pchip
+from solve_ivp import solve_ivp
 from solve_triangular import solve_triangular
 from y2005cc.data import get_data
 import y2018fs8.data as fs8
@@ -80,13 +80,14 @@ def growth_ODE(a, y, params):
     friction = -(3 / a + dH_da_val / H_val) * d_delta_da
     d2_delta_da = friction + source
 
-    return [d_delta_da, d2_delta_da]
+    return np.array([d_delta_da, d2_delta_da])
 
 
 max_z = 200
 a_span = np.logspace(np.log10(1 / (1 + max_z)), 0, 1_000)
 
 
+@njit
 def fs8_theory(a, params):
     sol = solve_ivp(
         growth_ODE,
@@ -117,6 +118,7 @@ for i in range(N_fs8):
     Hz_DMz_fid[i] = H_z(zi, params) * DM_i
 
 
+@njit
 def chi2_fs8(params):
     q = H_z(z_fs8, params) * DM(z_fs8, params) / Hz_DMz_fid
 
@@ -130,18 +132,20 @@ def chi2_cc(params):
     return  params[3] ** 2 * solve_triangular(cho_cc, delta)
 
 
+@njit
 def chi_squared(params):
     return chi2_cc(params) + chi2_fs8(params)
 
 
-def log_likelihood_single(params):
+@njit
+def log_likelihood_jit(params):
     normalization_cc = -2 * N_cc * np.log(params[3])
     normalization_fs8 = -2 * N_fs8 * np.log(params[4])
     return -0.5 * (chi_squared(params) + normalization_cc + normalization_fs8)
 
 
-def log_likelihood(batch):
-    return np.array([log_likelihood_single(params) for params in batch])
+def log_likelihood(params):
+    return log_likelihood_jit(params)
 
 
 def main():
@@ -162,13 +166,7 @@ def main():
 
     with Pool(6) as pool:
         sampler = Sampler(
-            prior,
-            log_likelihood,
-            n_live=6_000,
-            pool=pool,
-            seed=42,
-            pass_dict=False,
-            vectorized=True,
+            prior, log_likelihood, n_live=6_000, pool=pool, seed=42, pass_dict=False,
         )
         sampler.run(verbose=True)
 
@@ -215,7 +213,7 @@ def main():
     print(f"f_fs8: {fs_50:.2f} +{(fs_84 - fs_50):.2f} -{(fs_50 - fs_16):.2f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
-    print(f"Log likelihood: {log_likelihood_single(best_fit):.2f}")
+    print(f"Log likelihood: {log_likelihood(best_fit):.2f}")
     print(f"Log evidence: {log_evd:.1f}")
     print(f"Degs of freedom: {len(z_cc) + len(z_fs8) - len(best_fit)}")
 
