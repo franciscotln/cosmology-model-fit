@@ -44,15 +44,17 @@ def DM_z(z, theta):
     return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
-correction_mask = (z_cmb <= 0.15) & ~ceph_mask
-
-
 @njit
-def mu_corr(params, DM_cmb):
-    v_km_s = 100 * params[3] * np.where(correction_mask, 1, -1)
+def get_z_cosmo(params):
+    v_km_s = 100 * params[3] * np.where(z_cmb <= 0.15, 1, -1)
     z_pec = v_km_s / c
-    z_cosmo = (1.0 + z_cmb) / (1.0 + z_pec) - 1.0
-    return 5.0 * np.log10(DM_z(z_cosmo, params) / DM_cmb)
+    return (1.0 + z_cmb) / (1.0 + z_pec) - 1.0
+
+
+def mu_corr(params, DM_obs):
+    # for plotting purposes only
+    z_cosmo = get_z_cosmo(params)
+    return 5.0 * np.log10(DM_z(z_cosmo, params) / DM_obs)
 
 
 @njit
@@ -62,9 +64,12 @@ def mu_theory(DM_cmb):
 
 @njit
 def chi_squared(params):
-    DM_cmb = DM_z(z_cmb, params)
-    mu_pred = np.where(ceph_mask, ceph_dists, mu_theory(DM_cmb))
-    mB_theory = mu_pred + params[0] + mu_corr(params, DM_cmb)
+    M = params[0]
+    z_cosmo = get_z_cosmo(params)
+    DM = DM_z(z_cosmo, params)
+
+    mu_pred = np.where(ceph_mask, ceph_dists, mu_theory(DM))
+    mB_theory = mu_pred + M
     delta = mB_vals - mB_theory
     return solve_triangular(cho, delta)
 
@@ -156,7 +161,7 @@ def main():
 
     dm_cmb = DM_z(z_cmb, best_fit)
     mu_pred = mu_theory(dm_cmb)
-    mB_corrected = mB_vals - mu_corr(best_fit, dm_cmb)
+    mB_corrected = mB_vals - np.where(ceph_mask, 0.0, mu_corr(best_fit, dm_cmb))
     residuals = mB_corrected - M_50 - np.where(ceph_mask, ceph_dists, mu_pred)
 
     ss_res = np.sum(residuals**2)
@@ -227,16 +232,15 @@ if __name__ == "__main__":
 # turning point z <= 0.15 inflow z > 0.15 outflow)
 # z_cosmo = -1 + (1 + z) / (1 + v/c)
 #
-# M: -19.197 +0.042/-0.042 mag
-# H0: 75.32 +1.55/-1.53 km/s/Mpc
-# Ωm: 0.325 +0.018/-0.018
-# v: -0.31 +0.20/-0.19 x 100 km/s
+# M: -19.24 +0.03/-0.03 mag
+# H0: 74.04 +1.06/-1.06 km/s/Mpc
+# Ωm: 0.315 +0.021/-0.020
+# v: -0.70 +0.42/-0.42 x 100 km/s
 # R-squared (%): 99.78
 # RMSD (mag): 0.153
-# Skewness of residuals: 0.066
-# kurtosis of residuals: 1.581
-# Chi squared: 1449.54 (1.57 sigma significance)
-# Log Evidence: -737.19
+# Skewness of residuals: 0.050
+# kurtosis of residuals: 1.559
+# Chi squared: 1449.17 (1.69 sigma significance)
 # -----------------------------
 
 
