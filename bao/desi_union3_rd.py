@@ -61,6 +61,7 @@ bao_qty = np.array([qty_map[q] for q in bao["quantity"]], dtype=np.int32)
 
 @njit
 def bao_theory(z, qty, params, dm_interp):
+    rd = params[1]
     DM = DM_z(z, dm_interp)
     DH = DH_z(z, dm_interp)
 
@@ -68,10 +69,10 @@ def bao_theory(z, qty, params, dm_interp):
     DM_mask = qty == 1
     DH_mask = qty == 2
     results = np.empty(z.size, dtype=np.float64)
-    results[DH_mask] = DH[DH_mask]
-    results[DM_mask] = DM[DM_mask]
-    results[DV_mask] = DV_z(z[DV_mask], DH[DV_mask], DM[DV_mask])
-    return results / params[1]
+    results[DH_mask] = DH[DH_mask] / rd
+    results[DM_mask] = DM[DM_mask] / rd
+    results[DV_mask] = DV_z(z[DV_mask], DH[DV_mask], DM[DV_mask]) / rd
+    return results
 
 
 # z node
@@ -99,23 +100,31 @@ def bao_theory(z, qty, params, dm_interp):
 
 
 @njit
-def mu_corr(params, dm_interp):
+def get_z_cosmo(params):
     # Heaviside step at z = 0.2
     v_km_s = 100 * params[4] * np.where(z_cmb <= 0.2, 1, -1)
-    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + v_km_s / c)
+    return -1.0 + (1.0 + z_cmb) / (1.0 + v_km_s / c)
+
+
+def mu_corr(params, dm_interp):
+    # For plotting purposes only
+    z_cosmo = get_z_cosmo(params)
     return 5.0 * np.log10(DM_z(z_cosmo, dm_interp) / DM_z(z_cmb, dm_interp))
 
 
 @njit
-def mu_theory(params, dm_interp):
-    return params[0] + 25.0 + 5 * np.log10((1.0 + z_hel) * DM_z(z_cmb, dm_interp))
+def mu_theory(params, DM):
+    return params[0] + 25.0 + 5 * np.log10((1.0 + z_hel) * DM)
 
 
 @njit
 def chi_squared(params):
     dm_interp = DM_grid(params)
 
-    delta_sn = mu_vals - mu_theory(params, dm_interp) - mu_corr(params, dm_interp)
+    z_cosmo = get_z_cosmo(params)
+    DM_cosmo = DM_z(z_cosmo, dm_interp)
+
+    delta_sn = mu_vals - mu_theory(params, DM_cosmo)
     chi_sn = delta_sn @ inv_cov_sn @ delta_sn
 
     delta_bao = bao["value"] - bao_theory(bao["z"], bao_qty, params, dm_interp)
@@ -207,7 +216,7 @@ def main():
         x=z_cmb,
         y=mu_vals - mu_corr(best_fit, DM_grid(best_fit)),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=mu_theory(best_fit, DM_grid(best_fit)),
+        y_model=mu_theory(best_fit, DM_z(z_cmb, DM_grid(best_fit))),
         label=f"$Ω_m$={Om_50:.3f}",
         x_scale="log",
     )
