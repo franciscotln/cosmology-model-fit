@@ -1,15 +1,17 @@
 from numba import njit
 import numpy as np
 from scipy.constants import c as c0
+from scipy.linalg import cho_factor
 from interpolator import interp_hermite
+from solve_triangular import solve_triangular
 from y2005cc.data import get_data as get_cc_data
 from y2025BAO.data import get_data as get_bao_data
 
 cc_legend, z_cc_vals, H_cc_vals, cc_cov_matrix = get_cc_data()
 bao_legend, data, bao_cov_matrix = get_bao_data()
 
-inv_cov_bao = np.linalg.inv(bao_cov_matrix)
-inv_cov_cc = np.linalg.inv(cc_cov_matrix)
+cho_bao = cho_factor(bao_cov_matrix, lower=True)[0]
+cho_cc = cho_factor(cc_cov_matrix, lower=True)[0]
 
 logdet_cc = np.linalg.slogdet(cc_cov_matrix)[1]
 N_cc = len(z_cc_vals)
@@ -79,10 +81,10 @@ def theory_bao(z, qty, params):
 def chi_squared(params):
     f_cc = params[0]
     delta_cc = H_cc_vals - H_z(z_cc_vals, params)
-    chi_cc = f_cc**2 * delta_cc @ inv_cov_cc @ delta_cc
+    chi_cc = f_cc**2 * solve_triangular(cho_cc, delta_cc)
 
     delta_bao = data["value"] - theory_bao(data["z"], desi_qty, params)
-    chi_bao = delta_bao @ inv_cov_bao @ delta_bao
+    chi_bao = solve_triangular(cho_bao, delta_bao)
     return chi_cc + chi_bao
 
 
@@ -147,7 +149,7 @@ def main():
 
     with Pool(5) as pool:
         sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
-        sampler.run_mcmc(initial_pos, nsteps, progress=True)
+        sampler.run_mcmc(initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#ff5a00"})
 
     try:
         tau = sampler.get_autocorr_time()
