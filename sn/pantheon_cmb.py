@@ -60,11 +60,16 @@ def DM_z(z, params):
 
 
 @njit
-def mu_corr(params, DM_ref):
+def get_z_cosmo(params):
     # Heaviside step at z = 0.15
     v_km_s = 100 * params[4] * np.where(z_cmb <= 0.15, 1, -1)
     z_pec = v_km_s / c
-    z_cosmo = (1.0 + z_cmb) / (1.0 + z_pec) - 1.0
+    return (1.0 + z_cmb) / (1.0 + z_pec) - 1.0
+
+
+def mu_corr(params, DM_ref):
+    # For plotting purposes only
+    z_cosmo = get_z_cosmo(params)
     return 5.0 * np.log10(DM_z(z_cosmo, params) / DM_ref)
 
 
@@ -78,8 +83,9 @@ def chi_squared(params):
     delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(params[2], params[3], params)
     chi2_cmb = delta @ cmb.inv_cov_mat @ delta
 
-    DM = DM_z(z_cmb, params)
-    delta_sn = mb_values - params[0] - mu_theory(DM) - mu_corr(params, DM)
+    M = params[0]
+    z_cosmo = get_z_cosmo(params)
+    delta_sn = mb_values - M - mu_theory(DM_z(z_cosmo, params))
     chi_sn = solve_triangular(cho_sn, delta_sn)
 
     return chi2_cmb + chi_sn
@@ -176,12 +182,16 @@ def main():
     z_star_samples = cmb.z_star(samples[:, 2], Omh2_samples)
     z_drag_samples = cmb.z_drag(samples[:, 2], Omh2_samples)
     r_drag_samples = cmb.r_drag(samples[:, 2], Omh2_samples)
+    r_star_samples = [
+        cmb.rs_z(z_star_samples[i], samples[i, 2], samples[i]) for i in range(samples.shape[0])
+    ]
 
     Omh2_16, Omh2_50, Omh2_84 = np.percentile(Omh2_samples, one_sigma_conf_int)
     Om_16, Om_50, Om_84 = np.percentile(Om_samples, one_sigma_conf_int)
     z_st_16, z_st_50, z_st_84 = np.percentile(z_star_samples, one_sigma_conf_int)
     z_d_16, z_d_50, z_d_84 = np.percentile(z_drag_samples, one_sigma_conf_int)
     r_d_16, r_d_50, r_d_84 = np.percentile(r_drag_samples, one_sigma_conf_int)
+    rs_16, rs_50, rs_84 = np.percentile(r_star_samples, one_sigma_conf_int)
 
     print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
@@ -192,7 +202,7 @@ def main():
     print(f"M: {M_50:.3f} +{(M_84 - M_50):.3f} -{(M_50 - M_16):.3f} mag")
     print(f"z*: {z_st_50:.2f} +{(z_st_84 - z_st_50):.2f} -{(z_st_50 - z_st_16):.2f}")
     print(f"z_d: {z_d_50:.2f} +{(z_d_84 - z_d_50):.2f} -{(z_d_50 - z_d_16):.2f}")
-    print(f"r* = {cmb.rs_z(z_st_50, Obh2_50, best_fit):.2f} Mpc")
+    print(f"r* = {rs_50:.2f} +{(rs_84 - rs_50):.2f} -{(rs_50 - rs_16):.2f} Mpc")
     print(f"rd: {r_d_50:.2f} +{(r_d_84 - r_d_50):.2f} -{(r_d_50 - r_d_16):.2f} Mpc")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
 
@@ -242,7 +252,7 @@ if __name__ == "__main__":
 # ωc: 0.11936 +0.00114 -0.00115
 # z*: 1089.69 +0.21 -0.21
 # z_d: 1060.17 +0.23 -0.23
-# r* = 144.51 Mpc
+# r* = 144.51 +0.28 -0.27 Mpc
 # rd: 147.13 +0.28 -0.28 Mpc
 # Chi squared: 1400.16 (1.95 sigma significance)
 # ---------------------------------
