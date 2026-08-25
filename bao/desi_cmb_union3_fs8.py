@@ -1,6 +1,6 @@
 from numba import njit
 import numpy as np
-from scipy.integrate import solve_ivp
+from solve_ivp import solve_ivp
 from interpolator import interp_hermite, interp_pchip
 import cmb.data_planck_act_compression as cmb
 from y2026union3_1.data import get_data as get_sn_data
@@ -163,12 +163,13 @@ def growth_ODE(a, y, theta):
     friction = -(3 / a + dH_da_vals / H_vals) * d_delta_da
     d2_delta_da = source + friction
 
-    return [d_delta_da, d2_delta_da]
+    return np.array([d_delta_da, d2_delta_da])
 
 
 a_span = np.logspace(-2.7, 0, 2500, dtype=np.float64)
 
 
+@njit
 def fs8_theory(a, theta):
     sol = solve_ivp(
         growth_ODE,
@@ -202,6 +203,7 @@ for i in range(N_fs8):
     Hz_DMz_fid[i] = H_i * DM_i
 
 
+@njit
 def chi2_fs8(theta):
     q = H_z(z_fs8, theta) * DM_z(z_fs8, theta) / Hz_DMz_fid
     delta_fs8 = fs8_vals - fs8_theory(a_fs8, theta) / q
@@ -227,6 +229,7 @@ def chi2_cmb(theta):
     return delta_cmb @ cmb.inv_cov_mat @ delta_cmb
 
 
+@njit
 def chi_squared(theta):
     return chi2_fs8(theta) + chi2_sn(theta) + chi2_bao(theta) + chi2_cmb(theta)
 
