@@ -66,6 +66,8 @@ def mu_corr(params, DM_obs):
 def chi_squared(params):
     M = params[0]
     z_cosmo = get_z_cosmo(params)
+    if np.any(z_cosmo <= 0.0):
+        return 1e8
     delta = mb_vals - M - mu_theory(DM_z(params, z_cosmo))
     return solve_triangular(cho, delta)
 

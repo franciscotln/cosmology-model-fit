@@ -7,7 +7,7 @@ path_to_data = os.path.dirname(os.path.abspath(__file__)) + "/raw-data/"
 data_frame = pd.read_csv(path_to_data + "distances.txt", sep=" ")
 cov_file = pd.read_csv(path_to_data + "covariance_stat_sys.txt", sep=" ")
 selected_columns = data_frame[
-    ["zHD", "zHEL", "m_b_corr", "CEPH_DIST", "IS_CALIBRATOR", "RA", "DEC"]
+    ["zHD", "zHEL", "m_b_corr", "CEPH_DIST", "IS_CALIBRATOR", "RA", "DEC", "IDSURVEY"]
 ]
 
 legend = "Pantheon+ and SH0ES"
@@ -17,6 +17,7 @@ apparent_mag = selected_columns["m_b_corr"].to_numpy(dtype=np.float64)
 cepheid_distances = selected_columns["CEPH_DIST"].to_numpy(dtype=np.float64)
 RA = selected_columns["RA"].to_numpy(dtype=np.float64)
 DEC = selected_columns["DEC"].to_numpy(dtype=np.float64)
+IDSURVEY = selected_columns["IDSURVEY"].to_numpy(dtype=np.int32)
 
 n = z_values.size
 covariance_matrix = cov_file["cov_mu_shoes"].to_numpy(dtype=np.float64).reshape((n, n))
@@ -51,5 +52,6 @@ def get_data_with_positions(z_cut_ceph=0.0):
         cepheid_distances[pantheon_SH0ES_range],
         RA[pantheon_SH0ES_range],
         DEC[pantheon_SH0ES_range],
+        IDSURVEY[pantheon_SH0ES_range],
         covariance_matrix[np.ix_(pantheon_SH0ES_range, pantheon_SH0ES_range)],
     )
