@@ -324,7 +324,7 @@ if __name__ == "__main__":
 # w0: -0.878 +0.055 -0.056 (prior U[-1.5, -0.5])
 # Chi squared: 106.05
 # Log likelihood: -46.83 (2.14 sigma significance)
-# Log evidence: -66.7 (Δ logZ = 0.4 against ΛCDM)
+# Log evidence: -66.7 (Δ logZ = 0.4 in favour of wCDM)
 # Degs of freedom: 101
 # ---------------------------------
 
@@ -341,11 +341,41 @@ if __name__ == "__main__":
 # w0: -0.731 +0.085 -0.094 (prior U[-1, 0])
 # Chi squared: 104.70
 # Log likelihood: -45.45 (2.71 sigma significance)
-# Log evidence: -64.9 (Δ logZ = 2.2 against ΛCDM)
+# Log evidence: -64.9 (Δ logZ = 2.2 in favour of wzCDM)
+# Degs of freedom: 101
+#
+# -*-*-*-*-
+#
+# w(z) = -1 + 2 * (1 + w0) / (1 + (1 + z)^3)
+# H0: 65.9 +2.4 -2.4 km/s/Mpc
+# Ωm: 0.317 +0.009 -0.009
+# σ8: 0.818 +0.014 -0.014
+# S8: 0.841 +0.021 -0.020
+# f_cc: 1.49 +0.18 -0.17
+# f_fs8: 1.91 +0.19 -0.18
+# rd: 147.8 +4.9 -4.6 Mpc
+# w0: -0.785 +0.076 -0.078 (prior U[-1, 0])
+# Chi squared: 105.05
+# Log likelihood: -45.71 (2.62 sigma significance)
+# Log evidence: -65.3 (Δ logZ = 1.8 in favour of wzCDM)
 # Degs of freedom: 101
 # ---------------------------------
 
 
 # ---------- Flat w0waCDM ---------
-# TODO
+# w0 + wa < 0 enforced in the likelihood
+#
+# H0: 64.5 +2.5 -2.4 km/s/Mpc
+# Ωm: 0.352 +0.018 -0.019
+# σ8: 0.801 +0.014 -0.014
+# S8: 0.866 +0.024 -0.024
+# f_cc: 1.47 +0.17 -0.17
+# f_fs8: 1.91 +0.19 -0.18
+# rd: 147.6 +4.9 -4.7 Mpc
+# w0: -0.54 +0.16 -0.15 (prior U[-2, 1])
+# wa: -1.55 +0.63 -0.62 (prior U[-4, 1])
+# Chi squared: 100.14
+# Log likelihood: -43.75 (2.60 sigma significance)
+# Log evidence: -66.1 (Δ logZ = 1.0 in favour of w0waCDM)
+# Degs of freedom: 100
 # ---------------------------------
