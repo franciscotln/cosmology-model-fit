@@ -260,4 +260,15 @@ if __name__ == "__main__":
 # DOF: 12
 # w0 + wa < 0 enforced in the likelihood
 # Correction in prior volume: ln(4 * 5 / (4 * 5 - (0.5 * 3 ** 2))) ~ 0.25
+#
+#
+# imposing the constraint -1 <= w0 + wa < 0 then:
+# H0: 69.3 ± 1.3 km/s/Mpc
+# Ωm: 0.293 ± 0.010
+# w0: -1.075 ± 0.077 (prior U[-3.0, 1.0])
+# wa: 0.165 ± 0.142 (prior U[-3.0, 2.0])
+# r_d: 147.55 ± 0.23
+# χ2 (MAP): 16.46
+# Log evidence: -29.0
+# DOF: 12
 # -------------------------------------------
