@@ -15,11 +15,11 @@ sn_legend, z_cmb, z_hel, mu_values, cov_matrix_sn = get_sn_data()
 bao_legend, bao, bao_cov_matrix = get_bao_data()
 
 cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
-inv_cov_bao = np.linalg.inv(bao_cov_matrix)
+cho_bao = cho_factor(bao_cov_matrix, lower=True)[0]
 
 z_max = max(np.max(z_cmb), np.max(bao["z"])) + 0.1
 z_grid = np.linspace(0, z_max, num=4000)
-dz = np.diff(z_grid)
+dz = z_grid[1] - z_grid[0]
 
 
 @njit
@@ -32,7 +32,10 @@ def Ode_z(z, w0):
 
 
 @njit
-def Ez(z, h, Obh2, Och2):
+def H_z(z, params):
+    H0, Obh2, Och2 = params[1], params[2], params[3]
+    h = H0 / 100
+
     Onu = Omnuh2 / h**2
     Or = Orh2 / h**2
     Obc = (Obh2 + Och2) / h**2
@@ -45,13 +48,7 @@ def Ez(z, h, Obh2, Och2):
     neutrino_term = Onu * cmb.Omnu_z(z)
     dark_energy_term = Ode
 
-    return np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
-
-
-@njit
-def H_z(z, params):
-    H0 = params[1]
-    return H0 * Ez(z, h=H0 / 100, Obh2=params[2], Och2=params[3])
+    return H0 * np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
 
 
 cmb.set_HZ(H_z)
@@ -60,9 +57,30 @@ cmb.set_HZ(H_z)
 @njit
 def DM_grid(params):
     dh_grid = c / H_z(z_grid, params)
-    dh = (dh_grid[:-1] + dh_grid[1:]) / 2
-    cum_dm = np.zeros(z_grid.size, dtype=np.float64)
-    cum_dm[1:] = np.cumsum(dz * dh)
+    n = z_grid.size
+    cum_dm = np.zeros(n, dtype=np.float64)
+
+    # Compute local derivatives d(dh)/dz using central differences
+    d_dh = np.empty(n, dtype=np.float64)
+
+    # Central difference for internal points
+    d_dh[1:-1] = (dh_grid[2:] - dh_grid[:-2]) / (2 * dz)
+    # Forward/Backward difference at boundaries
+    d_dh[0] = (dh_grid[1] - dh_grid[0]) / dz
+    d_dh[-1] = (dh_grid[-1] - dh_grid[-2]) / dz
+
+    # Integrate with 4th-order cubic correction per interval
+    dz_sq_over_12 = (dz ** 2) / 12
+    acc = 0.0
+
+    for i in range(n - 1):
+        # trapezoidal area + 1st-derivative endpoint correction
+        trap = 0.5 * dz * (dh_grid[i] + dh_grid[i + 1])
+        corr = dz_sq_over_12 * (d_dh[i] - d_dh[i + 1])
+
+        acc += trap + corr
+        cum_dm[i + 1] = acc
+
     return (cum_dm, dh_grid)
 
 
@@ -83,43 +101,49 @@ bao_qty = np.array([qty_map[q] for q in bao["quantity"]], dtype=np.int64)
 def bao_theory(z, qty, params, DM_interp):
     Obh2, Och2 = params[2], params[3]
     Omh2 = Obh2 + Och2 + Omnuh2
-    RD = cmb.r_drag(Obh2, Omh2)
-    DM = interp_hermite(z, z_grid, *DM_interp)
-    DH = interp_pchip(z, z_grid, DM_interp[1])
+    inv_rd = 1.0 / cmb.r_drag(Obh2, Omh2)
+
+    DM = interp_hermite(z, z_grid, y=DM_interp[0], y_prime=DM_interp[1])
+    DH = interp_pchip(z, z_grid, y=DM_interp[1])
 
     DV_MASK = qty == dv_rs
     DM_MASK = qty == dm_rs
     DH_MASK = qty == dh_rs
     FAP_MASK = qty == f_ap
-    theory = np.empty(z.size, dtype=np.float64)
+    result = np.empty(z.size, dtype=np.float64)
 
-    theory[DH_MASK] = DH[DH_MASK] / RD
-    theory[DM_MASK] = DM[DM_MASK] / RD
-    theory[DV_MASK] = (z[DV_MASK] * DH[DV_MASK] * DM[DV_MASK] ** 2) ** (1 / 3) / RD
-    theory[FAP_MASK] = DM[FAP_MASK] / DH[FAP_MASK]
-    return theory
+    result[DH_MASK] = DH[DH_MASK] * inv_rd
+    result[DM_MASK] = DM[DM_MASK] * inv_rd
+    result[DV_MASK] = (z[DV_MASK] * DH[DV_MASK] * DM[DV_MASK] ** 2) ** (1 / 3) * inv_rd
+    result[FAP_MASK] = DM[FAP_MASK] / DH[FAP_MASK]
+    return result
 
 
 @njit
-def mu_corr(v_100, DM_interp):
+def get_z_cosmo(v_100):
     # Heaviside step at z = 0.10563
     v_km_s = 100 * v_100 * np.where(z_cmb <= 0.10563, 1, -1)
-    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + v_km_s / c)
+    return -1.0 + (1.0 + z_cmb) / (1.0 + v_km_s / c)
 
-    DM_cosmo = interp_hermite(z_cosmo, z_grid, *DM_interp)
-    DM_obs = interp_hermite(z_cmb, z_grid, *DM_interp)
+
+def mu_corr(v_100, dm_interp):
+    # For plotting purposes only
+    z_cosmo = get_z_cosmo(v_100)
+    DM_cosmo = interp_hermite(z_cosmo, z_grid, *dm_interp)
+    DM_obs = interp_hermite(z_cmb, z_grid, *dm_interp)
     return 5 * np.log10(DM_cosmo / DM_obs)
 
 
 @njit
-def theory_mu(offset, DM_interp):
-    DM = interp_hermite(z_cmb, z_grid, *DM_interp)
+def theory_mu(offset, DM):
     return offset + 25.0 + 5 * np.log10((1.0 + z_hel) * DM)
 
 
 @njit
-def chi2_sn(params, DM_interp):
-    delta = mu_values - theory_mu(params[0], DM_interp) - mu_corr(params[4], DM_interp)
+def chi2_sn(params, dm_interp):
+    z_cosmo = get_z_cosmo(params[4])
+    DM_cosmo = interp_hermite(z_cosmo, z_grid, y=dm_interp[0], y_prime=dm_interp[1])
+    delta = mu_values - theory_mu(params[0], DM_cosmo)
     return solve_triangular(cho_sn, delta)
 
 
@@ -130,15 +154,15 @@ def chi2_cmb(params):
 
 
 @njit
-def chi2_bao(params, DM_interp):
-    delta_bao = bao["value"] - bao_theory(bao["z"], bao_qty, params, DM_interp)
-    return delta_bao @ inv_cov_bao @ delta_bao
+def chi2_bao(params, dm_interp):
+    delta_bao = bao["value"] - bao_theory(bao["z"], bao_qty, params, dm_interp)
+    return solve_triangular(cho_bao, delta_bao)
 
 
 @njit
 def chi_squared(params):
-    DM_interp = DM_grid(params)
-    return chi2_cmb(params) + chi2_bao(params, DM_interp) + chi2_sn(params, DM_interp)
+    dm_interp = DM_grid(params)
+    return chi2_cmb(params) + chi2_bao(params, dm_interp) + chi2_sn(params, dm_interp)
 
 
 def log_likelihood(params):
@@ -227,7 +251,7 @@ def main():
         x=z_cmb,
         y=mu_values - mu_corr(best_fit[4], best_fit_dm),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=theory_mu(best_fit[0], best_fit_dm),
+        y_model=theory_mu(best_fit[0], interp_hermite(z_cmb, z_grid, *best_fit_dm)),
         label=f"$Ω_m$={gd_samples.mean('om'):.3f}",
         x_scale="log",
     )
@@ -266,19 +290,19 @@ if __name__ == "__main__":
 # turning point z <= 0.10563 inflow z > 0.10563 outflow
 # z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-# H0: 68.37 ± 0.26 km/s/Mpc
+# H0: 68.36 ± 0.26 km/s/Mpc
 # r_d: 147.54 ± 0.19 Mpc
-# Ωm: 0.3011 ± 0.0035
-# v: -1.56 ± 0.55 (prior ~ U(-4.5, 4.5)) x 100 km/s
-# v / (z_turn=0.10563): -1477 ± 521 km/s
-# ΔM: -0.0636 ± 0.0078 mag
+# Ωm: 0.3012 ± 0.0035
+# v: -1.55 ± 0.55 (prior ~ U[-4.5, 4.5]) x 100 km/s
+# v / (z_turn=0.10563): -1467 ± 521 km/s
+# ΔM: -0.0637 ± 0.0078 mag
 
 # ωb: 0.02257 ± 0.00010
 # ωc: 0.11752 ± 0.00064
 # ωm: 0.14073 ± 0.00063
 # z*: 1089.43 ± 0.15
 # z_d: 1060.20 ± 0.23
-# χ2 (MAP): 1643.54 (2.83 sigma significance)
+# χ2 (MAP): 1643.55 (2.83 sigma significance)
 # Log evidence: -841.8 (Δ logZ = 2.1 in favour of velocity step correction)
 # Degrees of freedom: 1726
 # ---------------------------------
@@ -288,7 +312,7 @@ if __name__ == "__main__":
 # H0: 67.66 ± 0.53 km/s/Mpc
 # r_d: 147.63 ± 0.22 Mpc
 # Ωm: 0.3066 ± 0.0048
-# w0: -0.972 ± 0.022 (prior U(-4/3, -2/3))
+# w0: -0.972 ± 0.022 (prior U[-4/3, -2/3])
 # ΔM: -0.073 ± 0.010 mag
 
 # ωb: 0.02258 ± 0.00011
@@ -307,7 +331,7 @@ if __name__ == "__main__":
 # H0: 67.20 ± 0.53 km/s/Mpc
 # r_d: 147.62 ± 0.20 Mpc
 # Ωm: 0.3108 ± 0.0051
-# w0: -0.908 ± 0.040 (prior U(-1, -1/3))
+# w0: -0.908 ± 0.040 (prior U[-1, -1/3])
 # wa: computed from w0
 # ΔM: -0.0749 ± 0.0091 mag
 
@@ -326,8 +350,8 @@ if __name__ == "__main__":
 # H0: 67.38 ± 0.55 km/s/Mpc
 # r_d: 147.26 ± 0.25 Mpc
 # Ωm: 0.3127 ± 0.0054
-# w0: -0.834 ± 0.056 (prior U(-1.5, 0.0))
-# wa: -0.57 +0.24 -0.20 (prior U(-2.5, 1.0))
+# w0: -0.834 ± 0.056 (prior U[-1.5, 0.0])
+# wa: -0.57 +0.24 -0.20 (prior U[-2.5, 1.0])
 # ΔM: -0.059 ± 0.012 mag
 
 # ωb: 0.02251 ± 0.00011

@@ -21,24 +21,29 @@ target_ids = [1, 5, 15, 50, 51, 56, 63, 150]
 survey_mask = np.isin(survey_id, target_ids).astype(int)
 
 z_grid = np.linspace(0, np.max(z_cmb) + 0.1, num=4000)
-dz = np.diff(z_grid)
-
-cubed = (1.0 + z_grid) ** 3
+dz = z_grid[1] - z_grid[0]
 
 
 @njit
-def H_z(params):
+def H_z(z, params):
     H0, Om = params[1], params[2]
-    return H0 * np.sqrt(Om * cubed + (1.0 - Om))
+    return H0 * np.sqrt(Om * (1.0 + z) ** 3 + (1.0 - Om))
 
 
 @njit
 def DM_z(params, z):
-    dh_grid = c / H_z(params)
-    dh = (dh_grid[:-1] + dh_grid[1:]) / 2
-    cum_dm = np.zeros(z_grid.size, dtype=np.float64)
-    cum_dm[1:] = np.cumsum(dh * dz)
-    return interp_hermite(z, z_grid, cum_dm, dh_grid)
+    dh_grid = c / H_z(z_grid, params)
+
+    n = z_grid.size
+    cum_dm = np.zeros(n, dtype=np.float64)
+
+    acc = 0.0
+    for i in range(n - 1):
+        dh_avg = 0.5 * (dh_grid[i] + dh_grid[i + 1])
+        acc += dz * dh_avg
+        cum_dm[i + 1] = acc
+
+    return interp_hermite(z, x=z_grid, y=cum_dm, y_prime=dh_grid)
 
 
 @njit
@@ -64,10 +69,10 @@ def mu_corr(params, DM_obs):
 
 @njit
 def chi_squared(params):
-    M = params[0]
     z_cosmo = get_z_cosmo(params)
     if np.any(z_cosmo <= 0.0):
         return 1e8
+    M = params[0]
     delta = mb_vals - M - mu_theory(DM_z(params, z_cosmo))
     return solve_triangular(cho, delta)
 

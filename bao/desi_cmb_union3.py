@@ -25,7 +25,7 @@ inv_cov_bao = np.linalg.inv(bao_cov_mat)
 
 z_max = max(np.max(z_cmb), np.max(bao["z"])) + 0.1
 z_grid = np.linspace(0, z_max, 4000)
-dz = np.diff(z_grid)
+dz = z_grid[1] - z_grid[0]
 
 
 @njit
@@ -63,9 +63,30 @@ cmb.set_HZ(H_z)
 @njit
 def DM_grid(params):
     dh_grid = c / H_z(z_grid, params)
-    dh = (dh_grid[:-1] + dh_grid[1:]) / 2
-    cum_dm = np.zeros(z_grid.size, dtype=np.float64)
-    cum_dm[1:] = np.cumsum(dh * dz)
+    n = z_grid.size
+    cum_dm = np.zeros(n, dtype=np.float64)
+
+    # Compute local derivatives d(dh)/dz using central differences
+    d_dh = np.empty(n, dtype=np.float64)
+
+    # Central difference for internal points
+    d_dh[1:-1] = (dh_grid[2:] - dh_grid[:-2]) / (2 * dz)
+    # Forward/Backward difference at boundaries
+    d_dh[0] = (dh_grid[1] - dh_grid[0]) / dz
+    d_dh[-1] = (dh_grid[-1] - dh_grid[-2]) / dz
+
+    # Integrate with 4th-order cubic correction per interval
+    dz_sq_over_12 = (dz ** 2) / 12
+    acc = 0.0
+
+    for i in range(n - 1):
+        # trapezoidal area + 1st-derivative endpoint correction
+        trap = 0.5 * dz * (dh_grid[i] + dh_grid[i + 1])
+        corr = dz_sq_over_12 * (d_dh[i] - d_dh[i + 1])
+
+        acc += trap + corr
+        cum_dm[i + 1] = acc
+
     return (cum_dm, dh_grid)
 
 
@@ -77,10 +98,10 @@ bao_qty = np.array([qty_map[q] for q in bao["quantity"]], dtype=np.int32)
 def bao_theory(z, qty, params, DM_interp):
     Obh2, Och2 = params[2], params[3]
     Omh2 = Obh2 + Och2 + Omnuh2
-    rdrag = cmb.r_drag(Obh2, Omh2)
+    inv_rd = cmb.r_drag(Obh2, Omh2)
 
-    DM = interp_hermite(z, z_grid, *DM_interp)
-    DH = interp_pchip(z, z_grid, DM_interp[1])
+    DM = interp_hermite(z, z_grid, y=DM_interp[0], y_prime=DM_interp[1])
+    DH = interp_pchip(z, z_grid, y=DM_interp[1])
 
     results = np.empty(z.size, dtype=np.float64)
     DV_mask = qty == 0
@@ -88,9 +109,9 @@ def bao_theory(z, qty, params, DM_interp):
     DH_mask = qty == 2
     FAP_mask = qty == 3
     results[FAP_mask] = DM[FAP_mask] / DH[FAP_mask]
-    results[DM_mask] = DM[DM_mask] / rdrag
-    results[DH_mask] = DH[DH_mask] / rdrag
-    results[DV_mask] = (z[DV_mask] * DH[DV_mask] * DM[DV_mask] ** 2) ** (1 / 3) / rdrag
+    results[DM_mask] = DM[DM_mask] * inv_rd
+    results[DH_mask] = DH[DH_mask] * inv_rd
+    results[DV_mask] = (z[DV_mask] * DH[DV_mask] * DM[DV_mask] ** 2) ** (1 / 3) * inv_rd
     return results
 
 
@@ -101,10 +122,15 @@ def chi2_bao(params, DM_interp):
 
 
 @njit
-def mu_corr(v100, DM_interp):
+def get_z_cosmo(v100):
     # Heaviside step at z = 0.2
     v_km_s = 100 * v100 * np.where(z_cmb <= 0.2, 1, -1)
-    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + v_km_s / c)
+    return -1.0 + (1.0 + z_cmb) / (1.0 + v_km_s / c)
+
+
+def mu_corr(v100, DM_interp):
+    # For plotting purposes only
+    z_cosmo = get_z_cosmo(v100)
 
     DM_obs = interp_hermite(z_cmb, z_grid, *DM_interp)
     DM_cosmo = interp_hermite(z_cosmo, z_grid, *DM_interp)
@@ -112,14 +138,16 @@ def mu_corr(v100, DM_interp):
 
 
 @njit
-def mu_theory(offset, DM_interp):
-    DM = interp_hermite(z_cmb, z_grid, *DM_interp)
+def mu_theory(offset, DM):
     return offset + 25.0 + 5 * np.log10((1.0 + z_hel) * DM)
 
 
 @njit
 def chi2_sn(params, DM_interp):
-    delta_sn = mu_vals - mu_theory(params[0], DM_interp) - mu_corr(params[4], DM_interp)
+    z_cosmo = get_z_cosmo(params[4])
+    DM = interp_hermite(z_cosmo, z_grid, *DM_interp)
+
+    delta_sn = mu_vals - mu_theory(params[0], DM)
     return delta_sn @ inv_cov_sn @ delta_sn
 
 
@@ -171,6 +199,9 @@ def main():
         labels=["ΔM", "H_0", "ω_b", "ω_c", "v_{100}"],
     )
     gd_samples.addDerived(
+        100 * gd_samples["v"], name="v_km_s", label="v_{km/s}"
+    )
+    gd_samples.addDerived(
         gd_samples["obh2"] + gd_samples["och2"] + Omnuh2, name="omh2", label="ω_m"
     )
     gd_samples.addDerived(
@@ -202,7 +233,7 @@ def main():
     print(f"DOF: {DOF}")
 
     plots.get_subplot_plotter().triangle_plot(
-        gd_samples, params=["H0", "om", "omh2", "v"], title_limit=1, contour_colors=["C0"]
+        gd_samples, params=["H0", "om", "omh2", "v_km_s"], title_limit=1, contour_colors=["C0"]
     )
     plt.show()
 
@@ -219,7 +250,7 @@ def main():
         x=z_cmb,
         y=mu_vals - mu_corr(best_fit[4], DM_grid_best),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=mu_theory(best_fit[0], DM_grid_best),
+        y_model=mu_theory(best_fit[0], interp_hermite(z_cmb, z_grid, *DM_grid_best)),
         label=f"$Ω_m$={gd_samples.mean('om'):.3f}",
         x_scale="log",
     )
@@ -241,7 +272,7 @@ if __name__ == "__main__":
 # ----------- Flat ΛCDM -----------
 # ΔM: -0.0516 ± 0.0069 mag
 # H0: 68.36 ± 0.27 km/s/Mpc
-# Ωm: 0.3012 ± 0.0035
+# Ωm: 0.3011 ± 0.0035
 # ωb: 0.02257 ± 0.00010
 # ωc: 0.11753 ± 0.00064
 # ωm: 0.14074 ± 0.00063
@@ -260,8 +291,8 @@ if __name__ == "__main__":
 # (turning point z <= 0.2 inflow z > 0.2 outflow)
 # z_cosmo = -1 + (1 + z) / (1 + v/c)
 # 
-# v: -3.0 ± 1.0 (prior U[-8, 8]) x 100 km/s
-# v / (z_turn=0.2): -1500 ± 500 km/s
+# v: -304 ± 100 (prior U[-800, 800]) km/s
+# v / (z_turn=0.2): -1520 ± 500 km/s
 
 # ΔM: -0.0519 ± 0.0069 mag
 # H0: 68.42 ± 0.27 km/s/Mpc
@@ -273,7 +304,7 @@ if __name__ == "__main__":
 # z_d: 1060.20 ± 0.23
 # r_d: 147.57 ± 0.19 Mpc
 # χ2 (MAP): 39.70 (2.92 sigma significance)
-# Log evidence: -40.6 (Δ logZ = 2.5 in favour of step correction)
+# Log evidence: -40.7 (Δ logZ = 2.4 in favour of step correction)
 # DOF: 36
 # ---------------------------------
 

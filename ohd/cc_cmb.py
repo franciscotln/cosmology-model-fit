@@ -13,7 +13,8 @@ logdet = np.linalg.slogdet(cov_matrix_cc)[1]
 
 
 @njit
-def Ez(z, H0, Obh2, Och2):
+def H_z(z, params):
+    H0, Obh2, Och2 = params[0], params[1], params[2]
     h = H0 / 100
     Obc = (Obh2 + Och2) / h**2
     Onu = Onuh2 / h**2
@@ -27,13 +28,7 @@ def Ez(z, H0, Obh2, Och2):
     neutrino_term = Onu * cmb.Omnu_z(z)
     dark_energy_term = Ode
 
-    return np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
-
-
-@njit
-def H_z(z, params):
-    H0, Obh2, Och2 = params[0:3]
-    return H0 * Ez(z, H0, Obh2, Och2)
+    return H0 * np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
 
 
 cmb.set_HZ(H_z)
@@ -123,7 +118,7 @@ def main():
         [f_16, f_50, f_84],
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = np.percentile(samples, 50, axis=0)
+    best_fit = samples[np.argmax(log_probs)]
     degs_of_freedom = len(cmb.DISTANCE_PRIORS) + len(z_values) - len(best_fit)
 
     Om_samples = (samples[:, 1] + samples[:, 2] + Onuh2) / (samples[:, 0] / 100) ** 2
@@ -162,11 +157,11 @@ if __name__ == "__main__":
 
 # --------- Overestimation factor f ---------
 # f: 1.53 +0.18 -0.17
-# H0: 67.59 +0.49 -0.49 km/s/Mpc
-# Ωm: 0.3120 +0.0071 -0.0069
+# H0: 67.59 +0.50 -0.49 km/s/Mpc
+# Ωm: 0.3120 +0.0071 -0.0070
 # ωb: 0.02249 +0.00011 -0.00011
-# ωc: 0.11937 +0.00121 -0.00119
-# Chi squared: 38.31
+# ωc: 0.11938 +0.00121 -0.00120
+# Chi squared: 37.84
 # Log likelihood: -149.21 (3.20 sigma significance)
 # Log evidence: -165.70 (Δ logZ = 4.30 compared to fixed f)
 # Degs of freedom: 37
@@ -175,9 +170,9 @@ if __name__ == "__main__":
 # --------- Fixed factor f = 1 ---------
 # f: 1 (assuming no overestimaded errors in CCH sample)
 # H0: 67.60 +0.50 -0.50 km/s/Mpc
-# Ωm: 0.3118 +0.0071 -0.0070
-# ωb: 0.02250 +0.00011 -0.00011
-# ωc: 0.11934 +0.00121 -0.00121
+# Ωm: 0.3118 +0.0072 -0.0070
+# ωb: 0.02249 +0.00011 -0.00011
+# ωc: 0.11935 +0.00121 -0.00121
 # Chi squared: 16.45
 # Log likelihood: -154.34
 # Log evidence: -170.00

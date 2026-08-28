@@ -18,7 +18,7 @@ cho_bao = cho_factor(bao_cov_matrix, lower=True)[0]
 
 z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
 z_grid = np.linspace(0, z_max, num=4000)
-dx = np.diff(z_grid)
+dz = z_grid[1] - z_grid[0]
 
 
 @njit
@@ -74,7 +74,7 @@ def DM_z(z, theta):
     dh_grid = DH_z(z_grid, theta)
     dy = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size, dtype=np.float64)
-    cum_dm[1:] = np.cumsum(dx * dy)
+    cum_dm[1:] = np.cumsum(dz * dy)
     return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
@@ -125,11 +125,11 @@ def log_likelihood(params):
 
 def main():
     from scipy.stats import norm
-    from corner import corner, quantile
-    import matplotlib.pyplot as plt
+    from corner import quantile
     from nautilus import Sampler, Prior
     from multiprocessing import Pool
     from sn.plotting import plot_predictions as plot_sn_predictions
+    from corner_plot import plot_corner_and_chains
     from bao.plot_predictions import plot_bao_predictions
 
     prior = Prior()
@@ -141,7 +141,7 @@ def main():
 
     with Pool(8) as pool:
         sampler = Sampler(
-            prior, log_likelihood, n_live=10_000, pool=pool, seed=42, pass_dict=False
+            prior, log_likelihood, n_live=5_000, pool=pool, seed=42, pass_dict=False
         )
         sampler.run(verbose=True)
 
@@ -149,22 +149,6 @@ def main():
     w = np.exp(log_w)
 
     one_sigma_ci = [0.159, 0.5, 0.841]
-    corner(
-        samples,
-        weights=w,
-        labels=prior.keys,
-        quantiles=one_sigma_ci,
-        show_titles=True,
-        title_fmt=".4f",
-        bins=100,
-        fill_contours=False,
-        plot_datapoints=False,
-        smooth=2.0,
-        smooth1d=2.0,
-        levels=(0.393, 0.864),
-        range=np.repeat(0.9999, len(prior.keys)),
-    )
-    plt.show()
 
     H0_16, H0_50, H0_84 = quantile(samples[:, 0], one_sigma_ci, weights=w)
     Om_16, Om_50, Om_84 = quantile(samples[:, 1], one_sigma_ci, weights=w)
@@ -191,6 +175,7 @@ def main():
     print(f"Log Evidence: {sampler.log_z:.2f}")
     print(f"Degrees of freedom: {len(bao_data['z']) + sn_size - len(best_fit)}")
 
+    plot_corner_and_chains(prior.keys, samples, weights=w)
     plot_bao_predictions(
         theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
         data=bao_data,
@@ -264,15 +249,15 @@ Degrees of freedom: 1722
 
 Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
 H0: 66.8 +1.0 -1.0 km/s/Mpc
-Ωm: 0.3048 +0.0078 -0.0075
-ωb: 0.02218 +0.00055 -0.00054
-ωm: 0.13582 +0.00571 -0.00543
+Ωm: 0.3049 +0.0077 -0.0076
+ωb: 0.02219 +0.00054 -0.00056
+ωm: 0.13590 +0.00564 -0.00548
 w0: -0.861 +0.051 -0.052
 wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
 ΔM: -0.083 +0.025 -0.025
-r_d: 149.03 +1.75 -1.74 Mpc
+r_d: 149.02 +1.74 -1.73 Mpc
 Chi squared: 1638.46
-Log Evidence: -831.95 (Δ logZ = 1.70 against ΛCDM)
+Log Evidence: -831.93 (Δ logZ = 1.70 against ΛCDM)
 Degrees of freedom: 1722
 
 ===============================

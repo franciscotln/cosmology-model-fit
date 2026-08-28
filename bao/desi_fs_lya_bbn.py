@@ -1,15 +1,15 @@
 from numba import njit
 import numpy as np
 from interpolator import interp_hermite, interp_pchip
-from y2025BAO.data import get_data
+from y2025BAO.data_fs_lya import get_data
 import y2024BBN.prior_lcdm_schoneberg as bbn
-from cmb.data_planck_compression import r_drag, c
+from cmb.data_early_lcdm_compression import r_drag, c
 
 legend, bao, cov_matrix = get_data()
 inv_cov = np.linalg.inv(cov_matrix)
 
 z_grid = np.linspace(0, np.max(bao["z"]) + 0.1, num=4000)
-dz = np.diff(z_grid)
+dz = z_grid[1] - z_grid[0]
 
 
 @njit
@@ -25,40 +25,58 @@ def H_z(z, params):
 
 
 @njit
-def DH_z(z, params):
-    return c / H_z(z, params)
-
-
-@njit
 def DM_grid(params):
-    dh_grid = DH_z(z_grid, params)
-    dh = (dh_grid[:-1] + dh_grid[1:]) / 2
-    cum_dm = np.zeros(z_grid.size, dtype=np.float64)
-    cum_dm[1:] = np.cumsum(dz * dh)
+    dh_grid = c / H_z(z_grid, params)
+    n = z_grid.size
+    cum_dm = np.zeros(n, dtype=np.float64)
+
+    # Compute local derivatives d(dh)/dz using central differences
+    d_dh = np.empty(n, dtype=np.float64)
+
+    # Central difference for internal points
+    d_dh[1:-1] = (dh_grid[2:] - dh_grid[:-2]) / (2 * dz)
+    # Forward/Backward difference at boundaries
+    d_dh[0] = (dh_grid[1] - dh_grid[0]) / dz
+    d_dh[-1] = (dh_grid[-1] - dh_grid[-2]) / dz
+
+    # Integrate with 4th-order cubic correction per interval
+    dz_sq_over_12 = (dz ** 2) / 12
+    acc = 0.0
+
+    for i in range(n - 1):
+        # Trapezoidal area + 1st-derivative endpoint correction
+        trap = 0.5 * dz * (dh_grid[i] + dh_grid[i + 1])
+        corr = dz_sq_over_12 * (d_dh[i] - d_dh[i + 1])
+        acc += trap + corr
+        cum_dm[i + 1] = acc
+
     return (cum_dm, dh_grid)
 
 
-qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
+qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2, "F_AP": 3}
 bao_qty = np.array([qty_map[q] for q in bao["quantity"]], dtype=np.int32)
 
 
 @njit
 def bao_theory(z, qty, params):
     h, Om, Obh2 = params[0] / 100, params[1], params[2]
+    rd = r_drag(Obh2, Om * h**2)
 
     results = np.empty(z.size, dtype=np.float64)
     DV_mask = qty == 0
     DM_mask = qty == 1
     DH_mask = qty == 2
+    F_mask = qty == 3
 
     DM_vals, DH_vals = DM_grid(params)
     DM = interp_hermite(z, z_grid, DM_vals, DH_vals)
     DH = interp_pchip(z, z_grid, DH_vals)
 
-    results[DH_mask] = DH[DH_mask]
-    results[DM_mask] = DM[DM_mask]
-    results[DV_mask] = (z[DV_mask] * DH[DV_mask] * DM[DV_mask] ** 2) ** (1 / 3)
-    return results / r_drag(Obh2, Om * h**2)
+    results[DH_mask] = DH[DH_mask] / rd
+    results[DM_mask] = DM[DM_mask] / rd
+    results[DV_mask] = (z[DV_mask] * DH[DV_mask] * DM[DV_mask] ** 2) ** (1 / 3) / rd
+    results[F_mask] = DM[F_mask] / DH[F_mask]
+    return results
 
 
 @njit
@@ -87,15 +105,21 @@ def log_prior(params):
     return normalization - 0.5 * bbn_chi2
 
 
+@njit
 def log_likelihood(params):
     return -0.5 * chi_squared(params)
 
 
-def log_probability(params):
+@njit
+def log_probability_jit(params):
     lp = log_prior(params)
     if np.isinf(lp):
         return -np.inf
     return lp + log_likelihood(params)
+
+
+def log_probability(params):
+    return log_probability_jit(params)
 
 
 def main():
@@ -111,8 +135,8 @@ def main():
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
     moves = [
-        (emcee.moves.KDEMove(bw_method="silverman"), 0.25),
-        (emcee.moves.DEMove(), 0.75),
+        (emcee.moves.KDEMove(bw_method="silverman"), 0.2),
+        (emcee.moves.DEMove(), 0.8),
     ]
 
     with Pool(5) as pool:
@@ -156,8 +180,8 @@ def main():
     print(f"ωb: {Obh2_50:.5f} +{(Obh2_84 - Obh2_50):.5f} -{(Obh2_50 - Obh2_16):.5f}")
     print(f"ωm: {Omh2_50:.5f} +{(Omh2_84 - Omh2_50):.5f} -{(Omh2_50 - Omh2_16):.5f}")
     print(f"Ωm: {Om_50:.4f} +{Om_84-Om_50:.4f} -{Om_50-Om_16:.4f}")
-    print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
+    print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Degs of freedom: {len(bao)  - len(best_fit)}")
     print(f"R^2: {r2:.4f}")
@@ -177,51 +201,50 @@ if __name__ == "__main__":
     main()
 
 
-"""
-*******************************
-Dataset: DESI DR2 2025
-*******************************
+# *********************************
+# Data set: DESI DR2 BAO + FS Lya
+# Gaussian prior on Obh2 from BBN
+# *********************************
 
-Flat ΛCDM:
-H0: 68.58 +0.60 -0.59 km/s/Mpc
-ωb: 0.02219 +0.00055 -0.00055
-ωm: 0.14005 +0.00515 -0.00492
-Ωm: 0.2978 +0.0087 -0.0085
-w0: -1
-wa: 0
-r_d: 148.04 +1.58 -1.59 Mpc
-Chi squared: 10.27
-Degs of freedom: 10
-R^2: 0.9987
-RMSD: 0.305
 
-===============================
+# Flat ΛCDM:
+# H0: 68.55 +0.60 -0.58 km/s/Mpc
+# ωb: 0.02218 +- 0.00055
+# ωm: 0.1417 +0.0047 -0.0045
+# Ωm: 0.3017 +0.0077 -0.0075
+# r_d: 147.59 +- 1.47 Mpc
+# Chi squared: 12.81
+# Degs of freedom: 11
+# R^2: 0.9987
+# RMSD: 0.298
+# ---------------------------------
 
-Flat wCDM:
-H0: 66.39 +2.23 -2.20 km/s/Mpc
-ωb: 0.02218 +0.00055 -0.00055
-ωm: 0.13142 +0.00987 -0.01015
-Ωm: 0.2973 +0.0089 -0.0088
-w0: -0.919 +0.076 -0.080 (prior ~U(-1.5, -1/3))
-wa: 0
-r_d: 150.45 +3.09 -2.86 Mpc
-Chi squared: 9.05
-Degs of freedom: 9
-R^2: 0.9989
-RMSD: 0.281
 
-===============================
+# Flat wCDM:
+# H0: 67.7 +2.0 -2.0 km/s/Mpc
+# ωb: 0.02219 +0.00055 -0.00055
+# ωm: 0.1389 +0.0081 -0.0082
+# Ωm: 0.3022 +0.0083 -0.0081
+# r_d: 148.4 +2.4 -2.3 Mpc
+# w0: -0.990 +0.024 -0.025 (prior ~U[-1.5, -1/3])
+# wa: 0
+# Chi squared: 12.57
+# Degs of freedom: 10
+# R^2: 0.9988
+# RMSD: 0.288
+# ---------------------------------
 
-Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
-H0: 65.31 +1.92 -2.03 km/s/Mpc
-ωb: 0.02218 +0.00055 -0.00055
-ωm: 0.1330 +0.0063 -0.0064
-Ωm: 0.3124 +0.0122 -0.0116
-w0: -0.768 +0.132 -0.130 (prior ~U(-1.0, -1/3))
-wa: d w(z)/dz at z=0 = -(3/2) * (1 - w0^2)
-r_d: 149.97 +1.99 -1.93 Mpc
-Chi squared: 8.29
-Degs of freedom: 9
-R^2: 0.9991
-RMSD: 0.262
-"""
+
+# Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
+# H0: 66.27 +1.52 -1.82 km/s/Mpc
+# ωb: 0.02218 +0.00055 -0.00054
+# ωm: 0.1376 +0.0053 -0.0053
+# Ωm: 0.314 +0.012 -0.011
+# r_d: 148.73 +1.69 -1.64 Mpc
+# w0: -0.84 +0.12 -0.11 (prior ~U[-1.0, -1/3])
+# wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
+# Chi squared: 12.08
+# Degs of freedom: 10
+# R^2: 0.9990
+# RMSD: 0.268
+# ---------------------------------

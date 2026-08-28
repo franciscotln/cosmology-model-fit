@@ -11,8 +11,8 @@ legend, data, cov_matrix = get_data()
 inv_cov_bao = np.linalg.inv(cov_matrix)
 
 z_max = np.max(data["z"]) + 0.1
-z_grid = np.linspace(0, z_max, num=4000)
-dz = np.diff(z_grid)
+z_grid = np.linspace(0, z_max, num=2000)
+dz = z_grid[1] - z_grid[0]
 
 
 @njit
@@ -29,11 +29,37 @@ def h_z(z, params):
 
 
 @njit
+def DM_grid(params):
+    dh_grid = c / h_z(z_grid, params)
+    n = z_grid.size
+    cum_dm = np.zeros(n, dtype=np.float64)
+
+    # Compute local derivatives d(dh)/dz using central differences
+    d_dh = np.empty(n, dtype=np.float64)
+
+    # Central difference for internal points
+    d_dh[1:-1] = (dh_grid[2:] - dh_grid[:-2]) / (2 * dz)
+    # Forward/Backward difference at boundaries
+    d_dh[0] = (dh_grid[1] - dh_grid[0]) / dz
+    d_dh[-1] = (dh_grid[-1] - dh_grid[-2]) / dz
+
+    # Integrate with 4th-order cubic correction per interval
+    dz_sq_over_12 = (dz ** 2) / 12
+    acc = 0.0
+
+    for i in range(n - 1):
+        # trapezoidal area + 1st-derivative endpoint correction
+        trap = 0.5 * dz * (dh_grid[i] + dh_grid[i + 1])
+        corr = dz_sq_over_12 * (d_dh[i] - d_dh[i + 1])
+        acc += trap + corr
+        cum_dm[i + 1] = acc
+
+    return (cum_dm, dh_grid)
+
+
+@njit
 def bao_theory(z, qty, theta):
-    dh_grid = c / h_z(z_grid, theta)
-    dh = (dh_grid[:-1] + dh_grid[1:]) / 2
-    dm_grid = np.zeros(z_grid.size, dtype=np.float64)
-    dm_grid[1:] = np.cumsum(dz * dh)
+    dm_grid, dh_grid = DM_grid(theta)
 
     dh_vals = interp_pchip(z, x=z_grid, y=dh_grid)
     dm_vals = interp_hermite(z, x=z_grid, y=dm_grid, y_prime=dh_grid)
@@ -176,7 +202,7 @@ if __name__ == "__main__":
 # w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
 # h * rd: 98.3 +2.2 -1.5
 # Ωm: 0.315 +0.010 -0.012
-# w0: -0.824 +0.068 -0.15 (prior ~U(-1, 0)) - left side truncated
+# w0: -0.823 +0.065 -0.15 (prior ~U(-1, 0)) - left side truncated
 # χ2: 12.08
 # DOF: 11
 # χ2/dof: 1.10

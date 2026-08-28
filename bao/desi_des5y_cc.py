@@ -1,8 +1,9 @@
 from numba import njit
 import numpy as np
 from scipy.constants import c as c0
-from scipy.linalg import cho_factor, solve_triangular
-from interpolator import interp_hermite
+from scipy.linalg import cho_factor
+from interpolator import interp_hermite, interp_pchip
+from solve_triangular import solve_triangular
 from y2005cc.data import get_data as get_cc_data
 from y2025BAO.data_fs_lya import get_data as get_bao_data
 from y2025DESdovekie.data import (
@@ -12,10 +13,10 @@ from y2025DESdovekie.data import (
 
 cc_legend, z_cc_vals, H_cc_vals, cov_matrix_cc = get_cc_data()
 sn_legend, z_cmb, z_hel, mu_values, cov_matrix_sn = get_sn_data()
-bao_legend, bao_data, cov_matrix_bao = get_bao_data()
+bao_legend, bao, cov_matrix_bao = get_bao_data()
 
 cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
-inv_cov_bao = np.linalg.inv(cov_matrix_bao)
+cho_bao = cho_factor(cov_matrix_bao, lower=True)[0]
 cho_cc = cho_factor(cov_matrix_cc, lower=True)[0]
 
 logdet_cc = np.linalg.slogdet(cov_matrix_cc)[1]
@@ -23,9 +24,9 @@ N_cc = len(z_cc_vals)
 
 c = c0 / 1000  # km/s
 
-z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
+z_max = max(np.max(z_cmb), np.max(bao["z"])) + 0.1
 z_grid = np.linspace(0, z_max, num=4000)
-dz = np.diff(z_grid)
+dz = z_grid[1] - z_grid[0]
 
 
 @njit
@@ -40,80 +41,96 @@ def rho_de(z, w0):
 @njit
 def H_z(z, theta):
     H0, Om = theta[2], theta[4]
-    return H0 * np.sqrt(Om * (1.0 + z) ** 3 + (1.0 - Om))
+    zp1 = 1.0 + z
+    cubed = zp1 * zp1 * zp1
+    return H0 * np.sqrt(Om * cubed + (1.0 - Om))
 
 
 @njit
-def DH_z(z, theta):
-    return c / H_z(z, theta)
-
-
-@njit
-def DM_z(z, theta):
-    dh_grid = DH_z(z_grid, theta)
+def DM_grid(theta):
+    dh_grid = c / H_z(z_grid, theta)
     dh = (dh_grid[:-1] + dh_grid[1:]) / 2
     cum_dm = np.zeros(z_grid.size, dtype=np.float64)
     cum_dm[1:] = np.cumsum(dh * dz)
-    return interp_hermite(z, z_grid, cum_dm, dh_grid)
+    return (cum_dm, dh_grid)
 
 
 @njit
-def DV_z(z, theta):
-    DH = DH_z(z, theta)
-    DM = DM_z(z, theta)
-    return (z * DH * DM**2) ** (1 / 3)
+def DM_z(z, dm_grid):
+    return interp_hermite(z, z_grid, dm_grid[0], dm_grid[1])
+
+
+@njit
+def DH_z(z, dm_grid):
+    return interp_pchip(z, z_grid, dm_grid[1])
+
+
+@njit
+def DV_z(z, DM, DH):
+    return (z * DH * DM * DM) ** (1 / 3)
 
 
 qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2, "F_AP": 3}
-quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int32)
+quantities = np.array([qty_map[q] for q in bao["quantity"]], dtype=np.int32)
 
 
 @njit
-def bao_theory(z, qty, theta):
-    rd = theta[3]
-    DV_mask = qty == 0
-    DM_mask = qty == 1
-    DH_mask = qty == 2
-    FAP_mask = qty == 3
-    results = np.empty(z.size, dtype=np.float64)
-    results[DH_mask] = DH_z(z[DH_mask], theta) / rd
-    results[DM_mask] = DM_z(z[DM_mask], theta) / rd
-    results[DV_mask] = DV_z(z[DV_mask], theta) / rd
-    results[FAP_mask] = DM_z(z[FAP_mask], theta) / DH_z(z[FAP_mask], theta)
+def bao_theory(z, qty, rdrag, dm_grid):
+    DM = DM_z(z, dm_grid)
+    DH = DH_z(z, dm_grid)
+    inv_rd = 1.0 / rdrag
+
+    N = z.size
+    results = np.empty(N, dtype=np.float64)
+
+    for i in range(N):
+            q = qty[i]
+            if q == 0:
+                results[i] = DV_z(z[i], DM[i], DH[i]) * inv_rd
+            elif q == 1:
+                results[i] = DM[i] * inv_rd
+            elif q == 2:
+                results[i] = DH[i] * inv_rd
+            elif q == 3:
+                results[i] = DM[i] / DH[i]
+
     return results
 
 
 @njit
-def mu_corr(params):
+def get_z_cosmo(params):
     # Heaviside step function
     v_km_s = 100 * params[5] * np.where(z_cmb <= 0.10563, 1, -1)
     z_pec = v_km_s / c
-    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+    return -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
 
-    return 5.0 * np.log10(DM_z(z_cosmo, params) / DM_z(z_cmb, params))
+
+def mu_corr(params, dm_grid):
+    # For plotting purposes only
+    z_cosmo = get_z_cosmo(params)
+    return 5.0 * np.log10(DM_z(z_cosmo, dm_grid) / DM_z(z_cmb, dm_grid))
 
 
 @njit
-def mu_theory(theta):
-    dL = (1.0 + z_hel) * DM_z(z_cmb, theta)
+def mu_theory(theta, DM):
+    dL = (1.0 + z_hel) * DM
     return theta[1] + 25.0 + 5 * np.log10(dL)
 
 
-def solve_triang(cho_L, delta):
-    # much faster than direct inversion for large matrices
-    y = solve_triangular(cho_L, delta, lower=True, check_finite=False)
-    return y @ y
-
-
+@njit
 def chi_squared(theta):
-    delta_sn = mu_values - mu_corr(theta) - mu_theory(theta)
-    chi_sn = solve_triang(cho_sn, delta_sn)
+    dm_grid = DM_grid(theta)
 
-    delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, theta)
-    chi_bao = delta_bao @ inv_cov_bao @ delta_bao
+    z_cosmo = get_z_cosmo(theta)
+    DM_cosmo = DM_z(z_cosmo, dm_grid)
+    delta_sn = mu_values - mu_theory(theta, DM_cosmo)
+    chi_sn = solve_triangular(cho_sn, delta_sn)
+
+    delta_bao = bao["value"] - bao_theory(bao["z"], quantities, theta[3], dm_grid)
+    chi_bao = solve_triangular(cho_bao, delta_bao)
 
     delta_cc = H_cc_vals - H_z(z_cc_vals, theta)
-    chi_cc = theta[0] ** 2 * solve_triang(cho_cc, delta_cc)
+    chi_cc = theta[0] ** 2 * solve_triangular(cho_cc, delta_cc)
 
     return chi_sn + chi_bao + chi_cc
 
@@ -139,17 +156,23 @@ def log_prior(theta):
     return normalization
 
 
+@njit
 def log_likelihood(theta):
     f_cc = theta[0]
     normalization_cc = N_cc * np.log(2 * np.pi) + logdet_cc - 2 * N_cc * np.log(f_cc)
     return -0.5 * chi_squared(theta) - 0.5 * normalization_cc
 
 
-def log_probability(theta):
+@njit
+def log_probability_jit(theta):
     lp = log_prior(theta)
     if not np.isfinite(lp):
         return -np.inf
     return lp + log_likelihood(theta)
+
+
+def log_probability(theta):
+    return log_probability_jit(theta)
 
 
 def main():
@@ -202,7 +225,7 @@ def main():
 
     best_fit = np.percentile(samples, 50, axis=0)
 
-    DOF = sn_sample + len(bao_data) + N_cc - ndim
+    DOF = sn_sample + len(bao) + N_cc - ndim
 
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
     print(f"H0: {h0_50:.1f} +{(h0_84 - h0_50):.1f} -{(h0_50 - h0_16):.1f} km/s/Mpc")
@@ -214,11 +237,13 @@ def main():
     print(f"Log evidence: {log_evd:.2f}")
     print(f"DOF: {DOF}")
 
+    dm_grid = DM_grid(best_fit)
+
     labels = ["$f_{CCH}$", "ΔM", "$H_0$", "$r_d$", "$Ω_m$", "$v_{100}$"]
     plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
     plot_bao_predictions(
-        theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
-        data=bao_data,
+        theory_predictions=lambda z, qty: bao_theory(z, qty, rd_50, dm_grid),
+        data=bao,
         errors=np.sqrt(np.diag(cov_matrix_bao)),
         title=f"{bao_legend}: $r_d$={rd_50:.1f} Mpc",
     )
@@ -232,9 +257,9 @@ def main():
     plot_sn_predictions(
         legend=sn_legend,
         x=z_cmb,
-        y=mu_values - mu_corr(best_fit),
+        y=mu_values - mu_corr(best_fit, dm_grid),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=mu_theory(best_fit),
+        y_model=mu_theory(best_fit, DM_z(z_cmb, dm_grid)),
         label=f"$Ω_m$={Om_50:.3f}",
         x_scale="log",
     )

@@ -12,31 +12,51 @@ cho = cho_factor(covmat, lower=True)[0]
 
 c = c0 / 1000  # Speed of light (km/s)
 
-z_grid = np.linspace(0, np.max(z_cmb) + 0.1, num=4000)
-dz = np.diff(z_grid)
-zp1 = 1.0 + z_grid
+z_grid = np.linspace(0, np.max(z_cmb) + 0.1, num=3000)
+dz = z_grid[1] - z_grid[0]
 
 
 @njit
-def Ode_z(w0):
+def Ode_z(z, w0):
     # Thawing quintessence with w(z) ranging from -1 to 1
+    zp1 = 1.0 + z
     return (2 * zp1**3 / ((1.0 + w0) + (1.0 - w0) * zp1**3)) ** 2
 
 
 @njit
-def Hz(params):
+def Hz(z, params):
     H0, Om = params[1], params[2]
     Ol = 1.0 - Om
-    return H0 * np.sqrt(Om * zp1**3 + Ol)
+    return H0 * np.sqrt(Om * (1.0 + z)**3 + Ol)
 
 
 @njit
 def DM_z(z, params):
-    dH_grid = c / Hz(params)
-    dh = (dH_grid[:-1] + dH_grid[1:]) / 2
-    cum_dm = np.zeros(z_grid.size, dtype=np.float64)
-    cum_dm[1:] = np.cumsum(dh * dz)
-    return interp_hermite(z, z_grid, cum_dm, dH_grid)
+    dh_grid = c / Hz(z_grid, params)
+    n = z_grid.size
+    cum_dm = np.zeros(n, dtype=np.float64)
+
+    # Compute local derivatives d(dh)/dz using central differences
+    d_dh = np.empty(n, dtype=np.float64)
+
+    # Central difference for internal points
+    d_dh[1:-1] = (dh_grid[2:] - dh_grid[:-2]) / (2 * dz)
+    # Forward/Backward difference at boundaries
+    d_dh[0] = (dh_grid[1] - dh_grid[0]) / dz
+    d_dh[-1] = (dh_grid[-1] - dh_grid[-2]) / dz
+
+    # Integrate with 4th-order cubic correction per interval
+    dz_sq_over_12 = (dz ** 2) / 12
+    acc = 0.0
+
+    for i in range(n - 1):
+        # Trapezoidal area + 1st-derivative endpoint correction
+        trap = 0.5 * dz * (dh_grid[i] + dh_grid[i + 1])
+        corr = dz_sq_over_12 * (d_dh[i] - d_dh[i + 1])
+        acc += trap + corr
+        cum_dm[i + 1] = acc
+
+    return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
 @njit
@@ -168,7 +188,7 @@ if __name__ == "__main__":
 # turning point z <= 0.10563 inflow z > 0.10563 outflow
 # z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-# v: -140 ± 67 km/s (prior ~ U[-5, 5] x 100 km/s)
+# v: -141 ± 67 km/s (prior ~ U[-5, 5] x 100 km/s)
 # v / z_turn: -1325 ± 634 km/s
 
 # ΔM: 0.004 ± 0.056 mag

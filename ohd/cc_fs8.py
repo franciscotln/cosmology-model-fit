@@ -22,7 +22,7 @@ N_fs8 = z_fs8.size
 
 z_max = max(np.max(z_fs8), np.max(z_cc))
 z_grid = np.linspace(0, z_max + 0.1, num=4000)
-dz = np.diff(z_grid)
+dz = z_grid[1] - z_grid[0]
 
 
 @njit
@@ -62,7 +62,7 @@ def dH_da(z, H_val, params):
 def DM(z, params):
     dh_grid = c / H_z(z_grid, params)
     dh = (dh_grid[:-1] + dh_grid[1:]) / 2
-    cum_dm = np.zeros(len(z_grid), dtype=np.float64)
+    cum_dm = np.zeros(z_grid.size, dtype=np.float64)
     cum_dm[1:] = np.cumsum(dh * dz)
     return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
@@ -171,6 +171,7 @@ def main():
         sampler.run(verbose=True)
 
     samples, log_w, log_l = sampler.posterior()
+    Omh2_samples = samples[:, 1] * (samples[:, 0] / 100) ** 2
     w = np.exp(log_w)
     log_evd = sampler.log_z
     one_sigma_ci = [0.159, 0.5, 0.841]
@@ -199,6 +200,7 @@ def main():
     fcc_16, fcc_50, fcc_84 = quantile(samples[:, 3], one_sigma_ci, weights=w)
     fs_16, fs_50, fs_84 = quantile(samples[:, 4], one_sigma_ci, weights=w)
     w0_16, w0_50, w0_84 = quantile(samples[:, 5], one_sigma_ci, weights=w)
+    Omh2_16, Omh2_50, Omh2_84 = quantile(Omh2_samples, one_sigma_ci, weights=w)
 
     S8_samples = samples[:, 2] * np.sqrt(samples[:, 1] / 0.3)
     S8_16, S8_50, S8_84 = quantile(S8_samples, one_sigma_ci, weights=w)
@@ -209,9 +211,10 @@ def main():
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"σ8: {sig8_50:.3f} +{(sig8_84 - sig8_50):.3f} -{(sig8_50 - sig8_16):.3f}")
     print(f"S8: {S8_50:.3f} +{(S8_84 - S8_50):.3f} -{(S8_50 - S8_16):.3f}")
+    print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
+    print(f"Ωm h^2: {Omh2_50:.3f} +{(Omh2_84 - Omh2_50):.3f} -{(Omh2_50 - Omh2_16):.3f}")
     print(f"f_cc: {fcc_50:.2f} +{(fcc_84 - fcc_50):.2f} -{(fcc_50 - fcc_16):.2f}")
     print(f"f_fs8: {fs_50:.2f} +{(fs_84 - fs_50):.2f} -{(fs_50 - fs_16):.2f}")
-    print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Log likelihood: {log_likelihood(best_fit):.2f}")
     print(f"Log evidence: {log_evd:.1f}")
@@ -239,12 +242,13 @@ if __name__ == "__main__":
 # ----------- Flat ΛCDM -----------
 # H0: 67.9 +2.5 -2.4 km/s/Mpc
 # Ωm: 0.315 +0.018 -0.017
-# σ8: 0.786 +0.011 -0.010
-# S8: 0.805 +0.019 -0.018
+# σ8: 0.786 +0.011 -0.011
+# S8: 0.805 +0.019 -0.019
+# Ωm h^2: 0.145 +0.010 -0.010
 # f_cc: 1.50 +0.18 -0.17
 # f_fs8: 1.78 +0.17 -0.17
-# Chi squared: 91.63
-# Log likelihood: 2.09
+# Chi squared: 91.62
+# Log likelihood: 2.08
 # Log evidence: -10.9
 # Degs of freedom: 89
 # ---------------------------------
@@ -255,9 +259,10 @@ if __name__ == "__main__":
 # Ωm: 0.285 +0.021 -0.022
 # σ8: 0.882 +0.052 -0.042
 # S8: 0.862 +0.028 -0.027
+# w0: -0.715 +0.092 -0.095 (prior U[-1.5, 0])
+# Ωm h^2: 0.1194 +0.0136 -0.0136
 # f_cc: 1.48 +0.17 -0.17
 # f_fs8: 1.93 +0.19 -0.18
-# w0: -0.715 +0.092 -0.095 (prior U[-1.5, 0])
 # Chi squared: 90.73
 # Log likelihood: 6.25 (2.88 sigma significance)
 # Log evidence: -8.6 (Δ logZ = 2.3 against ΛCDM)
@@ -272,9 +277,10 @@ if __name__ == "__main__":
 # Ωm: 0.318 +0.017 -0.016
 # σ8: 0.837 +0.023 -0.022
 # S8: 0.862 +0.026 -0.027
+# w0: -0.62 +0.11 -0.12 (prior U[-1, 0])
+# Ωm h^2: 0.134 +0.010 -0.010
 # f_cc: 1.47 +0.17 -0.17
 # f_fs8: 1.93 +0.19 -0.18
-# w0: -0.62 +0.11 -0.12 (prior U[-1, 0])
 # Chi squared: 90.76
 # Log likelihood: 6.08 (2.82 sigma significance)
 # Log evidence: -8.2 (Δ logZ = 2.7 against ΛCDM)
@@ -283,5 +289,21 @@ if __name__ == "__main__":
 
 
 # ---------- Flat w0waCDM ---------
-# TODO
+# w0 (prior U[-3, 1])
+# wa (prior U[-3, 2])
+# w0 + wa < 0 enforced in the likelihood
+
+# H0: 64.6 +2.6 -2.6 km/s/Mpc
+# Ωm: 0.299 +0.042 -0.047
+# σ8: 0.859 +0.085 -0.051
+# S8: 0.863 +0.028 -0.027
+# w0: -0.676 +0.134 -0.124
+# wa: -0.23 +0.64 -0.97
+# Ωm h^2: 0.126 +0.019 -0.023
+# f_cc: 1.47 +0.17 -0.17
+# f_fs8: 1.92 +0.19 -0.18
+# Chi squared: 91.28
+# Log likelihood: 5.59
+# Log evidence: -10.5
+# Degs of freedom: 87
 # ---------------------------------

@@ -150,8 +150,11 @@ def main():
     )
     plt.show()
 
-    best_fit = np.percentile(sampler.get_chain(discard=burn_in, flat=True), 50, axis=0)
-    print(f"Chi squared: {-2 * log_likelihood(best_fit)[0]:.4f}")
+    flat_samples = sampler.get_chain(discard=burn_in, flat=True)
+    log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
+
+    MAP = flat_samples[np.argmax(log_probs)]
+    print(f"Chi squared: {-2 * log_likelihood(MAP)[0]:.4f}")
 
 
 if __name__ == "__main__":
@@ -175,7 +178,7 @@ r*: 144.39 ± 0.30 Mpc
 DM*: 13.869 ± 0.028 Gpc
 z_drag: 1059.93 ± 0.30
 r_d: 147.05 ± 0.30 Mpc
-Chi squared: 0.0007
+Chi squared: 0.0015
 
 ===============================
 
@@ -192,7 +195,7 @@ r*: 144.43 ± 0.26 Mpc
 DM*: 13.873 ± 0.025 Gpc
 z_drag: 1059.94 ± 0.30
 r_d: 147.09 ± 0.26 Mpc
-Chi squared: 0.0004
+Chi squared: 0.0001
 
 ===============================
 
@@ -226,7 +229,7 @@ r*: 143.31 ± 0.54 Mpc
 DM*: 13.770 ± 0.050 Gpc
 z_drag: 1060.72 ± 0.39
 r_d: 145.87 ± 0.56 Mpc
-Chi squared: 0.0002
+Chi squared: 0.0003
 
 ===============================
 
@@ -243,5 +246,5 @@ r*: 144.52 ± 0.29 Mpc
 DM*: 13.884 ± 0.027 Gpc
 z_drag: 1060.17 ± 0.23
 r_d: 147.14 ± 0.29 Mpc
-Chi squared: 0.0005
+Chi squared: 0.0011
 """

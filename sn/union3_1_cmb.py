@@ -11,8 +11,8 @@ Omnuh2 = cmb.Omnu_h2
 sn_legend, z_cmb, z_hel, mu_vals, cov_matrix_sn = get_data()
 inv_cov_sn = np.linalg.inv(cov_matrix_sn)
 
-z_grid = np.linspace(0, np.max(z_cmb) + 0.1, num=4000)
-dz = np.diff(z_grid)
+z_grid = np.linspace(0, np.max(z_cmb) + 0.1, num=2000)
+dz = z_grid[1] - z_grid[0]
 
 
 @njit
@@ -56,9 +56,29 @@ def DM_z(z, dm_grid):
 @njit
 def DM_grid(params):
     dh_grid = c / Hz(z_grid, params)
-    dh = (dh_grid[:-1] + dh_grid[1:]) / 2
-    cum_dm = np.zeros(z_grid.size, dtype=np.float64)
-    cum_dm[1:] = np.cumsum(dz * dh)
+    n = z_grid.size
+    cum_dm = np.zeros(n, dtype=np.float64)
+
+    # Compute local derivatives d(dh)/dz using central differences
+    d_dh = np.empty(n, dtype=np.float64)
+
+    # Central difference for internal points
+    d_dh[1:-1] = (dh_grid[2:] - dh_grid[:-2]) / (2 * dz)
+    # Forward/Backward difference at boundaries
+    d_dh[0] = (dh_grid[1] - dh_grid[0]) / dz
+    d_dh[-1] = (dh_grid[-1] - dh_grid[-2]) / dz
+
+    # Integrate with 4th-order cubic correction per interval
+    dz_sq_over_12 = (dz ** 2) / 12
+    acc = 0.0
+
+    for i in range(n - 1):
+        # trapezoidal area + 1st-derivative endpoint correction
+        trap = 0.5 * dz * (dh_grid[i] + dh_grid[i + 1])
+        corr = dz_sq_over_12 * (d_dh[i] - d_dh[i + 1])
+        acc += trap + corr
+        cum_dm[i + 1] = acc
+
     return (cum_dm, dh_grid)
 
 

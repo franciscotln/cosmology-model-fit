@@ -12,7 +12,7 @@ legend, bao, cov_mat = get_data()
 inv_cov = np.linalg.inv(cov_mat)
 
 z_grid = np.linspace(0, np.max(bao["z"]) + 0.1, 4000)
-dz = np.diff(z_grid)
+dz = z_grid[1] - z_grid[0]
 
 
 @njit
@@ -55,9 +55,30 @@ cmb.set_HZ(H_z)
 @njit
 def DM_grid(params):
     dh_grid = c / H_z(z_grid, params)
-    dh = (dh_grid[:-1] + dh_grid[1:]) / 2
-    cum_dm = np.zeros(z_grid.size, dtype=np.float64)
-    cum_dm[1:] = np.cumsum(dh * dz)
+    n = z_grid.size
+    cum_dm = np.zeros(n, dtype=np.float64)
+
+    # Compute local derivatives d(dh)/dz using central differences
+    d_dh = np.empty(n, dtype=np.float64)
+
+    # Central difference for internal points
+    d_dh[1:-1] = (dh_grid[2:] - dh_grid[:-2]) / (2 * dz)
+    # Forward/Backward difference at boundaries
+    d_dh[0] = (dh_grid[1] - dh_grid[0]) / dz
+    d_dh[-1] = (dh_grid[-1] - dh_grid[-2]) / dz
+
+    # Integrate with 4th-order cubic correction per interval
+    dz_sq_over_12 = (dz ** 2) / 12
+    acc = 0.0
+
+    for i in range(n - 1):
+        # trapezoidal area + 1st-derivative endpoint correction
+        trap = 0.5 * dz * (dh_grid[i] + dh_grid[i + 1])
+        corr = dz_sq_over_12 * (d_dh[i] - d_dh[i + 1])
+
+        acc += trap + corr
+        cum_dm[i + 1] = acc
+
     return (cum_dm, dh_grid)
 
 
@@ -76,23 +97,23 @@ bao_qty = np.array([qty_map[q] for q in bao["quantity"]], dtype=np.int32)
 
 @njit
 def bao_theory(z, qty, params):
-    DM_INTERP = DM_grid(params)
+    dm_interp = DM_grid(params)
 
     Obh2, Och2 = params[1], params[2]
     Omh2 = Obh2 + Och2 + Omnuh2
-    rdrag = cmb.r_drag(Obh2, Omh2)
+    inv_rd = 1.0 / cmb.r_drag(Obh2, Omh2)
 
-    DM = interp_hermite(z, z_grid, *DM_INTERP)
-    DH = interp_pchip(z, z_grid, DM_INTERP[1])
+    DM = interp_hermite(z, z_grid, y=dm_interp[0], y_prime=dm_interp[1])
+    DH = interp_pchip(z, z_grid, y=dm_interp[1])
 
     results = np.empty(z.size, dtype=np.float64)
     DV_mask = qty == dv_rs
     DM_mask = qty == dm_rs
     DH_mask = qty == dh_rs
     FAP_mask = qty == f_ap
-    results[DM_mask] = DM[DM_mask] / rdrag
-    results[DH_mask] = DH[DH_mask] / rdrag
-    results[DV_mask] = (z[DV_mask] * DH[DV_mask] * DM[DV_mask] ** 2) ** (1 / 3) / rdrag
+    results[DM_mask] = DM[DM_mask] * inv_rd
+    results[DH_mask] = DH[DH_mask] * inv_rd
+    results[DV_mask] = (z[DV_mask] * DH[DV_mask] * DM[DV_mask] ** 2) ** (1 / 3) * inv_rd
     results[FAP_mask] = DM[FAP_mask] / DH[FAP_mask]
     return results
 
@@ -230,11 +251,11 @@ if __name__ == "__main__":
 
 # -------------- Flat w0waCDM ---------------
 # H0: 64.9 ± 2.0 km/s/Mpc
-# Ωm: 0.339 +0.021 -0.023
+# Ωm: 0.339 +0.020 -0.023
 # w0: -0.58 +0.20 -0.23 (prior U[-3.0, 1.0])
-# wa: -1.26 +0.69 -0.55 (prior U[-3.0, 2.0])
+# wa: -1.25 +0.69 -0.55 (prior U[-3.0, 2.0])
 # r_d: 147.17 ± 0.26 Mpc
-# χ2 (MAP): 11.72 (1.68 sigma away from ΛCDM)
+# χ2 (MAP): 11.71 (1.68 sigma away from ΛCDM)
 # Log evidence: -24.4 + 0.3 = -24.1 (Δ logZ = -2.2 in favour of ΛCDM)
 # DOF: 12
 # w0 + wa < 0 enforced in the likelihood
