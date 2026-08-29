@@ -64,8 +64,8 @@ def main():
 
     H0_16, H0_50, H0_84 = quantile(samples[:, 0], one_sigma_ci, weights=w)
     Om_16, Om_50, Om_84 = quantile(samples[:, 1], one_sigma_ci, weights=w)
-    Omh2_16, Omh2_50, Omh2_84 = quantile(Omh2_samples, one_sigma_ci, weights=w)
     f_16, f_50, f_84 = quantile(samples[:, 2], one_sigma_ci, weights=w)
+    Omh2_16, Omh2_50, Omh2_84 = quantile(Omh2_samples, one_sigma_ci, weights=w)
 
     best_fit = samples[np.argmax(log_l)]
 
@@ -123,8 +123,9 @@ if __name__ == "__main__":
 # -------------------------------
 
 # With fixed f = 1:
-# H0: 66.4 +5.3 -5.5 km/s/Mpc
+# H0: 66.4 +5.4 -5.4 km/s/Mpc
 # Ωm: 0.34 +0.08 -0.06
+# Ωm h^2: 0.148 +0.018 -0.017
 # Chi squared: 16.39
 # Log likelihood: -154.31
 # Log evidence: -158.26
