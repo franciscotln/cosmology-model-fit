@@ -137,7 +137,22 @@ if __name__ == "__main__":
 # -2 * (-159.38) + 2 * (-150.42) = 17.92
 #
 # DOF = 2
-# p-value = 0.00013
-# We are 99.99% confident that the model with f is better than the one without f.
-# So the uncertainties in the H(z) dataset are overestimated and redshift dependent
-# 3.83 sigma significance.
+#
+# Parametric-bootstrap likelihood-ratio test:
+# The full covariance-rescaling model improves the maximum log likelihood by
+# Delta log L = 8.96 relative to the fixed published-covariance model:
+#
+# Lambda = 2 * (log L_scaling - log L_fixed) = 17.92.
+#
+# A parametric bootstrap with 100,000 data sets simulated under the
+# fixed-covariance null produced 29 values of Lambda >= 17.92, giving
+# p_bootstrap = 3.0e-4 (Monte Carlo SE = 5.5e-5).
+#
+# Conditional on flat LCDM, Gaussian errors, the published covariance,
+# the chosen parameter bounds, and f(z) = f0 + fa * z, the data favor
+# the covariance-rescaling extension over the fixed-covariance model.
+#
+# This result does not by itself establish that the published uncertainties
+# are overestimated or that their discrepancy is intrinsically
+# redshift-dependent; unmodeled systematics or mean-model inadequacy could
+# also produce this preference.
