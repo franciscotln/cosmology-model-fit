@@ -110,7 +110,7 @@ if __name__ == "__main__":
 
 # Model: Flat ΛCDM
 
-# Varying f ~U[0.1, 3.3]:
+# Varying f ~U[0.5, 2.5]:
 # H0: 66.9 +3.6 -3.6 km/s/Mpc
 # Ωm: 0.33 +0.05 -0.04
 # f: 1.49 +0.18 -0.17
