@@ -48,7 +48,7 @@ def main():
     prior = Prior()
     prior.add_parameter("H0", dist=(30, 100))
     prior.add_parameter("Om", dist=(0.0, 1.0))
-    prior.add_parameter("f", dist=(0.1, 3.3))
+    prior.add_parameter("f", dist=(0.5, 2.5))
 
     with Pool(5) as pool:
         sampler = Sampler(
@@ -57,12 +57,14 @@ def main():
         sampler.run(verbose=True)
 
     samples, log_w, log_l = sampler.posterior()
+    Omh2_samples = samples[:, 1] * (samples[:, 0] / 100) ** 2
     w = np.exp(log_w)
     log_evd = sampler.log_z
     one_sigma_ci = [0.159, 0.5, 0.841]
 
     H0_16, H0_50, H0_84 = quantile(samples[:, 0], one_sigma_ci, weights=w)
     Om_16, Om_50, Om_84 = quantile(samples[:, 1], one_sigma_ci, weights=w)
+    Omh2_16, Omh2_50, Omh2_84 = quantile(Omh2_samples, one_sigma_ci, weights=w)
     f_16, f_50, f_84 = quantile(samples[:, 2], one_sigma_ci, weights=w)
 
     best_fit = samples[np.argmax(log_l)]
@@ -70,6 +72,7 @@ def main():
     print(f"H0: {H0_50:.1f} +{(H0_84 - H0_50):.1f} -{(H0_50 - H0_16):.1f}")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"f: {f_50:.2f} +{(f_84 - f_50):.2f} -{(f_50 - f_16):.2f}")
+    print(f"Ωm h^2: {Omh2_50:.3f} +{(Omh2_84 - Omh2_50):.3f} -{(Omh2_50 - Omh2_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Log likelihood: {log_likelihood(best_fit):.2f}")
     print(f"Log evidence: {log_evd:.2f}")
@@ -111,9 +114,10 @@ if __name__ == "__main__":
 # H0: 66.9 +3.6 -3.6 km/s/Mpc
 # Ωm: 0.33 +0.05 -0.04
 # f: 1.49 +0.18 -0.17
-# Chi squared: 38.03
+# Ωm h^2: 0.147 +0.012 -0.012
+# Chi squared: 38.07
 # Log likelihood: -149.14
-# Log evidence: -155.91 (diff: 2.35 in evidence favouring the model with f)
+# Log evidence: -155.44 (diff: 2.82 in evidence favouring the model with f)
 # Degs of freedom: 35
 
 # -------------------------------
