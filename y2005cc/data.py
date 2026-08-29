@@ -54,8 +54,7 @@ def get_data():
 
 # ------ Latest Measurements ------
 # arXiv:2512.02109v1
-# H(z=0.542) = 66 +82 -32 km/s/Mpc
-# Note: not used in this compilation due to very asymmetric errors
+# H(z=0.542) = 66 +82 -32 (stat) ± 13 (sys)  km/s/Mpc
 
 # arXiv:2506.03836v1
 # H(z=0.5) = 72.1 ± 34.7

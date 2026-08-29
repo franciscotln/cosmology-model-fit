@@ -110,34 +110,34 @@ if __name__ == "__main__":
 # cov[i, j] = base_cov[i, j] / (f(z_i) * f(z_j))
 #
 # H0: 67.6 +- 2.6
-# Ωm: 0.318 +0.035 -0.044
-# f0: 2.23 +- 0.35  (prior ~U[0.5, 4.0])
-# fa: -0.79 +0.27 -0.32 (prior ~U[-2.0, 2.0])
+# Ωm: 0.317 +0.035 -0.043
+# f0: 2.25 +- 0.35  (prior ~U[0.5, 4.0])
+# fa: -0.80 +0.27 -0.31 (prior ~U[-2.0, 2.0])
 # Ωm h^2: 0.144 +- 0.015
-# Log likelihood (MAP): -145.70
-# Log evidence: -154.46 (diff: 3.80 strong evidence favouring the model with f0, fa)
-# χ2 (MAP): 38.53
-# DOF: 34
-# χ2/DOF: 1.13
+# Log likelihood (MAP): -150.42
+# Log evidence: -159.19 (diff: 4.13 strong evidence favouring the model with f0, fa)
+# χ2 (MAP): 38.80
+# DOF: 35
+# χ2/DOF: 1.11
 # ---------------------------------
 
 # Without error scaling (fixed f0 = 1, fa = 0):
-# H0: 66.4 +5.4 -5.4 km/s/Mpc
-# Ωm: 0.34 +0.08 -0.06
-# Ωm h^2: 0.148 +0.018 -0.017
-# Log likelihood (MAP): -154.31
-# Log evidence: -158.26
-# χ2 (MAP): 16.39
-# DOF: 36
-# χ2/DOF: 0.46 
+# H0: 66.3 ± 5.4 km/s/Mpc
+# Om: 0.344 +0.054 -0.081
+# Ωm h^2: 0.148 ± 0.018
+# Log likelihood (MAP): -159.38
+# Log evidence: -163.32
+# χ2 (MAP): 16.61
+# DOF: 37
+# χ2/DOF: 0.45
 # ---------------------------------
 
 # Log likelihood ratio test:
 # -2 * log(L0/L1) = -2 * log(L0) + 2 * log(L1)
-# -2 * (-154.31) + 2 * (-145.70) = 17.22
+# -2 * (-159.38) + 2 * (-150.42) = 17.92
 #
 # DOF = 2
-# p-value = 0.00018
-# We are 99.98% confident that the model with f is better than the one without f.
+# p-value = 0.00013
+# We are 99.99% confident that the model with f is better than the one without f.
 # So the uncertainties in the H(z) dataset are overestimated and redshift dependent
-# 3.74 sigma significance.
+# 3.83 sigma significance.
