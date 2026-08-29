@@ -123,6 +123,8 @@ if __name__ == "__main__":
 # ---------------------------------
 
 # Redshift dependent covariance error scaling f(z) = f0 + fa * z:
+# cov[i, j] = base_cov[i, j] / (f(z_i) * f(z_j))
+#
 # H0: 67.6 +- 2.6
 # Ωm: 0.318 +0.035 -0.044
 # f0: 2.23 +- 0.35  (prior ~U[0.5, 4.0])
