@@ -40,26 +40,34 @@ def get_data():
     return (f"Cosmic Chronometers ({N} data points)", z, Hz, cov_matrix)
 
 
-"""
-Current data from arXiv:2412.01994v1 and arXiv:2506.03836v1
-Covariance components: https://arxiv.org/pdf/2003.07362
-Covariance matrix construction: https://gitlab.com/mmoresco/CCcovariance/-/blob/master/examples/CC_covariance.ipynb
-"""
+# *********************************
+# Current data
+# arXiv:2412.01994v1: 32 data points
+#
+# Covariance components:
+# https://arxiv.org/pdf/2003.07362
+# 
+# Covariance matrix construction:
+# https://gitlab.com/mmoresco/CCcovariance/-/blob/master/examples/CC_covariance.ipynb
+# *********************************
 
-"""
-Latest measurements
 
-(arXiv:2512.02109v1):
-H(z=0.542) = 66 +82 -32 km/s/Mpc
+# ------ Latest Measurements ------
+# arXiv:2512.02109v1
+# H(z=0.542) = 66 +82 -32 km/s/Mpc
+# Note: not used in this compilation due to very asymmetric errors
 
-(arXiv:2511.02730v1)
-H(z=0.46) = 88.48 ± 12.33
-H(z=0.67) = 119.45 ± 17.82
-H(z=0.83) = 108.28 ± 18.13
+# arXiv:2506.03836v1
+# H(z=0.5) = 72.1 ± 34.7
 
-(arXiv:2606.07298v1)
-H(0.65) = 93.68 ± 30.22
+# arXiv:2511.02730v1
+# H(z=0.46) = 88.48 ± 12.33
+# H(z=0.67) = 119.45 ± 17.82
+# H(z=0.83) = 108.28 ± 18.13
 
-(arXiv:2608.13178v1)
-H(z=0.61) = 88.5 ± 8.1 (sys) +6.7 -12.6 (stat)
-"""
+# arXiv:2606.07298v1
+# H(0.65) = 93.68 ± 30.22
+
+# arXiv:2608.13178v1
+# H(z=0.61) = 88.5 ± 8.1 (sys) +6.7 -12.6 (stat)
+# ---------------------------------

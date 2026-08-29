@@ -103,22 +103,6 @@ if __name__ == "__main__":
     main()
 
 
-# *********************************
-# Results for data from
-# https://arxiv.org/pdf/2307.09501
-#
-# 4 data points from
-# https://arxiv.org/pdf/2506.03836
-# https://arxiv.org/pdf/2511.02730v1
-#
-# 1 data point from
-# https://arxiv.org/pdf/2606.07298v1
-#
-# 1 data point from
-# https://arxiv.org/pdf/2608.13178
-# *********************************
-
-
 # Model: Flat ΛCDM
 # ---------------------------------
 
