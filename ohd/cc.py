@@ -25,7 +25,7 @@ def log_likelihood_jit(params):
     f_array = params[2] + params[3] * z_values
     if np.any(f_array <= 1e-4):
         return -np.inf
- 
+
     delta = H_values - H_z(z_values, params)
     chi2 = solve_triangular(L, f_array * delta)
 
@@ -76,11 +76,13 @@ def main():
         print(f"{par}: {gd_samples.mean(par):.4f} ± {gd_samples.std(par):.4f}")
 
     best_fit = samples[np.argmax(log_l)]
-    chi2 = solve_triangular(L, (best_fit[2] + best_fit[3] * z_values) * (H_values - H_z(z_values, best_fit)))
+    f_array = best_fit[2] + best_fit[3] * z_values
+    delta = H_values - H_z(z_values, best_fit)
+    chi2 = solve_triangular(L, f_array * delta)
 
-    print(f"Log likelihood: {log_likelihood(best_fit):.2f}")
+    print(f"Log likelihood (MAP): {log_likelihood(best_fit):.2f}")
     print(f"Log evidence: {sampler.log_z:.2f}")
-    print(f"χ2: {chi2:.2f}")
+    print(f"χ2 (MAP): {chi2:.2f}")
     print(f"DOF: {N - len(best_fit)}")
 
     plots.getSubplotPlotter().triangle_plot(
@@ -92,7 +94,7 @@ def main():
         H_z=lambda z: H_z(z, best_fit),
         z=z_values,
         H=H_values,
-        H_err=np.sqrt(np.diag(cov_matrix)) / (best_fit[2] + best_fit[3] * z_values),
+        H_err=np.sqrt(np.diag(cov_matrix)) / f_array,
         label=f"{legend} $H_0$: {best_fit[0]:.1f} km/s/Mpc",
     )
 
@@ -126,19 +128,22 @@ if __name__ == "__main__":
 # f0: 2.23 +- 0.35  (prior ~U[0.5, 4.0])
 # fa: -0.79 +0.27 -0.32 (prior ~U[-2.0, 2.0])
 # Ωm h^2: 0.144 +- 0.015
-# Log likelihood: -145.70
+# Log likelihood (MAP): -145.70
 # Log evidence: -154.46 (diff: 3.80 strong evidence favouring the model with f0, fa)
+# χ2 (MAP): 38.53
 # DOF: 34
+# χ2/DOF: 1.13
 # ---------------------------------
 
 # Without error scaling (fixed f0 = 1, fa = 0):
 # H0: 66.4 +5.4 -5.4 km/s/Mpc
 # Ωm: 0.34 +0.08 -0.06
 # Ωm h^2: 0.148 +0.018 -0.017
-# Log likelihood: -154.31
+# Log likelihood (MAP): -154.31
 # Log evidence: -158.26
-# χ2: 16.39
+# χ2 (MAP): 16.39
 # DOF: 36
+# χ2/DOF: 0.46 
 # ---------------------------------
 
 # Log likelihood ratio test:
