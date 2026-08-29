@@ -168,25 +168,24 @@ if __name__ == "__main__":
 
 # ------ Overestimation factor f(z) = f0 + fa * z -----
 # H0: 67.62 +0.49 -0.49 km/s/Mpc
-# Ωm: 0.3116 +0.0070 -0.0069
+# Ωm: 0.3115 +0.0070 -0.0068
 # ωb: 0.02250 +0.00011 -0.00011
-# ωc: 0.11931 +0.00120 -0.00119
-# f0: 2.30 +0.36 -0.35
-# fa: -0.84 +0.31 -0.29
-# Chi squared: 38.51
-# Log likelihood: -145.73 (3.74 sigma significance)
-# Log evidence: -162.47 (Δ logZ = 7.53 compared to no scaling)
-# Degs of freedom: 36
+# ωc: 0.11929 +0.00120 -0.00118
+# f0: 2.31 +0.35 -0.35
+# fa: -0.84 +0.31 -0.28
+# Chi squared: 38.55
+# Log likelihood: -150.43 (3.83 sigma significance)
+# Log evidence: -167.21 (Δ logZ = 7.85 compared to no scaling)
+# Degs of freedom: 37
 
 
 # ------------ Fixed factor f0 = 1, fa = 0 ------------
 # f0: 1, fa: 0 (assuming no overestimaded errors in CCH sample)
 # H0: 67.60 +0.50 -0.50 km/s/Mpc
-# Ωm: 0.3118 +0.0072 -0.0070
+# Ωm: 0.3118 +0.0071 -0.0070
 # ωb: 0.02249 +0.00011 -0.00011
-# ωc: 0.11935 +0.00121 -0.00121
-# Chi squared: 16.45
-# Log likelihood: -154.34
-# Log evidence: -170.00
-# Degs of freedom: 38
-# """
+# ωc: 0.11934 +0.00121 -0.00120
+# Chi squared: 16.67
+# Log likelihood: -159.41
+# Log evidence: -175.06
+# Degs of freedom: 39
