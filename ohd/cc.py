@@ -9,8 +9,9 @@ c = c0 / 1000  # Speed of light in km/s
 
 legend, z_values, H_values, cov_matrix = get_data()
 
-cho = cho_factor(cov_matrix, lower=True)[0]
-logdet = np.linalg.slogdet(cov_matrix)[1]
+L = cho_factor(cov_matrix, lower=True)[0]
+logdet_base = 2.0 * np.log(np.diag(L)).sum()
+N = z_values.size
 
 
 @njit
@@ -20,18 +21,18 @@ def H_z(z, params):
 
 
 @njit
-def chi_squared(params):
-    f = params[-1]
-    delta = H_values - H_z(z_values, params)
-    return f**2 * solve_triangular(cho, delta)
-
-
-@njit
 def log_likelihood_jit(params):
-    N = len(z_values)
-    f = params[-1]
-    normalization = N * np.log(2 * np.pi) + logdet - 2 * N * np.log(f)
-    return -0.5 * (chi_squared(params) + normalization)
+    f_array = params[2] + params[3] * z_values
+    if np.any(f_array <= 1e-4):
+        return -np.inf
+ 
+    delta = H_values - H_z(z_values, params)
+    chi2 = solve_triangular(L, f_array * delta)
+
+    logdet = logdet_base - 2.0 * np.log(f_array).sum()
+    normalization = N * np.log(2 * np.pi) + logdet
+
+    return -0.5 * (chi2 + normalization)
 
 
 def log_likelihood(params):
@@ -41,14 +42,15 @@ def log_likelihood(params):
 def main():
     from multiprocessing import Pool
     from nautilus import Sampler, Prior
-    from corner import quantile
-    from corner_plot import plot_corner_and_chains
+    from getdist import plots, MCSamples
+    import matplotlib.pyplot as plt
     from ohd.plot_predictions import plot_cc_predictions
 
     prior = Prior()
     prior.add_parameter("H0", dist=(30, 100))
     prior.add_parameter("Om", dist=(0.0, 1.0))
-    prior.add_parameter("f", dist=(0.5, 2.5))
+    prior.add_parameter("f0", dist=(0.5, 4.0))
+    prior.add_parameter("fa", dist=(-2.0, 2.0))
 
     with Pool(5) as pool:
         sampler = Sampler(
@@ -57,34 +59,41 @@ def main():
         sampler.run(verbose=True)
 
     samples, log_w, log_l = sampler.posterior()
-    Omh2_samples = samples[:, 1] * (samples[:, 0] / 100) ** 2
-    w = np.exp(log_w)
-    log_evd = sampler.log_z
-    one_sigma_ci = [0.159, 0.5, 0.841]
+    weights = np.exp(log_w)
+    labels=["H_0", "\\Omega_m", "f_0", "f_a"]
 
-    H0_16, H0_50, H0_84 = quantile(samples[:, 0], one_sigma_ci, weights=w)
-    Om_16, Om_50, Om_84 = quantile(samples[:, 1], one_sigma_ci, weights=w)
-    f_16, f_50, f_84 = quantile(samples[:, 2], one_sigma_ci, weights=w)
-    Omh2_16, Omh2_50, Omh2_84 = quantile(Omh2_samples, one_sigma_ci, weights=w)
+    gd_samples = MCSamples(
+        samples=samples,
+        weights=weights,
+        loglikes=log_l,
+        names=prior.keys,
+        labels=labels,
+    )
+    gd_samples.addDerived(gd_samples["Om"] * (gd_samples["H0"] / 100) ** 2, name="Omh2")
+    gd_samples.updateBaseStatistics()
+
+    for par in gd_samples.getParamNames().names:
+        print(f"{par}: {gd_samples.mean(par):.4f} ± {gd_samples.std(par):.4f}")
 
     best_fit = samples[np.argmax(log_l)]
+    chi2 = solve_triangular(L, (best_fit[2] + best_fit[3] * z_values) * (H_values - H_z(z_values, best_fit)))
 
-    print(f"H0: {H0_50:.1f} +{(H0_84 - H0_50):.1f} -{(H0_50 - H0_16):.1f}")
-    print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
-    print(f"f: {f_50:.2f} +{(f_84 - f_50):.2f} -{(f_50 - f_16):.2f}")
-    print(f"Ωm h^2: {Omh2_50:.3f} +{(Omh2_84 - Omh2_50):.3f} -{(Omh2_50 - Omh2_16):.3f}")
-    print(f"Chi squared: {chi_squared(best_fit):.2f}")
     print(f"Log likelihood: {log_likelihood(best_fit):.2f}")
-    print(f"Log evidence: {log_evd:.2f}")
-    print(f"Degs of freedom: {len(z_values) - len(best_fit)}")
+    print(f"Log evidence: {sampler.log_z:.2f}")
+    print(f"χ2: {chi2:.2f}")
+    print(f"DOF: {N - len(best_fit)}")
 
-    plot_corner_and_chains(prior.keys, samples, weights=w)
+    plots.getSubplotPlotter().triangle_plot(
+        gd_samples, filled=True, title_limit=1, contour_colors=["C0"], color=["C0"],
+    )
+    plt.show()
+
     plot_cc_predictions(
         H_z=lambda z: H_z(z, best_fit),
         z=z_values,
         H=H_values,
-        H_err=np.sqrt(np.diag(cov_matrix)) / f_50,
-        label=f"{legend} $H_0$: {H0_50:.1f} ± {(H0_84 - H0_50):.1f} km/s/Mpc",
+        H_err=np.sqrt(np.diag(cov_matrix)) / (best_fit[2] + best_fit[3] * z_values),
+        label=f"{legend} $H_0$: {best_fit[0]:.1f} km/s/Mpc",
     )
 
 
@@ -92,7 +101,7 @@ if __name__ == "__main__":
     main()
 
 
-# *******************************
+# *********************************
 # Results for data from
 # https://arxiv.org/pdf/2307.09501
 #
@@ -105,40 +114,39 @@ if __name__ == "__main__":
 #
 # 1 data point from
 # https://arxiv.org/pdf/2608.13178
-# *******************************
+# *********************************
 
 
 # Model: Flat ΛCDM
+# ---------------------------------
 
-# Varying f ~U[0.5, 2.5]:
-# H0: 66.9 +3.6 -3.6 km/s/Mpc
-# Ωm: 0.33 +0.05 -0.04
-# f: 1.49 +0.18 -0.17
-# Ωm h^2: 0.147 +0.012 -0.012
-# Chi squared: 38.07
-# Log likelihood: -149.14
-# Log evidence: -155.44 (diff: 2.82 in evidence favouring the model with f)
-# Degs of freedom: 35
+# Redshift dependent covariance error scaling f(z) = f0 + fa * z:
+# H0: 67.6 +- 2.6
+# Ωm: 0.318 +0.035 -0.044
+# f0: 2.23 +- 0.35  (prior ~U[0.5, 4.0])
+# fa: -0.79 +0.27 -0.32 (prior ~U[-2.0, 2.0])
+# Ωm h^2: 0.144 +- 0.015
+# Log likelihood: -145.70
+# Log evidence: -154.46 (diff: 3.80 strong evidence favouring the model with f0, fa)
+# DOF: 34
+# ---------------------------------
 
-# -------------------------------
-
-# With fixed f = 1:
+# Without error scaling (fixed f0 = 1, fa = 0):
 # H0: 66.4 +5.4 -5.4 km/s/Mpc
 # Ωm: 0.34 +0.08 -0.06
 # Ωm h^2: 0.148 +0.018 -0.017
-# Chi squared: 16.39
 # Log likelihood: -154.31
 # Log evidence: -158.26
-# Degs of freedom: 36
-
-# -------------------------------
+# χ2: 16.39
+# DOF: 36
+# ---------------------------------
 
 # Log likelihood ratio test:
 # -2 * log(L0/L1) = -2 * log(L0) + 2 * log(L1)
-# -2 * (-154.33) + 2 * (-149.17) = 10.34
+# -2 * (-154.31) + 2 * (-145.70) = 17.22
 #
-# Degrees of freedom = 1
-# p-value = 0.0013
-# We are 99.87% confident that the model with f is better than the one without f.
-# So the uncertainties in the H(z) dataset are overestimated and should be scaled down.
-# 3.22 sigma significance.
+# DOF = 2
+# p-value = 0.00018
+# We are 99.98% confident that the model with f is better than the one without f.
+# So the uncertainties in the H(z) dataset are overestimated and redshift dependent
+# 3.74 sigma significance.
