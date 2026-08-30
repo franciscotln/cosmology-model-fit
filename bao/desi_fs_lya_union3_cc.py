@@ -143,9 +143,9 @@ def main():
     from bao.plot_predictions import plot_bao_predictions
 
     prior = Prior()
-    # f0: CCH covariance rescaling (overestimated uncertainties)
+    # f0: CCH covariance rescaling (overestimated uncertainties f(z) = f0 + fa * z)
     prior.add_parameter("f0", dist=(0.01, 4.0))
-    # fa: CCH covariance rescaling (overestimated uncertainties)
+    # fa: CCH covariance rescaling (cov[i, j] = base_cov[i, j] / (fz[i] * fz[j]))
     prior.add_parameter("fa", dist=(-2.0, 2.0))
     # ΔM: magnitude zero-point offset
     prior.add_parameter("dM", dist=(-1, 1))
