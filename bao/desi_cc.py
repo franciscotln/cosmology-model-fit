@@ -20,24 +20,25 @@ c = c0 / 1000  # Speed of light in km/s
 
 z_max = np.max(data["z"]) + 0.1
 z_grid = np.linspace(0, z_max, num=4000)
-dz = np.diff(z_grid)
+dz = z_grid[1] - z_grid[0]
 
 
 @njit
 def Ode_z(z, w0):
+    # Thawing quintessence
     cubic = (1.0 + z) ** 3
     return (2 * cubic / (1.0 + w0 + (1.0 - w0) * cubic)) ** 2
 
 
 @njit
 def Ez(z, params):
-    O_m = params[3]
-    return np.sqrt(O_m * (1.0 + z) ** 3 + (1.0 - O_m) * Ode_z(z, w0=params[4]))
+    om = params[4]
+    return np.sqrt(om * (1.0 + z) ** 3 + (1.0 - om) * Ode_z(z, w0=params[5]))
 
 
 @njit
 def H_z(z, params):
-    return params[1] * Ez(z, params)
+    return params[2] * Ez(z, params)
 
 
 @njit
@@ -74,14 +75,13 @@ def theory_bao(z, qty, params):
     results[DH_mask] = DH_z(z[DH_mask], params)
     results[DM_mask] = DM_z(z[DM_mask], params)
     results[DV_mask] = DV_z(z[DV_mask], params)
-    return results / params[2]
+    return results / params[3]
 
 
 @njit
-def chi_squared(params):
-    f_cc = params[0]
+def chi_squared(params, f_array):
     delta_cc = H_cc_vals - H_z(z_cc_vals, params)
-    chi_cc = f_cc**2 * solve_triangular(cho_cc, delta_cc)
+    chi_cc = solve_triangular(cho_cc, f_array * delta_cc)
 
     delta_bao = data["value"] - theory_bao(data["z"], desi_qty, params)
     chi_bao = solve_triangular(cho_bao, delta_bao)
@@ -90,7 +90,8 @@ def chi_squared(params):
 
 bounds = np.array(
     [
-        (0.5, 2.5),  # f_cc
+        (0.1, 4.0),  # f0_cc
+        (-2.0, 2.0),  # fa_cc
         (45.0, 90.0),  # H0
         (120.0, 175.0),  # r_d
         (0.1, 0.7),  # Ωm
@@ -110,9 +111,13 @@ def log_prior(params):
 
 @njit
 def log_likelihood(params):
-    f_cc = params[0]
-    normalization_cc = N_cc * np.log(2 * np.pi) + logdet_cc - 2 * N_cc * np.log(f_cc)
-    return -0.5 * chi_squared(params) - 0.5 * normalization_cc
+    f0_cc, fa_cc = params[0], params[1]
+    f_array = f0_cc + fa_cc * z_cc_vals
+    if np.any(f_array <= 1e-4):
+        return -np.inf
+
+    normalization_cc = N_cc * np.log(2 * np.pi) + logdet_cc - 2.0 * np.log(f_array).sum()
+    return -0.5 * chi_squared(params, f_array) - 0.5 * normalization_cc
 
 
 @njit
@@ -167,30 +172,33 @@ def main():
     print(f"Gelman-Rubin: {gelman_rubin(chains_samples)}")
 
     [
-        (f_cc_16, f_cc_50, f_cc_84),
+        (f0_16, f0_50, f0_84),
+        (fa_16, fa_50, fa_84),
         (h0_16, h0_50, h0_84),
         (rd_16, rd_50, rd_84),
         (Om_16, Om_50, Om_84),
         (w0_16, w0_50, w0_84),
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
-    best_fit = np.percentile(samples, 50, axis=0)
+    best_fit = samples[np.argmax(log_probs)]
+    f_array = best_fit[0] + best_fit[1] * z_cc_vals
 
     Omh2_samples = samples[:, 1] ** 2 * samples[:, 3] / 100**2
     Omh2_16, Omh2_50, Omh2_84 = np.percentile(Omh2_samples, [15.9, 50, 84.1])
 
-    print(f"f_cc: {f_cc_50:.2f} +{(f_cc_84 - f_cc_50):.2f} -{(f_cc_50 - f_cc_16):.2f}")
+    print(f"f0_cc: {f0_50:.2f} +{(f0_84 - f0_50):.2f} -{(f0_50 - f0_16):.2f}")
+    print(f"fa_cc: {fa_50:.2f} +{(fa_84 - fa_50):.2f} -{(fa_50 - fa_16):.2f}")
     print(f"H0: {h0_50:.1f} +{(h0_84 - h0_50):.1f} -{(h0_50 - h0_16):.1f} km/s/Mpc")
     print(f"r_d: {rd_50:.1f} +{(rd_84 - rd_50):.1f} -{(rd_50 - rd_16):.1f} Mpc")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"ωm: {Omh2_50:.4f} +{(Omh2_84 - Omh2_50):.4f} -{(Omh2_50 - Omh2_16):.4f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
-    print(f"Chi squared: {chi_squared(best_fit):.2f}")
+    print(f"Chi squared: {chi_squared(best_fit, f_array):.2f}")
     print(f"log likelihood: {log_likelihood(best_fit):.2f}")
     print(f"Log evidence: {log_evd:.1f}")
     print(f"Degrees of freedom: {len(data['z']) + len(z_cc_vals) - len(best_fit)}")
 
-    labels = ["$f_{CCH}$", "$H_0$", "$r_d$", "$Ω_m$", "$w_0$"]
+    labels = ["$f_{0CCH}$", "$f_{aCCH}$", "$H_0$", "$r_d$", "$Ω_m$", "$w_0$"]
     plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
     plot_bao_predictions(
         theory_predictions=lambda z, qty: theory_bao(z, qty, best_fit),
@@ -202,7 +210,7 @@ def main():
         H_z=lambda z: H_z(z, best_fit),
         z=z_cc_vals,
         H=H_cc_vals,
-        H_err=np.sqrt(np.diag(cc_cov_matrix)) / f_cc_50,
+        H_err=np.sqrt(np.diag(cc_cov_matrix)) / f_array,
         label=f"{cc_legend}: $H_0$={h0_50:.1f} km/s/Mpc",
     )
 
@@ -219,28 +227,30 @@ if __name__ == "__main__":
 
 
 # ----------- Flat ΛCDM -----------
-# f_cc: 1.50 +0.17 -0.17
-# H0: 68.9 +2.3 -2.3 km/s/Mpc
-# r_d: 147.2 +4.9 -4.6 Mpc
-# Ωm: 0.299 +0.009 -0.008
-# ωm: 0.1418 +0.0093 -0.0090
-# Chi squared: 47.60
-# log likelihood: -154.49
-# Log evidence: -165.5
+# f0_cc: 2.28 +- 0.35
+# fa_cc: -0.84 +0.30 -0.28
+# H0: 68.2 +- 2.0 km/s/Mpc
+# r_d: 148.7 +4.5 -4.3 Mpc
+# Ωm: 0.298 +0.009 -0.008
+# ωm: 0.0104 +0.0082 -0.0062
+# Chi squared: 48.33
+# log likelihood: -155.62
+# Log evidence: -169.0
 # Degrees of freedom: 47
 # ---------------------------------
 
 
 # ----------- Flat wCDM -----------
-# f_cc: 1.50 +0.18 -0.17
-# H0: 67.8 +2.5 -2.5 km/s/Mpc
-# r_d: 147.4 +4.9 -4.5 Mpc
-# Ωm: 0.298 +0.009 -0.009
-# ωm: 0.1369 +0.0103 -0.0100
-# w0: -0.922 +0.074 -0.077 (prior U[-2, 0])
-# Chi squared: 46.44
-# log likelihood: -153.97
-# Log evidence: -167.3
+# f0_cc: 2.25 +0.36 -0.34
+# fa_cc: -0.82 +0.31 -0.28
+# H0: 67.4 +- 2.2 km/s/Mpc
+# r_d: 148.7 +4.6 -4.3 Mpc
+# Ωm: 0.298 +0.009 -0.008
+# ωm: 0.0099 +0.0081 -0.0061
+# w0: -0.936 +0.073 -0.077 (prior U[-2, 0])
+# Chi squared: 47.46
+# log likelihood: -155.26
+# Log evidence: -171.0
 # Degrees of freedom: 46
 # ---------------------------------
 
@@ -248,16 +258,17 @@ if __name__ == "__main__":
 # ----------- Flat wzCDM ----------
 # w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
 #
-# f_cc: 1.49 +0.17 -0.17
-# H0: 66.5 +2.6 -2.6 km/s/Mpc
-# r_d: 147.5 +4.9 -4.6 Mpc
-# Ωm: 0.311 +0.012 -0.011
-# ωm: 0.1380 +0.0094 -0.0092
-# w0: -0.795 +0.128 -0.120 (prior U[-1, 0]. Posterior truncated at 1.7 sigma to the left of the mean)
-# wa: d w(z)/dz at z=0 = -1.5 * (1 - w0**2)
-# Chi squared: 45.92
-# log likelihood: -153.82
-# Log evidence: -165.7 (needs Nautilus for better estimate)
+# f0_cc: 2.24 +- 0.35
+# fa_cc: -0.81 +0.31 -0.28
+# H0: 66.3 +2.3 -2.4 km/s/Mpc
+# r_d: 148.7 +4.5 -4.3 Mpc
+# Ωm: 0.309 +- 0.011
+# ωm: 0.0097 +0.0080 -0.0060
+# w0: -0.821 +0.125 -0.110 (prior U[-1, 0]. Posterior truncated to the left of the mean)
+# wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
+# Chi squared: 47.95
+# log likelihood: -155.09
+# Log evidence: -169.5 (needs Nautilus for better estimate)
 # Degrees of freedom: 46
 # ---------------------------------
 
@@ -265,15 +276,16 @@ if __name__ == "__main__":
 # ---------- Flat w0waCDM----------
 # Enforced w0 + wa < 0 in likelihood
 #
-# f_cc: 1.47 +0.17 -0.17
-# H0: 65.3 +3.3 -3.2 km/s/Mpc
-# r_d: 147.5 +4.9 -4.6 Mpc
-# Ωm: 0.339 +0.034 -0.045
-# ωm: 0.1430 +0.0113 -0.0127
-# w0: -0.63 +0.30 -0.30 (prior U[-2, 1])
-# wa: -1.2 +1.3 -1.1 (prior U[-3, 1])
-# Chi squared: 44.03
-# log likelihood: -153.41
-# Log evidence: -167.4
+# f0_cc: 2.22 +- 0.35
+# fa_cc: -0.81 +0.30 -0.27
+# H0: 65.1 +3.3 -3.1 km/s/Mpc
+# r_d: 149.1 +4.6 -4.5 Mpc
+# Ωm: 0.334 +0.034 -0.043
+# ωm: 0.0098 +0.0078 -0.0060
+# w0: -0.68 +0.30 -0.29 (prior U[-2, 1])
+# wa: -1.07 +1.23 -1.11 (prior U[-3, 1])
+# Chi squared: 46.96
+# log likelihood: -154.82
+# Log evidence: -171.2
 # Degrees of freedom: 45
 # ---------------------------------
