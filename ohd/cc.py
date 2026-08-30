@@ -19,7 +19,7 @@ def H_z(z, params):
 
 @njit
 def log_likelihood_jit(params):
-    f_array = params[2] + params[3] * z_values
+    f_array = params[2] + params[3] * z_values / (1.0 + z_values)
     if np.any(f_array <= 1e-4):
         return -np.inf
 
@@ -46,8 +46,8 @@ def main():
     prior = Prior()
     prior.add_parameter("H0", dist=(30, 100))
     prior.add_parameter("Om", dist=(0.0, 1.0))
-    prior.add_parameter("f0", dist=(0.5, 4.0))
-    prior.add_parameter("fa", dist=(-2.0, 2.0))
+    prior.add_parameter("f0", dist=(0.1, 6.0))
+    prior.add_parameter("fa", dist=(-9.0, 9.0))
 
     with Pool(5) as pool:
         sampler = Sampler(
@@ -73,7 +73,7 @@ def main():
         print(f"{par}: {gd_samples.mean(par):.4f} ± {gd_samples.std(par):.4f}")
 
     best_fit = samples[np.argmax(log_l)]
-    f_array = best_fit[2] + best_fit[3] * z_values
+    f_array = best_fit[2] + best_fit[3] * z_values / (1. + z_values)
     delta = H_values - H_z(z_values, best_fit)
     chi2 = solve_triangular(L, f_array * delta)
 
@@ -103,19 +103,19 @@ if __name__ == "__main__":
 # Model: Flat ΛCDM
 # ---------------------------------
 
-# Redshift dependent covariance error scaling f(z) = f0 + fa * z:
+# Redshift dependent covariance error scaling f(z) = f0 + fa * z/(1+z):
 # cov[i, j] = base_cov[i, j] / (f(z_i) * f(z_j))
 #
-# H0: 67.6 +- 2.6
-# Ωm: 0.317 +0.035 -0.043
-# f0: 2.25 +- 0.35  (prior ~U[0.5, 4.0])
-# fa: -0.80 +0.27 -0.31 (prior ~U[-2.0, 2.0])
-# Ωm h^2: 0.144 +- 0.015
-# Log likelihood (MAP): -150.42
-# Log evidence: -159.19 (diff: 4.13 strong evidence favouring the model with f0, fa)
-# χ2 (MAP): 38.80
+# H0: 68.1 +- 2.2 km/s/Mpc
+# Ωm: 0.306 +0.037 -0.041
+# Ωm h^2: 0.141 +- 0.016
+# f0: 2.98 +- 0.57  (prior ~U[0.1, 6.0])
+# fa: -3.3 +- 1.2 (prior ~U[-9.0, 9.0])
+# Log likelihood (MAP): -149.48
+# Log evidence: -159.03 (diff: 4.29 strong evidence favouring the model with f0, fa)
+# χ2 (MAP): 39.07
 # DOF: 35
-# χ2/DOF: 1.11
+# χ2/DOF: 1.12
 # ---------------------------------
 
 # Without error scaling (fixed f0 = 1, fa = 0):
@@ -131,22 +131,22 @@ if __name__ == "__main__":
 
 # Log likelihood ratio test:
 # -2 * log(L0/L1) = -2 * log(L0) + 2 * log(L1)
-# -2 * (-159.38) + 2 * (-150.42) = 17.92
+# -2 * (-159.38) + 2 * (-149.48) = 19.80
 #
 # DOF = 2
 #
 # Parametric-bootstrap likelihood-ratio test:
 # The full covariance-rescaling model improves the maximum log likelihood by
-# Delta log L = 8.96 relative to the fixed published-covariance model:
+# Delta log L = 9.9 relative to the fixed published-covariance model:
 #
-# Lambda = 2 * (log L_scaling - log L_fixed) = 17.92.
+# Lambda = 2 * (log L_scaling - log L_fixed) = 19.80.
 #
-# A parametric bootstrap with 500,000 data sets simulated under the
-# fixed-covariance null produced 91 values of Lambda >= 17.92, giving
-# p_bootstrap = 1.84e-4 (Monte Carlo SE = 1.9e-5).
+# A parametric bootstrap with 200k data sets simulated under the
+# fixed-covariance null produced 11 values of Lambda >= 19.80, giving
+# p_bootstrap = 6.0e-05 (Monte Carlo SE = 1.7e-05).
 #
 # Conditional on flat LCDM, Gaussian errors, the published covariance,
-# the chosen parameter bounds, and f(z) = f0 + fa * z, the data favor
+# the chosen parameter bounds, and f(z) = f0 + fa * z/(1+z), the data favor
 # the covariance-rescaling extension over the fixed-covariance model.
 #
 # This result does not by itself establish that the published uncertainties
