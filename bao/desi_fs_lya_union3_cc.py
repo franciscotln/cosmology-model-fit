@@ -123,8 +123,6 @@ def chi_squared(params, f_array):
 
 @njit
 def log_likelihood(params):
-    if params[6] + params[7] >= 0:
-        return -np.inf
     f0, fa = params[0: 2]
     f_array = f0 + fa * z_cc_vals
     if np.any(f_array <= 1e-4):
@@ -301,8 +299,8 @@ if __name__ == "__main__":
 # ΔM: -0.061 +-0.065 mag
 # f0: 2.28 +- 0.35
 # fa: -0.82 +0.26 -0.32
-# Chi squared: 74.17 (2.87 sigma significance)
-# Log evidence: -188.64 (Δ logZ = 2.23 in favour of velocity step correction)
+# Chi squared: 73.02 (3.07 sigma significance)
+# Log evidence: -188.63 (Δ logZ = 2.24 in favour of velocity step correction)
 # Degrees of freedom: 68
 # -------------------------------------------
 
