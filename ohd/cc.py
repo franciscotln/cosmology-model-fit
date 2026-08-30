@@ -1,11 +1,8 @@
 from numba import njit
 import numpy as np
-from scipy.constants import c as c0
 from scipy.linalg import cho_factor
 from solve_triangular import solve_triangular
 from y2005cc.data import get_data
-
-c = c0 / 1000  # Speed of light in km/s
 
 legend, z_values, H_values, cov_matrix = get_data()
 
