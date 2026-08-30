@@ -141,9 +141,9 @@ if __name__ == "__main__":
 #
 # Lambda = 2 * (log L_scaling - log L_fixed) = 17.92.
 #
-# A parametric bootstrap with 100,000 data sets simulated under the
-# fixed-covariance null produced 29 values of Lambda >= 17.92, giving
-# p_bootstrap = 3.0e-4 (Monte Carlo SE = 5.5e-5).
+# A parametric bootstrap with 500,000 data sets simulated under the
+# fixed-covariance null produced 91 values of Lambda >= 17.92, giving
+# p_bootstrap = 1.84e-4 (Monte Carlo SE = 1.9e-5).
 #
 # Conditional on flat LCDM, Gaussian errors, the published covariance,
 # the chosen parameter bounds, and f(z) = f0 + fa * z, the data favor
