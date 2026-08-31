@@ -129,10 +129,24 @@ if __name__ == "__main__":
 
 # *****************************************************************
 # CMB (ACT+Planck) + Cosmic Chronometers (CC)
-# Model: Flat ΛCDM
 # *****************************************************************
 
 
+# Model: Flat ΛCDM
+# ------ Fixed factor f0 = 1, fa = 0 ------------------------------
+# f0: 1, fa: 0 (assuming no overestimaded errors in CCH sample)
+# H0: 67.61 +- 0.50 km/s/Mpc
+# Ωm: 0.3118 +- 0.0071
+# ωb: 0.02250 +- 0.00011
+# ωc: 0.1193 +- 0.0012
+# Chi squared: 16.67
+# Log likelihood: -159.41
+# Log evidence: -169.98
+# Degs of freedom: 39
+# -----------------------------------------------------------------
+
+
+# Model: Flat ΛCDM
 # ------ Overestimation factor f(z) = f0 + fa * z / (1 + z) -------
 # H0: 67.66 +- 0.49 km/s/Mpc
 # Ωm: 0.3111 +- 0.0069
@@ -144,15 +158,19 @@ if __name__ == "__main__":
 # Log likelihood: -149.54 (4.05 sigma significance)
 # Log evidence: -164.60 (Δ logZ = 5.38 compared to no scaling)
 # Degs of freedom: 37
+# -----------------------------------------------------------------
 
 
-# ------ Fixed factor f0 = 1, fa = 0 ------------------------------
-# f0: 1, fa: 0 (assuming no overestimaded errors in CCH sample)
-# H0: 67.61 +- 0.50 km/s/Mpc
-# Ωm: 0.3118 +- 0.0071
-# ωb: 0.02250 +- 0.00011
-# ωc: 0.1193 +- 0.0012
-# Chi squared: 16.67
-# Log likelihood: -159.41
-# Log evidence: -169.98
-# Degs of freedom: 39
+# Model: Flat wCDM
+# ------ Overestimation factor f(z) = f0 + fa * z / (1 + z) -------
+# H0 = 68.9 +2.4 -1.9 km/s/Mpc
+# Ωm = 0.301 +0.014 -0.023
+# ωb = 0.02249\pm 0.00011
+# ωc = 0.1194\pm 0.0012
+# f0 = 3.04 +- 0.57 (prior ~ U[0.1, 6])
+# fa = -3.4 +- 1.2 (prior ~ U[-9, 9])
+# w0 = -1.045 +0.065 -0.082 (prior ~ U[-2, 0])
+# Chi squared: 38.93
+# Log likelihood: -149.37
+# Log evidence: -166.71
+# Degs of freedom: 36
