@@ -79,9 +79,9 @@ def theory_bao(z, qty, params):
 
 
 @njit
-def chi_squared(params, f_array):
+def chi_squared(params, f_cc_arr):
     delta_cc = H_cc_vals - H_z(z_cc_vals, params)
-    chi_cc = solve_triangular(cho_cc, f_array * delta_cc)
+    chi_cc = solve_triangular(cho_cc, f_cc_arr * delta_cc)
 
     delta_bao = data["value"] - theory_bao(data["z"], desi_qty, params)
     chi_bao = solve_triangular(cho_bao, delta_bao)
@@ -90,8 +90,8 @@ def chi_squared(params, f_array):
 
 bounds = np.array(
     [
-        (0.1, 4.0),  # f0_cc
-        (-2.0, 2.0),  # fa_cc
+        (0.1, 6.0),  # f0_cc
+        (-9.0, 9.0),  # fa_cc
         (45.0, 90.0),  # H0
         (120.0, 175.0),  # r_d
         (0.1, 0.7),  # Ωm
@@ -112,12 +112,12 @@ def log_prior(params):
 @njit
 def log_likelihood(params):
     f0_cc, fa_cc = params[0], params[1]
-    f_array = f0_cc + fa_cc * z_cc_vals
-    if np.any(f_array <= 1e-4):
+    f_cc_arr = f0_cc + fa_cc * z_cc_vals / (1.0 + z_cc_vals)
+    if np.any(f_cc_arr <= 1e-4):
         return -np.inf
 
-    normalization_cc = N_cc * np.log(2 * np.pi) + logdet_cc - 2.0 * np.log(f_array).sum()
-    return -0.5 * chi_squared(params, f_array) - 0.5 * normalization_cc
+    normalization_cc = N_cc * np.log(2 * np.pi) + logdet_cc - 2.0 * np.log(f_cc_arr).sum()
+    return -0.5 * chi_squared(params, f_cc_arr) - 0.5 * normalization_cc
 
 
 @njit
@@ -138,7 +138,6 @@ def main():
     from multiprocessing import Pool
     from ohd.plot_predictions import plot_cc_predictions
     from gelman_rubin import gelman_rubin
-    from log_evidence import log_evidence
     from bao.plot_predictions import plot_bao_predictions
 
     ndim = len(bounds)
@@ -168,7 +167,6 @@ def main():
     samples = sampler.get_chain(discard=burn_in, flat=True)
     log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
 
-    log_evd = log_evidence(samples, log_probs, log_probability, bounds)
     print(f"Gelman-Rubin: {gelman_rubin(chains_samples)}")
 
     [
@@ -181,13 +179,13 @@ def main():
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
     best_fit = samples[np.argmax(log_probs)]
-    f_array = best_fit[0] + best_fit[1] * z_cc_vals
+    f_array = best_fit[0] + best_fit[1] * z_cc_vals / (1.0 + z_cc_vals)
 
     Omh2_samples = samples[:, 1] ** 2 * samples[:, 3] / 100**2
     Omh2_16, Omh2_50, Omh2_84 = np.percentile(Omh2_samples, [15.9, 50, 84.1])
 
     print(f"f0_cc: {f0_50:.2f} +{(f0_84 - f0_50):.2f} -{(f0_50 - f0_16):.2f}")
-    print(f"fa_cc: {fa_50:.2f} +{(fa_84 - fa_50):.2f} -{(fa_50 - fa_16):.2f}")
+    print(f"fa_cc: {fa_50:.1f} +{(fa_84 - fa_50):.1f} -{(fa_50 - fa_16):.1f}")
     print(f"H0: {h0_50:.1f} +{(h0_84 - h0_50):.1f} -{(h0_50 - h0_16):.1f} km/s/Mpc")
     print(f"r_d: {rd_50:.1f} +{(rd_84 - rd_50):.1f} -{(rd_50 - rd_16):.1f} Mpc")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
@@ -195,7 +193,6 @@ def main():
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
     print(f"Chi squared: {chi_squared(best_fit, f_array):.2f}")
     print(f"log likelihood: {log_likelihood(best_fit):.2f}")
-    print(f"Log evidence: {log_evd:.1f}")
     print(f"Degrees of freedom: {len(data['z']) + len(z_cc_vals) - len(best_fit)}")
 
     labels = ["$f_{0CCH}$", "$f_{aCCH}$", "$H_0$", "$r_d$", "$Ω_m$", "$w_0$"]
@@ -227,48 +224,44 @@ if __name__ == "__main__":
 
 
 # ----------- Flat ΛCDM -----------
-# f0_cc: 2.28 +- 0.35
-# fa_cc: -0.84 +0.30 -0.28
-# H0: 68.2 +- 2.0 km/s/Mpc
-# r_d: 148.7 +4.5 -4.3 Mpc
-# Ωm: 0.298 +0.009 -0.008
-# ωm: 0.0104 +0.0082 -0.0062
-# Chi squared: 48.33
-# log likelihood: -155.62
-# Log evidence: -169.0
+# f0_cc: 3.01 +0.57 -0.56
+# fa_cc: -3.4 +1.1 -1.1
+# H0: 68.3 +1.8 -1.8 km/s/Mpc
+# r_d: 148.6 +4.0 -3.8 Mpc
+# Ωm: 0.298 +0.008 -0.008
+# ωm: 0.1705 +0.1309 -0.0959
+# Chi squared: 48.21
+# log likelihood: -154.64
 # Degrees of freedom: 47
 # ---------------------------------
 
 
 # ----------- Flat wCDM -----------
-# f0_cc: 2.25 +0.36 -0.34
-# fa_cc: -0.82 +0.31 -0.28
-# H0: 67.4 +- 2.2 km/s/Mpc
-# r_d: 148.7 +4.6 -4.3 Mpc
-# Ωm: 0.298 +0.009 -0.008
-# ωm: 0.0099 +0.0081 -0.0061
-# w0: -0.936 +0.073 -0.077 (prior U[-2, 0])
-# Chi squared: 47.46
-# log likelihood: -155.26
-# Log evidence: -171.0
+# f0_cc: 2.97 +0.56 -0.56
+# fa_cc: -3.3 +1.2 -1.1
+# H0: 67.7 +2.0 -2.0 km/s/Mpc
+# r_d: 148.2 +4.1 -3.9 Mpc
+# Ωm: 0.297 +0.009 -0.009
+# ωm: 0.1633 +0.1300 -0.0951
+# w0: -0.939 +0.074 -0.076 (prior U[-2, 0])
+# Chi squared: 48.26
+# log likelihood: -154.30
 # Degrees of freedom: 46
 # ---------------------------------
 
 
 # ----------- Flat wzCDM ----------
 # w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
-#
-# f0_cc: 2.24 +- 0.35
-# fa_cc: -0.81 +0.31 -0.28
-# H0: 66.3 +2.3 -2.4 km/s/Mpc
-# r_d: 148.7 +4.5 -4.3 Mpc
-# Ωm: 0.309 +- 0.011
-# ωm: 0.0097 +0.0080 -0.0060
-# w0: -0.821 +0.125 -0.110 (prior U[-1, 0]. Posterior truncated to the left of the mean)
+# f0_cc: 2.93 +0.56 -0.55
+# fa_cc: -3.3 +1.1 -1.1
+# H0: 66.6 +2.1 -2.1 km/s/Mpc
+# r_d: 148.3 +4.1 -3.9 Mpc
+# Ωm: 0.309 +0.011 -0.011
+# ωm: 0.1563 +0.1268 -0.0893
+# w0: -0.825 +0.123 -0.108 (prior U[-1, 0]. Posterior truncated to the left of the mean)
 # wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
-# Chi squared: 47.95
-# log likelihood: -155.09
-# Log evidence: -169.5 (needs Nautilus for better estimate)
+# Chi squared: 46.14
+# log likelihood: -154.16
 # Degrees of freedom: 46
 # ---------------------------------
 
@@ -276,16 +269,15 @@ if __name__ == "__main__":
 # ---------- Flat w0waCDM----------
 # Enforced w0 + wa < 0 in likelihood
 #
-# f0_cc: 2.22 +- 0.35
-# fa_cc: -0.81 +0.30 -0.27
-# H0: 65.1 +3.3 -3.1 km/s/Mpc
-# r_d: 149.1 +4.6 -4.5 Mpc
-# Ωm: 0.334 +0.034 -0.043
-# ωm: 0.0098 +0.0078 -0.0060
-# w0: -0.68 +0.30 -0.29 (prior U[-2, 1])
-# wa: -1.07 +1.23 -1.11 (prior U[-3, 1])
-# Chi squared: 46.96
-# log likelihood: -154.82
-# Log evidence: -171.2
+# f0_cc: 2.90 +0.56 -0.54
+# fa_cc: -3.2 +1.1 -1.1
+# H0: 65.4 +3.1 -3.0 km/s/Mpc
+# r_d: 148.6 +4.1 -3.9 Mpc
+# Ωm: 0.334 +0.033 -0.043
+# ωm: 0.1566 +0.1236 -0.0896
+# w0: -0.675 +0.297 -0.292 (prior U[-3, 1])
+# wa: -1.088 +1.233 -1.098 (prior U[-3, 2])
+# Chi squared: 47.65
+# log likelihood: -153.83
 # Degrees of freedom: 45
 # ---------------------------------

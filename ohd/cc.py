@@ -69,8 +69,8 @@ def main():
     gd_samples.addDerived(gd_samples["Om"] * (gd_samples["H0"] / 100) ** 2, name="Omh2")
     gd_samples.updateBaseStatistics()
 
-    for par in gd_samples.getParamNames().names:
-        print(f"{par}: {gd_samples.mean(par):.4f} ± {gd_samples.std(par):.4f}")
+    for name in gd_samples.getParamNames().names:
+        print(gd_samples.getInlineLatex(name, limit=1))
 
     best_fit = samples[np.argmax(log_l)]
     f_array = best_fit[2] + best_fit[3] * z_values / (1. + z_values)

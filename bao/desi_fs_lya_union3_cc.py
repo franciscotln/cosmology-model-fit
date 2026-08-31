@@ -124,12 +124,12 @@ def chi_squared(params, f_array):
 @njit
 def log_likelihood(params):
     f0, fa = params[0: 2]
-    f_array = f0 + fa * z_cc_vals
-    if np.any(f_array <= 1e-4):
+    fcc_arr = f0 + fa * z_cc_vals / (1.0 + z_cc_vals)
+    if np.any(fcc_arr <= 1e-4):
         return -np.inf
 
-    normalization_cc = N_cc * np.log(2 * np.pi) + logdet_cc - 2.0 * np.log(f_array).sum()
-    return -0.5 * chi_squared(params, f_array) - 0.5 * normalization_cc
+    normalization_cc = N_cc * np.log(2 * np.pi) + logdet_cc - 2.0 * np.log(fcc_arr).sum()
+    return -0.5 * chi_squared(params, fcc_arr) - 0.5 * normalization_cc
 
 
 def main():
@@ -143,10 +143,10 @@ def main():
     from bao.plot_predictions import plot_bao_predictions
 
     prior = Prior()
-    # f0: CCH covariance rescaling (overestimated uncertainties f(z) = f0 + fa * z)
-    prior.add_parameter("f0", dist=(0.01, 4.0))
+    # f0: CCH covariance rescaling (overestimated uncertainties f(z) = f0 + fa * z / (1 + z))
+    prior.add_parameter("f0", dist=(0.1, 6.0))
     # fa: CCH covariance rescaling (cov[i, j] = base_cov[i, j] / (fz[i] * fz[j]))
-    prior.add_parameter("fa", dist=(-2.0, 2.0))
+    prior.add_parameter("fa", dist=(-9.0, 9.0))
     # ΔM: magnitude zero-point offset
     prior.add_parameter("dM", dist=(-1, 1))
     # H0: Hubble constant at present
@@ -197,7 +197,7 @@ def main():
     best_fit = samples[np.argmax(log_l)]
     DOF = len(z_cmb) + len(bao_data) + N_cc - len(best_fit)
 
-    f_array = best_fit[0] + best_fit[1] * z_cc_vals
+    fcc_arr = best_fit[0] + best_fit[1] * z_cc_vals / (1.0 + z_cc_vals)
 
     print(f"H0: {h0_50:.1f} +{(h0_84 - h0_50):.1f} -{(h0_50 - h0_16):.1f} km/s/Mpc")
     print(f"r_d: {rd_50:.1f} +{(rd_84 - rd_50):.1f} -{(rd_50 - rd_16):.1f} Mpc")
@@ -207,7 +207,7 @@ def main():
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
     print(f"f0: {f0_50:.2f} +{(f0_84 - f0_50):.2f} -{(f0_50 - f0_16):.2f}")
     print(f"fa: {fa_50:.2f} +{(fa_84 - fa_50):.2f} -{(fa_50 - fa_16):.2f}")
-    print(f"Chi squared: {chi_squared(best_fit, f_array):.2f}")
+    print(f"Chi squared: {chi_squared(best_fit, fcc_arr):.2f}")
     print(f"Log evidence: {sampler.log_z:.2f}")
     print(f"DOF: {DOF}")
 
@@ -231,7 +231,7 @@ def main():
         H_z=lambda z: H_z(z, best_fit),
         z=z_cc_vals,
         H=H_cc_vals,
-        H_err=np.sqrt(np.diag(cov_matrix_cc)) / f_array,
+        H_err=np.sqrt(np.diag(cov_matrix_cc)) / fcc_arr,
         label=f"{cc_legend} $H_0$: {h0_50:.1f} km/s/Mpc",
     )
 
@@ -249,8 +249,8 @@ if __name__ == "__main__":
 
 
 # ----------------- Priors ------------------
-# f0:   U[0.01, 4.0]
-# fa:   U[-2.0, 2.0]
+# f0:   U[0.1, 6.0]
+# fa:   U[-9.0, 9.0]
 # ΔM:   U[-1.0, 1.0]
 # H0:   U[45.0, 90.0]
 # rd:   U[100.0, 200.0]
@@ -273,15 +273,15 @@ if __name__ == "__main__":
 
 
 # --------------- Flat ΛCDM -----------------
-# H0: 68.0 +- 2.0 km/s/Mpc
-# r_d: 148.5 +- 4.4 Mpc
-# Ωm: 0.3052 +- 0.0073
-# Ωm h^2: 0.1413 +- 0.0086
-# ΔM: -0.060 +- 0.064 mag
-# f0: 2.28 +- 0.35
-# fa: -0.82 +0.27 -0.32
-# Chi squared: 82.42
-# Log evidence: -190.87
+# H0: 68.2 +- 1.8 km/s/Mpc
+# r_d: 148.2 +- 4.0 Mpc
+# Ωm: 0.3047 +- 0.0073
+# Ωm h^2: 0.1416 +- 0.0080
+# ΔM: -0.056 +- 0.059 mag
+# f0: 2.99 +- 0.56
+# fa: -3.3 +- 1.1
+# Chi squared: 81.89
+# Log evidence: -190.55
 # Degrees of freedom: 69
 # -------------------------------------------
 
@@ -291,63 +291,63 @@ if __name__ == "__main__":
 # turning point z <= 0.2 inflow z > 0.2 outflow
 # z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-# H0: 68.1 +- 2.0 km/s/Mpc
-# r_d: 148.6 +- 4.4 Mpc
-# Ωm: 0.3017 +- 0.0073
-# Ωm h^2: 0.1402 +- 0.0086
+# H0: 68.3 +- 1.8 km/s/Mpc
+# r_d: 148.4 +3.7 -4.1 Mpc
+# Ωm: 0.3013 +- 0.0073
+# Ωm h^2: 0.1405 +- 0.0079
 # v: -3.0 +- 1.1 x 100 km/s
-# ΔM: -0.061 +-0.065 mag
-# f0: 2.28 +- 0.35
-# fa: -0.82 +0.26 -0.32
-# Chi squared: 73.02 (3.07 sigma significance)
-# Log evidence: -188.63 (Δ logZ = 2.24 in favour of velocity step correction)
+# ΔM: -0.057 +-0.058 mag
+# f0: 3.00 +- 0.56
+# fa: -3.4 +- 1.1
+# Chi squared: 72.43 (3.07 sigma significance)
+# Log evidence: -188.30 (Δ logZ = 2.25 in favour of velocity step correction)
 # Degrees of freedom: 68
 # -------------------------------------------
 
 
 # --------------- Flat wCDM -----------------
-# H0: 67.2 +- 2.1 km/s/Mpc
-# r_d: 148.5 +- 4.4 Mpc
-# Ωm: 0.3042 +- 0.0075
-# Ωm h^2: 0.1376 +- 0.0089
-# w0: -0.936 +- 0.046
-# ΔM: -0.066 +- 0.065 mag
-# f0: 2.25 +- 0.35
-# fa: -0.80 +0.27 -0.32
-# Chi squared: 78.46 (1.57 sigma significance)
-# Log evidence: -192.04 (Δ logZ = -1.17 in favour of ΛCDM)
+# H0: 67.5 +- 1.9 km/s/Mpc
+# r_d: 147.9 +3.7 -4.2 Mpc
+# Ωm: 0.3039 +- 0.0074
+# Ωm h^2: 0.1385 +- 0.0082
+# w0: -0.937 +- 0.046
+# ΔM: -0.058 +- 0.059 mag
+# f0: 2.95 +- 0.56
+# fa: -3.3 +- 1.1
+# Chi squared: 80.26 (1.28 sigma significance)
+# Log evidence: -191.77 (Δ logZ = -1.22 in favour of ΛCDM)
 # Degrees of freedom: 68
 # -------------------------------------------
 
 
 # --------------- Flat wzCDM ----------------
 # w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
-# H0: 66.6 +- 2.1 km/s/Mpc
-# r_d: 148.6 +4.1 -4.7 Mpc
-# Ωm: 0.3114 +- 0.0080
-# Ωm h^2: 0.1384 +- 0.0087
-# w0: -0.861 +- 0.066
+# H0: 66.9 +- 1.9 km/s/Mpc
+# r_d: 148.1 +- 4.0 Mpc
+# Ωm: 0.3109 +- 0.0080
+# Ωm h^2: 0.1393 +- 0.0080
+# w0: -0.862 +- 0.065
 # wa: d w(z)/d z at z=0 = -1.5 * (1 - w0^2) = -0.39
-# ΔM: -0.070 +- 0.066 mag
-# f0: 2.25 +- 0.35
-# fa: -0.80 +0.27 -0.32
-# Chi squared: 79.19 (1.80 sigma significance)
-# Log evidence: -190.50 (Δ logZ = 0.37 in favour of wzCDM)
+# ΔM: -0.062 +- 0.059 mag
+# f0: 2.95 +- 0.56
+# fa: -3.3 +- 1.1
+# Chi squared: 77.78 (2.03 sigma significance)
+# Log evidence: -190.22 (Δ logZ = 0.33 in favour of wzCDM)
 # Degrees of freedom: 68
 # -------------------------------------------
 
 
 # -------------- Flat w0waCDM ---------------
-# H0: 66.2 +- 2.2 km/s/Mpc
-# r_d: 149.2 +- 4.5 Mpc
+# H0: 66.3 +- 2.0 km/s/Mpc
+# r_d: 148.8 +- 4.1 Mpc
 # Ωm: 0.328 +0.015 -0.012
-# Ωm h^2: 0.1435 +-0.0096
-# w0: -0.77 +- 0.10
-# wa: -0.93 +- 0.52
-# ΔM: -0.074 +- 0.066 mag
-# f0: 2.26 +- 0.35
-# fa: -0.82 +0.26 -0.31
-# Chi squared: 76.17 (2.01 sigma significance)
-# Log evidence: -192.62 + 0.37 (Δ logZ = -1.38 in favour of ΛCDM)
+# Ωm h^2: 0.1440 +-0.0087
+# w0: -0.77 +- 0.11
+# wa: -0.97 +- 0.53
+# ΔM: -0.070 +- 0.059 mag
+# f0: 2.99 +- 0.56
+# fa: -3.4 +- 1.1
+# Chi squared: 79.22 (1.12 sigma significance)
+# Log evidence: -192.22 + 0.37 (Δ logZ = -1.30 in favour of ΛCDM)
 # Degrees of freedom: 67
 # -------------------------------------------

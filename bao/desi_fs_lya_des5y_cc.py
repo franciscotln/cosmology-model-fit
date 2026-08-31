@@ -118,7 +118,7 @@ def mu_theory(theta, DM):
 
 
 @njit
-def chi_squared(theta, f_array):
+def chi_squared(theta, f_cc_arr):
     dm_grid = DM_grid(theta)
 
     z_cosmo = get_z_cosmo(theta)
@@ -130,15 +130,15 @@ def chi_squared(theta, f_array):
     chi_bao = solve_triangular(cho_bao, delta_bao)
 
     delta_cc = H_cc_vals - H_z(z_cc_vals, theta)
-    chi_cc = solve_triangular(cho_cc, f_array * delta_cc)
+    chi_cc = solve_triangular(cho_cc, f_cc_arr * delta_cc)
 
     return chi_sn + chi_bao + chi_cc
 
 
 bounds = np.array(
     [
-        (0.1, 4.0),  # f0: CC error rescaling (overestimated)
-        (-2.0, 2.0),  # fa: CC error rescaling (overestimated)
+        (0.1, 6.0),  # f0: CC error rescaling (overestimated)
+        (-9.0, 9.0),  # fa: CC error rescaling (overestimated)
         (-0.55, 0.55),  # ΔM: magnitude offset
         (50.0, 85.0),  # H0: Hubble constant at present
         (110.0, 175.0),  # r_d: sound horizon at drag epoch
@@ -160,13 +160,13 @@ def log_prior(theta):
 @njit
 def log_likelihood(theta):
     f0, fa = theta[0], theta[1]
-    f_array = f0 + fa * z_cc_vals
-    if np.any(f_array <= 1e-4):
+    f_cc_arr = f0 + fa * z_cc_vals / (1. + z_cc_vals)
+    if np.any(f_cc_arr <= 1e-4):
         # ensure f_array is positive
         return -np.inf
 
-    normalization_cc = N_cc * np.log(2 * np.pi) + logdet_cc - 2.0 * np.log(f_array).sum()
-    return -0.5 * chi_squared(theta, f_array) - 0.5 * normalization_cc
+    normalization_cc = N_cc * np.log(2 * np.pi) + logdet_cc - 2.0 * np.log(f_cc_arr).sum()
+    return -0.5 * chi_squared(theta, f_cc_arr) - 0.5 * normalization_cc
 
 
 @njit
@@ -231,7 +231,7 @@ def main():
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
     MAP_PARAMS = samples[np.argmax(log_probs)]
-    f_array = MAP_PARAMS[0] + MAP_PARAMS[1] * z_cc_vals
+    f_array = MAP_PARAMS[0] + MAP_PARAMS[1] * z_cc_vals / (1. + z_cc_vals)
 
     DOF = sn_sample + len(bao) + N_cc - ndim
 
@@ -279,14 +279,14 @@ if __name__ == "__main__":
 
 
 # ----------- Flat ΛCDM -----------
-# H0: 67.9 +2.0 -2.0 km/s/Mpc
-# r_d: 148.2 +4.5 -4.2 Mpc
+# H0: 68.1 +1.8 -1.8 km/s/Mpc
+# r_d: 147.9 +4.0 -3.8 Mpc
 # Ωm: 0.308 +0.007 -0.007
-# ΔM: -0.072 +0.063 -0.065 mag
-# f0_cc: 2.27 +0.36 -0.35
-# fa_cc: -0.83 +0.31 -0.28
-# Chi squared (MAP): 1685.49
-# Log evidence: -991.86
+# ΔM: -0.067 +0.056 -0.058 mag
+# f0_cc: 2.97 +0.57 -0.55
+# fa_cc: -3.31 +1.13 -1.14
+# Chi squared (MAP): 1684.88
+# Log evidence: -991.63
 # DOF: 1761
 # ---------------------------------
 
@@ -296,29 +296,29 @@ if __name__ == "__main__":
 # turning point z <= 0.10563 inflow z > 0.10563 outflow
 # z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-# v: -1.52 +0.56 -0.57 x 100 km/s (prior ~ U[-4.5, 4.5])
-# H0: 68.1 +2.0 -2.0 km/s/Mpc
-# r_d: 148.4 +4.5 -4.3 Mpc
-# Ωm: 0.303 +0.007 -0.007
-# ΔM: -0.071 +0.063 -0.065 mag
-# f0_cc: 2.28 +0.35 -0.35
-# fa_cc: -0.84 +0.31 -0.28
-# Chi squared (MAP): 1679.38 (2.47 sigma significance)
-# Log evidence: -990.10 (Δ logZ = 1.76 in favour of v step corrections)
+# H0: 68.2 +1.8 -1.8 km/s/Mpc
+# r_d: 148.2 +4.0 -3.9 Mpc
+# Ωm: 0.302 +0.007 -0.007
+# v: -1.53 +0.56 -0.57 x 100 km/s (prior ~ U[-4.5, 4.5])
+# ΔM: -0.068 +0.057 -0.057 mag
+# f0_cc: 2.99 +0.57 -0.55
+# fa_cc: -3.36 +1.13 -1.14
+# Chi squared (MAP): 1680.21 (2.16 sigma significance)
+# Log evidence: -989.80 (Δ logZ = 1.83 in favour of v step corrections)
 # DOF: 1760
 # ---------------------------------
 
 
 # ----------- Flat wCDM -----------
-# w0: -0.936 +0.035 -0.035 (prior ~ U[-1.5, -0.5])
-# H0: 67.2 +2.0 -2.0 km/s/Mpc
-# r_d: 148.4 +4.4 -4.3 Mpc
+# H0: 67.5 +1.8 -1.8 km/s/Mpc
+# r_d: 147.8 +4.1 -3.9 Mpc
 # Ωm: 0.304 +0.007 -0.007
-# ΔM: -0.079 +0.063 -0.064 mag
-# f0_cc: 2.25 +0.35 -0.34
-# fa_cc: -0.81 +0.30 -0.28
-# Chi squared (MAP): 1682.69 (1.67 sigma away from ΛCDM)
-# Log evidence: -992.66 (Δ logZ = -0.80 in favour of ΛCDM)
+# w0: -0.937 +0.035 -0.035 (prior ~ U[-1.5, -0.5])
+# ΔM: -0.071 +0.057 -0.059 mag
+# f0_cc: 2.94 +0.56 -0.55
+# fa_cc: -3.26 +1.13 -1.12
+# Chi squared (MAP): 1682.41 (1.57 sigma away from ΛCDM)
+# Log evidence: -992.44 (Δ logZ = -0.81 in favour of ΛCDM)
 # DOF: 1760
 # ---------------------------------
 
@@ -326,16 +326,16 @@ if __name__ == "__main__":
 # ----------- Flat wzCDM ----------
 # w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
 #
-# w0: -0.889 +0.049 -0.049 (prior ~ U[-1, -1/3])
-# wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
-# H0: 66.9 +2.0 -2.0 km/s/Mpc
-# r_d: 148.6 +4.6 -4.3 Mpc
+# H0: 67.2 +1.8 -1.8 km/s/Mpc
+# r_d: 148.0 +4.1 -3.8 Mpc
 # Ωm: 0.309 +0.007 -0.007
-# ΔM: -0.081 +0.063 -0.065 mag
-# f0_cc: 2.26 +0.36 -0.35
-# fa_cc: -0.82 +0.31 -0.28
-# Chi squared (MAP): 1681.46 (2.01 sigma away from ΛCDM)
-# Log evidence: -991.22 (Δ logZ = 0.64 in favour of wzCDM)
+# w0: -0.889 +0.048 -0.049 (prior ~ U[-1, -1/3])
+# wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
+# ΔM: -0.073 +0.057 -0.059 mag
+# f0_cc: 2.96 +0.55 -0.55
+# fa_cc: -3.30 +1.14 -1.11
+# Chi squared (MAP): 1682.34 (1.59 sigma away from ΛCDM)
+# Log evidence: -990.96 (Δ logZ = 0.67 in favour of wzCDM)
 # DOF: 1760
 # ---------------------------------
 

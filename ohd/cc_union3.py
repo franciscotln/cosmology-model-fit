@@ -80,7 +80,7 @@ def chi_squared(params, f_array):
 
 @njit
 def log_likelihood(params):
-    f_array = params[0] + params[1] * z_cc_vals
+    f_array = params[0] + params[1] * z_cc_vals / (1.0 + z_cc_vals)
     if np.any(f_array <= 1e-4):
         return -np.inf
 
@@ -101,21 +101,20 @@ def main():
     from ohd.plot_predictions import plot_cc_predictions
 
     prior = Prior()
-    prior.add_parameter("f0", dist=(0.05, 4.0))
-    prior.add_parameter("fa", dist=(-2.0, 2.0))
+    prior.add_parameter("f0", dist=(0.1, 6.0))
+    prior.add_parameter("fa", dist=(-9.0, 9.0))
     prior.add_parameter("dM", dist=(-1.0, 1.0))
     prior.add_parameter("H0", dist=(40.0, 95.0))
     prior.add_parameter("Om", dist=(0.1, 0.7))
     prior.add_parameter("v", dist=(-900, 900))
 
-    with Pool(6) as pool:
+    with Pool(5) as pool:
         sampler = Sampler(
-            prior, log_likelihood, n_live=6_000, pool=pool, seed=42, pass_dict=False
+            prior, log_likelihood, n_live=5_000, pool=pool, seed=42, pass_dict=False
         )
         sampler.run(verbose=True)
 
     samples, log_w, log_l = sampler.posterior()
-    w = np.exp(log_w)
     log_evd = sampler.log_z
     labels = ["f_0", "f_a", "ΔM", "H_0", "Ω_m", "v"]
 
@@ -127,31 +126,19 @@ def main():
         labels=labels,
     )
 
+    for name in gd_samples.getParamNames().names:
+        print(gd_samples.getInlineLatex(name, limit=1))
+
     plots.get_subplot_plotter().triangle_plot(
         gd_samples, prior.keys, title_limit=1, contour_colors=["C0"]
     )
     plt.show()
 
-    one_sigma_ci = [0.159, 0.5, 0.841]
-
-    f0_16, f0_50, f0_84 = quantile(samples[:, 0], one_sigma_ci, weights=w)
-    fa_16, fa_50, fa_84 = quantile(samples[:, 1], one_sigma_ci, weights=w)
-    dM_16, dM_50, dM_84 = quantile(samples[:, 2], one_sigma_ci, weights=w)
-    h0_16, h0_50, h0_84 = quantile(samples[:, 3], one_sigma_ci, weights=w)
-    Om_16, Om_50, Om_84 = quantile(samples[:, 4], one_sigma_ci, weights=w)
-    v_16, v_50, v_84 = quantile(samples[:, 5], one_sigma_ci, weights=w)
-
     best_fit = samples[np.argmax(log_l)]
     DOF = len(z_cmb) + N_cc - len(prior.keys)
 
-    f_array = best_fit[0] + best_fit[1] * z_cc_vals
+    f_array = best_fit[0] + best_fit[1] * z_cc_vals / (1.0 + z_cc_vals)
 
-    print(f"f0: {f0_50:.2f} +{(f0_84 - f0_50):.2f} -{(f0_50 - f0_16):.2f}")
-    print(f"fa: {fa_50:.2f} +{(fa_84 - fa_50):.2f} -{(fa_50 - fa_16):.2f}")
-    print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
-    print(f"H0: {h0_50:.1f} +{(h0_84 - h0_50):.1f} -{(h0_50 - h0_16):.1f} km/s/Mpc")
-    print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
-    print(f"v: {v_50:.2f} +{(v_84 - v_50):.2f} -{(v_50 - v_16):.2f} km/s")
     print(f"Chi squared: {chi_squared(best_fit, f_array):.2f}")
     print(f"Log evidence: {log_evd:.1f}")
     print(f"DOF: {DOF}")
@@ -166,10 +153,10 @@ def main():
     plot_sn_predictions(
         legend=legend_sn,
         x=z_cmb,
-        y=mu_vals - mu_corr(v_50, DM_grid(best_fit)),
+        y=mu_vals - mu_corr(best_fit[5], DM_grid(best_fit)),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=mu_theory(dM_50, DM_grid(best_fit)),
-        label=f"$Ω_m$={Om_50:.4f}",
+        y_model=mu_theory(best_fit[2], DM_grid(best_fit)),
+        label=f"$Ω_m$={best_fit[4]:.4f}",
         x_scale="log",
     )
 
@@ -179,56 +166,57 @@ if __name__ == "__main__":
 
 
 # ---------------- Flat ΛCDM ----------------
-# ΔM: -0.069 +- 0.066 mag
-# H0: 67.2 +- 2.2 km/s/Mpc
-# Ωm: 0.329 +- 0.021
-# f0: 2.25 +- 0.35
-# fa: -0.79 +0.27 -0.32
-# Chi squared: 68.65
-# Log evidence: -179.0
+# ΔM: -0.057 +0.061 -0.055 mag
+# H0: 67.6 +- 1.9 km/s/Mpc
+# Ωm: 0.326 +- 0.021
+# f0: 2.93 +- 0.56
+# fa: -3.2 +- 1.1
+# Chi squared: 67.52
+# Log evidence: -178.8
 # DOF: 56
 # -------------------------------------------
 
 
 # ---------------- Flat ΛCDM ----------------
-# velocity step correction SNe observed redshifts (turning point z <= 0.2 inflow z > 0.2 outflow)
+# velocity step correction SNe observed redshifts
+# turning point z <= 0.2 inflow z > 0.2 outflow
 # z_cosmo = -1 + (1 + z) / (1 + v/c)
 #
-# v: -298 +- 120 km/s (prior U[-900, 900])
-# ΔM: -0.060 +- 0.065 mag
-# H0: 68.1 +- 2.2 km/s/Mpc
-# Ωm: 0.303 +- 0.022
-# f0: 2.27 +- 0.35
-# fa: -0.82 +0.26 -0.32
-# Chi squared: 62.05 (2.57 sigma significance)
-# Log evidence: -177.5 (ΔlogZ = 1.5 in favour of v corrections)
+# v: -306 +- 120 km/s (prior U[-900, 900])
+# ΔM: -0.057 +- 0.059 mag
+# H0: 68.3 +- 1.9 km/s/Mpc
+# Ωm: 0.300 +- 0.022
+# f0: 3.01 +- 0.56
+# fa: -3.4 +- 1.1
+# Chi squared: 59.65 (2.8 sigma significance)
+# Log evidence: -177.2 (ΔlogZ = 1.6 in favour of v corrections)
 # DOF: 55
 # -------------------------------------------
 
 
 # ---------------- Flat wCDM ----------------
-# ΔM: -0.069 +- 0.067 mag
-# H0: 66.9 +- 2.2 km/s/Mpc
-# Ωm: 0.298 +0.052 -0.038
-# w0: -0.91 +- 0.13 (prior U[-1.5, -0.5])
-# f0: 2.23 +- 0.35
-# fa: -0.79 +0.27 -0.31
-# Chi squared: 66.67 (1.41 sigma significance)
-# Log evidence: -179.9 (ΔlogZ = -0.9 in favour of ΛCDM)
+# ΔM: -0.060 +- 0.060 mag
+# H0: 67.2 +- 2.0 km/s/Mpc
+# Ωm: 0.287 +0.056 -0.040
+# w0: -0.89 +0.13 -0.12 (prior U[-1.5, -0.5])
+# f0: 2.95 +- 0.56
+# fa: -3.3 +- 1.1
+# Chi squared: 67.85 (higher chi2 than ΛCDM)
+# Log evidence: -179.5 (ΔlogZ = -0.7 in favour of ΛCDM)
 # DOF: 55
 # -------------------------------------------
 
 
 # --------------- Flat w0waCDM --------------
 # w0 + wa < 0 enforced in the likelihood
-# ΔM: -0.078 +- 0.065 mag
-# H0: 66.1 +- 2.1 km/s/Mpc
-# Ωm: 0.372 +0.044 -0.022
-# w0: -0.80 +0.14 -0.12 (prior U[-3, 1])
-# wa: < -1.9 (prior U[-3, 2] truncated posterior)
-# f0: 2.31 +- 0.35
-# fa: -0.85 +0.26 -0.31
-# Chi squared: 65.37 (1.22 sigma significance)
-# Log evidence: -180.3 + 0.3 (ΔlogZ = -1.0 in favour of ΛCDM)
+# ΔM: -0.072 +- 0.059 mag
+# H0: 66.3 +- 2.0 km/s/Mpc
+# Ωm: 0.365 +0.047 -0.023
+# w0: -0.78 +0.14 -0.12 (prior U[-3, 1])
+# wa: < -1.88 (prior U[-3, 2] truncated posterior)
+# f0: 3.05 +- 0.57
+# fa: -3.5 +- 1.1
+# Chi squared: 62.17 (1.22 sigma significance)
+# Log evidence: -180.0 + 0.3 (ΔlogZ = -0.9 in favour of ΛCDM)
 # DOF: 54
 # -------------------------------------------
