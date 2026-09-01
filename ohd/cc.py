@@ -19,7 +19,7 @@ def H_z(z, params):
 
 @njit
 def log_likelihood_jit(params):
-    f_array = params[2] + params[3] * z_values / (1.0 + z_values)
+    f_array = np.exp(params[2]) * (1.0 + z_values) ** params[3]
     if np.any(f_array <= 1e-4):
         return -np.inf
 
@@ -46,19 +46,19 @@ def main():
 
     prior = Prior()
     prior.add_parameter("H0", dist=(30, 100))
-    prior.add_parameter("Om", dist=(0.0, 1.0))
-    prior.add_parameter("f0", dist=(0.1, 6.0))
-    prior.add_parameter("fa", dist=(-9.0, 9.0))
+    prior.add_parameter("Om", dist=(0.0, 2.0))
+    prior.add_parameter("ln_f0", dist=(-0.5, 2.5))
+    prior.add_parameter("n", dist=(-4.0, 4.0))
 
-    with Pool(5) as pool:
+    with Pool(8) as pool:
         sampler = Sampler(
-            prior, log_likelihood, n_live=6_000, pool=pool, seed=42, pass_dict=False
+            prior, log_likelihood, n_live=8_000, pool=pool, seed=42, pass_dict=False
         )
         sampler.run(verbose=True)
 
     samples, log_w, log_l = sampler.posterior()
     weights = np.exp(log_w)
-    labels=["H_0", "\\Omega_m", "f_0", "f_a"]
+    labels=["H_0", "\\Omega_m", "\\ln f_0", "n"]
 
     gd_samples = MCSamples(
         samples=samples,
@@ -74,7 +74,7 @@ def main():
         print(gd_samples.getInlineLatex(name, limit=1))
 
     best_fit = samples[np.argmax(log_l)]
-    f_array = best_fit[2] + best_fit[3] * z_values / (1. + z_values)
+    f_array = np.exp(best_fit[2]) * (1.0 + z_values) ** best_fit[3]
     delta = H_values - H_z(z_values, best_fit)
     y = solve_triangular(L, f_array * delta)
     chi2 = np.dot(y, y)
@@ -105,24 +105,24 @@ if __name__ == "__main__":
 # Model: Flat ΛCDM
 # ---------------------------------
 
-# Redshift dependent covariance error scaling f(z) = f0 + fa * z/(1+z):
+# Redshift dependent covariance error scaling f(z) = f0 * (1+z)^n:
 # cov[i, j] = base_cov[i, j] / (f(z_i) * f(z_j))
 #
-# H0: 68.1 +- 2.2 km/s/Mpc
-# Ωm: 0.306 +0.037 -0.041
-# Ωm h^2: 0.141 +- 0.016
-# f0: 2.98 +- 0.57  (prior ~U[0.1, 6.0])
-# fa: -3.3 +- 1.2 (prior ~U[-9.0, 9.0])
-# Log likelihood (MAP): -149.48
-# Log evidence: -159.03 (diff: 4.29 strong evidence favouring the model with f0, fa)
-# χ2 (MAP): 39.07
+# H0 = 68.2 +2.1 -1.9 km/s/Mpc
+# Ωm = 0.303 +- 0.042
+# Ωm h^2 = 0.141 +- 0.017
+# ln(f0) = 1.14 +0.27 -0.24 (prior ~U[-0.5, 2.5])
+# n = -1.36 +- 0.48 (prior ~U[-4, 4])
+# Log likelihood (MAP): -149.38
+# Log evidence: -158.75 (diff: 4.57 strong evidence favouring the model with f0, n)
+# χ2 (MAP): 38.88
 # DOF: 35
-# χ2/DOF: 1.12
+# χ2/DOF: 1.11
 # ---------------------------------
 
-# Without error scaling (fixed f0 = 1, fa = 0):
+# Without error scaling (fixed f0 = 1, n = 0):
 # H0: 66.3 ± 5.4 km/s/Mpc
-# Om: 0.344 +0.054 -0.081
+# Om: 0.344 +0.053 -0.083
 # Ωm h^2: 0.148 ± 0.018
 # Log likelihood (MAP): -159.38
 # Log evidence: -163.32
@@ -133,22 +133,22 @@ if __name__ == "__main__":
 
 # Log likelihood ratio test:
 # -2 * log(L0/L1) = -2 * log(L0) + 2 * log(L1)
-# -2 * (-159.38) + 2 * (-149.48) = 19.80
+# -2 * (-159.38) + 2 * (-149.38) = 20.00
 #
 # DOF = 2
 #
 # Parametric-bootstrap likelihood-ratio test:
 # The full covariance-rescaling model improves the maximum log likelihood by
-# Delta log L = 9.9 relative to the fixed published-covariance model:
+# Delta log L = 10.0 relative to the fixed published-covariance model:
 #
-# Lambda = 2 * (log L_scaling - log L_fixed) = 19.80.
+# Lambda = 2 * (log L_scaling - log L_fixed) = 20.0.
 #
-# A parametric bootstrap with 250k data sets simulated under the
-# fixed-covariance null produced 12 values of Lambda >= 19.80, giving
-# p_bootstrap = 5.2e-05 (Monte Carlo SE = 1.4e-05).
+# A parametric bootstrap with 100k data sets simulated under the
+# fixed-covariance null produced 12 values of Lambda >= 20.0, giving
+# p_bootstrap = 1.3e-4 (Monte Carlo SE = 3.6e-05).
 #
 # Conditional on flat LCDM, Gaussian errors, the published covariance,
-# the chosen parameter bounds, and f(z) = f0 + fa * z/(1+z), the data favor
+# the chosen parameter bounds, and f(z) = f0 * (1+z)^n, the data favor
 # the covariance-rescaling extension over the fixed-covariance model.
 #
 # This result does not by itself establish that the published uncertainties

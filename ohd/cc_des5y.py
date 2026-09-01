@@ -64,8 +64,8 @@ def theory_mu(params, DM):
 
 bounds = np.array(
     [
-        (0.1, 6.0),  # f0_cc
-        (-9.0, 9.0),  # fa_cc
+        (-0.5, 2.5),  # ln(f0_cc)
+        (-4.0, 4.0),  # n_cc
         (-0.5, 0.5),  # ΔM
         (50.0, 85.0),  # H0
         (0.05, 0.6),  # Ωm
@@ -101,8 +101,8 @@ def log_prior(params):
 
 @njit
 def log_likelihood(params):
-    f0_cc, fa_cc = params[0], params[1]
-    f_cc_arr = f0_cc + fa_cc * z_cc_vals / (1. + z_cc_vals)
+    f0_cc, n_cc = params[0], params[1]
+    f_cc_arr = np.exp(f0_cc) * (1. + z_cc_vals)**n_cc
 
     if np.any(f_cc_arr < 1e-4):
         return -np.inf
@@ -163,7 +163,7 @@ def main():
 
     [
         (f0_16, f0_50, f0_84),
-        (fa_16, fa_50, fa_84),
+        (n_16, n_50, n_84),
         (dM_16, dM_50, dM_84),
         (h0_16, h0_50, h0_84),
         (Om_16, Om_50, Om_84),
@@ -173,19 +173,19 @@ def main():
     best_fit = samples[np.argmax(log_probs)]
     DOF = effective_sample_size + N_cc - len(best_fit)
 
-    f_cc_arr = best_fit[0] + best_fit[1] * z_cc_vals / (1. + z_cc_vals)
+    f_cc_arr = np.exp(best_fit[0]) * (1.0 + z_cc_vals)**best_fit[1]
 
-    print(f"f0_cc: {f0_50:.2f} +{(f0_84 - f0_50):.2f} -{(f0_50 - f0_16):.2f}")
-    print(f"fa_cc: {fa_50:.1f} +{(fa_84 - fa_50):.1f} -{(fa_50 - fa_16):.1f}")
+    print(f"ln(f0_cc): {f0_50:.2f} +{(f0_84 - f0_50):.2f} -{(f0_50 - f0_16):.2f}")
+    print(f"n_cc: {n_50:.2f} +{(n_84 - n_50):.2f} -{(n_50 - n_16):.2f}")
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
     print(f"H0: {h0_50:.1f} +{(h0_84 - h0_50):.1f} -{(h0_50 - h0_16):.1f} km/s/Mpc")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"v/100 km/s: {v_50:.2f} +{(v_84 - v_50):.2f} -{(v_50 - v_16):.2f}")
     print(f"Chi squared (MAP): {chi_squared(best_fit, f_cc_arr):.2f}")
     print(f"Log evidence: {log_evd:.1f}")
-    print(f"Degrees of freedom: {DOF}")
+    print(f"DOF: {DOF}")
 
-    labels = ["$f_{0CCH}$", "$f_{aCCH}$", "$Δ_M$", "$H_0$", "$Ω_m$", "$v_{100}$"]
+    labels = ["$\\ln(f_{0CCH})$", "$n_{CCH}$", "$Δ_M$", "$H_0$", "$Ω_m$", "$v_{100}$"]
     plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
     plot_cc_predictions(
         H_z=lambda z: H_z(z, best_fit),
@@ -210,15 +210,15 @@ if __name__ == "__main__":
 
 
 # ----------- Flat ΛCDM -----------
-# H0: 67.6 +1.8 -1.9 km/s/Mpc
+# H0: 67.7 +- 1.8 km/s/Mpc
 # Ωm: 0.327 +- 0.014
-#
-# f0_cc: 2.92 +0.57 -0.55
-# fa_cc: -3.2 +- 1.1
-# ΔM: -0.070 +0.057 -0.060 mag
-# Chi squared (MAP): 1671.49
-# Log evidence: -979.1
-# Degrees of freedom: 1748
+# 
+# ln(f0_cc): 1.12 +0.24 -0.26
+# n_cc: -1.28 +0.45 -0.47
+# ΔM: -0.066 +0.057 -0.059 mag
+# Chi squared (MAP): 1669.61
+# Log evidence: -978.9
+# DOF: 1748
 # ---------------------------------
 
 
@@ -227,49 +227,44 @@ if __name__ == "__main__":
 # turning point z <= 0.10563 inflow z > 0.10563 outflow
 # z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-# H0: 68.1 +- 1.8 km/s/Mpc
+# H0: 68.2 +1.8 -1.9 km/s/Mpc
 # Ωm: 0.307 +- 0.016
-# v/100 km/s: -1.43 +- 0.65 (prior U[-4.5, 4.5])
-#
-# f0_cc: 2.98 +0.57 -0.55
-# fa_cc: -3.3 +1.2 -1.1
-# ΔM: -0.067 +0.056 -0.058 mag
-# Chi squared (MAP): 1665.86 (2.37 sigma significance)
-# Log evidence: -978.4
+# v/100 km/s: -1.43 +0.64 -0.65 (prior U[-4.5, 4.5])
+# 
+# ln(f0_cc): 1.14 +0.24 -0.26
+# n_cc: -1.32 +0.46 -0.47
+# ΔM: -0.065 +0.056 -0.059 mag
+# Chi squared (MAP): 1663.73 (2.42 sigma significance)
+# Log evidence: -978.2
 # Degrees of freedom: 1747
 # ---------------------------------
 
 
 # ----------- Flat wCDM -----------
 # H0: 67.4 +1.8 -1.8 km/s/Mpc
-# Ωm: 0.294 +0.040 -0.048
-# w0: -0.91 +- 0.11 (prior U[-2, 0])
-#
-# f0_cc: 2.95 +0.57 -0.55
-# fa_cc: -3.3 +- 1.1
-# ΔM: -0.071 +0.058 -0.059 mag
-# Chi squared (MAP): 1671.09 (0.63 sigma significance)
-# Log evidence: -980.7
-# Degrees of freedom: 1747
-# ---------------------------------
-
-
-# ----------- Flat wzCDM ----------
-# w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
-#
-# H0: 67.3 +1.9 -1.8 km/s/Mpc
-# Ωm: 0.284 +0.031 -0.044
-# w0: -0.88 +0.09 -0.08 (prior U[-1, -1/3])
-#
-# f0_cc: 2.97 +0.56 -0.55
-# fa_cc: -3.4 +- 1.1
-# ΔM: -0.071 +- 0.058 mag
-# Chi squared (MAP): 1671.38 (0.33 sigma significance)
-# Log evidence: -979.6 (inacurate: truncated posterior, needs to be done with Nautilus)
-# Degrees of freedom: 1747
+# Ωm: 0.291 +0.042 -0.049
+# w0: -0.90 +0.11 -0.11 (prior U[-1.5, 0.0])
+# 
+# ln(f0_cc): 1.14 +0.24 -0.26
+# n_cc: -1.35 +0.47 -0.48
+# ΔM: -0.068 +0.056 -0.058 mag
+# Chi squared (MAP): 1669.79 (greater chi2)
+# Log evidence: -980.2
+# DOF: 1747
 # ---------------------------------
 
 
 # ---------- Flat w0waCDM ---------
-# TODO
+# w0 + wa < 0 enforced in the likelihood
+#
+# ln(f0_cc): 1.16 +0.24 -0.26
+# n_cc: -1.36 +0.45 -0.46
+# ΔM: -0.080 +0.056 -0.059 mag
+# H0: 66.7 +1.8 -1.8 km/s/Mpc
+# Ωm: 0.382 +0.027 -0.038
+# w0: -0.83 +0.10 -0.11 (prior U[-3.0, 1.0])
+# wa: < -2.2 (prior U[-3.0, 2.0])
+# Chi squared (MAP): 1663.80
+# Log evidence: -978.7
+# DOF: 1746
 # ---------------------------------

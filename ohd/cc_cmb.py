@@ -50,7 +50,7 @@ def chi_squared(params, f_cc_arr):
 
 @njit
 def log_likelihood(params):
-    f_cc_arr = params[3] + params[4] * z_values / (1. + z_values)
+    f_cc_arr = np.exp(params[3]) * (1.0 + z_values)**(params[4])
     if np.any(f_cc_arr <= 1e-4):
         return -np.inf
 
@@ -70,8 +70,8 @@ def main():
     prior.add_parameter("H0", dist=(63.0, 73.0))
     prior.add_parameter("obh2", dist=(0.0210, 0.0235))
     prior.add_parameter("och2", dist=(0.05, 0.30))
-    prior.add_parameter("f0", dist=(0.1, 6.0))
-    prior.add_parameter("fa", dist=(-9.0, 9.0))
+    prior.add_parameter("ln_f0", dist=(-0.5, 2.5))
+    prior.add_parameter("n", dist=(-4.0, 4.0))
 
     with Pool(5) as pool:
         sampler = Sampler(
@@ -81,7 +81,7 @@ def main():
 
     samples, log_w, log_l = sampler.posterior()
     weights = np.exp(log_w)
-    labels=["H_0", "\\Omega_b h^2", "\\Omega_c h^2", "f_{0,CC}", "f_{a,CC}"]
+    labels=["H_0", "\\Omega_b h^2", "\\Omega_c h^2", "\\ln (f_0)", "n_{CCH}"]
 
     gd_samples = MCSamples(
         samples=samples,
@@ -103,12 +103,12 @@ def main():
     best_fit = samples[np.argmax(log_l)]
     DOF = len(cmb.DISTANCE_PRIORS) + N - len(best_fit)
 
-    f_cc_arr = best_fit[3] + best_fit[4] * z_values / (1. + z_values)
+    f_cc_arr = np.exp(best_fit[3]) * (1.0 + z_values)**(best_fit[4])
 
-    print(f"Chi squared: {chi_squared(best_fit, f_cc_arr):.2f}")
-    print(f"Log likelihood: {log_likelihood(best_fit):.2f}")
+    print(f"Chi squared (MAP): {chi_squared(best_fit, f_cc_arr):.2f}")
+    print(f"Log likelihood (MAP): {log_likelihood(best_fit):.2f}")
     print(f"Log evidence: {sampler.log_z:.2f}")
-    print(f"Degs of freedom: {DOF}")
+    print(f"DOF: {DOF}")
 
     plots.getSubplotPlotter().triangle_plot(
         gd_samples, filled=True, title_limit=1, contour_colors=["C0"], color=["C0"],
@@ -134,44 +134,29 @@ if __name__ == "__main__":
 
 
 # Model: Flat ΛCDM
-# ------ Fixed factor f0 = 1, fa = 0 ------------------------------
-# f0: 1, fa: 0 (assuming no overestimaded errors in CCH sample)
+# ------ Fixed factor ln(f0) = 0, n = 1 ------------------------------
+# ln(f0): 0, n: 1 (assuming no overestimaded errors in CCH sample)
 # H0: 67.61 +- 0.50 km/s/Mpc
 # Ωm: 0.3118 +- 0.0071
 # ωb: 0.02250 +- 0.00011
 # ωc: 0.1193 +- 0.0012
-# Chi squared: 16.67
-# Log likelihood: -159.41
+# Chi squared (MAP): 16.67
+# Log likelihood (MAP): -159.41
 # Log evidence: -169.98
-# Degs of freedom: 39
+# DOF: 39
 # -----------------------------------------------------------------
 
 
 # Model: Flat ΛCDM
-# ------ Overestimation factor f(z) = f0 + fa * z / (1 + z) -------
-# H0: 67.66 +- 0.49 km/s/Mpc
-# Ωm: 0.3111 +- 0.0069
+# ------ Overestimation factor f(z) = f0 * (1 + z)^n --------------
+# H0: 67.67 +- 0.49 km/s/Mpc
+# Ωm: 0.3109 +- 0.0069
 # ωb: 0.02250 +- 0.00011
 # ωc: 0.1192 +- 0.0012
-# f0: 3.04 +- 0.56 (prior ~ U[0.1, 6])
-# fa: -3.4 +- 1.1 (prior ~ U[-9, 9])
-# Chi squared: 38.50
-# Log likelihood: -149.54 (4.05 sigma significance)
-# Log evidence: -164.60 (Δ logZ = 5.38 compared to no scaling)
-# Degs of freedom: 37
+# ln(f0): 1.15 +0.26 -0.23 (prior ~ U[-0.5, 2.5])
+# n: -1.35 +- 0.46 (prior ~ U[-4, 4])
+# Chi squared (MAP): 39.68
+# Log likelihood (MAP): -149.47 (4.06 sigma significance)
+# Log evidence: -164.39 (Δ logZ = 5.59 compared to no scaling)
+# DOF: 37
 # -----------------------------------------------------------------
-
-
-# Model: Flat wCDM
-# ------ Overestimation factor f(z) = f0 + fa * z / (1 + z) -------
-# H0 = 68.9 +2.4 -1.9 km/s/Mpc
-# Ωm = 0.301 +0.014 -0.023
-# ωb = 0.02249\pm 0.00011
-# ωc = 0.1194\pm 0.0012
-# f0 = 3.04 +- 0.57 (prior ~ U[0.1, 6])
-# fa = -3.4 +- 1.2 (prior ~ U[-9, 9])
-# w0 = -1.045 +0.065 -0.082 (prior ~ U[-2, 0])
-# Chi squared: 38.93
-# Log likelihood: -149.37
-# Log evidence: -166.71
-# Degs of freedom: 36

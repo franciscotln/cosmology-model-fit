@@ -118,8 +118,8 @@ def chi_squared(params, f_cc_arr):
 
 @njit
 def log_likelihood_jit(params):
-    f0_cc, fa_cc = params[0:2]
-    f_cc_arr = f0_cc + fa_cc * z_cc_vals / (1.0 + z_cc_vals)
+    f0_cc, n_cc = params[0:2]
+    f_cc_arr = np.exp(f0_cc) * (1.0 + z_cc_vals)**n_cc
     if np.any(f_cc_arr <= 1e-4):
         return -np.inf
 
@@ -141,8 +141,8 @@ def main():
 
     prior = Prior()
     # ---- CCH parameters for overestimated errors ----
-    prior.add_parameter("f0_cc", dist=(0.1, 6.0))
-    prior.add_parameter("fa_cc", dist=(-9.0, 9.0))
+    prior.add_parameter("ln_f0_cc", dist=(-0.5, 2.5))
+    prior.add_parameter("n_cc", dist=(-4.0, 4.0))
     # ---- cosmological parameters ----
     prior.add_parameter("H0", dist=(45.0, 90.0))
     prior.add_parameter("rd", dist=(120.0, 175.0))
@@ -157,7 +157,7 @@ def main():
 
     samples, log_w, log_l = sampler.posterior()
     weights = np.exp(log_w)
-    labels=["f_{0,cc}", "f_{a,cc}", "H_0", "r_{drag}", "\\Omega_m", "w_0"]
+    labels=["\\ln f_{0,cc}", "n_{cc}", "H_0", "r_{drag}", "\\Omega_m", "w_0"]
     gd_samples = MCSamples(
         samples=samples,
         weights=weights,
@@ -174,7 +174,7 @@ def main():
         print(gd_samples.getInlineLatex(name, limit=1))
 
     best_fit = samples[np.argmax(log_l)]
-    f_cc_arr = best_fit[0] + best_fit[1] * z_cc_vals / (1.0 + z_cc_vals)
+    f_cc_arr = np.exp(best_fit[0]) * (1.0 + z_cc_vals)**best_fit[1]
 
     print(f"Chi squared (MAP): {chi_squared(best_fit, f_cc_arr):.2f}")
     print(f"log likelihood (MAP): {log_likelihood(best_fit):.2f}")
@@ -183,7 +183,7 @@ def main():
 
     plots.getSubplotPlotter().triangle_plot(
         gd_samples,
-        params=["H0", "om", "rd", "w0", "f0_cc", "fa_cc"],
+        params=["H0", "om", "rd", "w0", "ln_f0_cc", "n_cc"],
         filled=True,
         title_limit=1,
         contour_colors=["C0"],
@@ -219,29 +219,29 @@ if __name__ == "__main__":
 
 # ----------- Flat ΛCDM -----------
 # H0 = 68.3 ± 1.8 km/s/Mpc
-# rd = 148.3 ± 4.0 Mpc
-# Ωm = 0.3017 ± 0.0075
-# Ωm h^2 = 0.1406 ± 0.0079
-# f0_cc = 3.01 ± 0.56
-# fa_cc = -3.4 ± 1.1
-# Chi squared (MAP): 51.81
-# log likelihood (MAP): -155.89
-# Log evidence: -170.11
+# rd = 148.2 +3.6 -4.1 Mpc
+# Ωm = 0.3017 ± 0.0076
+# Ωm h^2 = 0.1409 ± 0.0079
+# ln(f0_cc) = 1.14 +0.26 -0.23
+# n_cc = -1.33 ± 0.46
+# Chi squared (MAP): 51.39
+# log likelihood (MAP): -155.80
+# Log evidence: -169.87
 # DOF: 48
 # ---------------------------------
 
 
 # ----------- Flat wCDM -----------
 # H0 = 68.1 ± 2.0 km/s/Mpc
-# rd = 148.3 ± 4.0 Mpc
+# rd = 148.2 +3.7 -4.1 Mpc
 # Ωm = 0.3016 ± 0.0079
+# Ωm h^2 = 0.1401 ± 0.0083
 # w0 = -0.986 ± 0.070 (prior U[-1.5, -0.5])
-# Ωm h^2 = 0.1399 ± 0.0083
-# f0_cc = 2.99 ± 0.56
-# fa_cc = -3.3 ± 1.1
-# Chi squared (MAP): 50.37
-# log likelihood (MAP): -155.87
-# Log evidence: -171.82
+# ln(f0_cc) = 1.13 +0.26 - 0.23
+# n_cc = -1.3 ± 0.46
+# Chi squared (MAP): 51.90
+# log likelihood (MAP): -155.78
+# Log evidence: -171.58
 # DOF: 47
 # ---------------------------------
 
@@ -249,16 +249,16 @@ if __name__ == "__main__":
 # ----------- Flat wzCDM ----------
 # w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
 # H0 = 66.9 ± 2.0 km/s/Mpc
-# rd = 148.1 +3.7 -4.2 Mpc
-# Ωm = 0.3115 +0.0092 -0.011
-# w0 = -0.860 +0.046 -0.13 (prior U[-1, 0]. Posterior truncated to the left of the mean)
+# rd = 147.9 +3.7 -4.2 Mpc
+# Ωm = 0.3116 +0.0091 -0.0110
+# Ωm h^2 = 0.1397 ± 0.0080
+# w0 = -0.859 +0.047 -0.13 (prior U[-1, 0]. Posterior truncated to the left of the mean)
 # wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
-# Ωm h^2 = 0.1393 ± 0.0081
-# f0_cc = 2.95 ± 0.56
-# fa_cc = -3.3 ± 1.1
-# Chi squared (MAP): 51.61
-# log likelihood (MAP): -155.77
-# Log evidence: -171.38
+# ln(f0_cc) = 1.12 +0.26 -0.24
+# n_cc = -1.32 ± 0.47
+# Chi squared (MAP): 50.91
+# log likelihood (MAP): -155.69
+# Log evidence: -171.11
 # DOF: 47
 # ---------------------------------
 
@@ -266,16 +266,16 @@ if __name__ == "__main__":
 # ---------- Flat w0waCDM----------
 # Enforced w0 + wa < 0 in likelihood
 #
-# H0 = 65.0 +2.6 -3.2
-# rd = 148.8 +3.8 -4.3
-# Ωm = 0.343 +0.039 -0.023
-# w0 = -0.62 +0.34 -0.22 (prior U[-3, 1])
-# wa = -1.38 +0.59 -1.4 (prior U[-3, 2])
+# H0 = 64.9 +2.6 -3.1
+# rd = 148.6 +3.8 -4.3
+# Ωm = 0.344 +0.038 -0.022
+# w0 = -0.60 +0.33 -0.22 (prior U[-3, 1])
+# wa = -1.43 +0.56 -1.4 (prior U[-3, 2])
 # Ωm h^2 = 0.1441 ± 0.0096
-# f0_cc = 2.93 ± 0.55
-# fa_cc = -3.3 ± 1.1
-# Chi squared (MAP): 47.21
-# log likelihood (MAP): -154.79
-# Log evidence: -172.86
+# ln(f0_cc) = 1.12 +0.27 -0.24
+# n_cc = -1.34 ± 0.47
+# Chi squared (MAP): 49.25
+# log likelihood (MAP): -154.73
+# Log evidence: -172.57
 # DOF: 46
 # ---------------------------------
