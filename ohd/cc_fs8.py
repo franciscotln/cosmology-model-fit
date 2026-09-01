@@ -123,13 +123,15 @@ def chi2_fs8(params):
     q = H_z(z_fs8, params) * DM(z_fs8, params) / Hz_DMz_fid
 
     delta = fs8_values - fs8_theory(a_vals_fs8, params) / q
-    return params[4] ** 2 * solve_triangular(cho_fs8, delta)
+    y = solve_triangular(cho_fs8, delta)
+    return params[4] ** 2 * np.dot(y, y)
 
 
 @njit
 def chi2_cc(params):
     delta = H_values - H_z(z_cc, params)
-    return  params[3] ** 2 * solve_triangular(cho_cc, delta)
+    y = solve_triangular(cho_cc, delta)
+    return  params[3] ** 2 * np.dot(y, y)
 
 
 @njit

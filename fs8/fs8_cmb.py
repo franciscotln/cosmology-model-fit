@@ -166,7 +166,8 @@ for i in range(N):
 def chi2_fs8(theta):
     q = Hz(z_vals, theta) * DM(z_vals, theta) / Hz_DMz_fid
     delta = fs8_vals - fs8_theory(a_vals, theta) / q
-    return theta[-1] ** 2 * solve_triangular(cho, delta)
+    y = solve_triangular(cho, delta)
+    return theta[-1] ** 2 * np.dot(y, y)
 
 
 @njit

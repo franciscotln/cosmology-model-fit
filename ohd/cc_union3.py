@@ -70,10 +70,12 @@ def chi_squared(params, f_array):
 
     DM_interp = DM_grid(params)
     delta_sn = mu_vals - mu_theory(offset, DM_interp) - mu_corr(v, DM_interp)
-    chi_sn = solve_triangular(L_sn, delta_sn)
+    y_sn = solve_triangular(L_sn, delta_sn)
+    chi_sn = np.dot(y_sn, y_sn)
 
     cc_delta = H_cc_vals - H_z(z_cc_vals, params)
-    chi_cc = solve_triangular(L_cc, f_array * cc_delta)
+    y_cc = solve_triangular(L_cc, f_array * cc_delta)
+    chi_cc = np.dot(y_cc, y_cc)
 
     return chi_sn + chi_cc
 

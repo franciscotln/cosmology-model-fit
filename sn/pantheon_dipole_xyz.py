@@ -74,7 +74,8 @@ def chi_squared(params):
         return 1e8
     M = params[0]
     delta = mb_vals - M - mu_theory(DM_z(params, z_cosmo))
-    return solve_triangular(cho, delta)
+    y = solve_triangular(cho, delta)
+    return np.dot(y, y)
 
 
 def log_likelihood(params):

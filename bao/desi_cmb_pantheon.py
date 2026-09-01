@@ -126,7 +126,8 @@ def chi_squared(params):
     chi_bao = delta_bao @ inv_cov_bao @ delta_bao
 
     delta_sn = mb_values - mB_theory(params) - mu_corr(params)
-    chi_sn = solve_triangular(cho_sn, delta_sn)
+    y_sn = solve_triangular(cho_sn, delta_sn)
+    chi_sn = np.dot(y_sn, y_sn)
 
     return chi2_cmb + chi_bao + chi_sn
 

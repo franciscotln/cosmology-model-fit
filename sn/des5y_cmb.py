@@ -91,7 +91,8 @@ def chi2_sn(params):
     DM = DM_z(z_cosmo, DM_inter)
 
     delta = mu_vals - theory_mu(params, DM)
-    return solve_triangular(cho_sn, delta)
+    y = solve_triangular(cho_sn, delta)
+    return np.dot(y, y)
 
 
 @njit

@@ -97,7 +97,8 @@ def chi_squared(params):
     dm_interp = DM_grid(params)
 
     delta_sn = mu_vals - mu_theory(params, dm_interp) - mu_corr(params, dm_interp)
-    chi_sn = solve_triangular(cho_sn, delta_sn)
+    y_sn = solve_triangular(cho_sn, delta_sn)
+    chi_sn = np.dot(y_sn, y_sn)
 
     delta_bao = bao["value"] - bao_theory(bao["z"], bao_qty, params, dm_interp)
     chi_bao = delta_bao @ inv_cov_bao @ delta_bao

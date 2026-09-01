@@ -24,7 +24,8 @@ def log_likelihood_jit(params):
         return -np.inf
 
     delta = H_values - H_z(z_values, params)
-    chi2 = solve_triangular(L, f_array * delta)
+    y = solve_triangular(L, f_array * delta)
+    chi2 = np.dot(y, y)
 
     logdet = logdet_base - 2.0 * np.log(f_array).sum()
     normalization = N * np.log(2 * np.pi) + logdet
@@ -75,7 +76,8 @@ def main():
     best_fit = samples[np.argmax(log_l)]
     f_array = best_fit[2] + best_fit[3] * z_values / (1. + z_values)
     delta = H_values - H_z(z_values, best_fit)
-    chi2 = solve_triangular(L, f_array * delta)
+    y = solve_triangular(L, f_array * delta)
+    chi2 = np.dot(y, y)
 
     print(f"Log likelihood (MAP): {log_likelihood(best_fit):.2f}")
     print(f"Log evidence: {sampler.log_z:.2f}")
@@ -141,9 +143,9 @@ if __name__ == "__main__":
 #
 # Lambda = 2 * (log L_scaling - log L_fixed) = 19.80.
 #
-# A parametric bootstrap with 200k data sets simulated under the
-# fixed-covariance null produced 11 values of Lambda >= 19.80, giving
-# p_bootstrap = 6.0e-05 (Monte Carlo SE = 1.7e-05).
+# A parametric bootstrap with 250k data sets simulated under the
+# fixed-covariance null produced 12 values of Lambda >= 19.80, giving
+# p_bootstrap = 5.2e-05 (Monte Carlo SE = 1.4e-05).
 #
 # Conditional on flat LCDM, Gaussian errors, the published covariance,
 # the chosen parameter bounds, and f(z) = f0 + fa * z/(1+z), the data favor

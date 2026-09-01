@@ -40,7 +40,8 @@ cmb.set_HZ(H_z)
 @njit
 def chi_squared(params, f_cc_arr):
     delta_cc = H_values - H_z(z_values, params)
-    chi2_cc = solve_triangular(L_cc, f_cc_arr * delta_cc)
+    y = solve_triangular(L_cc, f_cc_arr * delta_cc)
+    chi2_cc = np.dot(y, y)
 
     delta_cm = cmb.DISTANCE_PRIORS - cmb.cmb_distances(params[1], params[2], params)
     chi2_cmb = delta_cm @ cmb.inv_cov_mat @ delta_cm

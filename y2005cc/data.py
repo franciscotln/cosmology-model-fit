@@ -2,42 +2,31 @@ import pandas as pd
 import numpy as np
 from interpolator import interp_pchip
 
-data = pd.read_csv("y2005cc/raw-data/data.csv")
-cov_components = pd.read_csv("y2005cc/raw-data/cov_components.csv")
-
-z = data["z"].to_numpy()
-Hz = data["H"].to_numpy()
-sigma_H = data["sigma_H"].to_numpy()
-
-zmod = cov_components["z"].to_numpy(dtype=np.float64)
-imf_intp = interp_pchip(z, zmod, cov_components["imf"].to_numpy()) / 100
-slib_intp = interp_pchip(z, zmod, cov_components["stlib"].to_numpy()) / 100
-sps_intp = interp_pchip(z, zmod, cov_components["sps"].to_numpy()) / 100
-spsooo_intp = interp_pchip(z, zmod, cov_components["spsooo"].to_numpy()) / 100
-
-N = len(z)
-cov_mat_diag = np.zeros((N, N), dtype="float64")
-cov_mat_imf = np.zeros((N, N), dtype="float64")
-cov_mat_slib = np.zeros((N, N), dtype="float64")
-cov_mat_sps = np.zeros((N, N), dtype="float64")
-cov_mat_spsooo = np.zeros((N, N), dtype="float64")
-
-for i in range(N):
-    cov_mat_diag[i, i] = sigma_H[i] ** 2
-
-for i in range(N):
-    for j in range(N):
-        cov_mat_imf[i, j] = Hz[i] * imf_intp[i] * Hz[j] * imf_intp[j]
-        cov_mat_slib[i, j] = Hz[i] * slib_intp[i] * Hz[j] * slib_intp[j]
-        cov_mat_sps[i, j] = Hz[i] * sps_intp[i] * Hz[j] * sps_intp[j]
-        cov_mat_spsooo[i, j] = Hz[i] * spsooo_intp[i] * Hz[j] * spsooo_intp[j]
-
-# suggested covariance matrix
-cov_matrix = cov_mat_spsooo + cov_mat_imf + cov_mat_diag
-
 
 def get_data():
-    return (f"Cosmic Chronometers ({N} data points)", z, Hz, cov_matrix)
+    data = pd.read_csv("y2005cc/raw-data/data.csv")
+    cov_components = pd.read_csv("y2005cc/raw-data/cov_components.csv")
+
+    z = data["z"].to_numpy()
+    Hz = data["H"].to_numpy()
+    sigma_H = data["sigma_H"].to_numpy()
+
+    zmod = cov_components["z"].to_numpy(dtype=np.float64)
+    imf_intp = interp_pchip(z, zmod, cov_components["imf"].to_numpy()) / 100
+    spsooo_intp = interp_pchip(z, zmod, cov_components["spsooo"].to_numpy()) / 100
+    # slib_intp = interp_pchip(z, zmod, cov_components["stlib"].to_numpy()) / 100
+    # sps_intp = interp_pchip(z, zmod, cov_components["sps"].to_numpy()) / 100
+
+    cov_mat_diag = np.diag(sigma_H**2)
+    cov_mat_imf = np.outer(Hz * imf_intp, Hz * imf_intp)
+    cov_mat_spsooo = np.outer(Hz * spsooo_intp, Hz * spsooo_intp)
+    # cov_mat_slib = np.outer(Hz * slib_intp, Hz * slib_intp)
+    # cov_mat_sps = np.outer(Hz * sps_intp, Hz * sps_intp)
+
+    # suggested covariance matrix
+    cov_matrix = cov_mat_spsooo + cov_mat_imf + cov_mat_diag
+
+    return (f"Cosmic Chronometers ({len(z)} data points)", z, Hz, cov_matrix)
 
 
 # *********************************

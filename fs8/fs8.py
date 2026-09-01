@@ -119,7 +119,8 @@ def chi_squared(theta):
     Om, sig8, w0, f_err = theta
     q = AP_factor(z_vals, Om, w0)
     delta = fs8_vals - fs8_theory(a_vals, Om, sig8, w0) / q
-    return f_err**2 * solve_triangular(cho, delta)
+    y = solve_triangular(cho, delta)
+    return f_err**2 * np.dot(y, y)
 
 
 @njit

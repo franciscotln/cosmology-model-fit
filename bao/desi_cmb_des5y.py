@@ -144,8 +144,8 @@ def chi2_sn(params, dm_interp):
     z_cosmo = get_z_cosmo(params[4])
     DM_cosmo = interp_hermite(z_cosmo, z_grid, y=dm_interp[0], y_prime=dm_interp[1])
     delta = mu_values - theory_mu(params[0], DM_cosmo)
-    return solve_triangular(cho_sn, delta)
-
+    y = solve_triangular(cho_sn, delta)
+    return np.dot(y, y)
 
 @njit
 def chi2_cmb(params):
@@ -156,7 +156,8 @@ def chi2_cmb(params):
 @njit
 def chi2_bao(params, dm_interp):
     delta_bao = bao["value"] - bao_theory(bao["z"], bao_qty, params, dm_interp)
-    return solve_triangular(cho_bao, delta_bao)
+    y = solve_triangular(cho_bao, delta_bao)
+    return np.dot(y, y)
 
 
 @njit

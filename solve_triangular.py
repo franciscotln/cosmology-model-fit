@@ -11,4 +11,4 @@ def solve_triangular(L, b):
     y = np.empty_like(b)
     for i in range(n):
         y[i] = (b[i] - np.dot(L[i, :i], y[:i])) / L[i, i]
-    return np.dot(y, y)
+    return y

@@ -71,7 +71,8 @@ def chi_squared(params):
     mu_pred = np.where(ceph_mask, ceph_dists, mu_theory(DM))
     mB_theory = mu_pred + M
     delta = mB_vals - mB_theory
-    return solve_triangular(cho, delta)
+    y = solve_triangular(cho, delta)
+    return np.dot(y, y)
 
 
 @njit

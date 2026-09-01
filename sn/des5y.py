@@ -85,7 +85,8 @@ def chi_squared(params):
     offset = params[0]
 
     delta = mu_vals - theory_mu(offset, DM)
-    return solve_triangular(cho, delta)
+    y = solve_triangular(cho, delta)
+    return np.dot(y, y)
 
 
 def log_likelihood(params):

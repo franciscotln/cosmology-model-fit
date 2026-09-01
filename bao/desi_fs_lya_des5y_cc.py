@@ -124,13 +124,16 @@ def chi_squared(theta, f_cc_arr):
     z_cosmo = get_z_cosmo(theta)
     DM_cosmo = DM_z(z_cosmo, dm_grid)
     delta_sn = mu_values - mu_theory(theta, DM_cosmo)
-    chi_sn = solve_triangular(cho_sn, delta_sn)
+    y_sn = solve_triangular(cho_sn, delta_sn)
+    chi_sn = np.dot(y_sn, y_sn)
 
     delta_bao = bao["value"] - bao_theory(bao["z"], quantities, theta[4], dm_grid)
-    chi_bao = solve_triangular(cho_bao, delta_bao)
+    y_bao = solve_triangular(cho_bao, delta_bao)
+    chi_bao = np.dot(y_bao, y_bao)
 
     delta_cc = H_cc_vals - H_z(z_cc_vals, theta)
-    chi_cc = solve_triangular(cho_cc, f_cc_arr * delta_cc)
+    y_cc = solve_triangular(cho_cc, f_cc_arr * delta_cc)
+    chi_cc = np.dot(y_cc, y_cc)
 
     return chi_sn + chi_bao + chi_cc
 

@@ -110,13 +110,16 @@ def chi_squared(params, f_array):
 
     DM_cosmo = DM_z(get_z_cosmo(params), dm_grid)
     delta_sn = mu_vals - mu_theory(params, DM_cosmo)
-    chi_sn = solve_triangular(L_sn, delta_sn)
+    y_sn = solve_triangular(L_sn, delta_sn)
+    chi_sn = np.dot(y_sn, y_sn)
 
     delta_bao = bao_data["value"] - bao_theory(bao_data["z"], bao_qty, params[4], dm_grid)
-    chi_bao = solve_triangular(L_bao, delta_bao)
+    y_bao = solve_triangular(L_bao, delta_bao)
+    chi_bao = np.dot(y_bao, y_bao)
 
     delta_cc = H_cc_vals - H_z(z_cc_vals, params)
-    chi_cc = solve_triangular(L_cc, f_array * delta_cc)
+    y_cc = solve_triangular(L_cc, f_array * delta_cc)
+    chi_cc = np.dot(y_cc, y_cc)
 
     return chi_sn + chi_bao + chi_cc
 

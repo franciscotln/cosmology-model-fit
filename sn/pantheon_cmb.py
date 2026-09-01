@@ -86,7 +86,8 @@ def chi_squared(params):
     M = params[0]
     z_cosmo = get_z_cosmo(params)
     delta_sn = mb_values - M - mu_theory(DM_z(z_cosmo, params))
-    chi_sn = solve_triangular(cho_sn, delta_sn)
+    y_sn = solve_triangular(cho_sn, delta_sn)
+    chi_sn = np.dot(y_sn, y_sn)
 
     return chi2_cmb + chi_sn
 
