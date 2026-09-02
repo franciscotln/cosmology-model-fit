@@ -46,13 +46,13 @@ def main():
 
     prior = Prior()
     prior.add_parameter("H0", dist=(30, 100))
-    prior.add_parameter("Om", dist=(0.0, 2.0))
-    prior.add_parameter("ln_f0", dist=(-0.5, 2.5))
+    prior.add_parameter("Om", dist=(0.0, 1.0))
+    prior.add_parameter("ln_f0", dist=(-0.1, 2.5))
     prior.add_parameter("n", dist=(-4.0, 4.0))
 
     with Pool(8) as pool:
         sampler = Sampler(
-            prior, log_likelihood, n_live=8_000, pool=pool, seed=42, pass_dict=False
+            prior, log_likelihood, n_live=10_000, pool=pool, seed=42, pass_dict=False
         )
         sampler.run(verbose=True)
 
@@ -78,11 +78,14 @@ def main():
     delta = H_values - H_z(z_values, best_fit)
     y = solve_triangular(L, f_array * delta)
     chi2 = np.dot(y, y)
+    DOF = N - len(best_fit)
+    chi2_red = chi2 / DOF
 
     print(f"Log likelihood (MAP): {log_likelihood(best_fit):.2f}")
     print(f"Log evidence: {sampler.log_z:.2f}")
     print(f"χ2 (MAP): {chi2:.2f}")
-    print(f"DOF: {N - len(best_fit)}")
+    print(f"DOF: {DOF}")
+    print(f"χ2/DOF: {chi2_red:.2f}")
 
     plots.getSubplotPlotter().triangle_plot(
         gd_samples, filled=True, title_limit=1, contour_colors=["C0"], color=["C0"],
@@ -93,8 +96,9 @@ def main():
         H_z=lambda z: H_z(z, best_fit),
         z=z_values,
         H=H_values,
-        H_err=np.sqrt(np.diag(cov_matrix)) / f_array,
+        H_err=np.sqrt(np.diag(cov_matrix)),
         label=f"{legend} $H_0$: {best_fit[0]:.1f} km/s/Mpc",
+        err_scaling=f_array,
     )
 
 
@@ -109,13 +113,13 @@ if __name__ == "__main__":
 # cov[i, j] = base_cov[i, j] / (f(z_i) * f(z_j))
 #
 # H0 = 68.2 +2.1 -1.9 km/s/Mpc
-# Ωm = 0.303 +- 0.042
+# Ωm = 0.303 +0.039 -0.043
 # Ωm h^2 = 0.141 +- 0.017
-# ln(f0) = 1.14 +0.27 -0.24 (prior ~U[-0.5, 2.5])
+# ln(f0) = 1.14 +0.27 -0.24 (prior ~U[-0.1, 2.5])
 # n = -1.36 +- 0.48 (prior ~U[-4, 4])
 # Log likelihood (MAP): -149.38
-# Log evidence: -158.75 (diff: 4.57 strong evidence favouring the model with f0, n)
-# χ2 (MAP): 38.88
+# Log evidence: -158.60 (diff: 4.72 strong evidence favouring the model with f0, n)
+# χ2 (MAP): 38.72
 # DOF: 35
 # χ2/DOF: 1.11
 # ---------------------------------
@@ -143,9 +147,9 @@ if __name__ == "__main__":
 #
 # Lambda = 2 * (log L_scaling - log L_fixed) = 20.0.
 #
-# A parametric bootstrap with 100k data sets simulated under the
-# fixed-covariance null produced 12 values of Lambda >= 20.0, giving
-# p_bootstrap = 1.3e-4 (Monte Carlo SE = 3.6e-05).
+# A parametric bootstrap with 200k data sets simulated under the
+# fixed-covariance null produced 18 values of Lambda >= 20.0, giving
+# p_bootstrap = 9.5e-5 (Monte Carlo SE = 2.2e-05).
 #
 # Conditional on flat LCDM, Gaussian errors, the published covariance,
 # the chosen parameter bounds, and f(z) = f0 * (1+z)^n, the data favor

@@ -126,9 +126,9 @@ def chi_squared(params, f_array):
 
 @njit
 def log_likelihood(params):
-    f0, fa = params[0: 2]
-    fcc_arr = f0 + fa * z_cc_vals / (1.0 + z_cc_vals)
-    if np.any(fcc_arr <= 1e-4):
+    log_f0_cc, n_cc = params[0: 2]
+    fcc_arr = np.exp(log_f0_cc) * (1.0 + z_cc_vals) ** n_cc
+    if np.any(fcc_arr <= 0.0):
         return -np.inf
 
     normalization_cc = N_cc * np.log(2 * np.pi) + logdet_cc - 2.0 * np.log(fcc_arr).sum()
@@ -136,7 +136,6 @@ def log_likelihood(params):
 
 
 def main():
-    from corner import quantile
     from getdist import plots, MCSamples
     import matplotlib.pyplot as plt
     from nautilus import Sampler, Prior
@@ -146,10 +145,14 @@ def main():
     from bao.plot_predictions import plot_bao_predictions
 
     prior = Prior()
-    # f0: CCH covariance rescaling (overestimated uncertainties f(z) = f0 + fa * z / (1 + z))
-    prior.add_parameter("f0", dist=(0.1, 6.0))
-    # fa: CCH covariance rescaling (cov[i, j] = base_cov[i, j] / (fz[i] * fz[j]))
-    prior.add_parameter("fa", dist=(-9.0, 9.0))
+
+    # ------ CCH covariance rescaling parameters ------
+    # ln(f0): CCH covariance rescaling (overestimated uncertainties f(z) = f0 * (1+z)^n)
+    prior.add_parameter("log_f0_cc", dist=(-0.1, 2.5))
+    # n: CCH covariance rescaling (cov[i, j] = base_cov[i, j] / (fz[i] * fz[j]))
+    prior.add_parameter("n_cc", dist=(-4.0, 4.0))
+
+    # ------ cosmological parameters ------------------
     # ΔM: magnitude zero-point offset
     prior.add_parameter("dM", dist=(-1, 1))
     # H0: Hubble constant at present
@@ -168,7 +171,7 @@ def main():
     samples, log_w, log_l = sampler.posterior()
     w = np.exp(log_w)
 
-    labels=["f_0", "f_a", "ΔM", "H_0", "r_{drag}", "Ω_m", "v_{100}"]
+    labels=["\\ln(f_0)", "n", "ΔM", "H_0", "r_{drag}", "Ω_m", "v_{100}"]
     gd_samples = MCSamples(
         samples=samples,
         weights=w,
@@ -179,40 +182,29 @@ def main():
     gd_samples.addDerived(
         gd_samples["Om"] * (gd_samples["H0"] / 100) ** 2, name="Omh2", label="Ω_m h^2"
     )
-    plots.get_subplot_plotter().triangle_plot(
-        roots=gd_samples, title_limit=1, color=["C0"], contour_colors=["C0"], filled=True
-    )
-    plt.show()
+    gd_samples.updateBaseStatistics()
 
-    one_sigma_ci = [0.159, 0.5, 0.841]
-
-    f0_16, f0_50, f0_84 = quantile(samples[:, 0], one_sigma_ci, weights=w)
-    fa_16, fa_50, fa_84 = quantile(samples[:, 1], one_sigma_ci, weights=w)
-    dM_16, dM_50, dM_84 = quantile(samples[:, 2], one_sigma_ci, weights=w)
-    h0_16, h0_50, h0_84 = quantile(samples[:, 3], one_sigma_ci, weights=w)
-    rd_16, rd_50, rd_84 = quantile(samples[:, 4], one_sigma_ci, weights=w)
-    Om_16, Om_50, Om_84 = quantile(samples[:, 5], one_sigma_ci, weights=w)
-    v_16, v_50, v_84 = quantile(samples[:, 6], one_sigma_ci, weights=w)
-
-    Omh2_samples = samples[:, 5] * (samples[:, 3] / 100) ** 2
-    Omh2_16, Omh2_50, Omh2_84 = quantile(Omh2_samples, one_sigma_ci, weights=w)
+    for name in gd_samples.getParamNames().names:
+        print(gd_samples.getInlineLatex(name, limit=1))
 
     best_fit = samples[np.argmax(log_l)]
     DOF = len(z_cmb) + len(bao_data) + N_cc - len(best_fit)
+    fcc_arr = np.exp(best_fit[0]) * (1.0 + z_cc_vals) ** best_fit[1]
 
-    fcc_arr = best_fit[0] + best_fit[1] * z_cc_vals / (1.0 + z_cc_vals)
-
-    print(f"H0: {h0_50:.1f} +{(h0_84 - h0_50):.1f} -{(h0_50 - h0_16):.1f} km/s/Mpc")
-    print(f"r_d: {rd_50:.1f} +{(rd_84 - rd_50):.1f} -{(rd_50 - rd_16):.1f} Mpc")
-    print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
-    print(f"Ωm h^2: {Omh2_50:.4f} +{(Omh2_84 - Omh2_50):.4f} -{(Omh2_50 - Omh2_16):.4f}")
-    print(f"v: {v_50:.3f} +{(v_84 - v_50):.3f} -{(v_50 - v_16):.3f} x 100 km/s")
-    print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
-    print(f"f0: {f0_50:.2f} +{(f0_84 - f0_50):.2f} -{(f0_50 - f0_16):.2f}")
-    print(f"fa: {fa_50:.2f} +{(fa_84 - fa_50):.2f} -{(fa_50 - fa_16):.2f}")
-    print(f"Chi squared: {chi_squared(best_fit, fcc_arr):.2f}")
+    print(f"Chi squared (MAP): {chi_squared(best_fit, fcc_arr):.2f}")
+    print(f"log likelihood (MAP): {np.max(log_l):.2f}")
     print(f"Log evidence: {sampler.log_z:.2f}")
     print(f"DOF: {DOF}")
+
+    plots.get_subplot_plotter().triangle_plot(
+        roots=gd_samples,
+        params=["H0", "Om", "rd", "v", "log_f0_cc", "n_cc"],
+        title_limit=1,
+        color=["C0"],
+        contour_colors=["C0"],
+        filled=True,
+    )
+    plt.show()
 
     dm_grid = DM_grid(best_fit)
     plot_bao_predictions(
@@ -227,7 +219,7 @@ def main():
         y=mu_vals - mu_corr(best_fit, dm_grid, z_cmb),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=mu_theory(best_fit, DM_z(z_cmb, dm_grid)),
-        label=f"$Ω_m$={Om_50:.3f}",
+        label=f"$Ω_m$={best_fit[5]:.3f}",
         x_scale="log",
     )
     plot_cc_predictions(
@@ -235,7 +227,7 @@ def main():
         z=z_cc_vals,
         H=H_cc_vals,
         H_err=np.sqrt(np.diag(cov_matrix_cc)) / fcc_arr,
-        label=f"{cc_legend} $H_0$: {h0_50:.1f} km/s/Mpc",
+        label=f"{cc_legend} $H_0$: {best_fit[3]:.1f} km/s/Mpc",
     )
 
 
@@ -252,40 +244,41 @@ if __name__ == "__main__":
 
 
 # ----------------- Priors ------------------
-# f0:   U[0.1, 6.0]
-# fa:   U[-9.0, 9.0]
-# ΔM:   U[-1.0, 1.0]
-# H0:   U[45.0, 90.0]
-# rd:   U[100.0, 200.0]
-# Ωm:   U[0.2, 0.50]
+# ln(f0):   U[-0.1, 2.5]
+# n_cc:     U[-4.0, 4.0]
+# ΔM:       U[-1.0, 1.0]
+# H0:       U[45.0, 90.0]
+# rd:       U[100.0, 200.0]
+# Ωm:       U[0.2, 0.50]
 
 # wzCDM:
-# w0:   U[-1.0, -1/3]
+# w0:       U[-1.0, -1/3]
 
 # wCDM:
-# w0:   U[-1.5, -0.5]
+# w0:       U[-1.5, -0.5]
 
 # w0waCDM:
-# w0:   U[-1.5, 0.0]
-# wa:   U[-5.0, 3.0]
+# w0:       U[-1.5, 0.0]
+# wa:       U[-5.0, 3.0]
 # Enforced w0 + wa < 0, forbidden prior region removed in evidence calculation.
 
 # Velocity step correction in observed redshift SNe:
-# v:    U[-8.5, 8.5] x 100 km/s
+# v:        U[-8.5, 8.5] x 100 km/s
 # -------------------------------------------
 
 
 # --------------- Flat ΛCDM -----------------
 # H0: 68.2 +- 1.8 km/s/Mpc
-# r_d: 148.2 +- 4.0 Mpc
+# rd: 148.0 +3.7 -4.1 Mpc
 # Ωm: 0.3047 +- 0.0073
-# Ωm h^2: 0.1416 +- 0.0080
-# ΔM: -0.056 +- 0.059 mag
-# f0: 2.99 +- 0.56
-# fa: -3.3 +- 1.1
-# Chi squared: 81.89
-# Log evidence: -190.55
-# Degrees of freedom: 69
+# Ωm h^2: 0.1420 +- 0.0080
+# ΔM: -0.053 +- 0.058 mag
+# ln(f0): 1.14 +0.27 -0.23
+# n_cc: -1.33 +- 0.46
+# Chi squared (MAP): 81.39
+# log likelihood (MAP): -171.02
+# Log evidence: -190.18
+# DOF: 69
 # -------------------------------------------
 
 
@@ -295,62 +288,66 @@ if __name__ == "__main__":
 # z_cosmo = -1 + (1 + z) / (1 + v/c)
 
 # H0: 68.3 +- 1.8 km/s/Mpc
-# r_d: 148.4 +3.7 -4.1 Mpc
+# rd: 148.3 +3.6 -4.1 Mpc
 # Ωm: 0.3013 +- 0.0073
-# Ωm h^2: 0.1405 +- 0.0079
+# Ωm h^2: 0.1406 +- 0.0079
 # v: -3.0 +- 1.1 x 100 km/s
-# ΔM: -0.057 +-0.058 mag
-# f0: 3.00 +- 0.56
-# fa: -3.4 +- 1.1
-# Chi squared: 72.43 (3.07 sigma significance)
-# Log evidence: -188.30 (Δ logZ = 2.25 in favour of velocity step correction)
-# Degrees of freedom: 68
+# ΔM: -0.056 +-0.058 mag
+# ln(f0): 1.14 +0.26 -0.23
+# n_cc: -1.34 +- 0.46
+# Chi squared (MAP): 73.12
+# log likelihood (MAP): -166.91 (2.87 sigma significance)
+# Log evidence: -187.93 (Δ logZ = 2.25 in favour of velocity step correction)
+# DOF: 68
 # -------------------------------------------
 
 
 # --------------- Flat wCDM -----------------
-# H0: 67.5 +- 1.9 km/s/Mpc
-# r_d: 147.9 +3.7 -4.2 Mpc
+# H0: 67.6 +- 1.9 km/s/Mpc
+# rd: 147.8 +3.7 -4.2 Mpc
 # Ωm: 0.3039 +- 0.0074
-# Ωm h^2: 0.1385 +- 0.0082
+# Ωm h^2: 0.1387 +- 0.0082
 # w0: -0.937 +- 0.046
-# ΔM: -0.058 +- 0.059 mag
-# f0: 2.95 +- 0.56
-# fa: -3.3 +- 1.1
-# Chi squared: 80.26 (1.28 sigma significance)
-# Log evidence: -191.77 (Δ logZ = -1.22 in favour of ΛCDM)
-# Degrees of freedom: 68
+# ΔM: -0.056 +- 0.059 mag
+# ln(f0): 1.12 +0.27 -0.23
+# n_cc: -1.31 +- 0.46
+# Chi squared (MAP): 81.47
+# log likelihood (MAP): -170.15 (1.32 sigma significance)
+# Log evidence: -191.39 (Δ logZ = -1.21 in favour of ΛCDM)
+# DOF: 68
 # -------------------------------------------
 
 
 # --------------- Flat wzCDM ----------------
 # w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
-# H0: 66.9 +- 1.9 km/s/Mpc
-# r_d: 148.1 +- 4.0 Mpc
+# H0: 67.0 +- 1.9 km/s/Mpc
+# rd: 147.9 +3.6 -4.1 Mpc
 # Ωm: 0.3109 +- 0.0080
-# Ωm h^2: 0.1393 +- 0.0080
-# w0: -0.862 +- 0.065
+# Ωm h^2: 0.1396 +- 0.0080
+# w0: -0.862 +0.063 -0.071
 # wa: d w(z)/d z at z=0 = -1.5 * (1 - w0^2) = -0.39
-# ΔM: -0.062 +- 0.059 mag
-# f0: 2.95 +- 0.56
-# fa: -3.3 +- 1.1
-# Chi squared: 77.78 (2.03 sigma significance)
-# Log evidence: -190.22 (Δ logZ = 0.33 in favour of wzCDM)
-# Degrees of freedom: 68
+# ΔM: -0.059 +- 0.058 mag
+# ln(f0): 1.12 +0.26 -0.24
+# n_cc: -1.32 +- 0.46
+# Chi squared (MAP): 76.49
+# log likelihood (MAP): -169.36 (1.82 sigma significance)
+# Log evidence: -189.82 (Δ logZ = 0.36 in favour of wzCDM)
+# DOF: 68
 # -------------------------------------------
 
 
 # -------------- Flat w0waCDM ---------------
-# H0: 66.3 +- 2.0 km/s/Mpc
-# r_d: 148.8 +- 4.1 Mpc
-# Ωm: 0.328 +0.015 -0.012
-# Ωm h^2: 0.1440 +-0.0087
-# w0: -0.77 +- 0.11
-# wa: -0.97 +- 0.53
-# ΔM: -0.070 +- 0.059 mag
-# f0: 2.99 +- 0.56
-# fa: -3.4 +- 1.1
-# Chi squared: 79.22 (1.12 sigma significance)
-# Log evidence: -192.22 + 0.37 (Δ logZ = -1.30 in favour of ΛCDM)
-# Degrees of freedom: 67
+# H0 = 66.3 +- 1.9 km/s/Mpc
+# rd = 148.7 +3.7 -4.2 Mpc
+# Ωm = 0.328 +0.015 -0.012
+# Ωm h^2 = 0.1443 +- 0.0086
+# w0 = -0.77 +- 0.11
+# wa = -0.98 +- 0.53
+# ΔM = -0.068 +- 0.058 mag
+# ln(f0) = 1.14 +0.27 -0.23
+# n_cc = -1.37 +- 0.46
+# Chi squared (MAP): 74.93
+# log likelihood (MAP): -168.26 (1.53 sigma significance)
+# Log evidence: -191.80 + 0.37 (Δ logZ = -1.25 in favour of ΛCDM)
+# DOF: 67
 # -------------------------------------------

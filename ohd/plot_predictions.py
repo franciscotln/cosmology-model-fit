@@ -4,16 +4,30 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def plot_cc_predictions(H_z, z, H, H_err, label):
+def plot_cc_predictions(H_z, z, H, H_err, label, err_scaling=None):
+    residual = H - H_z(z)
+    y_err = H_err if err_scaling is None else H_err / err_scaling
     z_smooth = np.linspace(0, max(z), 100)
     plt.figure(figsize=(8, 6))
+    if err_scaling is not None:
+        plt.errorbar(
+            x=z,
+            y=H,
+            yerr=H_err,
+            fmt=".",
+            color="blue",
+            alpha=0.15,
+            label="CCH (unscaled)",
+            capsize=2,
+            linestyle="None",
+        )
     plt.errorbar(
         x=z,
         y=H,
-        yerr=H_err,
+        yerr=y_err,
         fmt=".",
         color="blue",
-        alpha=0.4,
+        alpha=0.5,
         label="CCH",
         capsize=2,
         linestyle="None",
@@ -27,13 +41,25 @@ def plot_cc_predictions(H_z, z, H, H_err, label):
     plt.show()
 
     plt.figure(figsize=(8, 6))
+    if err_scaling is not None:
+        plt.errorbar(
+            x=z,
+            y=residual,
+            yerr=H_err,
+            fmt=".",
+            color="blue",
+            alpha=0.15,
+            label="Residuals (unscaled)",
+            capsize=2,
+            linestyle="None",
+        )
     plt.errorbar(
         x=z,
-        y=H - H_z(z),
-        yerr=H_err,
+        y=residual,
+        yerr=y_err,
         fmt=".",
         color="blue",
-        alpha=0.4,
+        alpha=0.5,
         label="Residuals",
         capsize=2,
         linestyle="None",

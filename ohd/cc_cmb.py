@@ -70,7 +70,7 @@ def main():
     prior.add_parameter("H0", dist=(63.0, 73.0))
     prior.add_parameter("obh2", dist=(0.0210, 0.0235))
     prior.add_parameter("och2", dist=(0.05, 0.30))
-    prior.add_parameter("ln_f0", dist=(-0.5, 2.5))
+    prior.add_parameter("ln_f0", dist=(-0.1, 2.5))
     prior.add_parameter("n", dist=(-4.0, 4.0))
 
     with Pool(5) as pool:
@@ -153,10 +153,10 @@ if __name__ == "__main__":
 # Ωm: 0.3109 +- 0.0069
 # ωb: 0.02250 +- 0.00011
 # ωc: 0.1192 +- 0.0012
-# ln(f0): 1.15 +0.26 -0.23 (prior ~ U[-0.5, 2.5])
+# ln(f0): 1.15 +0.26 -0.23 (prior ~ U[-0.1, 2.5])
 # n: -1.35 +- 0.46 (prior ~ U[-4, 4])
-# Chi squared (MAP): 39.68
-# Log likelihood (MAP): -149.47 (4.06 sigma significance)
-# Log evidence: -164.39 (Δ logZ = 5.59 compared to no scaling)
+# Chi squared (MAP): 38.18
+# Log likelihood (MAP): -149.48 (4.06 sigma significance)
+# Log evidence: -164.24 (Δ logZ = 5.74 compared to no scaling)
 # DOF: 37
 # -----------------------------------------------------------------

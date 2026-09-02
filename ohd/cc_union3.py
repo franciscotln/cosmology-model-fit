@@ -96,7 +96,6 @@ def main():
     from getdist import plots, MCSamples
     import matplotlib.pyplot as plt
     from nautilus import Sampler, Prior
-    from corner import quantile
     import matplotlib.pyplot as plt
     from multiprocessing import Pool
     from sn.plotting import plot_predictions as plot_sn_predictions
