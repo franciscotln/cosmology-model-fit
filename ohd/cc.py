@@ -67,7 +67,9 @@ def main():
         names=prior.keys,
         labels=labels,
     )
-    gd_samples.addDerived(gd_samples["Om"] * (gd_samples["H0"] / 100) ** 2, name="Omh2")
+    gd_samples.addDerived(
+        gd_samples["Om"] * (gd_samples["H0"] / 100) ** 2, name="Omh2", label="Ω_m h^2",
+    )
     gd_samples.updateBaseStatistics()
 
     for name in gd_samples.getParamNames().names:
