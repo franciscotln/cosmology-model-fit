@@ -15,11 +15,11 @@ def H_z(z, params):
 @njit
 def log_likelihood_jit(params):
     f0 = np.exp(params[2])
-    f_array = f0 * (1.0 + z_values)**params[3]
-    if np.any(f_array <= 1e-4):
+    f_z = f0 * (1.0 + z_values)**params[3]
+    if np.any(f_z <= 1e-4):
         return -np.inf
 
-    cov_mat = np.diag(H_err**2 * f_array**2) + cov_matrix_sys
+    cov_mat = np.diag(H_err**2 * f_z**2) + cov_matrix_sys
     L = np.linalg.cholesky(cov_mat)
     logdet = 2.0 * np.sum(np.log(np.diag(L)))
 
@@ -76,8 +76,8 @@ def main():
 
     best_fit = samples[np.argmax(log_l)]
 
-    f_array = np.exp(best_fit[2]) * (1.0 + z_values) ** best_fit[3]
-    cov = np.diag(H_err**2 * f_array**2) + cov_matrix_sys
+    f_z = np.exp(best_fit[2]) * (1.0 + z_values) ** best_fit[3]
+    cov = np.diag(H_err**2 * f_z**2) + cov_matrix_sys
     L = np.linalg.cholesky(cov)
     y = solve_triangular(L, H_values - H_z(z_values, best_fit))
 
@@ -107,7 +107,7 @@ def main():
         H=H_values,
         H_err=H_err,
         label=f"{legend} $H_0$: {best_fit[0]:.1f} km/s/Mpc",
-        err_scaling=1 / f_array,
+        err_scaling=1 / f_z,
     )
 
 
