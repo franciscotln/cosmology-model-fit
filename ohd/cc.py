@@ -1,14 +1,9 @@
 from numba import njit
 import numpy as np
-from scipy.linalg import cho_factor
 from solve_triangular import solve_triangular
 from y2005cc.data import get_data
 
-legend, z_values, H_values, cov_matrix = get_data()
-
-L = cho_factor(cov_matrix, lower=True)[0]
-logdet_base = 2.0 * np.log(np.diag(L)).sum()
-N = z_values.size
+legend, z_values, H_values, H_err, cov_matrix_sys = get_data(split_sys=True)
 
 
 @njit
@@ -19,16 +14,19 @@ def H_z(z, params):
 
 @njit
 def log_likelihood_jit(params):
-    f_array = np.exp(params[2]) * (1.0 + z_values) ** params[3]
+    f0 = np.exp(params[2])
+    f_array = f0 * (1.0 + z_values)**params[3]
     if np.any(f_array <= 1e-4):
         return -np.inf
 
-    delta = H_values - H_z(z_values, params)
-    y = solve_triangular(L, f_array * delta)
-    chi2 = np.dot(y, y)
+    cov_mat = np.diag(H_err**2 * f_array**2) + cov_matrix_sys
+    L = np.linalg.cholesky(cov_mat)
+    logdet = 2.0 * np.sum(np.log(np.diag(L)))
 
-    logdet = logdet_base - 2.0 * np.log(f_array).sum()
-    normalization = N * np.log(2 * np.pi) + logdet
+    diff = H_values - H_z(z_values, params)
+    y = solve_triangular(L, diff)
+    chi2 = np.dot(y, y)
+    normalization = z_values.size * np.log(2 * np.pi) + logdet
 
     return -0.5 * (chi2 + normalization)
 
@@ -47,7 +45,7 @@ def main():
     prior = Prior()
     prior.add_parameter("H0", dist=(30, 100))
     prior.add_parameter("Om", dist=(0.0, 1.0))
-    prior.add_parameter("ln_f0", dist=(-0.1, 2.5))
+    prior.add_parameter("ln_f0", dist=(-2.5, 0.1))
     prior.add_parameter("n", dist=(-4.0, 4.0))
 
     with Pool(8) as pool:
@@ -58,7 +56,7 @@ def main():
 
     samples, log_w, log_l = sampler.posterior()
     weights = np.exp(log_w)
-    labels=["H_0", "\\Omega_m", "\\ln f_0", "n"]
+    labels = ["H_0", "Ω_m", "ln(f_0)", "n"]
 
     gd_samples = MCSamples(
         samples=samples,
@@ -70,27 +68,36 @@ def main():
     gd_samples.addDerived(
         gd_samples["Om"] * (gd_samples["H0"] / 100) ** 2, name="Omh2", label="Ω_m h^2",
     )
+    gd_samples.addDerived(np.exp(gd_samples["ln_f0"]), name="f0", label="f_0")
     gd_samples.updateBaseStatistics()
 
     for name in gd_samples.getParamNames().names:
         print(gd_samples.getInlineLatex(name, limit=1))
 
     best_fit = samples[np.argmax(log_l)]
+
     f_array = np.exp(best_fit[2]) * (1.0 + z_values) ** best_fit[3]
-    delta = H_values - H_z(z_values, best_fit)
-    y = solve_triangular(L, f_array * delta)
+    cov = np.diag(H_err**2 * f_array**2) + cov_matrix_sys
+    L = np.linalg.cholesky(cov)
+    y = solve_triangular(L, H_values - H_z(z_values, best_fit))
+
     chi2 = np.dot(y, y)
-    DOF = N - len(best_fit)
+    DOF = z_values.size - len(best_fit)
     chi2_red = chi2 / DOF
 
-    print(f"Log likelihood (MAP): {log_likelihood(best_fit):.2f}")
+    print(f"Log likelihood (MAP): {np.max(log_l):.2f}")
     print(f"Log evidence: {sampler.log_z:.2f}")
     print(f"χ2 (MAP): {chi2:.2f}")
     print(f"DOF: {DOF}")
     print(f"χ2/DOF: {chi2_red:.2f}")
 
     plots.getSubplotPlotter().triangle_plot(
-        gd_samples, filled=True, title_limit=1, contour_colors=["C0"], color=["C0"],
+        gd_samples,
+        params=prior.keys,
+        filled=True,
+        title_limit=1,
+        contour_colors=["C0"],
+        color=["C0"],
     )
     plt.show()
 
@@ -98,9 +105,9 @@ def main():
         H_z=lambda z: H_z(z, best_fit),
         z=z_values,
         H=H_values,
-        H_err=np.sqrt(np.diag(cov_matrix)),
+        H_err=H_err,
         label=f"{legend} $H_0$: {best_fit[0]:.1f} km/s/Mpc",
-        err_scaling=f_array,
+        err_scaling=1 / f_array,
     )
 
 
@@ -111,19 +118,20 @@ if __name__ == "__main__":
 # Model: Flat ΛCDM
 # ---------------------------------
 
-# Redshift dependent covariance error scaling f(z) = f0 * (1+z)^n:
-# cov[i, j] = base_cov[i, j] / (f(z_i) * f(z_j))
+# Redshift dependent covariance diagonal scaling f(z) = f0 * (1+z)^n:
+# cov[i, j] = cov_sys[i, j] + cov_diag[i, j] * f(z_i) * f(z_j)
 #
-# H0 = 68.2 +2.1 -1.9 km/s/Mpc
-# Ωm = 0.303 +0.039 -0.043
-# Ωm h^2 = 0.141 +- 0.017
-# ln(f0) = 1.14 +0.27 -0.24 (prior ~U[-0.1, 2.5])
-# n = -1.36 +- 0.48 (prior ~U[-4, 4])
-# Log likelihood (MAP): -149.38
-# Log evidence: -158.60 (diff: 4.72 strong evidence favouring the model with f0, n)
-# χ2 (MAP): 38.72
+# H0 = 67.5 +- 3.8 km/s/Mpc
+# Ωm = 0.313 +0.038 -0.048
+# ln(f0) = -1.12 +0.24 -0.27 (prior ~U[-2.5, 0.1])
+# n = 1.33 +- 0.48 (prior ~U[-4, 4])
+# Ωm h^2 = 0.141 +- 0.015
+# f0 = 0.338 +0.055 -0.010
+# Log likelihood (MAP): -150.11
+# Log evidence: -158.77 (diff: 4.55 strong evidence favouring the model with f0, n)
+# χ2 (MAP): 37.74
 # DOF: 35
-# χ2/DOF: 1.11
+# χ2/DOF: 1.08
 # ---------------------------------
 
 # Without error scaling (fixed f0 = 1, n = 0):
@@ -139,25 +147,40 @@ if __name__ == "__main__":
 
 # Log likelihood ratio test:
 # -2 * log(L0/L1) = -2 * log(L0) + 2 * log(L1)
-# -2 * (-159.38) + 2 * (-149.38) = 20.00
-#
-# DOF = 2
-#
-# Parametric-bootstrap likelihood-ratio test:
-# The full covariance-rescaling model improves the maximum log likelihood by
-# Delta log L = 10.0 relative to the fixed published-covariance model:
-#
-# Lambda = 2 * (log L_scaling - log L_fixed) = 20.0.
-#
-# A parametric bootstrap with 200k data sets simulated under the
-# fixed-covariance null produced 18 values of Lambda >= 20.0, giving
-# p_bootstrap = 9.5e-5 (Monte Carlo SE = 2.2e-05).
-#
-# Conditional on flat LCDM, Gaussian errors, the published covariance,
-# the chosen parameter bounds, and f(z) = f0 * (1+z)^n, the data favor
-# the covariance-rescaling extension over the fixed-covariance model.
-#
-# This result does not by itself establish that the published uncertainties
-# are overestimated or that their discrepancy is intrinsically
-# redshift-dependent; unmodeled systematics or mean-model inadequacy could
-# also produce this preference.
+# -2 * (-159.38) + 2 * (-150.11) = 18.54
+# corresponding to a p-value of approximately 9.42x10^-5,
+# indicating strong evidence in favor of the model with f0 and n.
+
+
+# ------ without systematics ------
+
+# scaling diagonal elements f(z) = f0 * (1+z)^n
+# H0 = 68.6 +1.5 -1.4 km/s/Mpc
+# Ωm = 0.306 +0.035 -0.042
+# ln(f0) = -1.14 +0.24 -0.27 (prior ~U[-2.5, 0.1])
+# n = 1.36 ± 0.48 (prior ~U[-4, 4])
+# Ωm h^2 = 0.143 ± 0.014
+# f0 = 0.332 +0.053 -0.10
+# Log likelihood (MAP): -148.47
+# Log evidence: -158.57 (diff: 4.72 strong evidence favouring the model with f0, n)
+# χ2 (MAP): 39.06
+# DOF: 35
+# χ2/DOF: 1.12
+# ---------------------------------
+
+# No scaling (f0 = 1, n = 0)
+# H0 = 67.6 ± 3.1 km/s/Mpc
+# Ωm = 0.332 +0.050 -0.068
+# Ωm h^2 = 0.150 ± 0.017
+# Log likelihood (MAP): -158.45
+# Log evidence: -163.29
+# χ2 (MAP): 16.65
+# DOF: 37
+# χ2/DOF: 0.45
+# ---------------------------------
+
+# Log likelihood ratio test:
+# -2 * log(L0/L1) = -2 * log(L0) + 2 * log(L1)
+# -2 * (-158.45) + 2 * (-148.47) = 19.96
+# corresponding to a p-value of approximately 4.57x10^-5,
+# indicating strong evidence in favor of the model with f0 and n.

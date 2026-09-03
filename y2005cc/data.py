@@ -2,35 +2,39 @@ import pandas as pd
 import numpy as np
 from interpolator import interp_pchip
 
+data = pd.read_csv("y2005cc/raw-data/data.csv")
+cov_components = pd.read_csv("y2005cc/raw-data/cov_components.csv")
 
-def get_data():
-    data = pd.read_csv("y2005cc/raw-data/data.csv")
-    cov_components = pd.read_csv("y2005cc/raw-data/cov_components.csv")
+z = data["z"].to_numpy()
+Hz = data["H"].to_numpy()
+sigma_H = data["sigma_H"].to_numpy()
 
-    z = data["z"].to_numpy()
-    Hz = data["H"].to_numpy()
-    sigma_H = data["sigma_H"].to_numpy()
+zmod = cov_components["z"].to_numpy(dtype=np.float64)
+imf_intp = interp_pchip(z, zmod, cov_components["imf"].to_numpy()) / 100
+spsooo_intp = interp_pchip(z, zmod, cov_components["spsooo"].to_numpy()) / 100
+# slib_intp = interp_pchip(z, zmod, cov_components["stlib"].to_numpy()) / 100
+# sps_intp = interp_pchip(z, zmod, cov_components["sps"].to_numpy()) / 100
 
-    zmod = cov_components["z"].to_numpy(dtype=np.float64)
-    imf_intp = interp_pchip(z, zmod, cov_components["imf"].to_numpy()) / 100
-    spsooo_intp = interp_pchip(z, zmod, cov_components["spsooo"].to_numpy()) / 100
-    # slib_intp = interp_pchip(z, zmod, cov_components["stlib"].to_numpy()) / 100
-    # sps_intp = interp_pchip(z, zmod, cov_components["sps"].to_numpy()) / 100
+cov_mat_diag = np.diag(sigma_H**2)
+cov_mat_imf = np.outer(Hz * imf_intp, Hz * imf_intp)
+cov_mat_spsooo = np.outer(Hz * spsooo_intp, Hz * spsooo_intp)
+# cov_mat_slib = np.outer(Hz * slib_intp, Hz * slib_intp)
+# cov_mat_sps = np.outer(Hz * sps_intp, Hz * sps_intp)
 
-    cov_mat_diag = np.diag(sigma_H**2)
-    cov_mat_imf = np.outer(Hz * imf_intp, Hz * imf_intp)
-    cov_mat_spsooo = np.outer(Hz * spsooo_intp, Hz * spsooo_intp)
-    # cov_mat_slib = np.outer(Hz * slib_intp, Hz * slib_intp)
-    # cov_mat_sps = np.outer(Hz * sps_intp, Hz * sps_intp)
+# suggested covariance matrix
+cov_matrix_sys = cov_mat_imf + cov_mat_spsooo
+cov_matrix = cov_matrix_sys + cov_mat_diag
 
-    # suggested covariance matrix
-    cov_matrix = cov_mat_spsooo + cov_mat_imf + cov_mat_diag
 
-    return (f"Cosmic Chronometers ({len(z)} data points)", z, Hz, cov_matrix)
+def get_data(split_sys=False):
+    legend = f"Cosmic Chronometers ({len(z)} data points)"
+    if split_sys:
+        return (legend, z, Hz, sigma_H, cov_matrix_sys)
+    return (legend, z, Hz, cov_matrix)
 
 
 # *********************************
-# Current data
+# Current data compilation
 # arXiv:2412.01994v1: 32 data points
 #
 # Covariance components:

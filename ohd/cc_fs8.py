@@ -1,7 +1,6 @@
 from numba import njit
 import numpy as np
 from scipy.constants import c as c0
-from scipy.linalg import cho_factor
 from interpolator import interp_hermite, interp_pchip
 from solve_ivp import solve_ivp
 from solve_triangular import solve_triangular
@@ -10,9 +9,9 @@ import y2018fs8.data as fs8
 
 c = c0 / 1000  # Speed of light in km/s
 
-legend, z_cc, H_values, cov_matrix = get_data()
-cho_cc = cho_factor(cov_matrix, lower=True)[0]
-cho_fs8 = cho_factor(fs8.cov_mat, lower=True)[0]
+legend, z_cc, H_values, H_err, cov_matrix_sys = get_data(split_sys=True)
+cho_fs8 = np.linalg.cholesky(fs8.cov_mat)
+logdet_fs8 = 2 * np.sum(np.log(np.diag(cho_fs8)))
 
 z_fs8, fs8_values = fs8.data["z"], fs8.data["fs8"]
 a_vals_fs8 = 1 / (1.0 + z_fs8)
@@ -124,26 +123,35 @@ def chi2_fs8(params):
 
     delta = fs8_values - fs8_theory(a_vals_fs8, params) / q
     y = solve_triangular(cho_fs8, delta)
-    return params[4] ** 2 * np.dot(y, y)
+    return params[5] ** 2 * np.dot(y, y)
 
 
 @njit
-def chi2_cc(params):
+def chi2_cc(params, cho_cc):
     delta = H_values - H_z(z_cc, params)
     y = solve_triangular(cho_cc, delta)
-    return  params[3] ** 2 * np.dot(y, y)
+    return np.dot(y, y)
 
 
 @njit
-def chi_squared(params):
-    return chi2_cc(params) + chi2_fs8(params)
+def chi_squared(params, cho_cc):
+    return chi2_cc(params, cho_cc) + chi2_fs8(params)
 
 
 @njit
 def log_likelihood_jit(params):
-    normalization_cc = -2 * N_cc * np.log(params[3])
-    normalization_fs8 = -2 * N_fs8 * np.log(params[4])
-    return -0.5 * (chi_squared(params) + normalization_cc + normalization_fs8)
+    ln_f0_cc, n_cc = params[3], params[4]
+    factor_cc = np.exp(ln_f0_cc) * (1 + z_cc) ** n_cc
+    if np.any(factor_cc <= 1e-4):
+        return -np.inf
+
+    cov_cc = np.diag(H_err**2 / factor_cc**2) + cov_matrix_sys
+    cho_cc = np.linalg.cholesky(cov_cc)
+    logdet_cc = 2.0 * np.sum(np.log(np.diag(cho_cc)))
+
+    normalization_cc =  N_cc * np.log(2 * np.pi) + logdet_cc
+    normalization_fs8 = N_fs8 * np.log(2 * np.pi) - 2 * N_fs8 * np.log(params[5]) + logdet_fs8
+    return -0.5 * (chi_squared(params, cho_cc) + normalization_cc + normalization_fs8)
 
 
 def log_likelihood(params):
@@ -162,9 +170,10 @@ def main():
     prior.add_parameter("H0", dist=(35, 100))
     prior.add_parameter("Om", dist=(0.01, 0.6))
     prior.add_parameter("sig8", dist=(0.2, 1.5))
-    prior.add_parameter("f_cc", dist=(0.05, 3))
+    prior.add_parameter("ln_f_cc", dist=(-0.1, 2.5))
+    prior.add_parameter("n_cc", dist=(-4.0, 4.0))
     prior.add_parameter("f_fs8", dist=(0.05, 3))
-    prior.add_parameter("w0", dist=(-1, 0))
+    prior.add_parameter("w0", dist=(-1.5, 0))
 
     with Pool(6) as pool:
         sampler = Sampler(
@@ -178,7 +187,38 @@ def main():
     log_evd = sampler.log_z
     one_sigma_ci = [0.159, 0.5, 0.841]
 
-    labels = ["$H_0$", "$\\Omega_m$", "$\\sigma_8$", "$f_{cc}$", "$f_{fs8}$", "$w_0$"]
+    H0_16, H0_50, H0_84 = quantile(samples[:, 0], one_sigma_ci, weights=w)
+    Om_16, Om_50, Om_84 = quantile(samples[:, 1], one_sigma_ci, weights=w)
+    sig8_16, sig8_50, sig8_84 = quantile(samples[:, 2], one_sigma_ci, weights=w)
+    fcc_16, fcc_50, fcc_84 = quantile(samples[:, 3], one_sigma_ci, weights=w)
+    ncc_16, ncc_50, ncc_84 = quantile(samples[:, 4], one_sigma_ci, weights=w)
+    fs_16, fs_50, fs_84 = quantile(samples[:, 5], one_sigma_ci, weights=w)
+    w0_16, w0_50, w0_84 = quantile(samples[:, 6], one_sigma_ci, weights=w)
+    Omh2_16, Omh2_50, Omh2_84 = quantile(Omh2_samples, one_sigma_ci, weights=w)
+
+    S8_samples = samples[:, 2] * np.sqrt(samples[:, 1] / 0.3)
+    S8_16, S8_50, S8_84 = quantile(S8_samples, one_sigma_ci, weights=w)
+
+    best_fit = samples[np.argmax(log_l)]
+    cc_cov_factor = np.exp(fcc_50) * (1.0 + z_cc)**ncc_50
+    cov_cc = np.diag(H_err**2 / cc_cov_factor**2) + cov_matrix_sys
+    cho_cc = np.linalg.cholesky(cov_cc)
+
+    print(f"H0: {H0_50:.1f} +{(H0_84 - H0_50):.1f} -{(H0_50 - H0_16):.1f} km/s/Mpc")
+    print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
+    print(f"σ8: {sig8_50:.3f} +{(sig8_84 - sig8_50):.3f} -{(sig8_50 - sig8_16):.3f}")
+    print(f"S8: {S8_50:.3f} +{(S8_84 - S8_50):.3f} -{(S8_50 - S8_16):.3f}")
+    print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
+    print(f"Ωm h^2: {Omh2_50:.3f} +{(Omh2_84 - Omh2_50):.3f} -{(Omh2_50 - Omh2_16):.3f}")
+    print(f"f_cc: {fcc_50:.2f} +{(fcc_84 - fcc_50):.2f} -{(fcc_50 - fcc_16):.2f}")
+    print(f"n_cc: {ncc_50:.2f} +{(ncc_84 - ncc_50):.2f} -{(ncc_50 - ncc_16):.2f}")
+    print(f"f_fs8: {fs_50:.2f} +{(fs_84 - fs_50):.2f} -{(fs_50 - fs_16):.2f}")
+    print(f"Chi squared: {chi_squared(best_fit, cho_cc):.2f}")
+    print(f"Log likelihood: {np.max(log_l):.2f}")
+    print(f"Log evidence: {log_evd:.1f}")
+    print(f"Degs of freedom: {len(z_cc) + len(z_fs8) - len(best_fit)}")
+
+    labels = ["$H_0$", "$\\Omega_m$", "$\\sigma_8$", "$f_{cc}$", "$n_{cc}$", "$f_{fs8}$", "$w_0$"]
     corner(
         samples,
         weights=w,
@@ -196,38 +236,13 @@ def main():
     )
     plt.show()
 
-    H0_16, H0_50, H0_84 = quantile(samples[:, 0], one_sigma_ci, weights=w)
-    Om_16, Om_50, Om_84 = quantile(samples[:, 1], one_sigma_ci, weights=w)
-    sig8_16, sig8_50, sig8_84 = quantile(samples[:, 2], one_sigma_ci, weights=w)
-    fcc_16, fcc_50, fcc_84 = quantile(samples[:, 3], one_sigma_ci, weights=w)
-    fs_16, fs_50, fs_84 = quantile(samples[:, 4], one_sigma_ci, weights=w)
-    w0_16, w0_50, w0_84 = quantile(samples[:, 5], one_sigma_ci, weights=w)
-    Omh2_16, Omh2_50, Omh2_84 = quantile(Omh2_samples, one_sigma_ci, weights=w)
-
-    S8_samples = samples[:, 2] * np.sqrt(samples[:, 1] / 0.3)
-    S8_16, S8_50, S8_84 = quantile(S8_samples, one_sigma_ci, weights=w)
-
-    best_fit = [H0_50, Om_50, sig8_50, fcc_50, fs_50, w0_50]
-
-    print(f"H0: {H0_50:.1f} +{(H0_84 - H0_50):.1f} -{(H0_50 - H0_16):.1f} km/s/Mpc")
-    print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
-    print(f"σ8: {sig8_50:.3f} +{(sig8_84 - sig8_50):.3f} -{(sig8_50 - sig8_16):.3f}")
-    print(f"S8: {S8_50:.3f} +{(S8_84 - S8_50):.3f} -{(S8_50 - S8_16):.3f}")
-    print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
-    print(f"Ωm h^2: {Omh2_50:.3f} +{(Omh2_84 - Omh2_50):.3f} -{(Omh2_50 - Omh2_16):.3f}")
-    print(f"f_cc: {fcc_50:.2f} +{(fcc_84 - fcc_50):.2f} -{(fcc_50 - fcc_16):.2f}")
-    print(f"f_fs8: {fs_50:.2f} +{(fs_84 - fs_50):.2f} -{(fs_50 - fs_16):.2f}")
-    print(f"Chi squared: {chi_squared(best_fit):.2f}")
-    print(f"Log likelihood: {log_likelihood(best_fit):.2f}")
-    print(f"Log evidence: {log_evd:.1f}")
-    print(f"Degs of freedom: {len(z_cc) + len(z_fs8) - len(best_fit)}")
-
     plot_cc_predictions(
         H_z=lambda z: H_z(z, best_fit),
         z=z_cc,
         H=H_values,
-        H_err=np.sqrt(np.diag(cov_matrix)) / fcc_50,
+        H_err=H_err,
         label=f"{legend} $H_0$: {H0_50:.1f} ± {(H0_84 - H0_50):.1f} km/s/Mpc",
+        err_scaling=cc_cov_factor,
     )
     plot_fs8_predictions(
         fs8_theory=lambda z: fs8_theory(1 / (1 + z), best_fit),
@@ -242,32 +257,35 @@ if __name__ == "__main__":
 
 
 # ----------- Flat ΛCDM -----------
-# H0: 67.9 +2.5 -2.4 km/s/Mpc
-# Ωm: 0.315 +0.018 -0.017
-# σ8: 0.786 +0.011 -0.011
-# S8: 0.805 +0.019 -0.019
-# Ωm h^2: 0.145 +0.010 -0.010
-# f_cc: 1.50 +0.18 -0.17
+# H0: 67.5 +3.0 -3.0 km/s/Mpc
+# Ωm: 0.312 +0.018 -0.017
+# σ8: 0.787 +0.011 -0.010
+# S8: 0.802 +0.019 -0.019
+# w0: -0.496 +0.338 -0.346
+# Ωm h^2: 0.142 +0.013 -0.012
+# ln(f_cc): 1.13 +0.24 -0.26
+# n_cc: -1.32 +0.45 -0.47
 # f_fs8: 1.78 +0.17 -0.17
-# Chi squared: 91.62
-# Log likelihood: 2.08
-# Log evidence: -10.9
+# Chi squared: 92.71
+# Log likelihood: -43.44
+# Log evidence: -58.4
 # Degs of freedom: 89
 # ---------------------------------
 
 
 # ----------- Flat wCDM -----------
-# H0: 64.7 +2.6 -2.6 km/s/Mpc
-# Ωm: 0.285 +0.021 -0.022
-# σ8: 0.882 +0.052 -0.042
-# S8: 0.862 +0.028 -0.027
-# w0: -0.715 +0.092 -0.095 (prior U[-1.5, 0])
-# Ωm h^2: 0.1194 +0.0136 -0.0136
-# f_cc: 1.48 +0.17 -0.17
-# f_fs8: 1.93 +0.19 -0.18
-# Chi squared: 90.73
-# Log likelihood: 6.25 (2.88 sigma significance)
-# Log evidence: -8.6 (Δ logZ = 2.3 against ΛCDM)
+# H0: 64.4 +3.1 -3.1 km/s/Mpc
+# Ωm: 0.285 +0.020 -0.021
+# σ8: 0.871 +0.046 -0.038
+# S8: 0.851 +0.027 -0.026
+# w0: -0.746 +0.087 -0.091 (prior U[-1.5, 0])
+# Ωm h^2: 0.118 +0.015 -0.014
+# f_cc: 1.07 +0.25 -0.27
+# n_cc: -1.26 +0.48 -0.48
+# f_fs8: 1.92 +0.19 -0.18
+# Chi squared: 94.11
+# Log likelihood: -39.97
+# Log evidence: -56.8 (Δ logZ = 1.6 against ΛCDM)
 # Degs of freedom: 88
 # ---------------------------------
 
@@ -275,17 +293,18 @@ if __name__ == "__main__":
 # ----------- Flat wzCDM ----------
 # w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
 #
-# H0: 64.8 +2.5 -2.5 km/s/Mpc
-# Ωm: 0.318 +0.017 -0.016
-# σ8: 0.837 +0.023 -0.022
-# S8: 0.862 +0.026 -0.027
-# w0: -0.62 +0.11 -0.12 (prior U[-1, 0])
-# Ωm h^2: 0.134 +0.010 -0.010
-# f_cc: 1.47 +0.17 -0.17
-# f_fs8: 1.93 +0.19 -0.18
-# Chi squared: 90.76
-# Log likelihood: 6.08 (2.82 sigma significance)
-# Log evidence: -8.2 (Δ logZ = 2.7 against ΛCDM)
+# H0: 64.1 +3.1 -3.0 km/s/Mpc
+# Ωm: 0.313 +0.017 -0.016
+# σ8: 0.836 +0.023 -0.022
+# S8: 0.855 +0.026 -0.026
+# w0: -0.637 +0.108 -0.123 (prior U[-1, 0])
+# Ωm h^2: 0.129 +0.013 -0.012
+# f_cc: 1.11 +0.25 -0.27
+# n_cc: -1.32 +0.47 -0.48
+# f_fs8: 1.92 +0.19 -0.18
+# Chi squared: 90.79
+# Log likelihood: -39.75
+# Log evidence: -56.0 (Δ logZ = 2.4 against ΛCDM)
 # Degs of freedom: 88
 # ---------------------------------
 
@@ -294,18 +313,5 @@ if __name__ == "__main__":
 # w0 (prior U[-3, 1])
 # wa (prior U[-3, 2])
 # w0 + wa < 0 enforced in the likelihood
-
-# H0: 64.6 +2.6 -2.6 km/s/Mpc
-# Ωm: 0.299 +0.042 -0.047
-# σ8: 0.859 +0.085 -0.051
-# S8: 0.863 +0.028 -0.027
-# w0: -0.676 +0.134 -0.124
-# wa: -0.23 +0.64 -0.97
-# Ωm h^2: 0.126 +0.019 -0.023
-# f_cc: 1.47 +0.17 -0.17
-# f_fs8: 1.92 +0.19 -0.18
-# Chi squared: 91.28
-# Log likelihood: 5.59
-# Log evidence: -10.5
-# Degs of freedom: 87
+# TODO
 # ---------------------------------
