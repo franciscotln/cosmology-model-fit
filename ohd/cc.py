@@ -134,6 +134,22 @@ if __name__ == "__main__":
 # χ2/DOF: 1.08
 # ---------------------------------
 
+# Constant covariance diagonal scaling f(z) = f0:
+# cov[i, j] = cov_sys[i, j] + cov_diag[i, j] * f0^2
+#
+# H0 = 65.9 ± 4.6 km/s/Mpc
+# Ωm = 0.341 +0.042 -0.059
+# ln(f0) = -0.39 +0.11 -0.13
+# n = 0.0 ± 2.3
+# Ωm h^2 = 0.146 ± 0.013
+# f0 = 0.684 +0.063 -0.093
+# Log likelihood (MAP): -154.26
+# Log evidence: -160.92
+# χ2 (MAP): 38.15
+# DOF: 36
+# χ2/DOF: 1.06
+# ---------------------------------
+
 # Without error scaling (fixed f0 = 1, n = 0):
 # H0: 66.3 ± 5.4 km/s/Mpc
 # Om: 0.344 +0.053 -0.083
@@ -145,7 +161,7 @@ if __name__ == "__main__":
 # χ2/DOF: 0.45
 # ---------------------------------
 
-# Log likelihood ratio test:
+# Log likelihood ratio test f(z) vs no scaling:
 # -2 * log(L0/L1) = -2 * log(L0) + 2 * log(L1)
 # -2 * (-159.38) + 2 * (-150.11) = 18.54
 # corresponding to a p-value of approximately 9.42x10^-5,
@@ -179,7 +195,24 @@ if __name__ == "__main__":
 # χ2/DOF: 0.45
 # ---------------------------------
 
-# Log likelihood ratio test:
+# Constant covariance diagonal scaling f(z) = f0:
+# cov[i, j] = cov_sys[i, j] + cov_diag[i, j] * f0^2
+
+# H0 = 67.9 ± 2.1 km/s/Mpc
+# Ωm = 0.325 +0.035 -0.044
+# ln(f0) = -0.39 +0.11 -0.13
+# n = 0.0 ± 2.3
+# Ωm h^2 = 0.149 ± 0.012
+# f0 = 0.684 +0.063 -0.092
+# Log likelihood (MAP): -153.03
+# Log evidence: -160.89
+# χ2 (MAP): 38.89
+# DOF: 36
+# χ2/DOF: 1.08
+# ---------------------------------
+
+
+# Log likelihood ratio test f(z) vs no scaling:
 # -2 * log(L0/L1) = -2 * log(L0) + 2 * log(L1)
 # -2 * (-158.45) + 2 * (-148.47) = 19.96
 # corresponding to a p-value of approximately 4.57x10^-5,
