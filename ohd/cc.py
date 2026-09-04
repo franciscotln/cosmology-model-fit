@@ -12,13 +12,13 @@ def H_z(z, params):
     return H0 * np.sqrt(Om * (1.0 + z) ** 3 + (1.0 - Om))
 
 
+z_pivot = 0.615
+
+
 @njit
 def log_likelihood_jit(params):
-    f0 = np.exp(params[2])
-    f_z = f0 * (1.0 + z_values)**params[3]
-    if np.any(f_z <= 1e-4):
-        return -np.inf
-
+    f_pivot, n = np.exp(params[2]), params[3]
+    f_z = f_pivot * ((1.0 + z_values) / (1.0 + z_pivot))**n
     cov_mat = np.diag(H_err**2 * f_z**2) + cov_matrix_sys
     L = np.linalg.cholesky(cov_mat)
     logdet = 2.0 * np.sum(np.log(np.diag(L)))
@@ -45,7 +45,7 @@ def main():
     prior = Prior()
     prior.add_parameter("H0", dist=(30, 100))
     prior.add_parameter("Om", dist=(0.0, 1.0))
-    prior.add_parameter("ln_f0", dist=(-2.5, 0.1))
+    prior.add_parameter("ln_fp", dist=(np.log(0.3), np.log(1.2)))
     prior.add_parameter("n", dist=(-4.0, 4.0))
 
     with Pool(8) as pool:
@@ -56,7 +56,7 @@ def main():
 
     samples, log_w, log_l = sampler.posterior()
     weights = np.exp(log_w)
-    labels = ["H_0", "Ω_m", "ln(f_0)", "n"]
+    labels = ["H_0", "Ω_m", "ln(f_{pivot})", "n"]
 
     gd_samples = MCSamples(
         samples=samples,
@@ -68,7 +68,7 @@ def main():
     gd_samples.addDerived(
         gd_samples["Om"] * (gd_samples["H0"] / 100) ** 2, name="Omh2", label="Ω_m h^2",
     )
-    gd_samples.addDerived(np.exp(gd_samples["ln_f0"]), name="f0", label="f_0")
+    gd_samples.addDerived(np.exp(gd_samples["ln_fp"]), name="fp", label="f_{pivot}")
     gd_samples.updateBaseStatistics()
 
     for name in gd_samples.getParamNames().names:
@@ -76,7 +76,7 @@ def main():
 
     best_fit = samples[np.argmax(log_l)]
 
-    f_z = np.exp(best_fit[2]) * (1.0 + z_values) ** best_fit[3]
+    f_z = np.exp(best_fit[2]) * ((1.0 + z_values) / (1.0 + z_pivot))**best_fit[3]
     cov = np.diag(H_err**2 * f_z**2) + cov_matrix_sys
     L = np.linalg.cholesky(cov)
     y = solve_triangular(L, H_values - H_z(z_values, best_fit))
@@ -118,18 +118,19 @@ if __name__ == "__main__":
 # Model: Flat ΛCDM
 # ---------------------------------
 
-# Redshift dependent covariance diagonal scaling f(z) = f0 * (1+z)^n:
+# Redshift dependent covariance diagonal scaling f(z) = f0 * [(1+z) / (1+z_piv)]^n
+# with z_piv = 0.615, corr(ln(fp), n) = 0:
 # cov[i, j] = cov_sys[i, j] + cov_diag[i, j] * f(z_i) * f(z_j)
 #
 # H0 = 67.5 +- 3.8 km/s/Mpc
-# Ωm = 0.313 +0.038 -0.048
-# ln(f0) = -1.12 +0.24 -0.27 (prior ~U[-2.5, 0.1])
+# Ωm = 0.313 +0.038 -0.049
+# ln(fp) = -0.48 +0.11 -0.13 (prior ~U[ln(0.3), ln(1.2)])
 # n = 1.33 +- 0.48 (prior ~U[-4, 4])
 # Ωm h^2 = 0.141 +- 0.015
-# f0 = 0.338 +0.055 -0.010
+# fp = 0.624 +0.058 -0.086
 # Log likelihood (MAP): -150.11
-# Log evidence: -158.77 (diff: 4.55 strong evidence favouring the model with f0, n)
-# χ2 (MAP): 37.74
+# Log evidence: -158.15 (diff: 5.17 strong evidence favouring the model with fp, n)
+# χ2 (MAP): 37.82
 # DOF: 35
 # χ2/DOF: 1.08
 # ---------------------------------
@@ -138,14 +139,13 @@ if __name__ == "__main__":
 # cov[i, j] = cov_sys[i, j] + cov_diag[i, j] * f0^2
 #
 # H0 = 65.9 ± 4.6 km/s/Mpc
-# Ωm = 0.341 +0.042 -0.059
+# Ωm = 0.340 +0.042 -0.058
 # ln(f0) = -0.39 +0.11 -0.13
-# n = 0.0 ± 2.3
 # Ωm h^2 = 0.146 ± 0.013
-# f0 = 0.684 +0.063 -0.093
+# f0 = 0.685 +0.063 -0.093
 # Log likelihood (MAP): -154.26
-# Log evidence: -160.92
-# χ2 (MAP): 38.15
+# Log evidence: -160.30 (diff: 3.02 moderate evidence favouring the model with f0)
+# χ2 (MAP): 38.27
 # DOF: 36
 # χ2/DOF: 1.06
 # ---------------------------------
@@ -170,18 +170,33 @@ if __name__ == "__main__":
 
 # ------ without systematics ------
 
-# scaling diagonal elements f(z) = f0 * (1+z)^n
-# H0 = 68.6 +1.5 -1.4 km/s/Mpc
+# scaling diagonal elements f(z) = f0 * [(1+z) / (1+z_piv)]^n
+# H0 = 68.6 +1.5 -1.5 km/s/Mpc
 # Ωm = 0.306 +0.035 -0.042
-# ln(f0) = -1.14 +0.24 -0.27 (prior ~U[-2.5, 0.1])
+# ln(fp) = -0.48 +0.11 -0.13 (prior ~U[ln(0.3), ln(1.2)])
 # n = 1.36 ± 0.48 (prior ~U[-4, 4])
 # Ωm h^2 = 0.143 ± 0.014
-# f0 = 0.332 +0.053 -0.10
+# f0 = 0.622 +0.059 -0.085
 # Log likelihood (MAP): -148.47
-# Log evidence: -158.57 (diff: 4.72 strong evidence favouring the model with f0, n)
-# χ2 (MAP): 39.06
+# Log evidence: -157.94 (diff: 5.35 strong evidence favouring the model with f0, n)
+# χ2 (MAP): 39.13
 # DOF: 35
 # χ2/DOF: 1.12
+# ---------------------------------
+
+# Constant covariance diagonal scaling f(z) = f0:
+# cov[i, j] = cov_sys[i, j] + cov_diag[i, j] * f0^2
+
+# H0 = 67.9 ± 2.1 km/s/Mpc
+# Ωm = 0.325 +0.036 -0.044
+# ln(f0) = -0.39 +0.11 -0.13
+# Ωm h^2 = 0.149 ± 0.012
+# f0 = 0.685 +0.064 -0.093
+# Log likelihood (MAP): -153.03
+# Log evidence: -160.25 (diff: 3.04 moderate evidence favouring the model with f0)
+# χ2 (MAP): 38.90
+# DOF: 36
+# χ2/DOF: 1.08
 # ---------------------------------
 
 # No scaling (f0 = 1, n = 0)
@@ -193,22 +208,6 @@ if __name__ == "__main__":
 # χ2 (MAP): 16.65
 # DOF: 37
 # χ2/DOF: 0.45
-# ---------------------------------
-
-# Constant covariance diagonal scaling f(z) = f0:
-# cov[i, j] = cov_sys[i, j] + cov_diag[i, j] * f0^2
-
-# H0 = 67.9 ± 2.1 km/s/Mpc
-# Ωm = 0.325 +0.035 -0.044
-# ln(f0) = -0.39 +0.11 -0.13
-# n = 0.0 ± 2.3
-# Ωm h^2 = 0.149 ± 0.012
-# f0 = 0.684 +0.063 -0.092
-# Log likelihood (MAP): -153.03
-# Log evidence: -160.89
-# χ2 (MAP): 38.89
-# DOF: 36
-# χ2/DOF: 1.08
 # ---------------------------------
 
 

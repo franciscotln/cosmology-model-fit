@@ -63,3 +63,16 @@ def get_data(split_sys=False):
 # arXiv:2608.13178v1
 # H(z=0.61) = 88.5 ± 8.1 (sys) +6.7 -12.6 (stat)
 # ---------------------------------
+
+
+# ---- Functional Forms for Covariance Components (curve_fit) ----
+# def spsoo(z):
+#   a, b, c, A, mu, sig = 18.764, 13.814,  2.297,  3.924,  0.532,  0.385
+#   return a * np.exp(-b * z) + c + A * np.exp(-(((z - mu) / sig) ** 2))
+
+
+# def imf(z):
+#   top, dip_amp, z_dip, w_dip, bottom, z_step, k_step = 0.468, 0.350, 0.547, 0.0355, 0.193, 1.001, 39.128
+#   dip = dip_amp * np.exp(-(((z - z_dip) / w_dip) ** 2))
+#   step = (top - bottom) / (1.0 + np.exp(k_step * (z - z_step)))
+#   return bottom + step - dip

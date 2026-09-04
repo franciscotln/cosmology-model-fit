@@ -112,14 +112,13 @@ def chi_squared(params, L_cc):
     return np.dot(y_cc, y_cc) + np.dot(y_bao, y_bao)
 
 
+z_cc_piv = 0.615
+
 @njit
 def log_likelihood_jit(params):
-    f0_cc, n_cc = params[0:2]
-    f_cc_arr = np.exp(f0_cc) * (1.0 + z_cc_vals)**n_cc
-    if np.any(f_cc_arr <= 1e-4):
-        return -np.inf
-
-    cov_mat_cc = np.diag(H_err**2 / f_cc_arr**2) + cc_stat_cov_matrix
+    fp_cc, n_cc = np.exp(params[0]), params[1]
+    fz_cc = fp_cc * ((1.0 + z_cc_vals) / (1.0 + z_cc_piv))**n_cc
+    cov_mat_cc = np.diag(H_err**2 * fz_cc**2) + cc_stat_cov_matrix
     L_cc = np.linalg.cholesky(cov_mat_cc)
     logdet_cc = 2.0 * np.sum(np.log(np.diag(L_cc)))
 
@@ -141,7 +140,7 @@ def main():
 
     prior = Prior()
     # ---- CCH parameters for overestimated errors ----
-    prior.add_parameter("ln_f0_cc", dist=(-0.5, 2.5))
+    prior.add_parameter("ln_fp_cc", dist=(np.log(0.3), np.log(1.2)))
     prior.add_parameter("n_cc", dist=(-4.0, 4.0))
     # ---- cosmological parameters ----
     prior.add_parameter("H0", dist=(45.0, 90.0))
@@ -157,7 +156,7 @@ def main():
 
     samples, log_w, log_l = sampler.posterior()
     weights = np.exp(log_w)
-    labels=["\\ln(f_{0,cc})", "n_{cc}", "H_0", "r_{drag}", "Ω_m", "w_0"]
+    labels=["ln(f_{p,cc})", "n_{cc}", "H_0", "r_{drag}", "Ω_m", "w_0"]
     gd_samples = MCSamples(
         samples=samples,
         weights=weights,
@@ -168,15 +167,15 @@ def main():
     gd_samples.addDerived(
         gd_samples["om"] * (gd_samples["H0"] / 100)**2 , name="omh2", label="Ω_m h^2",
     )
-    gd_samples.addDerived(np.exp(gd_samples["ln_f0_cc"]), name="f0_cc", label="f_{0,cc}")
+    gd_samples.addDerived(np.exp(gd_samples["ln_fp_cc"]), name="fp_cc", label="f_{p,cc}")
     gd_samples.updateBaseStatistics()
 
     for name in gd_samples.getParamNames().names:
         print(gd_samples.getInlineLatex(name, limit=1))
 
     best_fit = samples[np.argmax(log_l)]
-    f_cc_arr = np.exp(best_fit[0]) * (1.0 + z_cc_vals)**best_fit[1]
-    cov_mat_cc = np.diag(H_err**2 / f_cc_arr**2) + cc_stat_cov_matrix
+    f_cc_arr = np.exp(best_fit[0]) * ((1.0 + z_cc_vals) / (1.0 + z_cc_piv))**best_fit[1]
+    cov_mat_cc = np.diag(H_err**2 * f_cc_arr**2) + cc_stat_cov_matrix
     L_cc = np.linalg.cholesky(cov_mat_cc)
 
     print(f"Chi squared (MAP): {chi_squared(best_fit, L_cc):.2f}")
@@ -186,7 +185,7 @@ def main():
 
     plots.getSubplotPlotter().triangle_plot(
         gd_samples,
-        params=["H0", "om", "rd", "w0", "ln_f0_cc", "n_cc"],
+        params=["H0", "om", "rd", "w0", "ln_fp_cc", "n_cc"],
         filled=True,
         title_limit=1,
         contour_colors=["C0"],
@@ -206,7 +205,7 @@ def main():
         H=H_cc_vals,
         H_err=H_err,
         label=f"{cc_legend}: $H_0$={best_fit[2]:.1f} km/s/Mpc",
-        err_scaling=f_cc_arr,
+        err_scaling=1 / f_cc_arr,
     )
 
 
@@ -223,63 +222,64 @@ if __name__ == "__main__":
 
 # ----------- Flat ΛCDM -----------
 # H0 = 68.0 ± 2.9 km/s/Mpc
-# rd = 149.0 +5.7 -6.5 Mpc
-# Ωm = 0.3019 ± 0.0076
+# rd = 149.0 +5.7 -6.6 Mpc
+# Ωm = 0.3018 ± 0.0076
 # Ωm h^2 = 0.140 ± 0.012
-# n_cc = -1.35\pm 0.46
-# ln(f0_cc) = 1.14 +0.26 -0.23
-# f0_cc = 3.22 +0.64 -0.90
-# Chi squared (MAP): 50.88
+# n_cc = 1.35 ± 0.46
+# ln(fp_cc) = -0.49 +0.11 -0.12
+# fp_cc = 0.616 +0.058 -0.084
+# Chi squared (MAP): 50.01
 # log likelihood (MAP): -156.53
-# Log evidence: -170.08
+# Log evidence: -169.31
 # DOF: 48
 # ---------------------------------
 
 
 # ----------- Flat wCDM -----------
 # H0 = 67.7 ± 3.1 km/s/Mpc
-# rd = 149.1 +5.8 -6.6 Mpc
+# rd = 149.1 +5.7 -6.6 Mpc
 # Ωm = 0.3019 ± 0.0080
-# Ωm h^2 = 0.139 +0.011 -0.013
-# w0 = -0.982 ± 0.070 (prior U[-1.5, -0.5])
-# n_cc = -1.34 ± 0.46
-# ln(f0_cc) = 1.13 +0.27 - 0.23
-# Chi squared (MAP): 49.24
-# log likelihood (MAP): -156.50
-# Log evidence: -171.78
+# Ωm h^2 = 0.139 ± 0.012
+# w0 = -0.983 ± 0.070 (prior U[-1.5, -0.5])
+# n_cc = 1.34 ± 0.46
+# ln(fp_cc) = -0.49 +0.11 - 0.13
+# fp_cc = 0.617 +0.058 -0.084
+# Chi squared (MAP): 50.29
+# log likelihood (MAP): -156.51
+# Log evidence: -171.01
 # DOF: 47
 # ---------------------------------
 
 
 # ----------- Flat wzCDM ----------
 # w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
-# H0 = 66.2 ± 3.0
-# rd = 149.6 +5.7 -6.7
-# Ωm = 0.3120 +0.0093 -0.011
+# H0 = 66.2 ± 3.0 km/s/Mpc
+# rd = 149.5 +5.7 -6.7
+# Ωm = 0.3121 +0.0092 -0.011
 # Ωm h^2 = 0.137 ± 0.012
-# w0 = -0.855 +0.048 -0.14 (prior U[-1, 0]. Posterior truncated to the left of the mean)
-# n_cc = -1.34 ± 0.47
-# ln(f0_cc) = 1.13 +0.27 -0.23
-# f0_cc = 3.18 +0.63 -0.90
-# Chi squared (MAP): 50.34
+# w0 = -0.855 +0.048 -0.13 (prior U[-1, 0]. Posterior truncated to the left of the mean)
+# n_cc = 1.33 ± 0.47
+# ln(fp_cc) = -0.48 +0.11 -0.13
+# fp_cc = 0.621 +0.057 -0.085
+# Chi squared (MAP): 49.61
 # log likelihood (MAP): -156.38
-# Log evidence: -171.29
+# Log evidence: -170.51
 # DOF: 47
 # ---------------------------------
 
 
 # ---------- Flat w0waCDM----------
 # Enforced w0 + wa < 0 in likelihood
-#
+# TODO: rerun it
 # H0 = 64.1 +3.5 -4.1 km/s/Mpc
 # rd = 150.4 +5.9 -6.9 Mpc
 # Ωm = 0.346 +0.038 -0.021
 # Ωm h^2 = 0.142 ± 0.013
 # w0 = -0.59 +0.34 -0.21 (prior U[-3, 1])
 # wa = < -1.47 (prior U[-3, 2])
-# n_{cc} = -1.37 ± 0.47
-# ln(f0_cc) = 1.13 +0.27 -0.24
-# f0_cc = 3.19 +0.64 -0.92
+# n_{cc} = 1.37 ± 0.47
+# ln(fp_cc) = -0.48 +0.11 -0.13
+# fp_cc =  0.621 +0.057 -0.085
 # Chi squared (MAP): 47.32
 # log likelihood (MAP): -155.36
 # Log evidence: -172.72

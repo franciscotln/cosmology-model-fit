@@ -77,13 +77,14 @@ def chi_squared(params, L_cc):
     return chi_sn + chi_cc
 
 
+z_pivot = 0.615
+
+
 @njit
 def log_likelihood(params):
-    f_cc_arr = np.exp(params[0]) * (1.0 + z_cc_vals)**params[1]
-    if np.any(f_cc_arr <= 1e-4):
-        return -np.inf
-
-    cov_mat_cc = np.diag(H_err**2 / f_cc_arr**2) + cov_mat_cc_sys
+    fp_cc, n_cc = np.exp(params[0]), params[1]
+    fz_cc = fp_cc * ((1.0 + z_cc_vals) / (1.0 + z_pivot))**n_cc
+    cov_mat_cc = np.diag(H_err**2 * fz_cc**2) + cov_mat_cc_sys
     L_cc = np.linalg.cholesky(cov_mat_cc)
     logdet_cc = 2.0 * np.sum(np.log(np.diag(L_cc)))
 
@@ -102,7 +103,7 @@ def main():
     from ohd.plot_predictions import plot_cc_predictions
 
     prior = Prior()
-    prior.add_parameter("ln_f0", dist=(-0.1, 2.5))
+    prior.add_parameter("ln_fp", dist=(np.log(0.3), np.log(1.2)))
     prior.add_parameter("n", dist=(-4.0, 4.0))
     prior.add_parameter("dM", dist=(-1.0, 1.0))
     prior.add_parameter("H0", dist=(40.0, 95.0))
@@ -117,7 +118,7 @@ def main():
 
     samples, log_w, log_l = sampler.posterior()
     log_evd = sampler.log_z
-    labels = ["ln(f_0)", "n", "ΔM", "H_0", "Ω_m", "v"]
+    labels = ["ln(f_{pivot})", "n", "ΔM", "H_0", "Ω_m", "v"]
 
     gd_samples = MCSamples(
         samples=samples,
@@ -126,6 +127,7 @@ def main():
         names=prior.keys,
         labels=labels,
     )
+    gd_samples.addDerived(np.exp(gd_samples["ln_fp"]), name="fp", label="f_{pivot}")
 
     for name in gd_samples.getParamNames().names:
         print(gd_samples.getInlineLatex(name, limit=1))
@@ -133,11 +135,11 @@ def main():
     best_fit = samples[np.argmax(log_l)]
     DOF = len(z_cmb) + N_cc - len(prior.keys)
 
-    f_array = np.exp(best_fit[0]) * (1.0 + z_cc_vals)**best_fit[1]
-    cov_mat_cc = np.diag(H_err**2 / f_array**2) + cov_mat_cc_sys
+    fz_cc = np.exp(best_fit[0]) * ((1.0 + z_cc_vals) / (1.0 + z_pivot))**best_fit[1]
+    cov_mat_cc = np.diag(H_err**2 * fz_cc**2) + cov_mat_cc_sys
     L_cc = np.linalg.cholesky(cov_mat_cc)
 
-    print(f"Chi squared (MAP): {chi_squared(best_fit, L_cc):.2f}")
+    print(f"χ² (MAP): {chi_squared(best_fit, L_cc):.2f}")
     print(f"Log likelihood (MAP): {np.max(log_l):.2f}")
     print(f"Log evidence: {log_evd:.1f}")
     print(f"DOF: {DOF}")
@@ -153,7 +155,7 @@ def main():
         H=H_cc_vals,
         H_err=H_err,
         label=legend_cc,
-        err_scaling=f_array,
+        err_scaling=1 / fz_cc,
     )
     plot_sn_predictions(
         legend=legend_sn,
@@ -171,14 +173,14 @@ if __name__ == "__main__":
 
 
 # ---------------- Flat ΛCDM ----------------
-# H0 = 66.6 +- 3.0 km/s/Mpc
+# H0 = 66.6 +- 3.1 km/s/Mpc
 # Ωm = 0.328 +- 0.022
 # ΔM = -0.090 +- 0.094 mag
-# ln(f0) = 1.11 +0.27 -0.23
-# n = -1.30 +- 0.47
-# Chi squared (MAP): 67.54
-# Log likelihood (MAP): -164.65
-# Log evidence: -178.6
+# ln(fp) = -0.49 +0.11 -0.13
+# n = 1.30 +- 0.47
+# χ² (MAP): 67.71
+# Log likelihood (MAP): -164.66
+# Log evidence: -177.9
 # DOF: 56
 # -------------------------------------------
 
@@ -188,29 +190,29 @@ if __name__ == "__main__":
 # turning point z <= 0.2 inflow z > 0.2 outflow
 # z_cosmo = -1 + (1 + z) / (1 + v/c)
 #
-# v = -303 +- 120 km/s
+# v = -302 +- 120 km/s
 # H0 = 68.2 +- 3.1 km/s/Mpc
-# Ωm = 0.301 +- 0.022
-# ΔM = -0.061 +- 0.093
-# ln(f0) = 1.14 +0.27 -0.23
-# n = -1.36 +- 0.47
-# Chi squared (MAP): 60.52
+# Ωm = 0.301 +0.021 -0.024
+# ΔM = -0.062 +- 0.094
+# ln(fp) = -0.49 +0.11 -0.13
+# n = 1.35 +- 0.47
+# χ² (MAP): 59.54
 # Log likelihood (MAP): -161.23 (2.6 sigma significance)
-# Log evidence: -177.0 (ΔlogZ = 1.6 in favour of v corrections)
+# Log evidence: -176.4 (ΔlogZ = 1.5 in favour of v corrections)
 # DOF: 55
 # -------------------------------------------
 
 
 # ---------------- Flat wCDM ----------------
-# w0 = -0.89 +0.14 -0.12 (prior U[-1.5, -0.5])
+# w0 = -0.89 +0.14 -0.12 (prior U[-1.5, 0])
 # H0 = 66.7 +- 3.1 km/s/Mpc
-# Ωm = 0.289 +0.060 -0.043
-# ΔM = -0.077 +- 0.095
-# ln(f0) = 1.13 +0.27 -0.24
-# n = -1.36 +- 0.48
-# Chi squared (MAP): 65.40
-# Log likelihood (MAP): -164.33 (1.0 sigma significance)
-# Log evidence: -179.3 (ΔlogZ = -0.7 in favour of ΛCDM)
+# Ωm = 0.288 +0.060 -0.043
+# ΔM = -0.077 +- 0.096
+# ln(fp) = -0.47 +0.11 -0.13
+# n = 1.36 +- 0.48
+# χ² (MAP): 65.31
+# Log likelihood (MAP): -164.34 (1.0 sigma significance)
+# Log evidence: -179.1 (ΔlogZ = -1.2 in favour of ΛCDM)
 # DOF: 55
 # -------------------------------------------
 
@@ -218,14 +220,14 @@ if __name__ == "__main__":
 # --------------- Flat w0waCDM --------------
 # w0 + wa < 0 enforced in the likelihood
 # H0 = 65.5 +- 3.0 km/s/Mpc
-# Ωm = 0.369 +0.048 -0.024
+# Ωm = 0.369 +0.049 -0.024
 # w0 = -0.79 +0.14 -0.12 (prior U[-3, 1])
 # wa = < -1.88 (prior U[-3, 2] truncated posterior)
 # ΔM = -0.099 +- 0.095 mag
-# ln(f0) = 1.16 +0.26 -0.23
-# n = -1.38 +- 0.47
-# Chi squared (MAP): 63.39
-# Log likelihood (MAP): -161.86
-# Log evidence: -179.7 + 0.3 (ΔlogZ = -0.8 in favour of ΛCDM)
+# ln(fp) = -0.50 +0.11 -0.13
+# n = 1.37 +- 0.47
+# χ² (MAP): 61.97
+# Log likelihood (MAP): -161.80
+# Log evidence: -179.1 + 0.3 (ΔlogZ = -0.9 in favour of ΛCDM)
 # DOF: 54
 # -------------------------------------------
