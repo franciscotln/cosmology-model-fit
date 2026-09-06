@@ -121,7 +121,7 @@ if __name__ == "__main__":
 # ---------------------------------
 
 # Redshift dependent covariance diagonal scaling f(z) = f0 * [(1+z) / (1+z_piv)]^n
-# with z_piv = 0.6137, corr(ln(fp), n) = 0:
+# with z_piv = 0.6142, corr(ln(fp), n) = 0:
 # cov[i, j] = cov_sys[i, j] + cov_diag[i, j] * f(z_i) * f(z_j)
 #
 # H0 = 67.3 +- 3.8 km/s/Mpc
