@@ -317,7 +317,7 @@ if __name__ == "__main__":
 # fp = 0.616 +0.057 -0.083
 # n_cc: 1.35 +- 0.46
 # Chi squared (MAP): 73.58
-# log likelihood (MAP): -167.66 (2.87 sigma significance)
+# log likelihood (MAP): -167.66
 # Log evidence: -187.50 (Δ logZ = 2.26 in favour of velocity step correction)
 # DOF: 68
 # -------------------------------------------
@@ -334,7 +334,7 @@ if __name__ == "__main__":
 # fp: 0.619 +0.058 -0.084
 # n_cc: 1.33 +- 0.47
 # Chi squared (MAP): 78.03
-# log likelihood (MAP): -170.76 (1.32 sigma significance)
+# log likelihood (MAP): -170.76
 # Log evidence: -190.93 (Δ logZ = -1.17 in favour of ΛCDM)
 # DOF: 68
 # -------------------------------------------
@@ -353,8 +353,8 @@ if __name__ == "__main__":
 # fp: 0.620 +0.057 -0.084
 # n_cc: 1.34 +- 0.47
 # Chi squared (MAP): 78.00
-# log likelihood (MAP): -170.01 (1.82 sigma significance)
-# Log evidence: -189.35 (Δ logZ = 0.36 in favour of wzCDM)
+# log likelihood (MAP): -170.01
+# Log evidence: -189.35 (Δ logZ = 0.41 in favour of wzCDM)
 # DOF: 68
 # -------------------------------------------
 
