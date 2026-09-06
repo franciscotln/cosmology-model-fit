@@ -178,8 +178,7 @@ def main():
     # Ωm: matter density parameter today
     prior.add_parameter("Om", dist=(0.2, 0.50))
     # v: velocity step correction observed redshift SNe
-    # prior.add_parameter("v", dist=(-8.5, 8.5))
-    prior.add_parameter("v", dist=(-1.0, -1/3))
+    prior.add_parameter("v", dist=(-8.5, 8.5))
 
     with Pool(6) as pool:
         sampler = Sampler(prior, log_likelihood, n_live=5_000, pool=pool, seed=42, pass_dict=False)
@@ -287,17 +286,17 @@ if __name__ == "__main__":
 
 
 # --------------- Flat ΛCDM -----------------
-# H0: 67.9 +- 2.8 km/s/Mpc
-# rd: 149.0 +5.7 -6.6 Mpc
-# Ωm: 0.3049 +- 0.0073
-# Ωm h^2: 0.141 +- 0.012
-# ΔM: -0.067 +- 0.091 mag
-# ln(fp): -0.49 +0.11 -0.12
-# fp = 0.615 +0.057 -0.083
-# n_cc: 1.35 +- 0.46
-# Chi squared (MAP): 82.65
-# log likelihood (MAP): -171.75
-# Log evidence: -189.76
+# H0 = 67.5 ± 2.8 km/s/Mpc
+# rd = 149.9 +5.7 -6.5 Mpc
+# Ωm = 0.3048 ± 0.0073
+# Ωm h^2 = 0.139 ± 0.012
+# ΔM = -0.080 ± 0.090 mag
+# ln(fp) = -0.50 +0.11 -0.13
+# fp = 0.612 +0.057 -0.083
+# n_cc = 1.39 ± 0.47
+# Chi squared (MAP): 82.93
+# log likelihood (MAP): -171.51
+# Log evidence: -189.50
 # DOF: 69
 # -------------------------------------------
 
@@ -307,54 +306,54 @@ if __name__ == "__main__":
 # turning point z <= 0.2 inflow z > 0.2 outflow
 # z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-# H0: 68.1 +- 2.9 km/s/Mpc
-# rd: 148.9 +5.6 -6.6 Mpc
-# Ωm: 0.3015 +- 0.0073
-# Ωm h^2: 0.140 +- 0.012
-# v: -3.0 +- 1.1 x 100 km/s
-# ΔM: -0.064 +-0.091 mag
-# ln(fp): -0.49 +0.11 -0.12
-# fp = 0.616 +0.057 -0.083
-# n_cc: 1.35 +- 0.46
-# Chi squared (MAP): 73.58
-# log likelihood (MAP): -167.66
-# Log evidence: -187.50 (Δ logZ = 2.26 in favour of velocity step correction)
+# H0 = 67.7 ± 2.8 km/s/Mpc
+# rd = 149.8 +5.7 -6.6 Mpc
+# Ωm = 0.3014 ± 0.0073
+# Ωm h^2 = 0.138 ± 0.012
+# v = -3.0 ± 1.1 x 100 km/s
+# ΔM = -0.077 ± 0.091 mag
+# ln(fp) = -0.50 +0.11 -0.12
+# fp = 0.611 +0.057 -0.082
+# n_cc = 1.40 ± 0.47
+# Chi squared (MAP): 71.51
+# log likelihood (MAP): -167.39
+# Log evidence: -187.25 (Δ logZ = 2.25 in favour of velocity step correction)
 # DOF: 68
 # -------------------------------------------
 
 
 # --------------- Flat wCDM -----------------
-# H0: 66.9 +- 2.9 km/s/Mpc
-# rd: 149.3 +5.7 -6.6 Mpc
-# Ωm: 0.3041 +- 0.0074
-# Ωm h^2: 0.136 +- 0.012
-# w0: -0.936 +- 0.046
-# ΔM: -0.078 +- 0.091 mag
-# ln(fp): -0.49 +0.11 -0.12
-# fp: 0.619 +0.058 -0.084
-# n_cc: 1.33 +- 0.47
-# Chi squared (MAP): 78.03
-# log likelihood (MAP): -170.76
-# Log evidence: -190.93 (Δ logZ = -1.17 in favour of ΛCDM)
+# H0 = 66.5 ± 2.9 km/s/Mpc
+# rd = 150.3 +5.8 -6.6 Mpc
+# Ω_m = 0.3040 ± 0.0074
+# Ω_m h^2 = 0.135 +0.011 -0.012
+# w0 = -0.937 ± 0.046
+# ΔM = -0.091 ± 0.091 mag
+# ln(fp) = -0.49 +0.11 -0.13
+# fp = 0.615 +0.057 -0.084
+# n_cc = 1.37 ± 0.47
+# Chi squared (MAP): 79.42
+# log likelihood (MAP): -170.62
+# Log evidence: -190.72 (Δ logZ = -1.22 in favour of ΛCDM)
 # DOF: 68
 # -------------------------------------------
 
 
 # --------------- Flat wzCDM ----------------
 # w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
-# H0: 66.3 +- 2.9 km/s/Mpc
-# rd: 149.6 +5.7 -6.7 Mpc
-# Ωm: 0.3112 +- 0.0080
-# Ωm h^2: 0.137 +- 0.012
-# w0: -0.860 +- 0.065
+# H0 = 65.9 ± 2.9 km/s/Mpc
+# rd = 150.4 +5.8 -6.7 Mpc
+# Ωm = 0.3110 ± 0.0080
+# w0 = -0.862 ± 0.065
 # wa: d w(z)/d z at z=0 = -1.5 * (1 - w0^2) = -0.39
-# ΔM: -0.083 +- 0.092 mag
-# ln(fp): -0.48 +0.11 -0.12
-# fp: 0.620 +0.057 -0.084
-# n_cc: 1.34 +- 0.47
-# Chi squared (MAP): 78.00
-# log likelihood (MAP): -170.01
-# Log evidence: -189.35 (Δ logZ = 0.41 in favour of wzCDM)
+# Ωm h^2 = 0.135 ± 0.012
+# ΔM = -0.095 ± 0.091 mag
+# ln(fp) = -0.49 +0.11 -0.13
+# fp = 0.616 +0.057 -0.084
+# n_cc = 1.38 ± 0.47
+# Chi squared (MAP): 76.29
+# log likelihood (MAP): -169.82
+# Log evidence: -189.16 (Δ logZ = 0.34 in favour of wzCDM)
 # DOF: 68
 # -------------------------------------------
 
