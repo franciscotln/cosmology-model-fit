@@ -166,7 +166,7 @@ if __name__ == "__main__":
 # Log likelihood ratio test f(z) vs no scaling:
 # -2 * log(L0/L1) = -2 * log(L0) + 2 * log(L1)
 # -2 * (-159.36) + 2 * (-149.86) = 19.00
-# corresponding to a p-value of approximately 9.42x10^-5,
+# corresponding to a p-value of approximately 7.485x10^-5,
 # indicating strong evidence in favor of the model with f0 and n.
 
 
@@ -218,5 +218,5 @@ if __name__ == "__main__":
 # Log likelihood ratio test f(z) vs no scaling:
 # -2 * log(L0/L1) = -2 * log(L0) + 2 * log(L1)
 # -2 * (-158.43) + 2 * (-148.25) = 20.36
-# corresponding to a p-value of approximately 4.57x10^-5,
+# corresponding to a p-value of approximately 3.792x10^-5,
 # indicating strong evidence in favor of the model with f0 and n.
