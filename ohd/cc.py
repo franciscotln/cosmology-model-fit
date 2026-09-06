@@ -12,7 +12,8 @@ def H_z(z, params):
     return H0 * np.sqrt(Om * (1.0 + z) ** 3 + (1.0 - Om))
 
 
-z_pivot = 0.615
+z_pivot = 0.6137
+# corr(ln(fp), n) = 8.179e-05
 
 
 @njit
@@ -119,18 +120,18 @@ if __name__ == "__main__":
 # ---------------------------------
 
 # Redshift dependent covariance diagonal scaling f(z) = f0 * [(1+z) / (1+z_piv)]^n
-# with z_piv = 0.615, corr(ln(fp), n) = 0:
+# with z_piv = 0.6137, corr(ln(fp), n) = 0:
 # cov[i, j] = cov_sys[i, j] + cov_diag[i, j] * f(z_i) * f(z_j)
 #
-# H0 = 67.5 +- 3.8 km/s/Mpc
+# H0 = 67.5 +- 3.9 km/s/Mpc
 # Ωm = 0.313 +0.038 -0.049
 # ln(fp) = -0.48 +0.11 -0.13 (prior ~U[ln(0.3), ln(1.2)])
 # n = 1.33 +- 0.48 (prior ~U[-4, 4])
 # Ωm h^2 = 0.141 +- 0.015
-# fp = 0.624 +0.058 -0.086
+# fp = 0.623 +0.058 -0.086
 # Log likelihood (MAP): -150.11
-# Log evidence: -158.15 (diff: 5.17 strong evidence favouring the model with fp, n)
-# χ2 (MAP): 37.82
+# Log evidence: -158.14 (diff: 5.18 strong evidence favouring the model with fp, n)
+# χ2 (MAP): 37.97
 # DOF: 35
 # χ2/DOF: 1.08
 # ---------------------------------
@@ -171,17 +172,17 @@ if __name__ == "__main__":
 # ------ without systematics ------
 
 # scaling diagonal elements f(z) = f0 * [(1+z) / (1+z_piv)]^n
-# H0 = 68.6 +1.5 -1.5 km/s/Mpc
-# Ωm = 0.306 +0.035 -0.042
+# H0 = 68.6 ± 1.5 km/s/Mpc
+# Ωm = 0.306 +0.035 -0.041
 # ln(fp) = -0.48 +0.11 -0.13 (prior ~U[ln(0.3), ln(1.2)])
 # n = 1.36 ± 0.48 (prior ~U[-4, 4])
-# Ωm h^2 = 0.143 ± 0.014
-# f0 = 0.622 +0.059 -0.085
+# Ωm h^2 = 0.143 ± 0.013
+# f0 = 0.621 +0.058 -0.085
 # Log likelihood (MAP): -148.47
 # Log evidence: -157.94 (diff: 5.35 strong evidence favouring the model with f0, n)
-# χ2 (MAP): 39.13
+# χ2 (MAP): 38.70
 # DOF: 35
-# χ2/DOF: 1.12
+# χ2/DOF: 1.11
 # ---------------------------------
 
 # Constant covariance diagonal scaling f(z) = f0:
