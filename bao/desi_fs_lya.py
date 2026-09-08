@@ -94,7 +94,6 @@ def log_likelihood(params):
 
 def main():
     from multiprocessing import Pool
-    from corner import quantile
     from getdist import plots, MCSamples
     from nautilus import Sampler, Prior
     import matplotlib.pyplot as plt
@@ -113,13 +112,9 @@ def main():
 
     samples, log_w, log_l = sampler.posterior()
     weights = np.exp(log_w)
-    one_sigma_ci = [0.159, 0.5, 0.841]
 
-    h_16, h_50, h_84 = quantile(samples[:, 0], one_sigma_ci, weights)
-    om_16, om_50, om_84 = quantile(samples[:, 1], one_sigma_ci, weights)
-    w0_16, w0_50, w0_84 = quantile(samples[:, 2], one_sigma_ci, weights)
-
-    best_fit = [h_50, om_50, w0_50]
+    MAP_index = np.argmax(log_l)
+    best_fit = samples[MAP_index]
     dof = len(data["z"]) - len(best_fit)
 
     residuals = data["value"] - bao_theory(data["z"], bao_qty, best_fit)
@@ -128,26 +123,28 @@ def main():
     r2 = 1 - ss_res / ss_tot
     chi2 = chi_squared(best_fit)
 
-    print(f"h * rd: {RD * h_50:.2f} +{RD * (h_84 - h_50):.2f} -{RD * (h_50 - h_16):.2f}")
-    print(f"Ωm: {om_50:.4f} +{om_84-om_50:.4f} -{om_50-om_16:.4f}")
-    print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
-    print(f"χ2: {chi2:.2f}")
+    labels=["h", "Ω_m", "w_0"]
+    gd_samples = MCSamples(
+        samples=samples,
+        weights=weights,
+        loglikes=log_l,
+        names=prior.keys,
+        labels=labels,
+        label="BAO + FS Lyman-alpha",
+    )
+    gd_samples.addDerived(gd_samples["h"] * RD, name="hrd", label="h * r_{drag}")
+    gd_samples.updateBaseStatistics()
+
+    for name in gd_samples.getParamNames().names:
+        print(gd_samples.getInlineLatex(name, limit=1))
+
+    print(f"χ2 (MAP): {chi2:.2f}")
     print(f"DOF: {dof}")
     print(f"χ2/dof: {chi2 / dof:.2f}")
     print(f"Log evidence: {sampler.log_z:.1f}")
     print(f"R^2: {r2:.4f}")
     print(f"RMSD: {np.sqrt(np.mean(residuals**2)):.3f}")
 
-    gd_samples = MCSamples(
-        samples=samples,
-        weights=weights,
-        loglikes=log_l,
-        names=prior.keys,
-        labels=["h", "Ω_m", "w_0"],
-        label="BAO + FS Lyman-alpha",
-    )
-    gd_samples.addDerived(gd_samples["h"] * RD, name="hrd", label="h * r_{drag}")
-    gd_samples.updateBaseStatistics()
     plots.getSubplotPlotter().triangle_plot(
         gd_samples,
         params=['hrd', 'om', 'w0'],
@@ -181,7 +178,7 @@ if __name__ == "__main__":
 # χ2: 12.81
 # DOF: 12
 # χ2/dof: 1.07
-# Log evidence: -14.2
+# Log evidence: -14.1
 # R^2: 0.9987
 # RMSD: 0.298
 # -------------------------------------------

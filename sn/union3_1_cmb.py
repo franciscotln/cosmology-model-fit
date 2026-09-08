@@ -162,6 +162,17 @@ def main():
         100 * gd_samples["v"], name="v_km_s", label="v_{km/s}"
     )
 
+    MAP_index = np.argmax(log_l)
+    best_fit = samples[MAP_index]
+    DOF = len(mu_vals) + len(cmb.DISTANCE_PRIORS) - len(best_fit)
+
+    for name in gd_samples.getParamNames().names:
+        print(gd_samples.getInlineLatex(name, limit=1))
+
+    print(f"Chi2 (MAP): {chi_squared(best_fit):.1f}")
+    print(f"Log Evidence: {sampler.log_z:.1f}")
+    print(f"DOF: {DOF}")
+
     g = plots.get_subplot_plotter()
     g.triangle_plot(
         gd_samples,
@@ -173,25 +184,12 @@ def main():
     )
     plt.show()
 
-    best_fit = np.percentile(samples, 50, axis=0)
-    DOF = len(mu_vals) + len(cmb.DISTANCE_PRIORS) - len(best_fit)
-
-    for par in gd_samples.getParamNames().names:
-        print(f"{par}: {gd_samples.mean(par):.5f} ± {gd_samples.std(par):.5f}")
-
-    MAP_index = np.argmax(log_l)
-    print(f"Chi2 (MAP): {chi_squared(samples[MAP_index]):.1f}")
-    print(f"Log Evidence: {sampler.log_z:.1f}")
-    print(f"DOF: {DOF}")
-
     plot_predictions(
         legend=sn_legend,
         x=z_cmb,
         y=mu_vals - mu_corr(best_fit),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=mu_theory(
-            best_fit[0], interp_hermite(z_cmb, z_grid, *DM_grid(best_fit))
-        ),
+        y_model=mu_theory(best_fit[0], interp_hermite(z_cmb, z_grid, *DM_grid(best_fit))),
         label=f"ΛCDM",
         x_scale="log",
     )

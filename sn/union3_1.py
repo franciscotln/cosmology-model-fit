@@ -118,11 +118,12 @@ def main():
     gd_samples.addDerived(100 * gd_samples["v"], name="v_km_s", label="v_{km/s}")
     gd_samples.updateBaseStatistics()
 
-    for par in gd_samples.getParamNames().names:
-        print(f"{par}: {gd_samples.mean(par):.5f} ± {gd_samples.std(par):.5f}")
+    for name in gd_samples.getParamNames().names:
+        print(gd_samples.getInlineLatex(name, limit=1))
 
     index_MAP = np.argmax(log_l)
-    print(f"χ2 (MAP): {chi_squared(samples[index_MAP]):.2f}")
+    params_MAP = samples[index_MAP]
+    print(f"χ2 (MAP): {chi_squared(params_MAP):.2f}")
     print(f"Log evidence: {sampler.log_z:.1f}")
     print(f"DOF: {len(z_cmb) - len(prior.keys)}")
 
@@ -148,7 +149,7 @@ def main():
         y=mu_corrected,
         y_err=mu_std,
         y_model=mu_pred,
-        label=f"$Ω_m$={gd_samples.mean('om'):.3f}",
+        label=f"$Ω_m$={params_MAP[1]:.3f}",
         x_scale="log",
     )
     plot_residuals(z_values=z_cmb, residuals=residuals, y_err=mu_std, bins=7)
@@ -181,7 +182,7 @@ if __name__ == "__main__":
 # v: -308 ± 120 km/s (prior ~ U[-9, 9] x 100 km/s)
 # v / z_turn: -1535 ± 600 km/s
 
-# ΔM: 0.004 ± 0.023 mag
+# ΔM: -0.004 ± 0.023 mag
 # Ωm: 0.299 +0.026 -0.026
 # χ2 (MAP): 22.15 (2.57 sigma significance)
 # Log evidence: -20.5 (Δ logZ = 1.4 in favour of step correction)

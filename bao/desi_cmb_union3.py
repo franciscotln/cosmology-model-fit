@@ -98,7 +98,7 @@ bao_qty = np.array([qty_map[q] for q in bao["quantity"]], dtype=np.int32)
 def bao_theory(z, qty, params, DM_interp):
     Obh2, Och2 = params[2], params[3]
     Omh2 = Obh2 + Och2 + Omnuh2
-    inv_rd = cmb.r_drag(Obh2, Omh2)
+    inv_rd = 1 / cmb.r_drag(Obh2, Omh2)
 
     DM = interp_hermite(z, z_grid, y=DM_interp[0], y_prime=DM_interp[1])
     DH = interp_pchip(z, z_grid, y=DM_interp[1])

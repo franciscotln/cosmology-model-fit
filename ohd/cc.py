@@ -71,7 +71,8 @@ def main():
     )
     gd_samples.addDerived(np.exp(gd_samples["ln_fp"]), name="fp", label="f_{pivot}")
     gd_samples.updateBaseStatistics()
-    print("Correlation matrix:\n", gd_samples.corr(prior.keys))
+    correlation = gd_samples.corr(prior.keys)
+    print("Correlation matrix:\n", correlation)
 
     for name in gd_samples.getParamNames().names:
         print(gd_samples.getInlineLatex(name, limit=1))
@@ -93,7 +94,8 @@ def main():
     print(f"DOF: {DOF}")
     print(f"χ2/DOF: {chi2_red:.2f}")
 
-    plots.getSubplotPlotter().triangle_plot(
+    g = plots.getSubplotPlotter()
+    g.triangle_plot(
         gd_samples,
         params=prior.keys,
         filled=True,
@@ -101,6 +103,19 @@ def main():
         contour_colors=["C0"],
         color=["C0"],
     )
+    for i in range(1, len(prior.keys)):
+        for j in range(i):
+            ax = g.subplots[i, j]
+            ax.text(
+                0.05,
+                0.93,
+                f"$\\rho = {correlation[i, j]:+.2f}$",
+                transform=ax.transAxes,
+                ha="left",
+                va="top",
+                fontsize=6,
+            )
+
     plt.show()
 
     plot_cc_predictions(
