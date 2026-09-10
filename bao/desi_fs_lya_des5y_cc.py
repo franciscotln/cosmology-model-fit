@@ -11,15 +11,13 @@ from y2025DESdovekie.data import (
     get_data as get_sn_data,
 )
 
-cc_legend, z_cc_vals, H_cc_vals, cov_matrix_cc = get_cc_data()
+cc_legend, z_cc_vals, H_cc_vals, H_cc_err, cov_mat_sys_cc = get_cc_data(split_sys=True)
 sn_legend, z_cmb, z_hel, mu_values, cov_matrix_sn = get_sn_data()
 bao_legend, bao, cov_matrix_bao = get_bao_data()
 
 cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
 cho_bao = cho_factor(cov_matrix_bao, lower=True)[0]
-cho_cc = cho_factor(cov_matrix_cc, lower=True)[0]
 
-logdet_cc = np.linalg.slogdet(cov_matrix_cc)[1]
 N_cc = len(z_cc_vals)
 
 c = c0 / 1000  # km/s
@@ -28,6 +26,21 @@ z_max = max(np.max(z_cmb), np.max(bao["z"])) + 0.1
 z_grid = np.linspace(0, z_max, num=4000)
 dz = z_grid[1] - z_grid[0]
 
+# ----- PARAMS -----
+names = ["ln_fp", "n_cc", "dM", "h0", "rd", "Om", "v100"]
+labels = ["ln(f_{p,cc})", "n_{cc}", "ΔM", "H_0", "r_d", "Ω_m", "v_{100}"]
+bounds = np.array(
+    [
+        (np.log(0.3), np.log(1.2)),  # ln(fp): CC error rescaling (overestimated)
+        (-4, +4),  # n_cc: CC error rescaling power (overestimated)
+        (-0.55, +0.55),  # ΔM: magnitude offset
+        (45, 90),  # H0: Hubble constant at present
+        (110, 175),  # r_d: sound horizon at drag epoch
+        (0.2, 0.7),  # Ωm: matter density parameter at present
+        (-4.5, +4.5),  # v x 100 km/s
+    ]
+)
+# ------------------
 
 @njit
 def rho_de(z, w0):
@@ -41,9 +54,7 @@ def rho_de(z, w0):
 @njit
 def H_z(z, theta):
     H0, Om = theta[3], theta[5]
-    zp1 = 1.0 + z
-    cubed = zp1 * zp1 * zp1
-    return H0 * np.sqrt(Om * cubed + (1.0 - Om))
+    return H0 * np.sqrt(Om * (1.0 + z) ** 3 + (1.0 - Om))
 
 
 @njit
@@ -67,7 +78,7 @@ def DH_z(z, dm_grid):
 
 @njit
 def DV_z(z, DM, DH):
-    return (z * DH * DM * DM) ** (1 / 3)
+    return (z * DH * DM**2) ** (1 / 3)
 
 
 qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2, "F_AP": 3}
@@ -118,7 +129,7 @@ def mu_theory(theta, DM):
 
 
 @njit
-def chi_squared(theta, f_cc_arr):
+def chi_squared(theta, cho_cc):
     dm_grid = DM_grid(theta)
 
     z_cosmo = get_z_cosmo(theta)
@@ -132,23 +143,11 @@ def chi_squared(theta, f_cc_arr):
     chi_bao = np.dot(y_bao, y_bao)
 
     delta_cc = H_cc_vals - H_z(z_cc_vals, theta)
-    y_cc = solve_triangular(cho_cc, f_cc_arr * delta_cc)
+    y_cc = solve_triangular(cho_cc, delta_cc)
     chi_cc = np.dot(y_cc, y_cc)
 
     return chi_sn + chi_bao + chi_cc
 
-
-bounds = np.array(
-    [
-        (0.1, 6.0),  # f0: CC error rescaling (overestimated)
-        (-9.0, 9.0),  # fa: CC error rescaling (overestimated)
-        (-0.55, 0.55),  # ΔM: magnitude offset
-        (50.0, 85.0),  # H0: Hubble constant at present
-        (110.0, 175.0),  # r_d: sound horizon at drag epoch
-        (0.2, 0.7),  # Ωm: matter density parameter at present
-        (-4.5, 4.5),  # v x 100 km/s
-    ]
-)
 
 normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
 
@@ -160,16 +159,19 @@ def log_prior(theta):
     return normalization
 
 
+z_pivot = 0.615
+
+
 @njit
 def log_likelihood(theta):
-    f0, fa = theta[0], theta[1]
-    f_cc_arr = f0 + fa * z_cc_vals / (1. + z_cc_vals)
-    if np.any(f_cc_arr <= 1e-4):
-        # ensure f_array is positive
-        return -np.inf
+    fp, n_cc = np.exp(theta[0]), theta[1]
+    fz_cc = fp * ((1.0 + z_cc_vals) / (1.0 + z_pivot)) ** n_cc
+    cov_mat_cc = np.diag(H_cc_err ** 2 * fz_cc**2) + cov_mat_sys_cc
+    cho_cc = np.linalg.cholesky(cov_mat_cc)
+    logdet_cc = 2.0 * np.sum(np.log(np.diag(cho_cc)))
+    normalization_cc = N_cc * np.log(2 * np.pi) + logdet_cc
 
-    normalization_cc = N_cc * np.log(2 * np.pi) + logdet_cc - 2.0 * np.log(f_cc_arr).sum()
-    return -0.5 * chi_squared(theta, f_cc_arr) - 0.5 * normalization_cc
+    return -0.5 * (chi_squared(theta, cho_cc) + normalization_cc)
 
 
 @njit
@@ -185,9 +187,10 @@ def log_probability(theta):
 
 
 def main():
-    import emcee
     from multiprocessing import Pool
-    from corner_plot import plot_corner_and_chains
+    import emcee
+    from getdist import plots, MCSamples
+    import matplotlib.pyplot as plt
     from sn.plotting import plot_predictions as plot_sn_predictions
     from ohd.plot_predictions import plot_cc_predictions
     from bao.plot_predictions import plot_bao_predictions
@@ -195,9 +198,9 @@ def main():
 
     np.random.seed(42)
     ndim = len(bounds)
-    nwalkers = 150
+    nwalkers = 100
     burn_in = 500
-    nsteps = 2500 + burn_in
+    nsteps = 3000 + burn_in
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
     moves = [
         (emcee.moves.KDEMove(bw_method="silverman"), 0.20),
@@ -218,53 +221,59 @@ def main():
     except emcee.autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
 
-    samples = sampler.get_chain(discard=burn_in, flat=True)
-    chains_samples = sampler.get_chain(discard=burn_in, flat=False)
-    log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
-    log_evd = log_evidence(samples, log_probs, log_probability, bounds)
+    flat_samples = sampler.get_chain(discard=burn_in, flat=True)
+    samples = sampler.get_chain(discard=burn_in, flat=False)
+    flat_log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
+    log_probs = sampler.get_log_prob(discard=burn_in, flat=False)
+    log_evd = log_evidence(flat_samples, flat_log_probs, log_probability, bounds)
 
-    [
-        (f0_16, f0_50, f0_84),
-        (fa_16, fa_50, fa_84),
-        (dM_16, dM_50, dM_84),
-        (h0_16, h0_50, h0_84),
-        (rd_16, rd_50, rd_84),
-        (Om_16, Om_50, Om_84),
-        (v_16, v_50, v_84),
-    ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
+    # reshape for getdist
+    chain_list = np.moveaxis(samples, 1, 0)
+    loglike_list = np.moveaxis(log_probs, 1, 0)
 
-    MAP_PARAMS = samples[np.argmax(log_probs)]
-    f_array = MAP_PARAMS[0] + MAP_PARAMS[1] * z_cc_vals / (1. + z_cc_vals)
+    gd_samples = MCSamples(
+        samples=chain_list,
+        loglikes=-loglike_list,
+        names=names,
+        labels=labels,
+        label='DES + DESI + CC'
+    )
+    try:
+        gd_samples.addDerived(100 * gd_samples["v100"], name="v_km_s", label="v_{km/s}")
+        gd_samples.updateBaseStatistics()
+    except Exception as e:
+        # v100 not present in the samples
+        pass
+
+    for name in gd_samples.getParamNames().names:
+        print(gd_samples.getInlineLatex(name, limit=1))
+
+    MAP_PARAMS = flat_samples[np.argmax(flat_log_probs)]
+    fz_cc = np.exp(MAP_PARAMS[0]) * ((1.0 + z_cc_vals) / (1.0 + z_pivot)) ** MAP_PARAMS[1]
+    cov_mat_cc = np.diag(H_cc_err ** 2 * fz_cc**2) + cov_mat_sys_cc
+    cho_cc = np.linalg.cholesky(cov_mat_cc)
 
     DOF = sn_sample + len(bao) + N_cc - ndim
 
-    print(f"H0: {h0_50:.1f} +{(h0_84 - h0_50):.1f} -{(h0_50 - h0_16):.1f} km/s/Mpc")
-    print(f"r_d: {rd_50:.1f} +{(rd_84 - rd_50):.1f} -{(rd_50 - rd_16):.1f} Mpc")
-    print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
-    print(f"v: {v_50:.3f} +{(v_84 - v_50):.3f} -{(v_50 - v_16):.3f} x 100 km/s")
-    print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
-    print(f"f0_cc: {f0_50:.2f} +{(f0_84 - f0_50):.2f} -{(f0_50 - f0_16):.2f}")
-    print(f"fa_cc: {fa_50:.2f} +{(fa_84 - fa_50):.2f} -{(fa_50 - fa_16):.2f}")
-    print(f"Chi squared (MAP): {chi_squared(MAP_PARAMS, f_array):.2f}")
+    print(f"Chi squared (MAP): {chi_squared(MAP_PARAMS, cho_cc):.2f}")
     print(f"Log evidence: {log_evd:.2f}")
     print(f"DOF: {DOF}")
 
     dm_grid = DM_grid(MAP_PARAMS)
 
-    labels = ["$f_{0,CCH}$", "$f_{a,CCH}$", "ΔM", "$H_0$", "$r_d$", "$Ω_m$", "$v_{100}$"]
-    plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
     plot_bao_predictions(
-        theory_predictions=lambda z, qty: bao_theory(z, qty, rd_50, dm_grid),
+        theory_predictions=lambda z, qty: bao_theory(z, qty, MAP_PARAMS[4], dm_grid),
         data=bao,
         errors=np.sqrt(np.diag(cov_matrix_bao)),
-        title=f"{bao_legend}: $r_d$={rd_50:.1f} Mpc",
+        title=f"{bao_legend}: $r_d$={MAP_PARAMS[4]:.1f} Mpc",
     )
     plot_cc_predictions(
         H_z=lambda z: H_z(z, MAP_PARAMS),
         z=z_cc_vals,
         H=H_cc_vals,
-        H_err=np.sqrt(np.diag(cov_matrix_cc)) / f_array,
-        label=f"{cc_legend} $H_0$: {h0_50:.1f} km/s/Mpc",
+        H_err=H_cc_err,
+        label=f"{cc_legend} $H_0$: {MAP_PARAMS[3]:.1f} km/s/Mpc",
+        err_scaling=1 / fz_cc,
     )
     plot_sn_predictions(
         legend=sn_legend,
@@ -272,24 +281,31 @@ def main():
         y=mu_values - mu_corr(MAP_PARAMS, dm_grid),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=mu_theory(MAP_PARAMS, DM_z(z_cmb, dm_grid)),
-        label=f"$Ω_m$={Om_50:.3f}",
+        label=f"$Ω_m$={MAP_PARAMS[5]:.3f}",
         x_scale="log",
     )
-
+    plots.get_subplot_plotter().triangle_plot(
+        roots=gd_samples,
+        params=names,
+        title_limit=1,
+        contour_colors=["C0"],
+        filled=True,
+    )
+    plt.show()
 
 if __name__ == "__main__":
     main()
 
 
 # ----------- Flat ΛCDM -----------
-# H0: 68.1 +1.8 -1.8 km/s/Mpc
-# r_d: 147.9 +4.0 -3.8 Mpc
-# Ωm: 0.308 +0.007 -0.007
-# ΔM: -0.067 +0.056 -0.058 mag
-# f0_cc: 2.97 +0.57 -0.55
-# fa_cc: -3.31 +1.13 -1.14
-# Chi squared (MAP): 1684.88
-# Log evidence: -991.63
+# H0 = 67.3 ± 2.9 km/s/Mpc
+# rd = 149.9 +5.8 -6.5 Mpc
+# Ωm = 0.3077 ± 0.0068
+# ln(fp_cc) = -0.50 +0.11 -0.13
+# n_cc = 1.38 ± 0.47
+# ΔM = -0.094 ± 0.093 mag
+# Chi squared (MAP): 1685.78
+# Log evidence: -990.86
 # DOF: 1761
 # ---------------------------------
 
@@ -299,29 +315,29 @@ if __name__ == "__main__":
 # turning point z <= 0.10563 inflow z > 0.10563 outflow
 # z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-# H0: 68.2 +1.8 -1.8 km/s/Mpc
-# r_d: 148.2 +4.0 -3.9 Mpc
-# Ωm: 0.302 +0.007 -0.007
-# v: -1.53 +0.56 -0.57 x 100 km/s (prior ~ U[-4.5, 4.5])
-# ΔM: -0.068 +0.057 -0.057 mag
-# f0_cc: 2.99 +0.57 -0.55
-# fa_cc: -3.36 +1.13 -1.14
-# Chi squared (MAP): 1680.21 (2.16 sigma significance)
-# Log evidence: -989.80 (Δ logZ = 1.83 in favour of v step corrections)
+# H0 = 67.6 ± 2.8 km/s/Mpc
+# rd = 149.8 +5.6 -6.6 Mpc
+# Ωm = 0.3027 ± 0.0070
+# v = -152 ± 56 km/s (prior ~ U[-450, 450])
+# ln(fp_cc) = -0.50 +0.11 -0.13
+# n_cc = 1.39 ± 0.47
+# ΔM = -0.089 ± 0.090 mag
+# Chi squared (MAP): 1677.51 (2.88 sigma)
+# Log evidence: -989.03
 # DOF: 1760
 # ---------------------------------
 
 
 # ----------- Flat wCDM -----------
-# H0: 67.5 +1.8 -1.8 km/s/Mpc
-# r_d: 147.8 +4.1 -3.9 Mpc
-# Ωm: 0.304 +0.007 -0.007
-# w0: -0.937 +0.035 -0.035 (prior ~ U[-1.5, -0.5])
-# ΔM: -0.071 +0.057 -0.059 mag
-# f0_cc: 2.94 +0.56 -0.55
-# fa_cc: -3.26 +1.13 -1.12
-# Chi squared (MAP): 1682.41 (1.57 sigma away from ΛCDM)
-# Log evidence: -992.44 (Δ logZ = -0.81 in favour of ΛCDM)
+# H0 = 66.5 ± 2.8 km/s/Mpc
+# rd = 150.2 +5.6 -6.7 Mpc
+# Ωm = 0.3040 ± 0.0073
+# w0 = -0.937 ± 0.035 (prior ~ U[-1.5, -0.5])
+# ln(f_p) = -0.49 +0.11 -0.13
+# n_cc = 1.37 ± 0.47
+# ΔM = -0.103 ± 0.091 mag
+# Chi squared (MAP): 1683.69 (1.44 sigma)
+# Log evidence: -991.66
 # DOF: 1760
 # ---------------------------------
 
@@ -329,34 +345,52 @@ if __name__ == "__main__":
 # ----------- Flat wzCDM ----------
 # w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
 #
-# H0: 67.2 +1.8 -1.8 km/s/Mpc
-# r_d: 148.0 +4.1 -3.8 Mpc
-# Ωm: 0.309 +0.007 -0.007
-# w0: -0.889 +0.048 -0.049 (prior ~ U[-1, -1/3])
-# wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
-# ΔM: -0.073 +0.057 -0.059 mag
-# f0_cc: 2.96 +0.55 -0.55
-# fa_cc: -3.30 +1.14 -1.11
-# Chi squared (MAP): 1682.34 (1.59 sigma away from ΛCDM)
-# Log evidence: -990.96 (Δ logZ = 0.67 in favour of wzCDM)
+# H0 = 66.2 ± 2.9 km/s/Mpc
+# rd = 150.5 +5.7 -6.8 Mpc
+# Ωm = 0.3089 ± 0.0069
+# w0 = -0.889 ± 0.048 (prior ~ U[-1, -1/3])
+# ln(fp_cc) = -0.49 +0.11 -0.13
+# n_cc = 1.39 ± 0.47
+# ΔM = -0.106 ± 0.092 mag
+# Chi squared (MAP): 1680.41 (2.32 sigma)
+# Log evidence: -990.61
 # DOF: 1760
 # ---------------------------------
 
 
 # ---------- Flat w0waCDM ---------
-# TODO: re-run after CCH updates
-#
 # w0 + wa < 0 enforced in the likelihood
-# 
-# w0: -0.845 +0.073 -0.070 (prior ~ U[-1.5, 0])
-# wa: -0.654 +0.438 -0.434 (prior ~ U[-3, 2])
-# H0: 67.4 +2.2 -2.2 km/s/Mpc
-# r_d: 147.2 +4.9 -4.5 Mpc
-# Ωm: 0.321 +0.011 -0.012
-# ΔM: -0.06 +0.07 -0.07 mag
-# f0_cc: 1.49 +0.17 -0.17
-# fa_cc: -0.80 +0.18 -0.17
-# Chi squared: 1677.85 (2.07 sigma away from ΛCDM)
-# Log evidence: -989.61 (Δ logZ = -1.5 in favour of ΛCDM)
+#
+# H0 = 66.2 ± 2.8 km/s/Mpc
+# rd = 150.3 ± 6.3 Mpc
+# Ωm = 0.321 +0.013 -0.0093
+# w0 = -0.835 ± 0.073 (prior ~ U[-1.5, 0])
+# wa = -0.72 ± 0.45 (prior ~ U[-3, 2])
+# ln(fp_cc) = -0.49 +0.11 -0.13
+# n_cc = 1.42 ± 0.48
+# ΔM = -0.099 ± 0.091 mag
+# Chi squared (MAP): 1677.47 (2.15 sigma)
+# Log evidence: -992.23
 # DOF: 1759
+# ---------------------------------
+
+
+# ---------- Flat w0waCDM ---------
+# w0 + wa < 0 enforced in the likelihood
+# Velocity step correction in SNe observed redshifts
+# turning point z <= 0.10563 inflow z > 0.10563 outflow
+# z_cosmo = -1 + (1 + z) / (1 + v/c)
+#
+# H0 = 67.2 ± 3.0 km/s/Mpc
+# rd = 150.1 +5.7 -6.8 Mpc
+# Ωm = 0.303 +0.026 -0.013
+# w0 = -0.949 +0.089 -0.130
+# wa = -0.17 ± 0.62
+# v = -122 ± 98 km/s
+# ln(fp_cc) = -0.50 +0.11 -0.13
+# n_cc = 1.40 ± 0.47
+# ΔM = -0.093 +0.096 -0.087 mag
+# Chi squared (MAP): 1679.09
+# Log evidence: -992.76
+# DOF: 1758
 # ---------------------------------
