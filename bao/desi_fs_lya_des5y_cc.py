@@ -199,7 +199,7 @@ def main():
     np.random.seed(42)
     ndim = len(bounds)
     nwalkers = 100
-    burn_in = 500
+    burn_in = 1000
     nsteps = 3000 + burn_in
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
     moves = [
@@ -376,6 +376,24 @@ if __name__ == "__main__":
 
 
 # ---------- Flat w0waCDM ---------
+# at z_pivot = 0.168
+# w0 + wa < 0 enforced in the likelihood
+
+# ln(fp_cc) = -0.49 +0.11 -0.13
+# n_cc = 1.43 ± 0.48
+# ΔM = -0.0996 ± 0.0900 mag
+# H0 = 66.2 ± 2.8 km/s/Mpc
+# rd = 150.4 +5.8 -6.5 Mpc
+# Ωm = 0.321 +0.012 -0.0094
+# wp = -0.939 ± 0.035 (prior ~ U[-1.5, 0]) => 1.74 sigma from -1
+# wa = -0.73 ± 0.44 (prior ~ U[-3, 2]) => 1.66 sigma from 0
+# Chi squared (MAP): 1679.75
+# Log evidence: -992.22
+# DOF: 1759
+# ---------------------------------
+
+
+# ---------- Flat w0waCDM ---------
 # w0 + wa < 0 enforced in the likelihood
 # Velocity step correction in SNe observed redshifts
 # turning point z <= 0.10563 inflow z > 0.10563 outflow
@@ -384,8 +402,8 @@ if __name__ == "__main__":
 # H0 = 67.2 ± 3.0 km/s/Mpc
 # rd = 150.1 +5.7 -6.8 Mpc
 # Ωm = 0.303 +0.026 -0.013
-# w0 = -0.949 +0.089 -0.130
-# wa = -0.17 ± 0.62
+# w0 = -0.949 +0.089 -0.130 (prior ~ U[-1.5, 0])
+# wa = -0.17 ± 0.62 (prior ~ U[-3, 2])
 # v = -122 ± 98 km/s
 # ln(fp_cc) = -0.50 +0.11 -0.13
 # n_cc = 1.40 ± 0.47
