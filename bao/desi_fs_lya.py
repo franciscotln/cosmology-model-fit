@@ -127,7 +127,7 @@ def main():
     gd_samples = MCSamples(
         samples=samples,
         weights=weights,
-        loglikes=log_l,
+        loglikes=-log_l,
         names=prior.keys,
         labels=labels,
         label="BAO + FS Lyman-alpha",
@@ -185,7 +185,7 @@ if __name__ == "__main__":
 # -------------------------------------------
 
 # --------------- Flat wCDM -----------------
-# h * rd: 100.5 +1.7 -1.7 Mpc
+# h * rd: 100.5 +- 1.7 Mpc
 # Ωm: 0.3022 +- 0.0081
 # w0: -0.967 +- 0.074 (prior ~U(-1.4, -0.4))
 # χ2: 12.60
@@ -212,7 +212,7 @@ if __name__ == "__main__":
 # -------------- Flat w0waCDM ---------------
 # Full wa posterior distribution
 # h * rd: 90.3 +3.9 -4.8 Mpc
-# Ωm: 0.403 +0.045 -0.045
+# Ωm: 0.403 +- 0.045
 # w0: -0.04 +- 0.43 (prior ~U(-2.5, 2.5))
 # wa: -3.3 +- 1.5 (prior ~U(-10, 4))
 # χ2: 7.22
