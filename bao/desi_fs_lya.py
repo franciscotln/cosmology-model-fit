@@ -17,15 +17,16 @@ dz = z_grid[1] - z_grid[0]
 
 @njit
 def ode_z(z, w0):
+    # thawing quintessence
     cubed = (1.0 + z) ** 3
     return (2 * cubed / (1.0 + w0 + (1.0 - w0) * cubed)) ** 2
 
 
 @njit
 def h_z(z, params):
-    h, o_m, w0 = params
+    h, o_m = params
     o_l = 1.0 - o_m
-    return 100 * h * np.sqrt(o_m * (1.0 + z) ** 3 + o_l * ode_z(z, w0))
+    return 100 * h * np.sqrt(o_m * (1.0 + z) ** 3 + o_l)
 
 
 @njit
@@ -102,7 +103,6 @@ def main():
     prior = Prior()
     prior.add_parameter("h", dist=(0.5, 0.8))
     prior.add_parameter("om", dist=(0.1, 0.8))
-    prior.add_parameter("w0", dist=(-1.0, 0.0))
 
     with Pool(6) as pool:
         sampler = Sampler(
@@ -123,7 +123,7 @@ def main():
     r2 = 1 - ss_res / ss_tot
     chi2 = chi_squared(best_fit)
 
-    labels=["h", "Ω_m", "w_0"]
+    labels=["h", "Ω_m"]
     gd_samples = MCSamples(
         samples=samples,
         weights=weights,
@@ -147,7 +147,7 @@ def main():
 
     plots.getSubplotPlotter().triangle_plot(
         gd_samples,
-        params=['hrd', 'om', 'w0'],
+        params=['hrd', 'om'],
         filled=True,
         title_limit=1,
         contour_colors=["C0"],
@@ -173,8 +173,8 @@ if __name__ == "__main__":
 # *******************************************
 
 # --------------- Flat ΛCDM -----------------
-# h * rd: 101.17 +0.67 -0.67
-# Ωm: 0.3017 +0.0077 -0.0077
+# h * rd: 101.18 +- 0.67 Mpc
+# Ωm: 0.3016 +- 0.0077
 # χ2: 12.81
 # DOF: 12
 # χ2/dof: 1.07
@@ -184,9 +184,9 @@ if __name__ == "__main__":
 # -------------------------------------------
 
 # --------------- Flat wCDM -----------------
-# h * rd: 100.5 +1.7 -1.7
-# Ωm: 0.3022 +0.0081 -0.0081
-# w0: -0.967 +0.074 -0.074 (prior ~U(-1.4, -0.4))
+# h * rd: 100.5 +1.7 -1.7 Mpc
+# Ωm: 0.3022 +- 0.0081
+# w0: -0.967 +- 0.074 (prior ~U(-1.4, -0.4))
 # χ2: 12.60
 # DOF: 11
 # χ2/dof: 1.15
@@ -197,7 +197,7 @@ if __name__ == "__main__":
 
 # --------------- Flat wzCDM ----------------
 # w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
-# h * rd: 98.3 +2.2 -1.5
+# h * rd: 98.3 +2.2 -1.5 Mpc
 # Ωm: 0.315 +0.010 -0.012
 # w0: -0.823 +0.065 -0.15 (prior ~U(-1, 0)) - left side truncated
 # χ2: 12.08
@@ -210,10 +210,10 @@ if __name__ == "__main__":
 
 # -------------- Flat w0waCDM ---------------
 # Full wa posterior distribution
-# h * rd: 90.3 +3.9 -4.8
+# h * rd: 90.3 +3.9 -4.8 Mpc
 # Ωm: 0.403 +0.045 -0.045
-# w0: -0.04 +0.43 -0.43 (prior ~U(-2.5, 2.5))
-# wa: -3.3 +1.5 -1.5 (prior ~U(-10, 4))
+# w0: -0.04 +- 0.43 (prior ~U(-2.5, 2.5))
+# wa: -3.3 +- 1.5 (prior ~U(-10, 4))
 # χ2: 7.22
 # DOF: 10
 # χ2/dof: 0.72
@@ -222,7 +222,7 @@ if __name__ == "__main__":
 # RMSD: 0.195
 
 # Truncated wa posterior distribution
-# h * rd: 94.1 +2.0 -3.6
+# h * rd: 94.1 +2.0 -3.6 Mpc
 # Ωm: 0.363 +0.033 -0.016
 # w0: -0.43 +0.30 -0.14 (prior ~U(-3, 1))
 # wa: < -1.95 (prior ~U(-3, 2)) - left side truncated
