@@ -160,7 +160,7 @@ def main():
     gd_samples = MCSamples(
         samples=samples,
         weights=weights,
-        loglikes=log_l,
+        loglikes=-log_l,
         names=prior.keys,
         labels=labels,
     )
