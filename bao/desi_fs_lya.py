@@ -147,7 +147,7 @@ def main():
 
     plots.getSubplotPlotter().triangle_plot(
         gd_samples,
-        params=['hrd', 'om'],
+        params=["hrd", "om"],
         filled=True,
         title_limit=1,
         contour_colors=["C0"],
@@ -175,6 +175,7 @@ if __name__ == "__main__":
 # --------------- Flat ΛCDM -----------------
 # h * rd: 101.18 +- 0.67 Mpc
 # Ωm: 0.3016 +- 0.0077
+# h * rd * (Ωm / 0.3)^0.4 = 101.38 +- 0.51
 # χ2: 12.81
 # DOF: 12
 # χ2/dof: 1.07
