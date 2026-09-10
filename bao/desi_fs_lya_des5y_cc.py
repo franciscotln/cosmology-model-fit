@@ -379,14 +379,14 @@ if __name__ == "__main__":
 # at z_pivot = 0.168
 # w0 + wa < 0 enforced in the likelihood
 
-# ln(fp_cc) = -0.49 +0.11 -0.13
-# n_cc = 1.43 ± 0.48
-# ΔM = -0.0996 ± 0.0900 mag
 # H0 = 66.2 ± 2.8 km/s/Mpc
 # rd = 150.4 +5.8 -6.5 Mpc
 # Ωm = 0.321 +0.012 -0.0094
 # wp = -0.939 ± 0.035 (prior ~ U[-1.5, 0]) => 1.74 sigma from -1
 # wa = -0.73 ± 0.44 (prior ~ U[-3, 2]) => 1.66 sigma from 0
+# ln(fp_cc) = -0.49 +0.11 -0.13
+# n_cc = 1.43 ± 0.48
+# ΔM = -0.0996 ± 0.0900 mag
 # Chi squared (MAP): 1679.75
 # Log evidence: -992.22
 # DOF: 1759
