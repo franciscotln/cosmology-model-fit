@@ -92,25 +92,16 @@ def main():
         initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#ff5a00"}
     )
 
-    try:
-        tau = sampler.get_autocorr_time()
-        effective_samples = np.floor(ndim * nwalkers * (nsteps - burn_in) / np.max(tau))
-        print("auto-correlation time", tau)
-        print(f"avg acceptance fraction {np.mean(sampler.acceptance_fraction):.3f}")
-        print(f"effective samples {effective_samples:.0f}")
-    except emcee.autocorr.AutocorrError as e:
-        print("autocorrelation time could not be computed", e)
-
     samples_list = sampler.get_chain(discard=burn_in, flat=False)
     blobs_list = sampler.get_blobs(discard=burn_in, flat=False)
-    chain_list = np.concatenate([samples_list, blobs_list], axis=2).swapaxes(0, 1)
-    loglikes_list = -1.0 * sampler.get_log_prob(discard=burn_in, flat=False).T
+    chain_list = np.moveaxis(np.concatenate([samples_list, blobs_list], axis=2), 1, 0)
+    loglikes_list = np.moveaxis(sampler.get_log_prob(discard=burn_in, flat=False), 1, 0)
 
     names = ["H0", "ombh2", "omch2", "thetastar", "rstar", "DAstar", "zstar"]
     labels = ["H_0", "ω_b", "ω_c", "100θ_*", "r_*", r"D_{\rm{M_*}}/{\rm{Gpc}}", "z_*"]
     samples = MCSamples(
         samples=chain_list,
-        loglikes=loglikes_list,
+        loglikes=-loglikes_list,
         names=names,
         labels=labels,
         label="CMB Compressed likelihood",
@@ -138,6 +129,9 @@ def main():
     )
     samples.updateBaseStatistics()
 
+    for name in samples.getParamNames().names:
+        print(samples.getInlineLatex(name, limit=1))
+
     g = plots.getSubplotPlotter()
     params = ["thetastar", "H0", "omegam", "DAstar", "rstar", "zstar", "zdrag", "rdrag"]
     g.triangle_plot(
@@ -160,91 +154,100 @@ def main():
 if __name__ == "__main__":
     main()
 
-"""
-Flat ΛCDM w(z) = -1 
 
-*******************************
+# Model: flat ΛCDM
 
-plikHM TT, TE, EE + lowl + lowE compression (Planck 2019 - PR3)
-H0: 67.26 ± 0.60 km/s/Mpc
-ωc: 0.1202 ± 0.0014
-ωb: 0.02236 ± 0.00015
-ωm: 0.1432 ± 0.0013
-Ωm: 0.3167 ± 0.0084
-z_eq: 3407 ± 31
-z*: 1089.95 ± 0.27
-r*: 144.39 ± 0.30 Mpc
-100 θ*: 1.04109 ± 0.00030
-DM*: 13.869 ± 0.028 Gpc
-z_drag: 1059.93 ± 0.30
-r_d: 147.05 ± 0.30 Mpc
-Chi squared: 0.0015
 
-===============================
+# -----------------------------
+# plikHM TT, TE, EE + lowl + lowE compression (Planck 2019 - PR3)
+# -----------------------------
+# H0: 67.26 ± 0.60 km/s/Mpc
+# ωc: 0.1202 ± 0.0014
+# ωb: 0.02236 ± 0.00015
+# ωm: 0.1432 ± 0.0013
+# Ωm: 0.3167 ± 0.0084
+# z_eq: 3407 ± 31
+# z*: 1089.95 ± 0.27
+# r*: 144.39 ± 0.30 Mpc
+# 100 θ*: 1.04109 ± 0.00030
+# DM*: 13.869 ± 0.028 Gpc
+# z_drag: 1059.93 ± 0.30
+# r_d: 147.05 ± 0.30 Mpc
+# Chi squared: 0.0015
+# -----------------------------
 
-plikHM TT, TE, EE + lowl + lowE + Lensing compression (Planck 2019 - PR3)
-H0: 67.35 ± 0.54 km/s/Mpc
-ωc: 0.1200 ± 0.0012
-ωb: 0.02237 ± 0.00015
-ωm: 0.1430 ± 0.0011
-Ωm: 0.3154 ± 0.0073
-z_eq: 3402 ± 27
-z*: 1089.92 ± 0.25
-r*: 144.43 ± 0.26 Mpc
-100 θ*: 1.04110 ± 0.00031
-DM*: 13.873 ± 0.025 Gpc
-z_drag: 1059.94 ± 0.30
-r_d: 147.09 ± 0.26 Mpc
-Chi squared: 0.0001
 
-===============================
+# -----------------------------
+# plikHM TT, TE, EE + lowl + lowE + Lensing compression (Planck 2019 - PR3)
+# -----------------------------
+# H0: 67.35 ± 0.54 km/s/Mpc
+# ωc: 0.1200 ± 0.0012
+# ωb: 0.02237 ± 0.00015
+# ωm: 0.1430 ± 0.0011
+# Ωm: 0.3154 ± 0.0073
+# z_eq: 3402 ± 27
+# z*: 1089.92 ± 0.25
+# r*: 144.43 ± 0.26 Mpc
+# 100 θ*: 1.04110 ± 0.00031
+# DM*: 13.873 ± 0.025 Gpc
+# z_drag: 1059.94 ± 0.30
+# r_d: 147.09 ± 0.26 Mpc
+# Chi squared: 0.0001
+# -----------------------------
 
-Early ΛCDM (arXiv:2302.12911v2)
-H0: 67.48 ± 0.58 km/s/Mpc
-ωc: 0.1192 ± 0.0013
-ωb: 0.02223 ± 0.00015
-ωm: 0.1421 ± 0.0012
-Ωm: 0.3122 ± 0.0080
-z_eq: 3380 ± 29
-z*: 1090.13 ± 0.27
-r*: 144.75 ± 0.28 Mpc
-100 θ*: 1.04103 ± 0.00026
-DM*: 13.904 ± 0.026 Gpc
-z_drag: 1059.65 ± 0.29
-r_d: 147.46 ± 0.28 Mpc
-Chi squared: 0.0001
 
-===============================
+# -----------------------------
+# Early ΛCDM (arXiv:2302.12911v2)
+# -----------------------------
+# H0: 67.48 ± 0.58 km/s/Mpc
+# ωc: 0.1192 ± 0.0013
+# ωb: 0.02223 ± 0.00015
+# ωm: 0.1421 ± 0.0012
+# Ωm: 0.3122 ± 0.0080
+# z_eq: 3380 ± 29
+# z*: 1090.13 ± 0.27
+# r*: 144.75 ± 0.28 Mpc
+# 100 θ*: 1.04103 ± 0.00026
+# DM*: 13.904 ± 0.026 Gpc
+# z_drag: 1059.65 ± 0.29
+# r_d: 147.46 ± 0.28 Mpc
+# Chi squared: 0.0001
+# -----------------------------
 
-ACT DR6 compression
-H0: 66.10 ± 0.79 km/s/Mpc
-ωc: 0.1238 ± 0.0021
-ωb: 0.02259 ± 0.00017
-ωm: 0.1471 ± 0.0021
-Ωm: 0.337 ± 0.013
-z_eq: 3500 ± 51
-z*: 1089.96 ± 0.30
-r*: 143.31 ± 0.54 Mpc
-100 θ*: 1.04075 ± 0.00031
-DM*: 13.770 ± 0.050 Gpc
-z_drag: 1060.72 ± 0.39
-r_d: 145.87 ± 0.56 Mpc
-Chi squared: 0.0003
 
-===============================
+# -----------------------------
+# ACT DR6 compression
+# -----------------------------
+# H0: 66.10 ± 0.79 km/s/Mpc
+# ωc: 0.1238 ± 0.0021
+# ωb: 0.02259 ± 0.00017
+# ωm: 0.1471 ± 0.0021
+# Ωm: 0.337 ± 0.013
+# z_eq: 3500 ± 51
+# z*: 1089.96 ± 0.30
+# r*: 143.31 ± 0.54 Mpc
+# 100 θ*: 1.04075 ± 0.00031
+# DM*: 13.770 ± 0.050 Gpc
+# z_drag: 1060.72 ± 0.39
+# r_d: 145.87 ± 0.56 Mpc
+# Chi squared: 0.0003
+# -----------------------------
 
-ACT DR6 + Planck compression
-H0: 67.61 ± 0.50 km/s/Mpc
-ωc: 0.1193 ± 0.0012
-ωb: 0.02250 ± 0.00011
-ωm: 0.1425 ± 0.0012
-Ωm: 0.3117 ± 0.0071
-z_eq: 3390 ± 28
-z*: 1089.68 ± 0.21
-r*: 144.52 ± 0.29 Mpc
-100 θ*: 1.04094 ± 0.00025
-DM*: 13.884 ± 0.027 Gpc
-z_drag: 1060.17 ± 0.23
-r_d: 147.14 ± 0.29 Mpc
-Chi squared: 0.0011
-"""
+
+# -----------------------------
+# ACT DR6 + Planck compression
+# -----------------------------
+# H0: 67.61 ± 0.50 km/s/Mpc
+# ωc: 0.1193 ± 0.0012
+# ωb: 0.02250 ± 0.00011
+# ωm: 0.1425 ± 0.0012
+# Ωm: 0.3117 ± 0.0071
+# z_eq: 3390 ± 28
+# z*: 1089.68 ± 0.21
+# r*: 144.52 ± 0.29 Mpc
+# 100 θ*: 1.04094 ± 0.00025
+# DM*: 13.884 ± 0.027 Gpc
+# z_drag: 1060.17 ± 0.23
+# r_d: 147.14 ± 0.29 Mpc
+# Chi squared: 0.0011
+# -----------------------------
