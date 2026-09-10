@@ -165,7 +165,7 @@ def main():
     gd_samples = MCSamples(
         samples=samples,
         weights=np.exp(log_w),
-        loglikes=log_l,
+        loglikes=-log_l,
         names=prior.keys,
         labels=["H_0", "ω_b", "ω_c", "w_0", "w_a"],
     )
@@ -189,13 +189,13 @@ def main():
     )
     plt.show()
 
-    for par in gd_samples.getParamNames().names:
-        print(f"{par}: {gd_samples.mean(par):.5f} ± {gd_samples.std(par):.5f}")
+    for name in gd_samples.getParamNames().names:
+        print(gd_samples.getInlineLatex(name, limit=1))
 
-    best_fit = gd_samples.mean(prior.keys)
+    best_fit = samples[np.argmax(log_l)]
     DOF = len(bao) + len(cmb.DISTANCE_PRIORS) - len(best_fit)
 
-    print(f"χ2 (MAP): {chi_squared(samples[np.argmax(log_l)]):.2f}")
+    print(f"χ2 (MAP): {chi_squared(best_fit):.2f}")
     print(f"Log evidence: {sampler.log_z:.1f}")
     print(f"DOF: {DOF}")
 
