@@ -87,8 +87,8 @@ def bao_theory(z, qty, rd, dm_grid):
 @njit
 def get_z_cosmo(params):
     # Heaviside step at z = 0.2
-    v_km_s = 100 * params[6] * np.where(z_cmb <= 0.2, 1, -1)
-    return -1.0 + (1.0 + z_cmb) / (1.0 + v_km_s / c)
+    z_offset = 1e-03 * params[6] * np.where(z_cmb <= 0.2, 1, -1)
+    return z_cmb + z_offset
 
 
 def mu_corr(params, dm_grid, z_obs):
@@ -177,8 +177,8 @@ def main():
     prior.add_parameter("rd", dist=(100, 200))
     # Ωm: matter density parameter today
     prior.add_parameter("Om", dist=(0.2, 0.50))
-    # v: velocity step correction observed redshift SNe
-    prior.add_parameter("v", dist=(-8.5, 8.5))
+    # dz_1000: (1000 x Δz) redshift offset step correction
+    prior.add_parameter("dz_1000", dist=(-3.5, 3.5))
 
     with Pool(6) as pool:
         sampler = Sampler(prior, log_likelihood, n_live=5_000, pool=pool, seed=42, pass_dict=False)
@@ -187,13 +187,13 @@ def main():
     samples, log_w, log_l = sampler.posterior()
     w = np.exp(log_w)
 
-    labels=["ln(f_{pivot})", "n", "ΔM", "H_0", "r_{drag}", "Ω_m", "v_{100}"]
+    labels=["ln(f_{pivot})", "n", "ΔM", "H_0", "r_{drag}", "Ω_m", "1000 Δz"]
     gd_samples = MCSamples(
         samples=samples,
         weights=w,
         names=prior.keys,
         labels=labels,
-        loglikes=log_l,
+        loglikes=-log_l,
     )
     gd_samples.addDerived(gd_samples["Om"] * (gd_samples["H0"] / 100) ** 2, name="Omh2", label="Ω_m h^2")
     gd_samples.addDerived(np.exp(gd_samples["ln_fp_cc"]), name="fp_cc", label="f_{pivot}")
@@ -215,7 +215,7 @@ def main():
 
     plots.get_subplot_plotter().triangle_plot(
         roots=gd_samples,
-        params=["H0", "Om", "rd", "v", "ln_fp_cc", "n_cc"],
+        params=["H0", "Om", "rd", "dz_1000", "ln_fp_cc", "n_cc"],
         title_limit=1,
         color=["C0"],
         contour_colors=["C0"],
@@ -280,8 +280,8 @@ if __name__ == "__main__":
 # wa:       U[-5, 3]
 # Enforced w0 + wa < 0, forbidden prior region removed in evidence calculation.
 
-# Velocity step correction in observed redshift SNe:
-# v:        U[-8.5, 8.5] x 100 km/s
+# Redshift offset step correction for SNe:
+# dz_1000:  U[-3.5, 3.5] (1000 x Δz)
 # -------------------------------------------
 
 
@@ -302,22 +302,22 @@ if __name__ == "__main__":
 
 
 # --------------- Flat ΛCDM -----------------
-# Velocity step correction SNe redshift
-# turning point z <= 0.2 inflow z > 0.2 outflow
-# z_cosmo = -1 + (1 + z) / (1 + v/c)
+# Redshift offset step correction for SNe observed redshifts
+# turning point z <= 0.2 positive z > 0.2 negative
+# z_cosmo = z_cmb ± Δz
 
 # H0 = 67.7 ± 2.8 km/s/Mpc
-# rd = 149.8 +5.7 -6.6 Mpc
-# Ωm = 0.3014 ± 0.0073
+# rd = 149.8 +5.7 -6.7 Mpc
+# Ωm = 0.3015 ± 0.0073
 # Ωm h^2 = 0.138 ± 0.012
-# v = -3.0 ± 1.1 x 100 km/s
-# ΔM = -0.077 ± 0.091 mag
-# ln(fp) = -0.50 +0.11 -0.12
-# fp = 0.611 +0.057 -0.082
+# 1000 Δz = 1.13 ± 0.40 (prior ~ U[-3.5, 3.5])
+# ΔM = -0.078 ± 0.091 mag
+# ln(fp) = -0.50 +0.11 -0.13
+# fp = 0.611 +0.057 -0.083
 # n_cc = 1.40 ± 0.47
-# Chi squared (MAP): 71.51
-# log likelihood (MAP): -167.39
-# Log evidence: -187.25 (Δ logZ = 2.25 in favour of velocity step correction)
+# Chi squared (MAP): 72.18
+# log likelihood (MAP): -167.41
+# Log evidence: -187.37 (Δ logZ = 2.13 in favour of redshift offset step correction)
 # DOF: 68
 # -------------------------------------------
 

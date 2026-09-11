@@ -122,15 +122,15 @@ def chi2_bao(params, DM_interp):
 
 
 @njit
-def get_z_cosmo(v100):
+def get_z_cosmo(dz_1000):
     # Heaviside step at z = 0.2
-    v_km_s = 100 * v100 * np.where(z_cmb <= 0.2, 1, -1)
-    return -1.0 + (1.0 + z_cmb) / (1.0 + v_km_s / c)
+    z_offset = 1e-03 * dz_1000 * np.where(z_cmb <= 0.2, 1, -1)
+    return z_cmb + z_offset
 
 
-def mu_corr(v100, DM_interp):
+def mu_corr(dz_1000, DM_interp):
     # For plotting purposes only
-    z_cosmo = get_z_cosmo(v100)
+    z_cosmo = get_z_cosmo(dz_1000)
 
     DM_obs = interp_hermite(z_cmb, z_grid, *DM_interp)
     DM_cosmo = interp_hermite(z_cosmo, z_grid, *DM_interp)
@@ -181,7 +181,7 @@ def main():
     prior.add_parameter("H0", dist=(60, 75))  # km/s/Mpc
     prior.add_parameter("obh2", dist=(0.01, 0.03))
     prior.add_parameter("och2", dist=(0.01, 0.25))
-    prior.add_parameter("v", dist=(-8, 8))  # x 100 km/s
+    prior.add_parameter("dz_1000", dist=(-3.5, 3.5))  # 1000 x Δz
 
     with Pool(6) as pool:
         sampler = Sampler(
@@ -196,10 +196,7 @@ def main():
         weights=np.exp(log_w),
         loglikes=log_l,
         names=prior.keys,
-        labels=["ΔM", "H_0", "ω_b", "ω_c", "v_{100}"],
-    )
-    gd_samples.addDerived(
-        100 * gd_samples["v"], name="v_km_s", label="v_{km/s}"
+        labels=["ΔM", "H_0", "ω_b", "ω_c", "1000 Δz"],
     )
     gd_samples.addDerived(
         gd_samples["obh2"] + gd_samples["och2"] + Omnuh2, name="omh2", label="ω_m"
@@ -221,7 +218,7 @@ def main():
         label="r_{drag}",
     )
 
-    best_fit = gd_samples.mean(prior.keys)
+    best_fit = samples[np.argmax(log_l)]
     DOF = len(z_cmb) + len(bao) + len(cmb.DISTANCE_PRIORS) - len(best_fit)
 
     for name in gd_samples.getParamNames().names:
@@ -233,7 +230,10 @@ def main():
     print(f"DOF: {DOF}")
 
     plots.get_subplot_plotter().triangle_plot(
-        gd_samples, params=["H0", "om", "omh2", "v_km_s"], title_limit=1, contour_colors=["C0"]
+        gd_samples,
+        params=["H0", "om", "omh2", "dz_1000"],
+        title_limit=1,
+        contour_colors=["C0"],
     )
     plt.show()
 
@@ -287,24 +287,22 @@ if __name__ == "__main__":
 
 # ----------- Flat ΛCDM -----------
 # Flat ΛCDM w(z) = -1
-# Velocity step correction SNe observed redshifts
-# (turning point z <= 0.2 inflow z > 0.2 outflow)
-# z_cosmo = -1 + (1 + z) / (1 + v/c)
-# 
-# v: -304 ± 100 (prior U[-800, 800]) km/s
-# v / (z_turn=0.2): -1520 ± 500 km/s
-
-# ΔM: -0.0519 ± 0.0069 mag
+# Z offset step correction SNe observed redshifts
+# (turning point z <= 0.2 positive z > 0.2 negative)
+# z_cosmo = z_cmb ± Δz
+#
+# 1000 Δz: 1.14 ± 0.39 (prior U[-3.5, 3.5])
+# ΔM: -0.0531 ± 0.0069 mag
 # H0: 68.42 ± 0.27 km/s/Mpc
 # Ωm: 0.3003 ± 0.0035
 # ωb: 0.02257 ± 0.00010
 # ωc: 0.11738 ± 0.00064
 # ωm: 0.14060 ± 0.00063
-# z*: 1089.40 ± 0.15
+# z*: 1089.41 ± 0.15
 # z_d: 1060.20 ± 0.23
 # r_d: 147.57 ± 0.19 Mpc
-# χ2 (MAP): 39.70 (2.92 sigma significance)
-# Log evidence: -40.7 (Δ logZ = 2.4 in favour of step correction)
+# χ2 (MAP): 39.75 (2.90 sigma significance)
+# Log evidence: -40.8 (Δ logZ = 2.3 in favour of step correction)
 # DOF: 36
 # ---------------------------------
 

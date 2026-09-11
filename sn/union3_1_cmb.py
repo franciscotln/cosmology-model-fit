@@ -218,7 +218,7 @@ if __name__ == "__main__":
 
 # ----------- Flat ΛCDM -----------
 # Z offset step correction in SNe observed redshifts
-# turning point z <= 0.2 negative z > 0.2 positive
+# turning point z <= 0.2 positive z > 0.2 negative
 # z_cosmo = z_cmb ± Δz
 
 # 1000 Δz = 1.00 ± 0.40 (prior ~ U[-3.5, 3.5])
