@@ -120,15 +120,15 @@ def bao_theory(z, qty, params, DM_interp):
 
 
 @njit
-def get_z_cosmo(v_100):
+def get_z_cosmo(dz_1000):
     # Heaviside step at z = 0.10563
-    v_km_s = 100 * v_100 * np.where(z_cmb <= 0.10563, 1, -1)
-    return -1.0 + (1.0 + z_cmb) / (1.0 + v_km_s / c)
+    z_offset = 1e-03 * dz_1000 * np.where(z_cmb <= 0.10563, 1, -1)
+    return z_cmb + z_offset
 
 
-def mu_corr(v_100, dm_interp):
+def mu_corr(dz_1000, dm_interp):
     # For plotting purposes only
-    z_cosmo = get_z_cosmo(v_100)
+    z_cosmo = get_z_cosmo(dz_1000)
     DM_cosmo = interp_hermite(z_cosmo, z_grid, *dm_interp)
     DM_obs = interp_hermite(z_cmb, z_grid, *dm_interp)
     return 5 * np.log10(DM_cosmo / DM_obs)
@@ -141,7 +141,7 @@ def theory_mu(offset, DM):
 
 @njit
 def chi2_sn(params, dm_interp):
-    z_cosmo = get_z_cosmo(params[4])
+    z_cosmo = get_z_cosmo(dz_1000=params[4])
     DM_cosmo = interp_hermite(z_cosmo, z_grid, y=dm_interp[0], y_prime=dm_interp[1])
     delta = mu_values - theory_mu(params[0], DM_cosmo)
     y = solve_triangular(cho_sn, delta)
@@ -183,7 +183,7 @@ def main():
     prior.add_parameter("H0", dist=(60.0, 75.0))
     prior.add_parameter("obh2", dist=(0.010, 0.030))
     prior.add_parameter("och2", dist=(0.01, 0.25))
-    prior.add_parameter("v", dist=(-4.5, 4.5))  # x100 km/s
+    prior.add_parameter("dz_1000", dist=(-1.5, 1.5))
 
     with Pool(6) as pool:
         sampler = Sampler(
@@ -195,9 +195,9 @@ def main():
     gd_samples = MCSamples(
         samples=samples,
         weights=np.exp(log_w),
-        loglikes=log_l,
+        loglikes=-log_l,
         names=prior.keys,
-        labels=["ΔM", "H_0", "ω_b", "ω_c", "v_{100}"],
+        labels=["ΔM", "H_0", "ω_b", "ω_c", "1000 Δz"],
     )
     gd_samples.addDerived(
         gd_samples["obh2"] + gd_samples["och2"] + Omnuh2, name="omh2", label="ω_m"
@@ -218,18 +218,19 @@ def main():
         name="rdrag",
         label="r_{drag}",
     )
+    gd_samples.updateBaseStatistics()
 
-    plot_params = ["H0", "rdrag", "om", "v", "dM"]
+    for name in gd_samples.getParamNames().names:
+        print(gd_samples.getInlineLatex(name, limit=1))
+
+    plot_params = ["H0", "om", "rdrag", "dz_1000"]
     plots.get_subplot_plotter().triangle_plot(
         gd_samples, params=plot_params, title_limit=1, contour_colors=["C0"]
     )
     plt.show()
 
-    best_fit = gd_samples.mean(prior.keys)
+    best_fit = samples[np.argmax(log_l)]
     DOF = effective_sample_size + len(bao) + len(cmb.DISTANCE_PRIORS) - len(prior.keys)
-
-    for par in gd_samples.getParamNames().names:
-        print(f"{par}: {gd_samples.mean(par):.5f} ± {gd_samples.std(par):.5f}")
 
     map_index = np.argmax(log_l)
     map_params = samples[map_index]
@@ -287,24 +288,23 @@ if __name__ == "__main__":
 
 
 # ----------- Flat ΛCDM -----------
-# velocity step correction in SNe observed redshifts
-# turning point z <= 0.10563 inflow z > 0.10563 outflow
-# z_cosmo = -1 + (1 + z) / (1 + v/c)
+# Z offset step correction in SNe observed redshifts
+# turning point z <= 0.10563 positive z > 0.10563 negative
+# z_cosmo = z_cmb ± Δz
 
-# H0: 68.36 ± 0.26 km/s/Mpc
+# H0: 68.36 ± 0.27 km/s/Mpc
 # r_d: 147.54 ± 0.19 Mpc
 # Ωm: 0.3012 ± 0.0035
-# v: -1.55 ± 0.55 (prior ~ U[-4.5, 4.5]) x 100 km/s
-# v / (z_turn=0.10563): -1467 ± 521 km/s
-# ΔM: -0.0637 ± 0.0078 mag
+# 1000 Δz: 0.55 ± 0.19 (prior ~ U[-1.5, 1.5])
+# ΔM: -0.0644 ± 0.0079 mag
 
 # ωb: 0.02257 ± 0.00010
-# ωc: 0.11752 ± 0.00064
-# ωm: 0.14073 ± 0.00063
+# ωc: 0.11753 ± 0.00064
+# ωm: 0.14074 ± 0.00063
 # z*: 1089.43 ± 0.15
 # z_d: 1060.20 ± 0.23
-# χ2 (MAP): 1643.55 (2.83 sigma significance)
-# Log evidence: -841.8 (Δ logZ = 2.1 in favour of velocity step correction)
+# χ2 (MAP): 1643.66 (2.81 sigma significance)
+# Log evidence: -841.8 (Δ logZ = 2.1 in favour of z offset step correction)
 # Degrees of freedom: 1726
 # ---------------------------------
 
