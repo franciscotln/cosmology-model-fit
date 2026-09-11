@@ -68,9 +68,8 @@ def DM_z(z, DM_interp):
 @njit
 def get_z_cosmo(params):
     # z_turn = 0.10563
-    v_km_s = 100 * params[4] * np.where(z_cmb <= 0.11, 1, -1)
-    z_pec = v_km_s / c
-    return -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+    z_offset = 1e-03 * params[4] * np.where(z_cmb <= 0.11, 1, -1)
+    return z_cmb + z_offset
 
 
 def mu_corr(params, DM_inter):
@@ -122,7 +121,7 @@ def main():
     prior.add_parameter("H0", dist=(55, 75))  # km/s/Mpc
     prior.add_parameter("obh2", dist=(0.01, 0.03))
     prior.add_parameter("och2", dist=(0.01, 0.25))
-    prior.add_parameter("v", dist=(-4.5, 4.5)) # x 100 km/s
+    prior.add_parameter("dz_1000", dist=(-1.5, 1.5)) # 1000 x Δz
 
     with Pool(6) as pool:
         sampler = Sampler(
@@ -132,16 +131,13 @@ def main():
 
     samples, log_w, log_l = sampler.posterior()
 
-    labels = ["ΔM", "H_0", "Ω_b h^2", "Ω_c h^2", "v_{100}"]
+    labels = ["ΔM", "H_0", "Ω_b h^2", "Ω_c h^2", "1000 Δz"]
     gd_samples = MCSamples(
         samples=samples,
         weights=np.exp(log_w),
-        loglikes=log_l,
+        loglikes=-log_l,
         names=prior.keys,
         labels=labels,
-    )
-    gd_samples.addDerived(
-        100 * gd_samples["v"], name="v_km_s", label="v_{km/s}"
     )
     gd_samples.addDerived(
         gd_samples["obh2"] + gd_samples["och2"] + Onuh2, name="omh2", label="ω_m"
@@ -151,16 +147,16 @@ def main():
     )
     gd_samples.updateBaseStatistics()
 
-    for par in gd_samples.getParamNames().names:
-        print(f"{par}: {gd_samples.mean(par):.5f} ± {gd_samples.std(par):.5f}")
+    for name in gd_samples.getParamNames().names:
+        print(gd_samples.getInlineLatex(name, limit=1))
 
     DOF = effective_sample_size + len(cmb.DISTANCE_PRIORS) - len(prior.keys)
     index_MAP = np.argmax(log_l)
-    print(f"χ2 (MAP): {chi_squared(samples[index_MAP]):.2f}")
+    best_fit = samples[index_MAP]
+    print(f"χ2 (MAP): {chi_squared(best_fit):.2f}")
     print(f"Log evidence: {sampler.log_z:.1f}")
     print(f"DOF: {DOF}")
 
-    best_fit = gd_samples.mean(prior.keys)
     dm_inter = DM_grid(best_fit)
     mu_pred = theory_mu(best_fit, DM_z(z_cmb, dm_inter))
     mu_corrected = mu_vals - mu_corr(best_fit, dm_inter)
@@ -169,7 +165,7 @@ def main():
 
     plots.get_subplot_plotter().triangle_plot(
         roots=gd_samples,
-        params=["dM", "H0", "om", "v_km_s"],
+        params=["H0", "om", "dz_1000"],
         title_limit=1,
         contour_colors=["C0"],
     )
@@ -192,12 +188,12 @@ if __name__ == "__main__":
 
 
 # ----------- Flat ΛCDM -----------
-# ΔM: -0.085 ± 0.012 mag
 # H0: 67.38 ± 0.45 km/s/Mpc
 # Ωb h^2: 0.02247 ± 0.00011
 # Ωc h^2: 0.1199 ± 0.0011
 # ωm: 0.1430 ± 0.0011
 # Ωm: 0.3150 ± 0.0065
+# ΔM: -0.085 ± 0.012 mag
 # χ2 (MAP): 1632.67
 # Log evidence: -834.5
 # DOF: 1713
@@ -205,34 +201,31 @@ if __name__ == "__main__":
 
 
 # ----------- Flat ΛCDM -----------
-# Velocity step correction in SNe observed redshifts
-# turning point z <= 0.10563 inflow z > 0.10563 outflow
-# z_cosmo = -1 + (1 + z) / (1 + v/c)
+# Z offset step correction in SNe observed redshifts
+# turning point z <= 0.10563 positive z > 0.10563 negative
+# z_cosmo = z_cmb ± Δz
 
-# v: -135 ± 56 km/s (prior ~U[-450, 450])
-# v / z_turn: -1278 ± 530 km/s
-
-# ΔM: -0.080 ± 0.012 mag
+# 1000 Δz: 0.47 ± 0.20 (prior ~U[-1.5, 1.5])
 # H0: 67.65 ± 0.47 km/s/Mpc
 # Ωb h^2: 0.02250 ± 0.00011
 # Ωc h^2: 0.1192 ± 0.0011
-# ωm: 0.14238 ± 0.00109
+# ωm: 0.1424 ± 0.0011
 # Ωm: 0.3112 ± 0.0066
-# χ2 (MAP): 1626.95 (2.39 sigma significance)
-# Log evidence: -833.5 (Δ logZ = 1.0 in favour of velocity step correction)
+# ΔM: -0.081 ± 0.012 mag
+# χ2 (MAP): 1627.03 (2.37 sigma significance)
+# Log evidence: -833.5 (Δ logZ = 1.0 in favour of z offset step correction)
 # DOF: 1712
 # ---------------------------------
 
 
 # ----------- Flat wCDM -----------
 # w0: 0.967 ± 0.026 (prior ~U[-2, 0])
-
-# ΔM: -0.096 ± 0.015 mag
 # H0: 66.66 ± 0.72 km/s/Mpc
 # Ωb h^2: 0.02250 ± 0.00011
 # Ωc h^2: 0.1193 ± 0.0012
 # ωm: 0.14241 ± 0.00117
 # Ωm: 0.3207 ± 0.0080
+# ΔM: -0.096 ± 0.015 mag
 # χ2 (MAP): 1631.03 (1.28 sigma significance)
 # Log evidence: -837.1 (ΛCDM is preferred)
 # DOF: 1712
@@ -244,13 +237,12 @@ if __name__ == "__main__":
 # w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
 
 # w0: 0.925 +0.035 -0.048 (prior ~U[-1, 0])
-
-# ΔM: -0.091 ± 0.012 mag
 # H0: 66.64 ± 0.59 km/s/Mpc
 # Ωb h^2: 0.02250 ± 0.00011
 # Ωc h^2: 0.1191 ± 0.0012
 # ωm: 0.1423 ± 0.0011
 # Ωm: 0.3204 ± 0.0072
+# ΔM: -0.091 ± 0.012 mag
 # χ2 (MAP): 1630.43 (1.50 sigma significance)
 # Log evidence: -835.6 (ΛCDM is preferred)
 # DOF: 1712
@@ -262,13 +254,12 @@ if __name__ == "__main__":
 
 # w0: -0.81 ± 0.11 (prior ~U[-2, 0])
 # wa: -0.78 ± 0.55 (prior ~U[-4, 2])
-
-# ΔM: -0.049 +0.038 -0.030 mag
 # H0: 67.7 +1.1 -0.92 km/s/Mpc
 # Ωb h^2: 0.02249 ± 0.00011
 # Ωc h^2: 0.1194 ± 0.0012
 # ωm: 0.1426 ± 0.0012
 # Ωm: 0.3109 +0.009 -0.011
+# ΔM: -0.049 +0.038 -0.030 mag
 # χ2 (MAP): 1629.28 (1.33 sigma significance)
 # Log evidence: -837.61 + 0.18 (ΛCDM is preferred)
 # DOF: 1711

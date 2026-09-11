@@ -62,9 +62,8 @@ def DM_z(z, params):
 @njit
 def get_z_cosmo(params):
     # z_turn = 0.10563
-    v_km_s = 100 * params[3] * np.where(z_cmb <= 0.11, 1, -1)
-    z_pec = v_km_s / c
-    return -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+    z_offset = 1e-03 * params[3] * np.where(z_cmb <= 0.11, 1, -1)
+    return z_cmb + z_offset
 
 
 def mu_corr(params, DM_obs):
@@ -74,17 +73,17 @@ def mu_corr(params, DM_obs):
 
 
 @njit
-def theory_mu(offset, DM):
-    return offset + 25.0 + 5 * np.log10((1.0 + z_hel) * DM)
+def theory_mu(mag_offset, DM):
+    return mag_offset + 25.0 + 5 * np.log10((1.0 + z_hel) * DM)
 
 
 @njit
 def chi_squared(params):
     z_cosmo = get_z_cosmo(params)
     DM = DM_z(z_cosmo, params)
-    offset = params[0]
+    mag_offset = params[0]
 
-    delta = mu_vals - theory_mu(offset, DM)
+    delta = mu_vals - theory_mu(mag_offset, DM)
     y = solve_triangular(cho, delta)
     return np.dot(y, y)
 
@@ -106,7 +105,7 @@ def main():
     # TRGB Freedman et al. 2025
     prior.add_parameter("H0", dist=norm(loc=70.39, scale=1.80))
     prior.add_parameter("om", dist=(0.0, 0.8))
-    prior.add_parameter("v", dist=(-5.0, 5.0)) # x 100 km/s
+    prior.add_parameter("dz_1000", dist=(-1.5, 1.5)) # 1000 x Δz
 
     with Pool(6) as pool:
         sampler = Sampler(
@@ -116,36 +115,33 @@ def main():
 
     samples, log_w, log_l = sampler.posterior()
 
-    labels = ["ΔM", "H_0", "Ω_m", "v_{100}"]
+    labels = ["ΔM", "H_0", "Ω_m", "1000 Δz"]
     gd_samples = MCSamples(
         samples=samples,
         weights=np.exp(log_w),
-        loglikes=log_l,
+        loglikes=-log_l,
         names=prior.keys,
         labels=labels,
     )
-    gd_samples.addDerived(
-        100 * gd_samples["v"], name="v_km_s", label="v_{km/s}"
-    )
 
-    for par in gd_samples.getParamNames().names:
-        print(f"{par}: {gd_samples.mean(par):.5f} ± {gd_samples.std(par):.5f}")
+    for name in gd_samples.getParamNames().names:
+        print(gd_samples.getInlineLatex(name, limit=1))
 
     index_MAP = np.argmax(log_l)
-    print(f"χ2 (MAP): {chi_squared(samples[index_MAP]):.2f}")
+    best_fit = samples[index_MAP]
+    print(f"χ2 (MAP): {chi_squared(best_fit):.2f}")
     print(f"Log evidence: {sampler.log_z:.1f}")
     print(f"DOF: {effective_sample_size - len(prior.keys)}")
 
-    best_fit = gd_samples.mean(prior.keys)
     DM_best = DM_z(z_cmb, best_fit)
-    mu_pred = theory_mu(offset=best_fit[0], DM=DM_best)
+    mu_pred = theory_mu(mag_offset=best_fit[0], DM=DM_best)
     mu_corrected = mu_vals - mu_corr(best_fit, DM_best)
     residuals = mu_corrected - mu_pred
     mu_std = np.sqrt(np.diag(covmat))
 
     plots.get_subplot_plotter().triangle_plot(
         roots=gd_samples,
-        params=["dM", "H0", "om", "v_km_s"],
+        params=prior.keys,
         title_limit=1,
         contour_colors=["C0"],
     )
@@ -157,7 +153,7 @@ def main():
         y=mu_corrected,
         y_err=mu_std,
         y_model=mu_pred,
-        label=f"$Ω_m$={gd_samples.mean('om'):.3f}",
+        label=f"$Ω_m$={best_fit[2]:.3f}",
         x_scale="log",
     )
     plot_residuals(z_values=z_cmb, residuals=residuals, y_err=mu_std, bins=60)
@@ -175,9 +171,9 @@ if __name__ == "__main__":
 
 
 # ----------- Flat ΛCDM -----------
-# ΔM: 0.020 ± 0.057 mag
 # H0: 70.4 ± 1.8 km/s/Mpc
 # Ωm: 0.331 ± 0.015
+# ΔM: 0.020 ± 0.057 mag
 # χ2 (MAP): 1631.42
 # Log evidence: -823.9
 # DOF: 1711
@@ -185,18 +181,16 @@ if __name__ == "__main__":
 
 
 # ----------- Flat ΛCDM -----------
-# Velocity step correction in SNe observed redshifts
-# turning point z <= 0.10563 inflow z > 0.10563 outflow
-# z_cosmo = -1 + (1 + z) / (1 + v/c)
+# Z offset step correction in SNe observed redshifts
+# turning point z <= 0.10563 positive z > 0.10563 negative
+# z_cosmo = z_cmb ± Δz
 
-# v: -141 ± 67 km/s (prior ~ U[-5, 5] x 100 km/s)
-# v / z_turn: -1325 ± 634 km/s
-
-# ΔM: 0.004 ± 0.056 mag
+# 1000 Δz = 0.49 ± 0.23 (prior ~ U[-1.5, 1.5])
 # H0: 70.4 ± 1.8 km/s/Mpc
 # Ωm: 0.309 ± 0.018
-# χ2 (MAP): 1626.90 (2.13 sigma significance)
-# Log evidence: -823.4 (Δ logZ = 0.5 in favour of velocity step correction)
+# ΔM: 0.004 ± 0.056 mag
+# χ2 (MAP): 1626.98 (2.11 sigma significance)
+# Log evidence: -823.3 (Δ logZ = 0.6 in favour of z offset step correction)
 # DOF: 1710
 # ---------------------------------
 

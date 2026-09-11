@@ -2,7 +2,7 @@ from numba import njit
 import numpy as np
 from interpolator import interp_hermite, interp_pchip
 from y2025BAO.data_fs_lya import get_data
-import cmb.data_planck_act_compression as cmb
+import cmb.data_spt_planck_act_compression as cmb
 
 c = cmb.c  # km/s
 Orh2 = cmb.Or_h2
@@ -16,17 +16,16 @@ dz = z_grid[1] - z_grid[0]
 
 
 @njit
-def Ode_z(z, w0, wa):
-    # w0waCDM
+def Ode_z(z, w0):
     zp1 = 1 + z
-    return zp1 ** (3 * (1 + w0 + wa)) * np.exp(-3 * wa * z / zp1)
+    return zp1 ** (3 * (1 + w0))  # wCDM
     # thawing quintessence
     # a3 = zp1 ** -3
     # return 4 / ((1 + w0) * a3 + (1 - w0)) ** 2
 
 
 @njit
-def Ez(z, H0, Obh2, Och2, w0, wa):
+def Ez(z, H0, Obh2, Och2, w0):
     h = H0 / 100
     Onu = Omnuh2 / h**2
     Or = Orh2 / h**2
@@ -38,15 +37,15 @@ def Ez(z, H0, Obh2, Och2, w0, wa):
     radiation_term = Or * zp1**4
     matter_term = Obc * zp1**3
     neutrino_term = Onu * cmb.Omnu_z(z)
-    dark_energy_term = Ode * Ode_z(z, w0, wa)
+    dark_energy_term = Ode * Ode_z(z, w0)
 
     return np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
 
 
 @njit
 def H_z(z, params):
-    H0, Obh2, Och2, w0, wa = params
-    return H0 * Ez(z, H0, Obh2, Och2, w0, wa)
+    H0, Obh2, Och2, w0 = params
+    return H0 * Ez(z, H0, Obh2, Och2, w0)
 
 
 cmb.set_HZ(H_z)
@@ -137,8 +136,6 @@ def chi_squared(params):
 
 @njit
 def log_likelihood(params):
-    if params[3] + params[4] >= 0.0:
-        return -1e8
     return -0.5 * chi_squared(params)
 
 
@@ -153,8 +150,7 @@ def main():
     prior.add_parameter("H0", dist=(60.0, 75.0))  # km/s/Mpc
     prior.add_parameter("obh2", dist=(0.01, 0.03))
     prior.add_parameter("och2", dist=(0.01, 0.25))
-    prior.add_parameter("w0", dist=(-3.0, 1.0))
-    prior.add_parameter("wa", dist=(-3.0, 2.0))
+    prior.add_parameter("w0", dist=(-1.5, -0.5))
 
     with Pool(6) as pool:
         sampler = Sampler(prior, log_likelihood, n_live=6_000, pool=pool, seed=42, pass_dict=False)
@@ -183,7 +179,7 @@ def main():
 
     plots.get_subplot_plotter().triangle_plot(
         gd_samples,
-        ["H0", "om", "w0", "wa", "omh2", "rdrag"],
+        ["H0", "om", "w0", "omh2", "rdrag"],
         title_limit=1,
         contour_colors=["C0"],
     )
@@ -217,58 +213,47 @@ if __name__ == "__main__":
 
 
 # --------------- Flat ΛCDM -----------------
-# H0: 68.38 ± 0.27 km/s/Mpc
-# Ωm: 0.3009 ± 0.0036
-# r_d: 147.55 ± 0.19 Mpc
-# χ2 (MAP): 16.49
-# Log evidence: -21.9
+# H0 = 68.07 ± 0.25 km/s/Mpc
+# Ωm = 0.3049 ± 0.0034
+# r_d = 147.49 ± 0.18
+# χ2 (MAP): 21.87
+# Log evidence: -24.9
 # DOF: 14
 # -------------------------------------------
 
 
 # --------------- Flat wCDM -----------------
-# H0: 68.96 ± 0.94 km/s/Mpc
-# Ωm: 0.2968 ± 0.0074
-# w0: -1.024 ± 0.038 (prior U[-1.5, -0.5])
-# r_d: 147.46 ± 0.23 Mpc
-# χ2 (MAP): 16.20 (0.54 sigma away from ΛCDM)
-# Log evidence: -24.1 (Δ logZ = -2.2 in favour of ΛCDM)
-# DOF: 13
-# -------------------------------------------
-
-
-# --------------- Flat wzCDM ----------------
-# w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
-# H0: 67.2 +1.1 -0.57 km/s/Mpc
-# Ωm: 0.3111 +0.0058 -0.010
-# w0: < -0.906 +0.028 -0.090 (prior U[-1, 0] - truncated posterior)
-# r_d: 147.63 ± 0.20 Mpc
-# χ2 (MAP): 16.48 (0.1 sigma away from ΛCDM)
-# Log evidence: -23.80 (Δ logZ = -1.9 in favour of ΛCDM)
+# H0 = 69.45 ± 0.94 km/s/Mpc
+# Ωm = 0.2945 ± 0.0075
+# r_d = 147.31 ± 0.20 Mpc
+# w0 = -1.056 ± 0.037 (prior U[-1.5, -0.5])
+# χ2 (MAP): 19.62
+# Log evidence: -26.1
 # DOF: 13
 # -------------------------------------------
 
 
 # -------------- Flat w0waCDM ---------------
-# H0: 64.9 ± 2.0 km/s/Mpc
-# Ωm: 0.339 +0.020 -0.023
-# w0: -0.58 +0.20 -0.23 (prior U[-3.0, 1.0])
-# wa: -1.25 +0.69 -0.55 (prior U[-3.0, 2.0])
-# r_d: 147.17 ± 0.26 Mpc
-# χ2 (MAP): 11.71 (1.68 sigma away from ΛCDM)
-# Log evidence: -24.4 + 0.3 = -24.1 (Δ logZ = -2.2 in favour of ΛCDM)
+# H0: 64.3 +1.8 -2.1 km/s/Mpc
+# Ωm: 0.348 ± 0.021
+# w0: -0.49 ±0.21 (prior U[-3.0, 1.0])
+# wa: -1.56 +0.65 -0.59 (prior U[-3.0, 2.0])
+# r_d: 147.06 ± 0.22 Mpc
+# χ2 (MAP): 12.10 (1.68 sigma away from ΛCDM)
+# Log evidence: -24.9 + 0.3 = -24.6 (Δ logZ = -2.2 in favour of ΛCDM)
 # DOF: 12
 # w0 + wa < 0 enforced in the likelihood
 # Correction in prior volume: ln(4 * 5 / (4 * 5 - (0.5 * 3 ** 2))) ~ 0.25
 #
 #
 # imposing the constraint -1 <= w0 + wa < 0 then:
-# H0: 69.3 ± 1.3 km/s/Mpc
-# Ωm: 0.293 ± 0.010
-# w0: -1.075 ± 0.077 (prior U[-3.0, 1.0])
-# wa: 0.165 ± 0.142 (prior U[-3.0, 2.0])
-# r_d: 147.55 ± 0.23
-# χ2 (MAP): 16.46
-# Log evidence: -29.0
+# H0 = 69.9 +1.1 -1.3 km/s/Mpc
+# w0 = -1.116 +0.077 -0.061 (prior U[-3.0, 1.0])
+# wa = 0.189 +0.069 -0.14 (prior U[-3.0, 2.0])
+# ωm = 0.14167 ± 0.00074
+# Ωm = 0.2902 ± 0.0098
+# r_d = 147.39 ± 0.20 Mpc
+# χ2 (MAP): 20.62
+# Log evidence: -31.6
 # DOF: 12
 # -------------------------------------------

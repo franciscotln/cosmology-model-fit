@@ -224,8 +224,8 @@ def main():
     best_fit = gd_samples.mean(prior.keys)
     DOF = len(z_cmb) + len(bao) + len(cmb.DISTANCE_PRIORS) - len(best_fit)
 
-    for par in gd_samples.getParamNames().names:
-        print(f"{par}: {gd_samples.mean(par):.5f} ± {gd_samples.std(par):.5f}")
+    for name in gd_samples.getParamNames().names:
+        print(gd_samples.getInlineLatex(name, limit=1))
 
     index_MAP = np.argmax(log_l)
     print(f"χ2 (MAP): {chi_squared(samples[index_MAP]):.2f}")

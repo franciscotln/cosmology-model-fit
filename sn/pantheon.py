@@ -155,7 +155,7 @@ def main():
 
     gd_samples = MCSamples(
         samples=chain_list,
-        loglikes=loglike_list,
+        loglikes=-loglike_list,
         names=names,
         labels=labels,
         label='Pantheon+'

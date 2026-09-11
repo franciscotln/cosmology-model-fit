@@ -64,12 +64,16 @@ def log_likelihood(params):
 
 
 @njit
-def log_probability(params):
+def log_probability_jit(params):
     lp = log_prior(params)
     if np.isinf(lp):
         return -np.inf, np.empty(4)
     ll, blobs = log_likelihood(params)
     return lp + ll, blobs
+
+
+def log_probability(params):
+    return log_probability_jit(params)
 
 
 def main():
@@ -79,8 +83,8 @@ def main():
 
     ndim = len(bounds)
     nwalkers = 200
-    burn_in = 500
-    nsteps = 3000 + burn_in
+    burn_in = 1000
+    nsteps = 4000 + burn_in
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
     moves = [
@@ -156,6 +160,25 @@ if __name__ == "__main__":
 
 
 # Model: flat ΛCDM
+
+
+# -----------------------------
+# SPT + Planck PR4 + ACT DR6 compression (2026)
+# -----------------------------
+# H0 = 67.19 ± 0.38 km/s/Mpc
+# ωb = 0.022399 ± 0.000095
+# ωc = 0.12027 ± 0.00094
+# 100 θ* = 1.04161 ± 0.00023
+# r* = 144.45 ± 0.23 Mpc
+# DM* = 13.868 ± 0.022 Gpc
+# z* = 1088.78 ± 0.14
+# ωm = 0.14331 ± 0.00092
+# Ωm = 0.3175 ± 0.0055
+# z_drag = 1059.95 ± 0.20
+# r_d = 147.00 ± 0.24 Mpc
+# z_eq = 3410 ± 22
+# Chi squared: 0.0007
+# -----------------------------
 
 
 # -----------------------------

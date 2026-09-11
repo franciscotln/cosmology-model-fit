@@ -109,7 +109,7 @@ def main():
     gd_samples = MCSamples(
         samples=samples,
         weights=np.exp(log_w),
-        loglikes=log_l,
+        loglikes=-log_l,
         names=prior.keys,
         labels=["M", "H_0", "Ω_m", "v_x", "v_y", "v_z"],
     )

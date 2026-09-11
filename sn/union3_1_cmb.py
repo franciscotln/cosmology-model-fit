@@ -1,15 +1,16 @@
 from numba import njit
 import numpy as np
 from interpolator import interp_hermite
+from solve_triangular import solve_triangular
 from y2026union3_1.data import get_data
-import cmb.data_planck_act_compression as cmb
+import cmb.data_spt_planck_act_compression as cmb
 
 c = cmb.c  # km/s
 Orh2 = cmb.Or_h2
 Omnuh2 = cmb.Omnu_h2
 
 sn_legend, z_cmb, z_hel, mu_vals, cov_matrix_sn = get_data()
-inv_cov_sn = np.linalg.inv(cov_matrix_sn)
+L_sn = np.linalg.cholesky(cov_matrix_sn)
 
 z_grid = np.linspace(0, np.max(z_cmb) + 0.1, num=2000)
 dz = z_grid[1] - z_grid[0]
@@ -23,7 +24,9 @@ def Ode_z(z, w0):
 
 
 @njit
-def Ez(z, h, Obh2, Och2):
+def Hz(z, params):
+    H0, Obh2, Och2 = params[1], params[2], params[3]
+    h = H0 / 100
     Onu = Omnuh2 / h**2
     Or = Orh2 / h**2
     Obc = (Obh2 + Och2) / h**2
@@ -35,14 +38,7 @@ def Ez(z, h, Obh2, Och2):
     matter_term = Obc * zp1**3
     neutrino_term = Onu * cmb.Omnu_z(z)
     dark_energy_term = Ode
-
-    return np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
-
-
-@njit
-def Hz(z, params):
-    H0 = params[1]
-    return H0 * Ez(z, h=H0 / 100, Obh2=params[2], Och2=params[3])
+    return H0 * np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
 
 
 cmb.set_HZ(Hz)
@@ -85,9 +81,8 @@ def DM_grid(params):
 @njit
 def get_z_cosmo(params):
     # Heaviside step at z = 0.2
-    v_km_s = 100 * params[4] * np.where(z_cmb <= 0.2, 1, -1)
-    z_pec = v_km_s / c
-    return -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+    offset = 1e-3 * params[4] * np.where(z_cmb <= 0.2, 1, -1)
+    return z_cmb + offset
 
 
 def mu_corr(params):
@@ -105,16 +100,23 @@ def mu_theory(offset, DM):
 
 
 @njit
-def chi_squared(params):
-    delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(params[2], params[3], params)
-    chi2_cmb = delta_cmb @ cmb.inv_cov_mat @ delta_cmb
-
+def chi2_sn(params):
     z_cosmo = get_z_cosmo(params)
     dm_cosmo = DM_z(z_cosmo, DM_grid(params))
-    delta_sn = mu_vals - mu_theory(offset=params[0], DM=dm_cosmo)
-    chi_sn = delta_sn @ inv_cov_sn @ delta_sn
+    delta = mu_vals - mu_theory(offset=params[0], DM=dm_cosmo)
+    y = solve_triangular(L_sn, delta)
+    return np.dot(y, y)
 
-    return chi2_cmb + chi_sn
+
+@njit
+def chi2_cmb(params):
+    delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(params[2], params[3], params)
+    return delta_cmb @ cmb.inv_cov_mat @ delta_cmb
+
+
+@njit
+def chi_squared(params):
+    return chi2_cmb(params) + chi2_sn(params)
 
 
 @njit
@@ -134,7 +136,7 @@ def main():
     prior.add_parameter("H0", dist=(60.0, 75.0))
     prior.add_parameter("obh2", dist=(0.01, 0.03))
     prior.add_parameter("och2", dist=(0.01, 0.25))
-    prior.add_parameter("v", dist=(-9.0, 9.0))  # x 100 km/s
+    prior.add_parameter("dz_1000", dist=(-3.5, 3.5)) # 1000 x Δz
 
     with Pool(6) as pool:
         sampler = Sampler(
@@ -144,22 +146,20 @@ def main():
 
     samples, log_w, log_l = sampler.posterior()
 
+    labels=["ΔM", "H_0", "ω_b", "ω_c", "1000 Δz"]
     gd_samples = MCSamples(
         samples=samples,
         weights=np.exp(log_w),
-        loglikes=log_l,
+        loglikes=-log_l,
         names=prior.keys,
-        labels=["ΔM", "H_0", "ω_b", "ω_c", "v_{100}"],
-        label="Union3.1 + CMB(R, lA, ωb)",
+        labels=labels,
+        label="Union3.1 + CMB(θ*, ωb, ωm)",
     )
     gd_samples.addDerived(
         Omnuh2 + gd_samples["obh2"] + gd_samples["och2"], name="omh2", label="ω_m"
     )
     gd_samples.addDerived(
         gd_samples["omh2"] / (gd_samples["H0"] / 100) ** 2, name="om", label="Ω_m"
-    )
-    gd_samples.addDerived(
-        100 * gd_samples["v"], name="v_km_s", label="v_{km/s}"
     )
 
     MAP_index = np.argmax(log_l)
@@ -176,7 +176,7 @@ def main():
     g = plots.get_subplot_plotter()
     g.triangle_plot(
         gd_samples,
-        params=["dM", "H0", "om", "v_km_s"],
+        params=["dM", "H0", "om", "dz_1000"],
         title_limit=1,
         filled=True,
         contour_colors=["C0"],
@@ -189,8 +189,8 @@ def main():
         x=z_cmb,
         y=mu_vals - mu_corr(best_fit),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=mu_theory(best_fit[0], interp_hermite(z_cmb, z_grid, *DM_grid(best_fit))),
-        label=f"ΛCDM",
+        y_model=mu_theory(best_fit[0], DM_z(z_cmb, DM_grid(best_fit))),
+        label=f"Ωm: {gd_samples['om'].mean():.3f}",
         x_scale="log",
     )
 
@@ -202,71 +202,80 @@ if __name__ == "__main__":
 # *********************************
 # Data sets:
 # Union 3.1 (2026 - 22 bins)
-# CMB(R, lA = π / θ*, ωb) ACT+Planck compressed
+# CMB(θ*, ωb, ωm) SPT + Planck + ACT compressed
 # *********************************
 
 
 # ----------- Flat ΛCDM -----------
-# ΔM: -0.069 +- 0.011 mag
-# H0: 67.49 +- 0.48 km/s/Mpc
-# Ωm: 0.3135 +- 0.0068
-# Chi2 (MAP): 29.5
-# Log Evidence: -33.1
+# H0: 67.13 +- 0.37 km/s/Mpc
+# Ωm: 0.3184 +- 0.0054
+# ΔM: -0.0771 +- 0.0087 mag
+# Chi2 (MAP): 29.2
+# Log Evidence: -33.4
 # DOF: 21
 # ---------------------------------
 
 
 # ----------- Flat ΛCDM -----------
-# Velocity step correction in SNe observed redshifts
-# turning point z <= 0.2 inflow z > 0.2 outflow
-# z_cosmo = -1 + (1 + z) / (1 + v/c)
+# Z offset step correction in SNe observed redshifts
+# turning point z <= 0.2 negative z > 0.2 positive
+# z_cosmo = z_cmb ± Δz
 
-# v: -280 ± 110 km/s (prior ~ U[-9, 9] x 100 km/s)
-# v / (z_turn=0.2): -1400 ± 550 km/s
-
-# ΔM: -0.067 ± 0.011 mag
-# H0: 67.68 ± 0.49 km/s/Mpc
-# Ωm: 0.3107 ± 0.0069
-# Chi2 (MAP): 22.4 (2.66 sigma significance)
-# Log Evidence: -31.5 (delta logZ = 1.6 in favour of step correction)
+# 1000 Δz = 1.00 ± 0.40 (prior ~ U[-3.5, 3.5])
+# H0: 67.24 ± 0.38 km/s/Mpc
+# Ωm: 0.3168 ± 0.0055
+# ΔM: -0.0772 ± 0.0087 mag
+# Chi2 (MAP): 22.7 (2.55 sigma significance)
+# Log Evidence: -32.1 (Δ logZ = 1.3 in favour of z offset step correction)
 # DOF: 20
 # ---------------------------------
 
 
 # ----------- Flat wCDM -----------
-# w0: -0.957 ± 0.040 (prior ~ U[-1.5, -0.5])
+# w0: -0.966 ± 0.040 (prior ~ U[-1.5, -0.5])
 
-# ΔM: -0.086 ± 0.018 mag
-# H0: 66.4 ± 1.2 km/s/Mpc
-# Ωm: 0.324 ± 0.012
-# Chi2 (MAP): 28.3 (1.10 sigma significance)
-# Log Evidence: -34.8
+# H0: 66.2 ± 1.1 km/s/Mpc
+# Ωm: 0.327 ± 0.012
+# ΔM: -0.091 ± 0.018 mag
+# Chi2 (MAP): 28.4
+# Log Evidence: -35.3
 # DOF: 20
 # ---------------------------------
 
 
 # ----------- Flat wzCDM ----------
 # w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
-# w0: -0.890 +0.051 -0.074 (prior ~ U[-1, -1/3])
-# wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2) = -0.312
+# w0: -0.902 +0.042 -0.075 (prior ~ U[-1, -1/3])
+# wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
 
-# ΔM: -0.082 ± 0.013 mag
-# H0: 66.14 +0.97 -0.81 km/s/Mpc
-# Ωm: 0.3255 +0.0090 -0.0110
-# Chi2 (MAP): 27.6 (1.38 sigma significance)
-# Log Evidence: -33.6
+# H0: 65.88 +0.94 -0.70 km/s/Mpc
+# Ωm: 0.3301 +0.0090 -0.0110
+# ΔM: -0.089 +0.012 - 0.011 mag
+# Chi2 (MAP): 27.8
+# Log Evidence: -34.2
 # DOF: 20
 # ---------------------------------
 
 
 # --------- Flat w0waCDM ----------
-# w0: -0.72 ± 0.15 (prior ~ U[-1.5, 0.0])
-# wa: -1.15 ± 0.74 (prior ~ U[-5.5, 3.0])
+# w0: -0.72 ± 0.16 (prior ~ U[-2, 0])
+# wa: -1.20 ± 0.75 (prior ~ U[-5, 5])
 
-# ΔM: -0.028 +0.042 -0.031 mag
-# H0: 67.7 +1.4 -1.2 km/s/Mpc
-# Ωm: 0.311 +0.011 -0.014
+# H0: 67.6 +1.4 -1.2 km/s/Mpc
+# Ωm: 0.314 +0.011 -0.014
+# ΔM: -0.032 +0.041 -0.030 mag
 # Chi2 (MAP): 26.2
-# Log Evidence: -35.6
+# Log Evidence: -36.4
+# DOF: 19
+
+# -- at z_pivot = 0.25 (corr(wp, wa) = -0.019) --
+# w_piv: -0.960 ± 0.042 (prior ~ U[-2, 0])
+# wa: -1.20 ± 0.75 (prior ~ U[-5, 5])
+
+# H0: 67.6 +1.4 -1.2 km/s/Mpc
+# Ωm: 0.314 +0.011 -0.014
+# ΔM: -0.033 +0.040 -0.030 mag
+# Chi2 (MAP): 26.1
+# Log Evidence: -36.4
 # DOF: 19
 # ---------------------------------

@@ -30,7 +30,7 @@ labels = ["h", "Ω_m", "w_p", "w_a"]
 bounds = np.array(
     [
         (0.50, 0.80),  # h
-        (0.1, 0.5),  # Ωm
+        (0.1, 0.6),  # Ωm
         (-3.0, 1.0),  # wp
         (-8.0, 8.0),  # wa
     ]
@@ -127,8 +127,8 @@ def main():
     np.random.seed(42)
     ndim = len(bounds)
     nwalkers = 100
-    burn_in = 500
-    nsteps = 5000 + burn_in
+    burn_in = 1000
+    nsteps = 6000 + burn_in
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
     moves = [
         (emcee.moves.KDEMove(), 0.20),
@@ -231,12 +231,12 @@ if __name__ == "__main__":
 # z_pivot = 0.38 (wp and wa uncorrelated)
 # wp + wa/(1 + z_pivot) < 0 enforced in the likelihood
 #
-# Ωm = 0.367 ± 0.039
-# wp = -0.986 ± 0.071 (0.2 sigma from -1) (prior U[-3, 1])
+# Ωm = 0.366 +0.040 -0.036
+# wp = -0.987 ± 0.070 (0.2 sigma from -1) (prior U[-3, 1])
 # wa = -2.2 ± 1.3 (1.7 sigma from 0) (prior U[-8, 8])
-# h x r_d = 94.0 +3.7 -4.4 Mpc
+# h x r_d = 94.1 +3.7 -4.4 Mpc
 # Chi2: 10.22
 # DOF: 12
 # Chi2/DOF: 10.22 / 12 ≈ 0.85
-# Log evidence: -17.18
+# Log evidence: -17.41
 # ---------------------------------

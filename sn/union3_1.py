@@ -2,10 +2,11 @@ from numba import njit
 import numpy as np
 from scipy.constants import c as c0
 from interpolator import interp_hermite
+from solve_triangular import solve_triangular
 from y2026union3_1.data import get_data
 
 legend, z_cmb, z_hel, mu_vals, cov_matrix = get_data()
-inv_cov = np.linalg.inv(cov_matrix)
+L_cho = np.linalg.cholesky(cov_matrix)
 
 c = c0 / 1000  # Speed of light (km/s)
 H0 = 70.0  # Hubble constant (km/s/Mpc)
@@ -59,9 +60,8 @@ def DM_z(z, params):
 @njit
 def get_z_cosmo(params):
     # Heaviside step at z = 0.2
-    v_km_s = 100 * params[2] * np.where(z_cmb <= 0.2, 1, -1)
-    z_pec = v_km_s / c
-    return -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+    offset = 1e-3 * params[2] * np.where(z_cmb <= 0.2, 1, -1)
+    return z_cmb + offset
 
 
 def mu_corr(params, DM_obs):
@@ -79,7 +79,8 @@ def chi_squared(params):
     z_cosmo = get_z_cosmo(params)
     DM = DM_z(z_cosmo, params)
     delta = mu_vals - mu_theory(params, DM)
-    return delta @ inv_cov @ delta
+    y = solve_triangular(L_cho, delta)
+    return y @ y
 
 
 @njit
@@ -97,7 +98,7 @@ def main():
     prior = Prior()
     prior.add_parameter("dM", dist=(-1, +1))  # mag
     prior.add_parameter("om", dist=(0.1, 0.7))
-    prior.add_parameter("v", dist=(-9, 9)) # x 100 km/s
+    prior.add_parameter("dz_1000", dist=(-3.5, 3.5)) # 1000 x Δz
 
     with Pool(7) as pool:
         sampler = Sampler(
@@ -107,15 +108,14 @@ def main():
 
     samples, log_w, log_l = sampler.posterior()
 
-    labels = ["ΔM", "Ω_m", "v_{100}"]
+    labels = ["ΔM", "Ω_m", "1000 Δz"]
     gd_samples = MCSamples(
         samples=samples,
         weights=np.exp(log_w),
-        loglikes=log_l,
+        loglikes=-log_l,
         names=prior.keys,
         labels=labels,
     )
-    gd_samples.addDerived(100 * gd_samples["v"], name="v_km_s", label="v_{km/s}")
     gd_samples.updateBaseStatistics()
 
     for name in gd_samples.getParamNames().names:
@@ -136,7 +136,7 @@ def main():
 
     plots.get_subplot_plotter().triangle_plot(
         roots=gd_samples,
-        params=["dM", "om", "v_km_s"],
+        params=["dM", "om", "dz_1000"],
         title_limit=1,
         contour_colors=["C0"],
         filled=True,
@@ -175,26 +175,23 @@ if __name__ == "__main__":
 
 
 # ----------- Flat ΛCDM -----------
-# Velocity step correction SNe observed redshifts
-# turning point z <= 0.2 inflow z > 0.2 outflow
-# z_cosmo = -1 + (1 + z) / (1 + v/c)
+# Z offset step correction in SNe observed redshifts
+# turning point z <= 0.2 positive z > 0.2 negative
+# z_cosmo = z_cmb ± Δz
 
-# v: -308 ± 120 km/s (prior ~ U[-9, 9] x 100 km/s)
-# v / z_turn: -1535 ± 600 km/s
-
+# 1000 Δz = 1.14 ± 0.45
+# Ωm: 0.301 +0.025 -0.028
 # ΔM: -0.004 ± 0.023 mag
-# Ωm: 0.299 +0.026 -0.026
-# χ2 (MAP): 22.15 (2.57 sigma significance)
-# Log evidence: -20.5 (Δ logZ = 1.4 in favour of step correction)
+# χ2 (MAP): 22.22 (2.56 sigma significance)
+# Log evidence: -20.6 (Δ logZ = 1.3 in favour of step correction)
 # DOF: 19
 # ---------------------------------
 
 
 # ----------- Flat wCDM -----------
 # w0: -0.82 +0.19 -0.10 (prior ~ U[-1.5, 0])
-
-# ΔM: 0.034 ± 0.020 mag
 # Ωm: 0.254 +0.083 -0.072
+# ΔM: 0.034 ± 0.020 mag
 # χ2 (MAP): 27.22 (1.26 sigma away from ΛCDM)
 # Log evidence: -22.4 (Δ logZ = -0.5 in favour of ΛCDM)
 # DOF: 19
@@ -204,9 +201,8 @@ if __name__ == "__main__":
 # ----------- Flat wzCDM -----------
 # w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
 # w0: -0.75 ± 0.13 (prior ~ U[-1, -1/3])
-
-# ΔM: 0.042 ± 0.021 mag
 # Ωm: 0.278 +0.046 -0.037
+# ΔM: 0.042 ± 0.021 mag
 # χ2 (MAP): 26.54 (1.52 sigma away from ΛCDM)
 # Log evidence: -21.4 (Δ logZ = 0.5 in favour of wzCDM)
 # DOF: 19
@@ -216,9 +212,8 @@ if __name__ == "__main__":
 # ----------- Flat w0waCDM -----------
 # w0: -0.40 +0.27 -0.40 (prior ~ U[-2, 0.5])
 # wa: -6.6 +4.7 -3.1 (prior ~ U[-16, 3])
-
-# ΔM: 0.084 ± 0.032 mag
 # Ωm: 0.447 +0.080 -0.037
+# ΔM: 0.084 ± 0.032 mag
 # χ2 (MAP): 24.43 (1.59 sigma away from ΛCDM)
 # Log evidence: -22.5 (Δ logZ = -0.6 in favour of ΛCDM)
 # DOF: 18
