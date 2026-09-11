@@ -20,14 +20,14 @@ dz = z_grid[1] - z_grid[0]
 
 zp1_cube = (1.0 + z_grid) ** 3
 
-names=["H0", "M0", "Om", "v100"]
-labels = ["H_0", "M_0", "Ω_m", "v_{100}"]
-H0, M0, OM, V100 = range(len(names))
+names=["H0", "M0", "Om", "dz_1000"]
+labels = ["H_0", "M_0", "Ω_m", "1000 Δz"]
+H0, M0, OM, DZ_1000 = range(len(names))
 bounds = np.empty((len(names), 2))
 bounds[H0] = (50, 90)
 bounds[M0] = (-20, -19)
 bounds[OM] = (0, 0.7)
-bounds[V100] = (-3, 3)
+bounds[DZ_1000] = (-1, 1)
 
 
 @njit
@@ -47,9 +47,8 @@ def DM_z(p, z):
 @njit
 def get_z_cosmo(p):
     # Heaviside step at z = 0.15
-    v_km_s = 100 * p[V100] * np.where(z_cmb <= 0.15, 1, -1)
-    z_pec = v_km_s / c
-    return -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+    z_offset = 1e-03 * p[DZ_1000] * np.where(z_cmb <= 0.15, 1, -1)
+    return z_cmb + z_offset
 
 
 def mu_corr(params, DM_ref):
@@ -160,8 +159,6 @@ def main():
         labels=labels,
         label='Pantheon+'
     )
-    gd_samples.addDerived(100 * gd_samples["v100"], name="v_km_s", label="v_{km/s}")
-    gd_samples.updateBaseStatistics()
 
     for name in gd_samples.getParamNames().names:
         print(gd_samples.getInlineLatex(name, limit=1))
@@ -226,22 +223,22 @@ if __name__ == "__main__":
 
 
 # ----------- Flat ΛCDM -----------
-# Velocity step correction in SNe observed redshifts
-# turning point z <= 0.15 inflow z > 0.15 outflow
-# z_cosmo = -1 + (1 + z) / (1 + v/c)
+# Z offset step correction in SNe observed redshifts
+# turning point z <= 0.15 positive z > 0.15 negative
+# z_cosmo = z_cmb ± Δz
 #
-# M: -19.352 +- 0.056
+# M: -19.352 +- 0.056 mag
 # H0: 70.4 +- 1.8 km/s/Mpc
-# Ωm: 0.315 +- 0.020
-# v: -68 +- 41 km/s (prior ~ U[-300, 300])
+# Ωm: 0.316 +- 0.020
+# 1000 Δz: 0.23 +- 0.14 (prior ~ U[-1, 1])
 # DOF: 1586
-# Chi squared: 1400.15
+# Chi squared: 1400.14 (1.67 sigma significance)
 # Log Evidence: 838.0
 # ---------------------------------
 
 
 # ----------- Flat wCDM -----------
-# M: -19.336 +- 0.057
+# M: -19.336 +- 0.057 mag
 # H0: 70.4 +- 1.8 km/s/Mpc
 # Ωm: 0.285 +0.081/-0.058
 # w0: -0.91 +0.17/-0.13 (prior ~ U[-1.5, -0.5])
@@ -254,7 +251,7 @@ if __name__ == "__main__":
 # ---------- Flat w0waCDM ---------
 # w0 + wa < 0 enforced in the likelihood
 #
-# M0: 19.336 +0.058/-0.053 mag
+# M0: -19.336 +0.058/-0.053 mag
 # H0: 70.4 +- 1.8 km/s/Mpc
 # Ωm: 0.316 +0.12 -0.049
 # w0: -0.92 +0.17 -0.14 (prior ~ U[-3.0, 1.0])
