@@ -3,6 +3,7 @@ import numpy as np
 from scipy.constants import c as c0
 from interpolator import interp_hermite, interp_pchip
 from solve_triangular import solve_triangular
+from cmb.data_early_lcdm_compression import r_drag
 from y2005cc.data import get_data as get_cc_data
 from y2025BAO.data_fs_lya import get_data as get_bao_data
 
@@ -89,7 +90,7 @@ def theory_bao(z, qty, params):
 
     dm_grid = DM_grid(params)
 
-    inv_rd = 1 / params[3]
+    inv_rd = 1 / r_drag(params[3], params[4] * (params[2] / 100)**2)
     dm_vals = DM_z(z, dm_grid)
     dh_vals = DH_z(z, dm_grid)
     dv_vals = DV_z(z[DV_mask], dm_vals[DV_mask], dh_vals[DV_mask])
@@ -147,7 +148,7 @@ def main():
     prior.add_parameter("n_cc", dist=(-4.0, 4.0))
     # ---- cosmological parameters ----
     prior.add_parameter("H0", dist=(45.0, 90.0))
-    prior.add_parameter("rd", dist=(120.0, 175.0))
+    prior.add_parameter("obh2", dist=(0.01, 0.04))
     prior.add_parameter("om", dist=(0.1, 0.7))
     prior.add_parameter("wp", dist=(-1.5, -0.5))
     prior.add_parameter("wa", dist=(-6.0, 6.0))
@@ -160,7 +161,7 @@ def main():
 
     samples, log_w, log_l = sampler.posterior()
     weights = np.exp(log_w)
-    labels=["ln(f_{p,cc})", "n_{cc}", "H_0", "r_{drag}", "Ω_m", "w_{piv}", "w_a"]
+    labels=["ln(f_{p,cc})", "n_{cc}", "H_0", "Ω_b h^2", "Ω_m", "w_{piv}", "w_a"]
     gd_samples = MCSamples(
         samples=samples,
         weights=weights,
@@ -171,9 +172,13 @@ def main():
     gd_samples.addDerived(
         gd_samples["om"] * (gd_samples["H0"] / 100)**2 , name="omh2", label="Ω_m h^2",
     )
-    gd_samples.addDerived(np.exp(gd_samples["ln_fp_cc"]), name="fp_cc", label="f_{p,cc}")
+    gd_samples.addDerived(
+        r_drag(gd_samples["obh2"], gd_samples["omh2"]), name="rdrag", label="r_{drag}",
+    )
+    gd_samples.addDerived(
+        np.exp(gd_samples["ln_fp_cc"]), name="fp_cc", label="f_{p,cc}",
+    )
     gd_samples.updateBaseStatistics()
-    print(gd_samples.corr(['wp', 'wa']))
 
     for name in gd_samples.getParamNames().names:
         print(gd_samples.getInlineLatex(name, limit=1))
@@ -190,7 +195,7 @@ def main():
 
     plots.getSubplotPlotter().triangle_plot(
         gd_samples,
-        params=["H0", "om", "rd", "wp", "wa", "ln_fp_cc", "n_cc"],
+        params=["H0", "om", "obh2", "wp", "wa", "rdrag"],
         filled=True,
         title_limit=1,
         contour_colors=["C0"],
@@ -202,7 +207,7 @@ def main():
         theory_predictions=lambda z, qty: theory_bao(z, qty, best_fit),
         data=data,
         errors=np.sqrt(np.diag(bao_cov_matrix)),
-        title=f"{bao_legend}: $r_d$={best_fit[3]:.2f}",
+        title=f"{bao_legend}: $r_d$={gd_samples['rdrag'].mean():.2f}",
     )
     plot_cc_predictions(
         H_z=lambda z: H_z(z, best_fit),
@@ -286,5 +291,80 @@ if __name__ == "__main__":
 # Chi squared (MAP): 48.79
 # log likelihood (MAP): -155.29
 # Log evidence: -171.14
+# DOF: 46
+# ---------------------------------
+
+
+# ---------------------------------
+# Assuming standard early universe physics with r_drag
+# as a function of the baryon density and matter density.
+# ---------------------------------
+
+
+# ----------- Flat ΛCDM -----------
+# H0 = 68.0 ± 2.8 km/s/Mpc
+# Ωb h^2 = 0.0216 ± 0.0035
+# Ωm = 0.3016 ± 0.0076
+# Ωm h^2 = 0.140 ± 0.012
+# rd = 149.0 +5.6 -6.5 Mpc
+# n_cc = 1.39 ± 0.47
+# ln(fp_cc) = -0.50 +0.11 -0.13
+# fp_cc = 0.611 +0.057 -0.083
+# Chi squared (MAP): 50.05
+# log likelihood (MAP): -156.28
+# Log evidence: -168.33
+# DOF: 48
+# ---------------------------------
+
+
+# ----------- Flat wCDM -----------
+# H0 = 67.8 ± 3.1 km/s/Mpc
+# Ωb h^2 = 0.0218 +0.0034 -0.0038
+# Ωm = 0.3016 ± 0.0080
+# wp = -0.986 ± 0.070
+# Ωm h^2 = 0.139 ± 0.012
+# rd = 149.1 +5.7 -6.4 Mpc
+# n_cc = 1.38 ± 0.47
+# ln(fp_cc) = -0.50 +0.11 -0.13
+# fp_cc = 0.614 +0.057 -0.083
+# Chi squared (MAP): 50.06
+# log likelihood (MAP): -156.25
+# Log evidence: -170.04
+# DOF: 47
+# ---------------------------------
+
+
+# ---------- Flat w0waCDM----------
+# Enforced w0 + wa <= -1/3 in the likelihood
+#
+# H0 = 63.4 ± 4.1 km/s/Mpc
+# Ωb h^2 = 0.0191 +0.0033 -0.0040
+# Ωm = 0.355 ± 0.037
+# w0 = -0.51 +0.31 -0.38 (prior ~ U[-3, 1])
+# wa = -1.8 ± 1.2 (prior ~ U[-6, 6])
+# Ωm h^2 = 0.142 +0.012 -0.013
+# rd = 150.7 +6.0 -6.8 Mpc
+# n_cc = 1.39 ± 0.48
+# ln(fp_cc) = -0.47 +0.11 -0.13
+# fp_cc = 0.631 +0.059 -0.088
+# Chi squared (MAP): 47.74
+# log likelihood (MAP): -155.27
+# Log evidence: -171.88
+# DOF: 46
+
+# == At z_pivot = 0.38 corr(wp, wa) = 0.015 ==
+# H0 = 63.4 ± 4.0 km/s/Mpc
+# Ωb h^2 = 0.0191 +0.0033 -0.0040
+# Ωm = 0.355 ± 0.037
+# wp = -0.998 ± 0.068 (prior ~ U[-1.5, -0.5])
+# wa = -1.8 ± 1.2 (prior ~ U[-6, 6])
+# Ωm h^2 = 0.142 +0.012 -0.013
+# rd = 150.7 +6.0 -6.8 Mpc
+# n_cc = 1.39 ± 0.48
+# ln(fp_cc) = -0.47 +0.11 -0.13
+# fp_cc = 0.631 +0.060 -0.088
+# Chi squared (MAP): 49.24
+# log likelihood (MAP): -155.29
+# Log evidence: -170.49
 # DOF: 46
 # ---------------------------------
