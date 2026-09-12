@@ -18,19 +18,20 @@ z_max = np.max(data["z"]) + 0.1
 z_grid = np.linspace(0, z_max, num=4000)
 dz = z_grid[1] - z_grid[0]
 
+z_pivot = 0.38 # corr(wp, wa) = 0.0085
+
 
 @njit
-def Ode_z(z, w0):
-    cubic = (1.0 + z) ** 3
-    return cubic**(1. + w0) #  wCDM
-    # Thawing quintessence wzCDM
-    # return (2 * cubic / (1.0 + w0 + (1.0 - w0) * cubic)) ** 2
+def Ode_z(z, wp, wa):
+    zp1 = 1. + z
+    # w0waCDM
+    return zp1**(3 * (1. + wp + (wa / (1. + z_pivot)))) * np.exp(-3 * wa * z / zp1)
 
 
 @njit
 def H_z(z, params):
-    h0, om, w0 = params[2], params[4], params[5]
-    return h0 * np.sqrt(om * (1.0 + z) ** 3 + (1.0 - om) * Ode_z(z, w0))
+    h0, om, wp, wa = params[2], params[4], params[5], params[6]
+    return h0 * np.sqrt(om * (1.0 + z) ** 3 + (1.0 - om) * Ode_z(z, wp, wa))
 
 
 @njit
@@ -127,6 +128,8 @@ def log_likelihood_jit(params):
 
 
 def log_likelihood(params):
+    if params[5] + (params[6] / (1.0 + z_pivot)) > -1/3:
+        return -np.inf
     return log_likelihood_jit(params)
 
 
@@ -146,7 +149,8 @@ def main():
     prior.add_parameter("H0", dist=(45.0, 90.0))
     prior.add_parameter("rd", dist=(120.0, 175.0))
     prior.add_parameter("om", dist=(0.1, 0.7))
-    prior.add_parameter("w0", dist=(-1.5, -0.5))
+    prior.add_parameter("wp", dist=(-1.5, -0.5))
+    prior.add_parameter("wa", dist=(-6.0, 6.0))
 
     with Pool(6) as pool:
         sampler = Sampler(
@@ -156,7 +160,7 @@ def main():
 
     samples, log_w, log_l = sampler.posterior()
     weights = np.exp(log_w)
-    labels=["ln(f_{p,cc})", "n_{cc}", "H_0", "r_{drag}", "Ω_m", "w_0"]
+    labels=["ln(f_{p,cc})", "n_{cc}", "H_0", "r_{drag}", "Ω_m", "w_{piv}", "w_a"]
     gd_samples = MCSamples(
         samples=samples,
         weights=weights,
@@ -169,6 +173,7 @@ def main():
     )
     gd_samples.addDerived(np.exp(gd_samples["ln_fp_cc"]), name="fp_cc", label="f_{p,cc}")
     gd_samples.updateBaseStatistics()
+    print(gd_samples.corr(['wp', 'wa']))
 
     for name in gd_samples.getParamNames().names:
         print(gd_samples.getInlineLatex(name, limit=1))
@@ -185,7 +190,7 @@ def main():
 
     plots.getSubplotPlotter().triangle_plot(
         gd_samples,
-        params=["H0", "om", "rd", "w0", "ln_fp_cc", "n_cc"],
+        params=["H0", "om", "rd", "wp", "wa", "ln_fp_cc", "n_cc"],
         filled=True,
         title_limit=1,
         contour_colors=["C0"],
@@ -251,37 +256,35 @@ if __name__ == "__main__":
 # ---------------------------------
 
 
-# ----------- Flat wzCDM ----------
-# w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
-# H0 = 66.2 ± 3.0 km/s/Mpc
-# rd = 149.5 +5.7 -6.7
-# Ωm = 0.3121 +0.0092 -0.011
-# Ωm h^2 = 0.137 ± 0.012
-# w0 = -0.855 +0.048 -0.13 (prior U[-1, 0]. Posterior truncated to the left of the mean)
-# n_cc = 1.33 ± 0.47
-# ln(fp_cc) = -0.48 +0.11 -0.13
-# fp_cc = 0.621 +0.057 -0.085
-# Chi squared (MAP): 49.61
-# log likelihood (MAP): -156.38
-# Log evidence: -170.51
-# DOF: 47
-# ---------------------------------
-
-
 # ---------- Flat w0waCDM----------
-# Enforced w0 + wa < 0 in likelihood
-# TODO: rerun it
-# H0 = 64.1 +3.5 -4.1 km/s/Mpc
-# rd = 150.4 +5.9 -6.9 Mpc
-# Ωm = 0.346 +0.038 -0.021
-# Ωm h^2 = 0.142 ± 0.013
-# w0 = -0.59 +0.34 -0.21 (prior U[-3, 1])
-# wa = < -1.47 (prior U[-3, 2])
-# n_{cc} = 1.37 ± 0.47
-# ln(fp_cc) = -0.48 +0.11 -0.13
-# fp_cc =  0.621 +0.057 -0.085
-# Chi squared (MAP): 47.32
-# log likelihood (MAP): -155.36
-# Log evidence: -172.72
+# Enforced w0 + wa <= -1/3 in the likelihood
+#
+# H0 = 63.2 +3.7 -4.2 km/s/Mpc
+# rd = 151.6 +6.0 -6.9 Mpc
+# Ωm = 0.353 +0.037 -0.031
+# w0 = -0.53 ± 0.31 (prior ~ U[-3, 1])
+# wa = -1.7 +1.1 -1.2 (prior ~ U[-4, 4])
+# Ωm h^2 = 0.140 +0.012 -0.013
+# n_cc = 1.41 ± 0.48
+# ln(fp_cc) = -0.47 +0.11 -0.13
+# fp_cc = 0.629 +0.059 -0.087
+# Chi squared (MAP): 47.87
+# log likelihood (MAP): -155.25
+# Log evidence: -172.16
+# DOF: 46
+
+# ==== At z_pivot = 0.38 ===
+# H0 = 62.9 ± 4.1 km/s/Mpc
+# rd = 151.7 +6.1 -7.0 Mpc
+# Ωm = 0.356 ± 0.037
+# w_piv = -0.998 ± 0.068 (prior ~ U[-1.5, -0.5])
+# wa = -1.8 ± 1.2 (prior ~ U[-6, 6])
+# Ωm h^2 = 0.140 +0.012 -0.013
+# n_cc = 1.40 ± 0.48
+# ln(fp_cc) = -0.47 +0.11 -0.13
+# fp_cc = 0.631 +0.060 -0.088
+# Chi squared (MAP): 48.79
+# log likelihood (MAP): -155.29
+# Log evidence: -171.14
 # DOF: 46
 # ---------------------------------
