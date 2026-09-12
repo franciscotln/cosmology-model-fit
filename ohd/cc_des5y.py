@@ -44,9 +44,8 @@ def DM_z(z, params):
 @njit
 def get_z_cosmo(params):
     # z_turn = 0.10563
-    v_km_s = 100 * params[5] * np.where(z_cmb <= 0.11, 1, -1)
-    z_pec = v_km_s / c
-    return -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+    offset = 1e-3 * params[5] * np.where(z_cmb <= 0.10563, 1, -1)
+    return z_cmb + offset
 
 
 def mu_corr(params):
@@ -67,7 +66,7 @@ bounds = np.array(
         (-0.5, 0.5),  # ΔM
         (50.0, 85.0),  # H0
         (0.05, 0.6),  # Ωm
-        (-4.5, 4.5),  # v / 100 km/s
+        (-1.5, 1.5),  # 1000 Δz
     ]
 )
 
@@ -131,7 +130,7 @@ def main():
     from log_evidence import log_evidence
     from corner_plot import plot_corner_and_chains
     from sn.plotting import plot_predictions as plot_sn_predictions
-    from .plot_predictions import plot_cc_predictions
+    from ohd.plot_predictions import plot_cc_predictions
 
     ndim = len(bounds)
     nwalkers = 100
@@ -169,7 +168,7 @@ def main():
         (dM_16, dM_50, dM_84),
         (h0_16, h0_50, h0_84),
         (Om_16, Om_50, Om_84),
-        (v_16, v_50, v_84),
+        (dz1000_16, dz1000_50, dz1000_84),
     ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
 
     best_fit = samples[np.argmax(log_probs)]
@@ -184,12 +183,12 @@ def main():
     print(f"ΔM: {dM_50:.3f} +{(dM_84 - dM_50):.3f} -{(dM_50 - dM_16):.3f} mag")
     print(f"H0: {h0_50:.1f} +{(h0_84 - h0_50):.1f} -{(h0_50 - h0_16):.1f} km/s/Mpc")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
-    print(f"v/100 km/s: {v_50:.2f} +{(v_84 - v_50):.2f} -{(v_50 - v_16):.2f}")
+    print(f"1000 Δz: {dz1000_50:.2f} +{(dz1000_84 - dz1000_50):.2f} -{(dz1000_50 - dz1000_16):.2f}")
     print(f"Chi squared (MAP): {chi_squared(best_fit, L_cc):.2f}")
     print(f"Log evidence: {log_evd:.1f}")
     print(f"DOF: {DOF}")
 
-    labels = ["$ln(f_{pCCH})$", "$n_{CCH}$", "$Δ_M$", "$H_0$", "$Ω_m$", "$v_{100}$"]
+    labels = ["$ln(f_{pCCH})$", "$n_{CCH}$", "$Δ_M$", "$H_0$", "$Ω_m$", "1000 Δz"]
     plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
     plot_cc_predictions(
         H_z=lambda z: H_z(z, best_fit),
@@ -228,18 +227,18 @@ if __name__ == "__main__":
 
 
 # ----------- Flat ΛCDM -----------
-# Velocity step correction in SNe observed redshifts
-# turning point z <= 0.10563 inflow z > 0.10563 outflow
-# z_cosmo = -1 + (1 + z) / (1 + v/c)
+# Z offset step correction in SNe observed redshifts
+# turning point z <= 0.10563 positive z > 0.10563 negative
+# z_cosmo = z_cmb +- offset
 
 # H0: 67.4 +2.9 -2.9 km/s/Mpc
-# Ωm: 0.307 +0.017 -0.016
-# v/100 km/s: -1.42 +0.65 -0.64 (prior U[-4.5, 4.5])
+# Ωm: 0.308 +0.017 -0.016
+# 1000 Δz: 0.50 +0.23 -0.23 (prior ~ U[-1.5, 1.5])
 
 # ln(fp_cc): -0.50 +0.12 -0.11
 # n_cc: 1.38 +0.47 -0.46
-# ΔM: -0.090 +0.090 -0.094 mag
-# Chi squared (MAP): 1665.40
+# ΔM: -0.092 +0.090 -0.092 mag
+# Chi squared (MAP): 1664.57
 # Log evidence: -977.3
 # DOF: 1747
 # ---------------------------------
@@ -248,7 +247,7 @@ if __name__ == "__main__":
 # ----------- Flat wCDM -----------
 # H0: 66.5 +2.9 -2.8 km/s/Mpc
 # Ωm: 0.295 +0.043 -0.051
-# w0: -0.91 +0.11 -0.12 (prior U[-1.5, 0.0])
+# w0: -0.91 +0.11 -0.12 (prior ~ U[-1.5, 0.0])
 
 # ln(fp_cc): -0.49 +0.12 -0.11
 # n_cc: 1.39 +0.49 -0.48
@@ -264,8 +263,8 @@ if __name__ == "__main__":
 #
 # H0: 65.2 +2.9 -2.8 km/s/Mpc
 # Ωm: 0.387 +0.026 -0.039
-# w0: -0.84 +0.10 -0.11 (prior U[-3.0, 1.0])
-# wa: < -2.2 (prior U[-3.0, 2.0], posterior truncated)
+# w0: -0.84 +0.10 -0.11 (prior ~ U[-3.0, 1.0])
+# wa: < -2.2 (prior ~ U[-3.0, 2.0], posterior truncated)
 #
 # ln(fp_cc): -0.52 +0.12 -0.11
 # n_cc: 1.39 +0.47 -0.45
