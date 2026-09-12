@@ -1,6 +1,6 @@
 from numba import njit
 import numpy as np
-import cmb.data_planck_act_compression as cmb
+import cmb.data_spt_planck_act_compression as cmb
 from solve_triangular import solve_triangular
 from y2005cc.data import get_data
 
@@ -32,6 +32,7 @@ def H_z(z, params):
 
 
 cmb.set_HZ(H_z)
+
 
 @njit
 def chi2_cmb(params):
@@ -145,34 +146,34 @@ if __name__ == "__main__":
 
 
 # *****************************************************************
-# CMB (ACT+Planck) + Cosmic Chronometers (CC)
+# CMB(θ*, ωb, ωm) SPT + Planck PR4 + ACT DR6 + Cosmic Chronometers
 # *****************************************************************
 
 
 # Model: Flat ΛCDM
-# ------ Fixed factor ln(f0) = 0, n = 1 ------------------------------
+# ------ Fixed factor ln(f0) = 0, n = 1 -----------------------------
 # ln(f0): 0, n: 1 (assuming no overestimaded errors in CCH sample)
-# H0: 67.61 +- 0.50 km/s/Mpc
-# Ωm: 0.3118 +- 0.0071
-# ωb: 0.02250 +- 0.00011
-# ωc: 0.1193 +- 0.0012
-# Chi squared (MAP): 16.67
-# Log likelihood (MAP): -159.41
-# Log evidence: -169.98
+# H0: 67.18 +- 0.38 km/s/Mpc
+# Ωm: 0.3176 +- 0.0055
+# ωb = 0.022399 +- 0.000095
+# ωc = 0.12029 +- 0.00093
+# Chi squared (MAP): 16.60
+# Log likelihood (MAP): -159.37
+# Log evidence: -170.41
 # DOF: 39
-# -----------------------------------------------------------------
+# -------------------------------------------------------------------
 
 
 # Model: Flat ΛCDM
-# -- Overestimation factor f(z) = f0 * [(1 + z) / (1 + z_piv)]^n --
-# H0: 67.62 +- 0.49 km/s/Mpc
-# Ωm: 0.3116 +- 0.0070
-# ωb: 0.02250 +- 0.00011
-# ωc: 0.1193 +- 0.0012
-# ln(fp): -0.50 +0.11 -0.13 (prior ~ U[ln(0.3), ln(1.2)])
-# n: 1.33 +- 0.46 (prior ~ U[-4, 4])
-# Chi squared (MAP): 39.41
-# Log likelihood (MAP): -150.13
-# Log evidence: -164.21 (Δ logZ = 5.13 compared to no scaling)
+# --- Overestimation factor f(z) = f0 * [(1 + z) / (1 + z_piv)]^n ---
+# H0: 67.20 +- 0.38 km/s/Mpc
+# Ωm: 0.3174 +- 0.0055
+# ωb: 0.022400 +- 0.000095
+# ωc: 0.12024 +- 0.00093
+# ln(fp): -0.51 +0.11 -0.12 (prior ~ U[ln(0.3), ln(1.2)])
+# n: 1.36 +- 0.47 (prior ~ U[-4, 4])
+# Chi squared (MAP): 37.77
+# Log likelihood (MAP): -149.93
+# Log evidence: -164.47 (Δ logZ = 5.94 compared to no scaling)
 # DOF: 37
-# -----------------------------------------------------------------
+# -------------------------------------------------------------------
