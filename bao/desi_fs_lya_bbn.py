@@ -11,17 +11,19 @@ inv_cov = np.linalg.inv(cov_matrix)
 z_grid = np.linspace(0, np.max(bao["z"]) + 0.1, num=4000)
 dz = z_grid[1] - z_grid[0]
 
+z_piv = 0.406
+
 
 @njit
-def Ode_z(z, w0):
-    cubic = (1.0 + z) ** 3
-    return (2 * cubic / (1.0 + w0 + (1.0 - w0) * cubic)) ** 2
+def Ode_z(z, wp, wa):
+    zp1 = 1. + z
+    return zp1**(3 * (1 + wp + (wa / (1. + z_piv)))) * np.exp(-3 * wa * z / zp1)
 
 
 @njit
 def H_z(z, params):
-    H0, Om, w0 = params[0], params[1], params[3]
-    return H0 * np.sqrt(Om * (1.0 + z) ** 3 + (1.0 - Om) * Ode_z(z, w0))
+    H0, Om, w0, wa = params[0], params[1], params[3], params[4]
+    return H0 * np.sqrt(Om * (1. + z) ** 3 + (1. - Om) * Ode_z(z, w0, wa))
 
 
 @njit
@@ -90,7 +92,8 @@ bounds = np.array(
         (55.0, 75.0),  # H0
         (0.17, 0.50),  # Ωm
         (0.016, 0.030),  # Ωb h^2
-        (-1.0, -1 / 3),  # w0
+        (-1.5, -0.5),  # w_pivot
+        (-8.0, 1.0),  # wa
     ]
 )
 
@@ -101,6 +104,9 @@ normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
 def log_prior(params):
     if not np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
         return -np.inf
+    if params[3] + (params[4] / (1. + z_piv)) > -1 / 3:
+        return -np.inf
+
     bbn_chi2 = ((bbn.Obh2 - params[2]) / bbn.Obh2_sigma) ** 2
     return normalization - 0.5 * bbn_chi2
 
@@ -125,7 +131,8 @@ def log_probability(params):
 def main():
     import emcee
     from multiprocessing import Pool
-    from corner_plot import plot_corner_and_chains
+    from getdist import MCSamples, plots
+    import matplotlib.pyplot as plt
     from bao.plot_predictions import plot_bao_predictions
 
     ndim = len(bounds)
@@ -153,47 +160,53 @@ def main():
     except emcee.autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
 
-    chains_samples = sampler.get_chain(discard=burn_in, flat=False)
-    samples = sampler.get_chain(discard=burn_in, flat=True)
+    samples = sampler.get_chain(discard=burn_in, flat=False)
+    log_probs = sampler.get_log_prob(discard=burn_in, flat=False)
+    flat_samples = sampler.get_chain(discard=burn_in, flat=True)
+    flat_log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
+    chain_list = np.moveaxis(samples, 1, 0)
+    loglikes_list = np.moveaxis(log_probs, 1, 0)
 
-    [
-        (H0_16, H0_50, H0_84),
-        (Om_16, Om_50, Om_84),
-        (Obh2_16, Obh2_50, Obh2_84),
-        (w0_16, w0_50, w0_84),
-    ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
+    params = ["H0", "om", "obh2", "wp", "wa"]
+    labels=["H_0", "Ω_m", "ω_b", "w_{piv}", "w_a"]
+    gd_samples = MCSamples(
+        samples=chain_list,
+        loglikes=-loglikes_list,
+        names=params,
+        labels=labels,
+    )
+    gd_samples.addDerived(
+        r_drag(gd_samples["obh2"], gd_samples["om"] * (gd_samples["H0"] / 100)**2),
+        name="rd",
+        label="r_{drag}",
+    )
+    gd_samples.updateBaseStatistics()
 
-    best_fit = np.percentile(samples, 50, axis=0)
+    for name in gd_samples.getParamNames().names:
+        print(gd_samples.getInlineLatex(name, limit=1))
 
-    h_samples = samples[:, 0] / 100
-    Omh2_samples = samples[:, 1] * h_samples**2
-    Omh2_16, Omh2_50, Omh2_84 = np.percentile(Omh2_samples, [15.9, 50, 84.1])
-    rd_samples = r_drag(wb=samples[:, 2], wm=Omh2_samples)
-    rd_16, rd_50, rd_84 = np.percentile(rd_samples, [15.9, 50, 84.1])
+    print(gd_samples.corr(["om", "wp", "wa"]))
 
-    residuals = bao["value"] - bao_theory(bao["z"], bao_qty, best_fit)
-    SS_res = np.sum(residuals**2)
-    SS_tot = np.sum((bao["value"] - np.mean(bao["value"])) ** 2)
-    r2 = 1 - SS_res / SS_tot
+    best_fit = flat_samples[np.argmax(flat_log_probs)]
 
-    print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
-    print(f"ωb: {Obh2_50:.5f} +{(Obh2_84 - Obh2_50):.5f} -{(Obh2_50 - Obh2_16):.5f}")
-    print(f"ωm: {Omh2_50:.5f} +{(Omh2_84 - Omh2_50):.5f} -{(Omh2_50 - Omh2_16):.5f}")
-    print(f"Ωm: {Om_50:.4f} +{Om_84-Om_50:.4f} -{Om_50-Om_16:.4f}")
-    print(f"r_d: {rd_50:.2f} +{(rd_84 - rd_50):.2f} -{(rd_50 - rd_16):.2f} Mpc")
-    print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
-    print(f"Chi squared: {chi_squared(best_fit):.2f}")
-    print(f"Degs of freedom: {len(bao)  - len(best_fit)}")
-    print(f"R^2: {r2:.4f}")
-    print(f"RMSD: {np.sqrt(np.mean(residuals**2)):.3f}")
+    print(f"Chi squared (MAP): {chi_squared(best_fit):.2f}")
+    print(f"log likelihood (MAP): {log_likelihood(best_fit):.2f}")
+    print(f"DOF: {len(bao)  - len(best_fit)}")
 
-    labels = ["$H_0$", "$Ω_m$", "$ω_b$", "$w_0$"]
-    plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
+    plots.get_subplot_plotter().triangle_plot(
+        gd_samples,
+        params=params,
+        title_limit=1,
+        filled=True,
+        contour_colors=["C0"],
+        color=["C0"],
+    )
+    plt.show()
     plot_bao_predictions(
         theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit),
         data=bao,
         errors=np.sqrt(np.diag(cov_matrix)),
-        title=f"{legend}: $Ω_m$={Om_50:.4f}",
+        title=f"{legend}: $Ω_m$={gd_samples['om'].mean():.3f}",
     )
 
 
@@ -208,43 +221,44 @@ if __name__ == "__main__":
 
 
 # Flat ΛCDM:
-# H0: 68.55 +0.60 -0.58 km/s/Mpc
+# H0: 68.55 +- 0.59 km/s/Mpc
 # ωb: 0.02218 +- 0.00055
-# ωm: 0.1417 +0.0047 -0.0045
-# Ωm: 0.3017 +0.0077 -0.0075
-# r_d: 147.59 +- 1.47 Mpc
+# Ωm: 0.3019 +- 0.0077
+# rd: 147.6 +- 1.5 Mpc
 # Chi squared: 12.81
-# Degs of freedom: 11
-# R^2: 0.9987
-# RMSD: 0.298
+# log likelihood (MAP): -6.40
+# DOF: 11
 # ---------------------------------
 
 
 # Flat wCDM:
-# H0: 67.7 +2.0 -2.0 km/s/Mpc
-# ωb: 0.02219 +0.00055 -0.00055
-# ωm: 0.1389 +0.0081 -0.0082
-# Ωm: 0.3022 +0.0083 -0.0081
-# r_d: 148.4 +2.4 -2.3 Mpc
-# w0: -0.990 +0.024 -0.025 (prior ~U[-1.5, -1/3])
-# wa: 0
+# H_0 = 67.7 +- 2.0 km/s/Mpc
+# Ω_m = 0.3023 +- 0.0082
+# ω_b = 0.02218 +- 0.00055
+# rd: 148.4 +2.4 -2.3 Mpc
+# w0: -0.970 +- 0.073 (prior ~U[-1.5, -0.5])
 # Chi squared: 12.57
-# Degs of freedom: 10
-# R^2: 0.9988
-# RMSD: 0.288
+# log likelihood (MAP): -6.28
+# DOF: 10
 # ---------------------------------
 
 
-# Flat wzCDM: w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
-# H0: 66.27 +1.52 -1.82 km/s/Mpc
-# ωb: 0.02218 +0.00055 -0.00054
-# ωm: 0.1376 +0.0053 -0.0053
-# Ωm: 0.314 +0.012 -0.011
-# r_d: 148.73 +1.69 -1.64 Mpc
-# w0: -0.84 +0.12 -0.11 (prior ~U[-1.0, -1/3])
-# wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
-# Chi squared: 12.08
-# Degs of freedom: 10
-# R^2: 0.9990
-# RMSD: 0.268
+# Flat w0waCDM at z_pivot = 0.406
+# wp + wa / (1+z_pivot) <= -1/3 enforced in the likelihood
+# 
+# H0 = 63.0 +2.5 -2.9 km/s/Mpc
+# Ωm = 0.402 +- 0.042
+# ωb = 0.02219 +- 0.00055
+# wp = -0.993 +0.072 -0.066 (prior ~U[-1.5, -0.5])
+# wa = -3.3 +- 1.4 (prior ~U[-8, 1])
+# rd: 143.4 +1.6 -2.2 Mpc
+# Chi squared (MAP): 7.23
+# log likelihood (MAP): -3.61
+# DOF: 9
+#
+# Correlation matrix
+#      om          wp          wa
+# om   1.          0.19835095 -0.95887650
+# wp   0.19835095  1.         -0.00209782
+# wa  -0.95887650 -0.00209782  1.
 # ---------------------------------
