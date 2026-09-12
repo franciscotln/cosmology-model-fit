@@ -47,26 +47,29 @@ def DM_z(z, DM_interp):
 
 
 @njit
-def mu_corr(v, DM_interp):
+def get_z_cosmo(dz1000):
     # Heaviside step at z = 0.2
-    v_km_s = v * np.where(z_cmb <= 0.2, 1, -1)
-    z_pec = v_km_s / c
-    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+    offset = 1e-3 * dz1000 * np.where(z_cmb <= 0.2, 1, -1)
+    return z_cmb + offset
 
+
+def mu_corr(dz1000, DM_interp):
+    #  For plotting purposes only
+    z_cosmo = get_z_cosmo(dz1000)
     return 5 * np.log10(DM_z(z_cosmo, DM_interp) / DM_z(z_cmb, DM_interp))
 
 
 @njit
-def mu_theory(offset, DM_interp):
-    return offset + 25.0 + 5 * np.log10((1.0 + z_hel) * DM_z(z_cmb, DM_interp))
+def mu_theory(mag_offset, DM):
+    return mag_offset + 25.0 + 5 * np.log10((1.0 + z_hel) * DM)
 
 
 @njit
 def chi_squared(params, L_cc):
-    offset, v = params[2], params[5]
+    z_cosmo = get_z_cosmo(dz1000=params[5])
+    DM = DM_z(z_cosmo, DM_grid(params))
 
-    DM_interp = DM_grid(params)
-    delta_sn = mu_vals - mu_theory(offset, DM_interp) - mu_corr(v, DM_interp)
+    delta_sn = mu_vals - mu_theory(mag_offset=params[2], DM=DM)
     y_sn = solve_triangular(L_sn, delta_sn)
     chi_sn = np.dot(y_sn, y_sn)
 
@@ -108,7 +111,7 @@ def main():
     prior.add_parameter("dM", dist=(-1.0, 1.0))
     prior.add_parameter("H0", dist=(40.0, 95.0))
     prior.add_parameter("Om", dist=(0.1, 0.7))
-    prior.add_parameter("v", dist=(-900, 900))
+    prior.add_parameter("dz1000", dist=(-3.5, 3.5)) # 1000 x Δz
 
     with Pool(5) as pool:
         sampler = Sampler(
@@ -118,7 +121,7 @@ def main():
 
     samples, log_w, log_l = sampler.posterior()
     log_evd = sampler.log_z
-    labels = ["ln(f_{pivot})", "n", "ΔM", "H_0", "Ω_m", "v"]
+    labels = ["ln(f_{pivot})", "n", "ΔM", "H_0", "Ω_m", "1000 Δz"]
 
     gd_samples = MCSamples(
         samples=samples,
@@ -162,7 +165,7 @@ def main():
         x=z_cmb,
         y=mu_vals - mu_corr(best_fit[5], DM_grid(best_fit)),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=mu_theory(best_fit[2], DM_grid(best_fit)),
+        y_model=mu_theory(best_fit[2], DM_z(z_cmb, DM_grid(best_fit))),
         label=f"$Ω_m$={best_fit[4]:.4f}",
         x_scale="log",
     )
@@ -186,19 +189,19 @@ if __name__ == "__main__":
 
 
 # ---------------- Flat ΛCDM ----------------
-# velocity step correction SNe observed redshifts
-# turning point z <= 0.2 inflow z > 0.2 outflow
-# z_cosmo = -1 + (1 + z) / (1 + v/c)
+# Z offset step correction in SNe observed redshifts
+# turning point z <= 0.2 positive z > 0.2 negative
+# z_cosmo = z_cmb ± Δz
 #
-# v = -302 +- 120 km/s
-# H0 = 68.2 +- 3.1 km/s/Mpc
-# Ωm = 0.301 +0.021 -0.024
-# ΔM = -0.062 +- 0.094
-# ln(fp) = -0.49 +0.11 -0.13
-# n = 1.35 +- 0.47
-# χ² (MAP): 59.54
-# Log likelihood (MAP): -161.23 (2.6 sigma significance)
-# Log evidence: -176.4 (ΔlogZ = 1.5 in favour of v corrections)
+# 1000 Δz = 1.14 ± 0.44
+# H0 = 67.8 +- 3.1 km/s/Mpc
+# Ωm = 0.301 +0.021 -0.023
+# ΔM = -0.075 +- 0.093
+# ln(fp) = -0.50 +0.11 -0.13
+# n = 1.40 +- 0.47
+# χ² (MAP): 59.22
+# Log likelihood (MAP): -161.00 (1.9 sigma significance)
+# Log evidence: -176.2 (ΔlogZ = 1.7 in favour of z offset correction)
 # DOF: 55
 # -------------------------------------------
 
