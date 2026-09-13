@@ -194,7 +194,7 @@ def main():
     gd_samples = MCSamples(
         samples=samples,
         weights=np.exp(log_w),
-        loglikes=log_l,
+        loglikes=-log_l,
         names=prior.keys,
         labels=["ΔM", "H_0", "ω_b", "ω_c", "1000 Δz"],
     )
@@ -217,6 +217,7 @@ def main():
         name="rdrag",
         label="r_{drag}",
     )
+    gd_samples.updateBaseStatistics()
 
     best_fit = samples[np.argmax(log_l)]
     DOF = len(z_cmb) + len(bao) + len(cmb.DISTANCE_PRIORS) - len(best_fit)
@@ -360,5 +361,22 @@ if __name__ == "__main__":
 # r_d: 147.24 ± 0.25 Mpc
 # χ2 (MAP): 40.43 (2.32 sigma away from ΛCDM)
 # Log evidence: -43.8 + 0.1 (Δ logZ = -0.6 in favour of ΛCDM)
+# DOF: 35
+#
+# At z_pivot = 0.364 corr(wp, wa) = -0.0099
+# wp = -0.975 ± 0.031 (prior ~ U[-1.5, -0.5])
+# wa = -0.73 +0.30 -0.26 (prior ~ U[-2, 2])
+#
+# ΔM = -0.049 ± 0.011 mag
+# H0 = 66.94 ± 0.79 km/s/Mpc
+# ωb = 0.02251 ± 0.00011
+# ωc = 0.11889 ± 0.00099
+# ωm = 0.14204 ± 0.00096
+# Ωm = 0.3172 ± 0.0078
+# z* = 1089.63 ± 0.19
+# z_d = 1060.17 ± 0.23
+# r_d = 147.24 ± 0.25 Mpc
+# χ2 (MAP): 40.43
+# Log evidence: -43.5
 # DOF: 35
 # ---------------------------------
