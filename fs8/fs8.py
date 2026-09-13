@@ -129,6 +129,8 @@ def log_likelihood(theta):
     return -0.5 * (chi_squared(theta) - 2 * N * np.log(f_err))
 
 
+names = ["om", "s8", "w0", "f_err"]
+labels = ["Ω_m", "\\sigma_8", "w_0", "f_{err}"]
 bounds = np.array(
     [
         (0.1, 0.6),  # Ωm: effective clustering matter density
@@ -162,23 +164,21 @@ def log_probability(theta):
 
 def main():
     from multiprocessing import Pool
-    import emcee
+    from emcee import EnsembleSampler, moves, autocorr
+    from getdist import MCSamples, plots
+    import matplotlib.pyplot as plt
     from fs8.plot_predictions import plot_predictions
-    from corner_plot import plot_corner_and_chains
 
     np.random.seed(42)
     ndim = len(bounds)
     nwalkers = 100
-    burn_in = 500
-    nsteps = 2000 + burn_in
+    burn_in = 100
+    nsteps = 4000 + burn_in
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
-    moves = [
-        (emcee.moves.KDEMove(bw_method="silverman"), 0.20),
-        (emcee.moves.DEMove(), 0.80),
-    ]
+    custom_moves = [(moves.KDEMove(), 0.20), (moves.DEMove(), 0.80)]
 
     with Pool(8) as pool:
-        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
+        sampler = EnsembleSampler(nwalkers, ndim, log_probability, pool, custom_moves)
         sampler.run_mcmc(
             initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#ff5a00"}
         )
@@ -188,50 +188,52 @@ def main():
         print("auto-correlation time", tau)
         print("mean acceptance fraction", np.mean(sampler.acceptance_fraction))
         print("effective samples", ndim * nwalkers * (nsteps - burn_in) / np.max(tau))
-    except emcee.autocorr.AutocorrError as e:
+    except autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
 
-    samples = sampler.get_chain(discard=burn_in, flat=True)
-    chains_samples = sampler.get_chain(discard=burn_in, flat=False)
-    log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
+    flat_samples = sampler.get_chain(discard=burn_in, flat=True)
+    samples = sampler.get_chain(discard=burn_in, flat=False)
+    flat_log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
+    log_probs = sampler.get_log_prob(discard=burn_in, flat=False)
 
-    MAP_samples = samples[np.argmax(log_probs)]
+    # reshape for getdist
+    chain_list = np.moveaxis(samples, 1, 0)
+    loglike_list = np.moveaxis(log_probs, 1, 0)
 
-    pct = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
-    [
-        (Om_16, Om_50, Om_84),
-        (s8_16, s8_50, s8_84),
-        (w0_16, w0_50, w0_84),
-        (f_16, f_50, f_84),
-    ] = pct
-
-    S8_samples = samples[:, 1] * (samples[:, 0] / 0.3) ** 0.5
-    S8_chains_samples = chains_samples[:, :, 1] * (chains_samples[:, :, 0] / 0.3) ** 0.5
-
-    S8_16, S8_50, S8_84 = np.percentile(S8_samples, [15.9, 50, 84.1])
-    best_fit = np.percentile(samples, 50, axis=0)
-
-    samples = np.column_stack((S8_samples, samples))
-    chains_samples = np.concatenate(
-        (S8_chains_samples[:, :, np.newaxis], chains_samples), axis=2
+    gd_samples = MCSamples(
+        samples=chain_list,
+        loglikes=-loglike_list,
+        names=names,
+        labels=labels,
     )
+    gd_samples.addDerived(gd_samples["s8"] * (gd_samples["om"] / 0.3) ** 0.5, name="S8", label="S_8")
+    gd_samples.updateBaseStatistics()
 
-    print(f"Ωm = {Om_50:.3f} +{Om_84-Om_50:.3f} -{Om_50-Om_16:.3f}")
-    print(f"σ8 = {s8_50:.3f} +{s8_84-s8_50:.3f} -{s8_50-s8_16:.3f}")
-    print(f"S8 = {S8_50:.3f} +{S8_84-S8_50:.3f} -{S8_50-S8_16:.3f}")
-    print(f"w0 = {w0_50:.3f} +{w0_84-w0_50:.3f} -{w0_50-w0_16:.3f}")
-    print(f"f_err = {f_50:.2f} +{f_84-f_50:.2f} -{f_50-f_16:.2f}")
-    print(f"chi2 = {chi_squared(MAP_samples):.2f}")
-    print(f"log likelihood = {log_likelihood(MAP_samples):.1f}")
-    print(f"degs of freedom = {N - len(best_fit)}")
+    for name in gd_samples.getParamNames().names:
+        print(gd_samples.getInlineLatex(name, limit=1))
 
-    labels = ["$S_8$", "$Ω_m$", "$\\sigma_8$", "$w_0$", "$f_{err}$"]
-    plot_corner_and_chains(labels, samples, chains_samples)
+    MAP_params = flat_samples[np.argmax(flat_log_probs)]
+
+    print(f"chi2 (MAP) = {chi_squared(MAP_params):.2f}")
+    print(f"log likelihood (MAP) = {log_likelihood(MAP_params):.1f}")
+    print(f"DOF = {N - len(MAP_params)}")
+
+    plots.get_subplot_plotter().triangle_plot(
+        gd_samples,
+        title_limit=1,
+        filled=True,
+        contour_colors=["C0"],
+        color=["C0"],
+        legend_labels=['$f\\sigma_8$ compilation']
+    )
+    plt.show()
+
+    om, s8, w0, f_err = MAP_params
     plot_predictions(
-        fs8_theory=lambda z: fs8_theory(1 / (1 + z), Om_50, s8_50, w0_50),
+        fs8_theory=lambda z: fs8_theory(1 / (1 + z), om, s8, w0),
         data=data,
-        q=Ez(z_vals, Om_50, w0_50) * DM(z_vals, Om_50, w0_50) / Ez_DMz_fid,
-        f_err=f_50,
+        q=Ez(z_vals, om, w0) * DM(z_vals, om, w0) / Ez_DMz_fid,
+        f_err=f_err,
     )
 
 
@@ -240,22 +242,22 @@ if __name__ == "__main__":
 
 
 # ----------- flat ΛCDM -----------
-# Ωm = 0.313 +0.020 -0.019
-# σ8 = 0.787 +0.011 -0.011
-# S8 = 0.803 +0.020 -0.020
-# f_err = 1.78 +0.17 -0.17
-# chi2 = 56.25
+# Ωm = 0.314 +- 0.020
+# σ8 = 0.787 +- 0.011
+# S8 = 0.804 +- 0.020
+# f_err = 1.78 +- 0.17
+# chi2 = 55.86
 # log likelihood = 5.2
 # degs of freedom = 53
 # ---------------------------------
 
 
 # ----------- flat wCDM -----------
-# Ωm = 0.281 +0.021 -0.021
-# σ8 = 0.895 +0.051 -0.044
-# S8 = 0.868 +0.028 -0.028
-# w0 = -0.69 +0.09 -0.09 (prior ~ U[-1.5, 0])
-# f_err = 1.93 +0.19 -0.18
+# Ωm = 0.282 +0.019 -0.022
+# σ8 = 0.897 +0.041 -0.052
+# S8 = 0.868 +- 0.028
+# w0 = -0.693 +0.100 -0.076 (prior ~ U[-1.5, 0])
+# f_err = 1.93 +- 0.19
 # chi2 = 56.04
 # log likelihood = 10.1
 # degs of freedom = 52
@@ -263,12 +265,12 @@ if __name__ == "__main__":
 
 
 # ---------- flat wzCDM -----------
-# Ωm = 0.315 +0.018 -0.017
-# σ8 = 0.846 +0.025 -0.023
-# S8 = 0.868 +0.027 -0.028
-# w0 = -0.58 +0.11 -0.12 (prior ~ U[-1, 0])
-# f_err = 1.93 +0.19 -0.19
-# chi2 = 56.73
+# Ωm = 0.316 +- 0.018
+# σ8 = 0.846 +0.022 -0.025
+# S8 = 0.867 +- 0.028
+# w0 = -0.58 +0.13 -0.10 (prior ~ U[-1, 0])
+# f_err = 1.93 +- 0.19
+# chi2 = 56.09
 # log likelihood = 10.1
 # degs of freedom = 52
 # ---------------------------------
