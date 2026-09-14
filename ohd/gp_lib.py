@@ -1,10 +1,11 @@
-from typing import Any, Optional, Union
+from typing import Any, Optional
 from copy import deepcopy
 import torch
 import gpytorch
 from gpytorch.likelihoods import _GaussianLikelihoodBase
 from gpytorch.distributions import MultivariateNormal
 from gpytorch.likelihoods.noise_models import HomoskedasticNoise
+from gpytorch.utils.warnings import GPInputWarning
 from linear_operator.operators import (
     DenseLinearOperator,
     DiagLinearOperator,
@@ -48,24 +49,37 @@ class FixedGaussianNoise(gpytorch.Module):
         self.noise = noise
 
         self.register_parameter(
-            "noise_scale",
-            torch.nn.Parameter(torch.ones(()), requires_grad=learn_noise_scale),
+            "raw_noise_scale",
+            torch.nn.Parameter(torch.zeros(()), requires_grad=learn_noise_scale),
         )
+        self.register_constraint(
+            "raw_noise_scale",
+            gpytorch.constraints.Positive(),
+        )
+
+    @property
+    def noise_scale(self) -> torch.Tensor:
+        return self.raw_noise_scale_constraint.transform(self.raw_noise_scale)
+
+    @noise_scale.setter
+    def noise_scale(self, value: torch.Tensor | float):
+        if not torch.is_tensor(value):
+            value = torch.as_tensor(value, dtype=self.raw_noise_scale.dtype, device=self.raw_noise_scale.device)
+        self.initialize(raw_noise_scale=self.raw_noise_scale_constraint.inverse_transform(value))
 
     def forward(
         self,
         *params: Any,
-        shape: Optional[torch.Size] = None,
         noise: Optional[torch.Tensor] = None,
         **kwargs: Any,
     ) -> LinearOperator:
         raw_noise = noise if noise is not None else self.noise
-        scaled_noise = raw_noise * self.noise_scale
+        scaled_noise = raw_noise * self.noise_scale**2
 
-        if scaled_noise.ndim == 2:
-            return DenseLinearOperator(scaled_noise)
-        else:
+        if scaled_noise.ndim == 1:
             return DiagLinearOperator(scaled_noise)
+        else:
+            return DenseLinearOperator(scaled_noise)
 
     def _apply(self, fn):
         self.noise = fn(self.noise)
@@ -111,26 +125,19 @@ class FixedNoiseGaussianLikelihood(_GaussianLikelihoodBase):
     def __init__(
         self,
         noise: torch.Tensor,
-        learn_additional_noise: Optional[bool] = False,
+        learn_additional_noise: bool | None = False,
         learn_noise_scale: Optional[bool] = False,
-        batch_shape: Optional[torch.Size] = torch.Size(),
+        batch_shape: torch.Size | None = torch.Size(),
         **kwargs: Any,
     ) -> None:
-        super().__init__(
-            noise_covar=FixedGaussianNoise(
-                noise=noise, learn_noise_scale=learn_noise_scale
-            )
-        )
+        super().__init__(noise_covar=FixedGaussianNoise(noise=noise, learn_noise_scale=learn_noise_scale))
 
-        # super().__init__(noise_covar=FixedGaussianNoise(noise=noise))
-        self.second_noise_covar: Optional[HomoskedasticNoise] = None
+        self.second_noise_covar: HomoskedasticNoise | None = None
         if learn_additional_noise:
             noise_prior = kwargs.get("noise_prior", None)
             noise_constraint = kwargs.get("noise_constraint", None)
             self.second_noise_covar = HomoskedasticNoise(
-                noise_prior=noise_prior,
-                noise_constraint=noise_constraint,
-                batch_shape=batch_shape,
+                noise_prior=noise_prior, noise_constraint=noise_constraint, batch_shape=batch_shape
             )
 
     @property
@@ -142,7 +149,7 @@ class FixedNoiseGaussianLikelihood(_GaussianLikelihoodBase):
         self.noise_covar.initialize(noise=value)
 
     @property
-    def second_noise(self) -> Union[float, torch.Tensor]:
+    def second_noise(self) -> float | torch.Tensor:
         if self.second_noise_covar is None:
             return 0.0
         else:
@@ -159,33 +166,20 @@ class FixedNoiseGaussianLikelihood(_GaussianLikelihoodBase):
 
     def get_fantasy_likelihood(self, **kwargs: Any) -> "FixedNoiseGaussianLikelihood":
         if "noise" not in kwargs:
-            raise RuntimeError(
-                "FixedNoiseGaussianLikelihood.fantasize requires a `noise` kwarg"
-            )
-
+            raise RuntimeError("FixedNoiseGaussianLikelihood.fantasize requires a `noise` kwarg")
         old_noise_covar = self.noise_covar
-        self.noise_covar = None
+        self.noise_covar = None  # pyre-fixme[8]
         fantasy_liklihood = deepcopy(self)
         self.noise_covar = old_noise_covar
 
         old_noise = old_noise_covar.noise
         new_noise = kwargs.get("noise")
-
-        if old_noise.ndim == 1 and new_noise.ndim == 1:
-            cat_noise = torch.cat([old_noise, new_noise], -1)
-        elif old_noise.ndim == 2 and new_noise.ndim == 2:
-            cat_noise = torch.block_diag(old_noise, new_noise)
-        else:
-            raise ValueError(
-                "Noise tensors must have the same dimensions (both 1D or both 2D)."
-            )
-
-        fantasy_liklihood.noise_covar = FixedGaussianNoise(noise=cat_noise)
+        if old_noise.dim() != new_noise.dim():
+            old_noise = old_noise.expand(*new_noise.shape[:-1], old_noise.shape[-1])
+        fantasy_liklihood.noise_covar = FixedGaussianNoise(noise=torch.cat([old_noise, new_noise], -1))
         return fantasy_liklihood
 
-    def _shaped_noise_covar(
-        self, base_shape: torch.Size, *params: Any, **kwargs: Any
-    ) -> Union[torch.Tensor, LinearOperator]:
+    def _shaped_noise_covar(self, base_shape: torch.Size, *params: Any, **kwargs: Any) -> torch.Tensor | LinearOperator:
         if len(params) > 0:
             # we can infer the shape from the params
             shape = None
@@ -201,14 +195,12 @@ class FixedNoiseGaussianLikelihood(_GaussianLikelihoodBase):
             warnings.warn(
                 "You have passed data through a FixedNoiseGaussianLikelihood that did not match the size "
                 "of the fixed noise, *and* you did not specify noise. This is treated as a no-op.",
-                warnings.GPInputWarning,
+                GPInputWarning,
             )
 
         return res
 
-    def marginal(
-        self, function_dist: MultivariateNormal, *args: Any, **kwargs: Any
-    ) -> MultivariateNormal:
+    def marginal(self, function_dist: MultivariateNormal, *args: Any, **kwargs: Any) -> MultivariateNormal:
         r"""
         :return: Analytic marginal :math:`p(\mathbf y)`.
         """

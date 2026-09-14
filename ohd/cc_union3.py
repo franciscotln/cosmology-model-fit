@@ -28,8 +28,9 @@ def Ode_z(z, w0):
 
 @njit
 def H_z(z, params):
-    H0, Om = params[3], params[4]
-    return H0 * np.sqrt(Om * (1.0 + z) ** 3 + (1.0 - Om))
+    Omh2, Om = params[3], params[4]
+    h2 = Omh2 / Om
+    return 100 * np.sqrt(Omh2 * (1.0 + z) ** 3 + (h2 - Omh2))
 
 
 @njit
@@ -109,7 +110,7 @@ def main():
     prior.add_parameter("ln_fp", dist=(np.log(0.3), np.log(1.2)))
     prior.add_parameter("n", dist=(-4.0, 4.0))
     prior.add_parameter("dM", dist=(-1.0, 1.0))
-    prior.add_parameter("H0", dist=(40.0, 95.0))
+    prior.add_parameter("Omh2", dist=(0.01, 0.25))
     prior.add_parameter("Om", dist=(0.1, 0.7))
     prior.add_parameter("dz1000", dist=(-3.5, 3.5)) # 1000 x Δz
 
@@ -121,7 +122,7 @@ def main():
 
     samples, log_w, log_l = sampler.posterior()
     log_evd = sampler.log_z
-    labels = ["ln(f_{pivot})", "n", "ΔM", "H_0", "Ω_m", "1000 Δz"]
+    labels = ["ln(f_{pivot})", "n", "ΔM", "Ω_m h^2", "Ω_m", "1000 Δz"]
 
     gd_samples = MCSamples(
         samples=samples,
@@ -130,6 +131,7 @@ def main():
         names=prior.keys,
         labels=labels,
     )
+    gd_samples.addDerived(100 * np.sqrt(gd_samples["Omh2"] / gd_samples["Om"]), name="H0", label="H_0")
     gd_samples.addDerived(np.exp(gd_samples["ln_fp"]), name="fp", label="f_{pivot}")
 
     for name in gd_samples.getParamNames().names:
@@ -148,7 +150,12 @@ def main():
     print(f"DOF: {DOF}")
 
     plots.get_subplot_plotter().triangle_plot(
-        gd_samples, prior.keys, filled=True, title_limit=1, contour_colors=["C0"], color=["C0"],
+        gd_samples,
+        params=["H0"] + prior.keys,
+        filled=True,
+        title_limit=1,
+        contour_colors=["C0"],
+        color=["C0"],
     )
     plt.show()
 
@@ -176,14 +183,14 @@ if __name__ == "__main__":
 
 
 # ---------------- Flat ΛCDM ----------------
-# H0 = 66.6 +- 3.1 km/s/Mpc
-# Ωm = 0.328 +- 0.022
-# ΔM = -0.090 +- 0.094 mag
+# H0 = 66.3 +- 3.0 km/s/Mpc
+# Ωm = 0.329 +- 0.022
+# ΔM = -0.099 +- 0.093 mag
 # ln(fp) = -0.49 +0.11 -0.13
-# n = 1.30 +- 0.47
-# χ² (MAP): 67.71
-# Log likelihood (MAP): -164.66
-# Log evidence: -177.9
+# n = 1.33 +- 0.47
+# χ² (MAP): 68.13
+# Log likelihood (MAP): -164.65
+# Log evidence: -177.7
 # DOF: 56
 # -------------------------------------------
 
@@ -193,29 +200,29 @@ if __name__ == "__main__":
 # turning point z <= 0.2 positive z > 0.2 negative
 # z_cosmo = z_cmb ± Δz
 #
-# 1000 Δz = 1.14 ± 0.44
+# 1000 Δz = 1.13 ± 0.44
 # H0 = 67.8 +- 3.1 km/s/Mpc
-# Ωm = 0.301 +0.021 -0.023
-# ΔM = -0.075 +- 0.093
-# ln(fp) = -0.50 +0.11 -0.13
+# Ωm = 0.302 +- 0.022
+# ΔM = -0.073 +- 0.093
+# ln(fp) = -0.50 +0.11 -0.12
 # n = 1.40 +- 0.47
-# χ² (MAP): 59.22
-# Log likelihood (MAP): -161.00 (1.9 sigma significance)
-# Log evidence: -176.2 (ΔlogZ = 1.7 in favour of z offset correction)
+# χ² (MAP): 59.45
+# Log likelihood (MAP): -161.01 (1.9 sigma significance)
+# Log evidence: -176.2 (ΔlogZ = 1.5 in favour of z offset correction)
 # DOF: 55
 # -------------------------------------------
 
 
 # ---------------- Flat wCDM ----------------
-# w0 = -0.89 +0.14 -0.12 (prior U[-1.5, 0])
-# H0 = 66.7 +- 3.1 km/s/Mpc
-# Ωm = 0.288 +0.060 -0.043
-# ΔM = -0.077 +- 0.096
-# ln(fp) = -0.47 +0.11 -0.13
-# n = 1.36 +- 0.48
-# χ² (MAP): 65.31
-# Log likelihood (MAP): -164.34 (1.0 sigma significance)
-# Log evidence: -179.1 (ΔlogZ = -1.2 in favour of ΛCDM)
+# w0 = -0.92 +0.14 -0.12 (prior U[-1.5, 0])
+# H0 = 66.4 +- 3.0 km/s/Mpc
+# Ωm = 0.298 +0.055 -0.042
+# ΔM = -0.089 +- 0.095
+# ln(fp) = -0.48 +0.11 -0.13
+# n = 1.38 +- 0.48
+# χ² (MAP): 66.11
+# Log likelihood (MAP): -164.15 (1.0 sigma significance)
+# Log evidence: -179.0 (ΔlogZ = -1.3 in favour of ΛCDM)
 # DOF: 55
 # -------------------------------------------
 
