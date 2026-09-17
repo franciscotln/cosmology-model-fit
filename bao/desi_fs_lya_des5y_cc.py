@@ -11,7 +11,7 @@ from y2025DESdovekie.data import (
     get_data as get_sn_data,
 )
 
-cc_legend, z_cc_vals, H_cc_vals, H_cc_err, cov_mat_sys_cc = get_cc_data(split_sys=True)
+cc_legend, z_cc_vals, H_cc_vals, diag_stat_cc, cov_mat_sys_cc = get_cc_data(split_sys=True)
 sn_legend, z_cmb, z_hel, mu_values, cov_matrix_sn = get_sn_data()
 bao_legend, bao, cov_matrix_bao = get_bao_data()
 
@@ -19,6 +19,7 @@ cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
 cho_bao = cho_factor(cov_matrix_bao, lower=True)[0]
 
 N_cc = len(z_cc_vals)
+H_cc_err = np.sqrt(np.diag(cov_mat_sys_cc) + diag_stat_cc**2)
 
 c = c0 / 1000  # km/s
 
@@ -27,28 +28,28 @@ z_grid = np.linspace(0, z_max, num=4000)
 dz = z_grid[1] - z_grid[0]
 
 # ----- PARAMS -----
-names = ["ln_fp", "n_cc", "dM", "h0", "rd", "Om", "v100"]
-labels = ["ln(f_{p,cc})", "n_{cc}", "ΔM", "H_0", "r_d", "Ω_m", "v_{100}"]
+names = ["ln_fp", "n_cc", "dM", "h0", "rd", "Om", "1000_dz"]
+labels = ["ln(f_{p,cc})", "n_{cc}", "ΔM", "H_0", "r_d", "Ω_m", "1000 Δz"]
 bounds = np.array(
     [
-        (np.log(0.3), np.log(1.2)),  # ln(fp): CC error rescaling (overestimated)
+        (-1.4, 0.4),  # ln(fp): CC error rescaling (overestimated)
         (-4, +4),  # n_cc: CC error rescaling power (overestimated)
         (-0.55, +0.55),  # ΔM: magnitude offset
         (45, 90),  # H0: Hubble constant at present
         (110, 175),  # r_d: sound horizon at drag epoch
         (0.2, 0.7),  # Ωm: matter density parameter at present
-        (-4.5, +4.5),  # v x 100 km/s
+        (-1.5, +1.5),  # 1000 x Δz
     ]
 )
 # ------------------
 
 @njit
-def rho_de(z, w0):
+def rho_de(z, w0, wa):
     cubed = (1.0 + z) ** 3
-    return (2 * cubed / (1.0 + w0 + (1.0 - w0) * cubed)) ** 2  # wzCDM
+    # return (2 * cubed / (1.0 + w0 + (1.0 - w0) * cubed)) ** 2  # wzCDM
     # return 1.0  # ΛCDM
     # return cubed ** (1.0 + w0)  # wCDM
-    # return cubed ** (1.0 + w0 + wa) * np.exp(-3 * wa * z / (1.0 + z))  # w0waCDM
+    return cubed ** (1.0 + w0 + wa) * np.exp(-3 * wa * z / (1.0 + z))  # w0waCDM
 
 
 @njit
@@ -110,10 +111,9 @@ def bao_theory(z, qty, rdrag, dm_grid):
 
 @njit
 def get_z_cosmo(params):
-    # Heaviside step function
-    v_km_s = 100 * params[6] * np.where(z_cmb <= 0.10563, 1, -1)
-    z_pec = v_km_s / c
-    return -1.0 + (1.0 + z_cmb) / (1.0 + z_pec)
+    # z_turn = 0.10563
+    z_offset = 1e-03 * params[6] * np.where(z_cmb <= 0.10563, 1, -1)
+    return z_cmb + z_offset
 
 
 def mu_corr(params, dm_grid):
@@ -159,14 +159,16 @@ def log_prior(theta):
     return normalization
 
 
-z_pivot = 0.615
+@njit
+def get_fz(theta):
+    z_pivot = 0.728
+    f_piv, n = np.exp(theta[0]), theta[1]
+    return f_piv * ((1.0 + z_cc_vals) / (1.0 + z_pivot))**n
 
 
 @njit
 def log_likelihood(theta):
-    fp, n_cc = np.exp(theta[0]), theta[1]
-    fz_cc = fp * ((1.0 + z_cc_vals) / (1.0 + z_pivot)) ** n_cc
-    cov_mat_cc = np.diag(H_cc_err ** 2 * fz_cc**2) + cov_mat_sys_cc
+    cov_mat_cc = cov_mat_sys_cc + np.diag(diag_stat_cc ** 2 * get_fz(theta)**2)
     cho_cc = np.linalg.cholesky(cov_mat_cc)
     logdet_cc = 2.0 * np.sum(np.log(np.diag(cho_cc)))
     normalization_cc = N_cc * np.log(2 * np.pi) + logdet_cc
@@ -249,8 +251,8 @@ def main():
         print(gd_samples.getInlineLatex(name, limit=1))
 
     MAP_PARAMS = flat_samples[np.argmax(flat_log_probs)]
-    fz_cc = np.exp(MAP_PARAMS[0]) * ((1.0 + z_cc_vals) / (1.0 + z_pivot)) ** MAP_PARAMS[1]
-    cov_mat_cc = np.diag(H_cc_err ** 2 * fz_cc**2) + cov_mat_sys_cc
+    fz_cc = get_fz(MAP_PARAMS)
+    cov_mat_cc = cov_mat_sys_cc + np.diag(diag_stat_cc ** 2 * fz_cc**2)
     cho_cc = np.linalg.cholesky(cov_mat_cc)
 
     DOF = sn_sample + len(bao) + N_cc - ndim
@@ -298,62 +300,43 @@ if __name__ == "__main__":
 
 
 # ----------- Flat ΛCDM -----------
-# H0 = 67.3 ± 2.9 km/s/Mpc
-# rd = 149.9 +5.8 -6.5 Mpc
-# Ωm = 0.3077 ± 0.0068
-# ln(fp_cc) = -0.50 +0.11 -0.13
-# n_cc = 1.38 ± 0.47
-# ΔM = -0.094 ± 0.093 mag
-# Chi squared (MAP): 1685.78
-# Log evidence: -990.86
+# H0 = 67.7 ± 2.8 km/s/Mpc
+# rd = 149.0^{+5.7}_{-6.6} Mpc
+# Ωm = 0.3084 ± 0.0069
+# ln(fp_cc) = -0.48 ± 0.18
+# n_cc = 1.49 ± 0.56
+# ΔM = -0.081 ± 0.091 mag
+# Chi squared (MAP): 1681.93
 # DOF: 1761
 # ---------------------------------
 
 
 # ----------- Flat ΛCDM -----------
-# Velocity step correction in SNe observed redshifts
-# turning point z <= 0.10563 inflow z > 0.10563 outflow
-# z_cosmo = -1 + (1 + z) / (1 + v/c)
+# Z offset step correction in SNe observed redshifts
+# turning point z <= 0.10563 positive z > 0.10563 negative
+# z_cosmo = z_cmb ± Δz
 
-# H0 = 67.6 ± 2.8 km/s/Mpc
-# rd = 149.8 +5.6 -6.6 Mpc
-# Ωm = 0.3027 ± 0.0070
-# v = -152 ± 56 km/s (prior ~ U[-450, 450])
-# ln(fp_cc) = -0.50 +0.11 -0.13
-# n_cc = 1.39 ± 0.47
-# ΔM = -0.089 ± 0.090 mag
-# Chi squared (MAP): 1677.51 (2.88 sigma)
-# Log evidence: -989.03
+# H0 = 68.0 ± 2.9 km/s/Mpc
+# rd = 148.9 +5.7 -6.6 Mpc
+# Ωm = 0.3034 ± 0.0069
+# 1000 Δz = 0.53 ± 0.20
+# ΔM = -0.077 ± 0.091 mag
+# ln(fp_cc) = -0.48 ± 0.18
+# n_cc = 1.51 ± 0.56
+# Chi squared (MAP): 1676.67
 # DOF: 1760
 # ---------------------------------
 
 
 # ----------- Flat wCDM -----------
-# H0 = 66.5 ± 2.8 km/s/Mpc
-# rd = 150.2 +5.6 -6.7 Mpc
-# Ωm = 0.3040 ± 0.0073
-# w0 = -0.937 ± 0.035 (prior ~ U[-1.5, -0.5])
-# ln(f_p) = -0.49 +0.11 -0.13
-# n_cc = 1.37 ± 0.47
-# ΔM = -0.103 ± 0.091 mag
-# Chi squared (MAP): 1683.69 (1.44 sigma)
-# Log evidence: -991.66
-# DOF: 1760
-# ---------------------------------
-
-
-# ----------- Flat wzCDM ----------
-# w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
-#
-# H0 = 66.2 ± 2.9 km/s/Mpc
-# rd = 150.5 +5.7 -6.8 Mpc
-# Ωm = 0.3089 ± 0.0069
-# w0 = -0.889 ± 0.048 (prior ~ U[-1, -1/3])
-# ln(fp_cc) = -0.49 +0.11 -0.13
-# n_cc = 1.39 ± 0.47
-# ΔM = -0.106 ± 0.092 mag
-# Chi squared (MAP): 1680.41 (2.32 sigma)
-# Log evidence: -990.61
+# H0 = 66.9 ± 2.9 km/s/Mpc
+# rd = 149.2^{+5.7}_{-6.7} mpc
+# Ωm = 0.3045 ± 0.0073
+# w0 = -0.934 ± 0.035 (prior ~ U[-1.5, -0.5])
+# ΔM = -0.090 ± 0.092 mag
+# ln(fp_cc) = -0.48 ± 0.18
+# n_cc = 1.50 ± 0.56
+# Chi squared (MAP): 1682.22
 # DOF: 1760
 # ---------------------------------
 
@@ -361,16 +344,15 @@ if __name__ == "__main__":
 # ---------- Flat w0waCDM ---------
 # w0 + wa < 0 enforced in the likelihood
 #
-# H0 = 66.2 ± 2.8 km/s/Mpc
-# rd = 150.3 ± 6.3 Mpc
-# Ωm = 0.321 +0.013 -0.0093
-# w0 = -0.835 ± 0.073 (prior ~ U[-1.5, 0])
-# wa = -0.72 ± 0.45 (prior ~ U[-3, 2])
-# ln(fp_cc) = -0.49 +0.11 -0.13
-# n_cc = 1.42 ± 0.48
-# ΔM = -0.099 ± 0.091 mag
-# Chi squared (MAP): 1677.47 (2.15 sigma)
-# Log evidence: -992.23
+# H0 = 66.6 ± 2.8 km/s/Mpc
+# rd = 149.3 +5.7 -6.6 Mpc
+# Ωm = 0.321 +0.013 -0.0097
+# w0 = -0.839 ± 0.072 (prior ~ U[-1.5, 0])
+# wa = -0.67 ± 0.44 (prior ~ U[-3, 3])
+# ΔM = -0.086 ± 0.092 mag
+# ln(fp_cc) = -0.47 ± 0.18
+# n_cc = 1.54 +0.52 -0.58
+# Chi squared (MAP): 1681.02
 # DOF: 1759
 # ---------------------------------
 
@@ -379,36 +361,15 @@ if __name__ == "__main__":
 # at z_pivot = 0.168
 # w0 + wa < 0 enforced in the likelihood
 
-# H0 = 66.2 ± 2.8 km/s/Mpc
-# rd = 150.4 +5.8 -6.5 Mpc
-# Ωm = 0.321 +0.012 -0.0094
-# wp = -0.939 ± 0.035 (prior ~ U[-1.5, 0]) => 1.74 sigma from -1
-# wa = -0.73 ± 0.44 (prior ~ U[-3, 2]) => 1.66 sigma from 0
-# ln(fp_cc) = -0.49 +0.11 -0.13
-# n_cc = 1.43 ± 0.48
-# ΔM = -0.0996 ± 0.0900 mag
-# Chi squared (MAP): 1679.75
-# Log evidence: -992.22
+# H0 = 66.6 ± 2.9 km/s/Mpc
+# rd = 149.3 +5.9 -6.7 Mpc
+# Ωm = 0.321 +0.013 -0.0095
+# wp = -0.936 ± 0.034 (prior ~ U[-1.5, 0])
+# wa = -0.67 ± 0.44 (prior ~ U[-3, 3])
+# ΔM = -0.086 ± 0.093 mag
+# ln(fp_cc) = -0.47 ± 0.18
+# n_cc = 1.54 ± 0.57
+# Chi squared (MAP): 1678.63
+# Log evidence: -995.48
 # DOF: 1759
-# ---------------------------------
-
-
-# ---------- Flat w0waCDM ---------
-# w0 + wa < 0 enforced in the likelihood
-# Velocity step correction in SNe observed redshifts
-# turning point z <= 0.10563 inflow z > 0.10563 outflow
-# z_cosmo = -1 + (1 + z) / (1 + v/c)
-#
-# H0 = 67.2 ± 3.0 km/s/Mpc
-# rd = 150.1 +5.7 -6.8 Mpc
-# Ωm = 0.303 +0.026 -0.013
-# w0 = -0.949 +0.089 -0.130 (prior ~ U[-1.5, 0])
-# wa = -0.17 ± 0.62 (prior ~ U[-3, 2])
-# v = -122 ± 98 km/s
-# ln(fp_cc) = -0.50 +0.11 -0.13
-# n_cc = 1.40 ± 0.47
-# ΔM = -0.093 +0.096 -0.087 mag
-# Chi squared (MAP): 1679.09
-# Log evidence: -992.76
-# DOF: 1758
 # ---------------------------------

@@ -23,15 +23,13 @@ N = len(data)
 
 @njit
 def w_de(z, w0):
-    # Thawing quintessence wzCDM
-    return -1.0 + 2 * (1.0 + w0) / (1.0 + w0 + (1.0 - w0) * (1.0 + z) ** 3)
+    return w0
 
 
 @njit
 def Ode_z(z, w0):
-    # Thawing quintessence wzCDM
-    cubic = (1.0 + z) ** 3
-    return (2 * cubic / (1.0 + w0 + (1.0 - w0) * cubic)) ** 2
+    # wCDM
+    return (1. + z) ** (3 * (1. + w0))
 
 
 @njit
@@ -116,27 +114,26 @@ def AP_factor(z, Om, w0):
 
 @njit
 def chi_squared(theta):
-    Om, sig8, w0, f_err = theta
+    Om, sig8, w0, ln_f_err = theta
     q = AP_factor(z_vals, Om, w0)
     delta = fs8_vals - fs8_theory(a_vals, Om, sig8, w0) / q
     y = solve_triangular(cho, delta)
-    return f_err**2 * np.dot(y, y)
+    return np.exp(-2 * ln_f_err) * np.dot(y, y)
 
 
 @njit
 def log_likelihood(theta):
-    f_err = theta[-1]
-    return -0.5 * (chi_squared(theta) - 2 * N * np.log(f_err))
+    return -0.5 * (chi_squared(theta) + 2 * N * theta[3])
 
 
-names = ["om", "s8", "w0", "f_err"]
-labels = ["Ω_m", "\\sigma_8", "w_0", "f_{err}"]
+names = ["om", "s8", "w0", "ln_f_err"]
+labels = ["Ω_m", "\\sigma_8", "w_0", "ln(f_{err})"]
 bounds = np.array(
     [
         (0.1, 0.6),  # Ωm: effective clustering matter density
         (0.5, 1.0),  # sigma8
-        (-1.0, 0.0),  # w0
-        (0.2, 3.2),  # f_err: overestimation factor of the errors
+        (-1.5, 0.0),  # w0
+        (-1.0, 0.0),  # ln(f_err): overestimation factor of the errors
     ]
 )
 
@@ -172,8 +169,8 @@ def main():
     np.random.seed(42)
     ndim = len(bounds)
     nwalkers = 100
-    burn_in = 100
-    nsteps = 4000 + burn_in
+    burn_in = 500
+    nsteps = 5000 + burn_in
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
     custom_moves = [(moves.KDEMove(), 0.20), (moves.DEMove(), 0.80)]
 
@@ -228,12 +225,12 @@ def main():
     )
     plt.show()
 
-    om, s8, w0, f_err = MAP_params
+    om, s8, w0, ln_f_err = MAP_params
     plot_predictions(
         fs8_theory=lambda z: fs8_theory(1 / (1 + z), om, s8, w0),
         data=data,
         q=Ez(z_vals, om, w0) * DM(z_vals, om, w0) / Ez_DMz_fid,
-        f_err=f_err,
+        f_err=1 / np.exp(ln_f_err),
     )
 
 
@@ -242,35 +239,23 @@ if __name__ == "__main__":
 
 
 # ----------- flat ΛCDM -----------
-# Ωm = 0.314 +- 0.020
+# Ωm = 0.313 +- 0.020
 # σ8 = 0.787 +- 0.011
-# S8 = 0.804 +- 0.020
-# f_err = 1.78 +- 0.17
-# chi2 = 55.86
-# log likelihood = 5.2
-# degs of freedom = 53
+# S8 = 0.804 +- 0.021
+# ln(f_err) = -0.564 +0.089 -0.100
+# chi2 (MAP) = 55.75
+# log likelihood (MAP) = 5.2
+# DOF = 53
 # ---------------------------------
 
 
 # ----------- flat wCDM -----------
-# Ωm = 0.282 +0.019 -0.022
+# Ωm = 0.282 +0.020 -0.022
 # σ8 = 0.897 +0.041 -0.052
 # S8 = 0.868 +- 0.028
-# w0 = -0.693 +0.100 -0.076 (prior ~ U[-1.5, 0])
-# f_err = 1.93 +- 0.19
-# chi2 = 56.04
-# log likelihood = 10.1
-# degs of freedom = 52
-# ---------------------------------
-
-
-# ---------- flat wzCDM -----------
-# Ωm = 0.316 +- 0.018
-# σ8 = 0.846 +0.022 -0.025
-# S8 = 0.867 +- 0.028
-# w0 = -0.58 +0.13 -0.10 (prior ~ U[-1, 0])
-# f_err = 1.93 +- 0.19
-# chi2 = 56.09
+# w0 = -0.694 +0.100 -0.076 (prior ~ U[-1.5, 0])
+# ln(f_err) = -0.645 +0.091 -0.100
+# chi2 = 56.52
 # log likelihood = 10.1
 # degs of freedom = 52
 # ---------------------------------

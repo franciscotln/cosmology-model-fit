@@ -5,15 +5,15 @@ from scipy.linalg import cho_factor
 from interpolator import interp_hermite
 from solve_triangular import solve_triangular
 from y2022pantheonSHOES.data import get_data as get_sn_data
-from y2005cc.data import get_data as get_cc_data
+from y2005cc.data_no_loubser import get_data as get_cc_data
 
 
-cc_legend, z_cc_vals, H_cc_vals, H_err, cov_mat_sys_cc = get_cc_data(split_sys=True)
+cc_legend, z_cc, H_cc, diag_stat_cc, cov_mat_sys_cc = get_cc_data(split_sys=True)
 legend, z_cmb, z_hel, mB_vals, cov_matrix_sn = get_sn_data()
 
 L_sn = cho_factor(cov_matrix_sn, lower=True)[0]
 
-N_cc = len(z_cc_vals)
+N_cc = len(z_cc)
 
 z_grid = np.linspace(0, np.max(z_cmb) + 0.1, num=4000)
 dz = z_grid[1] - z_grid[0]
@@ -24,7 +24,8 @@ c = c0 / 1000  # Speed of light in km/s
 @njit
 def H_z(z, params):
     H0, Om = params[2], params[3]
-    return H0 * np.sqrt(Om * (1.0 + z) ** 3 + (1.0 - Om))
+    w0 = params[5]
+    return H0 * np.sqrt(Om * (1.0 + z) ** 3 + (1.0 - Om) * (1.0 + z) ** (3 * (1 + w0)))
 
 
 @njit
@@ -48,21 +49,22 @@ def chi_squared(params, L_cc):
     delta_sn = mB_vals - mB_theory(params)
     y_sn = solve_triangular(L_sn, delta_sn)
 
-    delta_cc = H_cc_vals - H_z(z_cc_vals, params)
+    delta_cc = H_cc - H_z(z_cc, params)
     y_cc = solve_triangular(L_cc, delta_cc)
 
     return np.dot(y_sn, y_sn) + np.dot(y_cc, y_cc)
 
 
-bounds = np.array(
-    [
-        (np.log(0.3), np.log(1.2)),  # ln(fp_cc)
-        (-4.0, 4.0),  # n_cc
-        (55, 80),  # H0
-        (0.15, 0.70),  # Ωm
-        (-20, -19),  # M
-    ],
-)
+names=["ln_fp_cc", "n_cc", "H0", "om", "M", "w0"]
+labels=["ln(fp_{cc})", "n_{cc}", "H_0", "Ω_m", "M", "w_0"]
+bounds = np.array([
+    (-1.4, 0.4),
+    (-4.0, 4.0),
+    (55.0, 80.0),
+    (0.15, 0.70),
+    (-20.0, -19.0),
+    (-2.0, 0.0)
+])
 
 prior_normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
 
@@ -74,14 +76,16 @@ def log_prior(params):
     return prior_normalization
 
 
-z_pivot = 0.6142
+@njit
+def get_fz(params):
+    z_pivot = 0.739 # corr(ln(fp), n) = 5.4e-03
+    f_piv, n = np.exp(params[0]), params[1]
+    return f_piv * ((1.0 + z_cc) / (1.0 + z_pivot))**n
 
 
 @njit
 def log_likelihood(params):
-    fp_cc, n_cc = np.exp(params[0]), params[1]
-    fz_cc = fp_cc * ((1.0 + z_cc_vals) / (1.0 + z_pivot))**n_cc
-    cov_mat_cc = cov_mat_sys_cc + np.diag(H_err**2 * fz_cc**2)
+    cov_mat_cc = cov_mat_sys_cc + np.diag(diag_stat_cc**2 * get_fz(params)**2)
     L_cc = np.linalg.cholesky(cov_mat_cc)
     logdet_cc = 2.0 * np.sum(np.log(np.diag(L_cc)))
 
@@ -103,20 +107,18 @@ def log_probability(params):
 
 def main():
     import emcee
-    from corner_plot import plot_corner_and_chains
     from multiprocessing import Pool
+    from getdist import MCSamples, plots
+    import matplotlib.pyplot as plt
     from sn.plotting import plot_predictions as plot_sn_predictions
     from ohd.plot_predictions import plot_cc_predictions
 
     ndim = len(bounds)
-    nwalkers = 150
-    burn_in = 200
-    nsteps = 2000 + burn_in
+    nwalkers = 100
+    burn_in = 500
+    nsteps = 2500 + burn_in
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
-    moves = [
-        (emcee.moves.KDEMove(), 0.2),
-        (emcee.moves.DEMove(), 0.8),
-    ]
+    moves = [(emcee.moves.KDEMove(), 0.2), (emcee.moves.DEMove(), 0.8)]
 
     with Pool(6) as pool:
         sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
@@ -130,54 +132,63 @@ def main():
     except emcee.autocorr.AutocorrError as e:
         print("Autocorrelation time could not be computed", e)
 
-    log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
-    samples = sampler.get_chain(discard=burn_in, flat=True)
-    chains_samples = sampler.get_chain(discard=burn_in, flat=False)
+    flat_log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
+    log_probs = sampler.get_log_prob(discard=burn_in, flat=False)
+    flat_samples = sampler.get_chain(discard=burn_in, flat=True)
+    samples = sampler.get_chain(discard=burn_in, flat=False)
 
-    [
-        (f_cc_16, f_cc_50, f_cc_84),
-        (n_cc_16, n_cc_50, n_cc_84),
-        (h0_16, h0_50, h0_84),
-        (Om_16, Om_50, Om_84),
-        (M_16, M_50, M_84),
-    ] = np.percentile(samples, [15.9, 50, 84.1], axis=0).T
+    chain_list = np.moveaxis(samples, 1, 0)
+    loglike_list = np.moveaxis(log_probs, 1, 0)
 
-    best_fit = samples[np.argmax(log_probs)]
-    DOF = len(z_cmb) + len(z_cc_vals) - len(best_fit)
+    gd_samples = MCSamples(
+        samples=chain_list,
+        loglikes=-loglike_list,
+        names=names,
+        labels=labels,
+        label='CCH + Pantheon+'
+    )
+    gd_samples.addDerived(
+        paramVec=gd_samples["om"] * (gd_samples["H0"] / 100) ** 2,
+        name="omh2",
+        label="Ω_m h^2",
+    )
+    gd_samples.updateBaseStatistics()
 
-    Omh2_samples = samples[:, 3] * (samples[:, 2] / 100) ** 2
-    Omh2_16, Omh2_50, Omh2_84 = np.percentile(Omh2_samples, [15.9, 50, 84.1])
+    print("corr(ln(fp), n)", gd_samples.corr(["ln_fp_cc", "n_cc"])[0, 1])
 
-    fz_cc = np.exp(best_fit[0]) * ((1.0 + z_cc_vals) / (1.0 + z_pivot))**best_fit[1]
-    cov_mat_cc = cov_mat_sys_cc + np.diag(H_err**2 * fz_cc**2)
-    L_cc = np.linalg.cholesky(cov_mat_cc)
+    for name in gd_samples.getParamNames().names:
+        print(gd_samples.getInlineLatex(name, limit=1))
 
-    print(f"H0: {h0_50:.1f} +{(h0_84 - h0_50):.1f} -{(h0_50 - h0_16):.1f}")
-    print(f"M: {M_50:.3f} +{(M_84 - M_50):.3f} -{(M_50 - M_16):.3f}")
-    print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
-    print(f"ωm: {Omh2_50:.4f} +{(Omh2_84 - Omh2_50):.4f} -{(Omh2_50 - Omh2_16):.4f}")
-    print(f"ln(f_cc): {f_cc_50:.2f} +{(f_cc_84 - f_cc_50):.2f} -{(f_cc_50 - f_cc_16):.2f}")
-    print(f"n_cc: {n_cc_50:.2f} +{(n_cc_84 - n_cc_50):.2f} -{(n_cc_50 - n_cc_16):.2f}")
-    print(f"Chi squared: {chi_squared(best_fit, L_cc):.2f}")
+    best_fit = flat_samples[np.argmax(flat_log_probs)]
+    DOF = len(z_cmb) + len(z_cc) - len(best_fit)
+
+    fz_cc = get_fz(best_fit)
+    print(f"log likelihood (MAP): {log_likelihood(best_fit):.2f}")
     print(f"DOF: {DOF}")
 
-    labels=["$ln(fp_{CC})$", "$n_{CC}$", "$H_0$", "$Ω_m$", "M"]
-    plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains_samples)
+    plots.get_subplot_plotter().triangle_plot(
+        roots=gd_samples,
+        params=names,
+        title_limit=1,
+        contour_colors=["C0"],
+        filled=True,
+    )
+    plt.show()
     plot_cc_predictions(
         H_z=lambda z: H_z(z, best_fit),
-        z=z_cc_vals,
-        H=H_cc_vals,
-        H_err=H_err,
-        label=f"{cc_legend}: $H_0$={h0_50:.1f} km/s/Mpc",
+        z=z_cc,
+        H=H_cc,
+        H_err=np.sqrt(np.diag(cov_mat_sys_cc) + diag_stat_cc**2),
+        label=f"{cc_legend}: $H_0$={best_fit[2]:.1f} km/s/Mpc",
         err_scaling=1 / fz_cc,
     )
     plot_sn_predictions(
         legend=legend,
         x=z_cmb,
-        y=mB_vals - M_50,
+        y=mB_vals - best_fit[4],
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=mB_theory(best_fit) - M_50,
-        label=f"$Ω_m$={Om_50:.3f}",
+        y_model=mB_theory(best_fit) - best_fit[4],
+        label=f"$Ω_m$={best_fit[3]:.3f}",
         x_scale="log",
     )
 
@@ -187,24 +198,28 @@ if __name__ == "__main__":
 
 
 # Flat ΛCDM: w(z) = -1
-# H0: 66.2 +2.9 -2.9 km/s/Mpc
-# M: -19.472 +0.092 -0.094 mag
-# Ωm: 0.328 +0.017 -0.017
-# ωm: 0.144 +0.013 -0.012
-# ln(f_cc): -0.50 +0.12 -0.11
-# n_cc: 1.33 +0.48 -0.46
-# Chi squared: 1441.04
-# DOF: 1624
+# H0 = 67.3 ± 3.0 km/s/Mpc
+# Ωm = 0.329 ± 0.017
+# Ωm h^2 = 0.149 ± 0.013
+#
+# M = -19.439 ± 0.094 mag
+# ln(fp_cc) = -0.51 ± 0.18
+# n_cc = 1.52 +0.50 -0.58
+#
+# log likelihood (MAP): -841.65
+# DOF: 1621
 # ---------------------------------
 
-# Flat wCDM: w(z) = w0
-# H0: 66.4 +3.0 -2.9 km/s/Mpc
-# M: -19.464 +0.095 -0.097 mag
-# Ωm: 0.309 +0.043 -0.048
-# ωm: 0.1357 +0.0195 -0.0209
-# w0: -0.948 +0.110 -0.117
-# ln(f_cc): -0.49 +0.12 -0.11
-# n_cc: 1.37 +0.48 -0.47
-# Chi squared: 1440.40
-# DOF: 1623
+# Flat wCDM: w(z) = w
+# H0 = 67.6 ± 3.0 km/s/Mpc
+# Ωm = 0.304 +0.049 -0.039
+# Ωm h^2 = 0.138 +0.022 -0.019
+# w0 = -0.94 +0.12 -0.10 (prior ~ U[-2, 0])
+#
+# M = -19.426 ± 0.097 mag
+# ln(fp_cc) = -0.50 ± 0.18
+# n_cc = 1.54 ± 0.56
+#
+# log likelihood (MAP): -841.50
+# DOF: 1620
 # ---------------------------------

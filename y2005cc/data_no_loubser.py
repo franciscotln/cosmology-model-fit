@@ -2,59 +2,43 @@ import pandas as pd
 import numpy as np
 from interpolator import interp_pchip
 
-data = pd.read_csv("y2005cc/raw-data/data.csv")
-cov_components = pd.read_csv("y2005cc/raw-data/cov_components.csv")
+_data = pd.read_csv("y2005cc/raw-data/data.csv")
+_cov_components = pd.read_csv("y2005cc/raw-data/cov_components.csv")
 
-z = data["z"].to_numpy()
-Hz = data["H"].to_numpy()
-sigma_H = data["sigma_H"].to_numpy()
-method= data["M"].to_numpy()
+_loubser_reference = "arXiv:2511.02730v1 (2025)"
+_data = _data.loc[_data["reference"] != _loubser_reference].reset_index(drop=True)
 
-_stat_H = data["stat"]
-_syst_H = data["sys"]
-_ref = data["reference"]
-
+z = _data["z"].to_numpy()
+Hz = _data["H"].to_numpy()
+sigma_H = _data["sigma_H"].to_numpy()
+method= _data["M"].to_numpy()
 
 # ------ Handling missing systematic uncertainties ------
 # Where systematic uncertainties were not published
 # separately (all full spectral fitting data)
-# we set them to 18% of the total error budget for F and
-# 65% for D4000A (mean value based on other data points)
+# we set them to 18% floor of the total error budget for F
+# and 65% for D4000A (mean value based on other data points)
 # There are only two D4000A data points without published systematic uncertainties
 
-_syst_mask = _syst_H == 0
+_syst_mask = _data["sys"] == 0
 _syst_fraction = np.where(method[_syst_mask] == "F", 0.18, 0.65)
-_syst_H[_syst_mask] = _syst_fraction * sigma_H[_syst_mask]
-_stat_H[_syst_mask] = sigma_H[_syst_mask] * (1.0 - _syst_fraction**2)**0.5
+_data.loc[_syst_mask, "sys"] = _syst_fraction * sigma_H[_syst_mask]
+_data.loc[_syst_mask, "stat"] = sigma_H[_syst_mask] * np.sqrt(1.0 - _syst_fraction**2)
 
-diag_syst = _syst_H.to_numpy()
-diag_stat = _stat_H.to_numpy()
+diag_syst = _data["sys"].to_numpy()
+diag_stat = _data["stat"].to_numpy()
 # -------------------------------------------------------
 
 
 # ---- Constructing covariance matrix as per Moresco ----
-zmod = cov_components["z"].to_numpy(dtype=np.float64)
-imf_intp = interp_pchip(z, zmod, cov_components["imf"].to_numpy()) / 100
-spsooo_intp = interp_pchip(z, zmod, cov_components["spsooo"].to_numpy()) / 100
+zmod, imf, spsooo = _cov_components[["z", "imf", "spsooo"]].to_numpy(dtype=np.float64).T
+imf_intp = interp_pchip(z, zmod, imf) / 100
+spsooo_intp = interp_pchip(z, zmod, spsooo) / 100
 cov_mat_imf = np.outer(Hz * imf_intp, Hz * imf_intp)
 cov_mat_spsooo = np.outer(Hz * spsooo_intp, Hz * spsooo_intp)
 
 # suggested systematic covariance matrix
 cov_matrix_sys = cov_mat_imf + cov_mat_spsooo + np.diag(diag_syst**2)
-# -------------------------------------------------------
-
-
-# ----- Handle Loubser et al. systematic correlation ----
-# Reference arXiv:2511.02730v1 (2025)
-loubser_mask = _ref == "arXiv:2511.02730v1 (2025)"
-loubser_corr = np.array([
-    [1.0, 0.932, 0.830],
-    [0.932, 1.0, 0.776],
-    [0.830, 0.776, 1.0],
-])
-loubser_syst = diag_syst[loubser_mask]
-loubser_cov_sys = loubser_corr * np.outer(loubser_syst, loubser_syst)
-cov_matrix_sys[np.ix_(loubser_mask, loubser_mask)] = loubser_cov_sys
 # -------------------------------------------------------
 
 
@@ -89,14 +73,15 @@ def get_data(split_sys=False):
 # arXiv:2506.03836v1
 # H(z=0.5) = 72.1 ± 7.3 syst ± 33.9 stat
 
-# arXiv:2511.02730v1
-# H(z=0.46) = 88.48 ± 12.32 syst ± 0.57 stat
-# H(z=0.67) = 119.45 ± 16.64 syst ± 6.39 stat
-# H(z=0.83) = 108.28 ± 15.08 syst ± 10.07 stat
-
 # arXiv:2606.07298v1
 # H(0.65) = 93.68 ± 10.67 syst ± 28.27 stat
 
 # arXiv:2608.13178v1
 # H(z=0.61) = 88.5 ± 8.1 syst +6.7 -12.6 stat
+
+# THESE ARE EXCLUDED FROM THIS DATASET
+# arXiv:2511.02730v1
+# H(z=0.46) = 88.48 ± 12.32 syst ± 0.57 stat
+# H(z=0.67) = 119.45 ± 16.64 syst ± 6.39 stat
+# H(z=0.83) = 108.28 ± 15.08 syst ± 10.07 stat
 # ---------------------------------

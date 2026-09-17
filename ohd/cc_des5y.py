@@ -7,7 +7,7 @@ from solve_triangular import solve_triangular
 from y2025DESdovekie.data import get_data, effective_sample_size
 from y2005cc.data import get_data as get_cc_data
 
-cc_legend, z_cc_vals, H_cc_vals, H_err, cov_mat_sys_cc = get_cc_data(split_sys=True)
+cc_legend, z_cc_vals, H_cc_vals, diag_stat_cc, cov_mat_sys_cc = get_cc_data(split_sys=True)
 sn_legend, z_cmb, z_hel, mu_vals, cov_matrix_sn = get_data()
 
 cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
@@ -20,10 +20,11 @@ c = c0 / 1000  # Speed of light in km/s
 
 
 @njit
-def Ode_z(z, w0):
+def Ode_z(z, w0, wa=0.0):
     cubed = (1.0 + z) ** 3
-    # return (2 * cubed / (1.0 + w0 + (1.0 - w0) * cubed)) ** 2  # thawing quintessence
     return cubed ** (1.0 + w0)  # wCDM
+    # return cubed ** (1.0 + w0 + wa) * np.exp(-3 * wa * z / (1.0 + z))  # w0waCDM
+    # return (2 * cubed / (1.0 + w0 + (1.0 - w0) * cubed)) ** 2  # thawing quintessence
 
 
 @njit
@@ -61,7 +62,7 @@ def theory_mu(params, DM):
 
 bounds = np.array(
     [
-        (np.log(0.3), np.log(1.2)),  # ln(fp_cc)
+        (np.log(0.25), np.log(1.40)),  # ln(fp_cc)
         (-4.0, 4.0),  # n_cc
         (-0.5, 0.5),  # ΔM
         (50.0, 85.0),  # H0
@@ -96,15 +97,15 @@ def log_prior(params):
     return -np.inf
 
 
-z_pivot = 0.6142
+z_pivot = 0.696
 
 
 @njit
 def log_likelihood(params):
-    ln_fp_cc, n_cc = params[0], params[1]
-    fz_cc = np.exp(ln_fp_cc) * ((1.0 + z_cc_vals) / (1.0 + z_pivot))**n_cc
+    fp_cc, n_cc = np.exp(params[0]), params[1]
+    fz_cc = fp_cc * ((1.0 + z_cc_vals) / (1.0 + z_pivot))**n_cc
 
-    cov_mat_cc = cov_mat_sys_cc + np.diag(H_err**2 * fz_cc**2) 
+    cov_mat_cc = cov_mat_sys_cc + np.diag(diag_stat_cc**2 * fz_cc**2) 
     L_cc = np.linalg.cholesky(cov_mat_cc)
     logdet_cc = 2.0 * np.sum(np.log(np.diag(L_cc)))
 
@@ -138,10 +139,7 @@ def main():
     nsteps = 3500 + burn_in
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
-    moves = [
-        (emcee.moves.KDEMove(bw_method="silverman"), 0.20),
-        (emcee.moves.DEMove(), 0.80),
-    ]
+    moves = [(emcee.moves.KDEMove(), 0.20), (emcee.moves.DEMove(), 0.80)]
 
     with Pool(6) as pool:
         sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
@@ -175,7 +173,7 @@ def main():
     DOF = effective_sample_size + N_cc - len(best_fit)
 
     fz_cc = np.exp(best_fit[0]) * ((1.0 + z_cc_vals) / (1.0 + z_pivot))**best_fit[1]
-    cov_mat_cc = cov_mat_sys_cc + np.diag(H_err**2 * fz_cc**2)
+    cov_mat_cc = cov_mat_sys_cc + np.diag(diag_stat_cc**2 * fz_cc**2)
     L_cc = np.linalg.cholesky(cov_mat_cc)
 
     print(f"ln(fp_cc): {ln_fp_50:.2f} +{(ln_fp_84 - ln_fp_50):.2f} -{(ln_fp_50 - ln_fp_16):.2f}")
@@ -194,8 +192,8 @@ def main():
         H_z=lambda z: H_z(z, best_fit),
         z=z_cc_vals,
         H=H_cc_vals,
-        H_err=H_err,
-        label=f"{cc_legend}: $H_0$={h0_50:.1f} km/s/Mpc",
+        H_err=np.sqrt(diag_stat_cc**2 + np.diag(cov_mat_sys_cc)),
+        label=f"{cc_legend}: $H_0$={best_fit[3]:.1f} km/s/Mpc",
         err_scaling=1 / fz_cc,
     )
     plot_sn_predictions(
@@ -204,7 +202,7 @@ def main():
         y=mu_vals - mu_corr(best_fit),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
         y_model=theory_mu(best_fit, DM_z(z_cmb, best_fit)),
-        label=f"$Ω_m$={Om_50:.3f}, $H_0$={h0_50:.1f} km/s/Mpc",
+        label=f"$Ω_m$={best_fit[4]:.3f}",
         x_scale="log",
     )
 
@@ -214,14 +212,14 @@ if __name__ == "__main__":
 
 
 # ----------- Flat ΛCDM -----------
-# H0: 66.3 +2.9 -2.8 km/s/Mpc
-# Ωm: 0.328 +0.015 -0.014
+# H0: 66.6 +2.9 -2.8 km/s/Mpc
+# Ωm: 0.330 +0.015 -0.014
 
-# ln(fp_cc): -0.50 +0.12 -0.11
-# n_cc: 1.33 +0.47 -0.46
-# ΔM: -0.114 +0.090 -0.092 mag
-# Chi squared (MAP): 1670.28
-# Log evidence: -978.0
+# ln(fp_cc): -0.51 +0.17 -0.17
+# n_cc: 1.33 +0.53 -0.50
+# ΔM: -0.101 +0.089 -0.093 mag
+# Chi squared (MAP): 1669.81
+# Log evidence: -981.0
 # DOF: 1748
 # ---------------------------------
 
@@ -231,45 +229,45 @@ if __name__ == "__main__":
 # turning point z <= 0.10563 positive z > 0.10563 negative
 # z_cosmo = z_cmb +- offset
 
-# H0: 67.4 +2.9 -2.9 km/s/Mpc
-# Ωm: 0.308 +0.017 -0.016
-# 1000 Δz: 0.50 +0.23 -0.23 (prior ~ U[-1.5, 1.5])
+# H0: 67.7 +3.0 -3.0 km/s/Mpc
+# Ωm: 0.311 +0.017 -0.016
+# 1000 Δz: 0.47 +0.23 -0.23 (prior ~ U[-1.5, 1.5])
 
-# ln(fp_cc): -0.50 +0.12 -0.11
-# n_cc: 1.38 +0.47 -0.46
-# ΔM: -0.092 +0.090 -0.092 mag
-# Chi squared (MAP): 1664.57
-# Log evidence: -977.3
+# ln(fp_cc): -0.50 +0.18 -0.17
+# n_cc: 1.34 +0.53 -0.51
+# ΔM: -0.080 +0.091 -0.095 mag
+# Chi squared (MAP): 1665.64
+# Log evidence: -980.5
 # DOF: 1747
 # ---------------------------------
 
 
 # ----------- Flat wCDM -----------
-# H0: 66.5 +2.9 -2.8 km/s/Mpc
-# Ωm: 0.295 +0.043 -0.051
-# w0: -0.91 +0.11 -0.12 (prior ~ U[-1.5, 0.0])
+# H0: 66.9 +3.0 -2.9 km/s/Mpc
+# Ωm: 0.306 +0.040 -0.046
+# w0: -0.93 +0.11 -0.11 (prior ~ U[-1.5, 0.0])
 
-# ln(fp_cc): -0.49 +0.12 -0.11
-# n_cc: 1.39 +0.49 -0.48
-# ΔM: -0.098 +0.092 -0.094 mag
-# Chi squared (MAP): 1669.55
-# Log evidence: -979.4
+# ln(fp_cc): -0.50 +0.18 -0.17
+# n_cc: 1.36 +0.54 -0.52
+# ΔM: -0.087 +0.094 -0.096 mag
+# Chi squared (MAP): 1667.32
+# Log evidence: -982.4
 # DOF: 1747
 # ---------------------------------
 
 
 # ---------- Flat w0waCDM ---------
-# w0 + wa < 0 enforced in the likelihood
+# w0 + wa <= -1 / 3 enforced in the likelihood
 #
-# H0: 65.2 +2.9 -2.8 km/s/Mpc
-# Ωm: 0.387 +0.026 -0.039
-# w0: -0.84 +0.10 -0.11 (prior ~ U[-3.0, 1.0])
-# wa: < -2.2 (prior ~ U[-3.0, 2.0], posterior truncated)
-#
-# ln(fp_cc): -0.52 +0.12 -0.11
-# n_cc: 1.39 +0.47 -0.45
-# ΔM: -0.129 +0.092 -0.094 mag
-# Chi squared (MAP): 1665.55
-# Log evidence: (inaccurate due to truncated posterior)
+# H0: 65.5 +2.9 -2.9 km/s/Mpc
+# Ωm: 0.390 +0.027 -0.042
+# w0: -0.86 +0.10 -0.11 (prior ~ U[-3.0, 1.0])
+# wa: < -2.123 (prior ~ U[-3.0, 2.0], posterior truncated)
+
+# ln(fp_cc): -0.51 +0.17 -0.17
+# n_cc: 1.36 +0.52 -0.50
+# ΔM: -0.121 +0.093 -0.098 mag
+# Chi squared (MAP): 1661.04
+# Log evidence: -1083.1 (inaccurate due to truncated posterior)
 # DOF: 1746
 # ---------------------------------
