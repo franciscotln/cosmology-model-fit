@@ -8,9 +8,9 @@ from y2026union3_1.data import get_data as get_sn_data
 from y2005cc.data_no_loubser import get_data as get_cc_data
 
 legend_sn, z_cmb, z_hel, mu_vals, cov_matrix_sn = get_sn_data()
-legend_cc, z_cc_vals, H_cc_vals, diag_stat, cov_mat_cc_sys = get_cc_data(split_sys=True)
+legend_cc, z_cc, H_cc_vals, diag_stat, cov_mat_cc_sys = get_cc_data(split_sys=True)
 
-N_cc = len(z_cc_vals)
+N_cc = len(z_cc)
 L_sn = cho_factor(cov_matrix_sn, lower=True)[0]
 
 c = c0 / 1000  # Speed of light in km/s
@@ -72,26 +72,30 @@ def chi_squared(params, L_cc):
     y_sn = solve_triangular(L_sn, delta_sn)
     chi_sn = np.dot(y_sn, y_sn)
 
-    cc_delta = H_cc_vals - H_z(z_cc_vals, params)
+    cc_delta = H_cc_vals - H_z(z_cc, params)
     y_cc = solve_triangular(L_cc, cc_delta)
     chi_cc = np.dot(y_cc, y_cc)
 
     return chi_sn + chi_cc
 
 
-
 @njit
 def get_fz(params):
-    z_pivot = 0.728 # corr(ln(fp), n) = -8.53e-04
+    z_pivot = 0.98
     f_piv, n = np.exp(params[0]), params[1]
-    return f_piv * ((1.0 + z_cc_vals) / (1.0 + z_pivot))**n
+
+    Hz = H_z(z_cc, params)
+    Hz_pivot = H_z(z_pivot, params)
+
+    shape = ((1.0 + z_cc) * Hz) / ((1.0 + z_pivot) * Hz_pivot)
+    return f_piv * shape**n
 
 
 @njit
 def log_likelihood(params):
     cov_mat_cc = cov_mat_cc_sys + np.diag(diag_stat**2 * get_fz(params)**2)
     L_cc = np.linalg.cholesky(cov_mat_cc)
-    logdet_cc = 2.0 * np.sum(np.log(np.diag(L_cc)))
+    logdet_cc = 2 * np.sum(np.log(np.diag(L_cc)))
     normalization_cc = N_cc * np.log(2 * np.pi) + logdet_cc
 
     return -0.5 * (chi_squared(params, L_cc) + normalization_cc)
@@ -107,17 +111,15 @@ def main():
     from ohd.plot_predictions import plot_cc_predictions
 
     prior = Prior()
-    prior.add_parameter("ln_fp", dist=(-1.4, 0.4))
-    prior.add_parameter("n", dist=(-4.0, 4.0))
+    prior.add_parameter("ln_fp", dist=(-1.7, 0.7))
+    prior.add_parameter("n", dist=(-2.5, 2.5))
     prior.add_parameter("dM", dist=(-1.0, 1.0))
     prior.add_parameter("Omh2", dist=(0.01, 0.25))
     prior.add_parameter("Om", dist=(0.1, 0.7))
     prior.add_parameter("dz1000", dist=(-3.5, 3.5)) # 1000 x Δz
 
     with Pool(5) as pool:
-        sampler = Sampler(
-            prior, log_likelihood, n_live=5_000, pool=pool, seed=42, pass_dict=False
-        )
+        sampler = Sampler(prior, log_likelihood, n_live=5_000, pool=pool, seed=42, pass_dict=False)
         sampler.run(verbose=True)
 
     samples, log_w, log_l = sampler.posterior()
@@ -141,7 +143,7 @@ def main():
     DOF = len(z_cmb) + N_cc - len(prior.keys)
 
     fz_cc = get_fz(best_fit)
-    cov_mat_cc = np.diag(diag_stat**2 * fz_cc**2) + cov_mat_cc_sys
+    cov_mat_cc = cov_mat_cc_sys + np.diag(diag_stat**2 * fz_cc**2)
     L_cc = np.linalg.cholesky(cov_mat_cc)
 
     print(f"χ² (MAP): {chi_squared(best_fit, L_cc):.2f}")
@@ -161,7 +163,7 @@ def main():
 
     plot_cc_predictions(
         H_z=lambda z: H_z(z, best_fit),
-        z=z_cc_vals,
+        z=z_cc,
         H=H_cc_vals,
         H_err=np.sqrt(np.diag(cov_mat_cc_sys) + diag_stat**2),
         label=legend_cc,
@@ -183,18 +185,18 @@ if __name__ == "__main__":
 
 
 # ---------------- Flat ΛCDM ----------------
-# H0 = 67.3 ± 3.0 km/s/Mpc
-# Ωm = 0.331 ± 0.022
-# Ωm h^2 = 0.150 +0.012 -0.014
+# H0 = 67.1 ± 3.0 km/s/Mpc
+# Ωm = 0.331 +0.020 -0.022
+# Ωm h^2 = 0.149 +0.012 -0.014
 #
-# ΔM = -0.063 ± 0.093 mag
-# n = 1.51 ± 0.55
-# ln(fp) = -0.52 ± 0.18
-# fp = 0.603 +0.083 -0.12
+# ΔM = -0.072 ± 0.092 mag
+# n = 0.98^{+0.31}_{-0.43}
+# ln(fp) = -0.42 ± 0.22
+# fp = 0.67 +0.11 -0.17
 #
-# χ² (MAP): 60.34
-# Log likelihood (MAP): -154.56
-# Log evidence: -167.5
+# χ² (MAP): 61.87
+# Log likelihood (MAP): -154.25
+# Log evidence: -167.3
 # DOF: 53
 # -------------------------------------------
 
@@ -204,37 +206,37 @@ if __name__ == "__main__":
 # turning point z <= 0.2 positive z > 0.2 negative
 # z_cosmo = z_cmb ± Δz
 #
-# 1000 Δz = 1.11 ± 0.43 (prior ~ U[-3.5, 3.5])
-# H0 = 68.9 ± 3.1 km/s/Mpc
-# Ωm = 0.304 ± 0.023
-# Ωm h^2 = 0.144 ± 0.013
+# 1000 Δz = 1.10 ± 0.44 (prior ~ U[-3.5, 3.5])
+# H0 = 68.5 ± 3.1 km/s/Mpc
+# Ωm = 0.306 ± 0.022
+# Ωm h^2 = 0.143 ± 0.013
 #
-# ΔM = -0.038 ± 0.093 mag
-# n = 1.53 +0.51 -0.58
-# ln(fp) = -0.51 ± 0.18
-# fp = 0.608 +0.083 -0.120
+# ΔM = -0.050 ± 0.092 mag
+# n = 0.99 +0.31 -0.43
+# ln(fp) = -0.41 ± 0.22
+# fp = 0.68 +0.11 -0.17
 #
-# χ² (MAP): 53.26
-# Log likelihood (MAP): -151.26
-# Log evidence: -166.1
+# χ² (MAP): 54.53
+# Log likelihood (MAP): -150.97
+# Log evidence: -165.9
 # DOF: 52
 # -------------------------------------------
 
 
 # ---------------- Flat wCDM ----------------
-# w0 = -0.90 +0.14 -0.11 (prior ~ U[-1.5, 0])
-# H0 = 67.5 ± 3.1 km/s/Mpc
-# Ωm = 0.293 +0.055 -0.042
-# Ωm h^2 = 0.134 +0.025 -0.020
+# w0 = -0.90 +0.13 -0.12 (prior ~ U[-1.5, 0])
+# H0 = 67.2 ± 3.0 km/s/Mpc
+# Ωm h^2 = 0.133 +0.025 -0.020
+# Ωm = 0.296 +0.055 -0.041
 #
-# ΔM = -0.048 ± 0.095 mag
-# n = 1.54 ± 0.56
-# ln(fp) = -0.51 ± 0.18
-# fp = 0.612 +0.083 -0.13
+# ΔM = -0.060 ± 0.094
+# n = 1.00 +0.31 -0.44
+# ln(fp) = -0.40 ± 0.22
+# fp = 0.69 +0.11 -0.17
 #
-# χ² (MAP): 59.06
-# Log likelihood (MAP): -154.12
-# Log evidence: -168.7
+# χ² (MAP): 60.82
+# Log likelihood (MAP): -153.85
+# Log evidence: -168.5
 # DOF: 52
 # -------------------------------------------
 
@@ -242,19 +244,19 @@ if __name__ == "__main__":
 # --------------- Flat w0waCDM --------------
 # w0 + wa < -1 / 3 enforced in the likelihood
 #
-# H0 = 65.4 ± 3.0 km/s/Mpc
-# Ωm = 0.400 +0.044 -0.025
+# H0 = 65.0 ± 3.0 km/s/Mpc
+# Ωm = 0.404 +0.043 -0.024
 # Ωm h^2 = 0.171 ± 0.019
-# w0 = -0.67 +0.17 -0.15 (prior ~ U[-1.5, 0])
-# wa < -3.20 (prior ~ U[-5, 5])
+# w0 = -0.68 +0.17 -0.14 (prior ~ U[-1.5, 0])
+# wa < -3.25 (prior ~ U[-5, 5])
 #
-# ΔM = -0.090 ± 0.095 mag
-# n = 1.59 ± 0.55
-# ln(fp) = -0.52 ± 0.18
-# fp = 0.607 +0.083 -0.12
+# ΔM = -0.102 ± 0.094 mag
+# n = 1.01 +0.30 -0.42
+# ln(fp) = -0.43 ± 0.23
+# fp = 0.67 +0.12 -0.17
 #
-# χ² (MAP): 55.47
-# Log likelihood (MAP): -151.86
-# Log evidence: -167.6
+# χ² (MAP): 55.35
+# Log likelihood (MAP): -151.39
+# Log evidence: -167.3
 # DOF: 51
 # -------------------------------------------

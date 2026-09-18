@@ -4,7 +4,7 @@ from scipy.constants import c as c0
 from interpolator import interp_hermite, interp_pchip
 from solve_ivp import solve_ivp
 from solve_triangular import solve_triangular
-from y2005cc.data import get_data
+from y2005cc.data_no_loubser import get_data
 import y2018fs8.data as fs8
 
 c = c0 / 1000  # Speed of light in km/s
@@ -16,7 +16,6 @@ logdet_fs8 = 2 * np.sum(np.log(np.diag(cho_fs8)))
 z_fs8, fs8_values = fs8.data["z"], fs8.data["fs8"]
 a_vals_fs8 = 1 / (1.0 + z_fs8)
 
-H_err = np.sqrt(np.diag(cov_matrix_sys) + diag_stat_cc**2)
 N_cc = z_cc.size
 N_fs8 = z_fs8.size
 
@@ -26,34 +25,31 @@ dz = z_grid[1] - z_grid[0]
 
 
 @njit
-def w_de_z(z, w0):
-    # Thawing quintessence wzCDM
-    return -1.0 + 2 * (1.0 + w0) / (1.0 + w0 + (1.0 - w0) * (1.0 + z) ** 3)
+def w_de_z(z, w0, wa):
+    return w0 + wa * z / (1.0 + z)
 
 
 @njit
-def Ode_z(z, w0):
-    # Thawing quintessence wzCDM
-    cubic = (1 + z) ** 3
-    return (2 * cubic / (1 + w0 + (1 - w0) * cubic)) ** 2
+def Ode_z(z, w0, wa):
+    return (1. + z)**(3 * (1. + w0 + wa)) * np.exp(-3 * wa * z / (1. + z))
 
 
 @njit
-def d_Ode_dz(z, Ode, w0):
-    return Ode * Ode_z(z, w0) * 3 * (1.0 + w_de_z(z, w0)) / (1.0 + z)
+def d_Ode_dz(z, Ode, w0, wa):
+    return Ode * Ode_z(z, w0, wa) * 3 * (1.0 + w_de_z(z, w0, wa)) / (1.0 + z)
 
 
 @njit
 def H_z(z, params):
-    H0, Om, w0 = params[0], params[1], params[-1]
-    return H0 * np.sqrt(Om * (1.0 + z) ** 3 + (1.0 - Om) * Ode_z(z, w0))
+    H0, Om, w0, wa = params[0], params[1], params[6], params[7]
+    return H0 * np.sqrt(Om * (1.0 + z) ** 3 + (1.0 - Om) * Ode_z(z, w0, wa))
 
 
 @njit
 def dH_da(z, H_val, params):
-    H0, Om, w0 = params[0], params[1], params[-1]
+    H0, Om, w0, wa = params[0], params[1], params[6], params[7]
     a = 1 / (1.0 + z)
-    numerator = 3 * Om * (1.0 + z) ** 2 + d_Ode_dz(z=z, Ode=1 - Om, w0=w0)
+    numerator = 3 * Om * (1.0 + z) ** 2 + d_Ode_dz(z, Ode=1 - Om, w0=w0, wa=wa)
     denominator = 2 * a**2 * H_val / H0**2
     return -numerator / denominator
 
@@ -113,8 +109,9 @@ for i in range(N_fs8):
     s8_fid = fs8.data["s8_fid"][i]
     H0_fid = fs8.data["H0_fid"][i]
     w0_fid = -1.0
-    params = [H0_fid, Om_fid, s8_fid, 1.0, 1.0, w0_fid]
-    DM_i = DM(np.array([zi]), params)[0]
+    wa_fid = 0.0
+    params = [H0_fid, Om_fid, s8_fid, 0.0, 0.0, 0.0, w0_fid, wa_fid]
+    DM_i, = DM(np.array([zi]), params)
     Hz_DMz_fid[i] = H_z(zi, params) * DM_i
 
 
@@ -124,7 +121,7 @@ def chi2_fs8(params):
 
     delta = fs8_values - fs8_theory(a_vals_fs8, params) / q
     y = solve_triangular(cho_fs8, delta)
-    return params[5] ** 2 * np.dot(y, y)
+    return np.exp(-2 * params[5]) * np.dot(y, y)
 
 
 @njit
@@ -139,19 +136,24 @@ def chi_squared(params, cho_cc):
     return chi2_cc(params, cho_cc) + chi2_fs8(params)
 
 
-z_pivot_cc = 0.698
+@njit
+def get_fz(params):
+    z_pivot = 0.728
+    f_piv, n = np.exp(params[3]), params[4]
+    return f_piv * ((1.0 + z_cc) / (1.0 + z_pivot))**n
+
 
 @njit
 def log_likelihood_jit(params):
-    fp_cc, n_cc = np.exp(params[3]), params[4]
-    fz_cc = fp_cc * ((1 + z_cc) / (1 + z_pivot_cc)) ** n_cc
+    if params[6] + params[7] >= -1/3:
+        return -np.inf
 
-    cov_cc = np.diag(diag_stat_cc**2 * fz_cc**2) + cov_matrix_sys
+    cov_cc = cov_matrix_sys + np.diag(diag_stat_cc**2 * get_fz(params)**2)
     cho_cc = np.linalg.cholesky(cov_cc)
-    logdet_cc = 2.0 * np.sum(np.log(np.diag(cho_cc)))
+    logdet_cc = 2 * np.sum(np.log(np.diag(cho_cc)))
 
     normalization_cc =  N_cc * np.log(2 * np.pi) + logdet_cc
-    normalization_fs8 = N_fs8 * np.log(2 * np.pi) - 2 * N_fs8 * np.log(params[5]) + logdet_fs8
+    normalization_fs8 = N_fs8 * np.log(2 * np.pi) + logdet_fs8 + 2 * N_fs8 * params[5]
     return -0.5 * (chi_squared(params, cho_cc) + normalization_cc + normalization_fs8)
 
 
@@ -171,14 +173,15 @@ def main():
     prior.add_parameter("H0", dist=(35, 100))
     prior.add_parameter("Om", dist=(0.01, 0.6))
     prior.add_parameter("sig8", dist=(0.2, 1.5))
-    prior.add_parameter("ln_f_cc", dist=(np.log(0.25), np.log(1.40)))
+    prior.add_parameter("ln_f_cc", dist=(-1.4, 0.4))
     prior.add_parameter("n_cc", dist=(-4.0, 4.0))
-    prior.add_parameter("f_fs8", dist=(0.05, 3))
-    prior.add_parameter("w0", dist=(-1.5, 0))
+    prior.add_parameter("ln_f_fs8", dist=(-1.15, 0.15))
+    prior.add_parameter("w0", dist=(-3, 2))
+    prior.add_parameter("wa", dist=(-3, 3))
 
     with Pool(6) as pool:
         sampler = Sampler(
-            prior, log_likelihood, n_live=6_000, pool=pool, seed=42, pass_dict=False,
+            prior, log_likelihood, n_live=5_000, pool=pool, seed=42, pass_dict=False,
         )
         sampler.run(verbose=True)
 
@@ -193,16 +196,17 @@ def main():
     sig8_16, sig8_50, sig8_84 = quantile(samples[:, 2], one_sigma_ci, weights=w)
     ln_fcc_16, ln_fcc_50, ln_fcc_84 = quantile(samples[:, 3], one_sigma_ci, weights=w)
     ncc_16, ncc_50, ncc_84 = quantile(samples[:, 4], one_sigma_ci, weights=w)
-    fs_16, fs_50, fs_84 = quantile(samples[:, 5], one_sigma_ci, weights=w)
+    ln_fs_16, ln_fs_50, ln_fs_84 = quantile(samples[:, 5], one_sigma_ci, weights=w)
     w0_16, w0_50, w0_84 = quantile(samples[:, 6], one_sigma_ci, weights=w)
+    wa_16, wa_50, wa_84 = quantile(samples[:, 7], one_sigma_ci, weights=w)
     Omh2_16, Omh2_50, Omh2_84 = quantile(Omh2_samples, one_sigma_ci, weights=w)
 
     S8_samples = samples[:, 2] * np.sqrt(samples[:, 1] / 0.3)
     S8_16, S8_50, S8_84 = quantile(S8_samples, one_sigma_ci, weights=w)
 
     best_fit = samples[np.argmax(log_l)]
-    fz_cc = np.exp(best_fit[3]) * ((1.0 + z_cc) / (1.0 + z_pivot_cc))**best_fit[4]
-    cov_cc = np.diag(diag_stat_cc**2 * fz_cc**2) + cov_matrix_sys
+    fz_cc = get_fz(best_fit)
+    cov_cc = cov_matrix_sys + np.diag(diag_stat_cc**2 * fz_cc**2)
     cho_cc = np.linalg.cholesky(cov_cc)
 
     print(f"H0: {H0_50:.1f} +{(H0_84 - H0_50):.1f} -{(H0_50 - H0_16):.1f} km/s/Mpc")
@@ -210,16 +214,17 @@ def main():
     print(f"σ8: {sig8_50:.3f} +{(sig8_84 - sig8_50):.3f} -{(sig8_50 - sig8_16):.3f}")
     print(f"S8: {S8_50:.3f} +{(S8_84 - S8_50):.3f} -{(S8_50 - S8_16):.3f}")
     print(f"w0: {w0_50:.3f} +{(w0_84 - w0_50):.3f} -{(w0_50 - w0_16):.3f}")
+    print(f"wa: {wa_50:.3f} +{(wa_84 - wa_50):.3f} -{(wa_50 - wa_16):.3f}")
     print(f"Ωm h^2: {Omh2_50:.3f} +{(Omh2_84 - Omh2_50):.3f} -{(Omh2_50 - Omh2_16):.3f}")
-    print(f"ln(f_cc): {ln_fcc_50:.2f} +{(ln_fcc_84 - ln_fcc_50):.2f} -{(ln_fcc_50 - ln_fcc_16):.2f}")
     print(f"n_cc: {ncc_50:.2f} +{(ncc_84 - ncc_50):.2f} -{(ncc_50 - ncc_16):.2f}")
-    print(f"f_fs8: {fs_50:.2f} +{(fs_84 - fs_50):.2f} -{(fs_50 - fs_16):.2f}")
-    print(f"Chi squared: {chi_squared(best_fit, cho_cc):.2f}")
-    print(f"Log likelihood: {np.max(log_l):.2f}")
+    print(f"ln(f_cc): {ln_fcc_50:.2f} +{(ln_fcc_84 - ln_fcc_50):.2f} -{(ln_fcc_50 - ln_fcc_16):.2f}")
+    print(f"ln(f_fs8): {ln_fs_50:.2f} +{(ln_fs_84 - ln_fs_50):.2f} -{(ln_fs_50 - ln_fs_16):.2f}")
+    print(f"Chi2 (MAP): {chi_squared(best_fit, cho_cc):.2f}")
+    print(f"Log likelihood (MAP): {np.max(log_l):.2f}")
     print(f"Log evidence: {log_evd:.1f}")
-    print(f"Degs of freedom: {len(z_cc) + len(z_fs8) - len(best_fit)}")
+    print(f"DOF: {len(z_cc) + len(z_fs8) - len(best_fit)}")
 
-    labels = ["$H_0$", "$\\Omega_m$", "$\\sigma_8$", "$ln(f_{cc})$", "$n_{cc}$", "$f_{fs8}$", "$w_0$"]
+    labels = ["$H_0$", "$\\Omega_m$", "$\\sigma_8$", "$ln(f_{cc})$", "$n_{cc}$", "$ln(f_{fs8})$", "$w_0$", "$w_a$"]
     corner(
         samples,
         weights=w,
@@ -241,7 +246,7 @@ def main():
         H_z=lambda z: H_z(z, best_fit),
         z=z_cc,
         H=H_values,
-        H_err=H_err,
+        H_err=np.sqrt(np.diag(cov_matrix_sys) + diag_stat_cc**2),
         label=f"{legend} $H_0$: {H0_50:.1f} ± {(H0_84 - H0_50):.1f} km/s/Mpc",
         err_scaling=1 / fz_cc,
     )
@@ -249,7 +254,7 @@ def main():
         fs8_theory=lambda z: fs8_theory(1 / (1 + z), best_fit),
         data=fs8.data,
         q=H_z(z_fs8, best_fit) * DM(z_fs8, best_fit) / Hz_DMz_fid,
-        f_err=fs_50,
+        f_err=1 / np.exp(best_fit[5]),
     )
 
 
@@ -258,60 +263,53 @@ if __name__ == "__main__":
 
 
 # ----------- Flat ΛCDM -----------
-# H0: 67.4 +3.0 -3.0 km/s/Mpc
-# Ωm: 0.315 +0.018 -0.017
-# σ8: 0.786 +0.011 -0.010
-# S8: 0.806 +0.019 -0.018
-# Ωm h^2: 0.143 +0.013 -0.012
-# ln(fp_cc): -0.51 +0.18 -0.17
-# n_cc: 1.34 +0.53 -0.51
-# f_fs8: 1.78 +0.17 -0.17
-# Chi squared: 91.04
-# Log likelihood: -46.57
-# Log evidence: -60.6
-# Degs of freedom: 89
+# H0: 68.2 ± 3.0 km/s/Mpc
+# Ωm: 0.313 ± 0.018
+# σ8: 0.787 ± 0.011
+# S8: 0.803 ± 0.019
+# Ωm h^2: 0.146 +0.013 -0.012
+# n_cc: 1.50 +0.57 -0.53
+# ln(f_cc): -0.52 +0.18 -0.17
+# ln(f_fs8): -0.57 +0.10 -0.09
+# Chi2 (MAP): 87.71
+# Log likelihood (MAP): -33.42
+# Log evidence: -47.2
+# DOF: 86
 # ---------------------------------
 
 
 # ----------- Flat wCDM -----------
-# H0: 64.2 +3.1 -3.1 km/s/Mpc
-# Ωm: 0.284 +0.021 -0.022
-# σ8: 0.881 +0.050 -0.041
-# S8: 0.860 +0.027 -0.026
-# w0: -0.719 +0.090 -0.093 (prior U[-1.5, 0])
-# Ωm h^2: 0.117 +0.015 -0.015
-# ln(fp_cc): -0.50 +0.18 -0.17
-# n_cc: 1.31 +0.54 -0.52
-# f_fs8: 1.93 +0.19 -0.18
-# Chi squared: 94.65
-# Log likelihood: -42.43
-# Log evidence: -58.3
-# Degs of freedom: 88
-# ---------------------------------
-
-
-# ----------- Flat wzCDM ----------
-# w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
-#
-# H0: 64.1 +3.0 -3.0 km/s/Mpc
-# Ωm: 0.317 +0.017 -0.016
-# σ8: 0.838 +0.023 -0.022
-# S8: 0.861 +0.026 -0.026
-# w0: -0.616 +0.108 -0.123 (prior U[-1.5, 0])
-# Ωm h^2: 0.130 +0.013 -0.012
-# ln(fp_cc): -0.50 +0.18 -0.17
-# n_cc: 1.36 +0.55 -0.52
-# f_fs8: 1.93 +0.19 -0.18
-# Chi squared: 95.17
-# Log likelihood: -42.51
-# Log evidence: -58.2
-# Degs of freedom: 88
+# H0: 65.0 +3.1 -3.0 km/s/Mpc
+# Ωm: 0.284 ± 0.021
+# σ8: 0.878 +0.049 -0.040
+# S8: 0.856 +0.027 -0.026
+# w0: -0.728 +0.088 -0.093 (prior ~ U[-1.5, 0])
+# Ωm h^2: 0.120 +0.015 -0.014
+# n_cc: 1.48 +0.56 -0.54
+# ln(f_cc): -0.52 ± 0.18
+# ln(f_fs8): -0.65 +0.10 -0.09
+# Chi2 (MAP): 89.00
+# Log likelihood (MAP): -29.38
+# Log evidence: -45.1
+# DOF: 85
 # ---------------------------------
 
 
 # ---------- Flat w0waCDM ---------
-# w0 (prior U[-3, 1])
-# wa (prior U[-3, 2])
-# w0 + wa < 0 enforced in the likelihood
-# TODO
+# w0 + wa < -1 / 3 enforced in the likelihood
+#
+# H0: 64.7 +3.1 -3.0 km/s/Mpc
+# Ωm: 0.316 +0.035 -0.036
+# σ8: 0.834 +0.053 -0.038
+# S8: 0.860 ± 0.026
+# w0: -0.64 +0.15 -0.13 (prior ~ U[-3, 1])
+# wa: -0.69 +0.71 -0.94 (prior ~ U[-3, 3])
+# Ωm h^2: 0.133 +0.017 -0.018
+# n_cc: 1.52 +0.58 -0.55
+# ln(f_cc): -0.51 +0.18 -0.17
+# ln(f_fs8): -0.64 +0.10 -0.09
+# Chi2 (MAP): 89.95
+# Log likelihood (MAP): -29.21
+# Log evidence: -47.3
+# DOF: 84
 # ---------------------------------

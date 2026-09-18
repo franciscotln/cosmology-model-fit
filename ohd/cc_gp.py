@@ -7,8 +7,8 @@ from gpytorch.mlls import ExactMarginalLogLikelihood
 from gpytorch.distributions import MultivariateNormal
 from gpytorch.means import ConstantMean
 from gpytorch.settings import fast_pred_var, detach_test_caches
-from .gp_lib import FixedNoiseGaussianLikelihood
-from y2005cc.data import get_data
+from ohd.gp_lib import FixedNoiseGaussianLikelihood
+from y2005cc.data_no_loubser import get_data
 
 legend, z, H, cov_mat = get_data()
 
@@ -97,7 +97,7 @@ for i in range(training_iterations):
             # Constraint satisfied -> slightly relax to prioritize likelihood fit
             lambda_mono = max(lambda_mono * decay_factor, 1e-4)
 
-    # Iter 14000/15000 | MLL: 0.6114 | Penalty: 0.000349 | lambda_mono: 3.0707
+    # Iter 14000/15000 | MLL: 0.6114 | Penalty: 0.000361 | lambda_mono: 2.8660
     if i % 1000 == 0:
         print(
             f"Iter {i}/{training_iterations} | "

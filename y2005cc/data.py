@@ -18,12 +18,12 @@ _ref = data["reference"]
 # ------ Handling missing systematic uncertainties ------
 # Where systematic uncertainties were not published
 # separately (all full spectral fitting data)
-# we set them to 18% of the total error budget for F and
+# we set them to 30% of the total error budget for F and
 # 65% for D4000A (mean value based on other data points)
 # There are only two D4000A data points without published systematic uncertainties
 
 _syst_mask = _syst_H == 0
-_syst_fraction = np.where(method[_syst_mask] == "F", 0.18, 0.65)
+_syst_fraction = np.where(method[_syst_mask] == "F", 0.30, 0.65)
 _syst_H[_syst_mask] = _syst_fraction * sigma_H[_syst_mask]
 _stat_H[_syst_mask] = sigma_H[_syst_mask] * (1.0 - _syst_fraction**2)**0.5
 
