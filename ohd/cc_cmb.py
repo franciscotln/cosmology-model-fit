@@ -56,9 +56,9 @@ def chi_squared(params, L_cc):
 
 @njit
 def get_fz(params):
-    z_pivot = 0.735 # corr(ln(fp), n) = -1.24e-03
-    f_piv, n = np.exp(params[3]), params[4]
-    return f_piv * ((1.0 + z_values) / (1.0 + z_pivot))**n
+    z_pivot = 1.035
+    fp, n = np.exp(params[3]), params[4]
+    return fp * ((1.0 + z_values) / (1.0 + z_pivot)) ** n
 
 
 @njit
@@ -82,8 +82,8 @@ def main():
     prior.add_parameter("H0", dist=(63.0, 73.0))
     prior.add_parameter("obh2", dist=(0.0210, 0.0235))
     prior.add_parameter("och2", dist=(0.05, 0.30))
-    prior.add_parameter("ln_fp", dist=(-1.4, 0.4))
-    prior.add_parameter("n", dist=(-4.0, 4.0))
+    prior.add_parameter("ln_fp", dist=(-2.0, 1.0))
+    prior.add_parameter("n", dist=(-3.0, 7.0))
 
     with Pool(5) as pool:
         sampler = Sampler(
@@ -98,7 +98,6 @@ def main():
     gd_samples = MCSamples(
         samples=samples,
         weights=weights,
-        loglikes=-log_l,
         names=prior.keys,
         labels=labels,
     )
@@ -160,25 +159,25 @@ if __name__ == "__main__":
 # H0: 67.19 +- 0.38 km/s/Mpc
 # Ωm: 0.3175 +- 0.0055
 # ωb = 0.022399 +- 0.000095
-# ωc = 0.12027 +- 0.00093
-# Chi squared (MAP): 15.59
-# Log likelihood (MAP): -147.63
-# Log evidence: -158.66
+# ωc = 0.12028 +- 0.00094
+# Chi squared (MAP): 15.60
+# Log likelihood (MAP): -147.60
+# Log evidence: -158.64
 # DOF: 36
 # -------------------------------------------------------------------
 
 
 # Model: Flat ΛCDM
-# --- Overestimation factor f(z) = fp * [(1 + z) / (1 + z_piv)]^n ---
-# H0: 67.20 +- 0.38 km/s/Mpc
-# Ωm: 0.3174 +- 0.0055
-# ωb: 0.022400 +- 0.000095
-# ωc: 0.12025 +- 0.00094
-# n: 1.51 +0.51 -0.57 (prior ~ U[-4, 4])
-# ln(fp): -0.53 +- 0.18 (prior ~ U[-1.4, 0.4])
-# fp = 0.599 +0.081 -0.12
-# Chi squared (MAP): 30.41
-# Log likelihood (MAP): -140.15
-# Log evidence: -154.38 (Δ logZ = 4.28 compared to no scaling)
+# --- Overestimation factor f(z) = fp * [(1 + z) * H(z) / ((1 + z_piv) * H(z_piv))]^n ---
+# H0 = 67.19 ± 0.38 km/s/Mpc
+# Ωm = 0.3176 ± 0.0055
+# Ωb h^2 = 0.022398 ± 0.000095
+# Ωc h^2 = 0.12028 ± 0.00094
+# n_cc = 3.06 +0.86 -1.20 (prior ~ U[-3, 7])
+# ln(fp) = -0.50 ± 0.27 (prior ~ U[-2, 1])
+# fp = 0.63 +0.12 -0.19
+# Chi squared (MAP): 34.87
+# Log likelihood (MAP): -137.28
+# Log evidence: -151.26 (Δ logZ = 7.38 compared to no scaling)
 # DOF: 34
 # -------------------------------------------------------------------

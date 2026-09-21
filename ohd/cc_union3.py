@@ -81,14 +81,9 @@ def chi_squared(params, L_cc):
 
 @njit
 def get_fz(params):
-    z_pivot = 0.98
-    f_piv, n = np.exp(params[0]), params[1]
-
-    Hz = H_z(z_cc, params)
-    Hz_pivot = H_z(z_pivot, params)
-
-    shape = ((1.0 + z_cc) * Hz) / ((1.0 + z_pivot) * Hz_pivot)
-    return f_piv * shape**n
+    z_pivot = 1.035
+    fp, n = np.exp(params[0]), params[1]
+    return fp * ((1.0 + z_cc) / (1.0 + z_pivot)) ** n
 
 
 @njit
@@ -111,8 +106,8 @@ def main():
     from ohd.plot_predictions import plot_cc_predictions
 
     prior = Prior()
-    prior.add_parameter("ln_fp", dist=(-1.7, 0.7))
-    prior.add_parameter("n", dist=(-2.5, 2.5))
+    prior.add_parameter("ln_fp", dist=(-2, 1))
+    prior.add_parameter("n", dist=(-3, 7))
     prior.add_parameter("dM", dist=(-1.0, 1.0))
     prior.add_parameter("Omh2", dist=(0.01, 0.25))
     prior.add_parameter("Om", dist=(0.1, 0.7))
@@ -185,18 +180,18 @@ if __name__ == "__main__":
 
 
 # ---------------- Flat ΛCDM ----------------
-# H0 = 67.1 ± 3.0 km/s/Mpc
-# Ωm = 0.331 +0.020 -0.022
-# Ωm h^2 = 0.149 +0.012 -0.014
+# H0 = 66.9 ± 2.8 km/s/Mpc
+# Ωm = 0.332 ± 0.021
+# Ωm h^2 = 0.148 +0.012 -0.013
 #
-# ΔM = -0.072 ± 0.092 mag
-# n = 0.98^{+0.31}_{-0.43}
-# ln(fp) = -0.42 ± 0.22
-# fp = 0.67 +0.11 -0.17
+# ΔM = -0.076 ± 0.088 mag
+# n = 3.04 +0.85 -1.20
+# ln(fp) = -0.49 ± 0.27
+# fp = 0.64 +0.12 -0.19
 #
-# χ² (MAP): 61.87
-# Log likelihood (MAP): -154.25
-# Log evidence: -167.3
+# χ² (MAP): 63.98
+# Log likelihood (MAP): -151.71
+# Log evidence: -164.5
 # DOF: 53
 # -------------------------------------------
 
@@ -206,57 +201,57 @@ if __name__ == "__main__":
 # turning point z <= 0.2 positive z > 0.2 negative
 # z_cosmo = z_cmb ± Δz
 #
-# 1000 Δz = 1.10 ± 0.44 (prior ~ U[-3.5, 3.5])
-# H0 = 68.5 ± 3.1 km/s/Mpc
-# Ωm = 0.306 ± 0.022
+# 1000 Δz = 1.08 ± 0.44 (prior ~ U[-3.5, 3.5])
+# H0 = 68.1 ± 2.9 km/s/Mpc
+# Ωm = 0.308 ± 0.022
 # Ωm h^2 = 0.143 ± 0.013
 #
-# ΔM = -0.050 ± 0.092 mag
-# n = 0.99 +0.31 -0.43
-# ln(fp) = -0.41 ± 0.22
-# fp = 0.68 +0.11 -0.17
+# ΔM = -0.058 ± 0.088 mag
+# n = 3.05 +0.87 -1.20
+# ln(fp) = -0.46 ± 0.27
+# fp = 0.65 +0.12 -0.20
 #
-# χ² (MAP): 54.53
-# Log likelihood (MAP): -150.97
-# Log evidence: -165.9
+# χ² (MAP): 56.49
+# Log likelihood (MAP): -148.49
+# Log evidence: -163.2
 # DOF: 52
 # -------------------------------------------
 
 
 # ---------------- Flat wCDM ----------------
-# w0 = -0.90 +0.13 -0.12 (prior ~ U[-1.5, 0])
-# H0 = 67.2 ± 3.0 km/s/Mpc
-# Ωm h^2 = 0.133 +0.025 -0.020
-# Ωm = 0.296 +0.055 -0.041
+# w0 = -0.91 +0.14 -0.12 (prior ~ U[-1.5, 0])
+# H0 = 66.9 ± 2.9 km/s/Mpc
+# Ωm h^2 = 0.134 +0.025 -0.019
+# Ωm = 0.300 +0.054 -0.039
 #
-# ΔM = -0.060 ± 0.094
-# n = 1.00 +0.31 -0.44
-# ln(fp) = -0.40 ± 0.22
-# fp = 0.69 +0.11 -0.17
+# ΔM = -0.069 ± 0.089 mag
+# n = 3.07 +0.86 -1.20
+# ln(fp) = -0.46 ± 0.27
+# fp = 0.66 +0.13 -0.20
 #
-# χ² (MAP): 60.82
-# Log likelihood (MAP): -153.85
-# Log evidence: -168.5
+# χ² (MAP): 62.41
+# Log likelihood (MAP): -151.35
+# Log evidence: -165.7
 # DOF: 52
 # -------------------------------------------
 
 
 # --------------- Flat w0waCDM --------------
-# w0 + wa < -1 / 3 enforced in the likelihood
+# w0 + wa < 0 enforced in the likelihood
 #
-# H0 = 65.0 ± 3.0 km/s/Mpc
-# Ωm = 0.404 +0.043 -0.024
-# Ωm h^2 = 0.171 ± 0.019
-# w0 = -0.68 +0.17 -0.14 (prior ~ U[-1.5, 0])
-# wa < -3.25 (prior ~ U[-5, 5])
+# H0 = 66.3 ± 2.9 km/s/Mpc
+# Ωm = 0.343 +0.059 -0.031
+# Ωm h^2 = 0.151 +0.025 -0.017
+# w0 = -0.88 +0.13 -0.12 (prior ~ N(-1.0, 0.5^2))
+# wa = -0.89 ± 0.80 (prior ~ N(0.0, 1.0^2))
 #
-# ΔM = -0.102 ± 0.094 mag
-# n = 1.01 +0.30 -0.42
-# ln(fp) = -0.43 ± 0.23
-# fp = 0.67 +0.12 -0.17
+# ΔM = -0.080 ± 0.089 mag
+# n = 3.10 +0.87 -1.20
+# ln(fp) = -0.47 ± 0.27
+# fp = 0.65 +0.12 -0.20
 #
-# χ² (MAP): 55.35
-# Log likelihood (MAP): -151.39
-# Log evidence: -167.3
+# χ² (MAP): 61.16
+# Log likelihood (MAP): -149.31
+# Log evidence: -165.3
 # DOF: 51
 # -------------------------------------------

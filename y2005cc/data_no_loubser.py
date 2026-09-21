@@ -11,19 +11,25 @@ _data = _data.loc[_data["reference"] != _loubser_reference].reset_index(drop=Tru
 z = _data["z"].to_numpy()
 Hz = _data["H"].to_numpy()
 sigma_H = _data["sigma_H"].to_numpy()
-method= _data["M"].to_numpy()
+method = _data["M"].to_numpy()
 
 # ------ Handling missing systematic uncertainties ------
 # Where systematic uncertainties were not published
-# separately (all full spectral fitting data)
-# we set them to 27% floor of the total error budget for F
-# and 65% for D4000A (mean value based on other data points)
-# There are only two D4000A data points without published systematic uncertainties
+# separately (basically all full spectral fitting data)
+# There are only two D4000A data points without published
+# systematic uncertainties separately.
 
 _syst_mask = _data["sys"] == 0
-_syst_fraction = np.where(method[_syst_mask] == "F", 0.27, 0.65)
-_data.loc[_syst_mask, "sys"] = _syst_fraction * sigma_H[_syst_mask]
-_data.loc[_syst_mask, "stat"] = sigma_H[_syst_mask] * np.sqrt(1.0 - _syst_fraction**2)
+
+# Method D4000 (D)
+_mask_D4000 = _syst_mask & (method == "D")
+_data.loc[_mask_D4000, "sys"] = 0.64 * sigma_H[_mask_D4000]
+_data.loc[_mask_D4000, "stat"] = np.sqrt(1.0 - 0.64**2) * sigma_H[_mask_D4000]
+
+# Method FSF (F)
+_mask_FSF  = _syst_mask & (method == "F")
+_data.loc[_mask_FSF, "sys"]  = np.minimum(0.42 * sigma_H[_mask_FSF], 0.07 * Hz[_mask_FSF])
+_data.loc[_mask_FSF, "stat"] = np.sqrt(sigma_H[_mask_FSF]**2 - _data.loc[_mask_FSF, "sys"]**2)
 
 diag_syst = _data["sys"].to_numpy()
 diag_stat = _data["stat"].to_numpy()

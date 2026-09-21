@@ -15,14 +15,9 @@ def H_z(z, params):
 
 @njit
 def get_fz(params):
-    z_pivot = 0.98
-    f_piv, n = np.exp(params[2]), params[3]
-
-    Hz = H_z(z_values, params)
-    Hz_pivot = H_z(z_pivot, params)
-
-    shape = ((1.0 + z_values) * Hz) / ((1.0 + z_pivot) * Hz_pivot)
-    return f_piv * shape**n
+    z_pivot = 1.035
+    fp, n = np.exp(params[2]), params[3]
+    return fp * ((1.0 + z_values) / (1.0 + z_pivot)) ** n
 
 
 @njit
@@ -51,10 +46,10 @@ def main():
     from ohd.plot_predictions import plot_cc_predictions
 
     prior = Prior()
-    prior.add_parameter("Omh2", dist=(0.01, 0.25))
-    prior.add_parameter("Om", dist=(0.01, 1.0))
-    prior.add_parameter("ln_fp", dist=(-1.7, 0.7))
-    prior.add_parameter("n", dist=(-2.5, 2.5))
+    prior.add_parameter("omh2", dist=(0.01, 0.25))
+    prior.add_parameter("om", dist=(0.01, 1.0))
+    prior.add_parameter("ln_fp", dist=(-2.0, 1.0))
+    prior.add_parameter("n", dist=(-3.0, 7.0))
 
     with Pool(8) as pool:
         sampler = Sampler(
@@ -67,16 +62,8 @@ def main():
     weights = np.exp(log_w)
     labels = ["Ω_m h^2", "Ω_m", "ln(f_{pivot})", "n"]
 
-    gd_samples = MCSamples(
-        samples=samples,
-        weights=weights,
-        loglikes=-log_l,
-        names=prior.keys,
-        labels=labels,
-    )
-    gd_samples.addDerived(
-        100 * np.sqrt(gd_samples["Omh2"] / gd_samples["Om"]), name="H0", label="H_0",
-    )
+    gd_samples = MCSamples(samples=samples, weights=weights, names=prior.keys, labels=labels)
+    gd_samples.addDerived(100 * np.sqrt(gd_samples["omh2"] / gd_samples["om"]), name="H0", label="H_0")
     gd_samples.addDerived(np.exp(gd_samples["ln_fp"]), name="fp", label="f_{pivot}")
     gd_samples.updateBaseStatistics()
 
@@ -152,44 +139,46 @@ if __name__ == "__main__":
 # ---------------------------------
 
 # Redshift dependent covariance diagonal scaling
-# f(z) = fp * [(1 + z) / (1 + z_pivot)]^n
-# with z_pivot = 0.98, corr(ln(fp), n) = 0:
-# cov[i, j] = cov_sys[i, j] + cov_diag_stat[i, j] * f(z_i) * f(z_j)
+# f(z) = f_pivot * [(1 + z) / (1 + z_pivot)]^n
+# with z_pivot = 1.035, corr(ln(fp), n) = 0:
+# cov[i, i] = cov_sys[i, i] + cov_diag_stat[i, i] * f(z_i)^2
+# cov[i, j] = cov_sys[i, j]
 #
-# H0 = 67.5 ± 3.7 km/s/Mpc
+# H0 = 67.1 ± 3.3 km/s/Mpc
+# Ωm = 0.327 +0.036 -0.042
 # Ωm h^2 = 0.147 ± 0.015
-# Ωm = 0.324 +0.038 -0.047
-# ln(fp) = -0.40 ± 0.23
-# n = 0.98 +0.31 -0.43
-# fp = 0.69 +0.11 -0.17
-# Log likelihood (MAP): -139.78
-# Log evidence: -147.35 (diff = 3.94)
-# χ2 (MAP): 32.31
+# ln(fp) = -0.46 ± 0.27
+# n = 3.03 +0.87 -1.2
+# fp = 0.65 +0.12 -0.20
+# Log likelihood (MAP): -137.26
+# Log evidence: -144.66
+# χ2 (MAP): 34.96
 # DOF: 32
-# χ2/DOF: 1.01
+# χ2/DOF: 1.09
 # Correlation matrix:
-#     H0      Ωm h^2  Ωm      ln(fp)  n
-#  [[ 1.      0.2045 -0.6487  0.0788  0.0014]
-#   [ 0.2045  1.      0.6041 -0.0244 -0.0882]
-#   [-0.6487  0.6041  1.     -0.0751 -0.0791]
-#   [ 0.0788 -0.0244 -0.0751  1.     -0.0030]
-#   [ 0.0014 -0.0882 -0.0791 -0.0030  1.    ]]
+#    H0.          Ωm h^2       Ωm        ln(fp)          n
+#  [[ 1.          0.26287809 -0.59727902  0.09146906 -0.04243834]
+#  [ 0.26287809  1.          0.61082046 -0.02179484 -0.06077785]
+#  [-0.59727902  0.61082046  1.         -0.08862343 -0.02366998]
+#  [ 0.09146906 -0.02179484 -0.08862343  1.          0.00487898]
+#  [-0.04243834 -0.06077785 -0.02366998  0.00487898  1.        ]]
 # ---------------------------------
 
 
-# Constant covariance diagonal scaling f(z) = f0:
-# cov[i, j] = cov_sys[i, j] + cov_diag_stat[i, j] * f0^2
+# Constant covariance diagonal scaling f(z) = f:
+# cov[i, i] = cov_sys[i, i] + cov_diag_stat[i, i] * f^2
+# cov[i, j] = cov_sys[i, j]
 #
-# H0 = 66.8 ± 4.6 km/s/Mpc
-# Ωm h^2 = 0.147 ± 0.013
-# Ωm = 0.334 +0.040 -0.058
-# ln(f0) = -0.45 ± 0.18
-# f0 = 0.645 +0.090 -0.130
-# Log likelihood (MAP): -143.90
-# Log evidence: -149.83 (diff = 1.46)
-# χ2 (MAP): 31.46
+# H0 = 66.6 ± 4.3 km/s/Mpc
+# Ωm = 0.334 +0.037 -0.051
+# Ωm h^2 = 0.147 ± 0.012
+# ln(f) = -0.70 +0.27 -0.23
+# f = 0.51 +0.11 -0.14
+# Log likelihood (MAP): -142.60
+# Log evidence: -148.54
+# χ2 (MAP): 36.65
 # DOF: 33
-# χ2/DOF: 0.95
+# χ2/DOF: 1.11
 # ---------------------------------
 
 
@@ -198,7 +187,7 @@ if __name__ == "__main__":
 # Ωm = 0.346 +0.053 -0.083
 # Ωm h^2 = 0.149 ± 0.018
 # Log likelihood (MAP): -147.59
-# Log evidence: -151.29
+# Log evidence: -151.28
 # χ2 (MAP): 15.57
 # DOF: 34
 # χ2/DOF: 0.46
@@ -207,71 +196,6 @@ if __name__ == "__main__":
 
 # Log likelihood ratio test f(z) vs no scaling:
 # -2 * log(L0/L1) = -2 * log(L0) + 2 * log(L1)
-# -2 * (-147.59) + 2 * (-139.78) = 15.62
-# corresponding to a p-value of approximately 4.06e-04
-# 3.27 sigma significance
-
-
-# ---------------------------------
-# Including the Loubser et al. (2025) 3 data points
-# Model: Flat ΛCDM
-# ---------------------------------
-
-# Redshift dependent covariance diagonal scaling
-# f(z) = fp * [(1 + z) / (1 + z_pivot)]^n
-# with z_pivot = 1.019, corr(ln(fp), n) = 0:
-# cov[i, j] = cov_sys[i, j] + cov_diag_stat[i, j] * f(z_i) * f(z_j)
-#
-# H0 = 65.8 ± 3.6 km/s/Mpc
-# Ωm h^2 = 0.147 ± 0.015
-# Ωm = 0.341^{+0.039}_{-0.049}
-# n = 1.00^{+0.33}_{-0.47}
-# ln(fp) = -0.36 ± 0.24
-# fp = 0.72^{+0.13}_{-0.20}
-# Log likelihood (MAP): -152.86
-# Log evidence: -160.23
-# χ2 (MAP): 38.28
-# DOF: 35
-# χ2/DOF: 1.09
-# Correlation matrix:
-#  [[ 1.      0.2347 -0.6464  0.0721  0.0388]
-#   [ 0.2347  1.      0.5818  0.0063 -0.0889]
-#   [-0.6464  0.5818  1.     -0.0474 -0.1126]
-#   [ 0.0721  0.0063 -0.0474  1.     -0.0026]
-#   [ 0.0388 -0.0889 -0.1126 -0.0026  1.    ]]
-# ---------------------------------
-
-
-# Constant covariance diagonal scaling f(z) = f0:
-# cov[i, j] = cov_sys[i, j] + cov_diag_stat[i, j] * f0^2
-#
-# H0 = 64.6 ± 4.5 km/s/Mpc
-# Ωm h^2 = 0.147 +0.012 -0.014
-# Ωm = 0.357 +0.043 -0.063
-# ln(f0) = -0.44 ± 0.19
-# f0 = 0.659 +0.097 -0.140
-# Log likelihood (MAP): -156.59
-# Log evidence: -162.36
-# χ2 (MAP): 36.61
-# DOF: 36
-# χ2/DOF: 1.02
-# ---------------------------------
-
-
-# Without error scaling (fixed f0 = 1, n = 0):
-# H0 = 64.3 ± 5.3 km/s/Mpc
-# Ωm h^2 = 0.151 ± 0.018
-# Ωm = 0.372^{+0.056}_{-0.088}
-# Log likelihood (MAP): -159.71
-# Log evidence: -163.34
-# χ2 (MAP): 19.95
-# DOF: 37
-# χ2/DOF: 0.54
-# ---------------------------------
-
-
-# Log likelihood ratio test f(z) vs no scaling:
-# -2 * log(L0/L1) = -2 * log(L0) + 2 * log(L1)
-# -2 * (-159.71) + 2 * (-152.86) = 13.70
-# corresponding to a p-value of approximately 1.06e-03
-# 3.19 sigma significance
+# -2 * (-147.59) + 2 * (-137.26) = 20.66
+# corresponding to a p-value of approximately 3.264e-05
+# 4.0 sigma significance

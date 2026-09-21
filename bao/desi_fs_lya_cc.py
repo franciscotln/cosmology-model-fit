@@ -19,14 +19,14 @@ z_max = np.max(data["z"]) + 0.1
 z_grid = np.linspace(0, z_max, num=4000)
 dz = z_grid[1] - z_grid[0]
 
-z_pivot = 0.38 # corr(wp, wa) = -0.0034
+z_piv_w0wa =0.38 # corr(wp, wa) = -0.0034
 
 
 @njit
 def Ode_z(z, wp, wa):
     zp1 = 1. + z
     # w0waCDM
-    return zp1**(3 * (1. + wp + (wa / (1. + z_pivot)))) * np.exp(-3 * wa * z / zp1)
+    return zp1**(3 * (1. + wp + (wa / (1. + z_piv_w0wa)))) * np.exp(-3 * wa * z / zp1)
 
 
 @njit
@@ -37,39 +37,22 @@ def H_z(z, params):
 
 
 @njit
-def DM_grid(params):
+def DM_DH_grid(params):
     dh_grid = c / H_z(z_grid, params)
-    n = z_grid.size
-    cum_dm = np.zeros(n, dtype=np.float64)
-    d_dh = np.empty(n, dtype=np.float64)
-    # Central difference for internal points
-    d_dh[1:-1] = (dh_grid[2:] - dh_grid[:-2]) / (2 * dz)
-    # Forward/Backward difference at boundaries
-    d_dh[0] = (dh_grid[1] - dh_grid[0]) / dz
-    d_dh[-1] = (dh_grid[-1] - dh_grid[-2]) / dz
-    # Integrate with 4th-order cubic correction per interval
-    dz_sq_over_12 = (dz ** 2) / 12
-    acc = 0.0
-
-    for i in range(n - 1):
-        # trapezoidal area + 1st-derivative endpoint correction
-        trap = 0.5 * dz * (dh_grid[i] + dh_grid[i + 1])
-        corr = dz_sq_over_12 * (d_dh[i] - d_dh[i + 1])
-
-        acc += trap + corr
-        cum_dm[i + 1] = acc
-
-    return (cum_dm, dh_grid)
+    dh = (dh_grid[:-1] + dh_grid[1:]) / 2
+    cum_dm = np.zeros(z_grid.size, dtype=np.float64)
+    cum_dm[1:] = np.cumsum(dh * dz)
+    return cum_dm, dh_grid
 
 
 @njit
-def DM_z(z, dm_interp):
-    return interp_hermite(z, z_grid, dm_interp[0], dm_interp[1])
+def DM_z(z, dm_dh_interp):
+    return interp_hermite(z, x=z_grid, y=dm_dh_interp[0], y_prime=dm_dh_interp[1])
 
 
 @njit
-def DH_z(z, dm_interp):
-    return interp_pchip(z, z_grid, dm_interp[1])
+def DH_z(z, dm_dh_interp):
+    return interp_pchip(z, z_grid, dm_dh_interp[1])
 
 
 @njit
@@ -89,11 +72,11 @@ def theory_bao(z, qty, params):
     DH_mask = qty == dh_rs
     FAP_mask = qty == f_ap
 
-    dm_grid = DM_grid(params)
+    dm_dh_grid = DM_DH_grid(params)
 
     inv_rd = 1 / r_drag(params[3], params[4])
-    dm_vals = DM_z(z, dm_grid)
-    dh_vals = DH_z(z, dm_grid)
+    dm_vals = DM_z(z, dm_dh_grid)
+    dh_vals = DH_z(z, dm_dh_grid)
     dv_vals = DV_z(z[DV_mask], dm_vals[DV_mask], dh_vals[DV_mask])
 
     results = np.empty(z.size, dtype=np.float64)
@@ -117,7 +100,7 @@ def chi_squared(params, L_cc):
 
 @njit
 def get_fz(params):
-    z_pivot = 0.728 # corr(ln(fp), n) = -8.53e-04
+    z_pivot = 1.035
     f_piv, n = np.exp(params[0]), params[1]
     return f_piv * ((1.0 + z_cc_vals) / (1.0 + z_pivot))**n
 
@@ -133,8 +116,8 @@ def log_likelihood_jit(params):
 
 
 def log_likelihood(params):
-    # if params[5] + (params[6] / (1.0 + z_pivot)) > -1/3:
-    #     return -np.inf
+    if params[5] + (params[6] / (1.0 + z_piv_w0wa)) > -1/3:
+        return -np.inf
     return log_likelihood_jit(params)
 
 
@@ -148,8 +131,8 @@ def main():
 
     prior = Prior()
     # ---- CCH parameters for overestimated errors ----
-    prior.add_parameter("ln_fp_cc", dist=(np.log(0.25), np.log(1.4)))
-    prior.add_parameter("n_cc", dist=(-4.0, 4.0))
+    prior.add_parameter("ln_fp_cc", dist=(-2, 1))
+    prior.add_parameter("n_cc", dist=(-3.0, 7.0))
     # ---- cosmological parameters ----
     prior.add_parameter("om", dist=(0.1, 0.7))
     prior.add_parameter("obh2", dist=(0.01, 0.04))
@@ -158,9 +141,7 @@ def main():
     prior.add_parameter("wa", dist=(-6.0, 6.0))
 
     with Pool(6) as pool:
-        sampler = Sampler(
-            prior, log_likelihood, n_live=5_000, pool=pool, seed=42, pass_dict=False
-        )
+        sampler = Sampler(prior, log_likelihood, n_live=5_000, pool=pool, seed=42, pass_dict=False)
         sampler.run(verbose=True)
 
     samples, log_w, log_l = sampler.posterior()
@@ -173,15 +154,9 @@ def main():
         names=prior.keys,
         labels=labels,
     )
-    gd_samples.addDerived(
-        100 * np.sqrt(gd_samples["omh2"] / gd_samples["om"]), name="H0", label="H_0",
-    )
-    gd_samples.addDerived(
-        r_drag(gd_samples["obh2"], gd_samples["omh2"]), name="rdrag", label="r_{drag}",
-    )
-    gd_samples.addDerived(
-        np.exp(gd_samples["ln_fp_cc"]), name="fp_cc", label="f_{p,cc}",
-    )
+    gd_samples.addDerived(100 * np.sqrt(gd_samples["omh2"] / gd_samples["om"]), name="H0", label="H_0")
+    gd_samples.addDerived(r_drag(gd_samples["obh2"], gd_samples["omh2"]), name="rdrag", label="r_{drag}")
+    gd_samples.addDerived(np.exp(gd_samples["ln_fp_cc"]), name="fp_cc", label="f_{p,cc}")
     gd_samples.updateBaseStatistics()
 
     for name in gd_samples.getParamNames().names:
@@ -241,38 +216,38 @@ if __name__ == "__main__":
 
 
 # ----------- Flat ΛCDM -----------
-# H0 = 69.3 ± 2.8 km/s/Mpc
-# Ωm = 0.3021 ± 0.0076
-# Ωb h^2 = 0.0231 ± 0.0035
-# Ωm h^2 = 0.145 ± 0.012
-# rd = 146.3 +5.4 -6.3 Mpc
+# H0 = 68.6 ± 2.7 km/s/Mpc
+# Ωm = 0.3025 ± 0.0076
+# Ωb h^2 = 0.0223 ± 0.0034
+# Ωm h^2 = 0.143 ± 0.011
+# rd = 147.5^{+5.3}_{-6.2} Mpc
 #
-# n_cc = 1.52 ± 0.55
-# ln(fp_cc) = -0.52 ± 0.17
-# fp_cc = 0.606 +0.081 -0.12
+# n_cc = 3.04 +0.86 -1.2
+# ln(fp_cc) = -0.47 ± 0.27
+# fp_cc = 0.65 +0.12 -0.20
 #
-# Chi squared (MAP): 44.58
-# log likelihood (MAP): -146.52
-# Log evidence: -158.26
+# Chi squared (MAP): 47.35
+# log likelihood (MAP): -143.79
+# Log evidence: -155.38
 # DOF: 45
 # ---------------------------------
 
 
 # ----------- Flat wCDM -----------
-# H0 = 68.8 ± 3.1 km/s/Mpc
-# Ωm = 0.3024 ± 0.0080
-# Ωb h^2 = 0.0235 ± 0.0037
-# Ωm h^2 = 0.143 +0.012 -0.013
-# w = -0.972 ± 0.070
-# rd = 146.5 +5.5 -6.3 Mpc
+# H0 = 68.2 ± 2.9 km/s/Mpc
+# Ωm = 0.3028 ± 0.0078
+# Ωb h^2 = 0.0228 ± 0.0036
+# Ωm h^2 = 0.141 ± 0.012
+# w = -0.969 ± 0.069
+# rd = 147.6 +5.3 -6.2 Mpc
 #
-# n_cc = 1.52 ± 0.55
-# ln(fp_cc) = -0.52 ± 0.18
-# fp_cc = 0.607 +0.082 -0.120
+# n_cc = 3.03 +0.86 -1.2
+# ln(fp_cc) = -0.47 ± 0.27
+# fp_cc = 0.65 +0.12 -0.20
 #
-# Chi squared (MAP): 43.20
-# log likelihood (MAP): -146.43
-# Log evidence: -160.31
+# Chi squared (MAP): 48.03
+# log likelihood (MAP): -143.71
+# Log evidence: -157.03
 # DOF: 44
 # ---------------------------------
 
@@ -280,39 +255,39 @@ if __name__ == "__main__":
 # ---------- Flat w0waCDM----------
 # Enforced w0 + wa <= -1/3 in the likelihood
 #
-# H0 = 63.1 +3.8 -4.2 km/s/Mpc
-# Ωm = 0.375 ± 0.038
-# Ωb h^2 = 0.0201 +0.0033 -0.0038
-# Ωm h^2 = 0.148 ± 0.013
-# w0 = -0.31 ± 0.36 (prior ~U[-3, 1])
-# wa = -2.4 ± 1.3 (prior ~U[-6, 6])
-# rd = 148.0 +5.7 -6.6 Mpc
+# H0 = 62.8 +3.7 -4.1 km/s/Mpc
+# Ωm = 0.371 ± 0.037
+# Ωb h^2 = 0.0195 +0.0032 -0.0038
+# Ωm h^2 = 0.146 ± 0.012
+# w0 = -0.35 ± 0.35 (prior ~U[-3, 1])
+# wa = -2.3 ± 1.2 (prior ~U[-6, 6])
+# rd = 149.3 +5.6 -6.4 Mpc
 #
-# n_cc = 1.57 ± 0.57
-# ln(fp_cc) = -0.50 ± 0.18
-# fp_cc = 0.615 +0.084 -0.13
+# n_cc = 3.02 +0.86 -1.20
+# ln(fp_cc) = -0.43 ± 0.26
+# fp_cc = 0.68 +0.13 -0.20
 #
-# Chi squared (MAP): 40.63
-# log likelihood (MAP): -144.69
-# Log evidence: -160.90
+# Chi squared (MAP): 41.25
+# log likelihood (MAP): -142.03
+# Log evidence: -158.18
 # DOF: 43
 #
 #
 # At z_pivot = 0.38 corr(wp, wa) = -0.0034
-# H0 = 63.1 +3.8 -4.3 km/s/Mpc
-# Ωm = 0.375 ± 0.038
-# Ωb h^2 = 0.0201 +0.0033 -0.0038
-# Ωm h^2 = 0.148 ± 0.013
-# wp = -0.979 ± 0.067 (prior ~ U[-1.5, -0.5])
-# wa = -2.4 ± 1.3 (prior ~ U[-6, 6])
-# rd = 148.1 +5.7 -6.5 Mpc
+# H0 = 62.7 +3.7 -4.1 km/s/Mpc
+# Ωm = 0.372 ± 0.037
+# Ωb h^2 = 0.0195 +0.0032 -0.0037
+# Ωm h^2 = 0.145 ± 0.012
+# wp = -0.980 ± 0.065 (prior ~ U[-1.5, -0.5])
+# wa = -2.3 ± 1.2 (prior ~ U[-6, 6])
+# rd = 149.3 +5.5 -6.5 Mpc
 #
 # n_cc = 1.57 ± 0.57
 # ln(fp_cc) = -0.50 ± 0.18
-# fp_cc = 0.615 +0.085 -0.120
+# fp_cc = 0.68 +0.13 -0.20
 #
-# Chi squared (MAP): 40.26
-# log likelihood (MAP): -144.72
-# Log evidence: -159.52
+# Chi squared (MAP): 42.10
+# log likelihood (MAP): -142.05
+# Log evidence: -156.79
 # DOF: 43
 # ---------------------------------
