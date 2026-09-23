@@ -7,19 +7,14 @@ from y2026union3_1.data import get_data
 
 legend, z_cmb, z_hel, mu_vals, cov_matrix = get_data()
 L_cho = np.linalg.cholesky(cov_matrix)
+logdet = 2 * np.sum(np.log(np.diag(L_cho)))
+N = z_cmb.size
 
 c = c0 / 1000  # Speed of light (km/s)
 H0 = 70.0  # Hubble constant (km/s/Mpc)
 
 z_grid = np.linspace(0, np.max(z_cmb) + 0.1, num=2000)
 dz = z_grid[1] - z_grid[0]
-
-
-@njit
-def Ode(z, w0):
-    # Thawing quintessence
-    a3 = (1.0 + z) ** -3
-    return 4 / ((1.0 + w0) * a3 + (1.0 - w0)) ** 2
 
 
 @njit
@@ -31,29 +26,9 @@ def Hz(z, params):
 @njit
 def DM_z(z, params):
     dh_grid = c / Hz(z_grid, params)
-    n = z_grid.size
-    cum_dm = np.zeros(n, dtype=np.float64)
-
-    # Compute local derivatives d(dh)/dz using central differences
-    d_dh = np.empty(n, dtype=np.float64)
-
-    # Central difference for internal points
-    d_dh[1:-1] = (dh_grid[2:] - dh_grid[:-2]) / (2 * dz)
-    # Forward/Backward difference at boundaries
-    d_dh[0] = (dh_grid[1] - dh_grid[0]) / dz
-    d_dh[-1] = (dh_grid[-1] - dh_grid[-2]) / dz
-
-    # Integrate with 4th-order cubic correction per interval
-    dz_sq_over_12 = (dz ** 2) / 12
-    acc = 0.0
-
-    for i in range(n - 1):
-        # trapezoidal area + 1st-derivative endpoint correction
-        trap = 0.5 * dz * (dh_grid[i] + dh_grid[i + 1])
-        corr = dz_sq_over_12 * (d_dh[i] - d_dh[i + 1])
-        acc += trap + corr
-        cum_dm[i + 1] = acc
-
+    dh = (dh_grid[:-1] + dh_grid[1:]) / 2
+    cum_dm = np.zeros(z_grid.size, dtype=np.float64)
+    cum_dm[1:] = np.cumsum(dh * dz)
     return interp_hermite(z, z_grid, cum_dm, dh_grid)
 
 
@@ -80,12 +55,12 @@ def chi_squared(params):
     DM = DM_z(z_cosmo, params)
     delta = mu_vals - mu_theory(params, DM)
     y = solve_triangular(L_cho, delta)
-    return y @ y
+    return np.dot(y, y)
 
 
 @njit
 def log_likelihood(params):
-    return -0.5 * chi_squared(params)
+    return -0.5 * (chi_squared(params) + logdet + N * np.log(2 * np.pi))
 
 
 def main():
@@ -124,6 +99,7 @@ def main():
     index_MAP = np.argmax(log_l)
     params_MAP = samples[index_MAP]
     print(f"χ2 (MAP): {chi_squared(params_MAP):.2f}")
+    print(f"log likelihood (MAP): {log_likelihood(params_MAP):.2f}")
     print(f"Log evidence: {sampler.log_z:.1f}")
     print(f"DOF: {len(z_cmb) - len(prior.keys)}")
 
@@ -166,10 +142,11 @@ if __name__ == "__main__":
 
 
 # ----------- Flat ΛCDM -----------
-# ΔM: 0.027 ± 0.020 mag
-# Ωm: 0.335 ± 0.025
-# χ2 (MAP): 28.76
-# Log evidence: -21.9
+# ΔM: 0.028 ± 0.020 mag
+# Ωm: 0.336 ± 0.024
+# χ2 (MAP): 28.18
+# log likelihood (MAP): 43.62
+# Log evidence: 36.0
 # DOF: 20
 # ---------------------------------
 
@@ -179,42 +156,36 @@ if __name__ == "__main__":
 # turning point z <= 0.2 positive z > 0.2 negative
 # z_cosmo = z_cmb ± Δz
 
-# 1000 Δz = 1.14 ± 0.45
-# Ωm: 0.301 +0.025 -0.028
-# ΔM: -0.004 ± 0.023 mag
-# χ2 (MAP): 22.22 (2.56 sigma significance)
-# Log evidence: -20.6 (Δ logZ = 1.3 in favour of step correction)
+# 1000 Δz = 1.09 ± 0.45
+# Ωm: 0.303 ± 0.026
+# ΔM: -0.001 ± 0.023 mag
+# χ2 (MAP): 22.20 (2.56 sigma significance)
+# log likelihood (MAP): 46.61
+# Log evidence: 37.1 (Δ logZ = 1.1 in favour of step correction)
 # DOF: 19
 # ---------------------------------
 
 
 # ----------- Flat wCDM -----------
-# w0: -0.82 +0.19 -0.10 (prior ~ U[-1.5, 0])
-# Ωm: 0.254 +0.083 -0.072
-# ΔM: 0.034 ± 0.020 mag
-# χ2 (MAP): 27.22 (1.26 sigma away from ΛCDM)
-# Log evidence: -22.4 (Δ logZ = -0.5 in favour of ΛCDM)
-# DOF: 19
-# ---------------------------------
-
-
-# ----------- Flat wzCDM -----------
-# w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
-# w0: -0.75 ± 0.13 (prior ~ U[-1, -1/3])
-# Ωm: 0.278 +0.046 -0.037
-# ΔM: 0.042 ± 0.021 mag
-# χ2 (MAP): 26.54 (1.52 sigma away from ΛCDM)
-# Log evidence: -21.4 (Δ logZ = 0.5 in favour of wzCDM)
+# w0: -0.83 +0.19 -0.11 (prior ~ U[-1.5, 0])
+# Ωm: 0.260 +0.084 -0.070
+# ΔM: 0.035 ± 0.020 mag
+# χ2 (MAP): 26.86 (1.26 sigma away from ΛCDM)
+# log likelihood (MAP): 44.28
+# Log evidence: 35.5 (Δ logZ = -0.5 in favour of ΛCDM)
 # DOF: 19
 # ---------------------------------
 
 
 # ----------- Flat w0waCDM -----------
-# w0: -0.40 +0.27 -0.40 (prior ~ U[-2, 0.5])
-# wa: -6.6 +4.7 -3.1 (prior ~ U[-16, 3])
-# Ωm: 0.447 +0.080 -0.037
-# ΔM: 0.084 ± 0.032 mag
-# χ2 (MAP): 24.43 (1.59 sigma away from ΛCDM)
-# Log evidence: -22.5 (Δ logZ = -0.6 in favour of ΛCDM)
+# w0 + wa < 0 enforced in the likelihood
+#
+# w0: -0.44 +0.26 0.40 (prior ~ U[-3, 1])
+# wa: -6.3 +4.8 -2.9 (prior ~ U[-16, 3])
+# Ωm: 0.445 +0.082 -0.038
+# ΔM: 0.083 ± 0.033 mag
+# χ2 (MAP): 24.40 (1.59 sigma away from ΛCDM)
+# log likelihood (MAP): 45.51
+# Log evidence: 34.8 (Δ logZ = -1.2 in favour of ΛCDM)
 # DOF: 18
 # ---------------------------------

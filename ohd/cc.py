@@ -8,15 +8,14 @@ legend, z_values, H_values, diag_stat, cov_matrix_sys = get_data(split_sys=True)
 
 @njit
 def H_z(z, params):
-    omh2, om = params[0], params[1]
-    h2 = omh2 / om
-    return 100 * np.sqrt(omh2 * (1.0 + z) ** 3 + (h2 - omh2))
+    h, om = params[0], params[1]
+    return 100 * h * np.sqrt(om * (1.0 + z) ** 3 + (1.0 - om))
 
 
 @njit
 def get_fz(params):
-    z_pivot = 1.035
-    fp, n = np.exp(params[2]), params[3]
+    z_pivot = 0.982
+    fp, n = params[2], params[3]
     return fp * ((1.0 + z_values) / (1.0 + z_pivot)) ** n
 
 
@@ -40,34 +39,32 @@ def log_likelihood(params):
 
 def main():
     from multiprocessing import Pool
+    from scipy.stats import lognorm
     from nautilus import Sampler, Prior
     from getdist import plots, MCSamples
     import matplotlib.pyplot as plt
     from ohd.plot_predictions import plot_cc_predictions
 
     prior = Prior()
-    prior.add_parameter("omh2", dist=(0.01, 0.25))
+    prior.add_parameter("h", dist=(0.5, 1.0))
     prior.add_parameter("om", dist=(0.01, 1.0))
-    prior.add_parameter("ln_fp", dist=(-2.0, 1.0))
-    prior.add_parameter("n", dist=(-3.0, 7.0))
+    prior.add_parameter("fp", dist=lognorm(s=0.4, scale=0.7))
+    prior.add_parameter("n", dist=(-5.0, 10.0))
 
     with Pool(8) as pool:
-        sampler = Sampler(
-            prior, log_likelihood, n_live=10_000, pool=pool, seed=42, pass_dict=False
-        )
+        sampler = Sampler(prior, log_likelihood, n_live=10_000, pool=pool, seed=42, pass_dict=False)
         sampler.run(verbose=True)
 
     samples, log_w, log_l = sampler.posterior()
     MAP_PARAMS = samples[np.argmax(log_l)]
     weights = np.exp(log_w)
-    labels = ["Ω_m h^2", "Ω_m", "ln(f_{pivot})", "n"]
+    labels = ["h", "Ω_m", "f_{pivot}", "n"]
 
     gd_samples = MCSamples(samples=samples, weights=weights, names=prior.keys, labels=labels)
-    gd_samples.addDerived(100 * np.sqrt(gd_samples["omh2"] / gd_samples["om"]), name="H0", label="H_0")
-    gd_samples.addDerived(np.exp(gd_samples["ln_fp"]), name="fp", label="f_{pivot}")
+    gd_samples.addDerived(gd_samples["om"] * gd_samples["h"]**2, name="omh2", label="Ω_m h^2")
     gd_samples.updateBaseStatistics()
 
-    plot_params = ["H0"] + prior.keys
+    plot_params = ["omh2"] + prior.keys
     correlation = gd_samples.corr(plot_params)
     print("Correlation matrix:\n", correlation)
 
@@ -140,28 +137,27 @@ if __name__ == "__main__":
 
 # Redshift dependent covariance diagonal scaling
 # f(z) = f_pivot * [(1 + z) / (1 + z_pivot)]^n
-# with z_pivot = 1.035, corr(ln(fp), n) = 0:
+# with z_pivot = 1.034, corr(ln(fp), n) = 0:
 # cov[i, i] = cov_sys[i, i] + cov_diag_stat[i, i] * f(z_i)^2
 # cov[i, j] = cov_sys[i, j]
 #
-# H0 = 67.1 ± 3.3 km/s/Mpc
-# Ωm = 0.327 +0.036 -0.042
-# Ωm h^2 = 0.147 ± 0.015
-# ln(fp) = -0.46 ± 0.27
-# n = 3.03 +0.87 -1.2
-# fp = 0.65 +0.12 -0.20
-# Log likelihood (MAP): -137.26
-# Log evidence: -144.66
-# χ2 (MAP): 34.96
+# h = 0.673 ± 0.034
+# Ωm = 0.322 +0.036 -0.043
+# Ωm h^2 = 0.145 ± 0.015
+# n = 2.99 +0.84 -1.2 (prior ~ U[-5, 10])
+# fp = 0.63 +0.10 -0.16 (prior ~ lognormal(μ=ln(0.7), σ=0.4))
+# Log likelihood (MAP): -137.27
+# Log evidence: -144.12
+# χ2 (MAP): 34.67
 # DOF: 32
-# χ2/DOF: 1.09
+# χ2/DOF: 1.08
 # Correlation matrix:
-#    H0.          Ωm h^2       Ωm        ln(fp)          n
-#  [[ 1.          0.26287809 -0.59727902  0.09146906 -0.04243834]
-#  [ 0.26287809  1.          0.61082046 -0.02179484 -0.06077785]
-#  [-0.59727902  0.61082046  1.         -0.08862343 -0.02366998]
-#  [ 0.09146906 -0.02179484 -0.08862343  1.          0.00487898]
-#  [-0.04243834 -0.06077785 -0.02366998  0.00487898  1.        ]]
+#           Ωm h^2      h           Ωm          fp          n
+# Ωm h^2 [[ 1.          0.25245567  0.62680432 -0.04181495 -0.07417154]
+# h       [ 0.25245567  1.         -0.58950626  0.07712055 -0.05113214]
+# Ωm      [ 0.62680432 -0.58950626  1.         -0.09230017 -0.02847623]
+# fp      [-0.04181495  0.07712055 -0.09230017  1.          0.00428507]
+# n       [-0.07417154 -0.05113214 -0.02847623  0.00428507  1.        ]]
 # ---------------------------------
 
 
@@ -169,25 +165,24 @@ if __name__ == "__main__":
 # cov[i, i] = cov_sys[i, i] + cov_diag_stat[i, i] * f^2
 # cov[i, j] = cov_sys[i, j]
 #
-# H0 = 66.6 ± 4.3 km/s/Mpc
-# Ωm = 0.334 +0.037 -0.051
-# Ωm h^2 = 0.147 ± 0.012
-# ln(f) = -0.70 +0.27 -0.23
-# f = 0.51 +0.11 -0.14
+# h = 0.669 ± 0.043
+# Ωm = 0.329 +0.038 -0.050
+# Ωm h^2 = 0.146 ± 0.012
+# f = 0.513 +0.089 -0.120 (prior ~ lognormal(μ=ln(0.5), σ=0.4))
 # Log likelihood (MAP): -142.60
-# Log evidence: -148.54
-# χ2 (MAP): 36.65
+# Log evidence: -147.52
+# χ2 (MAP): 36.61
 # DOF: 33
 # χ2/DOF: 1.11
 # ---------------------------------
 
 
 # Without error scaling (fixed f0 = 1, n = 0):
-# H0 = 66.4 ± 5.4 km/s/Mpc
-# Ωm = 0.346 +0.053 -0.083
-# Ωm h^2 = 0.149 ± 0.018
+# H0 = 0.669 ± 0.053 km/s/Mpc
+# Ωm = 0.335 +0.052 -0.080
+# Ωm h^2 = 0.147 0.017 -0.019
 # Log likelihood (MAP): -147.59
-# Log evidence: -151.28
+# Log evidence: -151.21
 # χ2 (MAP): 15.57
 # DOF: 34
 # χ2/DOF: 0.46
@@ -196,6 +191,6 @@ if __name__ == "__main__":
 
 # Log likelihood ratio test f(z) vs no scaling:
 # -2 * log(L0/L1) = -2 * log(L0) + 2 * log(L1)
-# -2 * (-147.59) + 2 * (-137.26) = 20.66
+# -2 * (-147.59) + 2 * (-137.27) = 20.64
 # corresponding to a p-value of approximately 3.264e-05
 # 4.0 sigma significance

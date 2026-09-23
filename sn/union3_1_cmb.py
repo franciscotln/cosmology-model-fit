@@ -18,9 +18,8 @@ dz = z_grid[1] - z_grid[0]
 
 @njit
 def Ode_z(z, w0):
-    # Thawing quintessence with w(z) ranging from -1 to 1
-    a3 = (1.0 + z) ** -3
-    return 4 / ((1.0 + w0) * a3 + (1.0 - w0)) ** 2
+    # wCDM
+    return (1. + z)**(3 * (1. + w0))
 
 
 @njit
@@ -45,37 +44,17 @@ cmb.set_HZ(Hz)
 
 
 @njit
-def DM_z(z, dm_grid):
-    return interp_hermite(z, z_grid, *dm_grid)
+def DM_z(z, dm_dh_grid):
+    return interp_hermite(z, z_grid, dm_dh_grid[0], dm_dh_grid[1])
 
 
 @njit
-def DM_grid(params):
+def DM_DH_grid(params):
     dh_grid = c / Hz(z_grid, params)
-    n = z_grid.size
-    cum_dm = np.zeros(n, dtype=np.float64)
-
-    # Compute local derivatives d(dh)/dz using central differences
-    d_dh = np.empty(n, dtype=np.float64)
-
-    # Central difference for internal points
-    d_dh[1:-1] = (dh_grid[2:] - dh_grid[:-2]) / (2 * dz)
-    # Forward/Backward difference at boundaries
-    d_dh[0] = (dh_grid[1] - dh_grid[0]) / dz
-    d_dh[-1] = (dh_grid[-1] - dh_grid[-2]) / dz
-
-    # Integrate with 4th-order cubic correction per interval
-    dz_sq_over_12 = (dz ** 2) / 12
-    acc = 0.0
-
-    for i in range(n - 1):
-        # trapezoidal area + 1st-derivative endpoint correction
-        trap = 0.5 * dz * (dh_grid[i] + dh_grid[i + 1])
-        corr = dz_sq_over_12 * (d_dh[i] - d_dh[i + 1])
-        acc += trap + corr
-        cum_dm[i + 1] = acc
-
-    return (cum_dm, dh_grid)
+    dh = (dh_grid[:-1] + dh_grid[1:]) / 2
+    cum_dm = np.zeros(z_grid.size, dtype=np.float64)
+    cum_dm[1:] = np.cumsum(dh * dz)
+    return cum_dm, dh_grid
 
 
 @njit
@@ -86,11 +65,11 @@ def get_z_cosmo(params):
 
 
 def mu_corr(params):
-    # For plotting purposes only
-    dm_interp = DM_grid(params)
+    # For plotting purposes only (delta_z model, return 0 otherwise)
+    dm_dh_grid = DM_DH_grid(params)
     z_cosmo = get_z_cosmo(params)
-    DM_cosmo = DM_z(z_cosmo, dm_interp)
-    DM_obs = DM_z(z_cmb, dm_interp)
+    DM_cosmo = DM_z(z_cosmo, dm_dh_grid)
+    DM_obs = DM_z(z_cmb, dm_dh_grid)
     return 5 * np.log10(DM_cosmo / DM_obs)
 
 
@@ -102,7 +81,7 @@ def mu_theory(offset, DM):
 @njit
 def chi2_sn(params):
     z_cosmo = get_z_cosmo(params)
-    dm_cosmo = DM_z(z_cosmo, DM_grid(params))
+    dm_cosmo = DM_z(z=z_cosmo, dm_dh_grid=DM_DH_grid(params))
     delta = mu_vals - mu_theory(offset=params[0], DM=dm_cosmo)
     y = solve_triangular(L_sn, delta)
     return np.dot(y, y)
@@ -150,7 +129,6 @@ def main():
     gd_samples = MCSamples(
         samples=samples,
         weights=np.exp(log_w),
-        loglikes=-log_l,
         names=prior.keys,
         labels=labels,
         label="Union3.1 + CMB(θ*, ωb, ωm)",
@@ -189,7 +167,7 @@ def main():
         x=z_cmb,
         y=mu_vals - mu_corr(best_fit),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=mu_theory(best_fit[0], DM_z(z_cmb, DM_grid(best_fit))),
+        y_model=mu_theory(best_fit[0], DM_z(z_cmb, DM_DH_grid(best_fit))),
         label=f"Ωm: {gd_samples['om'].mean():.3f}",
         x_scale="log",
     )
@@ -209,9 +187,9 @@ if __name__ == "__main__":
 # ----------- Flat ΛCDM -----------
 # H0: 67.13 +- 0.37 km/s/Mpc
 # Ωm: 0.3184 +- 0.0054
-# ΔM: -0.0771 +- 0.0087 mag
-# Chi2 (MAP): 29.2
-# Log Evidence: -33.4
+# ΔM: -0.0766 +- 0.0087 mag
+# Chi2 (MAP): 28.7
+# Log Evidence: -33.1
 # DOF: 21
 # ---------------------------------
 
@@ -221,61 +199,47 @@ if __name__ == "__main__":
 # turning point z <= 0.2 positive z > 0.2 negative
 # z_cosmo = z_cmb ± Δz
 
-# 1000 Δz = 1.00 ± 0.40 (prior ~ U[-3.5, 3.5])
-# H0: 67.24 ± 0.38 km/s/Mpc
-# Ωm: 0.3168 ± 0.0055
-# ΔM: -0.0772 ± 0.0087 mag
-# Chi2 (MAP): 22.7 (2.55 sigma significance)
-# Log Evidence: -32.1 (Δ logZ = 1.3 in favour of z offset step correction)
+# 1000 Δz = 0.97 ± 0.39 (prior ~ U[-3.5, 3.5])
+# H0: 67.23 ± 0.38 km/s/Mpc
+# Ωm: 0.3169 ± 0.0054
+# ΔM: -0.0768 ± 0.0087 mag
+# Chi2 (MAP): 22.6 (2.55 sigma significance)
+# Log Evidence: -32.1 (Δ logZ = 1.0 in favour of z offset step correction)
 # DOF: 20
 # ---------------------------------
 
 
 # ----------- Flat wCDM -----------
-# w0: -0.966 ± 0.040 (prior ~ U[-1.5, -0.5])
+# w0: -0.965 ± 0.040 (prior ~ U[-1.5, -0.5])
 
 # H0: 66.2 ± 1.1 km/s/Mpc
 # Ωm: 0.327 ± 0.012
-# ΔM: -0.091 ± 0.018 mag
-# Chi2 (MAP): 28.4
-# Log Evidence: -35.3
-# DOF: 20
-# ---------------------------------
-
-
-# ----------- Flat wzCDM ----------
-# w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
-# w0: -0.902 +0.042 -0.075 (prior ~ U[-1, -1/3])
-# wa: d w(z)/dz at z=0 = -1.5 * (1 - w0^2)
-
-# H0: 65.88 +0.94 -0.70 km/s/Mpc
-# Ωm: 0.3301 +0.0090 -0.0110
-# ΔM: -0.089 +0.012 - 0.011 mag
-# Chi2 (MAP): 27.8
-# Log Evidence: -34.2
+# ΔM: -0.090 ± 0.018 mag
+# Chi2 (MAP): 27.7
+# Log Evidence: -35.1
 # DOF: 20
 # ---------------------------------
 
 
 # --------- Flat w0waCDM ----------
-# w0: -0.72 ± 0.16 (prior ~ U[-2, 0])
-# wa: -1.20 ± 0.75 (prior ~ U[-5, 5])
+# w0: -0.74 ± 0.16 (prior ~ U[-3, 1])
+# wa: -1.10 ± 0.74 (prior ~ U[-5, 5])
 
-# H0: 67.6 +1.4 -1.2 km/s/Mpc
-# Ωm: 0.314 +0.011 -0.014
-# ΔM: -0.032 +0.041 -0.030 mag
-# Chi2 (MAP): 26.2
-# Log Evidence: -36.4
+# H0: 67.5 +1.4 -1.2 km/s/Mpc
+# Ωm: 0.316 +0.011 -0.014
+# ΔM: -0.037 +0.041 -0.030 mag
+# Chi2 (MAP): 26.0
+# Log Evidence: -37.0
 # DOF: 19
 
-# -- at z_pivot = 0.25 (corr(wp, wa) = -0.019) --
-# w_piv: -0.960 ± 0.042 (prior ~ U[-2, 0])
-# wa: -1.20 ± 0.75 (prior ~ U[-5, 5])
+# -- at z_pivot = 0.25 (corr(wp, wa) = -0.05) --
+# w_piv: -0.959 ± 0.041 (prior ~ U[-3, 1])
+# wa: -1.10 ± 0.74 (prior ~ U[-5, 5])
 
-# H0: 67.6 +1.4 -1.2 km/s/Mpc
-# Ωm: 0.314 +0.011 -0.014
-# ΔM: -0.033 +0.040 -0.030 mag
-# Chi2 (MAP): 26.1
-# Log Evidence: -36.4
+# H0: 67.4 +1.4 -1.2 km/s/Mpc
+# Ωm: 0.316 +0.011 -0.014
+# ΔM: -0.037 +0.041 -0.030 mag
+# Chi2 (MAP): 26.0
+# Log Evidence: -37.0
 # DOF: 19
 # ---------------------------------

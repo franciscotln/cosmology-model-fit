@@ -138,7 +138,7 @@ def chi_squared(params, cho_cc):
 
 @njit
 def get_fz(params):
-    z_pivot = 0.728
+    z_pivot = 1.035
     f_piv, n = np.exp(params[3]), params[4]
     return f_piv * ((1.0 + z_cc) / (1.0 + z_pivot))**n
 
@@ -173,16 +173,14 @@ def main():
     prior.add_parameter("H0", dist=(35, 100))
     prior.add_parameter("Om", dist=(0.01, 0.6))
     prior.add_parameter("sig8", dist=(0.2, 1.5))
-    prior.add_parameter("ln_f_cc", dist=(-1.4, 0.4))
-    prior.add_parameter("n_cc", dist=(-4.0, 4.0))
+    prior.add_parameter("ln_f_cc", dist=(-2, 1))
+    prior.add_parameter("n_cc", dist=(-3, 7))
     prior.add_parameter("ln_f_fs8", dist=(-1.15, 0.15))
     prior.add_parameter("w0", dist=(-3, 2))
     prior.add_parameter("wa", dist=(-3, 3))
 
     with Pool(6) as pool:
-        sampler = Sampler(
-            prior, log_likelihood, n_live=5_000, pool=pool, seed=42, pass_dict=False,
-        )
+        sampler = Sampler(prior, log_likelihood, n_live=5_000, pool=pool, seed=42, pass_dict=False)
         sampler.run(verbose=True)
 
     samples, log_w, log_l = sampler.posterior()
@@ -233,8 +231,11 @@ def main():
         show_titles=True,
         title_fmt=".4f",
         bins=100,
-        fill_contours=False,
+        fill_contours=True,
         plot_datapoints=False,
+        plot_density=False,
+        color="#1f77b4",
+        hist_kwargs={"linewidth": 1.5},
         smooth=2.0,
         smooth1d=2.0,
         levels=(0.393, 0.864),
@@ -263,34 +264,34 @@ if __name__ == "__main__":
 
 
 # ----------- Flat ΛCDM -----------
-# H0: 68.2 ± 3.0 km/s/Mpc
-# Ωm: 0.313 ± 0.018
-# σ8: 0.787 ± 0.011
-# S8: 0.803 ± 0.019
-# Ωm h^2: 0.146 +0.013 -0.012
-# n_cc: 1.50 +0.57 -0.53
-# ln(f_cc): -0.52 +0.18 -0.17
+# H0: 67.7 +2.8 -2.8 km/s/Mpc
+# Ωm: 0.314 +0.018 -0.017
+# σ8: 0.786 +0.011 -0.010
+# S8: 0.805 +0.018 -0.018
+# Ωm h^2: 0.144 +0.012 -0.012
+# n_cc: 2.96 +1.18 -0.96
+# ln(f_cc): -0.47 +0.26 -0.26
 # ln(f_fs8): -0.57 +0.10 -0.09
-# Chi2 (MAP): 87.71
-# Log likelihood (MAP): -33.42
-# Log evidence: -47.2
+# Chi2 (MAP): 88.84
+# Log likelihood (MAP): -30.63
+# Log evidence: -44.2
 # DOF: 86
 # ---------------------------------
 
 
 # ----------- Flat wCDM -----------
-# H0: 65.0 +3.1 -3.0 km/s/Mpc
-# Ωm: 0.284 ± 0.021
-# σ8: 0.878 +0.049 -0.040
-# S8: 0.856 +0.027 -0.026
-# w0: -0.728 +0.088 -0.093 (prior ~ U[-1.5, 0])
+# H0: 64.8 +2.9 -2.9 km/s/Mpc
+# Ωm: 0.285 +0.020 -0.021
+# σ8: 0.873 +0.046 -0.039
+# S8: 0.853 +0.026 -0.025
+# w0: -0.741 +0.086 -0.091 (prior ~ U[-2.0, 0])
 # Ωm h^2: 0.120 +0.015 -0.014
-# n_cc: 1.48 +0.56 -0.54
-# ln(f_cc): -0.52 ± 0.18
+# n_cc: 2.85 +1.13 -0.95
+# ln(f_cc): -0.46 +0.26 -0.26
 # ln(f_fs8): -0.65 +0.10 -0.09
-# Chi2 (MAP): 89.00
-# Log likelihood (MAP): -29.38
-# Log evidence: -45.1
+# Chi2 (MAP): 92.07
+# Log likelihood (MAP): -26.62
+# Log evidence: -43.1
 # DOF: 85
 # ---------------------------------
 
@@ -298,18 +299,18 @@ if __name__ == "__main__":
 # ---------- Flat w0waCDM ---------
 # w0 + wa < -1 / 3 enforced in the likelihood
 #
-# H0: 64.7 +3.1 -3.0 km/s/Mpc
-# Ωm: 0.316 +0.035 -0.036
-# σ8: 0.834 +0.053 -0.038
-# S8: 0.860 ± 0.026
-# w0: -0.64 +0.15 -0.13 (prior ~ U[-3, 1])
-# wa: -0.69 +0.71 -0.94 (prior ~ U[-3, 3])
-# Ωm h^2: 0.133 +0.017 -0.018
-# n_cc: 1.52 +0.58 -0.55
-# ln(f_cc): -0.51 +0.18 -0.17
+# H0: 64.3 +2.9 -2.9 km/s/Mpc
+# Ωm: 0.317 +0.035 -0.036
+# σ8: 0.833 +0.051 -0.037
+# S8: 0.859 +0.026 -0.026
+# w0: -0.644 +0.153 -0.133 (prior ~ U[-3, 1])
+# wa: -0.683 +0.719 -0.923 (prior ~ U[-3, 3])
+# Ωm h^2: 0.131 +0.016 -0.017
+# n_cc: 2.92 +1.13 -0.96
+# ln(f_cc): -0.45 +0.26 -0.26
 # ln(f_fs8): -0.64 +0.10 -0.09
-# Chi2 (MAP): 89.95
-# Log likelihood (MAP): -29.21
-# Log evidence: -47.3
+# Chi2 (MAP): 92.97
+# Log likelihood (MAP): -26.48
+# Log evidence: -44.4
 # DOF: 84
 # ---------------------------------
