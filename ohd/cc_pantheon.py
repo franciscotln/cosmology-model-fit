@@ -5,7 +5,7 @@ from scipy.linalg import cho_factor
 from interpolator import interp_hermite
 from solve_triangular import solve_triangular
 from y2022pantheonSHOES.data import get_data as get_sn_data
-from y2005cc.data_no_loubser import get_data as get_cc_data
+from y2005cc.data import method, get_data as get_cc_data
 
 
 cc_legend, z_cc, H_cc, diag_stat_cc, cov_mat_sys_cc = get_cc_data(split_sys=True)
@@ -14,6 +14,7 @@ legend, z_cmb, z_hel, mB_vals, cov_matrix_sn = get_sn_data()
 L_sn = cho_factor(cov_matrix_sn, lower=True)[0]
 
 N_cc = len(z_cc)
+non_d = method != "D"
 
 z_grid = np.linspace(0, np.max(z_cmb) + 0.1, num=4000)
 dz = z_grid[1] - z_grid[0]
@@ -23,8 +24,7 @@ c = c0 / 1000  # Speed of light in km/s
 
 @njit
 def H_z(z, params):
-    H0, Om = params[2], params[3]
-    w0 = params[5]
+    H0, Om, w0 = params[2], params[3], params[5]
     return H0 * np.sqrt(Om * (1.0 + z) ** 3 + (1.0 - Om) * (1.0 + z) ** (3 * (1 + w0)))
 
 
@@ -58,8 +58,8 @@ def chi_squared(params, L_cc):
 names=["ln_fp_cc", "n_cc", "H0", "om", "M", "w0"]
 labels=["ln(fp_{cc})", "n_{cc}", "H_0", "Ω_m", "M", "w_0"]
 bounds = np.array([
-    (-2, 1),
-    (-3.0, 7.0),
+    (-1.5, 0.5),
+    (-2.0, 4.0),
     (55.0, 80.0),
     (0.15, 0.70),
     (-20.0, -19.0),
@@ -78,9 +78,11 @@ def log_prior(params):
 
 @njit
 def get_fz(params):
-    z_pivot = 1.035
-    f_piv, n = np.exp(params[0]), params[1]
-    return f_piv * ((1.0 + z_cc) / (1.0 + z_pivot))**n
+    z_pivot = 0.62
+    fp, n = np.exp(params[0]), params[1]
+    fz = np.full_like(z_cc, fp)
+    fz[non_d] *= ((1.0 + z_cc[non_d]) / (1.0 + z_pivot)) ** n
+    return fz
 
 
 @njit
@@ -180,6 +182,7 @@ def main():
         H=H_cc,
         H_err=np.sqrt(np.diag(cov_mat_sys_cc) + diag_stat_cc**2),
         label=f"{cc_legend}: $H_0$={best_fit[2]:.1f} km/s/Mpc",
+        method=method,
         err_scaling=1 / fz_cc,
     )
     plot_sn_predictions(
@@ -198,28 +201,28 @@ if __name__ == "__main__":
 
 
 # Flat ΛCDM: w(z) = -1
-# H0 = 66.9 ± 2.8 km/s/Mpc
-# Ωm = 0.330 ± 0.016
-# Ωm h^2 = 0.148 ± 0.012
+# H0 = 69.7 +1.6 -1.4 km/s/Mpc
+# Ωm = 0.328 ± 0.016
+# Ωm h^2 = 0.1591 ± 0.0085
 #
-# M = -19.452 ± 0.088 mag
-# ln(fp_cc) = -0.50 ± 0.27
-# n_cc = 3.05 +0.86 -1.20
+# M = -19.363 +0.050 -0.041 mag
+# ln(fp_cc) = -0.56^{+0.15}_{-0.17}
+# n_cc = 1.51 ± 0.52
 #
-# log likelihood (MAP): -838.79
-# DOF: 1621
+# log likelihood (MAP): -853.45
+# DOF: 1624
 # ---------------------------------
 
 # Flat wCDM: w(z) = w
-# H0 = 67.0 ± 2.8 km/s/Mpc
-# Ωm = 0.310 +0.048 -0.037
-# Ωm h^2 = 0.139 +0.021 -0.018
-# w0 = -0.95 +0.11 -0.10 (prior ~ U[-2, 0])
+# H0 = 69.7 +1.6 -1.4 km/s/Mpc
+# Ωm = 0.299 +0.044 -0.039
+# Ωm h^2 = 0.145 +0.021 -0.019
+# w0 = -0.926 +0.11 -0.091 (prior ~ U[-2, 0])
 #
-# M = -19.446 ± 0.091 mag
-# ln(fp_cc) = -0.46 ± 0.27
-# n_cc = 3.07 +0.87 -1.2
+# M = -19.358 +0.049 -0.041 mag
+# ln(fp_cc) = -0.56 +0.15 -0.18
+# n_cc = 1.52 ± 0.52
 #
-# log likelihood (MAP): -838.68
-# DOF: 1620
+# log likelihood (MAP): -853.12
+# DOF: 1623
 # ---------------------------------

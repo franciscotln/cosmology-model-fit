@@ -4,7 +4,7 @@ from scipy.constants import c as c0
 from interpolator import interp_hermite, interp_pchip
 from solve_ivp import solve_ivp
 from solve_triangular import solve_triangular
-from y2005cc.data_no_loubser import get_data
+from y2005cc.data import method, get_data
 import y2018fs8.data as fs8
 
 c = c0 / 1000  # Speed of light in km/s
@@ -18,6 +18,7 @@ a_vals_fs8 = 1 / (1.0 + z_fs8)
 
 N_cc = z_cc.size
 N_fs8 = z_fs8.size
+non_d = method != "D"
 
 z_max = max(np.max(z_fs8), np.max(z_cc))
 z_grid = np.linspace(0, z_max + 0.1, num=4000)
@@ -138,9 +139,11 @@ def chi_squared(params, cho_cc):
 
 @njit
 def get_fz(params):
-    z_pivot = 1.035
-    f_piv, n = np.exp(params[3]), params[4]
-    return f_piv * ((1.0 + z_cc) / (1.0 + z_pivot))**n
+    z_pivot = 0.62
+    fp, n = np.exp(params[3]), params[4]
+    fz = np.full_like(z_cc, fp)
+    fz[non_d] *= ((1.0 + z_cc[non_d]) / (1.0 + z_pivot)) ** n
+    return fz
 
 
 @njit
@@ -173,8 +176,8 @@ def main():
     prior.add_parameter("H0", dist=(35, 100))
     prior.add_parameter("Om", dist=(0.01, 0.6))
     prior.add_parameter("sig8", dist=(0.2, 1.5))
-    prior.add_parameter("ln_f_cc", dist=(-2, 1))
-    prior.add_parameter("n_cc", dist=(-3, 7))
+    prior.add_parameter("ln_f_cc", dist=(-1.5, 0.5))
+    prior.add_parameter("n_cc", dist=(-2, 4))
     prior.add_parameter("ln_f_fs8", dist=(-1.15, 0.15))
     prior.add_parameter("w0", dist=(-3, 2))
     prior.add_parameter("wa", dist=(-3, 3))
@@ -249,6 +252,7 @@ def main():
         H=H_values,
         H_err=np.sqrt(np.diag(cov_matrix_sys) + diag_stat_cc**2),
         label=f"{legend} $H_0$: {H0_50:.1f} ± {(H0_84 - H0_50):.1f} km/s/Mpc",
+        method=method,
         err_scaling=1 / fz_cc,
     )
     plot_fs8_predictions(
@@ -264,53 +268,59 @@ if __name__ == "__main__":
 
 
 # ----------- Flat ΛCDM -----------
-# H0: 67.7 +2.8 -2.8 km/s/Mpc
-# Ωm: 0.314 +0.018 -0.017
-# σ8: 0.786 +0.011 -0.010
-# S8: 0.805 +0.018 -0.018
-# Ωm h^2: 0.144 +0.012 -0.012
-# n_cc: 2.96 +1.18 -0.96
-# ln(f_cc): -0.47 +0.26 -0.26
+# H0: 70.3 +1.5 -1.6 km/s/Mpc
+# Ωm: 0.312 +0.017 -0.017
+# Ωm h^2: 0.154 +0.009 -0.008
+# σ8: 0.787 +0.011 -0.010
+# S8: 0.802 +0.019 -0.018
+#
+# n_cc: 1.49 +0.51 -0.50
+# ln(f_cc): -0.57 +0.17 -0.15
 # ln(f_fs8): -0.57 +0.10 -0.09
-# Chi2 (MAP): 88.84
-# Log likelihood (MAP): -30.63
-# Log evidence: -44.2
-# DOF: 86
+#
+# Chi2 (MAP): 97.27
+# Log likelihood (MAP): -45.15
+# Log evidence: -59.7
+# DOF: 89
 # ---------------------------------
 
 
 # ----------- Flat wCDM -----------
-# H0: 64.8 +2.9 -2.9 km/s/Mpc
-# Ωm: 0.285 +0.020 -0.021
-# σ8: 0.873 +0.046 -0.039
-# S8: 0.853 +0.026 -0.025
-# w0: -0.741 +0.086 -0.091 (prior ~ U[-2.0, 0])
-# Ωm h^2: 0.120 +0.015 -0.014
-# n_cc: 2.85 +1.13 -0.95
-# ln(f_cc): -0.46 +0.26 -0.26
+# H0: 67.8 +1.6 -1.8 km/s/Mpc
+# Ωm: 0.282 +0.020 -0.021
+# Ωm h^2: 0.130 +0.012 -0.012
+# σ8: 0.881 +0.049 -0.040
+# S8: 0.856 +0.026 -0.025
+# w: -0.724 +0.086 -0.091 (prior ~ U[-2.0, 0])
+#
+# n_cc: 1.52 +0.54 -0.52
+# ln(f_cc): -0.57 +0.17 -0.16
 # ln(f_fs8): -0.65 +0.10 -0.09
-# Chi2 (MAP): 92.07
-# Log likelihood (MAP): -26.62
-# Log evidence: -43.1
-# DOF: 85
+#
+# Chi2 (MAP): 97.24
+# Log likelihood (MAP): -40.85
+# Log evidence: -57.6
+# DOF: 88
 # ---------------------------------
 
 
 # ---------- Flat w0waCDM ---------
 # w0 + wa < -1 / 3 enforced in the likelihood
 #
-# H0: 64.3 +2.9 -2.9 km/s/Mpc
-# Ωm: 0.317 +0.035 -0.036
-# σ8: 0.833 +0.051 -0.037
-# S8: 0.859 +0.026 -0.026
-# w0: -0.644 +0.153 -0.133 (prior ~ U[-3, 1])
-# wa: -0.683 +0.719 -0.923 (prior ~ U[-3, 3])
-# Ωm h^2: 0.131 +0.016 -0.017
-# n_cc: 2.92 +1.13 -0.96
-# ln(f_cc): -0.45 +0.26 -0.26
-# ln(f_fs8): -0.64 +0.10 -0.09
-# Chi2 (MAP): 92.97
-# Log likelihood (MAP): -26.48
-# Log evidence: -44.4
-# DOF: 84
+# H0: 67.3 +1.7 -1.7 km/s/Mpc
+# Ωm: 0.313 +0.034 -0.036
+# Ωm h^2: 0.142 +0.014 -0.016
+# σ8: 0.840 +0.054 -0.039
+# S8: 0.861 +0.026 -0.026
+# w0: -0.638 +0.143 -0.128 (prior ~ U[-3, 2])
+# wa: -0.619 +0.666 -0.874 (prior ~ U[-3, 3])
+#
+# n_cc: 1.56 +0.54 -0.52
+# ln(f_cc): -0.58 +0.17 -0.16
+# ln(f_fs8): -0.64 +0.10 -0.10
+#
+# Chi2 (MAP): 98.19
+# Log likelihood (MAP): -40.66
+# Log evidence: -59.6
+# DOF: 87
 # ---------------------------------

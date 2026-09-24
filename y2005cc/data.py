@@ -22,14 +22,16 @@ _ref = data["reference"]
 # systematic uncertainties separately.
 
 _syst_mask = data["sys"] == 0
+_method_D_mask = method == "D"
+_method_F_mask = method == "F"
 
 # Method D4000 (D)
-_mask_D4000 = _syst_mask & (method == "D")
+_mask_D4000 = _syst_mask & _method_D_mask
 data.loc[_mask_D4000, "sys"] = 0.64 * sigma_H[_mask_D4000]
 data.loc[_mask_D4000, "stat"] = np.sqrt(1.0 - 0.64**2) * sigma_H[_mask_D4000]
 
 # Method FSF (F)
-_mask_FSF  = _syst_mask & (method == "F")
+_mask_FSF  = _syst_mask & _method_F_mask
 data.loc[_mask_FSF, "sys"]  = np.minimum(0.42 * sigma_H[_mask_FSF], 0.07 * Hz[_mask_FSF])
 data.loc[_mask_FSF, "stat"] = np.sqrt(sigma_H[_mask_FSF]**2 - data.loc[_mask_FSF, "sys"]**2)
 
@@ -42,10 +44,16 @@ diag_stat = _stat_H.to_numpy()
 zmod = cov_components["z"].to_numpy(dtype=np.float64)
 imf_intp = interp_pchip(z, zmod, cov_components["imf"].to_numpy()) / 100
 spsooo_intp = interp_pchip(z, zmod, cov_components["spsooo"].to_numpy()) / 100
-cov_mat_imf = np.outer(Hz * imf_intp, Hz * imf_intp)
-cov_mat_spsooo = np.outer(Hz * spsooo_intp, Hz * spsooo_intp)
 
-# suggested systematic covariance matrix
+imf_component = np.zeros_like(Hz, dtype=np.float64)
+spsooo_component = np.zeros_like(Hz, dtype=np.float64)
+imf_component[_method_D_mask] = Hz[_method_D_mask] * imf_intp[_method_D_mask]
+spsooo_component[_method_D_mask] = Hz[_method_D_mask] * spsooo_intp[_method_D_mask]
+
+cov_mat_imf = np.outer(imf_component, imf_component)
+cov_mat_spsooo = np.outer(spsooo_component, spsooo_component)
+
+# suggested systematic covariance matrix D4000A
 cov_matrix_sys = cov_mat_imf + cov_mat_spsooo + np.diag(diag_syst**2)
 # -------------------------------------------------------
 
@@ -64,16 +72,11 @@ cov_matrix_sys[np.ix_(loubser_mask, loubser_mask)] = loubser_cov_sys
 # -------------------------------------------------------
 
 
-# --- Total covariance matrix as suggested by Moresco ---
-cov_matrix_tot = cov_matrix_sys + np.diag(diag_stat**2)
-# -------------------------------------------------------
-
-
 def get_data(split_sys=False):
     legend = f"Cosmic Chronometers ({len(z)} data points)"
     if split_sys:
         return (legend, z, Hz, diag_stat, cov_matrix_sys)
-    return (legend, z, Hz, cov_matrix_tot)
+    return (legend, z, Hz, cov_matrix_sys + np.diag(diag_stat**2))
 
 
 # *********************************

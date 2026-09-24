@@ -5,13 +5,14 @@ from scipy.linalg import cho_factor
 from interpolator import interp_hermite
 from solve_triangular import solve_triangular
 from y2026union3_1.data import get_data as get_sn_data
-from y2005cc.data_no_loubser import get_data as get_cc_data
+from y2005cc.data import method, get_data as get_cc_data
 
 legend_sn, z_cmb, z_hel, mu_vals, cov_matrix_sn = get_sn_data()
 legend_cc, z_cc, H_cc_vals, diag_stat, cov_mat_cc_sys = get_cc_data(split_sys=True)
 
 N_cc = len(z_cc)
 L_sn = cho_factor(cov_matrix_sn, lower=True)[0]
+non_d = method != "D"
 
 c = c0 / 1000  # Speed of light in km/s
 
@@ -26,9 +27,8 @@ def Ode_z(z, w0):
 
 @njit
 def H_z(z, params):
-    Omh2, Om = params[3], params[4]
-    h2 = Omh2 / Om
-    return 100 * np.sqrt(Omh2 * (1.0 + z) ** 3 + (h2 - Omh2))
+    h, om = params[3], params[4]
+    return 100 * h * np.sqrt(om * (1.0 + z) ** 3 + (1 - om))
 
 
 @njit
@@ -80,10 +80,12 @@ def chi_squared(params, L_cc):
 
 
 @njit
-def get_fz(params):
-    z_pivot = 1.035
+def get_fz(params): 
+    z_pivot = 0.62
     fp, n = np.exp(params[0]), params[1]
-    return fp * ((1.0 + z_cc) / (1.0 + z_pivot)) ** n
+    fz = np.full_like(z_cc, fp)
+    fz[non_d] *= ((1.0 + z_cc[non_d]) / (1.0 + z_pivot)) ** n
+    return fz
 
 
 @njit
@@ -106,12 +108,12 @@ def main():
     from ohd.plot_predictions import plot_cc_predictions
 
     prior = Prior()
-    prior.add_parameter("ln_fp", dist=(-2, 1))
-    prior.add_parameter("n", dist=(-3, 7))
+    prior.add_parameter("ln_fp", dist=(-1.5, 0.5))
+    prior.add_parameter("n", dist=(-2, 4))
     prior.add_parameter("dM", dist=(-1.0, 1.0))
-    prior.add_parameter("Omh2", dist=(0.01, 0.25))
-    prior.add_parameter("Om", dist=(0.1, 0.7))
-    prior.add_parameter("dz1000", dist=(-3.5, 3.5)) # 1000 x Δz
+    prior.add_parameter("h", dist=(0.5, 1.0))
+    prior.add_parameter("om", dist=(0.1, 0.7))
+    prior.add_parameter("dz1000", dist=(-3.5, 3.5)) # 1e-03 x Δz
 
     with Pool(5) as pool:
         sampler = Sampler(prior, log_likelihood, n_live=5_000, pool=pool, seed=42, pass_dict=False)
@@ -119,7 +121,7 @@ def main():
 
     samples, log_w, log_l = sampler.posterior()
     log_evd = sampler.log_z
-    labels = ["ln(f_{pivot})", "n", "ΔM", "Ω_m h^2", "Ω_m", "1000 Δz"]
+    labels = ["ln(f_{pivot})", "n", "ΔM", "h", "Ω_m", "1000 Δz"]
 
     gd_samples = MCSamples(
         samples=samples,
@@ -128,7 +130,7 @@ def main():
         names=prior.keys,
         labels=labels,
     )
-    gd_samples.addDerived(100 * np.sqrt(gd_samples["Omh2"] / gd_samples["Om"]), name="H0", label="H_0")
+    gd_samples.addDerived(gd_samples["om"] * gd_samples["h"]**2, name="omh2", label="Ω_m h^2")
     gd_samples.addDerived(np.exp(gd_samples["ln_fp"]), name="fp", label="f_{pivot}")
 
     for name in gd_samples.getParamNames().names:
@@ -148,7 +150,7 @@ def main():
 
     plots.get_subplot_plotter().triangle_plot(
         gd_samples,
-        params=["H0"] + prior.keys,
+        params=["omh2"] + prior.keys,
         filled=True,
         title_limit=1,
         contour_colors=["C0"],
@@ -180,19 +182,19 @@ if __name__ == "__main__":
 
 
 # ---------------- Flat ΛCDM ----------------
-# H0 = 66.9 ± 2.8 km/s/Mpc
-# Ωm = 0.332 ± 0.021
-# Ωm h^2 = 0.149 +0.012 -0.013
+# H0 = 69.7 +1.7 -1.5 km/s/Mpc
+# Ωm = 0.328 ± 0.021
+# Ωm h^2 = 0.1592 ± 0.0095
 #
-# ΔM = -0.076 ± 0.088 mag
-# n = 3.06 +0.86 -1.20
-# ln(fp) = -0.49 ± 0.27
-# fp = 0.64 +0.12 -0.19
+# ΔM = 0.011 +0.048 -0.040 mag
+# n = 1.51 ± 0.52
+# ln(fp) = -0.55 +0.15 -0.17
+# fp = 0.583 +0.070 -0.110
 #
-# χ² (MAP): 63.55
-# Log likelihood (MAP): -151.41
-# Log evidence: -164.2
-# DOF: 53
+# χ² (MAP): 67.45
+# Log likelihood (MAP): -166.09
+# Log evidence: -179.7
+# DOF: 56
 # -------------------------------------------
 
 
@@ -201,57 +203,57 @@ if __name__ == "__main__":
 # turning point z <= 0.2 positive z > 0.2 negative
 # z_cosmo = z_cmb ± Δz
 #
-# 1000 Δz = 1.03 ± 0.43 (prior ~ U[-3.5, 3.5])
-# H0 = 68.0 ± 2.9 km/s/Mpc
-# Ωm = 0.310 ± 0.022
-# Ωm h^2 = 0.143 ± 0.013
+# H0 = 70.5 ± 1.6 km/s/Mpc
+# Ωm = 0.305 ± 0.021
+# Ωm h^2 = 0.1514 ± 0.0095
+# 1000 Δz = 1.08 ± 0.43 (prior ~ U[-3.5, 3.5])
 #
-# ΔM = -0.059 ± 0.087 mag
-# n = 3.05 +0.87 -1.20
-# ln(fp) = -0.48 ± 0.27
-# fp = 0.64 +0.12 -0.20
+# ΔM = 0.015 +0.045 -0.040 mag
+# n = 1.49 ± 0.51
+# ln(fp) = -0.56 +0.15 -0.18
+# fp = 0.578 +0.069 -0.110
 #
-# χ² (MAP): 57.56
-# Log likelihood (MAP): -148.47
-# Log evidence: -163.2
-# DOF: 52
+# χ² (MAP): 60.99
+# Log likelihood (MAP): -162.97
+# Log evidence: -178.5
+# DOF: 55
 # -------------------------------------------
 
 
 # ---------------- Flat wCDM ----------------
-# w0 = -0.92 +0.13 -0.12 (prior ~ U[-2, 0])
-# H0 = 66.9 ± 2.8 km/s/Mpc
-# Ωm h^2 = 0.135 +0.024 -0.019
-# Ωm = 0.303 +0.053 -0.039
+# H0 = 69.5 +1.6 -1.4 km/s/Mpc
+# Ωm h^2 = 0.136 +0.026 -0.020
+# Ωm = 0.282 +0.054 -0.041
+# w0 = -0.87 +0.13 -0.11 (prior ~ U[-2, 0])
 #
-# ΔM = -0.069 ± 0.089 mag
-# n = 3.06 +0.87 -1.20
-# ln(fp) = -0.47 ± 0.27
-# fp = 0.65 +0.13 -0.20
+# ΔM = 0.017 +0.047 -0.039 mag
+# n = 1.53 ± 0.52
+# ln(fp) = -0.57 +0.15 -0.18
+# fp = 0.576 +0.070 -0.110
 #
-# χ² (MAP): 63.32
-# Log likelihood (MAP): -151.12
-# Log evidence: -165.8
-# DOF: 52
+# χ² (MAP): 68.02
+# Log likelihood (MAP): -165.44
+# Log evidence: -180.9
+# DOF: 55
 # -------------------------------------------
 
 
 # --------------- Flat w0waCDM --------------
 # w0 + wa < 0 enforced in the likelihood
 #
-# H0 = 65.9 ± 2.9 km/s/Mpc
-# Ωm = 0.366 +0.057 -0.030
-# Ωm h^2 = 0.159 +0.024 -0.017
-# w0 = -0.84 ± 0.14 (prior ~ N(-1.0, 0.5^2))
-# wa = -1.5 ± 1.1 (prior ~ N(0.0, 1.5^2))
+# H0 = 68.7 ± 1.7 km/s/Mpc
+# Ωm = 0.350 +0.072 -0.033
+# Ωm h^2 = 0.165 +0.031 -0.014
+# w0 = -0.78 ± 0.15 (prior ~ U(-2, 0))
+# wa = -1.6 +1.7 -1.1 (prior ~ N(0, 2^2))
 #
-# ΔM = -0.088 ± 0.089 mag
-# n = 3.13 +0.86 -1.20
-# ln(fp) = -0.47 ± 0.27
-# fp = 0.65 +0.13 -0.20
+# ΔM = 0.006 +0.048 -0.040 mag
+# n = 1.57 ± 0.53
+# ln(fp) = -0.55 +0.15 -0.18
+# fp = 0.585 +0.072 -0.110
 #
-# χ² (MAP): 56.35
-# Log likelihood (MAP): -148.88
-# Log evidence: -164.9
-# DOF: 51
+# χ² (MAP): 63.78
+# Log likelihood (MAP): -164.21
+# Log evidence: -180.9
+# DOF: 54
 # -------------------------------------------

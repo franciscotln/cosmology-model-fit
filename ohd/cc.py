@@ -1,9 +1,11 @@
 from numba import njit
 import numpy as np
 from solve_triangular import solve_triangular
-from y2005cc.data_no_loubser import get_data, method
+from y2005cc.data import get_data, method
 
 legend, z_values, H_values, diag_stat, cov_matrix_sys = get_data(split_sys=True)
+
+non_d = method != "D"
 
 
 @njit
@@ -14,9 +16,11 @@ def H_z(z, params):
 
 @njit
 def get_fz(params):
-    z_pivot = 0.982
-    fp, n = params[2], params[3]
-    return fp * ((1.0 + z_values) / (1.0 + z_pivot)) ** n
+    z_pivot = 0.62
+    fp, n = np.exp(params[2]), params[3]
+    fz = np.full_like(z_values, fp)
+    fz[non_d] *= ((1.0 + z_values[non_d]) / (1.0 + z_pivot)) ** n
+    return fz
 
 
 @njit
@@ -39,7 +43,6 @@ def log_likelihood(params):
 
 def main():
     from multiprocessing import Pool
-    from scipy.stats import lognorm
     from nautilus import Sampler, Prior
     from getdist import plots, MCSamples
     import matplotlib.pyplot as plt
@@ -48,8 +51,8 @@ def main():
     prior = Prior()
     prior.add_parameter("h", dist=(0.5, 1.0))
     prior.add_parameter("om", dist=(0.01, 1.0))
-    prior.add_parameter("fp", dist=lognorm(s=0.4, scale=0.7))
-    prior.add_parameter("n", dist=(-5.0, 10.0))
+    prior.add_parameter("ln_fp", dist=(-1.5, 0.5))
+    prior.add_parameter("n", dist=(-2.0, 4.0))
 
     with Pool(8) as pool:
         sampler = Sampler(prior, log_likelihood, n_live=10_000, pool=pool, seed=42, pass_dict=False)
@@ -58,7 +61,7 @@ def main():
     samples, log_w, log_l = sampler.posterior()
     MAP_PARAMS = samples[np.argmax(log_l)]
     weights = np.exp(log_w)
-    labels = ["h", "Ω_m", "f_{pivot}", "n"]
+    labels = ["h", "Ω_m", "ln(f_{pivot})", "n"]
 
     gd_samples = MCSamples(samples=samples, weights=weights, names=prior.keys, labels=labels)
     gd_samples.addDerived(gd_samples["om"] * gd_samples["h"]**2, name="omh2", label="Ω_m h^2")
@@ -124,40 +127,34 @@ if __name__ == "__main__":
     main()
 
 
-# ---------------------------------
-# The Loubser et al. (2025) 3 data points
-# have been excluded from this analysis below
-# they have their own highly correlated
-# systematics covariance
-# ---------------------------------
-
-
 # Model: Flat ΛCDM
 # ---------------------------------
 
 # Redshift dependent covariance diagonal scaling
-# f(z) = f_pivot * [(1 + z) / (1 + z_pivot)]^n
-# with z_pivot = 1.034, corr(ln(fp), n) = 0:
+# f(z) = f_pivot * [(1 + z) / (1 + z_pivot)]^n for method != D4000A
+# f(z) = f_pivot for method == D4000A
+# with z_pivot = 0.62, corr(ln(fp), n) = 0:
 # cov[i, i] = cov_sys[i, i] + cov_diag_stat[i, i] * f(z_i)^2
 # cov[i, j] = cov_sys[i, j]
 #
-# h = 0.673 ± 0.034
-# Ωm = 0.322 +0.036 -0.043
-# Ωm h^2 = 0.145 ± 0.015
-# n = 2.99 +0.84 -1.2 (prior ~ U[-5, 10])
-# fp = 0.63 +0.10 -0.16 (prior ~ lognormal(μ=ln(0.7), σ=0.4))
-# Log likelihood (MAP): -137.27
-# Log evidence: -144.12
-# χ2 (MAP): 34.67
-# DOF: 32
-# χ2/DOF: 1.08
+# h = 0.702 +0.021 -0.018
+# Ωm = 0.314 +0.034 -0.042
+# Ωm h^2 = 0.154 ± 0.015
+# ln(fp) = -0.55 +0.15 -0.18
+# n = 1.51 ± 0.52
+#
+# Log likelihood (MAP): -151.80
+# Log evidence: -160.06
+# χ2 (MAP): 39.19
+# DOF: 35
+# χ2/DOF: 1.12
 # Correlation matrix:
-#           Ωm h^2      h           Ωm          fp          n
-# Ωm h^2 [[ 1.          0.25245567  0.62680432 -0.04181495 -0.07417154]
-# h       [ 0.25245567  1.         -0.58950626  0.07712055 -0.05113214]
-# Ωm      [ 0.62680432 -0.58950626  1.         -0.09230017 -0.02847623]
-# fp      [-0.04181495  0.07712055 -0.09230017  1.          0.00428507]
-# n       [-0.07417154 -0.05113214 -0.02847623  0.00428507  1.        ]]
+#   Ωm h^2       h           Ωm          ln(fp)      n
+# [[ 1.         -0.29823828  0.89535712  0.00695859  0.13307379]
+#  [-0.29823828  1.         -0.68719743 -0.16102157  0.11920848]
+#  [ 0.89535712 -0.68719743  1.          0.08910272  0.04168552]
+#  [ 0.00695859 -0.16102157  0.08910272  1.          0.00629284]
+#  [ 0.13307379  0.11920848  0.04168552  0.00629284  1.        ]]
 # ---------------------------------
 
 
@@ -165,32 +162,32 @@ if __name__ == "__main__":
 # cov[i, i] = cov_sys[i, i] + cov_diag_stat[i, i] * f^2
 # cov[i, j] = cov_sys[i, j]
 #
-# h = 0.669 ± 0.043
-# Ωm = 0.329 +0.038 -0.050
-# Ωm h^2 = 0.146 ± 0.012
-# f = 0.513 +0.089 -0.120 (prior ~ lognormal(μ=ln(0.5), σ=0.4))
-# Log likelihood (MAP): -142.60
-# Log evidence: -147.52
-# χ2 (MAP): 36.61
-# DOF: 33
-# χ2/DOF: 1.11
+# h = 0.686 ± 0.031
+# Ωm = 0.322 +0.036 -0.050
+# Ωm h^2 = 0.150 ± 0.012
+# ln(fp) = -0.37 +0.14 -0.16
+#
+# Log likelihood (MAP): -156.39
+# Log evidence: -162.76
+# χ2 (MAP): 36.92
+# DOF: 36
+# χ2/DOF: 1.03
 # ---------------------------------
 
 
 # Without error scaling (fixed f0 = 1, n = 0):
-# H0 = 0.669 ± 0.053 km/s/Mpc
-# Ωm = 0.335 +0.052 -0.080
-# Ωm h^2 = 0.147 0.017 -0.019
-# Log likelihood (MAP): -147.59
-# Log evidence: -151.21
-# χ2 (MAP): 15.57
-# DOF: 34
-# χ2/DOF: 0.46
+# h = 0.673\pm 0.040
+# Ωm = 0.340^{+0.051}_{-0.074}
+# Ωm h^2 = 0.152\pm 0.017
+# Log likelihood (MAP): -159.67
+# Log evidence: -163.71
+# χ2 (MAP): 20.04
+# DOF: 37
+# χ2/DOF: 0.54
 # ---------------------------------
 
 
 # Log likelihood ratio test f(z) vs no scaling:
 # -2 * log(L0/L1) = -2 * log(L0) + 2 * log(L1)
-# -2 * (-147.59) + 2 * (-137.27) = 20.64
-# corresponding to a p-value of approximately 3.264e-05
-# 4.0 sigma significance
+# -2 * (-159.67) + 2 * (-151.80) = 15.74
+# corresponding to a p-value of approximately 3.8e-04

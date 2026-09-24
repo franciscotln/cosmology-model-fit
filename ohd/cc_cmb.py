@@ -2,15 +2,15 @@ from numba import njit
 import numpy as np
 import cmb.data_spt_planck_act_compression as cmb
 from solve_triangular import solve_triangular
-from y2005cc.data_no_loubser import get_data
+from y2005cc.data import get_data, method
 
 c = cmb.c  # Speed of light in km/s
 Orh2 = cmb.Or_h2
 Onuh2 = cmb.Omnu_h2
 
 legend, z_values, H_values, diag_stat, cov_mat_sys = get_data(split_sys=True)
-N = z_values.size
-H_err = np.sqrt(np.diag(cov_mat_sys) + diag_stat**2)
+N_cc = z_values.size
+non_d = method != "D"
 
 
 @njit
@@ -56,17 +56,19 @@ def chi_squared(params, L_cc):
 
 @njit
 def get_fz(params):
-    z_pivot = 1.035
+    z_pivot = 0.62
     fp, n = np.exp(params[3]), params[4]
-    return fp * ((1.0 + z_values) / (1.0 + z_pivot)) ** n
+    fz = np.full_like(z_values, fp)
+    fz[non_d] *= ((1.0 + z_values[non_d]) / (1.0 + z_pivot)) ** n
+    return fz
 
 
 @njit
 def log_likelihood(params):
-    cov_mat = np.diag(diag_stat**2 * get_fz(params)**2) + cov_mat_sys
+    cov_mat = cov_mat_sys + np.diag(diag_stat**2 * get_fz(params)**2)
     L_cc = np.linalg.cholesky(cov_mat)
-    logdet = 2.0 * np.sum(np.log(np.diag(L_cc)))
-    normalization = N * np.log(2 * np.pi) + logdet
+    logdet = 2 * np.sum(np.log(np.diag(L_cc)))
+    normalization = N_cc * np.log(2 * np.pi) + logdet
 
     return -0.5 * (chi_squared(params, L_cc) + normalization)
 
@@ -82,8 +84,8 @@ def main():
     prior.add_parameter("H0", dist=(63.0, 73.0))
     prior.add_parameter("obh2", dist=(0.0210, 0.0235))
     prior.add_parameter("och2", dist=(0.05, 0.30))
-    prior.add_parameter("ln_fp", dist=(-2.0, 1.0))
-    prior.add_parameter("n", dist=(-3.0, 7.0))
+    prior.add_parameter("ln_fp", dist=(-1.5, 0.5))
+    prior.add_parameter("n", dist=(-2.0, 4.0))
 
     with Pool(5) as pool:
         sampler = Sampler(
@@ -113,7 +115,7 @@ def main():
         print(gd_samples.getInlineLatex(name, limit=1))
 
     best_fit = samples[np.argmax(log_l)]
-    DOF = len(cmb.DISTANCE_PRIORS) + N - len(best_fit)
+    DOF = len(cmb.DISTANCE_PRIORS) + N_cc - len(best_fit)
 
     fz_cc = get_fz(best_fit)
     cov_mat = np.diag(diag_stat**2 * fz_cc**2) + cov_mat_sys
@@ -138,7 +140,7 @@ def main():
         H_z=lambda z: H_z(z, best_fit),
         z=z_values,
         H=H_values,
-        H_err=H_err,
+        H_err=np.sqrt(np.diag(cov_mat_sys) + diag_stat**2),
         label=f"{legend} $H_0$: {best_fit[0]:.1f} km/s/Mpc",
         err_scaling=1 / fz_cc,
     )
@@ -159,25 +161,27 @@ if __name__ == "__main__":
 # H0: 67.19 +- 0.38 km/s/Mpc
 # Ωm: 0.3175 +- 0.0055
 # ωb = 0.022399 +- 0.000095
-# ωc = 0.12028 +- 0.00094
-# Chi squared (MAP): 15.60
-# Log likelihood (MAP): -147.60
-# Log evidence: -158.64
-# DOF: 36
+# ωc = 0.12026 +- 0.00093
+#
+# Chi squared (MAP): 20.30
+# Log likelihood (MAP): -159.80
+# Log evidence: -170.83
+# DOF: 39
 # -------------------------------------------------------------------
 
 
 # Model: Flat ΛCDM
 # --- Overestimation factor f(z) = fp * [(1 + z) * H(z) / ((1 + z_piv) * H(z_piv))]^n ---
-# H0 = 67.19 ± 0.38 km/s/Mpc
-# Ωm = 0.3176 ± 0.0055
-# Ωb h^2 = 0.022398 ± 0.000095
-# Ωc h^2 = 0.12028 ± 0.00094
-# n_cc = 3.06 +0.86 -1.20 (prior ~ U[-3, 7])
-# ln(fp) = -0.50 ± 0.27 (prior ~ U[-2, 1])
-# fp = 0.63 +0.12 -0.19
-# Chi squared (MAP): 34.87
-# Log likelihood (MAP): -137.28
-# Log evidence: -151.26 (Δ logZ = 7.38 compared to no scaling)
-# DOF: 34
+# H0 = 67.28 ± 0.38 km/s/Mpc
+# Ωb h^2 = 0.022412 ± 0.000095
+# Ωc h^2 = 0.12007 ± 0.00093
+#
+# n_cc = 1.19 ± 0.50 (prior ~ U[-2, 4])
+# ln(fp) = -0.47 +0.14 -0.16 (prior ~ U[-1.5, 0.5])
+# fp = 0.631 +0.073 -0.110
+#
+# Chi squared (MAP): 37.65
+# Log likelihood (MAP): -153.85
+# Log evidence: -168.14 (Δ logZ = 2.69 compared to no scaling)
+# DOF: 37
 # -------------------------------------------------------------------

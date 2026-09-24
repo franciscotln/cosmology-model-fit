@@ -8,7 +8,7 @@ from gpytorch.distributions import MultivariateNormal
 from gpytorch.means import ConstantMean
 from gpytorch.settings import fast_pred_var, detach_test_caches
 from ohd.gp_lib import FixedNoiseGaussianLikelihood
-from y2005cc.data_no_loubser import get_data
+from y2005cc.data import get_data
 
 legend, z, H, cov_mat = get_data()
 
