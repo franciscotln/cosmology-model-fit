@@ -5,8 +5,6 @@ from y2005cc.data import get_data, method
 
 legend, z_values, H_values, diag_stat, cov_matrix_sys = get_data(split_sys=True)
 
-non_d = method != "D"
-
 
 @njit
 def H_z(z, params):
@@ -14,12 +12,19 @@ def H_z(z, params):
     return 100 * h * np.sqrt(om * (1.0 + z) ** 3 + (1.0 - om))
 
 
+method_f = method == "F"
+z_pivot = 1.21
+params_fid = [0.6719, 0.3175, 0.0, 1.0]
+shape_fid = (1. + z_values[method_f]) * H_z(z_values[method_f], params_fid)**2
+shape_piv = (1. + z_pivot) * H_z(z_pivot, params_fid)**2
+f_shape = shape_fid / shape_piv
+
+
 @njit
 def get_fz(params):
-    z_pivot = 0.62
     fp, n = np.exp(params[2]), params[3]
     fz = np.full_like(z_values, fp)
-    fz[non_d] *= ((1.0 + z_values[non_d]) / (1.0 + z_pivot)) ** n
+    fz[method_f] *= f_shape ** n
     return fz
 
 
@@ -51,7 +56,7 @@ def main():
     prior = Prior()
     prior.add_parameter("h", dist=(0.5, 1.0))
     prior.add_parameter("om", dist=(0.01, 1.0))
-    prior.add_parameter("ln_fp", dist=(-1.5, 0.5))
+    prior.add_parameter("ln_fp", dist=(-2.0, 1.0))
     prior.add_parameter("n", dist=(-2.0, 4.0))
 
     with Pool(8) as pool:
@@ -131,30 +136,31 @@ if __name__ == "__main__":
 # ---------------------------------
 
 # Redshift dependent covariance diagonal scaling
-# f(z) = f_pivot * [(1 + z) / (1 + z_pivot)]^n for method != D4000A
-# f(z) = f_pivot for method == D4000A
-# with z_pivot = 0.62, corr(ln(fp), n) = 0:
+# f(z) = f_pivot * [(1 + z) * H^2 / ((1 + z_pivot) * H_pivot^2)]^n for method == FSF
+# f(z) = f_pivot for method != FSF
+# with z_pivot = 1.21, corr(ln(fp), n) = 0:
 # cov[i, i] = cov_sys[i, i] + cov_diag_stat[i, i] * f(z_i)^2
 # cov[i, j] = cov_sys[i, j]
 #
-# h = 0.702 +0.021 -0.018
-# Ωm = 0.314 +0.034 -0.042
-# Ωm h^2 = 0.154 ± 0.015
-# ln(fp) = -0.55 +0.15 -0.18
-# n = 1.51 ± 0.52
+# h = 0.691 ± 0.020
+# Ωm = 0.322 +0.037 -0.045
+# Ωm h^2 = 0.153 ± 0.015
 #
-# Log likelihood (MAP): -151.80
-# Log evidence: -160.06
-# χ2 (MAP): 39.19
+# ln(fp) = -0.38 ± 0.25 (prior ~ U[-2, 1])
+# n = 1.23 +0.35 -0.61 (prior ~ U[-2, 4])
+#
+# Log likelihood (MAP): -150.76
+# Log evidence: -158.99
+# χ2 (MAP): 38.30
 # DOF: 35
-# χ2/DOF: 1.12
+# χ2/DOF: 1.09
 # Correlation matrix:
 #   Ωm h^2       h           Ωm          ln(fp)      n
-# [[ 1.         -0.29823828  0.89535712  0.00695859  0.13307379]
-#  [-0.29823828  1.         -0.68719743 -0.16102157  0.11920848]
-#  [ 0.89535712 -0.68719743  1.          0.08910272  0.04168552]
-#  [ 0.00695859 -0.16102157  0.08910272  1.          0.00629284]
-#  [ 0.13307379  0.11920848  0.04168552  0.00629284  1.        ]]
+# [[ 1.         -0.39900246  0.91312692  0.08744673 -0.05588585]
+#  [-0.39900246  1.         -0.73308877  0.03748966 -0.01052124]
+#  [ 0.91312692 -0.73308877  1.          0.05566248 -0.0375794 ]
+#  [ 0.08744673  0.03748966  0.05566248  1.          0.0047819 ]
+#  [-0.05588585 -0.01052124 -0.0375794   0.0047819   1.        ]]
 # ---------------------------------
 
 
@@ -162,23 +168,24 @@ if __name__ == "__main__":
 # cov[i, i] = cov_sys[i, i] + cov_diag_stat[i, i] * f^2
 # cov[i, j] = cov_sys[i, j]
 #
-# h = 0.686 ± 0.031
-# Ωm = 0.322 +0.036 -0.050
+# h = 0.685 ± 0.028
+# Ωm = 0.323 +0.034 -0.045
 # Ωm h^2 = 0.150 ± 0.012
-# ln(fp) = -0.37 +0.14 -0.16
 #
-# Log likelihood (MAP): -156.39
-# Log evidence: -162.76
-# χ2 (MAP): 36.92
+# ln(f) = -0.61 +0.27 -0.23
+#
+# Log likelihood (MAP): -155.57
+# Log evidence: -162.00
+# χ2 (MAP): 41.35
 # DOF: 36
-# χ2/DOF: 1.03
+# χ2/DOF: 1.15
 # ---------------------------------
 
 
 # Without error scaling (fixed f0 = 1, n = 0):
-# h = 0.673\pm 0.040
-# Ωm = 0.340^{+0.051}_{-0.074}
-# Ωm h^2 = 0.152\pm 0.017
+# h = 0.673 ± 0.040
+# Ωm = 0.340 +0.051 -0.074
+# Ωm h^2 = 0.152 ± 0.017
 # Log likelihood (MAP): -159.67
 # Log evidence: -163.71
 # χ2 (MAP): 20.04
@@ -189,5 +196,41 @@ if __name__ == "__main__":
 
 # Log likelihood ratio test f(z) vs no scaling:
 # -2 * log(L0/L1) = -2 * log(L0) + 2 * log(L1)
-# -2 * (-159.67) + 2 * (-151.80) = 15.74
-# corresponding to a p-value of approximately 3.8e-04
+# -2 * (-159.67) + 2 * (-150.76) = 17.82
+# corresponding to a p-value of approximately 1.3e-04
+
+
+# Model ΛCDM with curvature
+# ---------------------------------
+# h = 0.694 ± 0.028
+# Ωm = 0.35 +0.19 -0.16
+# Ωk = -0.06 +0.42 -0.51
+# Ωm h^2 = 0.170 ± 0.089
+#
+# ln(fp) = -0.36 ± 0.25 (prior ~ U[-2, 1])
+# n = 1.25 +0.36 -0.62 (prior ~ U[-2, 4])
+#
+# Log likelihood (MAP): -150.74
+# Log evidence: -160.16
+# χ2 (MAP): 38.12
+# DOF: 34
+# χ2/DOF: 1.12
+# ---------------------------------
+
+
+# Model flat wCDM
+# ---------------------------------
+# h = 0.708 +0.031 -0.047
+# Ωm = 0.308 +0.064 -0.037
+# Ωm h^2 = 0.155 +0.041 -0.017
+# w = -1.21 +0.52 -0.35 (prior ~ U[-3, 1])
+#
+# ln(fp) = -0.37 ± 0.25 (prior ~ U[-2, 1])
+# n = 1.20 +0.36 -0.61 (prior ~ U[-2, 4])
+#
+# Log likelihood (MAP): -150.72
+# Log evidence: -160.25
+# χ2 (MAP): 38.20
+# DOF: 34
+# χ2/DOF: 1.12
+# ---------------------------------

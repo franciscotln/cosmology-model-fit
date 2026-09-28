@@ -10,7 +10,6 @@ Onuh2 = cmb.Omnu_h2
 
 legend, z_values, H_values, diag_stat, cov_mat_sys = get_data(split_sys=True)
 N_cc = z_values.size
-non_d = method != "D"
 
 
 @njit
@@ -54,12 +53,20 @@ def chi_squared(params, L_cc):
     return chi2_cc(params, L_cc) + chi2_cmb(params)
 
 
+method_f = method == "F"
+Om_fid = 0.3175
+h_fid = 0.6719
+z_pivot = 1.21
+shape_fid = (1. + z_values[method_f]) * H_z(z_values[method_f], [h_fid, Om_fid, 0.0, 1.0])**2
+shape_piv = (1. + z_pivot) * H_z(z_pivot, [h_fid, Om_fid, 0.0, 1.0])**2
+f_shape = shape_fid / shape_piv
+
+
 @njit
 def get_fz(params):
-    z_pivot = 0.62
     fp, n = np.exp(params[3]), params[4]
     fz = np.full_like(z_values, fp)
-    fz[non_d] *= ((1.0 + z_values[non_d]) / (1.0 + z_pivot)) ** n
+    fz[method_f] *= f_shape ** n
     return fz
 
 
@@ -84,7 +91,7 @@ def main():
     prior.add_parameter("H0", dist=(63.0, 73.0))
     prior.add_parameter("obh2", dist=(0.0210, 0.0235))
     prior.add_parameter("och2", dist=(0.05, 0.30))
-    prior.add_parameter("ln_fp", dist=(-1.5, 0.5))
+    prior.add_parameter("ln_fp", dist=(-2.0, 1.0))
     prior.add_parameter("n", dist=(-2.0, 4.0))
 
     with Pool(5) as pool:
@@ -142,6 +149,7 @@ def main():
         H=H_values,
         H_err=np.sqrt(np.diag(cov_mat_sys) + diag_stat**2),
         label=f"{legend} $H_0$: {best_fit[0]:.1f} km/s/Mpc",
+        method=method,
         err_scaling=1 / fz_cc,
     )
 
@@ -158,10 +166,10 @@ if __name__ == "__main__":
 # Model: Flat ΛCDM
 # ------ Fixed factor ln(fp) = 0, n = 1 -----------------------------
 # ln(fp): 0, n: 1 (assuming no overestimated errors in CCH sample)
-# H0: 67.19 +- 0.38 km/s/Mpc
-# Ωm: 0.3175 +- 0.0055
-# ωb = 0.022399 +- 0.000095
-# ωc = 0.12026 +- 0.00093
+# H0: 67.19 ± 0.38 km/s/Mpc
+# Ωm: 0.3175 ± 0.0055
+# ωb = 0.022399 ± 0.000095
+# ωc = 0.12026 ± 0.00093
 #
 # Chi squared (MAP): 20.30
 # Log likelihood (MAP): -159.80
@@ -171,17 +179,17 @@ if __name__ == "__main__":
 
 
 # Model: Flat ΛCDM
-# --- Overestimation factor f(z) = fp * [(1 + z) * H(z) / ((1 + z_piv) * H(z_piv))]^n ---
+# --- Overestimation factor f(z) = fp * [(1 + z) * H(z)^2 / ((1 + z_piv) * H(z_piv)^2)]^n ---
 # H0 = 67.28 ± 0.38 km/s/Mpc
+# Ωm = 0.3163 ± 0.0055
 # Ωb h^2 = 0.022412 ± 0.000095
-# Ωc h^2 = 0.12007 ± 0.00093
+# Ωc h^2 = 0.12008 ± 0.00093
 #
-# n_cc = 1.19 ± 0.50 (prior ~ U[-2, 4])
-# ln(fp) = -0.47 +0.14 -0.16 (prior ~ U[-1.5, 0.5])
-# fp = 0.631 +0.073 -0.110
+# ln(fp) = -0.42 +0.26 -0.24 (prior ~ U[-2, 1])
+# n_cc = 0.94 +0.26 -0.59 (prior ~ U[-2, 4])
 #
-# Chi squared (MAP): 37.65
-# Log likelihood (MAP): -153.85
-# Log evidence: -168.14 (Δ logZ = 2.69 compared to no scaling)
+# Chi squared (MAP): 40.45
+# Log likelihood (MAP): -151.97
+# Log evidence: -166.42 (Δ logZ = 4.41 compared to no scaling)
 # DOF: 37
 # -------------------------------------------------------------------

@@ -14,7 +14,6 @@ legend, z_cmb, z_hel, mB_vals, cov_matrix_sn = get_sn_data()
 L_sn = cho_factor(cov_matrix_sn, lower=True)[0]
 
 N_cc = len(z_cc)
-non_d = method != "D"
 
 z_grid = np.linspace(0, np.max(z_cmb) + 0.1, num=4000)
 dz = z_grid[1] - z_grid[0]
@@ -76,12 +75,19 @@ def log_prior(params):
     return prior_normalization
 
 
+method_f = method == "F"
+z_pivot = 1.21
+fid_params = [0.0, 1.0, 67.19, 0.3175, -19.3, -1.0]
+shape_fid = (1. + z_cc[method_f]) * H_z(z_cc[method_f], fid_params)**2
+shape_piv = (1. + z_pivot) * H_z(z_pivot, fid_params)**2
+f_shape = shape_fid / shape_piv
+
+
 @njit
 def get_fz(params):
-    z_pivot = 0.62
     fp, n = np.exp(params[0]), params[1]
     fz = np.full_like(z_cc, fp)
-    fz[non_d] *= ((1.0 + z_cc[non_d]) / (1.0 + z_pivot)) ** n
+    fz[method_f] *= f_shape ** n
     return fz
 
 
@@ -201,28 +207,28 @@ if __name__ == "__main__":
 
 
 # Flat ΛCDM: w(z) = -1
-# H0 = 69.7 +1.6 -1.4 km/s/Mpc
-# Ωm = 0.328 ± 0.016
-# Ωm h^2 = 0.1591 ± 0.0085
+# H0 = 68.8 ± 1.5 km/s/Mpc
+# Ωm = 0.330 ± 0.017
+# Ωm h^2 = 0.1560 ± 0.0080
 #
-# M = -19.363 +0.050 -0.041 mag
-# ln(fp_cc) = -0.56^{+0.15}_{-0.17}
-# n_cc = 1.51 ± 0.52
+# M = -19.390 ± 0.045 mag
+# n_cc = 1.22 +0.35 -0.60
+# ln(fp_cc) = -0.41 ± 0.25
 #
-# log likelihood (MAP): -853.45
+# log likelihood (MAP): -852.28
 # DOF: 1624
 # ---------------------------------
 
 # Flat wCDM: w(z) = w
-# H0 = 69.7 +1.6 -1.4 km/s/Mpc
-# Ωm = 0.299 +0.044 -0.039
-# Ωm h^2 = 0.145 +0.021 -0.019
-# w0 = -0.926 +0.11 -0.091 (prior ~ U[-2, 0])
+# H0 = 68.8 ± 1.5 km/s/Mpc
+# Ωm = 0.305 +0.048 -0.037
+# Ωm h^2 = 0.145 +0.022 -0.018
+# w0 = -0.94 +0.11 -0.10 (prior ~ U[-2, 0])
 #
-# M = -19.358 +0.049 -0.041 mag
-# ln(fp_cc) = -0.56 +0.15 -0.18
-# n_cc = 1.52 ± 0.52
+# M = -19.386 ± 0.046 mag
+# ln(fp_cc) = -0.39 ± 0.25
+# n_cc = 1.24 +0.35 -0.62
 #
-# log likelihood (MAP): -853.12
+# log likelihood (MAP): -852.17
 # DOF: 1623
 # ---------------------------------

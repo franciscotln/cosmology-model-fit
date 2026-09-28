@@ -5,7 +5,7 @@ from scipy.constants import c as c0
 from interpolator import interp_hermite
 from solve_triangular import solve_triangular
 from y2025DESdovekie.data import get_data, effective_sample_size
-from y2005cc.data_no_loubser import get_data as get_cc_data
+from y2005cc.data import method, get_data as get_cc_data
 
 cc_legend, z_cc_vals, H_cc_vals, diag_stat_cc, cov_mat_sys_cc = get_cc_data(split_sys=True)
 sn_legend, z_cmb, z_hel, mu_vals, cov_matrix_sn = get_data()
@@ -64,8 +64,8 @@ params_names = ["ln_fp", "n_cc", "dM", "H0", "om", "dz_1000"]
 labels = ["ln(f_{p_cc})", "n_{cc}", "Δ_M", "H_0", "Ω_m", "1000 Δz"]
 bounds = np.array(
     [
-        (-1.4, 0.4),  # ln(fp_cc)
-        (-4.0, 4.0),  # n_cc
+        (-2.0, 1.0),  # ln(fp_cc)
+        (-2.0, 4.0),  # n_cc
         (-0.5, 0.5),  # ΔM
         (50.0, 85.0),  # H0
         (0.05, 0.6),  # Ωm
@@ -99,11 +99,20 @@ def log_prior(params):
     return -np.inf
 
 
+method_f = method == "F"
+z_pivot = 1.21
+fid_params = [0.0, 1.0, 0.0, 67.19, 0.3175, 0.0]
+shape_fid = (1. + z_cc_vals[method_f]) * H_z(z_cc_vals[method_f], fid_params)**2
+shape_piv = (1. + z_pivot) * H_z(z_pivot, fid_params)**2
+f_shape = shape_fid / shape_piv
+
+
 @njit
 def get_fz(params):
-    z_pivot = 0.728 # corr(ln(fp), n) = -8.53e-04
-    f_piv, n = np.exp(params[0]), params[1]
-    return f_piv * ((1.0 + z_cc_vals) / (1.0 + z_pivot))**n
+    fp, n = np.exp(params[0]), params[1]
+    fz = np.full_like(z_cc_vals, fp)
+    fz[method_f] *= f_shape ** n
+    return fz
 
 
 @njit
@@ -197,6 +206,7 @@ def main():
         H=H_cc_vals,
         H_err=np.sqrt(diag_stat_cc**2 + np.diag(cov_mat_sys_cc)),
         label=f"{cc_legend}: $H_0$={best_fit[3]:.1f} km/s/Mpc",
+        method=method,
         err_scaling=1 / get_fz(best_fit),
     )
     plot_sn_predictions(
@@ -215,62 +225,62 @@ if __name__ == "__main__":
 
 
 # ----------- Flat ΛCDM -----------
-# H0 = 67.3 ± 2.9 km/s/Mpc
+# H0 = 68.8 ± 1.4 km/s/Mpc
 # Ωm = 0.329 ± 0.014
 #
-# ln(fp_cc) = -0.52 ± 0.18
-# n_cc = 1.52 +0.52 -0.57
-# ΔM = -0.081 ± 0.091 mag
+# ln(fp_cc) = -0.40 ± 0.25
+# n_cc = 1.22 +0.35 -0.61
+# ΔM = -0.031 ± 0.043 mag
 #
-# log likelihood (MAP): -955.89
-# DOF: 1745
+# log likelihood (MAP): -966.53
+# DOF: 1748
 # ---------------------------------
 
 
 # ----------- Flat ΛCDM -----------
 # Z offset step correction in SNe observed redshifts
 # turning point z <= 0.10563 positive z > 0.10563 negative
-# z_cosmo = z_cmb +- offset
+# z_cosmo = z_cmb +- Δz
 #
-# H0 = 68.5 ± 3.0 km/s/Mpc
-# Ωm = 0.309 ± 0.017
-# 1000 Δz = 0.49 ± 0.23 (prior ~ U[-1.5, 1.5])
+# H0 = 69.5 ± 1.5 km/s/Mpc
+# Ωm = 0.310 ± 0.016
+# 1000 Δz = 0.48 ± 0.23 (prior ~ U[-1.5, 1.5])
 #
-# ln(fp_cc) = -0.51 ± 0.18
-# n_cc = 1.53 +0.51 -0.57
-# ΔM = -0.057 ± 0.091 mag
+# ln(fp_cc) = -0.41 ± 0.25
+# n_cc = 1.22 +0.35 -0.62
+# ΔM = -0.023 ± 0.043 mag
 #
-# log likelihood (MAP): -953.63
-# DOF: 1744
+# log likelihood (MAP): -964.33
+# DOF: 1747
 # ---------------------------------
 
 
 # ----------- Flat wCDM -----------
-# H0 = 67.8 ± 3.0 km/s/Mpc
-# Ωm = 0.288 +0.053 -0.039
-# w0 = -0.90 +0.12 -0.10 (prior U[-1.5, 0])
+# H0 = 68.8 ± 1.4 km/s/Mpc
+# Ωm = 0.291 +0.050 -0.037
+# w = -0.904 +0.110 -0.098 (prior U[-1.5, 0])
 #
-# ln(fp_cc) = -0.51 ± 0.18
-# n_cc = 1.55 +0.52 -0.58
-# ΔM = -0.057 ± 0.096 mag
+# n(fp_cc) = -0.39 ± 0.25
+# n_cc = 1.23 +0.36 -0.61
+# ΔM = -0.022 ± 0.045 mag
 #
-# log likelihood (MAP): -955.51
-# DOF: 1744
+# log likelihood (MAP): -966.16
+# DOF: 1747
 # ---------------------------------
 
 
 # ---------- Flat w0waCDM ---------
 # w0 + wa < -1 / 3 enforced in the likelihood
 #
-# H0 = 64.2 ± 3.1 km/s/Mpc
-# Ωm = 0.444 +0.045 -0.027
-# w0 = -0.56 +0.20 -0.26 (prior ~ U[-2, 0])
-# wa = -6 +3 -2 (prior ~ U[-15, 2])
+# H0 = 67.0 ± 1.6 km/s/Mpc
+# Ωm = 0.429 +0.051 -0.024
+# w0 = -0.59 +0.18 -0.26 (prior ~ U[-2, 0])
+# wa = -5.3 +3.0 -2.4 (prior ~ U[-15, 2])
 #
-# ln(fp_cc) = -0.50 ± 0.18
-# n_cc = 1.62 ± 0.55
-# Δ_M = -0.15 ± 0.10 mag
+# ln(fp_cc) = -0.36 +0.25 -0.23
+# n_cc = 1.33 +0.37 -0.62
+# ΔM = -0.057 ± 0.047 mag
 #
-# log likelihood (MAP): -952.71
-# DOF: 1743
+# log likelihood (MAP): -963.69
+# DOF: 1746
 # ---------------------------------

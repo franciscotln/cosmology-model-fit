@@ -4,7 +4,7 @@ from scipy.linalg import cho_factor
 from interpolator import interp_hermite
 from solve_triangular import solve_triangular
 from y2022pantheonSHOES.data import get_data
-import cmb.data_planck_act_compression as cmb
+import cmb.data_act_planck_compression as cmb
 
 c = cmb.c  # Speed of light in km/s
 Orh2 = cmb.Or_h2

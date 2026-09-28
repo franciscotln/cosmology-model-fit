@@ -5,6 +5,7 @@ import numpy as np
 
 
 def plot_cc_predictions(H_z, z, H, H_err, label, method=None, err_scaling=None):
+    methods_names = {"D": "D4000", "F": "FSF", "L": "Lick"}
     residual = H - H_z(z)
     y_err = H_err if err_scaling is None else H_err / err_scaling
     z_smooth = np.linspace(0, max(z), 100)
@@ -24,7 +25,7 @@ def plot_cc_predictions(H_z, z, H, H_err, label, method=None, err_scaling=None):
     def plot_data(y, errors, base_label, alpha):
         for method_name, mask in method_groups:
             color = method_colors.get(method_name, "tab:blue")
-            data_label = base_label if method_name is None else method_name
+            data_label = base_label if method_name is None else methods_names[method_name]
             plt.errorbar(
                 x=np.asarray(z)[mask],
                 y=np.asarray(y)[mask],

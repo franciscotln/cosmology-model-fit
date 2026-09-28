@@ -5,7 +5,7 @@ from interpolator import interp_hermite, interp_pchip
 from solve_triangular import solve_triangular
 from y2025DESdovekie.data import get_data as get_sn_data, effective_sample_size
 from y2025BAO.data_fs_lya import get_data as get_bao_data
-import cmb.data_planck_act_compression as cmb
+import cmb.data_spt_planck_act_compression as cmb
 
 c = cmb.c  # km/s
 Orh2 = cmb.Or_h2
@@ -16,6 +16,7 @@ bao_legend, bao, bao_cov_matrix = get_bao_data()
 
 cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
 cho_bao = cho_factor(bao_cov_matrix, lower=True)[0]
+cho_cmb = cho_factor(cmb.covariance, lower=True)[0]
 
 z_max = max(np.max(z_cmb), np.max(bao["z"])) + 0.1
 z_grid = np.linspace(0, z_max, num=4000)
@@ -23,12 +24,11 @@ dz = z_grid[1] - z_grid[0]
 
 
 @njit
-def Ode_z(z, w0):
+def Ode_z(z, w0, wa):
     zp1 = 1.0 + z
-    return (2 * zp1**3 / (1 + w0 + (1 - w0) * zp1**3)) ** 2  # wzCDM
     # return 1  # ΛCDM
     # return zp1 ** (3 * (1 + w0))  # wCDM
-    # return zp1 ** (3 * (1 + w0 + wa)) * np.exp(-3 * wa * z / zp1)  # w0waCDM
+    return zp1 ** (3 * (1 + w0 + wa)) * np.exp(-3 * wa * z / zp1)  # w0waCDM
 
 
 @njit
@@ -55,33 +55,12 @@ cmb.set_HZ(H_z)
 
 
 @njit
-def DM_grid(params):
-    dh_grid = c / H_z(z_grid, params)
-    n = z_grid.size
-    cum_dm = np.zeros(n, dtype=np.float64)
-
-    # Compute local derivatives d(dh)/dz using central differences
-    d_dh = np.empty(n, dtype=np.float64)
-
-    # Central difference for internal points
-    d_dh[1:-1] = (dh_grid[2:] - dh_grid[:-2]) / (2 * dz)
-    # Forward/Backward difference at boundaries
-    d_dh[0] = (dh_grid[1] - dh_grid[0]) / dz
-    d_dh[-1] = (dh_grid[-1] - dh_grid[-2]) / dz
-
-    # Integrate with 4th-order cubic correction per interval
-    dz_sq_over_12 = (dz ** 2) / 12
-    acc = 0.0
-
-    for i in range(n - 1):
-        # trapezoidal area + 1st-derivative endpoint correction
-        trap = 0.5 * dz * (dh_grid[i] + dh_grid[i + 1])
-        corr = dz_sq_over_12 * (d_dh[i] - d_dh[i + 1])
-
-        acc += trap + corr
-        cum_dm[i + 1] = acc
-
-    return (cum_dm, dh_grid)
+def DM_DH_grid(params):
+    dh_grid = c/ H_z(z_grid, params)
+    dh = (dh_grid[:-1] + dh_grid[1:]) / 2
+    dm_grid = np.zeros(z_grid.size, dtype=np.float64)
+    dm_grid[1:] = np.cumsum(dh * dz)
+    return (dm_grid, dh_grid)
 
 
 dv_rs = 0
@@ -101,7 +80,7 @@ bao_qty = np.array([qty_map[q] for q in bao["quantity"]], dtype=np.int64)
 def bao_theory(z, qty, params, DM_interp):
     Obh2, Och2 = params[2], params[3]
     Omh2 = Obh2 + Och2 + Omnuh2
-    inv_rd = 1.0 / cmb.r_drag(Obh2, Omh2)
+    inv_rd = 1 / cmb.r_drag(Obh2, Omh2)
 
     DM = interp_hermite(z, z_grid, y=DM_interp[0], y_prime=DM_interp[1])
     DH = interp_pchip(z, z_grid, y=DM_interp[1])
@@ -147,10 +126,12 @@ def chi2_sn(params, dm_interp):
     y = solve_triangular(cho_sn, delta)
     return np.dot(y, y)
 
+
 @njit
 def chi2_cmb(params):
     delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(params[2], params[3], params)
-    return delta @ cmb.inv_cov_mat @ delta
+    y = solve_triangular(cho_cmb, delta)
+    return np.dot(y, y)
 
 
 @njit
@@ -162,8 +143,8 @@ def chi2_bao(params, dm_interp):
 
 @njit
 def chi_squared(params):
-    dm_interp = DM_grid(params)
-    return chi2_cmb(params) + chi2_bao(params, dm_interp) + chi2_sn(params, dm_interp)
+    dm_dh_grid = DM_DH_grid(params)
+    return chi2_cmb(params) + chi2_bao(params, dm_dh_grid) + chi2_sn(params, dm_dh_grid)
 
 
 def log_likelihood(params):
@@ -192,13 +173,8 @@ def main():
         sampler.run(verbose=True)
 
     samples, log_w, log_l = sampler.posterior()
-    gd_samples = MCSamples(
-        samples=samples,
-        weights=np.exp(log_w),
-        loglikes=-log_l,
-        names=prior.keys,
-        labels=["ΔM", "H_0", "ω_b", "ω_c", "1000 Δz"],
-    )
+    labels=["ΔM", "H_0", "ω_b", "ω_c", "1000 Δz"]
+    gd_samples = MCSamples(samples=samples, weights=np.exp(log_w), names=prior.keys, labels=labels)
     gd_samples.addDerived(
         gd_samples["obh2"] + gd_samples["och2"] + Omnuh2, name="omh2", label="ω_m"
     )
@@ -238,12 +214,10 @@ def main():
     print(f"Log evidence: {sampler.log_z:.1f}")
     print(f"DOF: {DOF}")
 
-    best_fit_dm = DM_grid(best_fit)
+    best_dm_dh_grid = DM_DH_grid(best_fit)
 
     plot_bao_predictions(
-        theory_predictions=lambda z, qty: bao_theory(
-            z, qty, best_fit, best_fit_dm
-        ),
+        theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit, best_dm_dh_grid),
         data=bao,
         errors=np.sqrt(np.diag(bao_cov_matrix)),
         title=bao_legend,
@@ -251,9 +225,9 @@ def main():
     plot_sn_predictions(
         legend=sn_legend,
         x=z_cmb,
-        y=mu_values - mu_corr(best_fit[4], best_fit_dm),
+        y=mu_values - mu_corr(best_fit[4], best_dm_dh_grid),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=theory_mu(best_fit[0], interp_hermite(z_cmb, z_grid, *best_fit_dm)),
+        y_model=theory_mu(best_fit[0], interp_hermite(z_cmb, z_grid, *best_dm_dh_grid)),
         label=f"$Ω_m$={gd_samples.mean('om'):.3f}",
         x_scale="log",
     )
@@ -271,18 +245,17 @@ if __name__ == "__main__":
 
 
 # ----------- Flat ΛCDM -----------
-# H0: 68.26 ± 0.26 km/s/Mpc
-# r_d: 147.49 ± 0.19 Mpc
-# Ωm: 0.3025 ± 0.0035
-# ΔM: -0.0644 ± 0.0078
-
-# ωb: 0.02255 ± 0.00010
-# ωc: 0.11776 ± 0.00063
-# ωm: 0.14096 ± 0.00062
-# z*: 1089.47 ± 0.15
-# z_d: 1060.19 ± 0.23
-# χ2 (MAP): 1651.56
-# Log evidence: -843.9
+# H0 = 67.98 ± 0.24 km/s/Mpc
+# Ωm = 0.3061 ± 0.0033
+# ωb = 0.022459 ± 0.000091
+# ωc = 0.11835 ± 0.00058
+# ωm = 0.14146 ± 0.00058
+# z* = 1088.58 ± 0.11
+# z_d = 1059.94 ± 0.21
+# r_d = 147.45 ± 0.18 Mpc
+# ΔM = -0.0712 ± 0.0074 mag
+# χ2 (MAP): 1655.99
+# Log evidence: -846.4
 # Degrees of freedom: 1727
 # ---------------------------------
 
@@ -292,75 +265,56 @@ if __name__ == "__main__":
 # turning point z <= 0.10563 positive z > 0.10563 negative
 # z_cosmo = z_cmb ± Δz
 
-# H0: 68.36 ± 0.27 km/s/Mpc
-# r_d: 147.54 ± 0.19 Mpc
-# Ωm: 0.3012 ± 0.0035
-# 1000 Δz: 0.55 ± 0.19 (prior ~ U[-1.5, 1.5])
-# ΔM: -0.0644 ± 0.0079 mag
-
-# ωb: 0.02257 ± 0.00010
-# ωc: 0.11753 ± 0.00064
-# ωm: 0.14074 ± 0.00063
-# z*: 1089.43 ± 0.15
-# z_d: 1060.20 ± 0.23
-# χ2 (MAP): 1643.66 (2.81 sigma significance)
-# Log evidence: -841.8 (Δ logZ = 2.1 in favour of z offset step correction)
+# 1000 Δz = 0.52 ± 0.20 (prior ~ U[-1.5, 1.5])
+# H0 = 68.06 ± 0.24 km/s/Mpc
+# Ωm = 0.3050 ± 0.0033
+# ωb = 0.022469 ± 0.000091
+# ωc = 0.11816 ± 0.00059
+# ωm = 0.14127 ± 0.00058
+# z* = 1088.55 ± 0.11
+# z_d = 1059.95 ± 0.20
+# r_d = 147.48 ± 0.17 Mpc
+# ΔM = -0.0716 ± 0.0074 mag
+# χ2 (MAP): 1648.88 (2.7 sigma significance)
+# Log evidence: -844.7 (Δ logZ = 1.7 in favour of z offset step correction)
 # Degrees of freedom: 1726
 # ---------------------------------
 
 
 # ----------- Flat wCDM -----------
-# H0: 67.66 ± 0.53 km/s/Mpc
-# r_d: 147.63 ± 0.22 Mpc
-# Ωm: 0.3066 ± 0.0048
-# w0: -0.972 ± 0.022 (prior U[-4/3, -2/3])
-# ΔM: -0.073 ± 0.010 mag
-
-# ωb: 0.02258 ± 0.00011
-# ωc: 0.11712 ± 0.00082
-# ωm: 0.14034 ± 0.00079
-# z*: 1089.37 ± 0.17
-# z_d: 1060.20 ± 0.23
-# χ2 (MAP): 1649.86 (1.30 sigma away from ΛCDM)
-# Log evidence: -845.6 (Δ logZ = -1.7 in favour of ΛCDM)
-# Degrees of freedom: 1726
-# ---------------------------------
-
-
-# ----------- Flat wzCDM ----------
-# w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)^3)
-# H0: 67.20 ± 0.53 km/s/Mpc
-# r_d: 147.62 ± 0.20 Mpc
-# Ωm: 0.3108 ± 0.0051
-# w0: -0.908 ± 0.040 (prior U[-1, -1/3])
-# wa: computed from w0
-# ΔM: -0.0749 ± 0.0091 mag
-
-# ωb: 0.02259 ± 0.00010
-# ωc: 0.11712 ± 0.00069
-# ωm: 0.14035 ± 0.00068
-# z*: 1089.36 ± 0.16
-# z_d: 1060.21 ± 0.23
-# χ2 (MAP): 1646.96 (2.14 sigma away from ΛCDM)
-# Log evidence: -843.5 (Δ logZ = 0.4 in favour of wzCDM)
-# Degrees of freedom: 1726
+# H0 = 67.77 ± 0.53 km/s/Mpc
+# Ωm = 0.3077 ± 0.0048
+# ωb = 0.022467 ± 0.000093
+# ωc = 0.11817 ± 0.00072
+# w = -0.991 ± 0.021 (prior ~ U[-4/3, -2/3])
+# ωm = 0.14128 ± 0.00070
+# z* = 1088.56 ± 0.12
+# z_d = 1059.94 ± 0.20
+# r_d = 147.49 ± 0.20 Mpc
+# ΔM = -0.074 ± 0.010 mag
+# χ2 (MAP): 1655.78
+# Log evidence: -848.8 (Δ logZ = -2.4 in favour of ΛCDM)
+# DOF: 1726
 # ---------------------------------
 
 
 # ----------- Flat w0waCDM --------
-# H0: 67.38 ± 0.55 km/s/Mpc
-# r_d: 147.26 ± 0.25 Mpc
-# Ωm: 0.3127 ± 0.0054
-# w0: -0.834 ± 0.056 (prior U[-1.5, 0.0])
-# wa: -0.57 +0.24 -0.20 (prior U[-2.5, 1.0])
-# ΔM: -0.059 ± 0.012 mag
-
-# ωb: 0.02251 ± 0.00011
-# ωc: 0.11879 ± 0.00098
-# ωm: 0.14195 ± 0.00095
-# z*: 1089.61 ± 0.19
-# z_d: 1060.17 ± 0.23
-# χ2 (MAP): 1642.56 (2.54 sigma away from ΛCDM)
-# Log evidence: -844.5 + 0.1 (Δ logZ = -0.5 in favour of ΛCDM)
+# w0 + wa > 0 enforced in the likelihood
+# Correction in prior volume: +0.2 to the evidence
+# log((1.5 + 2.5)*1.5 / ((1.5 + 2.5)*1.5 - 0.5*1.5**2)) = 0.2
+#
+# H0 = 67.36 ± 0.55 km/s/Mpc
+# Ωm = 0.3146 ± 0.0053
+# ωb = 0.022412 ± 0.000094
+# ωc = 0.11968 ± 0.00080
+# w0 = -0.815 ± 0.056 (prior ~ U[-1.5, 0.0])
+# wa = -0.71 +0.24 -0.20 (prior ~ U[-2.5, 1.5])
+# ωm = 0.14273 ± 0.00078
+# z* = 1088.72 ± 0.13
+# z_d = 1059.94 ± 0.20
+# r_d = 147.15 ± 0.21 Mpc
+# ΔM = -0.058 ± 0.012 mag
+# χ2 (MAP): 1643.76 (3.1 sigma significance)
+# Log evidence: -845.5 + 0.2 (Δ logZ = 1.1 in favour of w0waCDM)
 # Degrees of freedom: 1725
 # ---------------------------------

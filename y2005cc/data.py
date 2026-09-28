@@ -10,8 +10,6 @@ Hz = data["H"].to_numpy()
 sigma_H = data["sigma_H"].to_numpy()
 method= data["M"].to_numpy()
 
-_stat_H = data["stat"]
-_syst_H = data["sys"]
 _ref = data["reference"]
 
 
@@ -35,8 +33,8 @@ _mask_FSF  = _syst_mask & _method_F_mask
 data.loc[_mask_FSF, "sys"]  = np.minimum(0.42 * sigma_H[_mask_FSF], 0.07 * Hz[_mask_FSF])
 data.loc[_mask_FSF, "stat"] = np.sqrt(sigma_H[_mask_FSF]**2 - data.loc[_mask_FSF, "sys"]**2)
 
-diag_syst = _syst_H.to_numpy()
-diag_stat = _stat_H.to_numpy()
+diag_syst = data["sys"].to_numpy()
+diag_stat = data["stat"].to_numpy()
 # -------------------------------------------------------
 
 

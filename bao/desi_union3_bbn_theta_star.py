@@ -1,7 +1,7 @@
 from numba import njit
 import numpy as np
 from scipy.linalg import block_diag
-import cmb.data_planck_act_compression as cmb
+import cmb.data_act_planck_compression as cmb
 from interpolator import interp_hermite
 import y2024BBN.prior_lcdm_schoneberg as bbn
 from y2026union3_1.data import get_data as get_sn_data

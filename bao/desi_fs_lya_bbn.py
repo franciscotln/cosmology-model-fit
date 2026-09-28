@@ -1,12 +1,16 @@
 from numba import njit
 import numpy as np
+from scipy.constants import c as c0
 from interpolator import interp_hermite, interp_pchip
+from solve_triangular import solve_triangular
+from rdrag import r_drag
 from y2025BAO.data_fs_lya import get_data
 import y2024BBN.prior_lcdm_schoneberg as bbn
-from cmb.data_early_lcdm_compression import r_drag, c
+
+c = c0 / 1000  # Speed of light in km/s
 
 legend, bao, cov_matrix = get_data()
-inv_cov = np.linalg.inv(cov_matrix)
+L_cov = np.linalg.cholesky(cov_matrix)
 
 z_grid = np.linspace(0, np.max(bao["z"]) + 0.1, num=4000)
 dz = z_grid[1] - z_grid[0]
@@ -27,31 +31,11 @@ def H_z(z, params):
 
 
 @njit
-def DM_grid(params):
+def DM_DH_grid(params):
     dh_grid = c / H_z(z_grid, params)
-    n = z_grid.size
-    cum_dm = np.zeros(n, dtype=np.float64)
-
-    # Compute local derivatives d(dh)/dz using central differences
-    d_dh = np.empty(n, dtype=np.float64)
-
-    # Central difference for internal points
-    d_dh[1:-1] = (dh_grid[2:] - dh_grid[:-2]) / (2 * dz)
-    # Forward/Backward difference at boundaries
-    d_dh[0] = (dh_grid[1] - dh_grid[0]) / dz
-    d_dh[-1] = (dh_grid[-1] - dh_grid[-2]) / dz
-
-    # Integrate with 4th-order cubic correction per interval
-    dz_sq_over_12 = (dz ** 2) / 12
-    acc = 0.0
-
-    for i in range(n - 1):
-        # Trapezoidal area + 1st-derivative endpoint correction
-        trap = 0.5 * dz * (dh_grid[i] + dh_grid[i + 1])
-        corr = dz_sq_over_12 * (d_dh[i] - d_dh[i + 1])
-        acc += trap + corr
-        cum_dm[i + 1] = acc
-
+    dh = (dh_grid[:-1] + dh_grid[1:]) / 2
+    cum_dm = np.zeros(z_grid.size, dtype=np.float64)
+    cum_dm[1:] = np.cumsum(dz * dh)
     return (cum_dm, dh_grid)
 
 
@@ -62,7 +46,7 @@ bao_qty = np.array([qty_map[q] for q in bao["quantity"]], dtype=np.int32)
 @njit
 def bao_theory(z, qty, params):
     h, Om, Obh2 = params[0] / 100, params[1], params[2]
-    rd = r_drag(Obh2, Om * h**2)
+    inv_rd = 1 / r_drag(Obh2, Om * h**2)
 
     results = np.empty(z.size, dtype=np.float64)
     DV_mask = qty == 0
@@ -70,13 +54,13 @@ def bao_theory(z, qty, params):
     DH_mask = qty == 2
     F_mask = qty == 3
 
-    DM_vals, DH_vals = DM_grid(params)
+    DM_vals, DH_vals = DM_DH_grid(params)
     DM = interp_hermite(z, z_grid, DM_vals, DH_vals)
     DH = interp_pchip(z, z_grid, DH_vals)
 
-    results[DH_mask] = DH[DH_mask] / rd
-    results[DM_mask] = DM[DM_mask] / rd
-    results[DV_mask] = (z[DV_mask] * DH[DV_mask] * DM[DV_mask] ** 2) ** (1 / 3) / rd
+    results[DH_mask] = DH[DH_mask] * inv_rd
+    results[DM_mask] = DM[DM_mask] * inv_rd
+    results[DV_mask] = (z[DV_mask] * DH[DV_mask] * DM[DV_mask] ** 2) ** (1 / 3) * inv_rd
     results[F_mask] = DM[F_mask] / DH[F_mask]
     return results
 
@@ -84,7 +68,8 @@ def bao_theory(z, qty, params):
 @njit
 def chi_squared(params):
     delta = bao["value"] - bao_theory(bao["z"], bao_qty, params)
-    return delta @ inv_cov @ delta
+    y = solve_triangular(L_cov, delta)
+    return np.dot(y, y)
 
 
 bounds = np.array(
@@ -141,16 +126,11 @@ def main():
     nsteps = 5000 + burn_in
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
-    moves = [
-        (emcee.moves.KDEMove(bw_method="silverman"), 0.2),
-        (emcee.moves.DEMove(), 0.8),
-    ]
+    moves = [(emcee.moves.KDEMove(), 0.2), (emcee.moves.DEMove(), 0.8)]
 
     with Pool(5) as pool:
         sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
-        sampler.run_mcmc(
-            initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#ff5a00"}
-        )
+        sampler.run_mcmc(initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#ff5a00"})
 
     try:
         tau = sampler.get_autocorr_time()
@@ -222,8 +202,8 @@ if __name__ == "__main__":
 
 # Flat ΛCDM:
 # H0: 68.55 +- 0.59 km/s/Mpc
-# ωb: 0.02218 +- 0.00055
-# Ωm: 0.3019 +- 0.0077
+# ωb: 0.02219 +- 0.00055
+# Ωm: 0.3017 +- 0.0077
 # rd: 147.6 +- 1.5 Mpc
 # Chi squared: 12.81
 # log likelihood (MAP): -6.40
@@ -246,19 +226,19 @@ if __name__ == "__main__":
 # Flat w0waCDM at z_pivot = 0.406
 # wp + wa / (1+z_pivot) <= -1/3 enforced in the likelihood
 # 
-# H0 = 63.0 +2.5 -2.9 km/s/Mpc
+# H0 = 63.0 +2.4 -2.9 km/s/Mpc
 # Ωm = 0.402 +- 0.042
 # ωb = 0.02219 +- 0.00055
-# wp = -0.993 +0.072 -0.066 (prior ~U[-1.5, -0.5])
+# wp = -0.992 +- 0.070 (prior ~U[-1.5, -0.5])
 # wa = -3.3 +- 1.4 (prior ~U[-8, 1])
 # rd: 143.4 +1.6 -2.2 Mpc
-# Chi squared (MAP): 7.23
-# log likelihood (MAP): -3.61
+# Chi squared (MAP): 7.20
+# log likelihood (MAP): -3.60
 # DOF: 9
 #
 # Correlation matrix
 #      om          wp          wa
-# om   1.          0.19835095 -0.95887650
-# wp   0.19835095  1.         -0.00209782
-# wa  -0.95887650 -0.00209782  1.
+# om   1.          0.20985473 -0.95880854
+# wp   0.20985473  1.         -0.01186678
+# wa  -0.95880854 -0.01186678  1.
 # ---------------------------------

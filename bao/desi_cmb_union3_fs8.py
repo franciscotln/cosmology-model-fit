@@ -2,7 +2,7 @@ from numba import njit
 import numpy as np
 from solve_ivp import solve_ivp
 from interpolator import interp_hermite, interp_pchip
-import cmb.data_planck_act_compression as cmb
+import cmb.data_act_planck_compression as cmb
 from y2026union3_1.data import get_data as get_sn_data
 from y2025BAO.data import get_data as get_bao_data
 import y2018fs8.data as fs8

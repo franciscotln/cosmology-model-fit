@@ -4,7 +4,7 @@ from scipy.linalg import cho_factor
 from interpolator import interp_hermite
 from solve_triangular import solve_triangular
 from y2025DESdovekie.data import get_data, effective_sample_size
-import cmb.data_planck_act_compression as cmb
+import cmb.data_act_planck_compression as cmb
 
 c = cmb.c  # km/s
 Orh2 = cmb.Or_h2
@@ -135,7 +135,6 @@ def main():
     gd_samples = MCSamples(
         samples=samples,
         weights=np.exp(log_w),
-        loglikes=-log_l,
         names=prior.keys,
         labels=labels,
     )

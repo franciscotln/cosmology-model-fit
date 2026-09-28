@@ -11,8 +11,8 @@ cc_legend, z_cc_vals, H_cc_vals, diag_stat_cc, cc_sys_cov_matrix = get_cc_data(s
 bao_legend, data, bao_cov_matrix = get_bao_data()
 
 cho_bao = np.linalg.cholesky(bao_cov_matrix)
+N_bao = len(data["z"])
 N_cc = len(z_cc_vals)
-non_d = method != "D"
 
 c = c0 / 1000  # Speed of light in km/s
 
@@ -32,9 +32,9 @@ def Ode_z(z, wp, wa):
 
 @njit
 def H_z(z, params):
-    om, omh2, wp, wa = params[2], params[4], params[5], params[6]
-    h2 = omh2 / om
-    return 100 * np.sqrt(omh2 * (1.0 + z) ** 3 + (h2 - omh2) * Ode_z(z, wp, wa))
+    h, omh2, wp, wa = params[2], params[4], params[5], params[6]
+    om = omh2 / h**2
+    return 100 * h * np.sqrt(om * (1.0 + z)**3 + (1.0 - om) * Ode_z(z, wp, wa))
 
 
 @njit
@@ -99,12 +99,19 @@ def chi_squared(params, L_cc):
     return np.dot(y_cc, y_cc) + np.dot(y_bao, y_bao)
 
 
+method_f = method == "F"
+z_pivot = 1.21
+params_fid = [0.0, 1.0, 0.6749, 0.02223, 0.1421, -1.0, 0.0]
+shape_fid = (1. + z_cc_vals[method_f]) * H_z(z_cc_vals[method_f], params_fid)**2
+shape_piv = (1. + z_pivot) * H_z(z_pivot, params_fid)**2
+f_shape = shape_fid / shape_piv
+
+
 @njit
 def get_fz(params):
-    z_pivot = 0.62
     fp, n = np.exp(params[0]), params[1]
     fz = np.full_like(z_cc_vals, fp)
-    fz[non_d] *= ((1.0 + z_cc_vals[non_d]) / (1.0 + z_pivot)) ** n
+    fz[method_f] *= f_shape ** n
     return fz
 
 
@@ -137,7 +144,7 @@ def main():
     prior.add_parameter("ln_fp_cc", dist=(-1.5, 0.5))
     prior.add_parameter("n_cc", dist=(-2.0, 4.0))
     # ---- cosmological parameters ----
-    prior.add_parameter("om", dist=(0.1, 0.7))
+    prior.add_parameter("h", dist=(0.5, 1.0))
     prior.add_parameter("obh2", dist=(0.01, 0.04))
     prior.add_parameter("omh2", dist=(0.05, 0.25))
     prior.add_parameter("wp", dist=(-1.5, -0.5))
@@ -149,9 +156,10 @@ def main():
 
     samples, log_w, log_l = sampler.posterior()
     weights = np.exp(log_w)
-    labels=["ln(f_{p,cc})", "n_{cc}", "Ω_m", "Ω_b h^2", "Ω_m h^2", "w_{piv}", "w_a"]
+    labels=["ln(f_{p,cc})", "n_{cc}", "h", "Ω_b h^2", "Ω_m h^2", "w_{piv}", "w_a"]
     gd_samples = MCSamples(samples=samples, weights=weights, names=prior.keys, labels=labels)
-    gd_samples.addDerived(100 * np.sqrt(gd_samples["omh2"] / gd_samples["om"]), name="H0", label="H_0")
+    gd_samples.addDerived(100 * gd_samples["h"], name="H0", label="H_0")
+    gd_samples.addDerived(gd_samples["omh2"] / gd_samples["h"]**2, name="om", label="Ω_m")
     gd_samples.addDerived(r_drag(gd_samples["obh2"], gd_samples["omh2"]), name="rdrag", label="r_{drag}")
     gd_samples.addDerived(np.exp(gd_samples["ln_fp_cc"]), name="fp_cc", label="f_{p,cc}")
     gd_samples.updateBaseStatistics()
@@ -167,11 +175,20 @@ def main():
     print(f"Chi squared (MAP): {chi_squared(best_fit, L_cc):.2f}")
     print(f"log likelihood (MAP): {np.max(log_l):.2f}")
     print(f"Log evidence: {sampler.log_z:.2f}")
-    print(f"DOF: {len(data) + len(z_cc_vals) - len(best_fit)}")
+    print(f"DOF: {N_bao + N_cc - len(best_fit)}")
 
     plots.getSubplotPlotter().triangle_plot(
         gd_samples,
         params=["H0", "om", "obh2", "wp", "wa", "rdrag"],
+        filled=True,
+        title_limit=1,
+        contour_colors=["C0"],
+        color=["C0"],
+    )
+    plt.show()
+    plots.getSubplotPlotter().triangle_plot(
+        gd_samples,
+        params=["H0", "om", "n_cc", "ln_fp_cc"],
         filled=True,
         title_limit=1,
         contour_colors=["C0"],
@@ -214,38 +231,38 @@ if __name__ == "__main__":
 
 
 # ----------- Flat ΛCDM -----------
-# H0 = 70.7 +1.5 -1.3 km/s/Mpc
-# Ωm = 0.3021 ± 0.0076
-# Ωb h^2 = 0.0248 ± 0.0019
-# Ωm h^2 = 0.1509 ± 0.0065
-# rd = 143.2 +2.5 -3.1 Mpc
+# H0 = 69.9 ± 1.4 km/s/Mpc
+# Ωm = 0.3022 ± 0.0076
+# Ωb h^2 = 0.0239 ± 0.0018
+# Ωm h^2 = 0.1476 ± 0.0063
+# rd = 144.8 ± 2.8 Mpc
 #
-# n_cc = 1.49 ± 0.50
-# ln(fp_cc) = -0.57 +0.15 -0.17
-# fp_cc = 0.573 +0.069 -0.110
+# n_cc = 1.23 +0.36 -0.62
+# ln(fp_cc) = -0.41 ± 0.25
+# fp_cc = 0.69 +0.13 -0.19
 #
-# Chi squared (MAP): 53.13
-# log likelihood (MAP): -158.23
-# Log evidence: -170.69
+# Chi squared (MAP): 51.45
+# log likelihood (MAP): -157.27
+# Log evidence: -169.05
 # DOF: 48
 # ---------------------------------
 
 
 # ----------- Flat wCDM -----------
-# H0 = 70.3 ± 1.6 km/s/Mpc
+# H0 = 69.5 ± 1.6 km/s/Mpc
 # Ωm = 0.3025 ± 0.0079
-# Ωb h^2 = 0.0256 ± 0.0024
-# Ωm h^2 = 0.1495 ± 0.0070
-# w = -0.968 +0.072 -0.066 (prior ~U[-3, 1])
-# rd = 143.0 +2.6 -3.1 Mpc
+# Ωb h^2 = 0.0245 +0.0021 -0.0024
+# Ωm h^2 = 0.1461 ± 0.0069
+# w = -0.968 ± 0.070 (prior ~U[-3, 1])
+# rd = 144.6 ± 2.9 Mpc
 #
-# n_cc = 1.50 ± 0.51
-# ln(fp_cc) = -0.57 +0.15 -0.17
-# fp_cc = 0.572 +0.068 -0.110
+# n_cc = 1.22 +0.35 -0.61
+# ln(fp_cc) = -0.41 ± 0.25
+# fp_cc = 0.69 +0.13 -0.19
 #
-# Chi squared (MAP): 51.71
-# log likelihood (MAP): -158.11
-# Log evidence: -173.70
+# Chi squared (MAP): 51.31
+# log likelihood (MAP): -157.13
+# Log evidence: -172.04
 # DOF: 47
 # ---------------------------------
 
@@ -253,39 +270,39 @@ if __name__ == "__main__":
 # ---------- Flat w0waCDM----------
 # Enforced w0 + wa <= -1/3 in the likelihood
 #
-# H0 = 65.7 ± 2.8 km/s/Mpc
-# Ωm = 0.371 ± 0.036
-# Ωb h^2 = 0.0233 +0.0019 -0.0022
-# Ωm h^2 = 0.1592 +0.0081 -0.0070
-# w0 = -0.36 ± 0.34 (prior ~U[-3, 1])
+# H0 = 64.9 +2.7 -3.1 km/s/Mpc
+# Ωm = 0.369 ± 0.037
+# Ωb h^2 = 0.0221 +0.0018 -0.0023
+# Ωm h^2 = 0.1546 ± 0.0075
+# w0 = -0.38 ± 0.35 (prior ~U[-3, 1])
 # wa = -2.2 ± 1.2 (prior ~U[-6, 6])
-# rd = 142.4 +2.5 -3.1 Mpc
+# rd = 144.5 ± 2.9 Mpc
 #
-# n_cc = 1.63 ± 0.54
-# ln(fp_cc) = -0.58 +0.15 -0.18
-# fp_cc = 0.568 +0.068 -0.11
+# n_cc = 1.28 +0.36 -0.62
+# ln(fp_cc) = -0.36 ± 0.25
+# fp_cc = 0.72 +0.13 -0.20
 #
-# Chi squared (MAP): 49.18
-# log likelihood (MAP): -156.47
-# Log evidence: -173.40
+# Chi squared (MAP): 45.79
+# log likelihood (MAP): -155.38
+# Log evidence: -171.93
 # DOF: 46
 #
 #
 # At z_pivot = 0.38 corr(wp, wa) = -0.0034
-# H0 = 65.7 ± 2.8 km/s/Mpc
-# Ωm = 0.371 ± 0.036
-# Ωb h^2 = 0.0232 +0.0019 -0.0022
-# Ωm h^2 = 0.1592 +0.0082 -0.0069
-# wp = -0.977 ± 0.066 (prior ~ U[-1.5, -0.5])
-# wa = -2.3 ± 1.2 (prior ~ U[-6, 6])
-# rd = 142.4 +2.5 -3.1 Mpc
+# H0 = 64.9 ± 2.9 km/s/Mpc
+# Ωm = 0.369 ± 0.037
+# Ωb h^2 = 0.0221 +0.0018 -0.0023
+# Ωm h^2 = 0.1545 ± 0.0075
+# wp = -0.979 ± 0.067 (prior ~ U[-1.5, -0.5])
+# wa = -2.2 ± 1.2 (prior ~ U[-6, 6])
+# rd = 144.5 ± 2.9 Mpc
 #
-# n_cc = 1.62 ± 0.54
-# ln(fp_cc) = -0.58 +0.15 -0.18
-# fp_cc = 0.568 +0.069 -0.11
+# n_cc = 1.28 +0.36 -0.62
+# ln(fp_cc) = -0.36 ± 0.25
+# fp_cc = 0.72 +0.13 -0.20
 #
-# Chi squared (MAP): 50.17
-# log likelihood (MAP): -156.47
-# Log evidence: -172.94
+# Chi squared (MAP): 46.24
+# log likelihood (MAP): -155.40
+# Log evidence: -170.54
 # DOF: 46
 # ---------------------------------

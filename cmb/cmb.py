@@ -1,6 +1,6 @@
 from numba import njit
 import numpy as np
-import cmb.data_planck_act_compression as cmb
+import cmb.data_act_planck_compression as cmb
 
 c = cmb.c  # km/s
 Or_h2 = cmb.Or_h2

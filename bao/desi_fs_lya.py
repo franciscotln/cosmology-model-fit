@@ -11,7 +11,7 @@ legend, data, cov_matrix = get_data()
 inv_cov_bao = np.linalg.inv(cov_matrix)
 
 z_max = np.max(data["z"]) + 0.1
-z_grid = np.linspace(0, z_max, num=2000)
+z_grid = np.linspace(0, z_max, num=4000)
 dz = z_grid[1] - z_grid[0]
 
 
@@ -32,29 +32,9 @@ def h_z(z, params):
 @njit
 def DM_grid(params):
     dh_grid = c / h_z(z_grid, params)
-    n = z_grid.size
-    cum_dm = np.zeros(n, dtype=np.float64)
-
-    # Compute local derivatives d(dh)/dz using central differences
-    d_dh = np.empty(n, dtype=np.float64)
-
-    # Central difference for internal points
-    d_dh[1:-1] = (dh_grid[2:] - dh_grid[:-2]) / (2 * dz)
-    # Forward/Backward difference at boundaries
-    d_dh[0] = (dh_grid[1] - dh_grid[0]) / dz
-    d_dh[-1] = (dh_grid[-1] - dh_grid[-2]) / dz
-
-    # Integrate with 4th-order cubic correction per interval
-    dz_sq_over_12 = (dz ** 2) / 12
-    acc = 0.0
-
-    for i in range(n - 1):
-        # trapezoidal area + 1st-derivative endpoint correction
-        trap = 0.5 * dz * (dh_grid[i] + dh_grid[i + 1])
-        corr = dz_sq_over_12 * (d_dh[i] - d_dh[i + 1])
-        acc += trap + corr
-        cum_dm[i + 1] = acc
-
+    dh = (dh_grid[:-1] + dh_grid[1:]) / 2
+    cum_dm = np.zeros(z_grid.size, dtype=np.float64)
+    cum_dm[1:] = np.cumsum(dz * dh)
     return (cum_dm, dh_grid)
 
 
@@ -105,9 +85,7 @@ def main():
     prior.add_parameter("om", dist=(0.1, 0.8))
 
     with Pool(6) as pool:
-        sampler = Sampler(
-            prior, log_likelihood, n_live=6_000, pool=pool, seed=42, pass_dict=False
-        )
+        sampler = Sampler(prior, log_likelihood, n_live=6_000, pool=pool, seed=42, pass_dict=False)
         sampler.run(verbose=True)
 
     samples, log_w, log_l = sampler.posterior()
@@ -127,7 +105,6 @@ def main():
     gd_samples = MCSamples(
         samples=samples,
         weights=weights,
-        loglikes=-log_l,
         names=prior.keys,
         labels=labels,
         label="BAO + FS Lyman-alpha",
@@ -173,9 +150,8 @@ if __name__ == "__main__":
 # *******************************************
 
 # --------------- Flat ΛCDM -----------------
-# h * rd: 101.18 +- 0.67 Mpc
-# Ωm: 0.3016 +- 0.0077
-# h * rd * (Ωm / 0.3)^0.4 = 101.38 +- 0.51
+# h * rd: 101.17 +- 0.67 Mpc
+# Ωm: 0.3017 +- 0.0077
 # χ2: 12.81
 # DOF: 12
 # χ2/dof: 1.07
