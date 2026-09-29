@@ -4,6 +4,7 @@ from solve_triangular import solve_triangular
 from y2005cc.data import get_data, method
 
 legend, z_values, H_values, diag_stat, cov_matrix_sys = get_data(split_sys=True)
+N_cc = z_values.size
 
 
 @njit
@@ -13,31 +14,28 @@ def H_z(z, params):
 
 
 method_f = method == "F"
-z_pivot = 1.21
-params_fid = [0.6719, 0.3175, 0.0, 1.0]
-shape_fid = (1. + z_values[method_f]) * H_z(z_values[method_f], params_fid)**2
-shape_piv = (1. + z_pivot) * H_z(z_pivot, params_fid)**2
-f_shape = shape_fid / shape_piv
+z_pivot = 1.198
+shape = np.ones_like(z_values, dtype=np.float64)
+shape[method_f] = ((1 + z_values[method_f]) / (1 + z_pivot))**4
+# statistical error in H is proportional to (1+z) * H^2
 
 
 @njit
 def get_fz(params):
     fp, n = np.exp(params[2]), params[3]
-    fz = np.full_like(z_values, fp)
-    fz[method_f] *= f_shape ** n
-    return fz
+    return fp * shape**n
 
 
 @njit
 def log_likelihood_jit(params):
     cov_mat = cov_matrix_sys + np.diag(diag_stat**2 * get_fz(params)**2)
     L = np.linalg.cholesky(cov_mat)
-    logdet = 2.0 * np.sum(np.log(np.diag(L)))
+    logdet = 2 * np.sum(np.log(np.diag(L)))
 
     diff = H_values - H_z(z_values, params)
     y = solve_triangular(L, diff)
     chi2 = np.dot(y, y)
-    normalization = z_values.size * np.log(2 * np.pi) + logdet
+    normalization = N_cc * np.log(2 * np.pi) + logdet
 
     return -0.5 * (chi2 + normalization)
 
@@ -57,7 +55,7 @@ def main():
     prior.add_parameter("h", dist=(0.5, 1.0))
     prior.add_parameter("om", dist=(0.01, 1.0))
     prior.add_parameter("ln_fp", dist=(-2.0, 1.0))
-    prior.add_parameter("n", dist=(-2.0, 4.0))
+    prior.add_parameter("n", dist=(-2.5, 2.5))
 
     with Pool(8) as pool:
         sampler = Sampler(prior, log_likelihood, n_live=10_000, pool=pool, seed=42, pass_dict=False)
@@ -84,7 +82,7 @@ def main():
     L = np.linalg.cholesky(cov)
     y = solve_triangular(L, H_values - H_z(z_values, MAP_PARAMS))
     chi2 = np.dot(y, y)
-    DOF = z_values.size - len(MAP_PARAMS)
+    DOF = N_cc - len(MAP_PARAMS)
     chi2_red = chi2 / DOF
 
     print(f"Log likelihood (MAP): {np.max(log_l):.2f}")
@@ -136,31 +134,31 @@ if __name__ == "__main__":
 # ---------------------------------
 
 # Redshift dependent covariance diagonal scaling
-# f(z) = f_pivot * [(1 + z) * H^2 / ((1 + z_pivot) * H_pivot^2)]^n for method == FSF
+# f(z) = f_pivot * [(1 + z) / ((1 + z_pivot))]^4n for method == FSF
 # f(z) = f_pivot for method != FSF
-# with z_pivot = 1.21, corr(ln(fp), n) = 0:
+# with z_pivot = 1.198, corr(ln(fp), n) = 0:
 # cov[i, i] = cov_sys[i, i] + cov_diag_stat[i, i] * f(z_i)^2
 # cov[i, j] = cov_sys[i, j]
 #
 # h = 0.691 ± 0.020
-# Ωm = 0.322 +0.037 -0.045
+# Ωm = 0.322 +0.037 -0.046
 # Ωm h^2 = 0.153 ± 0.015
 #
 # ln(fp) = -0.38 ± 0.25 (prior ~ U[-2, 1])
-# n = 1.23 +0.35 -0.61 (prior ~ U[-2, 4])
+# n = 1.02 +0.31 -0.52 (prior ~ U[-2.5, 2.5])
 #
-# Log likelihood (MAP): -150.76
-# Log evidence: -158.99
-# χ2 (MAP): 38.30
+# Log likelihood (MAP): -150.71
+# Log evidence: -158.91
+# χ2 (MAP): 38.31
 # DOF: 35
 # χ2/DOF: 1.09
 # Correlation matrix:
 #   Ωm h^2       h           Ωm          ln(fp)      n
-# [[ 1.         -0.39900246  0.91312692  0.08744673 -0.05588585]
-#  [-0.39900246  1.         -0.73308877  0.03748966 -0.01052124]
-#  [ 0.91312692 -0.73308877  1.          0.05566248 -0.0375794 ]
-#  [ 0.08744673  0.03748966  0.05566248  1.          0.0047819 ]
-#  [-0.05588585 -0.01052124 -0.0375794   0.0047819   1.        ]]
+# [[ 1.         -0.40600654  0.91515028  0.0838602  -0.03992184]
+#  [-0.40600654  1.         -0.73497238  0.03419481 -0.00208834]
+#  [ 0.91515028 -0.73497238  1.          0.05462499 -0.02897131]
+#  [ 0.0838602   0.03419481  0.05462499  1.         -0.00246978]
+#  [-0.03992184 -0.00208834 -0.02897131 -0.00246978  1.        ]]
 # ---------------------------------
 
 

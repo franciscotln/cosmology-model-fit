@@ -79,19 +79,15 @@ def chi_squared(params, L_cc):
 
 
 method_f = method == "F"
-z_pivot = 1.21
-fid_params = [0.0, 1.0, 0.0, 0.6719, 0.3175, 0.0]
-shape_fid = (1. + z_cc[method_f]) * H_z(z_cc[method_f], fid_params)**2
-shape_piv = (1. + z_pivot) * H_z(z_pivot, fid_params)**2
-f_shape = shape_fid / shape_piv
+z_pivot = 1.198
+shape = np.ones_like(z_cc, dtype=np.float64)
+shape[method_f] = ((1 + z_cc[method_f]) / (1 + z_pivot))**4
 
 
 @njit
 def get_fz(params):
     fp, n = np.exp(params[0]), params[1]
-    fz = np.full_like(z_cc, fp)
-    fz[method_f] *= f_shape ** n
-    return fz
+    return fp * shape**n
 
 
 @njit
@@ -115,7 +111,7 @@ def main():
 
     prior = Prior()
     prior.add_parameter("ln_fp", dist=(-2.0, 1.0))
-    prior.add_parameter("n", dist=(-2, 4))
+    prior.add_parameter("n", dist=(-2.5, 2.5))
     prior.add_parameter("dM", dist=(-1.0, 1.0))
     prior.add_parameter("h", dist=(0.5, 1.0))
     prior.add_parameter("om", dist=(0.1, 0.7))
@@ -188,13 +184,13 @@ if __name__ == "__main__":
 # Ωm h^2 = 0.1564 ± 0.0090
 #
 # ΔM = -0.015 ± 0.043 mag
-# n = 1.22 +0.36 -0.60
+# n = 1.02 +0.31 -0.51
 # ln(fp) = -0.40 ± 0.25
 # fp = 0.69 +0.13 -0.19
 #
-# χ² (MAP): 67.54
-# Log likelihood (MAP): -164.92
-# Log evidence: -178.6
+# χ² (MAP): 67.05
+# Log likelihood (MAP): -164.86
+# Log evidence: -178.5
 # DOF: 56
 # -------------------------------------------
 
@@ -206,35 +202,35 @@ if __name__ == "__main__":
 #
 # h = 0.696 ± 0.016
 # Ωm = 0.307 ± 0.022
-# Ωm h^2 = 0.1486 ± 0.0093
+# Ωm h^2 = 0.1487 ± 0.0093
 # 1000 Δz = 1.06 ± 0.43 (prior ~ U[-3.5, 3.5])
 #
 # ΔM = -0.010 ± 0.043 mag
-# n = 1.23 +0.35 -0.63
+# n = 1.03 +0.31 -0.54
 # ln(fp) = -0.40 ± 0.25
 # fp = 0.69 +0.13 -0.19
 #
-# χ² (MAP): 60.55
-# Log likelihood (MAP): -161.94
-# Log evidence: -177.5
+# χ² (MAP): 60.90
+# Log likelihood (MAP): -161.90
+# Log evidence: -177.4
 # DOF: 55
 # -------------------------------------------
 
 
 # ---------------- Flat wCDM ----------------
 # h = 0.686 ± 0.015
-# Ωm = 0.288 +0.056 -0.041
-# Ωm h^2 = 0.136 +0.027 -0.019
-# w = -0.88 +0.13 -0.12 (prior ~ U[-2, 0])
+# Ωm = 0.289 +0.057 -0.041
+# Ωm h^2 = 0.136 +0.027 -0.020
+# w = -0.88 +0.14 -0.12 (prior ~ U[-2, 0])
 #
 # ΔM = -0.011 ± 0.043 mag
-# n = 1.04 +0.29 -0.55
-# ln(fp) = -0.37 ± 0.25
-# fp = 0.71 +0.13 -0.20
+# n = 1.03 +0.31 -0.52
+# ln(fp) = -0.38 ± 0.25
+# fp = 0.70 +0.13 -0.20
 #
-# χ² (MAP): 65.71
-# Log likelihood (MAP): -164.48
-# Log evidence: -180.1
+# χ² (MAP): 64.17
+# Log likelihood (MAP): -164.43
+# Log evidence: -179.9
 # DOF: 55
 # -------------------------------------------
 
@@ -243,18 +239,18 @@ if __name__ == "__main__":
 # w0 + wa < 0 enforced in the likelihood
 #
 # h = 0.678 ± 0.016
-# Ωm = 0.362 +0.065 -0.030
-# Ωm h^2 = 0.166 +0.028 -0.013
+# Ωm = 0.361 +0.066 -0.030
+# Ωm h^2 = 0.165 +0.028 -0.013
 # w0 = -0.78 ± 0.15 (prior ~ U[-2, 0])
 # wa = -1.8 +1.6 -1.3 (prior ~ N(0, 2^2))
 #
-# ΔM = -0.022 ± 0.044 mag
-# n = 1.29 +0.36 -0.63
+# ΔM = -0.022 ± 0.043 mag
+# n = 1.07 +0.33 -0.54
 # ln(fp) = -0.39 ± 0.25
-# fp = 0.70 +0.13 -0.20
+# fp = 0.70 +0.13 -0.19
 #
-# χ² (MAP): 59.94
-# Log likelihood (MAP): -162.82
-# Log evidence: -179.7
+# χ² (MAP): 63.35
+# Log likelihood (MAP): -162.78
+# Log evidence: -179.6
 # DOF: 54
 # -------------------------------------------

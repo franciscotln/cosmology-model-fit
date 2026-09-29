@@ -89,9 +89,7 @@ def main():
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
     moves = [(emcee.moves.KDEMove(), 0.20), (emcee.moves.DEMove(), 0.80)]
     sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, moves=moves)
-    sampler.run_mcmc(
-        initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#ff5a00"}
-    )
+    sampler.run_mcmc(initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#ff5a00"})
 
     samples_list = sampler.get_chain(discard=burn_in, flat=False)
     blobs_list = sampler.get_blobs(discard=burn_in, flat=False)
@@ -163,18 +161,19 @@ if __name__ == "__main__":
 # SPT + Planck PR4 + ACT DR6 compression (2026)
 # -----------------------------
 # H0 = 67.19 ± 0.38 km/s/Mpc
-# ωb = 0.022399 ± 0.000095
+# ωb = 0.022399 ± 0.000094
 # ωc = 0.12027 ± 0.00094
 # 100 θ* = 1.04161 ± 0.00023
 # r* = 144.45 ± 0.23 Mpc
 # DM* = 13.868 ± 0.022 Gpc
 # z* = 1088.78 ± 0.14
-# ωm = 0.14331 ± 0.00092
-# Ωm = 0.3175 ± 0.0056
+# ωm = 0.14332 ± 0.00092
+# Ωm = 0.3175 ± 0.0056 (1.7 sigma tension with BAO)
+# h * r_d = 98.76 ± 0.69 (2.5 sigma tension with BAO)
 # z_drag = 1059.95 ± 0.21
 # r_d = 147.00 ± 0.24 Mpc
 # z_eq = 3410 ± 22
-# Chi squared: 0.0008
+# Chi squared: 0.0004
 # -----------------------------
 
 
@@ -185,15 +184,15 @@ if __name__ == "__main__":
 # ωc: 0.1202 ± 0.0014
 # ωb: 0.02236 ± 0.00015
 # ωm: 0.1432 ± 0.0013
-# Ωm: 0.3166 ± 0.0084
+# Ωm: 0.3167 ± 0.0084
 # z_eq: 3407 ± 31
 # z*: 1089.95 ± 0.27
 # r*: 144.39 ± 0.30 Mpc
-# 100 θ*: 1.04109 ± 0.00030
+# 100 θ*: 1.04109 ± 0.00031
 # DM*: 13.869 ± 0.028 Gpc
-# z_drag: 1059.93 ± 0.30
-# r_d: 147.05 ± 0.30 Mpc
-# Chi squared: 0.0003
+# z_drag: 1059.92 ± 0.30
+# r_d: 147.06 ± 0.30 Mpc
+# Chi squared: 0.0004
 # -----------------------------
 
 
@@ -204,15 +203,15 @@ if __name__ == "__main__":
 # ωc: 0.1200 ± 0.0012
 # ωb: 0.02237 ± 0.00015
 # ωm: 0.1430 ± 0.0011
-# Ωm: 0.3153 ± 0.0073
+# Ωm: 0.3154 ± 0.0073
 # z_eq: 3402 ± 26
 # z*: 1089.92 ± 0.25
 # r*: 144.43 ± 0.26 Mpc
 # 100 θ*: 1.04110 ± 0.00031
 # DM*: 13.873 ± 0.025 Gpc
 # z_drag: 1059.94 ± 0.30
-# r_d: 147.09 ± 0.26 Mpc
-# Chi squared: 0.0004
+# r_d: 147.10 ± 0.26 Mpc
+# Chi squared: 0.0009
 # -----------------------------
 
 
@@ -223,15 +222,16 @@ if __name__ == "__main__":
 # ωc: 0.1192 ± 0.0013
 # ωb: 0.02223 ± 0.00015
 # ωm: 0.1421 ± 0.0012
-# Ωm: 0.3121 ± 0.0080
+# Ωm: 0.3120 ± 0.0080 (0.9 sigma tension with BAO)
+# h * r_d = 99.5 ± 1.0 (1.4 sigma tension with BAO)
 # z_eq: 3380 ± 29
-# z*: 1090.12 ± 0.27
+# z*: 1090.15 ± 0.27
 # r*: 144.75 ± 0.28 Mpc
 # 100 θ*: 1.04103 ± 0.00026
-# DM*: 13.905 ± 0.026 Gpc
+# DM*: 13.904 ± 0.026 Gpc
 # z_drag: 1059.65 ± 0.29
 # r_d: 147.46 ± 0.28 Mpc
-# Chi squared: 0.0002
+# Chi squared: 0.0009
 # -----------------------------
 
 
@@ -242,32 +242,33 @@ if __name__ == "__main__":
 # ωc: 0.1238 ± 0.0021
 # ωb: 0.02259 ± 0.00017
 # ωm: 0.1470 ± 0.0021
-# Ωm: 0.337 ± 0.013
+# Ωm: 0.337 ± 0.013 (2.3 sigma tension with BAO)
+# h * r_d = 96.4 ± 1.5 (2.9 sigma tension with BAO)
 # z_eq: 3499 ± 51
 # z*: 1089.96 ± 0.30
 # r*: 143.31 ± 0.54 Mpc
 # 100 θ*: 1.04075 ± 0.00031
-# DM*: 13.770 ± 0.051 Gpc
+# DM*: 13.770 ± 0.050 Gpc
 # z_drag: 1060.72 ± 0.39
-# r_d: 145.87 ± 0.56 Mpc
-# Chi squared: 0.0006
+# r_d: 145.88 ± 0.56 Mpc
+# Chi squared: 0.0008
 # -----------------------------
 
 
 # -----------------------------
 # ACT DR6 + Planck compression
 # -----------------------------
-# H0: 67.62 ± 0.50 km/s/Mpc
+# H0: 67.61 ± 0.50 km/s/Mpc
 # ωc: 0.1193 ± 0.0012
 # ωb: 0.02250 ± 0.00011
 # ωm: 0.1425 ± 0.0012
 # Ωm: 0.3117 ± 0.0071
 # z_eq: 3390 ± 28
 # z*: 1089.68 ± 0.21
-# r*: 144.53 ± 0.29 Mpc
+# r*: 144.52 ± 0.29 Mpc
 # 100 θ*: 1.04094 ± 0.00025
 # DM*: 13.884 ± 0.027 Gpc
 # z_drag: 1060.17 ± 0.23
 # r_d: 147.14 ± 0.29 Mpc
-# Chi squared: 0.0002
+# Chi squared: 0.0001
 # -----------------------------
