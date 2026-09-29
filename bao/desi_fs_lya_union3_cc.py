@@ -3,6 +3,7 @@ import numpy as np
 from scipy.constants import c as c0
 from interpolator import interp_hermite, interp_pchip
 from solve_triangular import solve_triangular
+from rdrag import r_drag
 from y2026union3_1.data import get_data
 from y2005cc.data import method, get_data as get_cc_data
 from y2025BAO.data_fs_lya import get_data as get_bao_data
@@ -66,8 +67,10 @@ bao_qty = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int32)
 
 
 @njit
-def bao_theory(z, qty, rd, dm_dh_grid):
-    inv_rd = 1 / rd
+def bao_theory(z, qty, params, dm_dh_grid):
+    Ombh2 = params[4]
+    Omh2 = params[5] * (params[3] / 100)**2
+    inv_rd = 1 / r_drag(Ombh2, Omh2)
     dm_vals = DM_z(z, dm_dh_grid)
     dh_vals = DH_z(z, dm_dh_grid)
 
@@ -113,7 +116,7 @@ def chi2_sn(params, dm_dh_grid):
 
 @njit
 def chi2_bao(params, dm_dh_grid):
-    delta_bao = bao_data["value"] - bao_theory(bao_data["z"], bao_qty, params[4], dm_dh_grid)
+    delta_bao = bao_data["value"] - bao_theory(bao_data["z"], bao_qty, params, dm_dh_grid)
     y = solve_triangular(L_bao, delta_bao)
     return np.dot(y, y)
 
@@ -132,20 +135,16 @@ def chi_squared(params, L_cc):
 
 
 method_f = method == "F"
-Om_fid = 0.3175
-z_pivot = 1.21
-params_fid = [0.0, 1.0, 0.0, 67.19, 147.0, 0.3175, 0.0]
-shape_fid = (1. + z_cc[method_f]) * H_z(z_cc[method_f], params_fid)**2
-shape_piv = (1. + z_pivot) * H_z(z_pivot, params_fid)**2
-f_shape = shape_fid / shape_piv
+z_pivot = 1.198
+shape = np.ones_like(z_cc, dtype=np.float64)
+shape[method_f] = ((1 + z_cc[method_f]) / (1 + z_pivot))**4
+# statistical error in H is proportional to (1+z) * H^2
 
 
 @njit
 def get_fz(params):
     fp, n = np.exp(params[0]), params[1]
-    fz = np.full_like(z_cc, fp)
-    fz[method_f] *= f_shape ** n
-    return fz
+    return fp * shape**n
 
 
 @njit
@@ -176,11 +175,11 @@ def main():
     # ------ CCH covariance rescaling parameters ------
     # ln(fp): CCH covariance diagonal rescaling scale
     # n: CCH covariance rescaling shape
-    # overestimated uncertainties f(z) = fp * [(1 + z) / (1 + z_pivot)]^n
+    # overestimated uncertainties f(z) = fp * [(1 + z) / (1 + z_pivot)]^4n
     # cov_total[i, i] = cov_sys[i, i] + diag_cov[i, i] * fz[i]^2
     # cov_total[i, j] = cov_sys[i, j]
     prior.add_parameter("ln_fp_cc", dist=(-2, 1))
-    prior.add_parameter("n_cc", dist=(-2, 4))
+    prior.add_parameter("n_cc", dist=(-2.5, 2.5))
 
     # ΔM: supernovae magnitude zero-point offset
     prior.add_parameter("dM", dist=(-1, 1))
@@ -188,10 +187,10 @@ def main():
     # ------ cosmological parameters ------------------
     # H0: Hubble constant at present
     prior.add_parameter("H0", dist=(45, 90))
-    # rd: sound horizon at drag epoch
-    prior.add_parameter("rd", dist=(100, 200))
+    # ombh2: baryon density parameter at present
+    prior.add_parameter("ombh2", dist=((0.0125, 0.035)))
     # Ωm: matter density parameter today
-    prior.add_parameter("Om", dist=(0.2, 0.50))
+    prior.add_parameter("om", dist=(0.2, 0.5))
     # dz_1000: (1000 x Δz) redshift offset step correction
     prior.add_parameter("dz_1000", dist=(-3.5, 3.5))
 
@@ -202,9 +201,10 @@ def main():
     samples, log_w, log_l = sampler.posterior()
     w = np.exp(log_w)
 
-    labels=["ln(f_{pivot})", "n", "ΔM", "H_0", "r_{drag}", "Ω_m", "1000 Δz"]
+    labels=["ln(f_{pivot})", "n", "ΔM", "H_0", "Ω_b h^2", "Ω_m", "1000 Δz"]
     gd_samples = MCSamples(samples=samples, weights=w, names=prior.keys, labels=labels)
-    gd_samples.addDerived(gd_samples["Om"] * (gd_samples["H0"] / 100) ** 2, name="Omh2", label="Ω_m h^2")
+    gd_samples.addDerived(gd_samples["om"] * (gd_samples["H0"] / 100) ** 2, name="omh2", label="Ω_m h^2")
+    gd_samples.addDerived(r_drag(gd_samples["ombh2"], gd_samples["omh2"]), name="rd", label="r_{drag}")
     gd_samples.addDerived(np.exp(gd_samples["ln_fp_cc"]), name="fp_cc", label="f_{pivot}")
     gd_samples.updateBaseStatistics()
 
@@ -224,7 +224,7 @@ def main():
 
     plots.get_subplot_plotter().triangle_plot(
         roots=gd_samples,
-        params=["H0", "Om", "rd", "dz_1000", "ln_fp_cc", "n_cc"],
+        params=["H0", "om", "ombh2", "dz_1000", "ln_fp_cc", "n_cc"],
         title_limit=1,
         color=["C0"],
         contour_colors=["C0"],
@@ -234,7 +234,7 @@ def main():
 
     dm_dh_grid = DM_DH_grid(best_fit)
     plot_bao_predictions(
-        theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit[4], dm_dh_grid),
+        theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit, dm_dh_grid),
         data=bao_data,
         errors=np.sqrt(np.diag(cov_matrix_bao)),
         title=bao_legend,
@@ -272,8 +272,8 @@ if __name__ == "__main__":
 
 
 # ----------------- Priors ------------------
-# ln(fp):   U[-1.5, 0.5]
-# n_cc:     U[-2, 4]
+# ln(fp):   U[-2, 1]
+# n_cc:     U[-2.5, 2.5]
 # ΔM:       U[-1, 1]
 # H0:       U[45, 90]
 # rd:       U[100, 200]
@@ -284,8 +284,8 @@ if __name__ == "__main__":
 #
 # w0waCDM:
 # w0:       U[-2, 0]
-# wa:       U[-4, 4]
-# Enforced w0 + wa < -1/3
+# wa:       U[-4, 2]
+# Enforced w0 + wa < 0
 #
 # Redshift offset step correction for SNe:
 # dz_1000:  U[-3.5, 3.5] (1000 x Δz)
@@ -293,19 +293,20 @@ if __name__ == "__main__":
 
 
 # --------------- Flat ΛCDM -----------------
-# H0 = 69.6 ± 1.4 km/s/Mpc
-# Ωm = 0.3054 ± 0.0073
+# H0 = 69.7 ± 1.4 km/s/Mpc
+# Ωm = 0.3053 ± 0.0073
 # Ωm h^2 = 0.1482 ± 0.0062
-# rd = 144.9 ± 2.9 Mpc
+# Ωb h^2 = 0.0236 ± 0.0018
+# rd = 144.7 ± 2.8 Mpc
 #
-# ΔM = -0.008 ± 0.042 mag
-# n = 1.23 +0.36 -0.63
+# ΔM = -0.005 ± 0.042 mag
+# n = 1.03 +0.31 -0.54
 # ln(fp) = -0.41 ± 0.25
-# fp = 0.68 +0.13 -0.19
+# fp = 0.69 +0.13 -0.19
 #
-# Chi2 (MAP): 81.34
-# log likelihood (MAP): -172.22
-# Log evidence: -190.74
+# Chi2 (MAP): 79.86
+# log likelihood (MAP): -172.18
+# Log evidence: -188.95
 # DOF: 69
 # -------------------------------------------
 
@@ -318,55 +319,58 @@ if __name__ == "__main__":
 # 1000 Δz = 1.10 ± 0.40
 # H0 = 69.8 ± 1.4 km/s/Mpc
 # Ωm = 0.3021 ± 0.0073
-# Ωm h^2 = 0.1470 ± 0.0062
-# rd = 145.0 ± 2.9 Mpc
+# Ωm h^2 = 0.1473 ± 0.0062
+# Ωb h^2 = 0.0238 ± 0.0018
+# rd = 144.9 ± 2.8 Mpc
 #
-# ΔM = -0.0097 ± 0.042 mag
-# n = 1.23 +0.36 -0.64
+# ΔM = -0.007 ± 0.042 mag
+# n = 1.03 +0.31 -0.55
 # ln(fp) = -0.41 ± 0.25
 # fp = 0.68 +0.13 -0.19
 #
-# Chi2 (MAP): 74.11
-# log likelihood (MAP): -168.41
-# Log evidence: -188.86
+# Chi2 (MAP): 73.47
+# log likelihood (MAP): -168.34
+# Log evidence: -187.05
 # DOF: 68
 # -------------------------------------------
 
 
 # --------------- Flat wCDM -----------------
-# w0 = -0.929 ± 0.046
-# H0 = 68.8 ± 1.4 km/s/Mpc
-# Ωm = 0.3043 ± 0.0075
-# Ωm h^2 = 0.1442 ± 0.0066
-# rd = 144.7 ± 2.8 Mpc
+# w0 = -0.928 ± 0.046
+# H0 = 68.9 ± 1.4 km/s/Mpc
+# Ωm = 0.3043 ± 0.0074
+# Ωm h^2 = 0.1445 ± 0.0066
+# Ωb h^2 = 0.0252 ± 0.0022
+# rd = 144.5 ± 2.8 Mpc
 #
-# ΔM = -0.012 ± 0.042 mag
-# n = 1.22 +0.36 -0.61
-# ln(fp) = -0.41 ± 0.25
+# ΔM = -0.009 ± 0.042 mag
+# n = 1.01 +0.31 -0.52
+# ln(fp) = -0.40 ± 0.25
 # fp = 0.69 +0.13 -0.19
 #
-# Chi2 (MAP): 78.30
-# log likelihood (MAP): -171.03
-# Log evidence: -191.71
+# Chi2 (MAP): 80.06
+# log likelihood (MAP): -170.98
+# Log evidence: -189.87
 # DOF: 68
 # -------------------------------------------
 
 
 # -------------- Flat w0waCDM ---------------
 # w0 = -0.77 ± 0.10
-# wa = -0.93 ± 0.51
-# H0 = 67.9 ± 1.5 km/s/Mpc
+# wa = -0.91 ± 0.52
+# H0 = 68.0 ± 1.5 km/s/Mpc
 # Ωm = 0.328 +0.015 -0.012
-# Ωm h^2 = 0.1512 ± 0.0072
-# rd = 145.0 ± 2.9 Mpc
+# Ωm h^2 = 0.1513 ± 0.0074
+# Ωb h^2 = 0.0227 +0.0019 -0.0024
+# rd = 144.9 ± 2.8 Mpc
 #
-# ΔM = -0.015 ± 0.042 mag
-# n = 1.26 +0.36 -0.64
-# ln(fp) = -0.40 ± 0.25
-# fp = 0.69 +0.13 -0.19
+# ΔM = -0.013 ± 0.042 mag
+# n = 1.05 +0.31 -0.54
+# ln(fp) = -0.39 ± 0.25
+# fp = 0.70 +0.13 -0.20
 #
-# Chi2 (MAP): 75.27
-# log likelihood (MAP): -169.33
-# Log evidence: -192.58
+# Chi2 (MAP): 74.94
+# log likelihood (MAP): -169.30
+# Log evidence: -190.50 + 0.18 = -190.32
 # DOF: 67
 # -------------------------------------------
