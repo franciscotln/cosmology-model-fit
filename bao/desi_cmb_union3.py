@@ -40,8 +40,9 @@ dz = z_grid[1] - z_grid[0]
 
 @njit
 def Ode_z(z, w0, wa):
-    # w0waCDM
-    return (1. + z)**(3 * (1. + w0 + wa)) * np.exp(-3 * wa * z / (1. + z))
+    # w1w2CDM
+    zp1 = 1. + z
+    return zp1**(3 * (1. + w0 + wa)) * ((zp1**2 + 1) / (2 * zp1**2))**(3 * wa)
 
 
 @njit
@@ -181,25 +182,11 @@ def main():
 
     labels=["ΔM", "H_0", "ω_b", "ω_c", "1000 Δz"]
     gd_samples = MCSamples(samples=samples, weights=np.exp(log_w), names=prior.keys, labels=labels)
-    gd_samples.addDerived(
-        gd_samples["obh2"] + gd_samples["och2"] + Omnuh2, name="omh2", label="ω_m"
-    )
-    gd_samples.addDerived(
-        gd_samples["omh2"] / (gd_samples["H0"] / 100) ** 2, name="om", label="Ω_m"
-    )
-    gd_samples.addDerived(
-        cmb.z_star(gd_samples["obh2"], gd_samples["omh2"]), name="zstar", label="z_*"
-    )
-    gd_samples.addDerived(
-        cmb.z_drag(gd_samples["obh2"], gd_samples["omh2"]),
-        name="zdrag",
-        label="z_{drag}",
-    )
-    gd_samples.addDerived(
-        cmb.r_drag(gd_samples["obh2"], gd_samples["omh2"]),
-        name="rdrag",
-        label="r_{drag}",
-    )
+    gd_samples.addDerived(gd_samples["obh2"] + gd_samples["och2"] + Omnuh2, name="omh2", label="ω_m")
+    gd_samples.addDerived(gd_samples["omh2"] / (gd_samples["H0"] / 100) ** 2, name="om", label="Ω_m")
+    gd_samples.addDerived(cmb.z_star(gd_samples["obh2"], gd_samples["omh2"]), name="zstar", label="z_*")
+    gd_samples.addDerived(cmb.z_drag(gd_samples["obh2"], gd_samples["omh2"]), name="zdrag", label="z_d")
+    gd_samples.addDerived(cmb.r_drag(gd_samples["obh2"], gd_samples["omh2"]), name="rdrag", label="r_d")
     gd_samples.updateBaseStatistics()
 
     for name in gd_samples.getParamNames().names:
@@ -345,4 +332,27 @@ if __name__ == "__main__":
 # χ2 (MAP): 52.45
 # Log evidence: 46.4 (Δ logZ = -2.3 in favour of ΛCDM)
 # DOF: 36
+# ---------------------------------
+
+
+# ----------- Flat w1w2CDM --------
+# Enforced w1 + w2 < 0 in the likelihood
+# (+0.2 to evidence from excluded volume)
+#
+# w(z) = w1 + w2 * ((1 + z)^2 - 1) / ((1 + z)^2 + 1)
+#
+# H0 = 66.91 ± 0.78 km/s/Mpc
+# ωb = 0.022412 ± 0.000093
+# ωc = 0.11975 ± 0.00081
+# w1 = -0.771 ± 0.077
+# w2 = -0.71 +0.24 -0.21
+# ωm = 0.14281 ± 0.00079
+# Ωm = 0.3191 ± 0.0077
+# z* = 1088.73 ± 0.13
+# z_d = 1059.94 ± 0.20
+# r_d = 147.12 ± 0.21 Mpc
+# ΔM = -0.048 ± 0.011 mag
+# χ2 (MAP): 41.12
+# Log evidence: 49.7 + 0.2 (Δ logZ = 1.2 in favour of w1w2CDM)
+# DOF: 35
 # ---------------------------------
