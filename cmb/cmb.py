@@ -83,8 +83,8 @@ def main():
 
     ndim = len(bounds)
     nwalkers = 200
-    burn_in = 1000
-    nsteps = 5000 + burn_in
+    burn_in = 2000
+    nsteps = 8000 + burn_in
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
     moves = [(emcee.moves.KDEMove(), 0.20), (emcee.moves.DEMove(), 0.80)]
@@ -164,16 +164,16 @@ if __name__ == "__main__":
 # ωb = 0.022399 ± 0.000094
 # ωc = 0.12027 ± 0.00094
 # 100 θ* = 1.04161 ± 0.00023
-# r* = 144.45 ± 0.23 Mpc
-# DM* = 13.868 ± 0.022 Gpc
-# z* = 1088.78 ± 0.14
-# ωm = 0.14332 ± 0.00092
-# Ωm = 0.3175 ± 0.0056 (1.7 sigma tension with BAO)
+# r_rec = 144.45 ± 0.23 Mpc
+# DM_rec = 13.868 ± 0.022 Gpc
+# z_rec = 1088.77 ± 0.13
+# ωm = 0.14332 ± 0.00091
+# Ωm = 0.3175 ± 0.0055 (1.7 sigma tension with BAO)
 # h * r_d = 98.76 ± 0.69 (2.5 sigma tension with BAO)
-# z_drag = 1059.95 ± 0.21
+# z_drag = 1060.01 ± 0.21
 # r_d = 147.00 ± 0.24 Mpc
 # z_eq = 3410 ± 22
-# Chi squared: 0.0004
+# Chi squared: 0.0002
 # -----------------------------
 
 
@@ -218,7 +218,7 @@ if __name__ == "__main__":
 # -----------------------------
 # Early ΛCDM (arXiv:2302.12911v2)
 # -----------------------------
-# H0: 67.49 ± 0.59 km/s/Mpc
+# H0: 67.49 ± 0.58 km/s/Mpc
 # ωc: 0.1192 ± 0.0013
 # ωb: 0.02223 ± 0.00015
 # ωm: 0.1421 ± 0.0012
@@ -226,12 +226,12 @@ if __name__ == "__main__":
 # h * r_d = 99.5 ± 1.0 (1.4 sigma tension with BAO)
 # z_eq: 3380 ± 29
 # z*: 1090.15 ± 0.27
-# r*: 144.75 ± 0.28 Mpc
+# r*: 144.74 ± 0.28 Mpc
 # 100 θ*: 1.04103 ± 0.00026
 # DM*: 13.904 ± 0.026 Gpc
-# z_drag: 1059.65 ± 0.29
-# r_d: 147.46 ± 0.28 Mpc
-# Chi squared: 0.0009
+# z_drag: 1059.55 ± 0.29
+# r_d: 147.47 ± 0.28 Mpc
+# Chi squared: 0.0004
 # -----------------------------
 
 

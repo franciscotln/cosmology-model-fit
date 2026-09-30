@@ -25,10 +25,9 @@ dz = z_grid[1] - z_grid[0]
 
 @njit
 def Ode_z(z, w0, wa):
-    zp1 = 1.0 + z
-    # return 1  # ΛCDM
-    # return zp1 ** (3 * (1 + w0))  # wCDM
-    return zp1 ** (3 * (1 + w0 + wa)) * np.exp(-3 * wa * z / zp1)  # w0waCDM
+    # w1w2CDM
+    zp1 = 1. + z
+    return zp1**(3 * (1. + w0 + wa)) * ((zp1**2 + 1) / (2 * zp1**2))**(3 * wa)
 
 
 @njit
@@ -46,7 +45,7 @@ def H_z(z, params):
     radiation_term = Or * zp1**4
     matter_term = Obc * zp1**3
     neutrino_term = Onu * cmb.Omnu_z(z)
-    dark_energy_term = Ode
+    dark_energy_term = Ode * Ode_z(z, params[4], params[5])
 
     return H0 * np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
 
@@ -100,12 +99,14 @@ def bao_theory(z, qty, params, DM_interp):
 
 @njit
 def get_z_cosmo(dz_1000):
+    return z_cmb
     # Heaviside step at z = 0.10563
-    z_offset = 1e-03 * dz_1000 * np.where(z_cmb <= 0.10563, 1, -1)
-    return z_cmb + z_offset
+    # z_offset = 1e-03 * dz_1000 * np.where(z_cmb <= 0.10563, 1, -1)
+    # return z_cmb + z_offset
 
 
 def mu_corr(dz_1000, dm_interp):
+    return 0.0
     # For plotting purposes only
     z_cosmo = get_z_cosmo(dz_1000)
     DM_cosmo = interp_hermite(z_cosmo, z_grid, *dm_interp)
@@ -148,6 +149,8 @@ def chi_squared(params):
 
 
 def log_likelihood(params):
+    if params[4] + params[5] >= 0:
+        return -1e10
     return -0.5 * chi_squared(params)
 
 
@@ -164,16 +167,15 @@ def main():
     prior.add_parameter("H0", dist=(60.0, 75.0))
     prior.add_parameter("obh2", dist=(0.010, 0.030))
     prior.add_parameter("och2", dist=(0.01, 0.25))
-    prior.add_parameter("dz_1000", dist=(-1.5, 1.5))
+    prior.add_parameter("dz_1000", dist=(-1.5, 0.0))
+    prior.add_parameter("wa", dist=(-2.5, 1.5))
 
     with Pool(6) as pool:
-        sampler = Sampler(
-            prior, log_likelihood, n_live=6_000, pool=pool, seed=42, pass_dict=False
-        )
+        sampler = Sampler(prior, log_likelihood, n_live=6_000, pool=pool, seed=42, pass_dict=False)
         sampler.run(verbose=True)
 
     samples, log_w, log_l = sampler.posterior()
-    labels=["ΔM", "H_0", "ω_b", "ω_c", "1000 Δz"]
+    labels=["ΔM", "H_0", "ω_b", "ω_c", "1000 Δz", "w_a"]
     gd_samples = MCSamples(samples=samples, weights=np.exp(log_w), names=prior.keys, labels=labels)
     gd_samples.addDerived(
         gd_samples["obh2"] + gd_samples["och2"] + Omnuh2, name="omh2", label="ω_m"
@@ -199,7 +201,7 @@ def main():
     for name in gd_samples.getParamNames().names:
         print(gd_samples.getInlineLatex(name, limit=1))
 
-    plot_params = ["H0", "om", "rdrag", "dz_1000"]
+    plot_params = ["H0", "om", "rdrag", "dz_1000", "wa"]
     plots.get_subplot_plotter().triangle_plot(
         gd_samples, params=plot_params, title_limit=1, contour_colors=["C0"]
     )
@@ -317,4 +319,27 @@ if __name__ == "__main__":
 # χ2 (MAP): 1643.76 (3.1 sigma significance)
 # Log evidence: -845.5 + 0.2 (Δ logZ = 1.1 in favour of w0waCDM)
 # Degrees of freedom: 1725
+# ---------------------------------
+
+
+# ----------- Flat w1w2CDM --------
+# Enforced w1 + w2 < 0 in the likelihood
+# (+0.2 to evidence from excluded volume)
+#
+# w(z) = w1 + w2 * ((1 + z)^2 - 1) / ((1 + z)^2 + 1)
+#
+# H0 = 67.39 ± 0.54 km/s/Mpc
+# ωb = 0.022415 ± 0.000093
+# ωc = 0.11969 ± 0.00080
+# w1 = -0.826 ± 0.053 (prior ~ U[-1.5, 0.0])
+# w2 = -0.58 +0.19 -0.17 (prior ~ U[-2.5, 1.5])
+# ωm = 0.14275 ± 0.00078
+# Ωm = 0.3144 ± 0.0053
+# z* = 1088.72 ± 0.13
+# z_d = 1059.94 ± 0.20
+# r_d = 147.13 ± 0.21 Mpc
+# ΔM = -0.057 ± 0.012 mag
+# χ2 (MAP): 1643.80
+# Log evidence: -845.7 + 0.2 (Δ logZ = 0.9 in favour of w1w2CDM)
+# DOF: 1725
 # ---------------------------------

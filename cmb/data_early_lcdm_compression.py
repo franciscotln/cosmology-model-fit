@@ -10,16 +10,14 @@ import nu_evolution as neutrino
 
 c = c0 / 1000  # km/s
 
-DISTANCE_PRIORS = np.array([0.010410274, 0.02223, 0.14208])
-"""Compressed early-LCDM priors: (θ*, ωb, ωm)"""
+DISTANCE_PRIORS = np.array([1.04102739, 0.02223208, 0.14207901])
+"""Compressed early-LCDM priors: (100 θ*, ωb, ωm)"""
 
-covariance = 1e-9 * np.array(
-    [
-        [0.00662099420, 0.124442058, -1.19287532],
-        [0.124442058, 21.3441666, -94.0008323],
-        [-1.19287532, -94.0008323, 1488.41714],
-    ]
-)
+covariance = np.array([
+    [6.62099420e-08, 1.24442058e-08, -1.19287532e-07],
+    [1.24442058e-08, 2.13441666e-08, -9.40008323e-08],
+    [-1.19287532e-07, -9.40008323e-08, 1.48841714e-06],
+])
 inv_cov_mat = np.linalg.inv(covariance)
 
 k_B = 8.617333262e-5  # eV/K
@@ -125,7 +123,7 @@ def r_drag(wb, wm):
 @njit
 def z_drag(wb, wm):
     """arXiv:2106.00428v2 (eq A2)"""
-    s1, s2, b, m = (1.00329735, 0.99968141, 1.00232108, 0.9893333)
+    s1, s2, b, m = (1.00656571, 0.99947146, 1.00764268, 0.96758982)
 
     wb = wb**b
     wm = wm**m
@@ -161,7 +159,7 @@ def DM_z(z_lim, params):
     half_width = z_lim / 2.0
     midpoint = z_lim / 2.0
 
-    integral = np.zeros_like(z_lim)
+    integral = np.zeros_like(z_lim, dtype=np.float64)
     for i in range(N_legendre):
         z_eval = half_width * GL_X[i] + midpoint
         integral += GL_W[i] * _DM_integ(z_eval, params)
@@ -186,7 +184,7 @@ def rs_z(z_lim, Obh2, params):
     half_width = a_lim / 2.0
     midpoint = a_lim / 2.0
 
-    integral = np.zeros_like(z_lim)
+    integral = np.zeros_like(z_lim, dtype=np.float64)
     for i in range(N_legendre):
         a_eval = half_width * GL_X[i] + midpoint
         integral += GL_W[i] * _rs_integ_a(a_eval, Obh2, params)
@@ -197,11 +195,11 @@ def rs_z(z_lim, Obh2, params):
 @njit
 def cmb_distances(Ob_h2, Oc_h2, params):
     """
-    returns (θ*, ωb, ωm)
+    returns (100 θ*, ωb, ωm)
     """
     Om_h2 = Oc_h2 + Ob_h2 + Omnu_h2
     zstar = z_star(Ob_h2, Om_h2)
     rs_star = rs_z(zstar, Ob_h2, params)
     DM_star = DM_z(zstar, params)
     thetastar = rs_star / DM_star
-    return np.array([thetastar, Ob_h2, Om_h2])
+    return np.array([100 * thetastar, Ob_h2, Om_h2])

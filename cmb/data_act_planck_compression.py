@@ -164,7 +164,7 @@ def DM_z(z_lim, params):
     half_width = z_lim / 2.0
     midpoint = z_lim / 2.0
 
-    integral = np.zeros_like(z_lim)
+    integral = np.zeros_like(z_lim, dtype=np.float64)
     for i in range(N_legendre):
         z_eval = half_width * GL_X[i] + midpoint
         integral += GL_W[i] * _DM_integ(z_eval, params)
@@ -189,7 +189,7 @@ def rs_z(z_lim, Obh2, params):
     half_width = a_lim / 2.0
     midpoint = a_lim / 2.0
 
-    integral = np.zeros_like(z_lim)
+    integral = np.zeros_like(z_lim, dtype=np.float64)
     for i in range(N_legendre):
         a_eval = half_width * GL_X[i] + midpoint
         integral += GL_W[i] * _rs_integ_a(a_eval, Obh2, params)

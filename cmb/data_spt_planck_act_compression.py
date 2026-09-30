@@ -86,9 +86,10 @@ def w_nu_z(z):
 
 @njit
 def z_star(wb, wm):
+    # for SPA this is actually z_rec
     """arXiv:2106.00428v2 (eq A-4)"""
 
-    s1, s2, b, m = (0.81882113, 1.00618486, 0.97099516, 0.97790695)
+    s1, s2, b, m = (1.01659306, 0.99938819, 1.00488811, 1.01260252)
     wb = wb**b
     wm = wm**m
 
@@ -128,7 +129,7 @@ def r_drag(wb, wm):
 def z_drag(wb, wm):
     """arXiv:2106.00428v2 (eq A2)"""
 
-    s1, s2, b, m = (1.0029462673, 1.00922437765, 1.0657521829, 0.8501788410)
+    s1, s2, b, m = (1.0003704, 0.99986385, 0.99926332, 1.00361697)
 
     wb = wb**b
     wm = wm**m
@@ -164,7 +165,7 @@ def DM_z(z_lim, params):
     half_width = z_lim / 2.0
     midpoint = z_lim / 2.0
 
-    integral = np.zeros_like(z_lim)
+    integral = np.zeros_like(z_lim, dtype=np.float64)
     for i in range(N_legendre):
         z_eval = half_width * GL_X[i] + midpoint
         integral += GL_W[i] * _DM_integ(z_eval, params)
@@ -189,7 +190,7 @@ def rs_z(z_lim, Obh2, params):
     half_width = a_lim / 2.0
     midpoint = a_lim / 2.0
 
-    integral = np.zeros_like(z_lim)
+    integral = np.zeros_like(z_lim, dtype=np.float64)
     for i in range(N_legendre):
         a_eval = half_width * GL_X[i] + midpoint
         integral += GL_W[i] * _rs_integ_a(a_eval, Obh2, params)
