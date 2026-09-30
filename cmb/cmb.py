@@ -25,6 +25,25 @@ def Hz(z, params):
     return H0 * np.sqrt(radiation + cd_matter + neutrino + dark_energy)
 
 
+@njit
+def age_Gyr(params):
+    integral = 0.0
+    for i in range(cmb.N_legendre):
+        a = 0.5 * (cmb.GL_X[i] + 1.0)
+        z = 1.0 / a - 1.0
+        integral += cmb.GL_W[i] / (a * Hz(z, params))
+    return 0.5 * integral * 977.813
+
+
+@njit
+def age_samples(H0_samples, Obh2_samples, Och2_samples):
+    ages = np.empty(H0_samples.size, dtype=np.float64)
+    for i in range(H0_samples.size):
+        params = [H0_samples[i], Obh2_samples[i], Och2_samples[i]]
+        ages[i] = age_Gyr(params)
+    return ages
+
+
 cmb.set_HZ(Hz)
 
 bounds = np.array(
@@ -126,13 +145,18 @@ def main():
         name="zeq",
         label=r"z_{eq}",
     )
+    samples.addDerived(
+        age_samples(samples["H0"], samples["ombh2"], samples["omch2"]),
+        name="age",
+        label=r"t_0\,[\mathrm{Gyr}]",
+    )
     samples.updateBaseStatistics()
 
     for name in samples.getParamNames().names:
         print(samples.getInlineLatex(name, limit=1))
 
     g = plots.getSubplotPlotter()
-    params = ["thetastar", "H0", "omegam", "DAstar", "rstar", "zstar", "zdrag", "rdrag"]
+    params = ["thetastar", "H0", "omegam", "DAstar", "rstar", "rdrag"]
     g.triangle_plot(
         samples,
         params=params,
@@ -181,17 +205,18 @@ if __name__ == "__main__":
 # plikHM TT, TE, EE + lowl + lowE compression (Planck 2019 - PR3)
 # -----------------------------
 # H0: 67.26 ± 0.60 km/s/Mpc
-# ωc: 0.1202 ± 0.0014
 # ωb: 0.02236 ± 0.00015
-# ωm: 0.1432 ± 0.0013
-# Ωm: 0.3167 ± 0.0084
-# z_eq: 3407 ± 31
-# z*: 1089.95 ± 0.27
-# r*: 144.39 ± 0.30 Mpc
+# ωc: 0.1202 ± 0.0014
 # 100 θ*: 1.04109 ± 0.00031
+# r*: 144.39 ± 0.30 Mpc
 # DM*: 13.869 ± 0.028 Gpc
-# z_drag: 1059.92 ± 0.30
+# z*: 1089.95 ± 0.27
+# ωm: 0.1432 ± 0.0013
+# Ωm: 0.3166 ± 0.0084
+# z_drag: 1059.93 ± 0.30
 # r_d: 147.06 ± 0.30 Mpc
+# z_eq: 3407 ± 31
+# Age: 13.801 ± 0.024 Gyr
 # Chi squared: 0.0004
 # -----------------------------
 
@@ -211,7 +236,8 @@ if __name__ == "__main__":
 # DM*: 13.873 ± 0.025 Gpc
 # z_drag: 1059.94 ± 0.30
 # r_d: 147.10 ± 0.26 Mpc
-# Chi squared: 0.0009
+# Age: 13.798 ± 0.023 Gyr
+# Chi squared: 0.0004
 # -----------------------------
 
 
@@ -251,6 +277,7 @@ if __name__ == "__main__":
 # DM*: 13.770 ± 0.050 Gpc
 # z_drag: 1060.72 ± 0.39
 # r_d: 145.88 ± 0.56 Mpc
+# Age: 13.790 ± 0.018 Gyr
 # Chi squared: 0.0008
 # -----------------------------
 
@@ -270,5 +297,6 @@ if __name__ == "__main__":
 # DM*: 13.884 ± 0.027 Gpc
 # z_drag: 1060.17 ± 0.23
 # r_d: 147.14 ± 0.29 Mpc
+# Age: 13.802 ± 0.023 Gyr
 # Chi squared: 0.0001
 # -----------------------------
