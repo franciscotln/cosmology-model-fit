@@ -45,7 +45,7 @@ def H_z(z, params):
     radiation_term = Or * zp1**4
     matter_term = Obc * zp1**3
     neutrino_term = Onu * cmb.Omnu_z(z)
-    dark_energy_term = Ode * Ode_z(z, params[4], params[5])
+    dark_energy_term = Ode
 
     return H0 * np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
 
@@ -99,14 +99,12 @@ def bao_theory(z, qty, params, DM_interp):
 
 @njit
 def get_z_cosmo(dz_1000):
-    return z_cmb
     # Heaviside step at z = 0.10563
-    # z_offset = 1e-03 * dz_1000 * np.where(z_cmb <= 0.10563, 1, -1)
-    # return z_cmb + z_offset
+    z_offset = 1e-03 * dz_1000 * np.where(z_cmb <= 0.10563, 1, -1)
+    return z_cmb + z_offset
 
 
 def mu_corr(dz_1000, dm_interp):
-    return 0.0
     # For plotting purposes only
     z_cosmo = get_z_cosmo(dz_1000)
     DM_cosmo = interp_hermite(z_cosmo, z_grid, *dm_interp)
@@ -149,8 +147,6 @@ def chi_squared(params):
 
 
 def log_likelihood(params):
-    if params[4] + params[5] >= 0:
-        return -1e10
     return -0.5 * chi_squared(params)
 
 
@@ -167,15 +163,14 @@ def main():
     prior.add_parameter("H0", dist=(60.0, 75.0))
     prior.add_parameter("obh2", dist=(0.010, 0.030))
     prior.add_parameter("och2", dist=(0.01, 0.25))
-    prior.add_parameter("dz_1000", dist=(-1.5, 0.0))
-    prior.add_parameter("wa", dist=(-2.5, 1.5))
+    prior.add_parameter("dz_1000", dist=(-1.5, 1.5))
 
     with Pool(6) as pool:
         sampler = Sampler(prior, log_likelihood, n_live=6_000, pool=pool, seed=42, pass_dict=False)
         sampler.run(verbose=True)
 
     samples, log_w, log_l = sampler.posterior()
-    labels=["ΔM", "H_0", "ω_b", "ω_c", "1000 Δz", "w_a"]
+    labels=["ΔM", "H_0", "ω_b", "ω_c", "1000 Δz"]
     gd_samples = MCSamples(samples=samples, weights=np.exp(log_w), names=prior.keys, labels=labels)
     gd_samples.addDerived(
         gd_samples["obh2"] + gd_samples["och2"] + Omnuh2, name="omh2", label="ω_m"
@@ -201,7 +196,7 @@ def main():
     for name in gd_samples.getParamNames().names:
         print(gd_samples.getInlineLatex(name, limit=1))
 
-    plot_params = ["H0", "om", "rdrag", "dz_1000", "wa"]
+    plot_params = ["H0", "om", "rdrag", "dz_1000"]
     plots.get_subplot_plotter().triangle_plot(
         gd_samples, params=plot_params, title_limit=1, contour_colors=["C0"]
     )
@@ -267,17 +262,17 @@ if __name__ == "__main__":
 # turning point z <= 0.10563 positive z > 0.10563 negative
 # z_cosmo = z_cmb ± Δz
 
-# 1000 Δz = 0.52 ± 0.20 (prior ~ U[-1.5, 1.5])
+# 1000 Δz = 0.52 ± 0.19 (prior ~ U[-1.5, 1.5])
 # H0 = 68.06 ± 0.24 km/s/Mpc
 # Ωm = 0.3050 ± 0.0033
-# ωb = 0.022469 ± 0.000091
+# ωb = 0.022474 ± 0.000091
 # ωc = 0.11816 ± 0.00059
-# ωm = 0.14127 ± 0.00058
+# ωm = 0.14127 ± 0.00059
 # z* = 1088.55 ± 0.11
-# z_d = 1059.95 ± 0.20
-# r_d = 147.48 ± 0.17 Mpc
-# ΔM = -0.0716 ± 0.0074 mag
-# χ2 (MAP): 1648.88 (2.7 sigma significance)
+# z_d = 1060.02 ± 0.21
+# r_d = 147.47 ± 0.17 Mpc
+# ΔM = -0.0714 ± 0.0074 mag
+# χ2 (MAP): 1648.95 (2.7 sigma significance)
 # Log evidence: -844.7 (Δ logZ = 1.7 in favour of z offset step correction)
 # Degrees of freedom: 1726
 # ---------------------------------
