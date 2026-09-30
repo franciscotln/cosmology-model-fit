@@ -143,55 +143,41 @@ def set_HZ(Hz_fun):
     _HZ_FUNC = Hz_fun
 
 
-# Pre-compute a 100-point Gauss-Legendre
-GL_X, GL_W = np.polynomial.legendre.leggauss(100)
-N_legendre = len(GL_X)
+N_DM = 32
+N_RS = 16
+GL_X_DM, GL_W_DM = np.polynomial.legendre.leggauss(N_DM)
+GL_X_RS, GL_W_RS = np.polynomial.legendre.leggauss(N_RS)
+# change integration variable
+# a = u^2, da = 2 * u * du
 
 
 @njit
-def _DM_integ(z, params):
-    """The integrand for the comoving distance."""
-    return c / _HZ_FUNC(z, params)
+def _integ_u(u, params):
+    # u = sqrt(a): constant in matter era, ~linear in radiation era
+    z = 1.0 / (u * u) - 1.0
+    return 2.0 * c / (u**3 * _HZ_FUNC(z, params))
 
 
 @njit
 def DM_z(z_lim, params):
-    """Gauss-Legendre integration for DM from 0 to z_lim."""
-    # Map from [-1, 1] to [0, z_lim]
-    half_width = z_lim / 2.0
-    midpoint = z_lim / 2.0
-
-    integral = np.zeros_like(z_lim, dtype=np.float64)
-    for i in range(N_legendre):
-        z_eval = half_width * GL_X[i] + midpoint
-        integral += GL_W[i] * _DM_integ(z_eval, params)
-
-    return half_width * integral
-
-
-@njit
-def _rs_integ_a(a, Obh2, params):
-    """The integrand for the sound horizon, written in terms of scale factor 'a'."""
-    z = (1.0 / a) - 1.0
-    Rb = (3.0 / 4.0) * (Obh2 / O_GAMMA_H2) * a
-    return c / (a**2 * _HZ_FUNC(z, params) * np.sqrt(3.0 * (1.0 + Rb)))
+    u_lo = 1.0 / np.sqrt(1.0 + z_lim)
+    half = 0.5 * (1.0 - u_lo)
+    mid = 0.5 * (1.0 + u_lo)
+    s = 0.0
+    for i in range(N_DM):
+        s += GL_W_DM[i] * _integ_u(half * GL_X_DM[i] + mid, params)
+    return half * s
 
 
 @njit
 def rs_z(z_lim, Obh2, params):
-    """Gauss-Legendre integration for rs from a=0 to a=1/(1+z_lim)."""
-    a_lim = 1.0 / (1.0 + z_lim)
-
-    # Map from [-1, 1] to [0, a_lim]
-    half_width = a_lim / 2.0
-    midpoint = a_lim / 2.0
-
-    integral = np.zeros_like(z_lim, dtype=np.float64)
-    for i in range(N_legendre):
-        a_eval = half_width * GL_X[i] + midpoint
-        integral += GL_W[i] * _rs_integ_a(a_eval, Obh2, params)
-
-    return half_width * integral
+    half = 0.5 / np.sqrt(1.0 + z_lim)
+    k = 0.75 * Obh2 / O_GAMMA_H2
+    s = 0.0
+    for i in range(N_RS):
+        u = half * (GL_X_RS[i] + 1.0)
+        s += GL_W_RS[i] * _integ_u(u, params) / np.sqrt(3.0 * (1.0 + k * u * u))
+    return half * s
 
 
 @njit

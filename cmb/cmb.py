@@ -25,25 +25,6 @@ def Hz(z, params):
     return H0 * np.sqrt(radiation + cd_matter + neutrino + dark_energy)
 
 
-@njit
-def age_Gyr(params):
-    integral = 0.0
-    for i in range(cmb.N_legendre):
-        a = 0.5 * (cmb.GL_X[i] + 1.0)
-        z = 1.0 / a - 1.0
-        integral += cmb.GL_W[i] / (a * Hz(z, params))
-    return 0.5 * integral * 977.813
-
-
-@njit
-def age_samples(H0_samples, Obh2_samples, Och2_samples):
-    ages = np.empty(H0_samples.size, dtype=np.float64)
-    for i in range(H0_samples.size):
-        params = [H0_samples[i], Obh2_samples[i], Och2_samples[i]]
-        ages[i] = age_Gyr(params)
-    return ages
-
-
 cmb.set_HZ(Hz)
 
 bounds = np.array(
@@ -145,11 +126,6 @@ def main():
         name="zeq",
         label=r"z_{eq}",
     )
-    samples.addDerived(
-        age_samples(samples["H0"], samples["ombh2"], samples["omch2"]),
-        name="age",
-        label=r"t_0\,[\mathrm{Gyr}]",
-    )
     samples.updateBaseStatistics()
 
     for name in samples.getParamNames().names:
@@ -191,23 +167,23 @@ if __name__ == "__main__":
 # r_rec = 144.45 ± 0.23 Mpc
 # DM_rec = 13.868 ± 0.022 Gpc
 # z_rec = 1088.77 ± 0.13
-# ωm = 0.14332 ± 0.00091
-# Ωm = 0.3175 ± 0.0055 (1.7 sigma tension with BAO)
+# ωm = 0.14332 ± 0.00092
+# Ωm = 0.3175 ± 0.0056 (1.7 sigma tension with BAO)
 # h * r_d = 98.76 ± 0.69 (2.5 sigma tension with BAO)
-# z_drag = 1060.01 ± 0.21
+# z_drag = 1060.00 ± 0.21
 # r_d = 147.00 ± 0.24 Mpc
 # z_eq = 3410 ± 22
-# Chi squared: 0.0002
+# Chi squared: 0.0005
 # -----------------------------
 
 
 # -----------------------------
 # plikHM TT, TE, EE + lowl + lowE compression (Planck 2019 - PR3)
 # -----------------------------
-# H0: 67.26 ± 0.60 km/s/Mpc
+# H0: 67.27 ± 0.60 km/s/Mpc
 # ωb: 0.02236 ± 0.00015
 # ωc: 0.1202 ± 0.0014
-# 100 θ*: 1.04109 ± 0.00031
+# 100 θ*: 1.04109 ± 0.00030
 # r*: 144.39 ± 0.30 Mpc
 # DM*: 13.869 ± 0.028 Gpc
 # z*: 1089.95 ± 0.27
@@ -215,21 +191,21 @@ if __name__ == "__main__":
 # Ωm: 0.3166 ± 0.0084
 # z_drag: 1059.93 ± 0.30
 # r_d: 147.06 ± 0.30 Mpc
-# z_eq: 3407 ± 31
+# z_eq: 3406 ± 31
 # Age: 13.801 ± 0.024 Gyr
-# Chi squared: 0.0004
+# Chi squared: 0.0005
 # -----------------------------
 
 
 # -----------------------------
 # plikHM TT, TE, EE + lowl + lowE + Lensing compression (Planck 2019 - PR3)
 # -----------------------------
-# H0: 67.35 ± 0.54 km/s/Mpc
+# H0: 67.36 ± 0.54 km/s/Mpc
 # ωc: 0.1200 ± 0.0012
 # ωb: 0.02237 ± 0.00015
 # ωm: 0.1430 ± 0.0011
-# Ωm: 0.3154 ± 0.0073
-# z_eq: 3402 ± 26
+# Ωm: 0.3153 ± 0.0073
+# z_eq: 3402 ± 27
 # z*: 1089.92 ± 0.25
 # r*: 144.43 ± 0.26 Mpc
 # 100 θ*: 1.04110 ± 0.00031
@@ -237,14 +213,14 @@ if __name__ == "__main__":
 # z_drag: 1059.94 ± 0.30
 # r_d: 147.10 ± 0.26 Mpc
 # Age: 13.798 ± 0.023 Gyr
-# Chi squared: 0.0004
+# Chi squared: 0.0005
 # -----------------------------
 
 
 # -----------------------------
 # Early ΛCDM (arXiv:2302.12911v2)
 # -----------------------------
-# H0: 67.49 ± 0.58 km/s/Mpc
+# H0: 67.50 ± 0.58 km/s/Mpc
 # ωc: 0.1192 ± 0.0013
 # ωb: 0.02223 ± 0.00015
 # ωm: 0.1421 ± 0.0012
@@ -252,12 +228,12 @@ if __name__ == "__main__":
 # h * r_d = 99.5 ± 1.0 (1.4 sigma tension with BAO)
 # z_eq: 3380 ± 29
 # z*: 1090.15 ± 0.27
-# r*: 144.74 ± 0.28 Mpc
+# r*: 144.75 ± 0.28 Mpc
 # 100 θ*: 1.04103 ± 0.00026
 # DM*: 13.904 ± 0.026 Gpc
 # z_drag: 1059.55 ± 0.29
-# r_d: 147.47 ± 0.28 Mpc
-# Chi squared: 0.0004
+# r_d: 147.46 ± 0.28 Mpc
+# Chi squared: 0.0003
 # -----------------------------
 
 
@@ -285,7 +261,7 @@ if __name__ == "__main__":
 # -----------------------------
 # ACT DR6 + Planck compression
 # -----------------------------
-# H0: 67.61 ± 0.50 km/s/Mpc
+# H0: 67.62 ± 0.50 km/s/Mpc
 # ωc: 0.1193 ± 0.0012
 # ωb: 0.02250 ± 0.00011
 # ωm: 0.1425 ± 0.0012
