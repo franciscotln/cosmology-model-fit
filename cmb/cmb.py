@@ -6,40 +6,29 @@ import cmb.data_act_planck_compression as cmb
 c = cmb.c  # km/s
 Or_h2 = cmb.Or_h2
 Omnu_h2 = cmb.Omnu_h2
-Omnu_z = cmb.Omnu_z
 
-L = np.linalg.cholesky(cmb.covariance)
-logdet = 2 * np.sum(np.log(np.diag(L)))
 N = len(cmb.DISTANCE_PRIORS)
-prob_norm = logdet + N * np.log(2 * np.pi)
 
 
 @njit
-def Hz(z, params):
-    H0, Obh2, Och2 = params
-    h = H0 / 100
-    Onu = Omnu_h2 / h**2
-    Or = Or_h2 / h**2
-    Obc = (Obh2 + Och2) / h**2
-    Ode = 1.0 - Obc - Or - Onu
+def Hz(z, pars):
+    h, Ob_h2, Oc_h2 = pars[0], pars[1], pars[2]
 
-    radiation = Or * (1.0 + z) ** 4
-    cd_matter = Obc * (1.0 + z) ** 3
-    dark_energy = Ode
-    neutrino = Onu * Omnu_z(z)
+    radiation = Or_h2 * (1.0 + z)**4
+    cd_matter =  (Ob_h2 + Oc_h2) * (1.0 + z)**3
+    neutrino = Omnu_h2 * cmb.Omnu_z(z)
+    dark_energy = h**2 - (Or_h2 + Omnu_h2 + Ob_h2 + Oc_h2)
 
-    return H0 * np.sqrt(radiation + cd_matter + neutrino + dark_energy)
+    return 100 * np.sqrt(radiation + cd_matter + neutrino + dark_energy)
 
 
 cmb.set_HZ(Hz)
 
-bounds = np.array(
-    [
-        (60.0, 75.0),  # H0
-        (0.020, 0.025),  # Ωb * h^2
-        (0.05, 0.25),  # Ωc * h^2
-    ]
-)
+bounds = np.array([
+    (0.60, 0.75),  # h
+    (0.020, 0.025),  # Ωb * h^2
+    (0.05, 0.25),  # Ωcdm * h^2
+])
 
 normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
 
@@ -53,20 +42,20 @@ def log_prior(params):
 
 @njit
 def log_likelihood(params):
-    Obh2, Och2 = params[1], params[2]
-    Omh2 = Obh2 + Och2 + Omnu_h2
+    Ob_h2, Oc_h2 = params[1], params[2]
+    Om_h2 = Ob_h2 + Oc_h2 + Omnu_h2
 
-    zstar = cmb.z_star(Obh2, Omh2)
-    rs_star = cmb.rs_z(zstar, Obh2, params)
+    zstar = cmb.z_star(Ob_h2, Om_h2)
+    rs_star = cmb.rs_z(zstar, Ob_h2, params)
     DM_star = cmb.DM_z(zstar, params)
     thetastar = rs_star / DM_star
     lA = np.pi / thetastar
-    R = 100 * np.sqrt(Omh2) * DM_star / c
+    R = 100 * np.sqrt(Om_h2) * DM_star / c
 
-    delta = cmb.DISTANCE_PRIORS - np.array([R, lA, Obh2])
-    y = solve_triangular(L, delta)
+    delta = cmb.DISTANCE_PRIORS - np.array([R, lA, Ob_h2])
+    y = solve_triangular(cmb.L, delta)
     chi2 = np.dot(y, y)
-    log_like = -0.5 * (chi2 + prob_norm)
+    log_like = -0.5 * (chi2 + cmb.prob_norm)
 
     # blobs: (100 θ*, r*, DM* in Gpc, z*, R)
     return log_like, np.array([100 * thetastar, rs_star, DM_star / 1000, zstar, R])
@@ -105,8 +94,8 @@ def main():
     chain_list = np.moveaxis(np.concatenate([samples_list, blobs_list], axis=2), 1, 0)
     loglikes_list = np.moveaxis(sampler.get_log_prob(discard=burn_in, flat=False), 1, 0)
 
-    names = ["H0", "ombh2", "omch2", "thetastar", "rstar", "DAstar", "zstar", "R"]
-    labels = ["H_0", "ω_b", "ω_c", "100θ_*", "r_*", r"D_{\rm{M_*}}/{\rm{Gpc}}", "z_*", "R"]
+    names = ["h", "ombh2", "omch2", "thetastar", "rstar", "DAstar", "zstar", "R"]
+    labels = ["h", "ω_b", "ω_c", "100θ_*", "r_*", r"D_{\rm{M_*}}/{\rm{Gpc}}", "z_*", "R"]
     samples = MCSamples(
         samples=chain_list,
         loglikes=-loglikes_list,
@@ -114,12 +103,9 @@ def main():
         labels=labels,
         label="CMB Compressed likelihood",
     )
-    samples.addDerived(
-        samples["ombh2"] + samples["omch2"] + Omnu_h2, name="omegamh2", label="ω_m"
-    )
-    samples.addDerived(
-        samples["omegamh2"] / (samples["H0"] / 100) ** 2, name="omegam", label="Ω_m"
-    )
+    samples.addDerived(100 * samples["h"], name="H0", label="H_0")
+    samples.addDerived(samples["ombh2"] + samples["omch2"] + Omnu_h2, name="omegamh2", label="ω_m")
+    samples.addDerived(samples["omegamh2"] / samples["h"] ** 2, name="omegam", label="Ω_m")
     samples.addDerived(
         cmb.z_drag(samples["ombh2"], samples["omegamh2"]),
         name="zdrag",
@@ -141,7 +127,7 @@ def main():
         print(samples.getInlineLatex(name, limit=1))
 
     g = plots.getSubplotPlotter()
-    params = ["thetastar", "H0", "omegam", "rstar", "rdrag"]
+    params = ["H0", "omegam", "thetastar", "rdrag"]
     g.triangle_plot(
         samples,
         params=params,
@@ -157,8 +143,8 @@ def main():
 
     MAP = flat_samples[np.argmax(log_probs)]
     log_like_map = log_likelihood(MAP)[0]
-    print(f"χ2 (MAP): {-2 * log_like_map - logdet - N * np.log(2 * np.pi):.4f}")
-    print(f"log likelihood (MAP): {log_like_map:.4f}")
+    print(f"χ2 (MAP): {-2 * log_like_map - cmb.logdet - N * np.log(2 * np.pi):.3f}")
+    print(f"log likelihood (MAP): {log_like_map:.2f}")
 
 
 if __name__ == "__main__":
@@ -185,8 +171,8 @@ if __name__ == "__main__":
 # z_drag = 1060.00 ± 0.21
 # r_d = 147.00 ± 0.24 Mpc
 # z_eq = 3410 ± 22
-# χ2 (MAP): 0.0004
-# log likelihood (MAP): 14.6933
+# χ2 (MAP): 0.000
+# log likelihood (MAP): 14.69
 # -----------------------------
 
 
@@ -207,8 +193,8 @@ if __name__ == "__main__":
 # r_d: 147.06 ± 0.30 Mpc
 # z_eq: 3406 ± 31
 # Age: 13.801 ± 0.024 Gyr
-# χ2 (MAP): 0.0005
-# log likelihood (MAP): 14.2603
+# χ2 (MAP): 0.000
+# log likelihood (MAP): 14.26
 # -----------------------------
 
 
@@ -229,8 +215,8 @@ if __name__ == "__main__":
 # r_d: 147.10 ± 0.26 Mpc
 # z_eq: 3402 ± 27
 # Age: 13.798 ± 0.023 Gyr
-# χ2 (MAP): 0.0005
-# log likelihood (MAP): 14.3871
+# χ2 (MAP): 0.000
+# log likelihood (MAP): 14.39
 # -----------------------------
 
 
@@ -251,8 +237,8 @@ if __name__ == "__main__":
 # z_drag = 1059.55 ± 0.29
 # r_d = 147.46 ± 0.28 Mpc
 # z_eq = 3380 ± 29
-# χ2 (MAP): 0.0003
-# log likelihood (MAP): 21.3033
+# χ2 (MAP): 0.000
+# log likelihood (MAP): 21.30
 # -----------------------------
 
 
@@ -274,8 +260,8 @@ if __name__ == "__main__":
 # z_eq: 3499 ± 51
 # h * r_d = 96.4 ± 1.5 (2.9 sigma tension with BAO)
 # Age: 13.790 ± 0.018 Gyr
-# χ2 (MAP): 0.0003
-# log likelihood (MAP): 13.5183
+# χ2 (MAP): 0.000
+# log likelihood (MAP): 13.52
 # -----------------------------
 
 
@@ -296,6 +282,6 @@ if __name__ == "__main__":
 # r_d: 147.14 ± 0.29 Mpc
 # z_eq: 3390 ± 28
 # Age: 13.802 ± 0.023 Gyr
-# χ2 (MAP): 0.0004
-# log likelihood (MAP): 14.6933
+# χ2 (MAP): 0.000
+# log likelihood (MAP): 14.69
 # -----------------------------
