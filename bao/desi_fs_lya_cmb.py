@@ -11,17 +11,12 @@ Omnuh2 = cmb.Omnu_h2
 
 legend, bao, cov_mat = get_data()
 
-L_bao = np.linalg.cholesky(cov_mat)
-L_cmb = np.linalg.cholesky(cmb.covariance)
-
-N_bao = len(bao)
 N_cmb = len(cmb.DISTANCE_PRIORS)
 
+N_bao = len(bao)
+L_bao = np.linalg.cholesky(cov_mat)
 logdet_bao = 2 * np.sum(np.log(np.diag(L_bao)))
-logdet_cmb = 2 * np.sum(np.log(np.diag(L_cmb)))
-
 norm_bao = N_bao * np.log(2 * np.pi) + logdet_bao
-norm_cmb = N_cmb * np.log(2 * np.pi) + logdet_cmb
 
 z_grid = np.linspace(0, np.max(bao["z"]) + 0.1, 4000)
 dz = z_grid[1] - z_grid[0]
@@ -103,22 +98,10 @@ def chi2_bao(params):
 
 
 @njit
-def chi2_cmb(params):
-    delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(params[1], params[2], params)
-    y = solve_triangular(L_cmb, delta)
-    return np.dot(y, y)
-
-
-@njit
-def chi_squared(params):
-    return chi2_cmb(params) + chi2_bao(params)
-
-
-@njit
 def log_likelihood(params):
     if params[3] + params[4] >= 0:
         return -1e10
-    return -0.5 * (chi_squared(params) + norm_bao + norm_cmb)
+    return -0.5 * (chi2_bao(params) + norm_bao) + cmb.log_likelihood(params[1], params[2], params)
 
 
 def main():
@@ -160,7 +143,7 @@ def main():
 
     map_params = samples[np.argmax(log_l)]
     DOF = N_bao + N_cmb - len(map_params)
-    chi2_map = chi_squared(map_params)
+    chi2_map = chi2_bao(map_params) + cmb.chi2(map_params[1], map_params[2], map_params)
 
     print(f"Log evidence: {sampler.log_z:.1f}")
     print(f"χ2 (MAP): {chi2_map:.2f}")
@@ -185,24 +168,24 @@ if __name__ == "__main__":
 
 
 # --------------- Flat ΛCDM -----------------
-# H0 = 68.30 ± 0.29 km/s/Mpc
+# H0 = 68.31 ± 0.29 km/s/Mpc
 # Ωm = 0.3010 ± 0.0037
 # r_d = 147.80 ± 0.19 Mpc
-# Log evidence: 14.0
-# χ2 (MAP): 15.65
-# χ2 / DOF (MAP): 1.12
+# Log evidence: 9.4
+# χ2 (MAP): 15.61
+# χ2 / DOF (MAP): 1.3
 # DOF: 14
 # -------------------------------------------
 
 
 # --------------- Flat wCDM -----------------
-# H0 = 68.77 ± 0.95 km/s/Mpc
-# Ωm = 0.2977 ± 0.0075
+# H0 = 68.76 ± 0.95 km/s/Mpc
+# Ωm = 0.2978 ± 0.0075
 # r_d = 147.74 ± 0.22 Mpc
-# w0 = -1.020 ± 0.039 (prior ~ U[-1.5, -0.5])
-# Log evidence: 11.8 (Δ logZ = 2.2 in favour of ΛCDM)
-# χ2 (MAP): 15.47
-# χ2 / DOF (MAP): 1.19
+# w0 = -1.020 ± 0.040 (prior ~ U[-1.5, -0.5])
+# Log evidence: 7.2 (Δ logZ = 2.2 in favour of ΛCDM)
+# χ2 (MAP): 15.44
+# χ2 / DOF (MAP): 1.29
 # DOF: 13
 # -------------------------------------------
 
@@ -211,10 +194,10 @@ if __name__ == "__main__":
 # H0: 64.7 ± 2.0 km/s/Mpc
 # Ωm: 0.340 +0.021 -0.024
 # r_d: 147.47 ± 0.25 Mpc
-# w0: -0.57 +0.21 -0.24 (prior ~ U[-3, 1])
+# w0: -0.57 +0.21 -0.25 (prior ~ U[-3, 1])
 # wa: -1.28 +0.74 -0.57 (prior ~ U[-4, 3])
-# Log evidence: 11.0 + 0.3 = 11.3 (Δ logZ = 2.7 in favour of ΛCDM)
-# χ2 (MAP): 11.34
+# Log evidence: 6.4 + 0.3 = 6.7 (Δ logZ = 2.7 in favour of ΛCDM)
+# χ2 (MAP): 11.40
 # χ2 / DOF (MAP): 0.95
 # DOF: 12
 #

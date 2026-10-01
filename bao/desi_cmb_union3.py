@@ -41,8 +41,8 @@ dz = z_grid[1] - z_grid[0]
 @njit
 def Ode_z(z, w0, wa):
     # w1w2CDM
-    zp1 = 1. + z
-    return zp1**(3 * (1. + w0 + wa)) * ((zp1**2 + 1) / (2 * zp1**2))**(3 * wa)
+    zp1 = 1.0 + z
+    return zp1**(3 * (1.0 + w0 + wa)) * ((2 * zp1**2) / (1.0 + zp1**2))**(-3 * wa)
 
 
 @njit

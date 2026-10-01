@@ -1,11 +1,17 @@
 from numba import njit
 import numpy as np
+from solve_triangular import solve_triangular
 import cmb.data_act_planck_compression as cmb
 
 c = cmb.c  # km/s
 Or_h2 = cmb.Or_h2
 Omnu_h2 = cmb.Omnu_h2
 Omnu_z = cmb.Omnu_z
+
+L = np.linalg.cholesky(cmb.covariance)
+logdet = 2 * np.sum(np.log(np.diag(L)))
+N = len(cmb.DISTANCE_PRIORS)
+prob_norm = logdet + N * np.log(2 * np.pi)
 
 
 @njit
@@ -55,19 +61,22 @@ def log_likelihood(params):
     DM_star = cmb.DM_z(zstar, params)
     thetastar = rs_star / DM_star
     lA = np.pi / thetastar
-    R = 100 * np.sqrt(Omh2) * DM_star / c  # shift parameter
+    R = 100 * np.sqrt(Omh2) * DM_star / c
 
     delta = cmb.DISTANCE_PRIORS - np.array([R, lA, Obh2])
-    log_like = -0.5 * (delta @ cmb.inv_cov_mat @ delta)
-    # blobs: (100 θ*, r*, DM* in Gpc, z*)
-    return log_like, np.array([100 * thetastar, rs_star, DM_star / 1000, zstar])
+    y = solve_triangular(L, delta)
+    chi2 = np.dot(y, y)
+    log_like = -0.5 * (chi2 + prob_norm)
+
+    # blobs: (100 θ*, r*, DM* in Gpc, z*, R)
+    return log_like, np.array([100 * thetastar, rs_star, DM_star / 1000, zstar, R])
 
 
 @njit
 def log_probability_jit(params):
     lp = log_prior(params)
     if np.isinf(lp):
-        return -np.inf, np.empty(4)
+        return -np.inf, np.empty(5)
     ll, blobs = log_likelihood(params)
     return lp + ll, blobs
 
@@ -96,8 +105,8 @@ def main():
     chain_list = np.moveaxis(np.concatenate([samples_list, blobs_list], axis=2), 1, 0)
     loglikes_list = np.moveaxis(sampler.get_log_prob(discard=burn_in, flat=False), 1, 0)
 
-    names = ["H0", "ombh2", "omch2", "thetastar", "rstar", "DAstar", "zstar"]
-    labels = ["H_0", "ω_b", "ω_c", "100θ_*", "r_*", r"D_{\rm{M_*}}/{\rm{Gpc}}", "z_*"]
+    names = ["H0", "ombh2", "omch2", "thetastar", "rstar", "DAstar", "zstar", "R"]
+    labels = ["H_0", "ω_b", "ω_c", "100θ_*", "r_*", r"D_{\rm{M_*}}/{\rm{Gpc}}", "z_*", "R"]
     samples = MCSamples(
         samples=chain_list,
         loglikes=-loglikes_list,
@@ -132,7 +141,7 @@ def main():
         print(samples.getInlineLatex(name, limit=1))
 
     g = plots.getSubplotPlotter()
-    params = ["thetastar", "H0", "omegam", "DAstar", "rstar", "rdrag"]
+    params = ["thetastar", "H0", "omegam", "rstar", "rdrag"]
     g.triangle_plot(
         samples,
         params=params,
@@ -147,7 +156,9 @@ def main():
     log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
 
     MAP = flat_samples[np.argmax(log_probs)]
-    print(f"Chi squared: {-2 * log_likelihood(MAP)[0]:.4f}")
+    log_like_map = log_likelihood(MAP)[0]
+    print(f"χ2 (MAP): {-2 * log_like_map - logdet - N * np.log(2 * np.pi):.4f}")
+    print(f"log likelihood (MAP): {log_like_map:.4f}")
 
 
 if __name__ == "__main__":
@@ -167,13 +178,15 @@ if __name__ == "__main__":
 # r_rec = 144.45 ± 0.23 Mpc
 # DM_rec = 13.868 ± 0.022 Gpc
 # z_rec = 1088.77 ± 0.13
+# R = 1.7480 ± 0.0039
 # ωm = 0.14332 ± 0.00092
 # Ωm = 0.3175 ± 0.0056 (1.7 sigma tension with BAO)
 # h * r_d = 98.76 ± 0.69 (2.5 sigma tension with BAO)
 # z_drag = 1060.00 ± 0.21
 # r_d = 147.00 ± 0.24 Mpc
 # z_eq = 3410 ± 22
-# Chi squared: 0.0005
+# χ2 (MAP): 0.0004
+# log likelihood (MAP): 14.6933
 # -----------------------------
 
 
@@ -187,13 +200,15 @@ if __name__ == "__main__":
 # r*: 144.39 ± 0.30 Mpc
 # DM*: 13.869 ± 0.028 Gpc
 # z*: 1089.95 ± 0.27
+# R: 1.7507 ± 0.0046
 # ωm: 0.1432 ± 0.0013
 # Ωm: 0.3166 ± 0.0084
 # z_drag: 1059.93 ± 0.30
 # r_d: 147.06 ± 0.30 Mpc
 # z_eq: 3406 ± 31
 # Age: 13.801 ± 0.024 Gyr
-# Chi squared: 0.0005
+# χ2 (MAP): 0.0005
+# log likelihood (MAP): 14.2603
 # -----------------------------
 
 
@@ -201,60 +216,66 @@ if __name__ == "__main__":
 # plikHM TT, TE, EE + lowl + lowE + Lensing compression (Planck 2019 - PR3)
 # -----------------------------
 # H0: 67.36 ± 0.54 km/s/Mpc
-# ωc: 0.1200 ± 0.0012
 # ωb: 0.02237 ± 0.00015
+# ωc: 0.1200 ± 0.0012
+# 100 θ*: 1.04110 ± 0.00031
+# r*: 144.43 ± 0.26 Mpc
+# DM*: 13.873 ± 0.025 Gpc
+# z*: 1089.92 ± 0.25
+# R: 1.7500 ± 0.0040
 # ωm: 0.1430 ± 0.0011
 # Ωm: 0.3153 ± 0.0073
-# z_eq: 3402 ± 27
-# z*: 1089.92 ± 0.25
-# r*: 144.43 ± 0.26 Mpc
-# 100 θ*: 1.04110 ± 0.00031
-# DM*: 13.873 ± 0.025 Gpc
 # z_drag: 1059.94 ± 0.30
 # r_d: 147.10 ± 0.26 Mpc
+# z_eq: 3402 ± 27
 # Age: 13.798 ± 0.023 Gyr
-# Chi squared: 0.0005
+# χ2 (MAP): 0.0005
+# log likelihood (MAP): 14.3871
 # -----------------------------
 
 
 # -----------------------------
 # Early ΛCDM (arXiv:2302.12911v2)
 # -----------------------------
-# H0: 67.50 ± 0.58 km/s/Mpc
-# ωc: 0.1192 ± 0.0013
-# ωb: 0.02223 ± 0.00015
-# ωm: 0.1421 ± 0.0012
-# Ωm: 0.3120 ± 0.0080 (0.9 sigma tension with BAO)
+# H0 = 67.47 ± 0.59 km/s/Mpc
+# ωb = 0.02223 ± 0.00015
+# ωc = 0.1192 ± 0.0013
+# 100 θ* = 1.04103 ± 0.00026
+# r* = 144.76 ± 0.29 Mpc
+# DM* = 13.905 ± 0.026 Gpc
+# z* = 1090.00 ± 0.27
+# R = 1.7483 ± 0.0044
+# ωm = 0.1421 ± 0.0012
+# Ωm = 0.3123 ± 0.0080 (0.9 sigma tension with BAO)
 # h * r_d = 99.5 ± 1.0 (1.4 sigma tension with BAO)
-# z_eq: 3380 ± 29
-# z*: 1090.15 ± 0.27
-# r*: 144.75 ± 0.28 Mpc
-# 100 θ*: 1.04103 ± 0.00026
-# DM*: 13.904 ± 0.026 Gpc
-# z_drag: 1059.55 ± 0.29
-# r_d: 147.46 ± 0.28 Mpc
-# Chi squared: 0.0003
+# z_drag = 1059.55 ± 0.29
+# r_d = 147.46 ± 0.28 Mpc
+# z_eq = 3380 ± 29
+# χ2 (MAP): 0.0003
+# log likelihood (MAP): 21.3033
 # -----------------------------
 
 
 # -----------------------------
 # ACT DR6 compression
 # -----------------------------
-# H0: 66.10 ± 0.79 km/s/Mpc
-# ωc: 0.1238 ± 0.0021
+# H0: 66.11 ± 0.79 km/s/Mpc
 # ωb: 0.02259 ± 0.00017
+# ωc: 0.1238 ± 0.0021
+# 100 θ*: 1.04075 ± 0.00031
+# r*: 143.31 ± 0.54 Mpc
+# DM*: 13.770 ± 0.050 Gpc
+# z*: 1089.96 ± 0.30
+# R: 1.7612 ± 0.0065
 # ωm: 0.1470 ± 0.0021
 # Ωm: 0.337 ± 0.013 (2.3 sigma tension with BAO)
-# h * r_d = 96.4 ± 1.5 (2.9 sigma tension with BAO)
-# z_eq: 3499 ± 51
-# z*: 1089.96 ± 0.30
-# r*: 143.31 ± 0.54 Mpc
-# 100 θ*: 1.04075 ± 0.00031
-# DM*: 13.770 ± 0.050 Gpc
 # z_drag: 1060.72 ± 0.39
-# r_d: 145.88 ± 0.56 Mpc
+# r_d: 145.87 ± 0.56 Mpc
+# z_eq: 3499 ± 51
+# h * r_d = 96.4 ± 1.5 (2.9 sigma tension with BAO)
 # Age: 13.790 ± 0.018 Gyr
-# Chi squared: 0.0008
+# χ2 (MAP): 0.0003
+# log likelihood (MAP): 13.5183
 # -----------------------------
 
 
@@ -262,17 +283,19 @@ if __name__ == "__main__":
 # ACT DR6 + Planck compression
 # -----------------------------
 # H0: 67.62 ± 0.50 km/s/Mpc
-# ωc: 0.1193 ± 0.0012
 # ωb: 0.02250 ± 0.00011
+# ωc: 0.1193 ± 0.0012
+# 100 θ*: 1.04094 ± 0.00025
+# r*: 144.52 ± 0.29 Mpc
+# DM*: 13.884 ± 0.027 Gpc
+# z*: 1089.68 ± 0.21
+# R: 1.7480 ± 0.0039
 # ωm: 0.1425 ± 0.0012
 # Ωm: 0.3117 ± 0.0071
-# z_eq: 3390 ± 28
-# z*: 1089.68 ± 0.21
-# r*: 144.52 ± 0.29 Mpc
-# 100 θ*: 1.04094 ± 0.00025
-# DM*: 13.884 ± 0.027 Gpc
 # z_drag: 1060.17 ± 0.23
 # r_d: 147.14 ± 0.29 Mpc
+# z_eq: 3390 ± 28
 # Age: 13.802 ± 0.023 Gyr
-# Chi squared: 0.0001
+# χ2 (MAP): 0.0004
+# log likelihood (MAP): 14.6933
 # -----------------------------

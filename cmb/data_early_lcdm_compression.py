@@ -7,6 +7,7 @@ from numba import njit
 import numpy as np
 from scipy.constants import c as c0
 import nu_evolution as neutrino
+from solve_triangular import solve_triangular
 
 c = c0 / 1000  # km/s
 
@@ -19,7 +20,11 @@ covariance = np.array([
     [-1.19287532e-07, -9.40008323e-08, 1.48841714e-06],
 ])
 inv_cov_mat = np.linalg.inv(covariance)
+L = np.linalg.cholesky(covariance)
+logdet = 2 * np.sum(np.log(np.diag(L)))
+prob_norm = logdet + len(DISTANCE_PRIORS) * np.log(2 * np.pi)
 
+# ---- Physical constants ----
 k_B = 8.617333262e-5  # eV/K
 TCMB = 2.7255  # K
 O_GAMMA_H2 = 2.472975328714087e-05
@@ -83,7 +88,7 @@ def w_nu_z(z):
 def z_star(wb, wm):
     """arXiv:2106.00428v2 (eq A-4)"""
 
-    s1, s2, b, m = (0.68452391, 1.00918955, 0.98984165, 1.01605396)
+    s1, s2, b, m = (0.71409853, 1.00902707, 1.00755954, 1.13794949)
 
     wb = wb**b
     wm = wm**m
@@ -189,3 +194,15 @@ def cmb_distances(Ob_h2, Oc_h2, params):
     DM_star = DM_z(zstar, params)
     thetastar = rs_star / DM_star
     return np.array([100 * thetastar, Ob_h2, Om_h2])
+
+
+@njit
+def chi2(Obh2, Och2, params):
+    delta = DISTANCE_PRIORS - cmb_distances(Obh2, Och2, params)
+    y = solve_triangular(L, delta)
+    return np.dot(y, y)
+
+
+@njit
+def log_likelihood(Obh2, Och2, params):
+    return -0.5 * (chi2(Obh2, Och2, params) + prob_norm)

@@ -11,6 +11,7 @@ Omnuh2 = cmb.Omnu_h2
 
 sn_legend, z_cmb, z_hel, mu_vals, cov_matrix_sn = get_data()
 L_sn = np.linalg.cholesky(cov_matrix_sn)
+L_cmb = np.linalg.cholesky(cmb.covariance)
 
 z_grid = np.linspace(0, np.max(z_cmb) + 0.1, num=2000)
 dz = z_grid[1] - z_grid[0]
@@ -90,7 +91,8 @@ def chi2_sn(params):
 @njit
 def chi2_cmb(params):
     delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(params[2], params[3], params)
-    return delta_cmb @ cmb.inv_cov_mat @ delta_cmb
+    y = solve_triangular(L_cmb, delta_cmb)
+    return np.dot(y, y)
 
 
 @njit
@@ -118,9 +120,7 @@ def main():
     prior.add_parameter("dz_1000", dist=(-3.5, 3.5)) # 1000 x Δz
 
     with Pool(6) as pool:
-        sampler = Sampler(
-            prior, log_likelihood, n_live=6_000, pool=pool, seed=42, pass_dict=False,
-        )
+        sampler = Sampler(prior, log_likelihood, n_live=6_000, pool=pool, seed=42, pass_dict=False)
         sampler.run(verbose=True)
 
     samples, log_w, log_l = sampler.posterior()
@@ -133,12 +133,8 @@ def main():
         labels=labels,
         label="Union3.1 + CMB(θ*, ωb, ωm)",
     )
-    gd_samples.addDerived(
-        Omnuh2 + gd_samples["obh2"] + gd_samples["och2"], name="omh2", label="ω_m"
-    )
-    gd_samples.addDerived(
-        gd_samples["omh2"] / (gd_samples["H0"] / 100) ** 2, name="om", label="Ω_m"
-    )
+    gd_samples.addDerived(Omnuh2 + gd_samples["obh2"] + gd_samples["och2"], name="omh2", label="ω_m")
+    gd_samples.addDerived(gd_samples["omh2"] / (gd_samples["H0"] / 100) ** 2, name="om", label="Ω_m")
 
     MAP_index = np.argmax(log_l)
     best_fit = samples[MAP_index]
@@ -200,11 +196,11 @@ if __name__ == "__main__":
 # z_cosmo = z_cmb ± Δz
 
 # 1000 Δz = 0.97 ± 0.39 (prior ~ U[-3.5, 3.5])
-# H0: 67.23 ± 0.38 km/s/Mpc
-# Ωm: 0.3169 ± 0.0054
-# ΔM: -0.0768 ± 0.0087 mag
+# H0: 67.24 ± 0.38 km/s/Mpc
+# Ωm: 0.3168 ± 0.0054
+# ΔM: -0.0767 ± 0.0087 mag
 # Chi2 (MAP): 22.6 (2.55 sigma significance)
-# Log Evidence: -32.1 (Δ logZ = 1.0 in favour of z offset step correction)
+# Log Evidence: -32.0 (Δ logZ = 1.1 in favour of z offset step correction)
 # DOF: 20
 # ---------------------------------
 

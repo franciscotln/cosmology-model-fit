@@ -4,7 +4,7 @@ from scipy.linalg import cho_factor
 from interpolator import interp_hermite
 from solve_triangular import solve_triangular
 from y2022pantheonSHOES.data import get_data
-import cmb.data_act_planck_compression as cmb
+import cmb.data_spt_planck_act_compression as cmb
 
 c = cmb.c  # Speed of light in km/s
 Orh2 = cmb.Or_h2
@@ -12,20 +12,24 @@ Omnuh2 = cmb.Omnu_h2
 
 sn_legend, z_cmb, z_hel, mb_values, cov_matrix_sn = get_data()
 cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
+logdet_sn = 2 * np.sum(np.log(np.diag(cho_sn)))
+N_sn = len(z_cmb)
 
 z_grid = np.linspace(0, np.max(z_cmb) + 0.1, num=4000)
 dz = np.diff(z_grid)
 
 
 @njit
-def Ode_z(z, w0):
-    # Thawing quintessence
+def Ode_z(z, w0, wa):
+    # w1w2CDM
     zp1 = 1.0 + z
-    return (2 * zp1**3 / ((1.0 + w0) + (1.0 - w0) * zp1**3)) ** 2
+    return zp1**(3 * (1.0 + w0 + wa)) * ((2 * zp1**2) / (1.0 + zp1**2))**(-3 * wa)
 
 
 @njit
-def Ez(z, h, Obh2, Och2):
+def H_z(z, params):
+    H0, Obh2, Och2 = params[1], params[2], params[3]
+    h = H0 / 100
     Onu = Omnuh2 / h**2
     Or = Orh2 / h**2
     Obc = (Obh2 + Och2) / h**2
@@ -38,13 +42,7 @@ def Ez(z, h, Obh2, Och2):
     neutrino_term = Onu * cmb.Omnu_z(z)
     dark_energy_term = Ode
 
-    return np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
-
-
-@njit
-def H_z(z, params):
-    H0 = params[1]
-    return H0 * Ez(z, h=H0 / 100, Obh2=params[2], Och2=params[3])
+    return H0 * np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
 
 
 cmb.set_HZ(H_z)
@@ -79,19 +77,20 @@ def mu_theory(DM):
 
 
 @njit
-def chi_squared(params):
-    delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(params[2], params[3], params)
-    chi2_cmb = delta @ cmb.inv_cov_mat @ delta
-
+def chi2_sn(params):
     M = params[0]
     z_cosmo = get_z_cosmo(params)
     delta_sn = mb_values - M - mu_theory(DM_z(z_cosmo, params))
-    y_sn = solve_triangular(cho_sn, delta_sn)
-    chi_sn = np.dot(y_sn, y_sn)
-
-    return chi2_cmb + chi_sn
+    y = solve_triangular(cho_sn, delta_sn)
+    return np.dot(y, y)
 
 
+@njit
+def log_likelihood_sn(params):
+    return -0.5 * (chi2_sn(params) + logdet_sn + N_sn * np.log(2 * np.pi))
+
+
+labels = ["M", "$H_0$", "$ω_b$", "$ω_c$", "$v_{100}$"]
 bounds = np.array(
     [
         (-20.0, -19.0),  # M
@@ -114,7 +113,7 @@ def log_prior(params):
 
 @njit
 def log_likelihood(params):
-    return -0.5 * chi_squared(params)
+    return log_likelihood_sn(params) + cmb.log_likelihood(params[2], params[3], params)
 
 
 @njit
@@ -142,16 +141,11 @@ def main():
     nsteps = 2500 + burn_in
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
-    moves = [
-        (emcee.moves.KDEMove(bw_method="silverman"), 0.25),
-        (emcee.moves.DEMove(), 0.75),
-    ]
+    moves = [(emcee.moves.KDEMove(), 0.2), (emcee.moves.DEMove(), 0.8)]
 
     with Pool(6) as pool:
         sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
-        sampler.run_mcmc(
-            initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#ff5a00"}
-        )
+        sampler.run_mcmc(initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#ff5a00"})
 
     try:
         tau = sampler.get_autocorr_time()
@@ -163,6 +157,7 @@ def main():
 
     samples = sampler.get_chain(discard=burn_in, flat=True)
     chains = sampler.get_chain(discard=burn_in, flat=False)
+    log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
 
     print("Gelman-Rubin R^:", gelman_rubin(chains))
 
@@ -175,8 +170,6 @@ def main():
         (Och2_16, Och2_50, Och2_84),
         (vf_16, vf_50, vf_84),
     ] = pct
-
-    best_fit = np.percentile(samples, 50, axis=0)
 
     Omh2_samples = samples[:, 2] + samples[:, 3] + Omnuh2
     Om_samples = Omh2_samples / (samples[:, 1] / 100) ** 2
@@ -205,9 +198,10 @@ def main():
     print(f"z_d: {z_d_50:.2f} +{(z_d_84 - z_d_50):.2f} -{(z_d_50 - z_d_16):.2f}")
     print(f"r* = {rs_50:.2f} +{(rs_84 - rs_50):.2f} -{(rs_50 - rs_16):.2f} Mpc")
     print(f"rd: {r_d_50:.2f} +{(r_d_84 - r_d_50):.2f} -{(r_d_50 - r_d_16):.2f} Mpc")
-    print(f"Chi squared: {chi_squared(best_fit):.2f}")
 
-    labels = ["M", "$H_0$", "$ω_b$", "$ω_c$", "$v_{100}$"]
+    best_fit = samples[np.argmax(log_probs)]
+    print(f"Chi2 (MAP): {chi2_sn(best_fit) + cmb.chi2(best_fit[2], best_fit[3], best_fit):.2f}")
+
     plot_corner_and_chains(labels=labels, flat_samples=samples, samples=chains)
     plot_sn_predictions(
         legend=sn_legend,
@@ -225,17 +219,17 @@ if __name__ == "__main__":
 
 
 # ----------- Flat ΛCDM -----------
-# H0: 67.43 +0.46 -0.46 km/s/Mpc
-# Ωm: 0.314 +0.007 -0.007
-# ωm: 0.14291 +0.00111 -0.00109
-# ωb: 0.02248 +0.00011 -0.00011
-# ωc: 0.11979 +0.00114 -0.00112
-# M: -19.438 +0.013 -0.013 mag
-# z*: 1089.75 +0.20 -0.20
-# z_d: 1060.16 +0.23 -0.23
-# r* = 144.42 Mpc
-# rd: 147.04 +0.28 -0.28 Mpc
-# Chi squared: 1403.98
+# H0: 67.11 +0.37 -0.36 km/s/Mpc
+# Ωm: 0.319 +0.005 -0.005
+# ωm: 0.14351 +0.00088 -0.00088
+# ωb: 0.02239 +0.00009 -0.00009
+# ωc: 0.12048 +0.00090 -0.00090
+# M: -19.447 +0.011 -0.011 mag
+# z*: 1088.80 +0.13 -0.13
+# z_d: 1060.00 +0.21 -0.21
+# r* = 144.40 +0.22 -0.22 Mpc
+# rd: 146.95 +0.23 -0.23 Mpc
+# Chi2 (MAP): 1403.48
 # ---------------------------------
 
 
@@ -244,56 +238,52 @@ if __name__ == "__main__":
 # turning point z <= 0.15 inflow z > 0.15 outflow
 # z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-# v (x 100 km/s): -0.71 +0.37 -0.37 (prior ~ U[-2.5, 2.5])
-# M: -19.441 +0.013 -0.013 mag
-# H0: 67.60 +0.47 -0.47 km/s/Mpc
-# Ωm: 0.312 +0.007 -0.007
-# ωm: 0.14250 +0.00112 -0.00111
-# ωb: 0.02249 +0.00011 -0.00011
-# ωc: 0.11936 +0.00114 -0.00115
-# z*: 1089.69 +0.21 -0.21
-# z_d: 1060.17 +0.23 -0.23
-# r* = 144.51 +0.28 -0.27 Mpc
-# rd: 147.13 +0.28 -0.28 Mpc
-# Chi squared: 1400.16 (1.95 sigma significance)
+# H0: 67.21 +0.37 -0.37 km/s/Mpc
+# Ωm: 0.317 +0.005 -0.005
+# ωm: 0.14328 +0.00089 -0.00088
+# ωb: 0.02240 +0.00009 -0.00009
+# ωc: 0.12023 +0.00091 -0.00090
+# v: -0.654 +0.359 -0.361 x 100 km/s (prior ~ U[-2.5, 2.5])
+# M: -19.451 +0.011 -0.011 mag
+# z*: 1088.77 +0.13 -0.13
+# z_d: 1060.00 +0.21 -0.21
+# r* = 144.46 +0.22 -0.22 Mpc
+# rd: 147.00 +0.23 -0.23 Mpc
+# Chi2 (MAP): 1400.22 (1.95 sigma significance)
 # ---------------------------------
 
 
 # ----------- Flat wCDM -----------
-# w0: -0.968 +0.029 -0.029 (prior ~ U[-1.5, -0.5])
-# M: -19.456 +0.021 -0.021 mag
-# H0: 66.67 +0.83 -0.82 km/s/Mpc
-# Ωm: 0.320 +0.009 -0.009
-# ωm: 0.14245 +0.00118 -0.00117
-# ωb: 0.02250 +0.00011 -0.00011
-# ωc: 0.11931 +0.00122 -0.00121
-# z*: 1089.68 +0.22 -0.21
-# z_d: 1060.17 +0.23 -0.23
-# r* = 144.52 Mpc
-# rd: 147.14 +0.29 -0.29 Mpc
-# Chi squared: 1402.70
+# H0: 66.51 +0.81 -0.80 km/s/Mpc
+# Ωm: 0.324 +0.009 -0.008
+# ωm: 0.14332 +0.00091 -0.00092
+# ωb: 0.02240 +0.00009 -0.00009
+# ωc: 0.12027 +0.00093 -0.00094
+# w0: -0.977 +0.028 -0.029 (prior ~ U[-1.5, -0.5])
+# M: -19.461 +0.020 -0.020 mag
+# z*: 1088.77 +0.13 -0.13
+# z_d: 1060.01 +0.21 -0.21
+# r* = 144.45 +0.23 -0.23 Mpc
+# rd: 147.00 +0.24 -0.23 Mpc
+# Chi2 (MAP): 1402.78
 # ---------------------------------
 
 
-# ----------- Flat wzCDM ----------
-# w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
+# ----------- Flat w1w2CDM --------
+# w(z) = w1 + w2 * ((1 + z)^2 - 1) / ((1 + z)^2 + 1)
+# w1 + w2 < 0 enforced in the likelihood
 #
-# H0: 66.74 +0.60 -0.64 km/s/Mpc
-# Ωm: 0.320 +0.008 -0.007
-# ωm: 0.14235 +0.00116 -0.00113
-# ωb: 0.02250 +0.00011 -0.00011
-# ωc: 0.11921 +0.00119 -0.00117
-# w0: -0.936 +0.045 -0.038 (prior ~ U[-1, 0])
-# wa: d w(z)/dz at z=0 = -1.5 * (1 - w0**2)
-# M: -19.451 +0.015 -0.015 mag
-# z*: 1089.67 +0.21 -0.21
-# z_d: 1060.17 +0.23 -0.23
-# r* = 144.55 Mpc
-# rd: 147.17 +0.29 -0.29 Mpc
-# Chi squared: 1402.80
-# ---------------------------------
-
-
-# ----------- Flat w0waCDM --------
-# TODO
+# H0: 67.17 +1.34 -1.44 km/s/Mpc
+# Ωm: 0.318 +0.014 -0.013
+# ωm: 0.14336 +0.00092 -0.00091
+# ωb: 0.02240 +0.00009 -0.00010
+# ωc: 0.12031 +0.00094 -0.00092
+# w1: -0.917 +0.107 -0.109 (prior ~ U[-2, 0])
+# w2: -0.27 +0.47 -0.50 (prior ~ U[-3, 3])
+# M: -19.436 +0.045 -0.050 mag
+# z*: 1088.78 +0.13 -0.13
+# z_d: 1060.01 +0.21 -0.21
+# r* = 144.44 +0.23 -0.23 Mpc
+# rd: 146.99 +0.24 -0.24 Mpc
+# Chi2 (MAP): 1402.71
 # ---------------------------------

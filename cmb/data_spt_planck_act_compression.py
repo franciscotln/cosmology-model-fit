@@ -8,6 +8,7 @@ import numpy as np
 from scipy.constants import c as c0
 from numba import njit
 import nu_evolution as neutrino
+from solve_triangular import solve_triangular
 
 c = c0 / 1000  # km/s
 
@@ -22,7 +23,11 @@ covariance = 1e-09 * np.array(
     ],
 )
 inv_cov_mat = np.linalg.inv(covariance)
+L = np.linalg.cholesky(covariance)
+logdet = 2 * np.sum(np.log(np.diag(L)))
+prob_norm = logdet + len(DISTANCE_PRIORS) * np.log(2 * np.pi)
 
+# ---- Physical constants ----
 k_B = 8.617333262e-5  # eV/K
 TCMB = 2.7255  # K
 O_GAMMA_H2 = 2.472975328714087e-05
@@ -86,7 +91,7 @@ def w_nu_z(z):
 
 @njit
 def z_star(wb, wm):
-    # for SPA this is actually z_rec
+    # for SPA this is actually z_rec, peak visibility function
     """arXiv:2106.00428v2 (eq A-4)"""
 
     s1, s2, b, m = (1.01659306, 0.99938819, 1.00488811, 1.01260252)
@@ -192,5 +197,16 @@ def cmb_distances(Obh2, Och2, params):
     Omh2 = Och2 + Obh2 + Omnu_h2
     zstar = z_star(Obh2, Omh2)
     thetastar = rs_z(zstar, Obh2, params) / DM_z(zstar, params)
-
     return np.array([thetastar, Obh2, Omh2])
+
+
+@njit
+def chi2(Obh2, Och2, params):
+    delta = DISTANCE_PRIORS - cmb_distances(Obh2, Och2, params)
+    y = solve_triangular(L, delta)
+    return np.dot(y, y)
+
+
+@njit
+def log_likelihood(Obh2, Och2, params):
+    return -0.5 * (chi2(Obh2, Och2, params) + prob_norm)
