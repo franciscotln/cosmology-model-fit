@@ -116,6 +116,7 @@ def main():
         name="rdrag",
         label=r"r_{drag}",
     )
+    samples.addDerived(samples["rdrag"] * samples["h"], name="hrd", label="h r_d")
     samples.addDerived(
         -1 + (samples["ombh2"] + samples["omch2"]) / cmb.Omega_r_h2(),
         name="zeq",
