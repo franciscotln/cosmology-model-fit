@@ -5,7 +5,7 @@ from y2025BAO.data import get_data as get_bao_data
 import cmb.data_planck_compression as cmb
 import y2024BBN.prior_lcdm_schoneberg as bbn
 
-c = cmb.c  # speed of light in km/s
+c = cmb.c_km_per_s
 Or_h2 = cmb.Or_h2
 Omnu_h2 = cmb.Omnu_h2
 

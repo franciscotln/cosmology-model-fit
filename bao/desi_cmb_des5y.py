@@ -7,7 +7,7 @@ from y2025DESdovekie.data import get_data as get_sn_data, effective_sample_size
 from y2025BAO.data_fs_lya import get_data as get_bao_data
 import cmb.data_spt_planck_act_compression as cmb
 
-c = cmb.c  # km/s
+c = cmb.c_km_per_s
 Orh2 = cmb.Or_h2
 Omnuh2 = cmb.Omnu_h2
 
@@ -16,7 +16,6 @@ bao_legend, bao, bao_cov_matrix = get_bao_data()
 
 cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
 cho_bao = cho_factor(bao_cov_matrix, lower=True)[0]
-cho_cmb = cho_factor(cmb.covariance, lower=True)[0]
 
 z_max = max(np.max(z_cmb), np.max(bao["z"])) + 0.1
 z_grid = np.linspace(0, z_max, num=4000)
@@ -26,28 +25,21 @@ dz = z_grid[1] - z_grid[0]
 @njit
 def Ode_z(z, w0, wa):
     # w1w2CDM
-    zp1 = 1. + z
-    return zp1**(3 * (1. + w0 + wa)) * ((zp1**2 + 1) / (2 * zp1**2))**(3 * wa)
+    zp1 = 1.0 + z
+    return zp1**(3 * (1.0 + w0 + wa)) * (2 * zp1**2 / (zp1**2 + 1.0))**(-3 * wa)
 
 
 @njit
 def H_z(z, params):
-    H0, Obh2, Och2 = params[1], params[2], params[3]
-    h = H0 / 100
-
-    Onu = Omnuh2 / h**2
-    Or = Orh2 / h**2
-    Obc = (Obh2 + Och2) / h**2
-    Ode = 1.0 - Obc - Or - Onu
-
+    h, Obh2, Och2 = params[1], params[2], params[3]
     zp1 = 1.0 + z
 
-    radiation_term = Or * zp1**4
-    matter_term = Obc * zp1**3
-    neutrino_term = Onu * cmb.Omnu_z(z)
-    dark_energy_term = Ode
+    radiation_term = Orh2 * zp1**4
+    matter_term = (Obh2 + Och2) * zp1**3
+    neutrino_term = Omnuh2 * cmb.Omnu_z(z)
+    lambda_term = h**2 - Orh2 - Obh2 - Och2 - Omnuh2
 
-    return H0 * np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
+    return 100 * np.sqrt(radiation_term + matter_term + neutrino_term + lambda_term)
 
 
 cmb.set_HZ(H_z)
@@ -78,8 +70,7 @@ bao_qty = np.array([qty_map[q] for q in bao["quantity"]], dtype=np.int64)
 @njit
 def bao_theory(z, qty, params, DM_interp):
     Obh2, Och2 = params[2], params[3]
-    Omh2 = Obh2 + Och2 + Omnuh2
-    inv_rd = 1 / cmb.r_drag(Obh2, Omh2)
+    inv_rd = 1 / cmb.r_drag(wb=Obh2, wm=Obh2 + Och2 + Omnuh2)
 
     DM = interp_hermite(z, z_grid, y=DM_interp[0], y_prime=DM_interp[1])
     DH = interp_pchip(z, z_grid, y=DM_interp[1])
@@ -127,13 +118,6 @@ def chi2_sn(params, dm_interp):
 
 
 @njit
-def chi2_cmb(params):
-    delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(params[2], params[3], params)
-    y = solve_triangular(cho_cmb, delta)
-    return np.dot(y, y)
-
-
-@njit
 def chi2_bao(params, dm_interp):
     delta_bao = bao["value"] - bao_theory(bao["z"], bao_qty, params, dm_interp)
     y = solve_triangular(cho_bao, delta_bao)
@@ -143,7 +127,7 @@ def chi2_bao(params, dm_interp):
 @njit
 def chi_squared(params):
     dm_dh_grid = DM_DH_grid(params)
-    return chi2_cmb(params) + chi2_bao(params, dm_dh_grid) + chi2_sn(params, dm_dh_grid)
+    return cmb.chi2(params[2], params[3], params) + chi2_bao(params, dm_dh_grid) + chi2_sn(params, dm_dh_grid)
 
 
 def log_likelihood(params):
@@ -160,7 +144,7 @@ def main():
 
     prior = Prior()
     prior.add_parameter("dM", dist=(-0.5, +0.5))
-    prior.add_parameter("H0", dist=(60.0, 75.0))
+    prior.add_parameter("h", dist=(0.60, 0.75))
     prior.add_parameter("obh2", dist=(0.010, 0.030))
     prior.add_parameter("och2", dist=(0.01, 0.25))
     prior.add_parameter("dz_1000", dist=(-1.5, 1.5))
@@ -170,17 +154,11 @@ def main():
         sampler.run(verbose=True)
 
     samples, log_w, log_l = sampler.posterior()
-    labels=["ΔM", "H_0", "ω_b", "ω_c", "1000 Δz"]
+    labels=["ΔM", "h", "ω_b", "ω_c", "1000 Δz"]
     gd_samples = MCSamples(samples=samples, weights=np.exp(log_w), names=prior.keys, labels=labels)
-    gd_samples.addDerived(
-        gd_samples["obh2"] + gd_samples["och2"] + Omnuh2, name="omh2", label="ω_m"
-    )
-    gd_samples.addDerived(
-        gd_samples["omh2"] / (gd_samples["H0"] / 100) ** 2, name="om", label="Ω_m"
-    )
-    gd_samples.addDerived(
-        cmb.z_star(gd_samples["obh2"], gd_samples["omh2"]), name="zstar", label="z_*"
-    )
+    gd_samples.addDerived(gd_samples["obh2"] + gd_samples["och2"] + Omnuh2, name="omh2", label="ω_m")
+    gd_samples.addDerived(gd_samples["omh2"] / gd_samples["h"] ** 2, name="om", label="Ω_m")
+    gd_samples.addDerived(cmb.z_star(gd_samples["obh2"], gd_samples["omh2"]), name="zstar", label="z_*")
     gd_samples.addDerived(
         cmb.z_drag(gd_samples["obh2"], gd_samples["omh2"]),
         name="zdrag",
@@ -196,7 +174,7 @@ def main():
     for name in gd_samples.getParamNames().names:
         print(gd_samples.getInlineLatex(name, limit=1))
 
-    plot_params = ["H0", "om", "rdrag", "dz_1000"]
+    plot_params = ["h", "om", "rdrag", "dz_1000"]
     plots.get_subplot_plotter().triangle_plot(
         gd_samples, params=plot_params, title_limit=1, contour_colors=["C0"]
     )
@@ -262,17 +240,17 @@ if __name__ == "__main__":
 # turning point z <= 0.10563 positive z > 0.10563 negative
 # z_cosmo = z_cmb ± Δz
 
-# 1000 Δz = 0.52 ± 0.19 (prior ~ U[-1.5, 1.5])
-# H0 = 68.06 ± 0.24 km/s/Mpc
-# Ωm = 0.3050 ± 0.0033
-# ωb = 0.022474 ± 0.000091
+# 1000 Δz = 0.52 ± 0.20 (prior ~ U[-1.5, 1.5])
+# H0 = 68.07 ± 0.24 km/s/Mpc
+# Ωm = 0.3049 ± 0.0033
+# ωb = 0.022472 ± 0.000091
 # ωc = 0.11816 ± 0.00059
-# ωm = 0.14127 ± 0.00059
-# z* = 1088.55 ± 0.11
+# ωm = 0.14128 ± 0.00058
+# z_rec = 1088.56 ± 0.11
 # z_d = 1060.02 ± 0.21
 # r_d = 147.47 ± 0.17 Mpc
-# ΔM = -0.0714 ± 0.0074 mag
-# χ2 (MAP): 1648.95 (2.7 sigma significance)
+# ΔM = -0.0713 ± 0.0074 mag
+# χ2 (MAP): 1648.88 (2.7 sigma significance)
 # Log evidence: -844.7 (Δ logZ = 1.7 in favour of z offset step correction)
 # Degrees of freedom: 1726
 # ---------------------------------

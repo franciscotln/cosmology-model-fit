@@ -5,7 +5,7 @@ from scipy.linalg import cho_factor
 from interpolator import interp_hermite, interp_pchip
 from solve_triangular import solve_triangular
 from cmb.data_early_lcdm_compression import r_drag
-from y2005cc.data_no_loubser import get_data as get_cc_data
+from y2005cc.data import method, get_data as get_cc_data
 from y2025BAO.data_fs_lya import get_data as get_bao_data
 from y2025DESdovekie.data import (
     effective_sample_size as sn_sample,
@@ -32,7 +32,7 @@ names = ["ln_fp", "n_cc", "dM", "h0", "Obh2", "Om", "1000_dz"]
 labels = ["ln(f_{p,cc})", "n_{cc}", "ΔM", "H_0", "Ω_b h^2", "Ω_m", "1000 Δz"]
 bounds = np.array([
     (-2, 1),  # ln(fp): CC error rescaling (overestimated)
-    (-3, 7),  # n_cc: CC error rescaling power (overestimated)
+    (-2.5, 2.5),  # n_cc: CC error rescaling power (overestimated)
     (-0.55, +0.55),  # ΔM: magnitude offset
     (45, 90),  # H0: Hubble constant at present
     (0.001, 0.04),  # Ωb h^2: baryon density parameter at present
@@ -41,13 +41,13 @@ bounds = np.array([
 ])
 # ------------------
 
+
 @njit
-def rho_de(z, w0, wa):
+def rho_de(z, w0):
     cubed = (1.0 + z) ** 3
-    # return (2 * cubed / (1.0 + w0 + (1.0 - w0) * cubed)) ** 2  # wzCDM
     # return 1.0  # ΛCDM
-    # return cubed ** (1.0 + w0)  # wCDM
-    return cubed ** (1.0 + w0 + wa) * np.exp(-3 * wa * z / (1.0 + z))  # w0waCDM
+    return cubed ** (1.0 + w0)  # wCDM
+    # return cubed ** (1.0 + w0 + wa) * np.exp(-3 * wa * z / (1.0 + z))  # w0waCDM
 
 
 @njit
@@ -150,21 +150,17 @@ def chi_squared(theta, cho_cc):
     return chi_sn + chi_bao + chi_cc
 
 
-normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
+method_f = method == "F"
+z_pivot = 1.198
+shape = np.ones_like(z_cc, dtype=np.float64)
+shape[method_f] = ((1 + z_cc[method_f]) / (1 + z_pivot))**4
+# statistical error in H is proportional to (1+z) * H^2
 
 
 @njit
-def log_prior(theta):
-    if not np.all((bounds[:, 0] < theta) & (theta < bounds[:, 1])):
-        return -np.inf
-    return normalization
-
-
-@njit
-def get_fz(theta):
-    z_pivot = 1.035
-    f_piv, n = np.exp(theta[0]), theta[1]
-    return f_piv * ((1.0 + z_cc) / (1.0 + z_pivot))**n
+def get_fz(params):
+    fp, n = np.exp(params[0]), params[1]
+    return fp * shape**n
 
 
 @njit
@@ -175,6 +171,16 @@ def log_likelihood(theta):
     normalization_cc = N_cc * np.log(2 * np.pi) + logdet_cc
 
     return -0.5 * (chi_squared(theta, cho_cc) + normalization_cc)
+
+
+normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
+
+
+@njit
+def log_prior(theta):
+    if not np.all((bounds[:, 0] < theta) & (theta < bounds[:, 1])):
+        return -np.inf
+    return normalization
 
 
 @njit
@@ -265,6 +271,7 @@ def main():
         H=H_cc,
         H_err=np.sqrt(np.diag(cov_mat_sys_cc) + diag_stat_cc**2),
         label=f"{cc_legend} $H_0$: {MAP_PARAMS[3]:.1f} km/s/Mpc",
+        method=method,
         err_scaling=1 / fz_cc,
     )
     plot_sn_predictions(
@@ -289,106 +296,20 @@ if __name__ == "__main__":
     main()
 
 
-# ----------- Flat ΛCDM -----------
-# H0 = 67.9 ± 2.7 km/s/Mpc
-# Ωm = 0.3083 ± 0.0069
-# rd = 148.4 +5.5 -6.1 Mpc
-#
-# ΔM = -0.073 ± 0.087 mag
-# ln(fp_cc) = -0.47 ± 0.27
-# n_cc = 3.05 +0.87 -1.2
-#
-# Chi squared (MAP): 1683.23
-# DOF: 1758
-# ---------------------------------
-
-
-# ----------- Flat ΛCDM -----------
-# Z offset step correction in SNe observed redshifts
-# turning point z <= 0.10563 positive z > 0.10563 negative
-# z_cosmo = z_cmb ± Δz
-
-# H0 = 68.2 ± 2.8 km/s/Mpc
-# Ωm = 0.3033 ± 0.0070
-# rd = 148.4 +5.5 -6.2 Mpc
-# 1000 Δz = 0.53 ± 0.20 (prior ~ U[-1.5, +1.5])
-#
-# ΔM = -0.070 ± 0.088 mag
-# ln(fp_cc) = -0.47 ± 0.27
-# n_cc = 3.06 +0.86 -1.20
-#
-# Chi squared (MAP): 1674.83
-# DOF: 1757
-# ---------------------------------
-
-
-# ----------- Flat wCDM -----------
-# H0 = 67.2 ± 2.7 km/s/Mpc
-# Ωm = 0.3043 ± 0.0072
-# rd = 148.7 +5.3 -6.4 Mpc
-# w = -0.934 ± 0.035 (prior ~ U[-1.5, -0.5])
-#
-# ΔM = -0.082 +0.091 -0.081 mag
-# ln(fp_cc) = -0.48 ± 0.27
-# n_cc = 3.07 +0.88 -1.2
-#
-# Chi squared (MAP): 1677.53
-# DOF: 1757
-# ---------------------------------
-
-
-# ---------- Flat w0waCDM ---------
-# w0 + wa < 0 enforced in the likelihood
-#
-# H0 = 66.7 ± 2.8 km/s/Mpc
-# rd = 149.0 +5.4 -6.4 Mpc
-# Ωm = 0.320 +0.013 -0.0091
-# w0 = -0.837 ± 0.072 (prior ~ U[-1.5, 0])
-# wa = -0.68 ± 0.45 (prior ~ U[-3, 3])
-#
-# ΔM = -0.081 +0.091 -0.082 mag
-# ln(fp_cc) = -0.45 ± 0.27
-# n_cc = 3.09 +0.88 -1.2
-#
-# Chi squared (MAP): 1675.22
-# DOF: 1756
-# ---------------------------------
-
-
-# ---------- Flat w0waCDM ---------
-# at z_pivot = 0.168
-# w0 + wa < 0 enforced in the likelihood
-
-# H0 = 66.8 ± 2.7 km/s/Mpc
-# rd = 149.0 +5.4 -6.4 Mpc
-# Ωm = 0.321 +0.013 -0.0096
-# wp = -0.936 ± 0.034 (prior ~ U[-1.5, 0])
-# wa = -0.69 ± 0.44 (prior ~ U[-3, 3])
-#
-# ΔM = -0.081 ± 0.087 mag
-# ln(fp_cc) = -0.45 ± 0.27
-# n_cc = 3.07 +0.86 -1.20
-#
-# Chi squared (MAP): 1678.63
-# DOF: 1756
-# ---------------------------------
-
-
 # --- Assuming standard early times physics with rdrag = rdrag(Obh2, Omh2) ---
 
-
 # ----------- Flat ΛCDM -----------
-# H0 = 68.2 ± 2.7 km/s/Mpc
-# Ωb h^2 = 0.0218 ± 0.0033
-# Ωm = 0.3083 ± 0.0068
-# rd = 147.8 +5.3 -6.1 Mpc
+# H0 = 69.6 ± 1.4 km/s/Mpc
+# Ωb h^2 = 0.0234 ± 0.0018
+# Ωm = 0.3081 ± 0.0069
+# r_d = 144.7 ± 2.8 Mpc
 #
-# ΔM = -0.064 ± 0.085 mag
-# ln(fp_cc) = -0.48 ± 0.27
-# n_cc = 3.04 +0.86 -1.20
+# ln(fp_cc) = -0.41 ± 0.25
+# n_cc = 1.02 +0.31 -0.53
+# ΔM = -0.019 ± 0.042 mag
 #
-# log likelihood (MAP): -960.95
-# DOF: 1758
+# log likelihood (MAP): -974.38
+# DOF: 1761
 # ---------------------------------
 
 
@@ -396,72 +317,72 @@ if __name__ == "__main__":
 # Z offset step correction in SNe observed redshifts
 # turning point z <= 0.10563 positive z > 0.10563 negative
 # z_cosmo = z_cmb ± Δz
-
-# H0 = 68.5 ± 2.7 km/s/Mpc
-# Ωb h^2 = 0.0221 ± 0.0034
-# Ωm = 0.3033 ± 0.0070
-# 1000 Δz = 0.53 ± 0.20
-# rd = 147.8 +5.4 -6.2 Mpc
 #
-# ΔM = -0.061 ± 0.086 mag
-# ln(fp_cc) = -0.47 ± 0.27
-# n_cc = 3.04 +0.86 -1.2
+# H0 = 69.8 ± 1.4 km/s/Mpc
+# Ωm = 0.3031 ± 0.0070
+# Ωb h^2 = 0.0237 ± 0.0018
+# r_d = 144.9 ± 2.8 Mpc
+# 1000 Δz = 0.53 ± 0.20 (prior ~ U[-1.5, +1.5])
 #
-# log likelihood (MAP): -957.40
-# DOF: 1757
+# ln(fp_cc) = -0.41 ± 0.25
+# n_cc = 1.02 +0.31 -0.54
+# ΔM = -0.019 ± 0.042 mag
+#
+# log likelihood (MAP): -970.80
+# DOF: 1760
 # ---------------------------------
 
 
 # ----------- Flat wCDM -----------
-# H0 = 67.5 ± 2.7 km/s/Mpc
-# Ωb h^2 = 0.0231 ± 0.0035
-# Ωm = 0.3042 ± 0.0073
-# w = -0.934 ± 0.035
-# rd = 147.9 +5.3 -6.2 Mpc
+# H0 = 68.9 ± 1.4 km/s/Mpc
+# Ωm = 0.3041 ± 0.0073
+# Ωb h^2 = 0.0251 ± 0.0021
+# r_d = 144.6 ± 2.8 Mpc
+# w = -0.932 ± 0.035 (prior ~ U[-1.5, -0.5])
 #
-# ΔM = -0.071 ± 0.086 mag
-# ln(fp_cc) = -0.47 ± 0.27
-# n_cc = 3.03 +0.85 -1.2
+# ln(fp_cc) = -0.40 ± 0.25
+# n_cc = 1.02 +0.31 -0.52
+# ΔM = -0.023 ± 0.042 mag
 #
-# log likelihood (MAP): -959.20
-# DOF: 1757
+# log likelihood (MAP): -972.53
+# DOF: 1760
 # ---------------------------------
 
 
 # ---------- Flat w0waCDM ---------
 # w0 + wa < 0 enforced in the likelihood
-
-# H0 = 67.1 ± 2.7 km/s/Mpc
-# Ωb h^2 = 0.0210 +0.0033 -0.0037
-# Ωm = 0.321 +0.013 -0.0095
-# w0 = -0.837 ± 0.071 (prior ~ U[-1.5, 0])
-# wa = -0.68 ± 0.43 (prior ~ U[-3, 3])
-# rd = 148.2 +5.4 -6.2 Mpc
 #
-# ΔM = -0.070 ± 0.086 mag
-# ln(fp_cc) = -0.45 ± 0.27
-# n_cc = 3.05 +0.86 -1.2
+# H0 = 68.5 ± 1.4 km/s/Mpc
+# Ωm = 0.320 +0.013 -0.0095
+# Ωb h^2 = 0.0228 +0.0019 -0.0025
+# r_d = 144.9 ± 2.8 Mpc
+# w0 = -0.836 ± 0.072 (prior ~ U[-2, 0])
+# wa = -0.68 ± 0.44 (prior ~ U[-3, 3])
 #
-# log likelihood (MAP): -957.82
-# DOF: 1756
+# ln(fp_cc) = -0.39 ± 0.25
+# n_cc = 1.04 +0.31 -0.55
+# ΔM = -0.023 ± 0.042 mag
+#
+# log likelihood (MAP): -971.23
+# DOF: 1759
 # ---------------------------------
 
 
 # ---------- Flat w0waCDM ---------
 # at z_pivot = 0.168
-# w0 + wa < 0 enforced in the likelihood
-
-# H0 = 67.1 ± 2.7 km/s/Mpc
-# Ωb h^2 = 0.0210 +0.0033 -0.0037
-# Ωm = 0.320 +0.013 -0.0096
-# w0 = -0.936 ± 0.034 (prior ~ U[-1.5, 0])
+# wp + wa < 0 enforced in the likelihood
+#
+# H0 = 68.5 ± 1.4 km/s/Mpc
+# Ωm = 0.320 +0.013 -0.0095
+# Ωb h^2 = 0.0228 +0.0019 -0.0025
+# r_d = 144.9 ± 2.8 Mpc
+# wp = -0.935 ± 0.034 (prior ~ U[-2, 0])
 # wa = -0.68 ± 0.44 (prior ~ U[-3, 3])
-# rd = 148.2 +5.3 -6.2 Mpc
 #
-# ΔM = -0.070 ± 0.086 mag
-# ln(fp_cc) = -0.46 ± 0.27
-# n_cc = 3.06 +0.87 -1.20
+# ln(fp_cc) = -0.40 ± 0.25
+# n_cc = 1.04 +0.31 -0.54
+# ΔM = -0.022 ± 0.042 mag
 #
-# log likelihood (MAP): -957.92
-# DOF: 1756
+# log likelihood (MAP): -971.33
+# DOF: 1759
 # ---------------------------------

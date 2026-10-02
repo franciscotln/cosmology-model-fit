@@ -7,7 +7,7 @@ from y2026union3_1.data import get_data as get_sn_data
 from y2025BAO.data import get_data as get_bao_data
 import y2018fs8.data as fs8
 
-c = cmb.c  # Speed of light in km/s
+c = cmb.c_km_per_s
 Orh2 = cmb.Or_h2
 Omnuh2 = cmb.Omnu_h2
 

@@ -6,46 +6,28 @@ from solve_triangular import solve_triangular
 from y2025DESdovekie.data import get_data, effective_sample_size
 import cmb.data_act_planck_compression as cmb
 
-c = cmb.c  # km/s
+c = cmb.c_km_per_s
 Orh2 = cmb.Or_h2
 Onuh2 = cmb.Omnu_h2
 
 sn_legend, z_cmb, z_hel, mu_vals, cov_matrix_sn = get_data()
-
 cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
 
 z_grid = np.linspace(0, np.max(z_cmb) + 0.1, num=4000)
-dz = np.diff(z_grid)
-
-
-@njit
-def Ode_z(z, w0):
-    # Thawing quintessence with w(z) ranging from -1 to 1
-    a3 = 1 / (1 + z) ** 3
-    return 4 / ((1.0 + w0) * a3 + (1.0 - w0)) ** 2
-
-
-@njit
-def Ez(z, h, Obh2, Och2):
-    Obc = (Obh2 + Och2) / h**2
-    Onu = Onuh2 / h**2
-    Or = Orh2 / h**2
-    Ode = 1.0 - Obc - Or - Onu
-
-    zp1 = 1.0 + z
-
-    radiation_term = Or * zp1**4
-    matter_term = Obc * zp1**3
-    neutrino_term = Onu * cmb.Omnu_z(z)
-    dark_energy_term = Ode
-
-    return np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
+dz = z_grid[1] - z_grid[0]
 
 
 @njit
 def H_z(z, theta):
-    H0 = theta[1]
-    return H0 * Ez(z, h=H0 / 100, Obh2=theta[2], Och2=theta[3])
+    h, Obh2, Och2 = theta[1], theta[2], theta[3]
+    zp1 = 1.0 + z
+
+    radiation_term = Orh2 * zp1**4
+    matter_term = (Obh2 + Och2) * zp1**3
+    neutrino_term = Onuh2 * cmb.Omnu_z(z)
+    dark_energy_term = h**2 - Orh2 - Onuh2 - Obh2 - Och2
+
+    return 100 * np.sqrt(radiation_term + matter_term + neutrino_term + dark_energy_term)
 
 
 cmb.set_HZ(H_z)
@@ -95,14 +77,8 @@ def chi2_sn(params):
 
 
 @njit
-def chi2_cmb(params):
-    delta = cmb.DISTANCE_PRIORS - cmb.cmb_distances(params[2], params[3], params)
-    return delta @ cmb.inv_cov_mat @ delta
-
-
-@njit
 def chi_squared(params):
-    return chi2_cmb(params) + chi2_sn(params)
+    return cmb.chi2(params[2], params[3], params) + chi2_sn(params)
 
 
 def log_likelihood(params):
@@ -118,32 +94,21 @@ def main():
 
     prior = Prior()
     prior.add_parameter("dM", dist=(-0.7, +0.7))  # mag
-    prior.add_parameter("H0", dist=(55, 75))  # km/s/Mpc
+    prior.add_parameter("h", dist=(0.55, 0.75))  # km/s/Mpc
     prior.add_parameter("obh2", dist=(0.01, 0.03))
     prior.add_parameter("och2", dist=(0.01, 0.25))
     prior.add_parameter("dz_1000", dist=(-1.5, 1.5)) # 1000 x Δz
 
     with Pool(6) as pool:
-        sampler = Sampler(
-            prior, log_likelihood, n_live=5_000, pool=pool, seed=42, pass_dict=False,
-        )
+        sampler = Sampler(prior, log_likelihood, n_live=5_000, pool=pool, seed=42, pass_dict=False)
         sampler.run(verbose=True)
 
     samples, log_w, log_l = sampler.posterior()
 
-    labels = ["ΔM", "H_0", "Ω_b h^2", "Ω_c h^2", "1000 Δz"]
-    gd_samples = MCSamples(
-        samples=samples,
-        weights=np.exp(log_w),
-        names=prior.keys,
-        labels=labels,
-    )
-    gd_samples.addDerived(
-        gd_samples["obh2"] + gd_samples["och2"] + Onuh2, name="omh2", label="ω_m"
-    )
-    gd_samples.addDerived(
-        gd_samples["omh2"] / (gd_samples["H0"] / 100) ** 2, name="om", label="Ω_m"
-    )
+    labels = ["ΔM", "h", "Ω_b h^2", "Ω_c h^2", "1000 Δz"]
+    gd_samples = MCSamples(samples=samples, weights=np.exp(log_w), names=prior.keys, labels=labels)
+    gd_samples.addDerived(gd_samples["obh2"] + gd_samples["och2"] + Onuh2, name="omh2", label="ω_m")
+    gd_samples.addDerived(gd_samples["omh2"] / gd_samples["h"] ** 2, name="om", label="Ω_m")
     gd_samples.updateBaseStatistics()
 
     for name in gd_samples.getParamNames().names:
@@ -164,7 +129,7 @@ def main():
 
     plots.get_subplot_plotter().triangle_plot(
         roots=gd_samples,
-        params=["H0", "om", "dz_1000"],
+        params=["h", "om", "dz_1000"],
         title_limit=1,
         contour_colors=["C0"],
     )

@@ -5,13 +5,12 @@ from solve_triangular import solve_triangular
 from y2026union3_1.data import get_data
 import cmb.data_spt_planck_act_compression as cmb
 
-c = cmb.c  # km/s
+c = cmb.c_km_per_s
 Orh2 = cmb.Or_h2
 Omnuh2 = cmb.Omnu_h2
 
 sn_legend, z_cmb, z_hel, mu_vals, cov_matrix_sn = get_data()
 L_sn = np.linalg.cholesky(cov_matrix_sn)
-L_cmb = np.linalg.cholesky(cmb.covariance)
 
 z_grid = np.linspace(0, np.max(z_cmb) + 0.1, num=2000)
 dz = z_grid[1] - z_grid[0]
@@ -25,20 +24,14 @@ def Ode_z(z, w0):
 
 @njit
 def Hz(z, params):
-    H0, Obh2, Och2 = params[1], params[2], params[3]
-    h = H0 / 100
-    Onu = Omnuh2 / h**2
-    Or = Orh2 / h**2
-    Obc = (Obh2 + Och2) / h**2
-    Ode = 1.0 - Obc - Or - Onu
-
+    h, Obh2, Och2 = params[1], params[2], params[3]
     zp1 = 1.0 + z
 
-    radiation_term = Or * zp1**4
-    matter_term = Obc * zp1**3
-    neutrino_term = Onu * cmb.Omnu_z(z)
-    dark_energy_term = Ode
-    return H0 * np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
+    radiation_term = Orh2 * zp1**4
+    matter_term = (Obh2 + Och2) * zp1**3
+    neutrino_term = Omnuh2 * cmb.Omnu_z(z)
+    lambda_term = h**2 - Orh2 - Omnuh2 - Obh2 - Och2
+    return 100 * np.sqrt(radiation_term + matter_term + neutrino_term + lambda_term)
 
 
 cmb.set_HZ(Hz)
@@ -89,15 +82,8 @@ def chi2_sn(params):
 
 
 @njit
-def chi2_cmb(params):
-    delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(params[2], params[3], params)
-    y = solve_triangular(L_cmb, delta_cmb)
-    return np.dot(y, y)
-
-
-@njit
 def chi_squared(params):
-    return chi2_cmb(params) + chi2_sn(params)
+    return cmb.chi2(params[2], params[3], params) + chi2_sn(params)
 
 
 @njit
@@ -114,7 +100,7 @@ def main():
 
     prior = Prior()
     prior.add_parameter("dM", dist=(-1.0, +1.0))
-    prior.add_parameter("H0", dist=(60.0, 75.0))
+    prior.add_parameter("h", dist=(0.60, 0.75))
     prior.add_parameter("obh2", dist=(0.01, 0.03))
     prior.add_parameter("och2", dist=(0.01, 0.25))
     prior.add_parameter("dz_1000", dist=(-3.5, 3.5)) # 1000 x Δz
@@ -125,7 +111,7 @@ def main():
 
     samples, log_w, log_l = sampler.posterior()
 
-    labels=["ΔM", "H_0", "ω_b", "ω_c", "1000 Δz"]
+    labels=["ΔM", "h", "ω_b", "ω_c", "1000 Δz"]
     gd_samples = MCSamples(
         samples=samples,
         weights=np.exp(log_w),
@@ -134,7 +120,7 @@ def main():
         label="Union3.1 + CMB(θ*, ωb, ωm)",
     )
     gd_samples.addDerived(Omnuh2 + gd_samples["obh2"] + gd_samples["och2"], name="omh2", label="ω_m")
-    gd_samples.addDerived(gd_samples["omh2"] / (gd_samples["H0"] / 100) ** 2, name="om", label="Ω_m")
+    gd_samples.addDerived(gd_samples["omh2"] / gd_samples["h"] ** 2, name="om", label="Ω_m")
 
     MAP_index = np.argmax(log_l)
     best_fit = samples[MAP_index]
@@ -149,8 +135,8 @@ def main():
 
     g = plots.get_subplot_plotter()
     g.triangle_plot(
-        gd_samples,
-        params=["dM", "H0", "om", "dz_1000"],
+        roots=gd_samples,
+        params=["dM", "h", "om", "dz_1000"],
         title_limit=1,
         filled=True,
         contour_colors=["C0"],

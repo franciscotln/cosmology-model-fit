@@ -10,7 +10,7 @@ from numba import njit
 import nu_evolution as neutrino
 from solve_triangular import solve_triangular
 
-c = c0 / 1000  # km/s
+c_km_per_s = c0 / 1000  # km/s
 
 DISTANCE_PRIORS = np.array([0.0104161, 0.0223985, 0.14331818])
 """Compressed SPT+ACT+Planck priors: (θ*, ωb, ωm)"""
@@ -93,8 +93,8 @@ def w_nu_z(z):
 def z_star(wb, wm):
     # for SPA this is actually z_rec, peak visibility function
     """arXiv:2106.00428v2 (eq A-4)"""
-
     s1, s2, b, m = (1.01659306, 0.99938819, 1.00488811, 1.01260252)
+
     wb = wb**b
     wm = wm**m
 
@@ -164,7 +164,7 @@ GL_X_RS, GL_W_RS = np.polynomial.legendre.leggauss(N_RS)
 def _integ_u(u, params):
     # u = sqrt(a): constant in matter era, ~linear in radiation era
     z = 1.0 / (u * u) - 1.0
-    return 2.0 * c / (u**3 * _HZ_FUNC(z, params))
+    return 2.0 * c_km_per_s / (u**3 * _HZ_FUNC(z, params))
 
 
 @njit

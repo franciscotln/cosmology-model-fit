@@ -5,7 +5,7 @@ from solve_triangular import solve_triangular
 from y2025BAO.data_fs_lya import get_data
 import cmb.data_early_lcdm_compression as cmb
 
-c = cmb.c  # km/s
+c = cmb.c_km_per_s
 Orh2 = cmb.Or_h2
 Omnuh2 = cmb.Omnu_h2
 
@@ -30,21 +30,15 @@ def Ode_z(z, w0, wa):
 
 @njit
 def H_z(z, params):
-    H0, Obh2, Och2, w0, wa = params
-    h = H0 / 100
-    Onu = Omnuh2 / h**2
-    Or = Orh2 / h**2
-    Obc = (Obh2 + Och2) / h**2
-    Ode = 1.0 - Obc - Or - Onu
-
+    h, Obh2, Och2, w0, wa = params
     zp1 = 1.0 + z
 
-    radiation_term = Or * zp1**4
-    matter_term = Obc * zp1**3
-    neutrino_term = Onu * cmb.Omnu_z(z)
-    dark_energy_term = Ode * Ode_z(z, w0, wa)
+    radiation_term = Orh2 * zp1**4
+    matter_term = (Obh2 + Och2) * zp1**3
+    neutrino_term = Omnuh2 * cmb.Omnu_z(z)
+    dark_energy_term = (h**2 - (Orh2 + Omnuh2 + Obh2 + Och2)) * Ode_z(z, w0, wa)
 
-    return H0 * np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
+    return 100 * np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
 
 
 cmb.set_HZ(H_z)
@@ -112,7 +106,7 @@ def main():
     from bao.plot_predictions import plot_bao_predictions
 
     prior = Prior()
-    prior.add_parameter("H0", dist=(60.0, 75.0))  # km/s/Mpc
+    prior.add_parameter("h", dist=(0.60, 0.75))  # dimensionless Hubble parameter
     prior.add_parameter("obh2", dist=(0.01, 0.03))
     prior.add_parameter("och2", dist=(0.01, 0.25))
     prior.add_parameter("w0", dist=(-3.0, 1.0))
@@ -124,15 +118,15 @@ def main():
 
     samples, log_w, log_l = sampler.posterior()
 
-    labels=["H_0", "ω_b", "ω_c", "w_0", "w_a"]
+    labels=["h", "ω_b", "ω_c", "w_0", "w_a"]
     gd_samples = MCSamples(samples=samples, weights=np.exp(log_w), names=prior.keys, labels=labels)
     gd_samples.addDerived(gd_samples["obh2"] + gd_samples["och2"] + Omnuh2, name="omh2", label="ω_m")
-    gd_samples.addDerived(gd_samples["omh2"] / (gd_samples["H0"] / 100) ** 2, name="om", label="Ω_m")
+    gd_samples.addDerived(gd_samples["omh2"] / gd_samples["h"] ** 2, name="om", label="Ω_m")
     gd_samples.addDerived(cmb.r_drag(gd_samples["obh2"], gd_samples["omh2"]), name="rdrag", label="r_{drag}")
 
     plots.get_subplot_plotter().triangle_plot(
         roots=gd_samples,
-        params=["H0", "om", "omh2", "rdrag", "w0", "wa"],
+        params=["h", "om", "omh2", "rdrag", "w0", "wa"],
         title_limit=1,
         contour_colors=["C0"],
     )
@@ -169,10 +163,10 @@ if __name__ == "__main__":
 
 # --------------- Flat ΛCDM -----------------
 # H0 = 68.31 ± 0.29 km/s/Mpc
-# Ωm = 0.3010 ± 0.0037
+# Ωm = 0.3009 ± 0.0038
 # r_d = 147.80 ± 0.19 Mpc
 # Log evidence: 9.4
-# χ2 (MAP): 15.61
+# χ2 (MAP): 15.63
 # χ2 / DOF (MAP): 1.3
 # DOF: 14
 # -------------------------------------------
@@ -180,11 +174,11 @@ if __name__ == "__main__":
 
 # --------------- Flat wCDM -----------------
 # H0 = 68.76 ± 0.95 km/s/Mpc
-# Ωm = 0.2978 ± 0.0075
+# Ωm = 0.2977 ± 0.0074
 # r_d = 147.74 ± 0.22 Mpc
-# w0 = -1.020 ± 0.040 (prior ~ U[-1.5, -0.5])
+# w0 = -1.020 ± 0.039 (prior ~ U[-1.5, -0.5])
 # Log evidence: 7.2 (Δ logZ = 2.2 in favour of ΛCDM)
-# χ2 (MAP): 15.44
+# χ2 (MAP): 15.45
 # χ2 / DOF (MAP): 1.29
 # DOF: 13
 # -------------------------------------------
@@ -193,11 +187,11 @@ if __name__ == "__main__":
 # -------------- Flat w0waCDM ---------------
 # H0: 64.7 ± 2.0 km/s/Mpc
 # Ωm: 0.340 +0.021 -0.024
-# r_d: 147.47 ± 0.25 Mpc
-# w0: -0.57 +0.21 -0.25 (prior ~ U[-3, 1])
-# wa: -1.28 +0.74 -0.57 (prior ~ U[-4, 3])
+# r_d: 147.46 ± 0.25 Mpc
+# w0: -0.57 +0.20 -0.24 (prior ~ U[-3, 1])
+# wa: -1.27 +0.74 -0.56 (prior ~ U[-4, 3])
 # Log evidence: 6.4 + 0.3 = 6.7 (Δ logZ = 2.7 in favour of ΛCDM)
-# χ2 (MAP): 11.40
+# χ2 (MAP): 11.36
 # χ2 / DOF (MAP): 0.95
 # DOF: 12
 #

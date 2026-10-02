@@ -9,7 +9,7 @@ from scipy.constants import c as c0
 import nu_evolution as neutrino
 from solve_triangular import solve_triangular
 
-c = c0 / 1000  # km/s
+c_km_per_s = c0 / 1000  # km/s
 
 DISTANCE_PRIORS = np.array([1.04102739, 0.02223208, 0.14207901])
 """Compressed early-LCDM priors: (100 θ*, ωb, ωm)"""
@@ -29,7 +29,7 @@ k_B = 8.617333262e-5  # eV/K
 TCMB = 2.7255  # K
 O_GAMMA_H2 = 2.472975328714087e-05
 
-N_EFF = 3.044
+N_EFF = 3.046
 T_nu0 = (4 / 11) ** (1 / 3) * (N_EFF / 3) ** (1 / 4) * TCMB  # K
 T_nu0_eV = T_nu0 * k_B  # eV
 mnu_tot = 0.06  # total mass [eV]
@@ -87,8 +87,7 @@ def w_nu_z(z):
 @njit
 def z_star(wb, wm):
     """arXiv:2106.00428v2 (eq A-4)"""
-
-    s1, s2, b, m = (0.71409853, 1.00902707, 1.00755954, 1.13794949)
+    s1, s2, b, m = (0.77384711, 1.0066941,  1.0389118,  1.25670299)
 
     wb = wb**b
     wm = wm**m
@@ -128,7 +127,7 @@ def r_drag(wb, wm):
 @njit
 def z_drag(wb, wm):
     """arXiv:2106.00428v2 (eq A2)"""
-    s1, s2, b, m = (1.00656571, 0.99947146, 1.00764268, 0.96758982)
+    s1, s2, b, m = (1.00544235, 0.999591, 1.00617852, 0.97501517)
 
     wb = wb**b
     wm = wm**m
@@ -158,7 +157,7 @@ GL_X_RS, GL_W_RS = np.polynomial.legendre.leggauss(N_RS)
 def _integ_u(u, params):
     # u = sqrt(a): constant in matter era, ~linear in radiation era
     z = 1.0 / (u * u) - 1.0
-    return 2.0 * c / (u**3 * _HZ_FUNC(z, params))
+    return 2.0 * c_km_per_s / (u**3 * _HZ_FUNC(z, params))
 
 
 @njit

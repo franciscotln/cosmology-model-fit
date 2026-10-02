@@ -8,7 +8,7 @@ from scipy.constants import c as c0
 import nu_evolution as neutrino
 from solve_triangular import solve_triangular
 
-c = c0 / 1000  # km/s
+c_km_per_s = c0 / 1000  # km/s
 
 DISTANCE_PRIORS = np.array([1.74996427, 301.757385, 0.0223731992])
 """Compressed Planck + Lensing priors: (R, lA = π / θ*, ωb)"""
@@ -88,8 +88,7 @@ def w_nu_z(z):
 @njit
 def z_star(wb, wm):
     """arXiv:2106.00428v2 (eq A-4)"""
-
-    s1, s2, b, m = (0.77171908, 1.00687374, 1.0400921, 1.2708454)
+    s1, s2, b, m = (0.77384711, 1.0066941,  1.0389118,  1.25670299)
 
     wb = wb**b
     wm = wm**m
@@ -160,7 +159,7 @@ GL_X_RS, GL_W_RS = np.polynomial.legendre.leggauss(N_RS)
 def _integ_u(u, params):
     # u = sqrt(a): constant in matter era, ~linear in radiation era
     z = 1.0 / (u * u) - 1.0
-    return 2.0 * c / (u**3 * _HZ_FUNC(z, params))
+    return 2.0 * c_km_per_s / (u**3 * _HZ_FUNC(z, params))
 
 
 @njit
@@ -195,7 +194,7 @@ def cmb_distances(Ob_h2, Oc_h2, params):
     rs_star = rs_z(zstar, Ob_h2, params)
     DM_star = DM_z(zstar, params)
 
-    R = 100 * np.sqrt(Om_h2) * DM_star / c
+    R = 100 * np.sqrt(Om_h2) * DM_star / c_km_per_s
     lA = np.pi * DM_star / rs_star
     return np.array([R, lA, Ob_h2])
 

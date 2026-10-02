@@ -68,6 +68,7 @@ def plot_residuals(z_values, residuals, y_err, bins):
     residuals_plot.set(xlabel="Redshift (z)", ylabel="Residuals (mag)", xscale="log")
     residuals_plot.xaxis.set_major_formatter(ScalarFormatter())
     residuals_plot.set_ylim(-2, 2)
+    plt.tight_layout()
     plt.show()
 
 

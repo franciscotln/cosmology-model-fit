@@ -4,9 +4,9 @@ import cmb.data_spt_planck_act_compression as cmb
 from solve_triangular import solve_triangular
 from y2005cc.data import get_data, method
 
-c = cmb.c  # Speed of light in km/s
+c = cmb.c_km_per_s
 Orh2 = cmb.Or_h2
-Onuh2 = cmb.Omnu_h2
+Omnuh2 = cmb.Omnu_h2
 
 legend, z_values, H_values, diag_stat, cov_mat_sys = get_data(split_sys=True)
 N_cc = z_values.size
@@ -14,31 +14,18 @@ N_cc = z_values.size
 
 @njit
 def H_z(z, params):
-    H0, Obh2, Och2 = params[0], params[1], params[2]
-    h = H0 / 100
-    Obc = (Obh2 + Och2) / h**2
-    Onu = Onuh2 / h**2
-    Or = Orh2 / h**2
-    Ode = 1.0 - Obc - Or - Onu
-
+    h, Obh2, Och2 = params[0], params[1], params[2]
     zp1 = 1.0 + z
 
-    radiation_term = Or * zp1**4
-    matter_term = Obc * zp1**3
-    neutrino_term = Onu * cmb.Omnu_z(z)
-    dark_energy_term = Ode
+    radiation_term = Orh2 * zp1**4
+    matter_term = (Obh2 + Och2) * zp1**3
+    neutrino_term = Omnuh2 * cmb.Omnu_z(z)
+    lambda_term = h**2 - Orh2 - Omnuh2 - Obh2 - Och2
 
-    return H0 * np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
+    return 100 * np.sqrt(radiation_term + matter_term + neutrino_term + lambda_term)
 
 
 cmb.set_HZ(H_z)
-
-
-@njit
-def chi2_cmb(params):
-    delta_cm = cmb.DISTANCE_PRIORS - cmb.cmb_distances(params[1], params[2], params)
-    chi2_cmb = delta_cm @ cmb.inv_cov_mat @ delta_cm
-    return chi2_cmb
 
 
 @njit
@@ -50,24 +37,20 @@ def chi2_cc(params, L_cc):
 
 @njit
 def chi_squared(params, L_cc):
-    return chi2_cc(params, L_cc) + chi2_cmb(params)
+    return chi2_cc(params, L_cc) + cmb.chi2(params[1], params[2], params)
 
 
 method_f = method == "F"
-Om_fid = 0.3175
-h_fid = 0.6719
-z_pivot = 1.21
-shape_fid = (1. + z_values[method_f]) * H_z(z_values[method_f], [h_fid, Om_fid, 0.0, 1.0])**2
-shape_piv = (1. + z_pivot) * H_z(z_pivot, [h_fid, Om_fid, 0.0, 1.0])**2
-f_shape = shape_fid / shape_piv
+z_pivot = 1.198
+shape = np.ones_like(z_values, dtype=np.float64)
+shape[method_f] = ((1 + z_values[method_f]) / (1 + z_pivot))**4
+# statistical error in H is proportional to (1+z) * H^2
 
 
 @njit
 def get_fz(params):
     fp, n = np.exp(params[3]), params[4]
-    fz = np.full_like(z_values, fp)
-    fz[method_f] *= f_shape ** n
-    return fz
+    return fp * shape**n
 
 
 @njit
@@ -88,30 +71,23 @@ def main():
     from ohd.plot_predictions import plot_cc_predictions
 
     prior = Prior()
-    prior.add_parameter("H0", dist=(63.0, 73.0))
+    prior.add_parameter("h", dist=(0.63, 0.73))
     prior.add_parameter("obh2", dist=(0.0210, 0.0235))
     prior.add_parameter("och2", dist=(0.05, 0.30))
     prior.add_parameter("ln_fp", dist=(-2.0, 1.0))
-    prior.add_parameter("n", dist=(-2.0, 4.0))
+    prior.add_parameter("n", dist=(-2.5, 2.5))
 
     with Pool(5) as pool:
-        sampler = Sampler(
-            prior, log_likelihood, n_live=5_000, pool=pool, seed=42, pass_dict=False
-        )
+        sampler = Sampler(prior, log_likelihood, n_live=5_000, pool=pool, seed=42, pass_dict=False)
         sampler.run(verbose=True)
 
     samples, log_w, log_l = sampler.posterior()
     weights = np.exp(log_w)
-    labels=["H_0", "Ω_b h^2", "Ω_c h^2", "ln(f_{piv})", "n_{cc}"]
+    labels=["h", "Ω_b h^2", "Ω_c h^2", "ln(f_{piv})", "n_{cc}"]
 
-    gd_samples = MCSamples(
-        samples=samples,
-        weights=weights,
-        names=prior.keys,
-        labels=labels,
-    )
+    gd_samples = MCSamples(samples=samples, weights=weights, names=prior.keys, labels=labels)
     gd_samples.addDerived(
-        (gd_samples["obh2"] + gd_samples["och2"] + Onuh2) / (gd_samples["H0"] / 100)**2,
+        (gd_samples["obh2"] + gd_samples["och2"] + Omnuh2) / gd_samples["h"]**2,
         name="om",
         label="\\Omega_m",
     )
@@ -134,7 +110,7 @@ def main():
     print(f"DOF: {DOF}")
 
     plots.getSubplotPlotter().triangle_plot(
-        gd_samples,
+        roots=gd_samples,
         params=prior.keys,
         filled=True,
         title_limit=1,
@@ -181,15 +157,15 @@ if __name__ == "__main__":
 # Model: Flat ΛCDM
 # --- Overestimation factor f(z) = fp * [(1 + z) * H(z)^2 / ((1 + z_piv) * H(z_piv)^2)]^n ---
 # H0 = 67.28 ± 0.38 km/s/Mpc
-# Ωm = 0.3163 ± 0.0055
-# Ωb h^2 = 0.022412 ± 0.000095
-# Ωc h^2 = 0.12008 ± 0.00093
+# Ωm = 0.3163 ± 0.0054
+# Ωb h^2 = 0.022411 ± 0.000095
+# Ωc h^2 = 0.12008 ± 0.00092
 #
-# ln(fp) = -0.42 +0.26 -0.24 (prior ~ U[-2, 1])
-# n_cc = 0.94 +0.26 -0.59 (prior ~ U[-2, 4])
+# ln(fp) = -0.44 ± 0.25 (prior ~ U[-2, 1])
+# n_cc = 1.03 +0.32 -0.57 (prior ~ U[-2.5, 2.5])
 #
-# Chi squared (MAP): 40.45
-# Log likelihood (MAP): -151.97
-# Log evidence: -166.42 (Δ logZ = 4.41 compared to no scaling)
+# Chi squared (MAP): 41.09
+# Log likelihood (MAP): -151.93
+# Log evidence: -166.14 (Δ logZ = 4.69 compared to no scaling)
 # DOF: 37
 # -------------------------------------------------------------------

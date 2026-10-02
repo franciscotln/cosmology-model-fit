@@ -1,139 +1,150 @@
 from numba import njit
 import numpy as np
-from scipy.linalg import cho_factor
-import cmb.data_act_planck_compression as cmb
-from interpolator import interp_hermite
+from scipy.linalg import block_diag
+from interpolator import interp_hermite, interp_pchip
 from solve_triangular import solve_triangular
 from y2022pantheonSHOES.data import get_data
-from y2025BAO.data import get_data as get_bao_data
+from y2025BAO.data_fs_lya import get_data as get_bao_data
+from y2024DESBAO.data import get_data as get_des_bao_data
+from y20116dFBAO.data import get_data as get_6dF_bao_data
+import cmb.data_spt_planck_act_compression as cmb
 
-c = cmb.c  # km/s
-Or_h2 = cmb.Or_h2
-Omnu_h2 = cmb.Omnu_h2
+c = cmb.c_km_per_s
+Orh2 = cmb.Or_h2
+Omnuh2 = cmb.Omnu_h2
 
-sn_legend, z_cmb, z_hel, mb_values, cov_matrix_sn = get_data()
-bao_legend, bao_data, bao_cov_matrix = get_bao_data()
+sn_legend, z_cmb, z_hel, mB_vals, cov_matrix_sn = get_data()
+desi_legend, desi_bao_data, desi_bao_cov_matrix = get_bao_data()
+des_legend, des_bao_data, des_bao_cov_matrix = get_des_bao_data()
+sixdF_legend, sixdF_bao_data, sixdF_bao_cov_matrix = get_6dF_bao_data()
 
-cho_sn = cho_factor(cov_matrix_sn, lower=True)[0]
-inv_cov_bao = np.linalg.inv(bao_cov_matrix)
+bao = np.concatenate((desi_bao_data, des_bao_data, sixdF_bao_data))
+bao_cov_mat = block_diag(desi_bao_cov_matrix, des_bao_cov_matrix, sixdF_bao_cov_matrix)
 
-z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
-z_grid = np.linspace(0, z_max, num=4000)
-dz = np.diff(z_grid)
+L_sn = np.linalg.cholesky(cov_matrix_sn)
+L_bao = np.linalg.cholesky(bao_cov_mat)
+
+logdet_sn = 2 * np.sum(np.log(np.diag(L_sn)))
+logdet_bao = 2 * np.sum(np.log(np.diag(L_bao)))
+
+N_sn = len(z_cmb)
+N_bao = len(bao["z"])
+
+z_max = max(np.max(z_cmb), np.max(bao["z"])) + 0.1
+z_grid = np.linspace(0, z_max, 4000)
+dz = z_grid[1] - z_grid[0]
 
 
 @njit
-def Ode_z(z, w0):
+def Ode_z(z, w0, wa):
+    # w1w2CDM
     zp1 = 1.0 + z
-    return (2 * zp1**3 / ((1.0 + w0) + (1.0 - w0) * zp1**3)) ** 2  # wzCDM
-    # return 1  # ΛCDM
-    # return zp1 ** (3 * (1.0 + w0))  # wCDM
-    # return zp1 ** (3 * (1.0 + w0 + wa)) * np.exp(-3 * wa * z / zp1)  # w0waCDM
-
-
-@njit
-def Ez(z, H0, Obh2, Och2):
-    h = H0 / 100
-    Onu = Omnu_h2 / h**2
-    Or = Or_h2 / h**2
-    Obc = (Obh2 + Och2) / h**2
-    Ode = 1.0 - Obc - Or - Onu
-
-    zp1 = 1.0 + z
-
-    radiation_term = Or * zp1**4
-    matter_term = Obc * zp1**3
-    neutrino_term = Onu * cmb.Omnu_z(z)
-    dark_energy_term = Ode
-
-    return np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
+    return zp1**(3 * (1.0 + w0 + wa)) * ((2 * zp1**2) / (1.0 + zp1**2))**(-3 * wa)
 
 
 @njit
 def H_z(z, params):
-    H0 = params[1]
-    return H0 * Ez(z, H0=H0, Obh2=params[2], Och2=params[3])
+    h, Obh2, Och2 = params[1], params[2], params[3]
+    zp1 = 1.0 + z
+
+    radiation_term = Orh2 * zp1**4
+    matter_term = (Obh2 + Och2) * zp1**3
+    neutrino_term = Omnuh2 * cmb.Omnu_z(z)
+    dark_energy_term = h**2 - Orh2 - Omnuh2 - Obh2 - Och2
+
+    return 100 * np.sqrt(radiation_term + matter_term + neutrino_term + dark_energy_term)
 
 
 cmb.set_HZ(H_z)
 
 
 @njit
-def DH_z(z, params):
-    return c / H_z(z, params)
-
-
-@njit
-def DM_z(z, params):
-    dh_grid = DH_z(z_grid, params)
+def DM_DH_grid(params):
+    dh_grid = c/ H_z(z_grid, params)
     dh = (dh_grid[:-1] + dh_grid[1:]) / 2
-    cum_dm = np.zeros(z_grid.size, dtype=np.float64)
-    cum_dm[1:] = np.cumsum(dh * dz)
-    return interp_hermite(z, z_grid, cum_dm, dh_grid)
+    dm_grid = np.zeros(z_grid.size, dtype=np.float64)
+    dm_grid[1:] = np.cumsum(dh * dz)
+    return (dm_grid, dh_grid)
+
+
+qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2, "F_AP": 3}
+bao_qty = np.array([qty_map[q] for q in bao["quantity"]], dtype=np.int32)
 
 
 @njit
-def DV_z(z, params):
-    DH = DH_z(z, params)
-    DM = DM_z(z, params)
-    return (z * DH * DM**2) ** (1 / 3)
-
-
-qty_map = {"DV_over_rs": 0, "DM_over_rs": 1, "DH_over_rs": 2}
-quantities = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int64)
-
-
-@njit
-def bao_theory(z, qty, params):
+def bao_theory(z, qty, params, dm_dh_grid):
     Obh2, Och2 = params[2], params[3]
-    Omh2 = Obh2 + Och2 + Omnu_h2
-    rd = cmb.r_drag(wb=Obh2, wm=Omh2)
+    Omh2 = Obh2 + Och2 + Omnuh2
+    inv_rd = 1 / cmb.r_drag(Obh2, Omh2)
+
+    DM = interp_hermite(z, z_grid, y=dm_dh_grid[0], y_prime=dm_dh_grid[1])
+    DH = interp_pchip(z, z_grid, y=dm_dh_grid[1])
 
     results = np.empty(z.size, dtype=np.float64)
     DV_mask = qty == 0
     DM_mask = qty == 1
     DH_mask = qty == 2
-    results[DH_mask] = DH_z(z[DH_mask], params)
-    results[DM_mask] = DM_z(z[DM_mask], params)
-    results[DV_mask] = DV_z(z[DV_mask], params)
-    return results / rd
-
-
-pivot_mask = z_cmb <= 0.15
-
-
-@njit
-def mu_corr(params):
-    v_km_s = 100 * params[4] * np.where(pivot_mask, 1, -1)
-    z_cosmo = -1.0 + (1.0 + z_cmb) / (1.0 + v_km_s / c)
-
-    DM_ref = DM_z(z_cmb, params)
-    return 5.0 * np.log10(DM_z(z_cosmo, params) / DM_ref)
+    FAP_mask = qty == 3
+    results[FAP_mask] = DM[FAP_mask] / DH[FAP_mask]
+    results[DM_mask] = DM[DM_mask] * inv_rd
+    results[DH_mask] = DH[DH_mask] * inv_rd
+    results[DV_mask] = (z[DV_mask] * DH[DV_mask] * DM[DV_mask] ** 2) ** (1 / 3) * inv_rd
+    return results
 
 
 @njit
-def mB_theory(params):
-    dL = (1.0 + z_hel) * DM_z(z_cmb, params)
-    return params[0] + 25.0 + 5 * np.log10(dL)
+def get_z_cosmo(dz_1000):
+    # Heaviside step at z = 0.15
+    z_offset = 1e-03 * dz_1000 * np.where(z_cmb <= 0.15, 1, -1)
+    return z_cmb + z_offset
+
+
+def mu_corr(dz_1000, dm_dh_grid):
+    # For plotting purposes only
+    z_cosmo = get_z_cosmo(dz_1000)
+    DM_obs = interp_hermite(z_cmb, x=z_grid, y=dm_dh_grid[0], y_prime=dm_dh_grid[1])
+    DM_cosmo = interp_hermite(z_cosmo, x=z_grid, y=dm_dh_grid[0], y_prime=dm_dh_grid[1])
+    return 5.0 * np.log10(DM_cosmo / DM_obs)
+
+
+@njit
+def mu_theory(DM):
+    return 25.0 + 5 * np.log10((1.0 + z_hel) * DM)
+
+
+@njit
+def chi2_sn(params, dm_dh_grid):
+    z_cosmo = get_z_cosmo(params[4])
+    DM = interp_hermite(z_cosmo, x=z_grid, y=dm_dh_grid[0], y_prime=dm_dh_grid[1])
+
+    M = params[0]
+    delta_sn = mB_vals - M - mu_theory(DM)
+    y = solve_triangular(L_sn, delta_sn)
+    return np.dot(y, y)
+
+
+@njit
+def chi2_bao(params, dm_dh_grid):
+    delta_bao = bao["value"] - bao_theory(bao["z"], bao_qty, params, dm_dh_grid)
+    y = solve_triangular(L_bao, delta_bao)
+    return np.dot(y, y)
 
 
 @njit
 def chi_squared(params):
-    delta_cmb = cmb.DISTANCE_PRIORS - cmb.cmb_distances(params[2], params[3], params)
-    chi2_cmb = delta_cmb @ cmb.inv_cov_mat @ delta_cmb
+    dm_dh_grid = DM_DH_grid(params)
+    return cmb.chi2(params[2], params[3], params) + chi2_bao(params, dm_dh_grid) + chi2_sn(params, dm_dh_grid)
 
-    delta_bao = bao_data["value"] - bao_theory(bao_data["z"], quantities, params)
-    chi_bao = delta_bao @ inv_cov_bao @ delta_bao
 
-    delta_sn = mb_values - mB_theory(params) - mu_corr(params)
-    y_sn = solve_triangular(cho_sn, delta_sn)
-    chi_sn = np.dot(y_sn, y_sn)
-
-    return chi2_cmb + chi_bao + chi_sn
+@njit
+def log_likelihood_jit(params):
+    norm_sn = N_sn * np.log(2 * np.pi) + logdet_sn
+    norm_bao = N_bao * np.log(2 * np.pi) + logdet_bao
+    return -0.5 * (chi_squared(params) + norm_sn + norm_bao + cmb.prob_norm)
 
 
 def log_likelihood(params):
-    return -0.5 * chi_squared(params)
+    return log_likelihood_jit(params)
 
 
 def main():
@@ -145,78 +156,55 @@ def main():
     from bao.plot_predictions import plot_bao_predictions
 
     prior = Prior()
-    prior.add_parameter("M", dist=(-20.0, -19.0))
-    prior.add_parameter("H0", dist=(60.0, 75.0))
-    prior.add_parameter("obh2", dist=(0.019, 0.025))
+    prior.add_parameter("M", dist=(-20.0, -19.0))  # mag
+    prior.add_parameter("h", dist=(0.60, 0.75))  # km/s/Mpc
+    prior.add_parameter("obh2", dist=(0.01, 0.03))
     prior.add_parameter("och2", dist=(0.01, 0.25))
-    prior.add_parameter("v", dist=(-3.0, 1.5))
+    prior.add_parameter("dz_1000", dist=(-1.0, 1.0))  # 1000 x Δz
 
     with Pool(6) as pool:
-        sampler = Sampler(
-            prior, log_likelihood, n_live=6_000, pool=pool, seed=42, pass_dict=False
-        )
+        sampler = Sampler(prior, log_likelihood, n_live=5_000, pool=pool, seed=42, pass_dict=False)
         sampler.run(verbose=True)
 
     samples, log_w, log_l = sampler.posterior()
-    labels = ["M", "H_0", "ω_b", "ω_c", "v_{100}"]
-    gd_samples = MCSamples(
-        samples=samples,
-        weights=np.exp(log_w),
-        loglikes=log_l,
-        names=prior.keys,
-        labels=labels,
-    )
-    gd_samples.addDerived(
-        gd_samples["obh2"] + gd_samples["och2"] + Omnu_h2, name="omh2", label="ω_m"
-    )
-    gd_samples.addDerived(
-        gd_samples["omh2"] / (gd_samples["H0"] / 100) ** 2, name="om", label="Ω_m"
-    )
-    gd_samples.addDerived(
-        cmb.z_star(gd_samples["obh2"], gd_samples["omh2"]), name="zstar", label="z_*"
-    )
-    gd_samples.addDerived(
-        cmb.z_drag(gd_samples["obh2"], gd_samples["omh2"]),
-        name="zdrag",
-        label="z_{drag}",
-    )
-    gd_samples.addDerived(
-        cmb.r_drag(gd_samples["obh2"], gd_samples["omh2"]),
-        name="rdrag",
-        label="r_{drag}",
-    )
 
-    plots.get_subplot_plotter().triangle_plot(
-        gd_samples, params=prior.keys, title_limit=1, contour_colors=["C0"]
-    )
+    labels=["M", "h", "ω_b", "ω_c", "1000 Δz"]
+    gd_samples = MCSamples(samples=samples, weights=np.exp(log_w), names=prior.keys, labels=labels)
+    gd_samples.addDerived(gd_samples["obh2"] + gd_samples["och2"] + Omnuh2, name="omh2", label="ω_m")
+    gd_samples.addDerived(gd_samples["omh2"] / gd_samples["h"] ** 2, name="om", label="Ω_m")
+    gd_samples.addDerived(cmb.z_star(gd_samples["obh2"], gd_samples["omh2"]), name="zstar", label="z_*")
+    gd_samples.addDerived(cmb.z_drag(gd_samples["obh2"], gd_samples["omh2"]), name="zdrag", label="z_d")
+    gd_samples.addDerived(cmb.r_drag(gd_samples["obh2"], gd_samples["omh2"]), name="rdrag", label="r_d")
+    gd_samples.updateBaseStatistics()
+
+    for name in gd_samples.getParamNames().names:
+        print(gd_samples.getInlineLatex(name, limit=1))
+
+    best_fit = samples[np.argmax(log_l)]
+    DOF = N_sn + N_bao + len(cmb.DISTANCE_PRIORS) - len(best_fit)
+
+    print(f"χ2 (MAP): {chi_squared(best_fit):.2f}")
+    print(f"Log evidence: {sampler.log_z:.1f}")
+    print(f"DOF: {DOF}")
+
+    plot_params = ["h", "om", "rdrag", "dz_1000"]
+    plots.get_subplot_plotter().triangle_plot(gd_samples, params=plot_params, title_limit=1, contour_colors=["C0"])
     plt.show()
 
-    best_fit_mean = gd_samples.mean(prior.keys)
-    degs_of_freedom = (
-        len(z_cmb) + len(bao_data) + len(cmb.DISTANCE_PRIORS) - len(prior.keys)
-    )
-
-    for par in gd_samples.getParamNames().names:
-        print(f"{par}: {gd_samples.mean(par):.5f} ± {gd_samples.std(par):.5f}")
-
-    map_index = np.argmax(log_l)
-    map_params = samples[map_index]
-    print(f"χ2 (MAP): {chi_squared(map_params):.2f}")
-    print(f"Log evidence: {sampler.log_z:.1f}")
-    print(f"Degrees of freedom: {degs_of_freedom}")
+    dm_dh_grid_best = DM_DH_grid(best_fit)
 
     plot_bao_predictions(
-        theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit_mean),
-        data=bao_data,
-        errors=np.sqrt(np.diag(bao_cov_matrix)),
-        title=bao_legend,
+        theory_predictions=lambda z, qty: bao_theory(z, qty, best_fit, dm_dh_grid_best),
+        data=bao,
+        errors=np.sqrt(np.diag(bao_cov_mat)),
+        title="DESI + DES + 6dF BAO",
     )
     plot_sn_predictions(
         legend=sn_legend,
         x=z_cmb,
-        y=mb_values - gd_samples.mean("M") - mu_corr(gd_samples.mean(prior.keys)),
+        y=mB_vals - best_fit[0] - mu_corr(best_fit[4], dm_dh_grid_best),
         y_err=np.sqrt(np.diag(cov_matrix_sn)),
-        y_model=mB_theory(best_fit_mean) - gd_samples.mean("M"),
+        y_model=mu_theory(interp_hermite(z_cmb, z_grid, *dm_dh_grid_best)),
         label=f"$Ω_m$={gd_samples.mean('om'):.3f}",
         x_scale="log",
     )
@@ -225,115 +213,89 @@ def main():
 if __name__ == "__main__":
     main()
 
-"""
-Priors:
 
-M  U(-20.0, -19.0)
-H0 U(60.0, 75.0)
-ωb U(0.019, 0.025)
-ωc U(0.01, 0.25)
+# *********************************
+# Pantheon+ SNe 2022
+# Compressed SPT + Planck + ACT
+# DESI BAO DR2 + FS Lyα
+# DES BAO 2025
+# 6dF BAO 2011
+# *********************************
 
-wCDM:
-w0 U(-1.5, -0.5)
 
-wzCDM (thawing quintessence):
-w0 U(-1.0, -1/3)
+# ----------- Flat ΛCDM -----------
+# M = -19.4215 ± 0.0076 mag
+# H0 = 68.04 ± 0.24 km/s/Mpc
+# ωb = 0.022468 ± 0.000091
+# ωc = 0.11822 ± 0.00058
+# ωm = 0.14133 ± 0.00058
+# Ωm = 0.3053 ± 0.0033
+# z* = 1088.56 ± 0.11
+# z_d = 1060.02 ± 0.21
+# r_d = 147.46 ± 0.17 Mpc
+# χ2 (MAP): 1428.33
+# Log evidence: 851.2
+# DOF: 1605
+# ---------------------------------
 
-w0waCDM:
-w0 U(-1.5, 0.0)
-wa U(-2.0, 1.0)
-with w0 + wa < 0 enforced
 
-v_pec corrections of SNe:
-v_pec U(-3.0, 1.5) [x 100 km/s]
-"""
+# ----------- Flat ΛCDM -----------
+# Flat ΛCDM w(z) = -1
+# Z offset step correction SNe observed redshifts
+# (turning point z <= 0.15 positive z > 0.15 negative)
+# z_cosmo = z_cmb ± Δz
+#
+# M = -19.4284 ± 0.0083 mag
+# H0 = 68.09 ± 0.24 km/s/Mpc
+# ωb = 0.022473 ± 0.000091
+# ωc = 0.11811 ± 0.00059
+# ωm = 0.14122 ± 0.00058
+# Ωm = 0.3046 ± 0.0033
+# z* = 1088.55 ± 0.11
+# z_d = 1060.02 ± 0.21
+# r_d = 147.49 ± 0.17 Mpc
+# 1000 Δz = 0.27 ± 0.13 (prior ~U[-1, 1])
+# χ2 (MAP): 1423.59
+# Log evidence: 851.7
+# DOF: 1604
+# ---------------------------------
 
-"""
-Flat ΛCDM w(z) = -1
-M: -19.412 ± 0.008 mag
-H0: 68.37 ± 0.27 km/s/Mpc
-ωb: 0.02257 ± 0.00010
-ωc: 0.11752 ± 0.00065
-ωm: 0.14073 ± 0.00064
-Ωm: 0.301 ± 0.004
-z*: 1089.43 ± 0.15
-zd: 1060.20 ± 0.23
-rd: 147.54 ± 0.19 Mpc
-χ2 (MAP): 1420.33
-Log evidence: -727.3
-Degrees of freedom: 1602
-"""
 
-"""
-Flat ΛCDM
-Velocity step correction in SNe observed redshifts
-turning point z <= 0.15 inflow z > 0.15 outflow
-z_cosmo = -1 + (1 + z) / (1 + v/c)
+# ----------- Flat wCDM -----------
+# M = -19.422 ± 0.014 mag
+# H0 = 68.03 ± 0.57 km/s/Mpc
+# ωb = 0.022469 ± 0.000093
+# ωc = 0.11821 ± 0.00071
+# w = -0.9997 ± 0.0220 (prior ~U[-1.5, -0.5])
+# ωm = 0.14132 ± 0.00070
+# Ωm = 0.3054 ± 0.0050
+# z* = 1088.56 ± 0.12
+# z_d = 1060.02 ± 0.21
+# r_d = 147.46 ± 0.19 Mpc
+# χ2 (MAP): 1428.33
+# Log evidence: 848.3
+# DOF: 1604
+# ---------------------------------
 
-M: -19.4191 ± 0.0088 mag
-v: -83 ± 36 km/s
-v / (z_turn=0.15): -553 ± 240 km/s
-H0: 68.43 ± 0.27 km/s/Mpc
-ωb: 0.02258 ± 0.00010
-ωc: 0.1174 ± 0.0006
-ωm: 0.1406 ± 0.0006
-Ωm: 0.300 ± 0.004
-z*: 1089.40 ± 0.15
-zd: 1060.20 ± 0.23
-rd: 147.57 ± 0.19 Mpc
-MAP chi^2: 1415.06 (2.18 sigma significance)
-Log evidence: -726.3 (Δ logZ = 1.1 in favour of v correction)
-Degrees of freedom: 1601
-"""
 
-"""
-Flat wCDM w(z) = w0
-M: -19.424 ± 0.014 mag
-H0: 67.87 ± 0.58 km/s/Mpc
-ωb: 0.02259 ± 0.00011
-ωc: 0.11703 ± 0.00083
-w0: -0.97761 ± 0.02311
-ωm: 0.14027 ± 0.00080
-Ωm: 0.305 ± 0.005
-z*: 1089.35 ± 0.17
-zd: 1060.21 ± 0.23
-rd: 147.64 ± 0.22 Mpc
-χ2 (MAP): 1419.37 (0.98 sigma away from wCDM)
-Log evidence: -729.7 (Δ logZ = -2.4 in favour of ΛCDM)
-Degrees of freedom: 1601
-"""
-
-"""
-Flat w(z) = -1 + 2 * (1 + w0) / (1 + w0 + (1 - w0) * (1 + z)**3)
-M: -19.431 ± 0.012 mag
-H0: 67.39 ± 0.55 km/s/Mpc
-ωb: 0.02259 ± 0.00010
-ωc: 0.11699 ± 0.00070
-w0: -0.917 ± 0.041
-ωm: 0.14023 ± 0.00068
-Ωm: 0.309 ± 0.005
-z*: 1089.35 ± 0.16
-zd: 1060.21 ± 0.23
-rd: 147.65 ± 0.20 Mpc
-χ2 (MAP): 1417.16 (1.78 sigma away from ΛCDM)
-Log evidence: -727.6 (Δ logZ = -0.3 in favour of ΛCDM)
-Degrees of freedom: 1601
-"""
-
-"""
-Flat w(z) = w0 + wa * z / (1 + z)
-H0: 67.60 +0.60 -0.60 km/s/Mpc
-ωb: 0.02253 +0.00011 -0.00011
-ωc: 0.1185 +0.0010 -0.0010
-ωm: 0.1416 +0.0009 -0.0009
-Ωm: 0.310 +0.006 -0.006
-w0: -0.852 +0.055 -0.055
-wa: -0.52 +0.21 -0.21
-M: -19.418 +0.015 -0.015
-z*: 1089.56 +0.19 -0.19
-zd: 1060.18 +0.23 -0.23
-rd: 147.33 +0.24 -0.24 Mpc
-Chi squared: 1413.00 (2.23 sigma away from ΛCDM)
-Log evidence: -728.5 (Δ logZ = -1.2 in favour of ΛCDM)
-Degrees of freedom: 1600
-"""
+# ----------- Flat w1w2CDM --------
+# Enforced w1 + w2 < 0 in the likelihood
+# (+0.2 to evidence from excluded volume)
+#
+# w(z) = w1 + w2 * ((1 + z)^2 - 1) / ((1 + z)^2 + 1)
+#
+# M = -19.417 ± 0.014 mag
+# H0 = 67.63 ± 0.58 km/s/Mpc
+# ωb = 0.022421 ± 0.000094
+# ωc = 0.11951 ± 0.00080
+# w1 = -0.855 ± 0.052 (prior ~U[-1.5, 0.0])
+# w2 = -0.50 +0.18 -0.16 (prior ~U[-2.5, 1.5])
+# ωm = 0.14257 ± 0.00078
+# Ωm = 0.3118 ± 0.0055
+# z* = 1088.70 ± 0.12
+# z_d = 1060.00 ± 0.21
+# r_d = 147.17 ± 0.21 Mpc
+# χ2 (MAP): 1418.74 (Δχ2 = -9.59 relative to Flat ΛCDM)
+# Log evidence: 850.6
+# DOF: 1603
+# ---------------------------------

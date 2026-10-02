@@ -6,7 +6,7 @@ from solve_triangular import solve_triangular
 from y2022pantheonSHOES.data import get_data
 import cmb.data_spt_planck_act_compression as cmb
 
-c = cmb.c  # Speed of light in km/s
+c = cmb.c_km_per_s
 Orh2 = cmb.Or_h2
 Omnuh2 = cmb.Omnu_h2
 
@@ -16,7 +16,7 @@ logdet_sn = 2 * np.sum(np.log(np.diag(cho_sn)))
 N_sn = len(z_cmb)
 
 z_grid = np.linspace(0, np.max(z_cmb) + 0.1, num=4000)
-dz = np.diff(z_grid)
+dz = z_grid[1] - z_grid[0]
 
 
 @njit
@@ -28,21 +28,15 @@ def Ode_z(z, w0, wa):
 
 @njit
 def H_z(z, params):
-    H0, Obh2, Och2 = params[1], params[2], params[3]
-    h = H0 / 100
-    Onu = Omnuh2 / h**2
-    Or = Orh2 / h**2
-    Obc = (Obh2 + Och2) / h**2
-    Ode = 1.0 - Obc - Or - Onu
-
+    h, Obh2, Och2 = params[1], params[2], params[3]
     zp1 = 1.0 + z
 
-    radiation_term = Or * zp1**4
-    matter_term = Obc * zp1**3
-    neutrino_term = Onu * cmb.Omnu_z(z)
-    dark_energy_term = Ode
+    radiation_term = Orh2 * zp1**4
+    matter_term = (Obh2 + Och2) * zp1**3
+    neutrino_term = Omnuh2 * cmb.Omnu_z(z)
+    lambda_term = h**2 - Orh2 - Omnuh2 - Obh2 - Och2
 
-    return H0 * np.sqrt(radiation_term + matter_term + dark_energy_term + neutrino_term)
+    return 100 * np.sqrt(radiation_term + matter_term + neutrino_term + lambda_term)
 
 
 cmb.set_HZ(H_z)
@@ -90,11 +84,11 @@ def log_likelihood_sn(params):
     return -0.5 * (chi2_sn(params) + logdet_sn + N_sn * np.log(2 * np.pi))
 
 
-labels = ["M", "$H_0$", "$ω_b$", "$ω_c$", "$v_{100}$"]
+labels = ["M", "h", "$ω_b$", "$ω_c$", "$v_{100}$"]
 bounds = np.array(
     [
         (-20.0, -19.0),  # M
-        (60.0, 75.0),  # H0
+        (0.60, 0.75),  # h
         (0.010, 0.030),  # Ωb * h^2
         (0.010, 0.25),  # Ωc * h^2
         (-2.5, 2.5),  # v 100 km/s
@@ -136,9 +130,9 @@ def main():
     from sn.plotting import plot_predictions as plot_sn_predictions
 
     ndim = len(bounds)
-    nwalkers = 150
+    nwalkers = 100
     burn_in = 500
-    nsteps = 2500 + burn_in
+    nsteps = 3500 + burn_in
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
     moves = [(emcee.moves.KDEMove(), 0.2), (emcee.moves.DEMove(), 0.8)]
@@ -165,20 +159,18 @@ def main():
     pct = np.percentile(samples, one_sigma_conf_int, axis=0).T
     [
         (M_16, M_50, M_84),
-        (H0_16, H0_50, H0_84),
+        (h_16, h_50, h_84),
         (Obh2_16, Obh2_50, Obh2_84),
         (Och2_16, Och2_50, Och2_84),
         (vf_16, vf_50, vf_84),
     ] = pct
 
     Omh2_samples = samples[:, 2] + samples[:, 3] + Omnuh2
-    Om_samples = Omh2_samples / (samples[:, 1] / 100) ** 2
+    Om_samples = Omh2_samples / samples[:, 1] ** 2
     z_star_samples = cmb.z_star(samples[:, 2], Omh2_samples)
     z_drag_samples = cmb.z_drag(samples[:, 2], Omh2_samples)
     r_drag_samples = cmb.r_drag(samples[:, 2], Omh2_samples)
-    r_star_samples = [
-        cmb.rs_z(z_star_samples[i], samples[i, 2], samples[i]) for i in range(samples.shape[0])
-    ]
+    r_star_samples = [cmb.rs_z(z_star_samples[i], samples[i, 2], samples[i]) for i in range(samples.shape[0])]
 
     Omh2_16, Omh2_50, Omh2_84 = np.percentile(Omh2_samples, one_sigma_conf_int)
     Om_16, Om_50, Om_84 = np.percentile(Om_samples, one_sigma_conf_int)
@@ -187,7 +179,7 @@ def main():
     r_d_16, r_d_50, r_d_84 = np.percentile(r_drag_samples, one_sigma_conf_int)
     rs_16, rs_50, rs_84 = np.percentile(r_star_samples, one_sigma_conf_int)
 
-    print(f"H0: {H0_50:.2f} +{(H0_84 - H0_50):.2f} -{(H0_50 - H0_16):.2f} km/s/Mpc")
+    print(f"h: {h_50:.4f} +{(h_84 - h_50):.4f} -{(h_50 - h_16):.4f}")
     print(f"Ωm: {Om_50:.3f} +{(Om_84 - Om_50):.3f} -{(Om_50 - Om_16):.3f}")
     print(f"ωm: {Omh2_50:.5f} +{(Omh2_84 - Omh2_50):.5f} -{(Omh2_50 - Omh2_16):.5f}")
     print(f"ωb: {Obh2_50:.5f} +{(Obh2_84 - Obh2_50):.5f} -{(Obh2_50 - Obh2_16):.5f}")
@@ -219,7 +211,7 @@ if __name__ == "__main__":
 
 
 # ----------- Flat ΛCDM -----------
-# H0: 67.11 +0.37 -0.36 km/s/Mpc
+# h: 0.6711 +0.0037 -0.0036
 # Ωm: 0.319 +0.005 -0.005
 # ωm: 0.14351 +0.00088 -0.00088
 # ωb: 0.02239 +0.00009 -0.00009
@@ -238,23 +230,23 @@ if __name__ == "__main__":
 # turning point z <= 0.15 inflow z > 0.15 outflow
 # z_cosmo = -1 + (1 + z) / (1 + v/c)
 
-# H0: 67.21 +0.37 -0.37 km/s/Mpc
-# Ωm: 0.317 +0.005 -0.005
-# ωm: 0.14328 +0.00089 -0.00088
+# h: 0.6721 +0.0037 -0.0037
+# Ωm: 0.3172 +0.0053 -0.0053
+# ωm: 0.14328 +0.00088 -0.00089
 # ωb: 0.02240 +0.00009 -0.00009
-# ωc: 0.12023 +0.00091 -0.00090
-# v: -0.654 +0.359 -0.361 x 100 km/s (prior ~ U[-2.5, 2.5])
+# ωc: 0.12024 +0.00090 -0.00091
+# v: -0.655 +0.360 -0.361 x 100 km/s (prior ~ U[-2.5, 2.5])
 # M: -19.451 +0.011 -0.011 mag
 # z*: 1088.77 +0.13 -0.13
 # z_d: 1060.00 +0.21 -0.21
 # r* = 144.46 +0.22 -0.22 Mpc
 # rd: 147.00 +0.23 -0.23 Mpc
-# Chi2 (MAP): 1400.22 (1.95 sigma significance)
+# Chi2 (MAP): 1400.23 (1.8 sigma significance)
 # ---------------------------------
 
 
 # ----------- Flat wCDM -----------
-# H0: 66.51 +0.81 -0.80 km/s/Mpc
+# h: 0.6651 +0.0081 -0.0080
 # Ωm: 0.324 +0.009 -0.008
 # ωm: 0.14332 +0.00091 -0.00092
 # ωb: 0.02240 +0.00009 -0.00009
@@ -273,7 +265,7 @@ if __name__ == "__main__":
 # w(z) = w1 + w2 * ((1 + z)^2 - 1) / ((1 + z)^2 + 1)
 # w1 + w2 < 0 enforced in the likelihood
 #
-# H0: 67.17 +1.34 -1.44 km/s/Mpc
+# h: 0.6717 +0.0134 -0.0144
 # Ωm: 0.318 +0.014 -0.013
 # ωm: 0.14336 +0.00092 -0.00091
 # ωb: 0.02240 +0.00009 -0.00010

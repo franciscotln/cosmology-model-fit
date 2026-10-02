@@ -3,7 +3,7 @@ import numpy as np
 from solve_triangular import solve_triangular
 import cmb.data_act_planck_compression as cmb
 
-c = cmb.c  # km/s
+c = cmb.c_km_per_s
 Or_h2 = cmb.Or_h2
 Omnu_h2 = cmb.Omnu_h2
 
@@ -191,7 +191,7 @@ if __name__ == "__main__":
 # Ωm: 0.3166 ± 0.0084
 # z_drag: 1059.93 ± 0.30
 # r_d: 147.06 ± 0.30 Mpc
-# z_eq: 3406 ± 31
+# z_eq: 3407 ± 31
 # Age: 13.801 ± 0.024 Gyr
 # χ2 (MAP): 0.000
 # log likelihood (MAP): 14.26
@@ -223,20 +223,20 @@ if __name__ == "__main__":
 # -----------------------------
 # Early ΛCDM (arXiv:2302.12911v2)
 # -----------------------------
-# H0 = 67.47 ± 0.59 km/s/Mpc
+# H0 = 67.49 ± 0.58 km/s/Mpc
 # ωb = 0.02223 ± 0.00015
 # ωc = 0.1192 ± 0.0013
 # 100 θ* = 1.04103 ± 0.00026
-# r* = 144.76 ± 0.29 Mpc
-# DM* = 13.905 ± 0.026 Gpc
-# z* = 1090.00 ± 0.27
-# R = 1.7483 ± 0.0044
+# r* = 144.75 ± 0.28 Mpc
+# DM* = 13.904 ± 0.026 Gpc
+# z* = 1090.02 ± 0.27
+# R = 1.7481 ± 0.0044
 # ωm = 0.1421 ± 0.0012
-# Ωm = 0.3123 ± 0.0080 (0.9 sigma tension with BAO)
+# Ωm = 0.3120 ± 0.0080 (0.9 sigma tension with BAO)
 # h * r_d = 99.5 ± 1.0 (1.4 sigma tension with BAO)
-# z_drag = 1059.55 ± 0.29
+# z_drag = 1059.56 ± 0.29
 # r_d = 147.46 ± 0.28 Mpc
-# z_eq = 3380 ± 29
+# z_eq = 3379 ± 29
 # χ2 (MAP): 0.000
 # log likelihood (MAP): 21.30
 # -----------------------------
