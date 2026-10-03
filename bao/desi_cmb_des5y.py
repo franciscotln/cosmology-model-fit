@@ -275,8 +275,6 @@ if __name__ == "__main__":
 
 # ----------- Flat w0waCDM --------
 # w0 + wa > 0 enforced in the likelihood
-# Correction in prior volume: +0.2 to the evidence
-# log((1.5 + 2.5)*1.5 / ((1.5 + 2.5)*1.5 - 0.5*1.5**2)) = 0.2
 #
 # H0 = 67.36 ± 0.55 km/s/Mpc
 # Ωm = 0.3146 ± 0.0053
@@ -290,14 +288,13 @@ if __name__ == "__main__":
 # r_d = 147.15 ± 0.21 Mpc
 # ΔM = -0.058 ± 0.012 mag
 # χ2 (MAP): 1643.76 (3.1 sigma significance)
-# Log evidence: -845.5 + 0.2 (Δ logZ = 1.1 in favour of w0waCDM)
+# Log evidence: -845.5 (Δ logZ = 0.9 in favour of w0waCDM)
 # Degrees of freedom: 1725
 # ---------------------------------
 
 
 # ----------- Flat w1w2CDM --------
 # Enforced w1 + w2 < 0 in the likelihood
-# (+0.2 to evidence from excluded volume)
 #
 # w(z) = w1 + w2 * ((1 + z)^2 - 1) / ((1 + z)^2 + 1)
 #
@@ -313,6 +310,6 @@ if __name__ == "__main__":
 # r_d = 147.13 ± 0.21 Mpc
 # ΔM = -0.057 ± 0.012 mag
 # χ2 (MAP): 1643.80
-# Log evidence: -845.7 + 0.2 (Δ logZ = 0.9 in favour of w1w2CDM)
+# Log evidence: -845.7 (Δ logZ = 0.7 in favour of w1w2CDM)
 # DOF: 1725
 # ---------------------------------

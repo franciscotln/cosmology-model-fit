@@ -293,7 +293,7 @@ if __name__ == "__main__":
 # r_d: 147.13 ± 0.21 Mpc
 # ΔM: -0.048 ± 0.011 mag
 # χ2 (MAP): 41.09
-# Log evidence: 49.9 + 0.2 (Δ logZ = 1.4 in favour of w0waCDM)
+# Log evidence: 49.9 (Δ logZ = 1.2 in favour of w0waCDM)
 # DOF: 35
 # ---------------------------------
 
@@ -336,6 +336,6 @@ if __name__ == "__main__":
 # r_d = 147.12 ± 0.21 Mpc
 # ΔM = -0.048 ± 0.011 mag
 # χ2 (MAP): 41.12
-# Log evidence: 49.7 + 0.2 (Δ logZ = 1.2 in favour of w1w2CDM)
+# Log evidence: 49.7 (Δ logZ = 1.0 in favour of w1w2CDM)
 # DOF: 35
 # ---------------------------------
