@@ -150,8 +150,8 @@ def set_HZ(Hz_fun):
     _HZ_FUNC = Hz_fun
 
 
-N_DM = 32
-N_RS = 16
+N_DM = 30
+N_RS = 15
 GL_X_DM, GL_W_DM = np.polynomial.legendre.leggauss(N_DM)
 GL_X_RS, GL_W_RS = np.polynomial.legendre.leggauss(N_RS)
 # change integration variable
