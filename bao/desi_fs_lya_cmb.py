@@ -3,7 +3,7 @@ import numpy as np
 from interpolator import interp_hermite, interp_pchip
 from solve_triangular import solve_triangular
 from y2025BAO.data_fs_lya import get_data
-import cmb.data_early_lcdm_compression as cmb
+import cmb.data_spt_planck_act_compression as cmb
 
 c = cmb.c_km_per_s
 Orh2 = cmb.Or_h2
@@ -197,4 +197,55 @@ if __name__ == "__main__":
 #
 # w0 + wa < 0 enforced in the likelihood
 # Correction in prior volume: ln(4 * 7 / (4 * 7 - (0.5 * (4+1) * 3))) ~ 0.31
+# -------------------------------------------
+
+
+# *******************************************
+# Compressed SPT + Planck + ACT ΛCDM 
+# DESI BAO DR2 2025 + FS Lya
+# *******************************************
+
+
+# --------------- Flat ΛCDM -----------------
+# H0 = 68.07 ± 0.25 km/s/Mpc
+# ωb = 0.022474 ± 0.000091
+# ωc = 0.11815 ± 0.00060
+# ωm = 0.14126 ± 0.00059
+# Ωm = 0.3049 ± 0.0033
+# r_d = 147.47 ± 0.18 Mpc
+# Log evidence: 6.6
+# χ2 (MAP): 21.86
+# χ2 / DOF (MAP): 1.82
+# DOF: 14
+# -------------------------------------------
+
+
+# --------------- Flat wCDM -----------------
+# H0 = 69.47 ± 0.94 km/s/Mpc
+# ωb = 0.022442 ± 0.000093
+# ωc = 0.11891 ± 0.00077
+# w0 = -1.056 ± 0.037
+# ωm = 0.14200 ± 0.00075
+# Ωm = 0.2944 ± 0.0074
+# r_d = 147.31 ± 0.20 Mpc
+# Log evidence: 5.3
+# χ2 (MAP): 19.61
+# χ2 / DOF (MAP): 1.63
+# DOF: 13
+# -------------------------------------------
+
+
+# -------------- Flat w0waCDM ---------------
+# H0 = 64.2 +1.9 -2.1 km/s/Mpc
+# ωb = 0.022400 ± 0.000094
+# ωc = 0.12008 ± 0.00085
+# w0 = -0.48 ± 0.22
+# wa = -1.59 +0.70 -0.58
+# ωm = 0.14312 ± 0.00083
+# Ωm = 0.348 ± 0.022
+# r_d = 147.04 ± 0.22 Mpc
+# Log evidence: 6.2
+# χ2 (MAP): 12.12
+# χ2 / DOF (MAP): 1.01
+# DOF: 12
 # -------------------------------------------

@@ -1,12 +1,14 @@
 import numpy as np
-
+from numba import njit
 
 # Analytical 5-node approximation functions and coefficients
+@njit
 def compute_q(m0, coeffs):
     a, b, c, d = coeffs
     return a + b / (m0**d + c)
 
 
+@njit
 def compute_qs(m0):
     q1 = compute_q(m0, (0.51957626, -0.32971882, 61.81645189, 1.63914879))
     q2 = compute_q(m0, (1.44003028, +0.18098045, 55.20830625, 1.62412241))
@@ -20,10 +22,11 @@ def compute_qs(m0):
 weights = np.array([0.0380051, 0.262676, 0.46542, 0.217161, 0.0167379])
 
 
+@njit
 def compute_rho0(m0):
     qs = compute_qs(m0)
-    rho0 = 0.0
-    for i in range(len(qs)):
+    rho0 = weights[0] * np.sqrt(qs[0] ** 2 + m0**2)
+    for i in range(1, len(qs)):
         rho0 += weights[i] * np.sqrt(qs[i] ** 2 + m0**2)
     return rho0
 
