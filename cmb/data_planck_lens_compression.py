@@ -59,12 +59,13 @@ def Omnu_z(z):
     """
     zp1 = 1.0 + z
     mz_sq = (m0 / zp1) ** 2
-    f0 = np.sqrt(qs_sq[0] + mz_sq)
-    f1 = np.sqrt(qs_sq[1] + mz_sq)
-    f2 = np.sqrt(qs_sq[2] + mz_sq)
-    f3 = np.sqrt(qs_sq[3] + mz_sq)
-    f4 = np.sqrt(qs_sq[4] + mz_sq)
-    weighted_sum = f0 * ws[0] + f1 * ws[1] + f2 * ws[2] + f3 * ws[3] + f4 * ws[4]
+
+    first_f = np.sqrt(qs_sq[0] + mz_sq)
+    weighted_sum = ws[0] * first_f
+
+    for i in range(1, len(qs_sq)):
+        weighted_sum += ws[i] * np.sqrt(qs_sq[i] + mz_sq)
+
     return zp1**4 * weighted_sum / rho0
 
 
@@ -73,15 +74,18 @@ def w_nu_z(z):
     """
     Equation of state w(z) for massive neutrinos using the 5-node approximation
     """
-    mz_sq = (m0 / (1.0 + z)) ** 2
-    f0 = np.sqrt(qs_sq[0] + mz_sq)
-    f1 = np.sqrt(qs_sq[1] + mz_sq)
-    f2 = np.sqrt(qs_sq[2] + mz_sq)
-    f3 = np.sqrt(qs_sq[3] + mz_sq)
-    f4 = np.sqrt(qs_sq[4] + mz_sq)
+    zp1 = 1.0 + z
+    mz_sq = (m0 / zp1) ** 2
 
-    numerator = ws[0] / f0 + ws[1] / f1 + ws[2] / f2 + ws[3] / f3 + ws[4] / f4
-    denominator = ws[0] * f0 + ws[1] * f1 + ws[2] * f2 + ws[3] * f3 + ws[4] * f4
+    first_f = np.sqrt(qs_sq[0] + mz_sq)
+    numerator = ws[0] / first_f
+    denominator = ws[0] * first_f
+
+    for i in range(1, len(qs_sq)):
+        f = np.sqrt(qs_sq[i] + mz_sq)
+        numerator += ws[i] / f
+        denominator += ws[i] * f
+
     return (1 / 3) - (1 / 3) * mz_sq * numerator / denominator
 
 
@@ -128,8 +132,7 @@ def r_drag(wb, wm):
 @njit
 def z_drag(wb, wm):
     """arXiv:2106.00428v2 (eq A2)"""
-
-    s1, s2, b, m = (1.00044649, 1.00006975, 1.00041899, 1.00135313)
+    s1, s2, b, m = (1.01360498, 0.99999294, 1.02014009, 0.94055457)
 
     wb = wb**b
     wm = wm**m
