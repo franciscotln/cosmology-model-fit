@@ -123,6 +123,7 @@ def main():
     gd_samples.addDerived(gd_samples["obh2"] + gd_samples["och2"] + Omnuh2, name="omh2", label="ω_m")
     gd_samples.addDerived(gd_samples["omh2"] / gd_samples["h"] ** 2, name="om", label="Ω_m")
     gd_samples.addDerived(cmb.r_drag(gd_samples["obh2"], gd_samples["omh2"]), name="rdrag", label="r_{drag}")
+    gd_samples.updateBaseStatistics()
 
     plots.get_subplot_plotter().triangle_plot(
         roots=gd_samples,
@@ -190,13 +191,12 @@ if __name__ == "__main__":
 # r_d: 147.46 ± 0.25 Mpc
 # w0: -0.57 +0.20 -0.24 (prior ~ U[-3, 1])
 # wa: -1.27 +0.74 -0.56 (prior ~ U[-4, 3])
-# Log evidence: 6.4 + 0.3 = 6.7 (Δ logZ = 2.7 in favour of ΛCDM)
+# Log evidence: 6.4 (Δ logZ = 3.0 in favour of ΛCDM)
 # χ2 (MAP): 11.36
 # χ2 / DOF (MAP): 0.95
 # DOF: 12
 #
 # w0 + wa < 0 enforced in the likelihood
-# Correction in prior volume: ln(4 * 7 / (4 * 7 - (0.5 * (4+1) * 3))) ~ 0.31
 # -------------------------------------------
 
 
@@ -244,7 +244,7 @@ if __name__ == "__main__":
 # ωm = 0.14312 ± 0.00083
 # Ωm = 0.348 ± 0.022
 # r_d = 147.04 ± 0.22 Mpc
-# Log evidence: 6.2 + 0.3 = 6.5
+# Log evidence: 6.2
 # χ2 (MAP): 12.12
 # χ2 / DOF (MAP): 1.01
 # DOF: 12
