@@ -237,11 +237,11 @@ if __name__ == "__main__":
 # R = 1.7481 ± 0.0044
 # ωm = 0.1421 ± 0.0012
 # Ωm = 0.3120 ± 0.0080 (0.9 sigma tension with BAO)
-# h * r_d = 99.5 ± 1.0 (1.4 sigma tension with BAO)
 # z_drag = 1059.56 ± 0.29
 # r_d = 147.46 ± 0.28 Mpc
+# h * r_d = 99.5 ± 1.0 (1.4 sigma tension with BAO)
 # z_eq = 3379 ± 29
-# χ2 (MAP): 0.000
+# χ2 (MAP): 0.001
 # log likelihood (MAP): 21.30
 # -----------------------------
 
