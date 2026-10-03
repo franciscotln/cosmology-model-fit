@@ -58,7 +58,8 @@ def log_likelihood(params):
     log_like = -0.5 * (chi2 + cmb.prob_norm)
 
     # blobs: (100 θ*, r*, DM* in Gpc, z*, R)
-    return log_like, np.array([100 * thetastar, rs_star, DM_star / 1000, zstar, R])
+    blobs = np.array([100 * thetastar, rs_star, DM_star / 1000, zstar, R])
+    return log_like, blobs
 
 
 @njit
@@ -173,7 +174,7 @@ if __name__ == "__main__":
 # r_d = 147.00 ± 0.24 Mpc
 # z_eq = 3410 ± 22
 # χ2 (MAP): 0.000
-# log likelihood (MAP): 26.52
+# log likelihood (MAP): 21.92
 # -----------------------------
 
 

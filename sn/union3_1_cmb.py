@@ -103,7 +103,7 @@ def main():
     prior.add_parameter("h", dist=(0.60, 0.75))
     prior.add_parameter("obh2", dist=(0.01, 0.03))
     prior.add_parameter("och2", dist=(0.01, 0.25))
-    prior.add_parameter("dz_1000", dist=(-3.5, 3.5)) # 1000 x Δz
+    prior.add_parameter("dz_1000", dist=(-3.0, 3.0)) # 1000 x Δz
 
     with Pool(6) as pool:
         sampler = Sampler(prior, log_likelihood, n_live=6_000, pool=pool, seed=42, pass_dict=False)
@@ -181,12 +181,12 @@ if __name__ == "__main__":
 # turning point z <= 0.2 positive z > 0.2 negative
 # z_cosmo = z_cmb ± Δz
 
-# 1000 Δz = 0.97 ± 0.39 (prior ~ U[-3.5, 3.5])
+# 1000 Δz = 0.97 ± 0.39 (prior ~ U[-3.0, 3.0])
 # H0: 67.24 ± 0.38 km/s/Mpc
 # Ωm: 0.3168 ± 0.0054
 # ΔM: -0.0767 ± 0.0087 mag
 # Chi2 (MAP): 22.6 (2.55 sigma significance)
-# Log Evidence: -32.0 (Δ logZ = 1.1 in favour of z offset step correction)
+# Log Evidence: -31.9 (Δ logZ = 1.2 in favour of z offset step correction)
 # DOF: 20
 # ---------------------------------
 

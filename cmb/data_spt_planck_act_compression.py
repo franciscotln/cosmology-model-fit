@@ -12,16 +12,14 @@ from solve_triangular import solve_triangular
 
 c_km_per_s = c0 / 1000  # km/s
 
-DISTANCE_PRIORS = np.array([0.0104161, 0.0223985, 0.14331818])
-"""Compressed SPT+ACT+Planck priors: (θ*, ωb, ωm)"""
+DISTANCE_PRIORS = np.array([1.04161, 0.0223985, 0.14331818])
+"""Compressed SPT+ACT+Planck priors: (100 θ*, ωb, ωm)"""
 
-covariance = 1e-09 * np.array(
-    [
-        [5.20526927e-03, 1.19666450e-02, -0.279849344],
-        [1.19666450e-02, 8.96589845, -17.2830047],
-        [-0.279849344, -17.2830047, 837.535794],
-    ],
-)
+covariance = np.array([
+    [ 5.20526927e-08,  1.19666450e-09, -2.79849344e-08],
+    [ 1.19666450e-09,  8.96589845e-09, -1.72830047e-08],
+    [-2.79849344e-08, -1.72830047e-08,  8.37535794e-07]
+])
 inv_cov_mat = np.linalg.inv(covariance)
 L = np.linalg.cholesky(covariance)
 logdet = 2 * np.sum(np.log(np.diag(L)))
@@ -196,12 +194,12 @@ def rs_z(z_lim, Obh2, params):
 @njit
 def cmb_distances(Obh2, Och2, params):
     """
-    return (θ*, ω_b h^2, ω_m h^2)
+    return (100 θ*, ωb h^2, ωm h^2)
     """
     Omh2 = Och2 + Obh2 + Omnu_h2
     zstar = z_star(Obh2, Omh2)
     thetastar = rs_z(zstar, Obh2, params) / DM_z(zstar, params)
-    return np.array([thetastar, Obh2, Omh2])
+    return np.array([100 * thetastar, Obh2, Omh2])
 
 
 @njit
