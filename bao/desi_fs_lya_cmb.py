@@ -11,8 +11,6 @@ Omnuh2 = cmb.Omnu_h2
 
 legend, bao, cov_mat = get_data()
 
-N_cmb = len(cmb.DISTANCE_PRIORS)
-
 N_bao = len(bao)
 L_bao = np.linalg.cholesky(cov_mat)
 logdet_bao = 2 * np.sum(np.log(np.diag(L_bao)))
@@ -137,7 +135,7 @@ def main():
         print(gd_samples.getInlineLatex(name, limit=1))
 
     map_params = samples[np.argmax(log_l)]
-    DOF = N_bao + N_cmb - len(map_params)
+    DOF = N_bao + len(cmb.DISTANCE_PRIORS) - len(map_params)
     chi2_map = chi2_bao(map_params) + cmb.chi2(map_params[1], map_params[2], map_params)
 
     print(f"Log evidence: {sampler.log_z:.1f}")
@@ -160,7 +158,6 @@ if __name__ == "__main__":
 # Compressed Early Time ΛCDM 
 # DESI BAO DR2 2025 + FS Lya
 # *******************************************
-
 
 # --------------- Flat ΛCDM -----------------
 # H0 = 68.31 ± 0.29 km/s/Mpc
@@ -201,10 +198,61 @@ if __name__ == "__main__":
 
 
 # *******************************************
-# Compressed SPT + Planck + ACT ΛCDM 
+# Compressed Planck + ACT 
 # DESI BAO DR2 2025 + FS Lya
 # *******************************************
 
+# --------------- Flat ΛCDM -----------------
+# H0 = 68.38 ± 0.27 km/s/Mpc
+# ωb = 0.02257 ± 0.00010
+# ωc = 0.11749 ± 0.00065
+# ωm = 0.14070 ± 0.00064
+# Ωm = 0.3009 ± 0.0036
+# r_d = 147.54 ± 0.19 Mpc
+# Log evidence: 2.3
+# χ2 (MAP): 16.47
+# χ2 / DOF (MAP): 1.18
+# DOF: 14
+# -------------------------------------------
+
+
+# --------------- Flat wCDM -----------------
+# H0 = 68.96 ± 0.95 km/s/Mpc
+# ωb = 0.02255 ± 0.00011
+# ωc = 0.11789 ± 0.00090
+# w = -1.024 ± 0.038
+# ωm = 0.14108 ± 0.00088
+# Ωm = 0.2968 ± 0.0074
+# r_d = 147.46 ± 0.23 Mpc
+# Log evidence: 0.1
+# χ2 (MAP): 16.18
+# χ2 / DOF (MAP): 1.24
+# DOF: 13
+# -------------------------------------------
+
+
+# -------------- Flat w0waCDM ---------------
+# H0 = 64.9 ± 2.0 km/s/Mpc
+# ωb = 0.02249 ± 0.00011
+# ωc = 0.1193 ± 0.0011
+# w0 = -0.57 +0.20 -0.24
+# wa = -1.27 +0.71 -0.55
+# ωm = 0.1424 ± 0.0010
+# Ωm = 0.340 +0.021 -0.024
+# r_d = 147.16 ± 0.26 Mpc
+# Log evidence: -0.5
+# χ2 (MAP): 11.71
+# χ2 / DOF (MAP): 0.98
+# DOF: 12
+#
+# w0 + wa < 0 enforced in the likelihood
+# -------------------------------------------
+
+
+# *******************************************
+# Compressed SPT + Planck + ACT 
+# DESI BAO DR2 2025 + FS Lya
+# *******************************************
 
 # --------------- Flat ΛCDM -----------------
 # H0 = 68.07 ± 0.25 km/s/Mpc
@@ -248,4 +296,6 @@ if __name__ == "__main__":
 # χ2 (MAP): 12.12
 # χ2 / DOF (MAP): 1.01
 # DOF: 12
+#
+# w0 + wa < 0 enforced in the likelihood
 # -------------------------------------------
