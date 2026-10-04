@@ -7,6 +7,11 @@ import numpy as np
 from scipy.constants import c as c0
 import nu_evolution as neutrino
 from solve_triangular import solve_triangular
+import rec_planck as rec
+
+z_star = rec.z_star
+z_drag = rec.z_drag
+r_drag = rec.r_drag
 
 c_km_per_s = c0 / 1000  # km/s
 
@@ -87,59 +92,6 @@ def w_nu_z(z):
         denominator += ws[i] * f
 
     return (1 / 3) - (1 / 3) * mz_sq * numerator / denominator
-
-
-@njit
-def z_star(wb, wm):
-    """arXiv:2106.00428v2 (eq A-4)"""
-    s1, s2, b, m = (0.77384711, 1.0066941,  1.0389118,  1.25670299)
-
-    wb = wb**b
-    wm = wm**m
-
-    return (
-        wm**-0.7316314841257655
-        + s1 * 391.6723594873167 * wb**0.9368102670600895 * wm**-0.35300106475765136
-        + s2 * 937.4224935298015 * wm**0.0192950634264157 * wb**-0.04285000485853785
-    )
-
-
-@njit
-def r_drag(wb, wm):
-    """arXiv:2106.00428v2 (eq 8)"""
-
-    b, m = 1.01063661, 0.99183967
-
-    wb = wb**b
-    wm = wm**m
-
-    a1 = 0.00257366
-    a2 = 0.05032
-    a3 = 0.013
-    a4 = 0.7720642
-    a5 = 0.24346362
-    a6 = 0.00641072
-    a7 = 0.5350899
-    a8 = 32.7525
-    a9 = 0.315473
-
-    term_A_denominator = (a1 * (wb**a2)) + (a3 * (wb**a4) * (wm**a5)) + (a6 * (wm**a7))
-    term_A = 1.0 / term_A_denominator
-    term_B = a8 / (wm**a9)
-    return term_A - term_B
-
-
-@njit
-def z_drag(wb, wm):
-    """arXiv:2106.00428v2 (eq A2)"""
-    s1, s2, b, m = (1.01360498, 0.99999294, 1.02014009, 0.94055457)
-
-    wb = wb**b
-    wm = wm**m
-
-    return (
-        1 + s1 * 428.169 * wb**0.256459 * wm**0.616388 + s2 * 925.56 * wm**0.751615
-    ) * wm**-0.714129
 
 
 _HZ_FUNC = None

@@ -3,7 +3,7 @@ import numpy as np
 from scipy.constants import c as c0
 from interpolator import interp_hermite, interp_pchip
 from solve_triangular import solve_triangular
-from rdrag import r_drag
+from rec_planck import r_drag
 import y2024BBN.prior_lcdm_schoneberg as bbn
 from y2026union3_1.data import get_data
 from y2005cc.data import method, get_data as get_cc_data

@@ -97,24 +97,23 @@ def z_star(wb, wm):
     """arXiv:2106.00428v2 (eq A-4)"""
     s1, s2, b, m = (1.01659306, 0.99938819, 1.00488811, 1.01260252)
 
-    wb = wb**b
-    wm = wm**m
+    wb_eff = wb**b
+    wm_eff = wm**m
 
     return (
-        wm**-0.7316314841257655
-        + s1 * 391.6723594873167 * wb**0.9368102670600895 * wm**-0.35300106475765136
-        + s2 * 937.4224935298015 * wm**0.0192950634264157 * wb**-0.04285000485853785
+        wm_eff**-0.7316314841257655
+        + s1 * 391.6723594873167 * wb_eff**0.9368102670600895 * wm_eff**-0.35300106475765136
+        + s2 * 937.4224935298015 * wm_eff**0.0192950634264157 * wb_eff**-0.04285000485853785
     )
 
 
 @njit
 def r_drag(wb, wm):
     """arXiv:2106.00428v2 (eq 8)"""
-
     b, m = 1.01063661, 0.99183967
 
-    wb = wb**b
-    wm = wm**m
+    wb_eff = wb**b
+    wm_eff = wm**m
 
     a1 = 0.00257366
     a2 = 0.05032
@@ -126,24 +125,23 @@ def r_drag(wb, wm):
     a8 = 32.7525
     a9 = 0.315473
 
-    term_A_denominator = (a1 * (wb**a2)) + (a3 * (wb**a4) * (wm**a5)) + (a6 * (wm**a7))
+    term_A_denominator = (a1 * (wb_eff**a2)) + (a3 * (wb_eff**a4) * (wm_eff**a5)) + (a6 * (wm_eff**a7))
     term_A = 1.0 / term_A_denominator
-    term_B = a8 / (wm**a9)
+    term_B = a8 / (wm_eff**a9)
     return term_A - term_B
 
 
 @njit
 def z_drag(wb, wm):
     """arXiv:2106.00428v2 (eq A2)"""
-
     s1, s2, b, m = (1.0003704, 0.99986385, 0.99926332, 1.00361697)
 
-    wb = wb**b
-    wm = wm**m
+    wb_eff = wb**b
+    wm_eff = wm**m
 
     return (
-        1 + s1 * 428.169 * wb**0.256459 * wm**0.616388 + s2 * 925.56 * wm**0.751615
-    ) * wm**-0.714129
+        1 + s1 * 428.169 * wb_eff**0.256459 * wm_eff**0.616388 + s2 * 925.56 * wm_eff**0.751615
+    ) * wm_eff**-0.714129
 
 
 _HZ_FUNC = None

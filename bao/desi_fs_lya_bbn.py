@@ -3,7 +3,7 @@ import numpy as np
 from scipy.constants import c as c0
 from interpolator import interp_hermite, interp_pchip
 from solve_triangular import solve_triangular
-from rdrag import r_drag
+from rec_planck import r_drag
 from y2025BAO.data_fs_lya import get_data
 import y2024BBN.prior_lcdm_schoneberg as bbn
 
@@ -203,7 +203,7 @@ if __name__ == "__main__":
 # Flat ΛCDM:
 # H0: 68.55 +- 0.59 km/s/Mpc
 # ωb: 0.02219 +- 0.00055
-# Ωm: 0.3017 +- 0.0077
+# Ωm: 0.3018 +- 0.0077
 # rd: 147.6 +- 1.5 Mpc
 # Chi squared: 12.81
 # log likelihood (MAP): -6.40

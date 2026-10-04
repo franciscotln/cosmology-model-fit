@@ -3,7 +3,7 @@ import numpy as np
 from scipy.constants import c as c0
 from interpolator import interp_hermite, interp_pchip
 from solve_triangular import solve_triangular
-from rdrag import r_drag
+from rec_planck import r_drag
 from y2026union3_1.data import get_data
 from y2005cc.data import method, get_data as get_cc_data
 from y2025BAO.data_fs_lya import get_data as get_bao_data
@@ -295,16 +295,16 @@ if __name__ == "__main__":
 # --------------- Flat ΛCDM -----------------
 # H0 = 69.7 ± 1.4 km/s/Mpc
 # Ωm = 0.3053 ± 0.0073
-# Ωm h^2 = 0.1482 ± 0.0062
+# Ωm h^2 = 0.1484 ± 0.0062
 # Ωb h^2 = 0.0236 ± 0.0018
-# rd = 144.7 ± 2.8 Mpc
+# rd = 144.8 ± 2.8 Mpc
 #
-# ΔM = -0.005 ± 0.042 mag
+# ΔM = -0.006 ± 0.042 mag
 # n = 1.03 +0.31 -0.54
 # ln(fp) = -0.41 ± 0.25
-# fp = 0.69 +0.13 -0.19
+# fp = 0.68 +0.13 -0.19
 #
-# Chi2 (MAP): 79.86
+# Chi2 (MAP): 82.78
 # log likelihood (MAP): -172.18
 # Log evidence: -188.95
 # DOF: 69
