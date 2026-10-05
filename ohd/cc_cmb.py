@@ -60,7 +60,7 @@ def log_likelihood(params):
     logdet = 2 * np.sum(np.log(np.diag(L_cc)))
     normalization = N_cc * np.log(2 * np.pi) + logdet
 
-    return -0.5 * (chi_squared(params, L_cc) + normalization)
+    return -0.5 * (chi_squared(params, L_cc) + normalization + cmb.prob_norm)
 
 
 def main():
@@ -124,7 +124,7 @@ def main():
         z=z_values,
         H=H_values,
         H_err=np.sqrt(np.diag(cov_mat_sys) + diag_stat**2),
-        label=f"{legend} $H_0$: {best_fit[0]:.1f} km/s/Mpc",
+        label=f"{legend} $H_0$: {100 * best_fit[0]:.1f} km/s/Mpc",
         method=method,
         err_scaling=1 / fz_cc,
     )
@@ -142,14 +142,14 @@ if __name__ == "__main__":
 # Model: Flat ΛCDM
 # ------ Fixed factor ln(fp) = 0, n = 1 -----------------------------
 # ln(fp): 0, n: 1 (assuming no overestimated errors in CCH sample)
-# H0: 67.19 ± 0.38 km/s/Mpc
-# Ωm: 0.3175 ± 0.0055
+# H0: 67.20 ± 0.38 km/s/Mpc
+# Ωm: 0.3174 ± 0.0055
 # ωb = 0.022399 ± 0.000095
-# ωc = 0.12026 ± 0.00093
+# ωc = 0.12027 ± 0.00093
 #
 # Chi squared (MAP): 20.30
-# Log likelihood (MAP): -159.80
-# Log evidence: -170.83
+# Log likelihood (MAP): -137.88
+# Log evidence: -148.91
 # DOF: 39
 # -------------------------------------------------------------------
 
@@ -157,15 +157,15 @@ if __name__ == "__main__":
 # Model: Flat ΛCDM
 # --- Overestimation factor f(z) = fp * [(1 + z) * H(z)^2 / ((1 + z_piv) * H(z_piv)^2)]^n ---
 # H0 = 67.28 ± 0.38 km/s/Mpc
-# Ωm = 0.3163 ± 0.0054
-# Ωb h^2 = 0.022411 ± 0.000095
-# Ωc h^2 = 0.12008 ± 0.00092
+# Ωm = 0.3163 ± 0.0055
+# Ωb h^2 = 0.022411 ± 0.000094
+# Ωc h^2 = 0.12008 ± 0.00093
 #
-# ln(fp) = -0.44 ± 0.25 (prior ~ U[-2, 1])
-# n_cc = 1.03 +0.32 -0.57 (prior ~ U[-2.5, 2.5])
+# ln(fp) = -0.44 +0.26 -0.23 (prior ~ U[-2, 1])
+# n_cc = 1.02 +0.32 -0.57 (prior ~ U[-2.5, 2.5])
 #
 # Chi squared (MAP): 41.09
-# Log likelihood (MAP): -151.93
-# Log evidence: -166.14 (Δ logZ = 4.69 compared to no scaling)
+# Log likelihood (MAP): -130.01
+# Log evidence: -144.22 (Δ logZ = 4.69 compared to no scaling)
 # DOF: 37
 # -------------------------------------------------------------------

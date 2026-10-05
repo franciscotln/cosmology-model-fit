@@ -4,43 +4,43 @@ Planck PR3, 2019 plikHM TT, TE, EE + lowl + lowE
 
 from numba import njit
 import numpy as np
-from scipy.constants import c as c0
 import nu_evolution as neutrino
 from solve_triangular import solve_triangular
 import rec_planck as rec
+import cmb.cmb_distances as cmb_dist
 
 z_star = rec.z_star
 z_drag = rec.z_drag
 r_drag = rec.r_drag
-
-c_km_per_s = c0 / 1000  # km/s
+rs_z = cmb_dist.rs_z
+DM_z = cmb_dist.DM_z
 
 DISTANCE_PRIORS = np.array([1.75063846, 301.760701, 0.0223597502])
 """Compressed Planck priors: (R, lA = π / θ*, ωb)"""
 
-covariance = np.array(
-    [
-        [2.09107356e-05, 1.78419597e-04, -4.46283183e-07],
-        [1.78419597e-04, 7.81249750e-03, -4.24834772e-06],
-        [-4.46283183e-07, -4.24834772e-06, 2.21402189e-08],
-    ]
-)
+covariance = np.array([
+    [2.09107356e-05, 1.78419597e-04, -4.46283183e-07],
+    [1.78419597e-04, 7.81249750e-03, -4.24834772e-06],
+    [-4.46283183e-07, -4.24834772e-06, 2.21402189e-08],
+])
 inv_cov_mat = np.linalg.inv(covariance)
 L = np.linalg.cholesky(covariance)
 logdet = 2 * np.sum(np.log(np.diag(L)))
 prob_norm = logdet + len(DISTANCE_PRIORS) * np.log(2 * np.pi)
 
 # ---- Physical constants ----
-k_B = 8.617333262e-5  # eV/K
-TCMB = 2.7255  # K
-O_GAMMA_H2 = 2.4729753287140862e-05
+c_km_per_s = cmb_dist.C_KM_PER_S
+k_B = cmb_dist.K_BOLTZ  # eV/K
+TCMB = cmb_dist.TCMB  # K
+O_GAMMA_H2 = cmb_dist.O_GAMMA_H2
+# ----------------------------
 
 N_EFF = 3.046
 mnu_tot = 0.06  # total mass [eV]
 T_nu0 = (4 / 11) ** (1 / 3) * (N_EFF / 3) ** (1 / 4) * TCMB  # K
 T_nu0_eV = T_nu0 * k_B  # eV
 m0 = mnu_tot / T_nu0_eV
-Omnu_h2 = (mnu_tot / 94.07) * (N_EFF / 3) ** (3 / 4)
+Omnu_h2 = (mnu_tot / 94.0641) * (N_EFF / 3) ** (3 / 4)
 
 
 def Omega_r_h2(Neff=N_EFF):
@@ -94,49 +94,8 @@ def w_nu_z(z):
     return (1 / 3) - (1 / 3) * mz_sq * numerator / denominator
 
 
-_HZ_FUNC = None
-
-
 def set_HZ(Hz_fun):
-    global _HZ_FUNC
-    _HZ_FUNC = Hz_fun
-
-
-N_DM = 30
-N_RS = 15
-GL_X_DM, GL_W_DM = np.polynomial.legendre.leggauss(N_DM)
-GL_X_RS, GL_W_RS = np.polynomial.legendre.leggauss(N_RS)
-# change integration variable
-# a = u^2, da = 2 * u * du
-
-
-@njit
-def _integ_u(u, params):
-    # u = sqrt(a): constant in matter era, ~linear in radiation era
-    z = 1.0 / (u * u) - 1.0
-    return 2.0 * c_km_per_s / (u**3 * _HZ_FUNC(z, params))
-
-
-@njit
-def DM_z(z_lim, params):
-    u_lo = 1.0 / np.sqrt(1.0 + z_lim)
-    half = 0.5 * (1.0 - u_lo)
-    mid = 0.5 * (1.0 + u_lo)
-    s = 0.0
-    for i in range(N_DM):
-        s += GL_W_DM[i] * _integ_u(half * GL_X_DM[i] + mid, params)
-    return half * s
-
-
-@njit
-def rs_z(z_lim, Obh2, params):
-    half = 0.5 / np.sqrt(1.0 + z_lim)
-    k = 0.75 * Obh2 / O_GAMMA_H2
-    s = 0.0
-    for i in range(N_RS):
-        u = half * (GL_X_RS[i] + 1.0)
-        s += GL_W_RS[i] * _integ_u(u, params) / np.sqrt(3.0 * (1.0 + k * u * u))
-    return half * s
+    cmb_dist.set_HZ(Hz_fun)
 
 
 @njit

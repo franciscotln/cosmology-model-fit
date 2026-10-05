@@ -169,7 +169,7 @@ if __name__ == "__main__":
 # ----------- Flat ΛCDM -----------
 # H0: 67.13 +- 0.37 km/s/Mpc
 # Ωm: 0.3184 +- 0.0054
-# ΔM: -0.0766 +- 0.0087 mag
+# ΔM: -0.0765 +- 0.0087 mag
 # Chi2 (MAP): 28.7
 # Log Evidence: -33.1
 # DOF: 21
@@ -181,7 +181,7 @@ if __name__ == "__main__":
 # turning point z <= 0.2 positive z > 0.2 negative
 # z_cosmo = z_cmb ± Δz
 
-# 1000 Δz = 0.97 ± 0.39 (prior ~ U[-3.0, 3.0])
+# 1000 Δz = 0.98 ± 0.40 (prior ~ U[-3.0, 3.0])
 # H0: 67.24 ± 0.38 km/s/Mpc
 # Ωm: 0.3168 ± 0.0054
 # ΔM: -0.0767 ± 0.0087 mag
