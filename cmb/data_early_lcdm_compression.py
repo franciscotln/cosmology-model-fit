@@ -94,7 +94,6 @@ def w_nu_z(z):
     return (1 / 3) - (1 / 3) * mz_sq * numerator / denominator
 
 
-
 def set_HZ(Hz_fun):
     cmb_dist.set_HZ(Hz_fun)
 

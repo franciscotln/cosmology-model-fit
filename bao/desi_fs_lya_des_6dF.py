@@ -1,15 +1,17 @@
 from numba import njit
 import numpy as np
-from scipy.constants import c as c0
 from scipy.linalg import block_diag
 from interpolator import interp_pchip, interp_hermite
 from solve_triangular import solve_triangular
+import cmb.data_spt_planck_act_compression as cmb
 from y2025BAO.data_fs_lya import get_data as get_desi_data
 from y2024DESBAO.data import get_data as get_des_data
 from y20116dFBAO.data import get_data as get_6dF_data
 
-c = c0 / 1000  # Speed of light in km/s
-rd = 147.09  # Mpc, fixed
+c = cmb.c_km_per_s
+omnu_h2 = cmb.Omnu_h2
+or_h2 = cmb.Or_h2
+R_DRAG = 147.09  # Mpc, fixed
 
 legend_desi, data_desi, cov_desi = get_desi_data()
 legend_des, data_des, cov_des = get_des_data()
@@ -27,14 +29,12 @@ dz = z_grid[1] - z_grid[0]
 # ----- PARAMS -----
 names = ["h", "om", "wp", "wa"]
 labels = ["h", "Ω_m", "w_p", "w_a"]
-bounds = np.array(
-    [
-        (0.50, 0.80),  # h
-        (0.1, 0.6),  # Ωm
-        (-3.0, 1.0),  # wp
-        (-8.0, 8.0),  # wa
-    ]
-)
+bounds = np.array([
+    (0.50, 0.80),  # h
+    (0.1, 0.6),  # Ωm
+    (-2.0, 0.0),  # wp
+    (-10.0, 4.0),  # wa
+])
 # ------------------
 
 z_piv = 0.38
@@ -49,7 +49,16 @@ def Ode_z(z, wp, wa):
 @njit
 def H_z(z, params):
     h, om, wp, wa = params
-    return 100 * h * np.sqrt(om * (1 + z) ** 3 + (1 - om) * Ode_z(z, wp, wa))
+    h2 = h**2
+    om_h2 = om * h2
+
+    zp1 = 1. + z
+
+    cdm_term = (om_h2 - omnu_h2) * zp1**3
+    radiation_term = or_h2 * zp1**4
+    neutrino_term = omnu_h2 * cmb.Omnu_z(z)
+    lambda_term = (h2 - om_h2 - or_h2) * Ode_z(z, wp, wa)
+    return 100 * np.sqrt(cdm_term + radiation_term + neutrino_term + lambda_term)
 
 
 @njit
@@ -68,9 +77,9 @@ def bao_theory(z, qty, theta):
     FAP_mask = qty == 3
 
     results = np.empty(z.size, dtype=np.float64)
-    results[DH_mask] = DH[DH_mask] / rd
-    results[DM_mask] = DM[DM_mask] / rd
-    results[DV_mask] = (z[DV_mask] * DH[DV_mask] * DM[DV_mask] ** 2) ** (1 / 3) / rd
+    results[DH_mask] = DH[DH_mask] / R_DRAG
+    results[DM_mask] = DM[DM_mask] / R_DRAG
+    results[DV_mask] = (z[DV_mask] * DH[DV_mask] * DM[DV_mask] ** 2) ** (1 / 3) / R_DRAG
     results[FAP_mask] = DM[FAP_mask] / DH[FAP_mask]
     return results
 
@@ -127,21 +136,14 @@ def main():
     np.random.seed(42)
     ndim = len(bounds)
     nwalkers = 100
-    burn_in = 1000
-    nsteps = 6000 + burn_in
+    burn_in = 2000
+    nsteps = 8000 + burn_in
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
-    moves = [
-        (emcee.moves.KDEMove(), 0.20),
-        (emcee.moves.DEMove(), 0.80),
-    ]
+    moves = [(emcee.moves.KDEMove(), 0.20), (emcee.moves.DEMove(), 0.80)]
 
     with Pool(6) as pool:
-        sampler = emcee.EnsembleSampler(
-            nwalkers, ndim, log_probability, moves=moves, pool=pool
-        )
-        sampler.run_mcmc(
-            initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#ff5a00"}
-        )
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, moves=moves, pool=pool)
+        sampler.run_mcmc(initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#ff5a00"})
 
     flat_samples = sampler.get_chain(discard=burn_in, flat=True)
     samples = sampler.get_chain(discard=burn_in, flat=False)
@@ -161,7 +163,7 @@ def main():
         labels=labels,
         label='DESI + DES6Y + 6dF'
     )
-    gd_samples.addDerived(gd_samples["h"] * rd, name="hrd", label="h \\cdot r_d")
+    gd_samples.addDerived(gd_samples["h"] * R_DRAG, name="hrd", label="h \\cdot r_d")
 
     for name in gd_samples.getParamNames().names:
         print(gd_samples.getInlineLatex(name, limit=1))
@@ -207,23 +209,23 @@ if __name__ == "__main__":
 
 
 # ----------- Flat ΛCDM -----------
-# Ωm = 0.3009 ± 0.0076
-# h x r_d = 101.26 ± 0.66 Mpc
+# Ωm = 0.3006 ± 0.0076
+# h x r_d = 101.27 ± 0.66 Mpc
 # Chi2: 13.59
 # DOF: 14
 # Chi2/DOF: 13.59 / 14 ≈ 0.97
-# Log evidence: -14.00
+# Log evidence: -14.73
 # ---------------------------------
 
 
 # ----------- Flat wCDM -----------
-# Ωm = 0.3011 ± 0.0080
+# Ωm = 0.3008 ± 0.0080
 # h x r_d = 100.8 ± 1.7 Mpc
-# w0 = -0.978 ± 0.072 (prior U[-2, 0])
-# Chi2: 13.47
+# w = -0.977 ± 0.071 (prior U[-2, 0])
+# Chi2: 13.46
 # DOF: 13
-# Chi2/DOF: 13.47 / 13 ≈ 1.04
-# Log evidence: -16.35
+# Chi2/DOF: 13.46 / 13 ≈ 1.04
+# Log evidence: -17.80
 # ---------------------------------
 
 
@@ -231,12 +233,12 @@ if __name__ == "__main__":
 # z_pivot = 0.38 (wp and wa uncorrelated)
 # wp + wa/(1 + z_pivot) < 0 enforced in the likelihood
 #
-# Ωm = 0.366 +0.040 -0.036
-# wp = -0.987 ± 0.070 (0.2 sigma from -1) (prior U[-3, 1])
-# wa = -2.2 ± 1.3 (1.7 sigma from 0) (prior U[-8, 8])
-# h x r_d = 94.1 +3.7 -4.4 Mpc
-# Chi2: 10.22
+# Ωm = 0.367 +0.039 -0.035
+# wp = -0.986 ± 0.069 (prior U[-2, 0])
+# wa = -2.2 ± 1.3 (prior U[-10, 4])
+# h x r_d = 94.0 +3.6 -4.4 Mpc
+# Chi2: 10.21
 # DOF: 12
-# Chi2/DOF: 10.22 / 12 ≈ 0.85
-# Log evidence: -17.41
+# Chi2/DOF: 10.21 / 12 ≈ 0.85
+# Log evidence: -16.58
 # ---------------------------------

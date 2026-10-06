@@ -1,14 +1,17 @@
 from numba import njit
 import numpy as np
-from scipy.constants import c as c0
 from interpolator import interp_pchip, interp_hermite
+from solve_triangular import solve_triangular
 from y2025BAO.data_fs_lya import get_data
+import cmb.data_spt_planck_act_compression as cmb
 
-c = c0 / 1000  # Speed of light in km/s
+or_h2 = cmb.Or_h2
+omnu_h2 = cmb.Omnu_h2
+c = cmb.c_km_per_s  # Speed of light in km/s
 RD = 147.09  # Mpc, fixed
 
 legend, data, cov_matrix = get_data()
-inv_cov_bao = np.linalg.inv(cov_matrix)
+L_cov = np.linalg.cholesky(cov_matrix)
 
 z_max = np.max(data["z"]) + 0.1
 z_grid = np.linspace(0, z_max, num=4000)
@@ -24,9 +27,13 @@ def Ode_z(z, w0, wa):
 
 @njit
 def h_z(z, params):
-    h, o_m = params
-    o_l = 1.0 - o_m
-    return 100 * h * np.sqrt(o_m * (1.0 + z) ** 3 + o_l)
+    h, om = params
+    h2 = h**2
+    om_h2 = om * h2
+    obcdm_h2 = om_h2 - omnu_h2
+    olambda_h2 = h2 - om_h2 - or_h2
+    zp1 = 1. + z
+    return 100 * np.sqrt(or_h2 * zp1**4 + obcdm_h2 * zp1**3 + omnu_h2 * cmb.Omnu_z(z) + olambda_h2)
 
 
 @njit
@@ -65,10 +72,10 @@ bao_qty = np.array([qty_map[q] for q in data["quantity"]], dtype=np.int32)
 @njit
 def chi_squared(theta):
     delta_bao = data["value"] - bao_theory(data["z"], bao_qty, theta)
-    return delta_bao @ inv_cov_bao @ delta_bao
+    y = solve_triangular(L_cov, delta_bao)
+    return np.dot(y, y)
 
 
-@njit
 def log_likelihood(params):
     return -0.5 * chi_squared(params)
 
@@ -150,9 +157,9 @@ if __name__ == "__main__":
 # *******************************************
 
 # --------------- Flat ΛCDM -----------------
-# h * rd: 101.17 +- 0.67 Mpc
-# Ωm: 0.3017 +- 0.0077
-# χ2: 12.81
+# h * rd: 101.19 +- 0.67 Mpc
+# Ωm: 0.3013 +- 0.0077
+# χ2: 12.80
 # DOF: 12
 # χ2/dof: 1.07
 # Log evidence: -14.1
@@ -161,12 +168,12 @@ if __name__ == "__main__":
 # -------------------------------------------
 
 # --------------- Flat wCDM -----------------
-# h * rd: 100.5 +- 1.7 Mpc
-# Ωm: 0.3022 +- 0.0081
-# w0: -0.967 +- 0.074 (prior ~U(-1.4, -0.4))
-# χ2: 12.60
+# h * rd: 100.5 +1.6 -1.8 Mpc
+# Ωm: 0.3018 +- 0.0081
+# w: -0.967 +- 0.073 (prior ~U(-1.4, -0.4))
+# χ2: 12.55
 # DOF: 11
-# χ2/dof: 1.15
+# χ2/dof: 1.14
 # Log evidence: -15.7
 # R^2: 0.9988
 # RMSD: 0.287
@@ -177,9 +184,9 @@ if __name__ == "__main__":
 #
 # w(z) = w1 + w2 * ((1 + z)^2 - 1) / ((1 + z)^2 + 1)
 #
-# h * rd = 90.7 +3.8 -4.6 Mpc
-# Ωm = 0.398 ± 0.043
-# w1 = -0.12 ± 0.40 (prior ~U(-4, 2))
+# h * rd = 90.8 +3.8 -4.7 Mpc
+# Ωm = 0.398 ± 0.044
+# w1 = -0.13 ± 0.40 (prior ~U(-4, 2))
 # w2 = -2.6 ± 1.2 (prior ~U(-8, 4))
 # χ2 (MAP): 7.18
 # DOF: 10
@@ -190,27 +197,28 @@ if __name__ == "__main__":
 # -------------------------------------------
 
 # -------------- Flat w0waCDM ---------------
+# Enforced w0 + wa < 0 in the likelihood
 # Full wa posterior distribution
-# h * rd: 90.3 +3.9 -4.8 Mpc
-# Ωm: 0.403 +- 0.045
-# w0: -0.04 +- 0.43 (prior ~U(-2.5, 2.5))
+# h * rd: 90.3 +3.9 -4.9 Mpc
+# Ωm: 0.402 +- 0.045
+# w0: -0.04 +- 0.44 (prior ~U(-4, 2))
 # wa: -3.3 +- 1.5 (prior ~U(-10, 4))
-# χ2: 7.22
+# χ2: 7.19
 # DOF: 10
 # χ2/dof: 0.72
-# Log evidence: -16.1
+# Log evidence: -16.3
 # R^2: 0.9995
 # RMSD: 0.195
 
 # Truncated wa posterior distribution
-# h * rd: 94.1 +2.0 -3.6 Mpc
-# Ωm: 0.363 +0.033 -0.016
+# h * rd: 94.1 +2.0 -3.7 Mpc
+# Ωm: 0.363 +0.033 -0.017
 # w0: -0.43 +0.30 -0.14 (prior ~U(-3, 1))
-# wa: < -1.95 (prior ~U(-3, 2)) - left side truncated
-# χ2: 7.89
+# wa: < -1.94 (prior ~U(-3, 2)) - left side truncated
+# χ2: 7.23
 # DOF: 10
-# χ2/dof: 0.79
+# χ2/dof: 0.72
 # Log evidence: -15.7
-# R^2: 0.9993
-# RMSD: 0.216
+# R^2: 0.9994
+# RMSD: 0.196
 # -------------------------------------------

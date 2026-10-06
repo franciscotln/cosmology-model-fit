@@ -29,17 +29,15 @@ dz = z_grid[1] - z_grid[0]
 @njit
 def w_de_z(z, w0, wa):
     zp1 = 1.0 + z
-    return w0 + wa * ((zp1**2 - 1) / (zp1**2 + 1))
-    # Thawing quintessence wzCDM
-    # return -1.0 + 2 * (1.0 + w0) / (1.0 + w0 + (1.0 - w0) * (1.0 + z) ** 3)
+    return w0 + wa * (zp1**2 - 1) / (zp1**2 + 1)  # w1w2CDM
+    # return w0 + wa * z / zp1  # w0waCDM
 
 
 @njit
 def Ode_z(z, w0, wa):
     zp1 = 1.0 + z
-    return zp1**(3 * (1.0 + w0 + wa)) * (2 * zp1**2 / (zp1**2 + 1))**(-3 * wa)
-    # Thawing quintessence wzCDM
-    # return (2 * zp1**3 / (1.0 + w0 + (1.0 - w0) * zp1**3)) ** 2
+    return zp1**(3 * (1.0 + w0 + wa)) * (2 * zp1**2 / (zp1**2 + 1))**(-3 * wa) # w1w2CDM
+    # return zp1**(3 * (1.0 + w0 + wa)) * np.exp(-3 * wa * z / zp1) # w0waCDM
 
 
 @njit
@@ -165,9 +163,10 @@ def chi_squared(theta):
 @njit
 def log_likelihood(theta):
     norm_fact = norm_factor + 2 * N * theta[-1]
-    return -0.5 * (chi_squared(theta) + norm_fact)
+    return -0.5 * (chi_squared(theta) + norm_fact + cmb.prob_norm)
 
 
+labels = ["$H_0$", "$Ωbh^2$", "$Ωch^2$", "$w_0$", "$w_a$", "$\\sigma_8$", "$ln(f)$"]
 bounds = np.array(
     [
         (50, 80),  # H0
@@ -188,7 +187,7 @@ def log_prior(theta):
     if not np.all((bounds[:, 0] < theta) & (theta < bounds[:, 1])):
         return -np.inf
     if theta[3] + theta[4] >= 0:
-        return -1e12
+        return -np.inf
     return normalization
 
 
@@ -213,16 +212,14 @@ def main():
     np.random.seed(42)
     ndim = len(bounds)
     nwalkers = 100
-    burn_in = 1000
+    burn_in = 2000
     nsteps = 3000 + burn_in
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], (nwalkers, ndim))
     moves = [(emcee.moves.KDEMove(), 0.20), (emcee.moves.DEMove(), 0.80)]
 
     with Pool(8) as pool:
         sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool, moves)
-        sampler.run_mcmc(
-            initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#ff5a00"}
-        )
+        sampler.run_mcmc(initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#ff5a00"})
 
     try:
         tau = sampler.get_autocorr_time()
@@ -256,7 +253,6 @@ def main():
     Om_16, Om_50, Om_84 = np.percentile(Om_samples, [15.9, 50, 84.1])
     S8_16, S8_50, S8_84 = np.percentile(S8_samples, [15.9, 50, 84.1])
 
-    best_fit = np.percentile(samples, 50, axis=0)
     MAP_params = samples[np.argmax(log_probs)]
 
     print(f"H0 = {H0_50:.2f} +{H0_84-H0_50:.2f} -{H0_50-H0_16:.2f} km/s/Mpc")
@@ -271,15 +267,14 @@ def main():
     print(f"ln(f) = {f_50:.2f} +{f_84-f_50:.2f} -{f_50-f_16:.2f}")
     print(f"chi2 = {chi_squared(MAP_params):.2f}")
     print(f"log likelihood = {log_likelihood(MAP_params):.1f}")
-    print(f"degs of freedom = {N + len(cmb.DISTANCE_PRIORS) - len(best_fit)}")
+    print(f"degs of freedom = {N + len(cmb.DISTANCE_PRIORS) - len(MAP_params)}")
 
-    labels = ["$H_0$", "$Ωbh^2$", "$Ωch^2$", "$w_0$", "$w_a$", "$\\sigma_8$", "$ln(f)$"]
     plot_corner_and_chains(labels, samples, chains_samples)
     plot_predictions(
-        fs8_theory=lambda z: fs8_theory(1 / (1 + z), best_fit),
+        fs8_theory=lambda z: fs8_theory(1 / (1 + z), MAP_params),
         data=data,
-        q=Hz(z_vals, best_fit) * DM(z_vals, best_fit) / Hz_DMz_fid,
-        f_err=1/np.exp(MAP_params[-1]),
+        q=Hz(z_vals, MAP_params) * DM(z_vals, MAP_params) / Hz_DMz_fid,
+        f_err=1 / np.exp(MAP_params[-1]),
     )
 
 
@@ -288,48 +283,32 @@ if __name__ == "__main__":
 
 
 # ----------- flat ΛCDM -----------
-# H0 = 67.62 +0.47 -0.47 km/s/Mpc
-# Ωbh2 = 0.02250 +0.00011 -0.00011
-# Ωch2 = 0.11932 +0.00114 -0.00114
+# H0 = 67.61 +0.47 -0.47 km/s/Mpc
+# Ωbh2 = 0.02249 +0.00011 -0.00011
+# Ωch2 = 0.11935 +0.00113 -0.00112
 # Ωmh2 = 0.1425 +0.0011 -0.0011
 # Ωm = 0.312 +0.007 -0.007
 # σ8 = 0.789 +0.009 -0.009
 # S8 = 0.802 +0.011 -0.011
 # ln(f) = -0.58 +0.10 -0.09
-# chi2 = 56.77
-# log likelihood = 106.7
+# chi2 = 55.53
+# log likelihood = 121.4
 # degs of freedom = 54
 # ---------------------------------
 
 
 # ----------- flat wCDM -----------
-# H0 = 65.77 +1.40 -1.38 km/s/Mpc
-# Ωbh2 = 0.02251 +0.00011 -0.00011
-# Ωch2 = 0.11886 +0.00120 -0.00119
+# H0 = 65.75 +1.41 -1.36 km/s/Mpc
+# Ωbh2 = 0.02252 +0.00011 -0.00011
+# Ωch2 = 0.11886 +0.00120 -0.00121
 # Ωmh2 = 0.1420 +0.0012 -0.0012
 # Ωm = 0.328 +0.014 -0.014
 # σ8 = 0.798 +0.011 -0.011
 # S8 = 0.833 +0.025 -0.025
-# w0 = -0.932 +0.048 -0.050 (prior U[-1.5, 0])
-# ln(f) = -0.59 +0.10 -0.09 (error overestimation factor)
-# chi2 = 56.67
-# log likelihood = 107.7
-# degs of freedom = 53
-# ---------------------------------
-
-
-# ----------- flat wzCDM ----------
-# H0 = 64.64 +1.45 -1.36 km/s/Mpc
-# Ωbh2 = 0.02252 +0.00011 -0.00011
-# Ωch2 = 0.11870 +0.00117 -0.00116
-# Ωmh2 = 0.1419 +0.0011 -0.0011
-# Ωm = 0.339 +0.015 -0.015
-# σ8 = 0.806 +0.012 -0.012
-# S8 = 0.855 +0.028 -0.027
-# w0 = -0.770 +0.100 -0.107 (prior U[-1.5, 0])
-# ln(f) = -0.61 +0.10 -0.09 (log error overestimation factor)
-# chi2 = 57.77
-# log likelihood = 109.1
+# w = -0.931 +0.048 -0.050 (prior U[-2, 0])
+# ln(f) = -0.59 +0.10 -0.09
+# chi2 = 56.80
+# log likelihood = 122.4
 # degs of freedom = 53
 # ---------------------------------
 
@@ -337,18 +316,18 @@ if __name__ == "__main__":
 # ---------- flat w0waCDM ---------
 # w0 + wa < 0 enforced in the likelihood
 
-# H0 = 64.68 +1.28 -1.23 km/s/Mpc
+# H0 = 64.69 +1.30 -1.22 km/s/Mpc
 # Ωbh2 = 0.02250 +0.00011 -0.00011
-# Ωch2 = 0.11925 +0.00121 -0.00120
+# Ωch2 = 0.11926 +0.00120 -0.00120
 # Ωmh2 = 0.1424 +0.0012 -0.0012
 # Ωm = 0.340 +0.014 -0.014
 # σ8 = 0.814 +0.013 -0.013
 # S8 = 0.865 +0.027 -0.027
-# w0 = -0.550 +0.145 -0.147 (prior U[-3.0, 1.0])
-# wa = -1.341 +0.502 -0.508 (prior U[-3.0, 2.0])
+# w0 = -0.552 +0.145 -0.145 (prior U[-3.0, 1.0])
+# wa = -1.331 +0.505 -0.512 (prior U[-3.0, 2.0])
 # ln(f) = -0.64 +0.10 -0.09
-# chi2 = 57.79
-# log likelihood = 111.2
+# chi2 = 56.71
+# log likelihood = 125.9
 # degs of freedom = 52
 # ---------------------------------
 
@@ -357,17 +336,17 @@ if __name__ == "__main__":
 # w1 + w2 < 0 enforced in the likelihood
 # w(z) = w1 + w2 * ((1 + z)^2 - 1) / ((1 + z)^2 + 1)
 #
-# H0 = 64.82 +1.30 -1.26 km/s/Mpc
+# H0 = 64.80 +1.30 -1.25 km/s/Mpc
 # Ωbh2 = 0.02250 +0.00011 -0.00011
-# Ωch2 = 0.11925 +0.00120 -0.00119
+# Ωch2 = 0.11926 +0.00121 -0.00120
 # Ωmh2 = 0.1424 +0.0012 -0.0012
 # Ωm = 0.339 +0.014 -0.014
 # σ8 = 0.814 +0.013 -0.013
 # S8 = 0.864 +0.027 -0.027
-# w1 = -0.582 +0.136 -0.136 (prior U[-3.0, 1.0])
-# w2 = -1.071 +0.403 -0.409 (prior U[-3.0, 2.0])
-# ln(f) = -0.64 +0.10 -0.09
-# chi2 = 54.87
-# log likelihood = 111.2
+# w1 = -0.581 +0.137 -0.138 (prior U[-3.0, 1.0])
+# w2 = -1.069 +0.403 -0.420 (prior U[-3.0, 2.0])
+# ln(f) = -0.64 +0.10 -0.10
+# chi2 = 53.85
+# log likelihood = 125.8
 # degs of freedom = 52
 # ---------------------------------

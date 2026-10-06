@@ -1,13 +1,14 @@
 from numba import njit
 import numpy as np
-from scipy.constants import c as c0
 from interpolator import interp_hermite, interp_pchip
 from solve_triangular import solve_triangular
-from rec_planck import r_drag
+import cmb.data_spt_planck_act_compression as cmb
 from y2025BAO.data_fs_lya import get_data
 import y2024BBN.prior_lcdm_schoneberg as bbn
 
-c = c0 / 1000  # Speed of light in km/s
+c = cmb.c_km_per_s
+omnu_h2 = cmb.Omnu_h2
+or_h2 = cmb.Or_h2
 
 legend, bao, cov_matrix = get_data()
 L_cov = np.linalg.cholesky(cov_matrix)
@@ -26,8 +27,16 @@ def Ode_z(z, wp, wa):
 
 @njit
 def H_z(z, params):
-    H0, Om, w0, wa = params[0], params[1], params[3], params[4]
-    return H0 * np.sqrt(Om * (1. + z) ** 3 + (1. - Om) * Ode_z(z, w0, wa))
+    h, om, w0, wa = params[0] / 100, params[1], params[3], params[4]
+    h2 = h**2
+    om_h2 = om * h2
+    zp1 = 1. + z
+    rad_term = or_h2 * zp1**4
+    obcdm_term = (om_h2 - omnu_h2) * zp1**3
+    nu_term = omnu_h2 * cmb.Omnu_z(z)
+    lambda_term = (h2 - or_h2 - om_h2) * Ode_z(z, w0, wa)
+
+    return 100 * np.sqrt(rad_term + obcdm_term + nu_term + lambda_term)
 
 
 @njit
@@ -46,7 +55,7 @@ bao_qty = np.array([qty_map[q] for q in bao["quantity"]], dtype=np.int32)
 @njit
 def bao_theory(z, qty, params):
     h, Om, Obh2 = params[0] / 100, params[1], params[2]
-    inv_rd = 1 / r_drag(Obh2, Om * h**2)
+    inv_rd = 1 / cmb.r_drag(Obh2, Om * h**2)
 
     results = np.empty(z.size, dtype=np.float64)
     DV_mask = qty == 0
@@ -72,15 +81,15 @@ def chi_squared(params):
     return np.dot(y, y)
 
 
-bounds = np.array(
-    [
-        (55.0, 75.0),  # H0
-        (0.17, 0.50),  # Ωm
-        (0.016, 0.030),  # Ωb h^2
-        (-1.5, -0.5),  # w_pivot
-        (-8.0, 1.0),  # wa
-    ]
-)
+params = ["H0", "om", "obh2", "wp", "wa"]
+labels=["H_0", "Ω_m", "ω_b", "w_{piv}", "w_a"]
+bounds = np.array([
+    (55.0, 75.0),  # H0
+    (0.17, 0.50),  # Ωm
+    (0.016, 0.030),  # Ωb h^2
+    (-1.5, -0.5),  # w_pivot
+    (-8.0, 1.0),  # wa
+])
 
 normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
 
@@ -147,8 +156,6 @@ def main():
     chain_list = np.moveaxis(samples, 1, 0)
     loglikes_list = np.moveaxis(log_probs, 1, 0)
 
-    params = ["H0", "om", "obh2", "wp", "wa"]
-    labels=["H_0", "Ω_m", "ω_b", "w_{piv}", "w_a"]
     gd_samples = MCSamples(
         samples=chain_list,
         loglikes=-loglikes_list,
@@ -156,7 +163,7 @@ def main():
         labels=labels,
     )
     gd_samples.addDerived(
-        r_drag(gd_samples["obh2"], gd_samples["om"] * (gd_samples["H0"] / 100)**2),
+        cmb.r_drag(gd_samples["obh2"], gd_samples["om"] * (gd_samples["H0"] / 100)**2),
         name="rd",
         label="r_{drag}",
     )
@@ -201,11 +208,11 @@ if __name__ == "__main__":
 
 
 # Flat ΛCDM:
-# H0: 68.55 +- 0.59 km/s/Mpc
+# H0: 68.52 +- 0.59 km/s/Mpc
 # ωb: 0.02219 +- 0.00055
-# Ωm: 0.3018 +- 0.0077
-# rd: 147.6 +- 1.5 Mpc
-# Chi squared: 12.81
+# Ωm: 0.3015 +- 0.0077
+# rd: 147.7 +- 1.5 Mpc
+# Chi squared: 12.80
 # log likelihood (MAP): -6.40
 # DOF: 11
 # ---------------------------------
@@ -213,11 +220,11 @@ if __name__ == "__main__":
 
 # Flat wCDM:
 # H_0 = 67.7 +- 2.0 km/s/Mpc
-# Ωm = 0.3023 +- 0.0082
-# ωb = 0.02218 +- 0.00055
-# rd: 148.4 +2.4 -2.3 Mpc
-# w0: -0.970 +- 0.073 (prior ~U[-1.5, -0.5])
-# Chi squared: 12.57
+# Ωm = 0.3020 +- 0.0081
+# ωb = 0.02219 +- 0.00055
+# rd: 148.5 +2.2 -2.5 Mpc
+# w: -0.969 +- 0.073 (prior ~U[-1.5, -0.5])
+# Chi squared: 12.56
 # log likelihood (MAP): -6.28
 # DOF: 10
 # ---------------------------------
@@ -226,10 +233,10 @@ if __name__ == "__main__":
 # Flat w0waCDM at z_pivot = 0.406
 # wp + wa / (1+z_pivot) <= -1/3 enforced in the likelihood
 # 
-# H0 = 63.0 +2.4 -2.9 km/s/Mpc
+# H0 = 62.9 +2.4 -2.9 km/s/Mpc
 # Ωm = 0.402 +- 0.042
 # ωb = 0.02219 +- 0.00055
-# wp = -0.992 +- 0.070 (prior ~U[-1.5, -0.5])
+# wp = -0.992 +0.073 -0.065 (prior ~U[-1.5, -0.5])
 # wa = -3.3 +- 1.4 (prior ~U[-8, 1])
 # rd: 143.4 +1.6 -2.2 Mpc
 # Chi squared (MAP): 7.20
@@ -238,7 +245,7 @@ if __name__ == "__main__":
 #
 # Correlation matrix
 #      om          wp          wa
-# om   1.          0.20985473 -0.95880854
-# wp   0.20985473  1.         -0.01186678
-# wa  -0.95880854 -0.01186678  1.
+# om   1.          0.20764926 -0.95852006
+# wp   0.20764926  1.         -0.00843565
+# wa  -0.95852006 -0.00843565  1.
 # ---------------------------------
