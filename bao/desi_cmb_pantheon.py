@@ -5,7 +5,7 @@ from interpolator import interp_hermite, interp_pchip
 from solve_triangular import solve_triangular
 from y2022pantheonSHOES.data import get_data
 from y2025BAO.data_fs_lya import get_data as get_bao_data
-from y2024DESBAO.data import get_data as get_des_bao_data
+from y2026DESBAO.data import get_data as get_des_bao_data
 from y20116dFBAO.data import get_data as get_6dF_bao_data
 import cmb.data_spt_planck_act_compression as cmb
 

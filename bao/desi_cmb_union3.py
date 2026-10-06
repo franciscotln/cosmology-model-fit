@@ -5,7 +5,7 @@ from interpolator import interp_hermite, interp_pchip
 from solve_triangular import solve_triangular
 from y2026union3_1.data import get_data
 from y2025BAO.data_fs_lya import get_data as get_bao_data
-from y2024DESBAO.data import get_data as get_des_bao_data
+from y2026DESBAO.data import get_data as get_des_bao_data
 from y20116dFBAO.data import get_data as get_6dF_bao_data
 import cmb.data_spt_planck_act_compression as cmb
 
@@ -50,7 +50,7 @@ def H_z(z, params):
     radiation_term = Orh2 * zp1**4
     matter_term = (Obh2 + Och2) * zp1**3
     neutrino_term = Omnuh2 * cmb.Omnu_z(z)
-    dark_energy_term = h**2 - Orh2 - Omnuh2 - Obh2 - Och2
+    dark_energy_term = (h**2 - Orh2 - Omnuh2 - Obh2 - Och2) * Ode_z(z, params[4], 0.0)
 
     return 100 * np.sqrt(radiation_term + matter_term + neutrino_term + dark_energy_term)
 
@@ -94,12 +94,14 @@ def bao_theory(z, qty, params, dm_dh_grid):
 
 @njit
 def get_z_cosmo(dz_1000):
+    return z_cmb
     # Heaviside step at z = 0.2
     z_offset = 1e-03 * dz_1000 * np.where(z_cmb <= 0.2, 1, -1)
     return z_cmb + z_offset
 
 
 def mu_corr(dz_1000, dm_dh_grid):
+    return 0.0
     # For plotting purposes only
     z_cosmo = get_z_cosmo(dz_1000)
     DM_obs = interp_hermite(z_cmb, z_grid, *dm_dh_grid)
@@ -136,10 +138,14 @@ def chi_squared(params):
 
 
 @njit
-def log_likelihood(params):
+def log_likelihood_jit(params):
     norm_sn = N_sn * np.log(2 * np.pi) + logdet_sn
     norm_bao = N_bao * np.log(2 * np.pi) + logdet_bao
     return -0.5 * (chi_squared(params) + norm_sn + norm_bao + cmb.prob_norm)
+
+
+def log_likelihood(params):
+    return log_likelihood_jit(params)
 
 
 def main():
@@ -155,7 +161,8 @@ def main():
     prior.add_parameter("h", dist=(0.60, 0.75))  # km/s/Mpc
     prior.add_parameter("obh2", dist=(0.01, 0.03))
     prior.add_parameter("och2", dist=(0.01, 0.25))
-    prior.add_parameter("dz_1000", dist=(-3.5, 3.5))  # 1000 x Δz
+    # prior.add_parameter("dz_1000", dist=(-3.5, 3.5))  # 1000 x Δz
+    prior.add_parameter("dz_1000", dist=(-1.5, -0.5))  # w
 
     with Pool(6) as pool:
         sampler = Sampler(prior, log_likelihood, n_live=6_000, pool=pool, seed=42, pass_dict=False)
@@ -223,17 +230,17 @@ if __name__ == "__main__":
 
 
 # ----------- Flat ΛCDM -----------
-# H0: 68.06 ± 0.24 km/s/Mpc
+# H0: 68.07 ± 0.24 km/s/Mpc
 # Ωm: 0.3050 ± 0.0033
 # ωb: 0.022470 ± 0.000091
-# ωc: 0.11816 ± 0.00059
-# ωm: 0.14128 ± 0.00059
-# z*: 1088.55 ± 0.11
-# z_d: 1059.95 ± 0.20
+# ωc: 0.11817 ± 0.00059
+# ωm: 0.14129 ± 0.00058
+# z*: 1088.57 ± 0.11
+# z_d: 1060.04 ± 0.21
 # r_d: 147.48 ± 0.18 Mpc
-# ΔM: -0.0576 ± 0.0065 mag
-# χ2 (MAP): 52.96
-# Log evidence: 48.7
+# ΔM: -0.0574 ± 0.0065 mag
+# χ2 (MAP): 52.85
+# Log evidence: 44.2
 # DOF: 37
 # ---------------------------------
 
@@ -244,35 +251,35 @@ if __name__ == "__main__":
 # (turning point z <= 0.2 positive z > 0.2 negative)
 # z_cosmo = z_cmb ± Δz
 #
-# 1000 Δz: 1.07 ± 0.39 (prior ~U[-3.5, 3.5])
+# 1000 Δz: 1.08 ± 0.40 (prior ~U[-3.5, 3.5])
 # H0: 68.11 ± 0.24 km/s/Mpc
 # Ωm: 0.3043 ± 0.0033
 # ωb: 0.022476 ± 0.000091
-# ωc: 0.11805 ± 0.00059
-# ωm: 0.14117 ± 0.00058
-# z*: 1088.54 ± 0.11
-# z_d: 1060.02 ± 0.21
+# ωc: 0.11806 ± 0.00059
+# ωm: 0.14118 ± 0.00058
+# z*: 1088.56 ± 0.11
+# z_d: 1060.05 ± 0.21
 # r_d: 147.50 ± 0.17 Mpc
 # ΔM: -0.0590 ± 0.0065 mag
-# χ2 (MAP): 45.41 (2.75 sigma significance)
-# Log evidence: 50.5 (Δ logZ = 1.8 in favour of redshift step correction)
+# χ2 (MAP): 45.30 (2.75 sigma significance)
+# Log evidence: 46.0 (Δ logZ = 1.8 in favour of redshift step correction)
 # DOF: 36
 # ---------------------------------
 
 
 # ----------- Flat wCDM -----------
-# w: -1.012 ± 0.026 (prior ~U[-1.5, -0.5])
+# w: -1.011 ± 0.026 (prior ~U[-1.5, -0.5])
 # H0: 68.33 ± 0.67 km/s/Mpc
 # Ωm: 0.3030 ± 0.0057
-# ωb: 0.022463 ± 0.000093
-# ωc: 0.11835 ± 0.00073
+# ωb: 0.022463 ± 0.000092
+# ωc: 0.11836 ± 0.00073
 # ωm: 0.14146 ± 0.00072
-# z*: 1088.57 ± 0.12
-# z_d: 1059.95 ± 0.21
+# z*: 1088.59 ± 0.12
+# z_d: 1060.04 ± 0.21
 # r_d: 147.44 ± 0.20 Mpc
 # ΔM: -0.054 ± 0.010 mag
-# χ2 (MAP): 52.82
-# Log evidence: 46.1 (Δ logZ = -2.6 in favour of ΛCDM)
+# χ2 (MAP): 52.71
+# Log evidence: 41.5 (Δ logZ = -2.7 in favour of ΛCDM)
 # DOF: 36
 # ---------------------------------
 
@@ -293,7 +300,7 @@ if __name__ == "__main__":
 # r_d: 147.13 ± 0.21 Mpc
 # ΔM: -0.048 ± 0.011 mag
 # χ2 (MAP): 41.09
-# Log evidence: 49.9 (Δ logZ = 1.2 in favour of w0waCDM)
+# Log evidence: 45.4 (Δ logZ = 1.2 in favour of w0waCDM)
 # DOF: 35
 # ---------------------------------
 
@@ -313,7 +320,7 @@ if __name__ == "__main__":
 # r_d = 147.53 ± 0.19 Mpc
 # ΔM = -0.0625 ± 0.0095 mag
 # χ2 (MAP): 52.45
-# Log evidence: 46.4 (Δ logZ = -2.3 in favour of ΛCDM)
+# Log evidence: 41.9 (Δ logZ = -2.3 in favour of ΛCDM)
 # DOF: 36
 # ---------------------------------
 
@@ -336,6 +343,6 @@ if __name__ == "__main__":
 # r_d = 147.12 ± 0.21 Mpc
 # ΔM = -0.048 ± 0.011 mag
 # χ2 (MAP): 41.12
-# Log evidence: 49.7 (Δ logZ = 1.0 in favour of w1w2CDM)
+# Log evidence: 45.2 (Δ logZ = 1.0 in favour of w1w2CDM)
 # DOF: 35
 # ---------------------------------

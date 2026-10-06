@@ -90,10 +90,14 @@ def chi2_bao(params):
 
 
 @njit
-def log_likelihood(params):
+def log_likelihood_jit(params):
     if params[3] + params[4] >= 0:
         return -1e10
     return -0.5 * (chi2_bao(params) + norm_bao) + cmb.log_likelihood(params[1], params[2], params)
+
+
+def log_likelihood(params):
+    return log_likelihood_jit(params)
 
 
 def main():

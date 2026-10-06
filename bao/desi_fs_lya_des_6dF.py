@@ -5,7 +5,7 @@ from interpolator import interp_pchip, interp_hermite
 from solve_triangular import solve_triangular
 import cmb.data_spt_planck_act_compression as cmb
 from y2025BAO.data_fs_lya import get_data as get_desi_data
-from y2024DESBAO.data import get_data as get_des_data
+from y2026DESBAO.data import get_data as get_des_data
 from y20116dFBAO.data import get_data as get_6dF_data
 
 c = cmb.c_km_per_s

@@ -83,10 +83,15 @@ def chi_squared(params):
     return y @ y
 
 
-def log_likelihood(params):
+@njit
+def log_likelihood_jit(params):
     if params[3] + (params[4] / (1. + z_piv_w0_wa)) >= -1 / 3:
         return -np.inf
     return -0.5 * chi_squared(params)
+
+
+def log_likelihood(params):
+    return log_likelihood_jit(params)
 
 
 def main():

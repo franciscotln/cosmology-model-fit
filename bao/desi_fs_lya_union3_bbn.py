@@ -8,7 +8,7 @@ import y2024BBN.prior_lcdm_schoneberg as bbn
 from cmb.data_early_lcdm_compression import r_drag
 from y2026union3_1.data import get_data as get_sn_data
 from y2025BAO.data_fs_lya import get_data as get_bao_data
-from y2024DESBAO.data import get_data as get_des_bao_data
+from y2026DESBAO.data import get_data as get_des_bao_data
 
 
 c = c0 / 1000  # km/s
