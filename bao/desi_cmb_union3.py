@@ -286,7 +286,6 @@ if __name__ == "__main__":
 
 # ----------- Flat w0waCDM --------
 # Enforced wa + w0 < 0 in the likelihood
-# (+0.2 to evidence from excluded volume)
 #
 # w0: -0.757 ± 0.081 (prior ~U[-1.5, 0.0])
 # wa: -0.87 +0.29 -0.26 (prior ~U[-2.5, 1.5])
@@ -327,7 +326,6 @@ if __name__ == "__main__":
 
 # ----------- Flat w1w2CDM --------
 # Enforced w1 + w2 < 0 in the likelihood
-# (+0.2 to evidence from excluded volume)
 #
 # w(z) = w1 + w2 * ((1 + z)^2 - 1) / ((1 + z)^2 + 1)
 #
