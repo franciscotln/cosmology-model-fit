@@ -16,7 +16,7 @@ fs8_vals = data["fs8"]
 cho = cho_factor(fs8_data.cov_mat, lower=True)[0]
 
 z_grid = np.linspace(0, np.max(z_vals) + 0.1, num=4000)
-dz = np.diff(z_grid)
+dz = z_grid[1] - z_grid[0]
 
 N = len(data)
 
@@ -128,14 +128,12 @@ def log_likelihood(theta):
 
 names = ["om", "s8", "w0", "ln_f_err"]
 labels = ["Ω_m", "\\sigma_8", "w_0", "ln(f_{err})"]
-bounds = np.array(
-    [
-        (0.1, 0.6),  # Ωm: effective clustering matter density
-        (0.5, 1.0),  # sigma8
-        (-1.5, 0.0),  # w0
-        (-1.0, 0.0),  # ln(f_err): overestimation factor of the errors
-    ]
-)
+bounds = np.array([
+    (0.1, 0.6),  # Ωm: effective clustering matter density
+    (0.5, 1.0),  # sigma8
+    (-1.5, 0.0),  # w0
+    (-1.0, 0.0),  # ln(f_err): overestimation factor of the errors
+])
 
 normalization = -np.sum(np.log(bounds[:, 1] - bounds[:, 0]))
 
@@ -176,9 +174,7 @@ def main():
 
     with Pool(8) as pool:
         sampler = EnsembleSampler(nwalkers, ndim, log_probability, pool, custom_moves)
-        sampler.run_mcmc(
-            initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#ff5a00"}
-        )
+        sampler.run_mcmc(initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#ff5a00"})
 
     try:
         tau = sampler.get_autocorr_time()
@@ -239,23 +235,23 @@ if __name__ == "__main__":
 
 
 # ----------- flat ΛCDM -----------
-# Ωm = 0.313 +- 0.020
-# σ8 = 0.787 +- 0.011
-# S8 = 0.804 +- 0.021
-# ln(f_err) = -0.564 +0.089 -0.100
-# chi2 (MAP) = 55.75
-# log likelihood (MAP) = 5.2
-# DOF = 53
+# Ωm = 0.279 +- 0.019
+# σ8 = 0.785 +- 0.013
+# S8 = 0.757 +- 0.019
+# ln(f_err) = -0.407 +0.087 -0.098
+# chi2 (MAP) = 60.06
+# log likelihood (MAP) = -4.0
+# DOF = 57
 # ---------------------------------
 
 
 # ----------- flat wCDM -----------
-# Ωm = 0.282 +0.020 -0.022
-# σ8 = 0.897 +0.041 -0.052
-# S8 = 0.868 +- 0.028
-# w0 = -0.694 +0.100 -0.076 (prior ~ U[-1.5, 0])
-# ln(f_err) = -0.645 +0.091 -0.100
-# chi2 = 56.52
-# log likelihood = 10.1
-# degs of freedom = 52
+# Ωm = 0.260 +- 0.022
+# σ8 = 0.856 +0.039 -0.057
+# S8 = 0.795 +- 0.029
+# w0 = -0.81 +0.11 -0.10 (prior ~ U[-1.5, 0])
+# ln(f_err) = -0.425 +0.088 -0.099
+# chi2 = 60.71
+# log likelihood = -2.5
+# degs of freedom = 56
 # ---------------------------------

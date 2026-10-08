@@ -91,13 +91,17 @@ def get_fz(params):
 
 
 @njit
-def log_likelihood(params):
+def log_likelihood_jit(params):
     cov_mat_cc = cov_mat_cc_sys + np.diag(diag_stat**2 * get_fz(params)**2)
     L_cc = np.linalg.cholesky(cov_mat_cc)
     logdet_cc = 2 * np.sum(np.log(np.diag(L_cc)))
     normalization_cc = N_cc * np.log(2 * np.pi) + logdet_cc
 
     return -0.5 * (chi_squared(params, L_cc) + normalization_cc)
+
+
+def log_likelihood(params):
+    return log_likelihood_jit(params)
 
 
 def main():

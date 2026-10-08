@@ -2,25 +2,23 @@ from numba import njit
 import numpy as np
 from interpolator import interp_hermite, interp_pchip
 from solve_triangular import solve_triangular
-import cmb.data_spt_planck_act_compression as cmb
+from cmb.data_spt_planck_act_compression import Omnu_z, Omnu_h2, Or_h2, c_km_per_s
 from y2026union3_1.data import get_data
-from y2005cc.data import method, get_data as get_cc_data
 from y2025BAO.data_fs_lya import get_data as get_bao_data
 
-cc_legend, z_cc, H_cc, diag_stat_cc, cov_mat_sys_cc = get_cc_data(split_sys=True)
 sn_legend, z_cmb, z_hel, mu_vals, cov_matrix_sn = get_data()
 bao_legend, bao_data, cov_matrix_bao = get_bao_data()
 
 L_sn = np.linalg.cholesky(cov_matrix_sn)
 L_bao = np.linalg.cholesky(cov_matrix_bao)
 
-N_cc = len(z_cc)
+logdet_sn = 2 * np.sum(np.log(np.diag(L_sn)))
+logdet_bao = 2 * np.sum(np.log(np.diag(L_bao)))
+
 N_bao = len(bao_data)
 N_sn = len(z_cmb)
 
-c = cmb.c_km_per_s
-or_h2 = cmb.Or_h2
-omnu_h2 = cmb.Omnu_h2
+c = c_km_per_s
 
 z_max = max(np.max(z_cmb), np.max(bao_data["z"])) + 0.1
 z_grid = np.linspace(0, z_max, num=4000)
@@ -29,24 +27,22 @@ dz = z_grid[1] - z_grid[0]
 
 @njit
 def Ode_z(z, w0, wa):
-    # w0waCDM
-    zp1 = 1. + z
-    return zp1 ** (3 * (1. + w0 + wa)) * np.exp(-3 * wa * z / zp1)
+    # w1w2CDM
+    zp1 = 1.0 + z
+    return zp1**(3 * (1.0 + w0 + wa)) * (2 * zp1**2 / (zp1**2 + 1.0))**(-3 * wa)
 
 
 @njit
 def H_z(z, params):
-    h, om = params[3] * 1e-02, params[5]
-    h2 = h * h
-    om_h2 = om * h2
+    Om_h2, Om = params[2], params[3]
+    h2 = Om_h2 / Om
     zp1 = 1. + z
 
-    rad_term = or_h2 * zp1**4
-    neutrino_term = omnu_h2 * cmb.Omnu_z(z)
-    bcdm_term = (om_h2 - omnu_h2) * zp1**3
-    lambda_term = (h2 - om_h2 - or_h2)
-
-    return 100 * np.sqrt(rad_term + neutrino_term + bcdm_term + lambda_term)
+    rad_term = Or_h2 * zp1**4
+    neutrino_term = Omnu_h2 * Omnu_z(z)
+    bcdm_term = (Om_h2 - Omnu_h2) * zp1**3
+    lambda_term = h2 - Om_h2 - Or_h2
+    return 100. * np.sqrt(rad_term + neutrino_term + bcdm_term + lambda_term)
 
 
 @njit
@@ -79,7 +75,7 @@ bao_qty = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int32)
 
 @njit
 def bao_theory(z, qty, params, dm_dh_grid):
-    inv_rd = 1 / cmb.r_drag(wb=params[4], wm=params[5] * (params[3] / 100)**2)
+    inv_rd = 1 / params[1]
     dm_vals = DM_z(z, dm_dh_grid)
     dh_vals = DH_z(z, dm_dh_grid)
 
@@ -99,7 +95,7 @@ def bao_theory(z, qty, params, dm_dh_grid):
 @njit
 def get_z_cosmo(params):
     # Heaviside step at z = 0.2
-    z_offset = 1e-03 * params[6] * np.where(z_cmb <= 0.2, 1, -1)
+    z_offset = 1e-03 * params[4] * np.where(z_cmb <= 0.2, 1, -1)
     return z_cmb + z_offset
 
 
@@ -111,7 +107,7 @@ def mu_corr(params, dm_dh_grid):
 
 @njit
 def mu_theory(params, DM):
-    offset = params[2]
+    offset = params[0]
     return offset + 25.0 + 5 * np.log10((1.0 + z_hel) * DM)
 
 
@@ -131,39 +127,16 @@ def chi2_bao(params, dm_dh_grid):
 
 
 @njit
-def chi2_cch(params, L_cc):
-    delta_cc = H_cc - H_z(z_cc, params)
-    y = solve_triangular(L_cc, delta_cc)
-    return np.dot(y, y)
-
-
-@njit
-def chi_squared(params, L_cc):
+def chi_squared(params):
     dm_dh_grid = DM_DH_grid(params)
-    return chi2_sn(params, dm_dh_grid) + chi2_bao(params, dm_dh_grid) + chi2_cch(params, L_cc)
-
-
-method_f = method == "F"
-z_pivot = 1.198
-shape = np.ones_like(z_cc, dtype=np.float64)
-shape[method_f] = ((1 + z_cc[method_f]) / (1 + z_pivot))**4
-# statistical error in H is proportional to (1+z) * H^2
-
-
-@njit
-def get_fz(params):
-    fp, n = np.exp(params[0]), params[1]
-    return fp * shape**n
+    return chi2_sn(params, dm_dh_grid) + chi2_bao(params, dm_dh_grid)
 
 
 @njit
 def log_likelihood_jit(params):
-    cov_mat_cc = cov_mat_sys_cc + np.diag(diag_stat_cc ** 2 * get_fz(params)**2)
-    L_cc = np.linalg.cholesky(cov_mat_cc)
-    logdet_cc = 2 * np.sum(np.log(np.diag(L_cc)))
-
-    normalization_cc = N_cc * np.log(2 * np.pi) + logdet_cc
-    return -0.5 * (chi_squared(params, L_cc) + normalization_cc)
+    norm_sn = logdet_sn + N_sn * np.log(2 * np.pi)
+    norm_bao = logdet_bao + N_bao * np.log(2 * np.pi)
+    return -0.5 * (chi_squared(params) + norm_sn + norm_bao)
 
 
 def log_likelihood(params):
@@ -171,33 +144,24 @@ def log_likelihood(params):
 
 
 def main():
+    from scipy.stats import norm
     from getdist import plots, MCSamples
     import matplotlib.pyplot as plt
     from nautilus import Sampler, Prior
     from multiprocessing import Pool
     from sn.plotting import plot_predictions as plot_sn_predictions
-    from ohd.plot_predictions import plot_cc_predictions
     from bao.plot_predictions import plot_bao_predictions
 
     prior = Prior()
 
-    # ------ CCH covariance rescaling parameters ------
-    # ln(fp): CCH covariance diagonal rescaling scale
-    # n: CCH covariance rescaling shape
-    # overestimated uncertainties f(z) = fp * [(1 + z) / (1 + z_pivot)]^4n
-    # cov_total[i, i] = cov_sys[i, i] + diag_cov[i, i] * fz[i]^2
-    # cov_total[i, j] = cov_sys[i, j]
-    prior.add_parameter("ln_fp_cc", dist=(-2, 1))
-    prior.add_parameter("n_cc", dist=(-2.5, 2.5))
-
     # ΔM: supernovae magnitude zero-point offset
-    prior.add_parameter("dM", dist=(-1, 1))
+    prior.add_parameter("dM", dist=(-1., 1.))
 
     # ------ cosmological parameters ------------------
     # H0: Hubble constant at present
-    prior.add_parameter("H0", dist=(45, 90))
-    # ombh2: baryon density parameter at present
-    prior.add_parameter("ombh2", dist=((0.0125, 0.035)))
+    prior.add_parameter("rd", dist=(100., 200.))
+    # omegamh2: total matter density parameter at present
+    prior.add_parameter("omegamh2", dist=norm(loc=0.14332, scale=0.00091))
     # Ωm: matter density parameter today
     prior.add_parameter("om", dist=(0.2, 0.5))
     # dz_1000: (1000 x Δz) redshift offset step correction
@@ -210,30 +174,30 @@ def main():
     samples, log_w, log_l = sampler.posterior()
     w = np.exp(log_w)
 
-    labels=["ln(f_{pivot})", "n", "ΔM", "H_0", "Ω_b h^2", "Ω_m", "1000 Δz"]
+    labels=["ΔM", "r_{drag}", "Ω_m h^2", "Ω_m", "1000 Δz"]
     gd_samples = MCSamples(samples=samples, weights=w, names=prior.keys, labels=labels)
-    gd_samples.addDerived(gd_samples["om"] * (gd_samples["H0"] / 100) ** 2, name="omh2", label="Ω_m h^2")
-    gd_samples.addDerived(cmb.r_drag(gd_samples["ombh2"], gd_samples["omh2"]), name="rd", label="r_{drag}")
-    gd_samples.addDerived(np.exp(gd_samples["ln_fp_cc"]), name="fp_cc", label="f_{pivot}")
+    gd_samples.addDerived(
+        100 * np.sqrt(gd_samples["omegamh2"] / gd_samples["om"]),
+        name="H0",
+        label="H_0",
+    )
     gd_samples.updateBaseStatistics()
 
     for name in gd_samples.getParamNames().names:
         print(gd_samples.getInlineLatex(name, limit=1))
 
     best_fit = samples[np.argmax(log_l)]
-    DOF = N_sn + N_bao + N_cc - len(best_fit)
-    fz_cc = get_fz(best_fit)
-    cov_mat_cc = cov_mat_sys_cc + np.diag(diag_stat_cc ** 2 * fz_cc**2)
-    L_cc = np.linalg.cholesky(cov_mat_cc)
+    DOF = N_sn + N_bao - len(best_fit)
+    chi2 = chi_squared(best_fit)
 
-    print(f"Chi2 (MAP): {chi_squared(best_fit, L_cc):.2f}")
     print(f"log likelihood (MAP): {np.max(log_l):.2f}")
     print(f"Log evidence: {sampler.log_z:.2f}")
+    print(f"Chi2 (MAP): {chi2:.2f}")
     print(f"DOF: {DOF}")
+    print(f"Reduced Chi2 (MAP): {chi2/DOF:.2f}")
 
     plots.get_subplot_plotter().triangle_plot(
         roots=gd_samples,
-        params=["H0", "om", "ombh2", "dz_1000", "ln_fp_cc", "n_cc"],
         title_limit=1,
         color=["C0"],
         contour_colors=["C0"],
@@ -252,19 +216,10 @@ def main():
         legend=sn_legend,
         x=z_cmb,
         y=mu_vals - mu_corr(best_fit, dm_dh_grid),
-        y_err=np.sqrt(np.diag(cov_matrix_sn)),
+        y_err= np.sqrt(np.diag(cov_matrix_sn)),
         y_model=mu_theory(best_fit, DM_z(z_cmb, dm_dh_grid)),
-        label=f"$Ω_m$={best_fit[5]:.3f}",
+        label=f"$Ω_m$={best_fit[3]:.3f}",
         x_scale="log",
-    )
-    plot_cc_predictions(
-        H_z=lambda z: H_z(z, best_fit),
-        z=z_cc,
-        H=H_cc,
-        H_err=np.sqrt(np.diag(cov_mat_sys_cc) + diag_stat_cc**2),
-        label=f"{cc_legend} $H_0$: {best_fit[3]:.1f} km/s/Mpc",
-        method=method,
-        err_scaling=1 / fz_cc,
     )
 
 
@@ -276,25 +231,23 @@ if __name__ == "__main__":
 # Data sets:
 # BAO DESI DR2 + FS Lya
 # SN1a Union3.1
-# Cosmic Chronometers
+# ωm from SPA ~ N(0.14332, 0.00091^2)
 # *******************************************
 
 
 # ----------------- Priors ------------------
-# ln(fp):   U[-2, 1]
-# n_cc:     U[-2.5, 2.5]
-# ΔM:       U[-1, 1]
-# H0:       U[45, 90]
-# rd:       U[100, 200]
-# Ωm:       U[0.2, 0.5]
+# ΔM (mag):  U[-1, 1]
+# rd (Mpc):  U[100, 200]
+# Ωm:        U[0.2, 0.5]
+# ωm:        N(0.14332, 0.00091^2)
 #
 # wCDM:
 # w:       U[-1.5, -0.5]
 #
-# w0waCDM:
-# w0:       U[-2, 0]
-# wa:       U[-4, 2]
-# Enforced w0 + wa < 0
+# w1w2CDM:
+# w1:       U[-2, 0]
+# w2:       U[-3, 2]
+# Enforced w1 + w2 < 0
 #
 # Redshift offset step correction for SNe:
 # dz_1000:  U[-3.5, 3.5] (1000 x Δz)
@@ -302,21 +255,17 @@ if __name__ == "__main__":
 
 
 # --------------- Flat ΛCDM -----------------
-# H0 = 69.7 ± 1.4 km/s/Mpc
-# Ωm = 0.3050 ± 0.0073
-# Ωm h^2 = 0.1483 ± 0.0062
-# Ωb h^2 = 0.0236 ± 0.0018
-# rd = 144.8 ± 2.8 Mpc
+# H0 = 68.58 ± 0.86 km/s/Mpc
+# r_d = 147.1 ± 1.1 Mpc
+# Ωm = 0.3048 ± 0.0074
+# Ωm h^2 = 0.14331 ± 0.00090
+# ΔM = -0.041 ± 0.022 mag
 #
-# ΔM = -0.006 ± 0.042 mag
-# n = 1.02 +0.32 -0.54
-# ln(fp) = -0.41 ± 0.25
-# fp = 0.68 +0.13 -0.19
-#
-# Chi2 (MAP): 81.56
-# log likelihood (MAP): -172.18
-# Log evidence: -188.96
-# DOF: 69
+# log likelihood (MAP): 45.86
+# Log evidence: 33.19
+# Chi2 (MAP): 42.77
+# DOF: 32
+# Reduced Chi2 (MAP): 1.34
 # -------------------------------------------
 
 
@@ -325,61 +274,51 @@ if __name__ == "__main__":
 # turning point z <= 0.2 positive z > 0.2 negative
 # z_cosmo = z_cmb ± Δz
 
+# H0 = 68.96 ± 0.88 km/s/Mpc
+# r_d = 146.7 ± 1.1 Mpc
+# Ωm = 0.3014 ± 0.0074
+# Ωm h^2 = 0.14331 ± 0.00090
 # 1000 Δz = 1.10 ± 0.40
-# H0 = 69.8 ± 1.4 km/s/Mpc
-# Ωm = 0.3018 ± 0.0073
-# Ωm h^2 = 0.1472 ± 0.0061
-# Ωb h^2 = 0.0238 ± 0.0018
-# rd = 144.9 ± 2.8 Mpc
+# ΔM = -0.035 ± 0.022 mag
 #
-# ΔM = -0.007 ± 0.042 mag
-# n = 1.02 +0.31 -0.54
-# ln(fp) = -0.41 ± 0.25
-# fp = 0.68 +0.13 -0.19
-#
-# Chi2 (MAP): 73.47
-# log likelihood (MAP): -168.33
-# Log evidence: -187.06
-# DOF: 68
+# log likelihood (MAP): 49.75
+# Log evidence: 35.10
+# Chi2 (MAP): 35.00
+# DOF: 31
+# Reduced Chi2 (MAP): 1.13
 # -------------------------------------------
 
 
 # --------------- Flat wCDM -----------------
-# w0 = -0.928 ± 0.046
-# H0 = 68.9 ± 1.4 km/s/Mpc
-# Ωm = 0.3039 ± 0.0074
-# Ωm h^2 = 0.1443 ± 0.0066
-# Ωb h^2 = 0.0252 ± 0.0022
-# rd = 144.6 ± 2.8 Mpc
+# H0 = 68.68 ± 0.88 km/s/Mpc
+# r_d = 145.0 +2.0 -1.8 Mpc
+# Ωm = 0.3040 ± 0.0075
+# Ωm h^2 = 0.14331 ± 0.00091
+# w = -0.927 ± 0.047
+# ΔM = -0.016 ± 0.028 mag
 #
-# ΔM = -0.009 ± 0.042 mag
-# n = 1.02 +0.31 -0.52
-# ln(fp) = -0.41 ± 0.25
-# fp = 0.69 +0.13 -0.19
-#
-# Chi2 (MAP): 80.19
-# log likelihood (MAP): -170.97
-# Log evidence: -189.87
-# DOF: 68
+# log likelihood (MAP): 47.10
+# Log evidence: 32.28
+# Chi2 (MAP): 40.30
+# DOF: 31
+# Reduced Chi2 (MAP): 1.30
 # -------------------------------------------
 
 
-# -------------- Flat w0waCDM ---------------
-# w0 = -0.77 ± 0.10
-# wa = -0.91 ± 0.52
-# H0 = 68.0 ± 1.5 km/s/Mpc
-# Ωm = 0.327 +0.015 -0.012
-# Ωm h^2 = 0.1512 ± 0.0074
-# Ωb h^2 = 0.0227 +0.0019 -0.0024
-# rd = 144.9 ± 2.8 Mpc
+# -------------- Flat w1w2CDM ---------------
+# w(z) = w1 + w2 * ((1 + z)^2 - 1) / ((1 + z)^2 + 1)
+
+# H0 = 66.1 +1.1 -1.5 km/s/Mpc
+# r_d = 148.9 +2.5 -1.6 Mpc
+# Ωm = 0.328 +0.015 -0.012
+# Ωm h^2 = 0.14332 ± 0.00090
+# w1 = -0.769 ± 0.098
+# w2 = -0.81 ± 0.43
+# ΔM = -0.072 +0.024 -0.036 mag
 #
-# ΔM = -0.013 ± 0.042 mag
-# n = 1.05 +0.32 -0.54
-# ln(fp) = -0.39 ± 0.25
-# fp = 0.70 +0.13 -0.19
-#
-# Chi2 (MAP): 74.47
-# log likelihood (MAP): -169.28
-# Log evidence: -190.50
-# DOF: 67
+# log likelihood (MAP): 48.93
+# Log evidence: 31.86
+# Chi2 (MAP): 36.64
+# DOF: 30
+# Reduced Chi2 (MAP): 1.22
 # -------------------------------------------

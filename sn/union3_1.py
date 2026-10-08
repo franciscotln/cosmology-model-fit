@@ -58,7 +58,6 @@ def chi_squared(params):
     return np.dot(y, y)
 
 
-@njit
 def log_likelihood(params):
     return -0.5 * (chi_squared(params) + logdet + N * np.log(2 * np.pi))
 
@@ -76,9 +75,7 @@ def main():
     prior.add_parameter("dz_1000", dist=(-3.5, 3.5)) # 1000 x Δz
 
     with Pool(7) as pool:
-        sampler = Sampler(
-            prior, log_likelihood, n_live=7_000, pool=pool, seed=42, pass_dict=False,
-        )
+        sampler = Sampler(prior, log_likelihood, n_live=7_000, pool=pool, seed=42, pass_dict=False)
         sampler.run(verbose=True)
 
     samples, log_w, log_l = sampler.posterior()
@@ -147,6 +144,7 @@ if __name__ == "__main__":
 # log likelihood (MAP): 43.62
 # Log evidence: 36.0
 # DOF: 20
+# χ2 / DOF: 1.41
 # ---------------------------------
 
 
@@ -162,6 +160,7 @@ if __name__ == "__main__":
 # log likelihood (MAP): 46.61
 # Log evidence: 37.1 (Δ logZ = 1.1 in favour of step correction)
 # DOF: 19
+# χ2 / DOF: 1.17
 # ---------------------------------
 
 
@@ -173,6 +172,7 @@ if __name__ == "__main__":
 # log likelihood (MAP): 44.28
 # Log evidence: 35.5 (Δ logZ = -0.5 in favour of ΛCDM)
 # DOF: 19
+# χ2 / DOF: 1.41
 # ---------------------------------
 
 
@@ -187,4 +187,5 @@ if __name__ == "__main__":
 # log likelihood (MAP): 45.51
 # Log evidence: 34.8 (Δ logZ = -1.2 in favour of ΛCDM)
 # DOF: 18
+# χ2 / DOF: 1.36
 # ---------------------------------

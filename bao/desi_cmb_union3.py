@@ -50,7 +50,7 @@ def H_z(z, params):
     radiation_term = Orh2 * zp1**4
     matter_term = (Obh2 + Och2) * zp1**3
     neutrino_term = Omnuh2 * cmb.Omnu_z(z)
-    dark_energy_term = (h**2 - Orh2 - Omnuh2 - Obh2 - Och2) * Ode_z(z, params[4], 0.0)
+    dark_energy_term = h**2 - Orh2 - Omnuh2 - Obh2 - Och2
 
     return 100 * np.sqrt(radiation_term + matter_term + neutrino_term + dark_energy_term)
 
@@ -94,14 +94,12 @@ def bao_theory(z, qty, params, dm_dh_grid):
 
 @njit
 def get_z_cosmo(dz_1000):
-    return z_cmb
     # Heaviside step at z = 0.2
     z_offset = 1e-03 * dz_1000 * np.where(z_cmb <= 0.2, 1, -1)
     return z_cmb + z_offset
 
 
 def mu_corr(dz_1000, dm_dh_grid):
-    return 0.0
     # For plotting purposes only
     z_cosmo = get_z_cosmo(dz_1000)
     DM_obs = interp_hermite(z_cmb, z_grid, *dm_dh_grid)
@@ -161,8 +159,7 @@ def main():
     prior.add_parameter("h", dist=(0.60, 0.75))  # km/s/Mpc
     prior.add_parameter("obh2", dist=(0.01, 0.03))
     prior.add_parameter("och2", dist=(0.01, 0.25))
-    # prior.add_parameter("dz_1000", dist=(-3.5, 3.5))  # 1000 x Δz
-    prior.add_parameter("dz_1000", dist=(-1.5, -0.5))  # w
+    prior.add_parameter("dz_1000", dist=(-3.5, 3.5))  # 1000 x Δz
 
     with Pool(6) as pool:
         sampler = Sampler(prior, log_likelihood, n_live=6_000, pool=pool, seed=42, pass_dict=False)

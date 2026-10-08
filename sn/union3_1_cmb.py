@@ -86,7 +86,6 @@ def chi_squared(params):
     return cmb.chi2(params[2], params[3], params) + chi2_sn(params)
 
 
-@njit
 def log_likelihood(params):
     return -0.5 * chi_squared(params)
 

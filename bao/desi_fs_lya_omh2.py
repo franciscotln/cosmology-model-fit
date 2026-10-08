@@ -1,11 +1,13 @@
 from numba import njit
 import numpy as np
-from scipy.constants import c as c0
 from interpolator import interp_hermite, interp_pchip
 from solve_triangular import solve_triangular
+import cmb.data_spt_planck_act_compression as cmb
 from y2025BAO.data_fs_lya import get_data as get_bao_data
 
-c = c0 / 1000  # Speed of light in km/s
+c = cmb.c_km_per_s
+or_h2 = cmb.Or_h2
+omnu_h2 = cmb.Omnu_h2
 
 bao_legend, bao, bao_cov_matrix = get_bao_data()
 
@@ -16,17 +18,23 @@ dz = z_grid[1] - z_grid[0]
 
 z_piv_w0_wa = 0.406
 
+@njit
+def rho_de(z, wp, wa):
+    zp1 = 1. + z
+    return zp1**(3 * (1. + wp + (wa / (1. + z_piv_w0_wa))) )* np.exp(-3 * wa * z / zp1)
+
 
 @njit
 def H_z(z, params):
-    H0, omh2, wp, wa = params[1], params[2], params[3], params[4]
-    h = H0 / 100
-    om = omh2 / h**2
+    h, om_h2, wp, wa = params[1] * 1e-02, params[2], params[3], params[4]
+    h2 = h * h
     zp1 = 1. + z
-    cubic = zp1**3
-    rho_om = om * cubic
-    rho_de = (1. - om) * cubic**(1. + wp + (wa / (1. + z_piv_w0_wa))) * np.exp(-3 * wa * z / zp1)
-    return H0 * np.sqrt(rho_om + rho_de)
+
+    rad_term = or_h2 * zp1**4
+    neutrino_term = omnu_h2 * cmb.Omnu_z(z)
+    bcdm_term = (om_h2 - omnu_h2) * zp1**3
+    lambda_term = (h2 - om_h2 - or_h2) * rho_de(z, wp, wa)
+    return 100 * np.sqrt(rad_term + neutrino_term + bcdm_term + lambda_term)
 
 
 @njit
@@ -110,9 +118,7 @@ def main():
     prior.add_parameter("wa", dist=(-10, +1.5))
 
     with Pool(8) as pool:
-        sampler = Sampler(
-            prior, log_likelihood, n_live=8_000, pool=pool, seed=42, pass_dict=False
-        )
+        sampler = Sampler(prior, log_likelihood, n_live=8_000, pool=pool, seed=42, pass_dict=False)
         sampler.run(verbose=True)
 
     samples, log_w, log_l = sampler.posterior()
@@ -197,8 +203,8 @@ if __name__ == "__main__":
 
 
 # Flat ΛCDM: w(z) = -1
-# rd: 146.73 +1.17 -1.15 Mpc
-# H0: 68.98 +0.90 -0.91 km/s/Mpc
+# rd: 146.69 +1.16 -1.17 Mpc
+# H0: 68.99 +0.92 -0.90 km/s/Mpc
 # Ωm: 0.301 +0.008 -0.008
 # ωm: 0.1433 +0.0009 -0.0009
 # Chi2 (MAP): 12.8
@@ -208,11 +214,11 @@ if __name__ == "__main__":
 
 
 # Flat wCDM: w(z) = w
-# rd: 145.94 +2.01 -2.19 Mpc
-# H0: 68.90 +0.97 -0.95 km/s/Mpc
+# rd: 145.89 +2.04 -2.21 Mpc
+# H0: 68.92 +0.97 -0.95 km/s/Mpc
 # Ωm: 0.302 +0.008 -0.008
 # ωm: 0.1433 +0.0009 -0.0009
-# w: -0.967 +0.072 -0.074
+# w: -0.966 +0.072 -0.074
 # Chi2 (MAP): 12.6
 # Log evidence: -14.4
 # Degs of freedom: 10
@@ -222,12 +228,12 @@ if __name__ == "__main__":
 # Flat w0waCDM: w(z) = w0 + wa * z / (1 + z)
 # at z_pivot = 0.406 correlation between wp and wa: -0.014
 #
-# rd: 150.8 +1.6 -1.8 Mpc
+# rd: 150.7 +1.5 -1.8 Mpc
 # H0: 60.0 +3.6 -3.1 km/s/Mpc
 # Ωm: 0.398 +0.044 -0.043
 # ωm: 0.1433 +0.0009 -0.0009
 # wp: -0.99 +0.07 -0.07
-# wa: -3.15 +1.45 -1.46
+# wa: -3.14 +1.45 -1.47
 # Chi2 (MAP): 7.2
 # Log evidence: -13.3
 # DOF: 9

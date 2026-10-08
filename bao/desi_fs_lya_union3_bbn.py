@@ -1,17 +1,18 @@
 from numba import njit
 import numpy as np
-from scipy.constants import c as c0
 from scipy.linalg import block_diag
 from interpolator import interp_hermite, interp_pchip
 from solve_triangular import solve_triangular
 import y2024BBN.prior_lcdm_schoneberg as bbn
-from cmb.data_early_lcdm_compression import r_drag
+import cmb.data_early_lcdm_compression as cmb
 from y2026union3_1.data import get_data as get_sn_data
 from y2025BAO.data_fs_lya import get_data as get_bao_data
 from y2026DESBAO.data import get_data as get_des_bao_data
 
 
-c = c0 / 1000  # km/s
+c = cmb.c_km_per_s
+or_h2 = cmb.Or_h2
+omnu_h2 = cmb.Omnu_h2
 
 sn_legend, z_cmb, z_hel, mu_values, cov_matrix_sn = get_sn_data()
 bao_desi_legend, desi_bao_data, desi_bao_cov_mat = get_bao_data()
@@ -45,8 +46,17 @@ def Ode_z(z, w0, wa):
 
 @njit
 def H_z(z, params):
-    H0, Om = params[0], params[1]
-    return H0 * np.sqrt(Om * (1.0 + z) ** 3 + (1.0 - Om))
+    h, om = 1e-02 * params[0], params[1]
+    h2 = h * h
+    om_h2 = om * h2
+    zp1 = 1. + z
+
+    rad_term = or_h2 * zp1**4
+    neutrino_term = omnu_h2 * cmb.Omnu_z(z)
+    bcdm_term = (om_h2 - omnu_h2) * zp1**3
+    lambda_term = h2 - om_h2 - or_h2
+
+    return 100. * np.sqrt(rad_term + neutrino_term + bcdm_term + lambda_term)
 
 
 @njit
@@ -80,7 +90,7 @@ bao_qty = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int64)
 @njit
 def bao_theory(z, qty, params, dm_dh_grid):
     h, Om, Obh2 = params[0] / 100, params[1], params[2]
-    rd = r_drag(wb=Obh2, wm=Om * h**2)
+    rd = cmb.r_drag(wb=Obh2, wm=Om * h**2)
 
     DM = DM_z(z, dm_dh_grid)
     DH = DH_z(z, dm_dh_grid)
@@ -184,7 +194,7 @@ def main():
     dM_16, dM_50, dM_84 = quantile(samples[:, 4], one_sigma_ci, weights=w)
 
     Omh2_samples = samples[:, 1] * (samples[:, 0] / 100) ** 2
-    rd_samples = r_drag(samples[:, 2], Omh2_samples)
+    rd_samples = cmb.r_drag(samples[:, 2], Omh2_samples)
     q0_samples = q0(samples[:, 1])
     j0_samples = j0(samples[:, 1])
 
@@ -277,14 +287,14 @@ if __name__ == "__main__":
 # ---------------------------------
 # Flat ΛCDM
 # H0: 68.6 +0.6 -0.6 km/s/Mpc
-# Ωm: 0.3046 +0.0076 -0.0073
-# ωb: 0.02218 +0.00055 -0.00055
-# ωm: 0.14334 +0.00452 -0.00435
-# r_d: 147.16 +1.43 -1.42 Mpc
-# q0: -0.543 +0.011 -0.011
+# Ωm: 0.3043 +0.0075 -0.0074
+# ωb: 0.02219 +0.00054 -0.00055
+# ωm: 0.14307 +0.00469 -0.00441
+# r_d: 147.2 +1.5 -1.5 Mpc
+# q0: -0.544 +0.011 -0.011
 # j0: 1
-# ΔM: -0.041 +0.021 -0.020 mag
-# Chi squared (MAP): 43.39
+# ΔM: -0.042 +0.021 -0.021 mag
+# Chi squared (MAP): 43.40
 # Log Evidence: 33.19
 # DOF: 34
 # ---------------------------------
@@ -298,13 +308,13 @@ if __name__ == "__main__":
 #
 # 1000 Δz: 1.105 +0.396 -0.396
 # H0: 68.6 +0.6 -0.6 km/s/Mpc
-# Ωm: 0.3013 +0.0075 -0.0073
-# ωb: 0.02219 +0.00054 -0.00054
-# ωm: 0.14169 +0.00454 -0.00436
-# r_d: 147.61 +1.43 -1.45 Mpc
-# q0: -0.548 +0.011 -0.011
+# Ωm: 0.3010 +0.0075 -0.0073
+# ωb: 0.02218 +0.00055 -0.00054
+# ωm: 0.14144 +0.00450 -0.00440
+# r_d: 147.67 +1.46 -1.44 Mpc
+# q0: -0.549 +0.011 -0.011
 # j0: 1
-# ΔM: -0.047 +0.021 -0.020 mag
+# ΔM: -0.048 +0.021 -0.021 mag
 # Chi squared (MAP): 35.59 (2.79 sigma significance)
 # Log Evidence: 35.13 (Δ logZ = 1.94 against no flow)
 # DOF: 33
