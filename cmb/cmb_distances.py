@@ -3,21 +3,33 @@ import numpy as np
 
 # -------- physical constants and parameters --------
 C_KM_PER_S = 299792.458
-K_BOLTZ = 8.617333262e-05  # eV/K
 TCMB = 2.7255  # K
 O_GAMMA_H2 = 2.4729753287140862e-05
+PARSEC_IN_M = 3.085677581491367e+16
+G = 6.6743e-11  # m^3 kg^-1 s^-2
+H_BAR = 1.0545718176461565e-34
+K_BOLTZ = 1.380649e-23
+PI = 3.141592653589793
 # ---------------------------------------------------
 
 
 # -- integration settings and Gauss-Legendre nodes --
 _HZ_FUNC = None
-N_DM = 20
-N_RS = 10
+N_DM = 16
+N_RS = 8
 GL_X_DM, GL_W_DM = np.polynomial.legendre.leggauss(N_DM)
 GL_X_RS, GL_W_RS = np.polynomial.legendre.leggauss(N_RS)
 # change integration variable
 # a = u^2, da = 2 * u * du
 # ---------------------------------------------------
+
+
+def O_gamma_h2(T_cmb):
+    c = C_KM_PER_S * 1e+03
+    rho_gamma = (PI**2 / 15.0) * (K_BOLTZ * T_cmb)**4 / (H_BAR**3 * c**3)
+    H100 = 0.1 / PARSEC_IN_M
+    rho_crit_h2 = 3.0 * H100**2 / (8.0 * PI * G) * c**2
+    return rho_gamma / rho_crit_h2
 
 
 def set_HZ(Hz_fun):

@@ -31,21 +31,82 @@ def compute_rho0(m0):
     return rho0
 
 
+def get_m0_and_Omnu_h2(n_eff, nu_rel, mnu_tot, TCMB):
+    K_BOLTZ = 8.617333262e-05  # eV/K
+    nu_nr = n_eff - nu_rel
+    T_nu0 = (4 / 11)**(1 / 3) * nu_nr**(1 / 4) * TCMB  # K
+    T_nu0_eV = T_nu0 * K_BOLTZ  # eV
+    m0 = mnu_tot / T_nu0_eV
+    Omnu_h2 = mnu_tot / (94.0641 / nu_nr**(3 / 4))
+    return m0, Omnu_h2
+
+
+@njit
+def _Omnu_z(z, m0, qs_sq, rho0):
+    zp1 = 1.0 + z
+    mz_sq = (m0 / zp1) ** 2
+    weighted_sum = weights[0] * np.sqrt(qs_sq[0] + mz_sq)
+    for i in range(1, len(qs_sq)):
+        weighted_sum += weights[i] * np.sqrt(qs_sq[i] + mz_sq)
+    return zp1**4 * weighted_sum / rho0
+
+
+@njit
+def _w_nu_z(z, m0, qs_sq):
+    mz_sq = (m0 / (1.0 + z)) ** 2
+    first_f = np.sqrt(qs_sq[0] + mz_sq)
+    numerator = weights[0] / first_f
+    denominator = weights[0] * first_f
+    for i in range(1, len(qs_sq)):
+        f = np.sqrt(qs_sq[i] + mz_sq)
+        numerator += weights[i] / f
+        denominator += weights[i] * f
+    return (1 / 3) - (1 / 3) * mz_sq * numerator / denominator
+
+
+def create_neutrino_evolution(n_eff, nu_rel, mnu_tot, TCMB):
+    """Return (Omnu_h2, Omnu_z, w_nu_z) for a fixed neutrino configuration.
+
+    The one-argument Numba dispatchers accept scalar or array redshifts and
+    capture the precomputed five-node state. Omnu_z is rho_nu(z)/rho_nu(0),
+    not the physical density; multiply it by Omnu_h2 for that contribution.
+    This retains the existing single massive-fluid approximation.
+    """
+    if not all(np.isfinite(value) for value in (n_eff, nu_rel, mnu_tot, TCMB)):
+        raise ValueError("Neutrino configuration values must be finite")
+    if nu_rel < 0 or n_eff <= nu_rel:
+        raise ValueError("Neutrino configuration requires 0 <= nu_rel < n_eff")
+    if mnu_tot < 0:
+        raise ValueError("Total neutrino mass must be non-negative")
+    if TCMB <= 0:
+        raise ValueError("CMB temperature must be positive")
+
+    m0, Omnu_h2 = get_m0_and_Omnu_h2(n_eff, nu_rel, mnu_tot, TCMB)
+    qs_sq = compute_qs(m0)**2
+    rho0 = compute_rho0(m0)
+
+    @njit
+    def Omnu_z(z):
+        return _Omnu_z(z, m0, qs_sq, rho0)
+
+    @njit
+    def w_nu_z(z):
+        return _w_nu_z(z, m0, qs_sq)
+
+    return Omnu_h2, Omnu_z, w_nu_z
+
+
 if __name__ == "__main__":
     from scipy.integrate import quad
     from numba import njit
     from scipy import constants as sc
     import matplotlib.pyplot as plt
 
-    k_B = sc.k / sc.e  # Boltzmann constant in eV/K
     N_EFF = 3.044
     TCMB = 2.7255
-    T_nu0 = (4 / 11) ** (1 / 3) * TCMB * (N_EFF / 3) ** (1 / 4)
-    T_nu0_eV = T_nu0 * k_B
+    nu_rel = 2 * N_EFF / 3
     mnu_tot = 0.06
-    mnu_tot = 0.06
-    m0 = mnu_tot / T_nu0_eV
-    Omnu_h2 = mnu_tot / (94.0641 / (N_EFF / 3.0) ** 0.75)
+    m0, Omnu_h2 = get_m0_and_Omnu_h2(N_EFF, nu_rel, mnu_tot, TCMB)
 
     def O_gamma_h2(T_cmb):
         rho_gamma = (np.pi**2 / 15.0) * (sc.k * T_cmb) ** 4 / (sc.hbar**3 * sc.c**3)

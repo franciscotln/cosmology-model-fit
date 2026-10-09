@@ -1,6 +1,5 @@
 from numba import njit
 import numpy as np
-import time
 from scipy.linalg import cho_factor
 from scipy.constants import c as c0
 from interpolator import interp_hermite
@@ -83,12 +82,10 @@ uniform_prior_norm = -np.sum(np.log(bounds[1:, 1] - bounds[1:, 0]))
 def log_prior(params):
     if not np.all((bounds[:, 0] < params) & (params < bounds[:, 1])):
         return -np.inf
+
     # TRGB Freedman et al
     h0_mean, h0_sigma = 70.39, 1.80
-    log_h0_prior = (
-        -0.5 * ((params[H0] - h0_mean) / h0_sigma) ** 2
-        - np.log(h0_sigma * np.sqrt(2.0 * np.pi))
-    )
+    log_h0_prior = -0.5 * ((params[H0] - h0_mean) / h0_sigma) ** 2 - np.log(h0_sigma * np.sqrt(2.0 * np.pi))
 
     return uniform_prior_norm + log_h0_prior
 
@@ -97,16 +94,12 @@ def log_prior(params):
 def log_probability_jit(params):
     lp = log_prior(params)
     if np.isinf(lp):
-        return -np.inf, -np.inf
-    ll = log_likelihood(params)
-    return lp + ll, ll
+        return -np.inf
+    return lp + log_likelihood(params)
 
 
 def log_probability(params):
-    start_time = time.perf_counter()
-    log_prob, log_like = log_probability_jit(params)
-    exec_time = time.perf_counter() - start_time
-    return log_prob, np.array([log_like, exec_time])
+    return log_probability_jit(params)
 
 
 def main():
@@ -123,34 +116,22 @@ def main():
     nsteps = burn_in + 3000
     np.random.seed(42)
     initial_pos = np.random.uniform(bounds[:, 0], bounds[:, 1], size=(nwalkers, ndim))
-    moves = [
-        (emcee.moves.KDEMove(), 0.20),
-        (emcee.moves.DEMove(), 0.80),
-    ]
+    moves = [(emcee.moves.KDEMove(), 0.20), (emcee.moves.DEMove(), 0.80)]
 
     with Pool(6) as pool:
         sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, pool=pool, moves=moves)
         sampler.run_mcmc(initial_pos, nsteps, progress=True, progress_kwargs={"colour": "#ff5a00"})
 
     samples = sampler.get_chain(discard=burn_in, flat=False)
-    blobs = sampler.get_blobs(discard=burn_in, flat=False)
     flat_samples = sampler.get_chain(discard=burn_in, flat=True)
+    log_probs = sampler.get_log_prob(discard=burn_in, flat=False)
     flat_log_probs = sampler.get_log_prob(discard=burn_in, flat=True)
 
-    log_evd = log_evidence(
-        flat_samples, flat_log_probs, lambda params: log_probability(params)[0], bounds,
-    )
-
-    exec_times = 1000 * blobs[:, :, 1].ravel()
-    print("Execution time:")
-    print(f"mean: {np.mean(exec_times):.4f} ms")
-    print(f"std: {np.std(exec_times):.4f} ms")
-    print(f"max: {np.max(exec_times):.4f} ms")
-    print(f"min: {np.min(exec_times):.4f} ms\n")
+    log_evd = log_evidence(flat_samples, flat_log_probs, log_probability, bounds)
 
     # reshape for getdist
     chain_list = np.moveaxis(samples, 1, 0)
-    loglike_list = np.moveaxis(blobs[:, :, 0], 1, 0)
+    loglike_list = np.moveaxis(log_probs, 1, 0)
 
     gd_samples = MCSamples(
         samples=chain_list,
@@ -170,6 +151,7 @@ def main():
     mB_pred = mu_theory(DM) + best_fit[M0]
     corrected_mags = mb_vals - mu_corr(best_fit, DM)
     residuals = corrected_mags - mB_pred
+    mu_std = np.sqrt(np.diag(cov_matrix))
 
     print("DOF", len(z_cmb) - len(best_fit))
     print("Chi squared", f"{chi_squared(best_fit):.2f}")
@@ -188,17 +170,12 @@ def main():
         legend=legend,
         x=z_cmb,
         y=corrected_mags - best_fit[M0],
-        y_err=np.sqrt(np.diag(cov_matrix)),
+        y_err=mu_std,
         y_model=mB_pred - best_fit[M0],
         label=f"$Ω_m$={best_fit[OM]:.3f}",
         x_scale="log",
     )
-    plot_residuals(
-        z_values=z_cmb,
-        residuals=residuals,
-        y_err=np.sqrt(np.diag(cov_matrix)),
-        bins=40,
-    )
+    plot_residuals(z_values=z_cmb, residuals=residuals, y_err=mu_std, bins=60)
 
 
 if __name__ == "__main__":

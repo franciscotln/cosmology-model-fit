@@ -119,7 +119,7 @@ def main():
     )
     samples.addDerived(samples["rdrag"] * samples["h"], name="hrd", label="h r_d")
     samples.addDerived(
-        -1 + (samples["ombh2"] + samples["omch2"]) / cmb.Omega_r_h2(),
+        -1 + (samples["ombh2"] + samples["omch2"]) / cmb.Omega_r_h2(cmb.N_EFF),
         name="zeq",
         label=r"z_{eq}",
     )
@@ -169,11 +169,11 @@ if __name__ == "__main__":
 # R = 1.7512 ± 0.0030
 # ωm = 0.14332 ± 0.00091
 # Ωm = 0.3175 ± 0.0056 (1.7 sigma tension with BAO)
-# h * r_d = 98.78 ± 0.69 (2.5 sigma tension with BAO)
+# h * r_d = 98.77 ± 0.69 (2.5 sigma tension with BAO)
 # z_drag = 1060.03 ± 0.21
 # r_d = 147.00 ± 0.24 Mpc
 # z_eq = 3410 ± 22
-# χ2 (MAP): 0.000
+# χ2 (MAP): 0.001
 # log likelihood (MAP): 21.92
 # -----------------------------
 
@@ -204,7 +204,7 @@ if __name__ == "__main__":
 # -----------------------------
 # plikHM TT, TE, EE + lowl + lowE + Lensing compression (Planck 2019 - PR3)
 # -----------------------------
-# H0: 67.36 ± 0.54 km/s/Mpc
+# H0: 67.36 ± 0.53 km/s/Mpc
 # ωb: 0.02237 ± 0.00015
 # ωc: 0.1200 ± 0.0012
 # 100 θ*: 1.04110 ± 0.00031
@@ -217,9 +217,9 @@ if __name__ == "__main__":
 # h * r_d = 99.08 ± 0.92
 # z_drag: 1059.96 ± 0.30
 # r_d: 147.09 ± 0.26 Mpc
-# z_eq: 3402 ± 27
+# z_eq: 3402 ± 26
 # Age: 13.798 ± 0.023 Gyr
-# χ2 (MAP): 0.000
+# χ2 (MAP): 0.001
 # log likelihood (MAP): 14.39
 # -----------------------------
 

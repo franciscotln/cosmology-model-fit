@@ -15,6 +15,39 @@ python3 -m sn.pantheon
 python3 -m bao.desi_des5y_bbn_theta_star
 ```
 
+## Neutrino evolution
+
+[nu_evolution.py](./nu_evolution.py) provides shared Numba kernels and a
+configuration factory used by all CMB compression modules:
+
+```python
+from nu_evolution import create_neutrino_evolution
+
+Omnu_h2, Omnu_z, w_nu_z = create_neutrino_evolution(
+    n_eff=3.044, nu_rel=2 * 3.044 / 3, mnu_tot=0.06, TCMB=2.7255
+)
+```
+
+Call the factory from Python, before compiling its callers. It precomputes the
+five-node approximation once. Both returned functions accept scalar or NumPy
+array redshifts and can be called from `@njit` functions.
+`Omnu_z(z)` returns the normalized density `rho_nu(z) / rho_nu(0)`; multiply by
+`Omnu_h2` for the physical density contribution. `w_nu_z(z)` returns the equation
+of state. Each compression module retains its own neutrino configuration.
+
+This preserves the existing single massive-fluid approximation, not separate
+mass eigenstates. Configuration values must be finite, with
+`0 <= nu_rel < n_eff`, `mnu_tot >= 0` (eV), and `TCMB > 0` (K).
+Configurations are fixed when the factory is called; construct new functions
+for a different configuration. A global `jitclass` instance or bound method
+cannot replace these functions in existing Numba-compiled callers.
+
+Run the neutrino and CMB compression regression tests with:
+
+```bash
+python3 -m unittest discover -s tests -p 'test_nu_evolution.py' -v
+```
+
 ## Cosmological tests
 ### Variable equation of state for dark energy, for example with this thawing model:
 
