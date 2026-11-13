@@ -79,7 +79,7 @@ bao_qty = np.array([qty_map[q] for q in bao_data["quantity"]], dtype=np.int32)
 
 @njit
 def bao_theory(z, qty, params, dm_dh_grid):
-    inv_rd = 1 / cmb.r_drag(wb=params[4], wm=params[5] * (params[3] / 100)**2)
+    inv_rd = 1 / params[4]
     dm_vals = DM_z(z, dm_dh_grid)
     dh_vals = DH_z(z, dm_dh_grid)
 
@@ -197,7 +197,7 @@ def main():
     # H0: Hubble constant at present
     prior.add_parameter("H0", dist=(45, 90))
     # ombh2: baryon density parameter at present
-    prior.add_parameter("ombh2", dist=((0.0125, 0.035)))
+    prior.add_parameter("rd", dist=(120, 170))
     # Ωm: matter density parameter today
     prior.add_parameter("om", dist=(0.2, 0.5))
     # dz_1000: (1000 x Δz) redshift offset step correction
@@ -210,10 +210,9 @@ def main():
     samples, log_w, log_l = sampler.posterior()
     w = np.exp(log_w)
 
-    labels=["ln(f_{pivot})", "n", "ΔM", "H_0", "Ω_b h^2", "Ω_m", "1000 Δz"]
+    labels=["ln(f_{pivot})", "n", "ΔM", "H_0", "r_{drag}", "Ω_m", "1000 Δz"]
     gd_samples = MCSamples(samples=samples, weights=w, names=prior.keys, labels=labels)
     gd_samples.addDerived(gd_samples["om"] * (gd_samples["H0"] / 100) ** 2, name="omh2", label="Ω_m h^2")
-    gd_samples.addDerived(cmb.r_drag(gd_samples["ombh2"], gd_samples["omh2"]), name="rd", label="r_{drag}")
     gd_samples.addDerived(np.exp(gd_samples["ln_fp_cc"]), name="fp_cc", label="f_{pivot}")
     gd_samples.updateBaseStatistics()
 
@@ -233,7 +232,7 @@ def main():
 
     plots.get_subplot_plotter().triangle_plot(
         roots=gd_samples,
-        params=["H0", "om", "ombh2", "dz_1000", "ln_fp_cc", "n_cc"],
+        params=["H0", "om", "rd", "dz_1000", "ln_fp_cc", "n_cc"],
         title_limit=1,
         color=["C0"],
         contour_colors=["C0"],
@@ -302,20 +301,19 @@ if __name__ == "__main__":
 
 
 # --------------- Flat ΛCDM -----------------
-# H0 = 69.7 ± 1.4 km/s/Mpc
+# H0 = 69.6 ± 1.4 km/s/Mpc
 # Ωm = 0.3050 ± 0.0073
-# Ωm h^2 = 0.1483 ± 0.0062
-# Ωb h^2 = 0.0236 ± 0.0018
-# rd = 144.8 ± 2.8 Mpc
+# Ωm h^2 = 0.1479 ± 0.0062
+# rd = 144.9 ± 2.8 Mpc
 #
-# ΔM = -0.006 ± 0.042 mag
-# n = 1.02 +0.32 -0.54
+# ΔM = -0.008 ± 0.042 mag
+# n = 1.03 +0.31 -0.54
 # ln(fp) = -0.41 ± 0.25
 # fp = 0.68 +0.13 -0.19
 #
-# Chi2 (MAP): 81.56
+# Chi2 (MAP): 81.68
 # log likelihood (MAP): -172.18
-# Log evidence: -188.96
+# Log evidence: -189.96
 # DOF: 69
 # -------------------------------------------
 
@@ -326,40 +324,38 @@ if __name__ == "__main__":
 # z_cosmo = z_cmb ± Δz
 
 # 1000 Δz = 1.10 ± 0.40
-# H0 = 69.8 ± 1.4 km/s/Mpc
-# Ωm = 0.3018 ± 0.0073
-# Ωm h^2 = 0.1472 ± 0.0061
-# Ωb h^2 = 0.0238 ± 0.0018
-# rd = 144.9 ± 2.8 Mpc
+# H0 = 69.7 ± 1.4 km/s/Mpc
+# Ωm = 0.3019 ± 0.0073
+# Ωm h^2 = 0.1469 ± 0.0061
+# rd = 145.1 ± 2.8 Mpc
 #
-# ΔM = -0.007 ± 0.042 mag
-# n = 1.02 +0.31 -0.54
+# ΔM = -0.0098 ± 0.042 mag
+# n = 1.03 +0.31 -0.54
 # ln(fp) = -0.41 ± 0.25
 # fp = 0.68 +0.13 -0.19
 #
-# Chi2 (MAP): 73.47
-# log likelihood (MAP): -168.33
-# Log evidence: -187.06
+# Chi2 (MAP): 72.56
+# log likelihood (MAP): -168.38
+# Log evidence: -188.08
 # DOF: 68
 # -------------------------------------------
 
 
 # --------------- Flat wCDM -----------------
 # w0 = -0.928 ± 0.046
-# H0 = 68.9 ± 1.4 km/s/Mpc
-# Ωm = 0.3039 ± 0.0074
-# Ωm h^2 = 0.1443 ± 0.0066
-# Ωb h^2 = 0.0252 ± 0.0022
-# rd = 144.6 ± 2.8 Mpc
+# H0 = 68.8 ± 1.4 km/s/Mpc
+# Ωm = 0.3040 ± 0.0075
+# Ωm h^2 = 0.1441 ± 0.0066
+# rd = 144.7 ± 2.8 Mpc
 #
-# ΔM = -0.009 ± 0.042 mag
-# n = 1.02 +0.31 -0.52
+# ΔM = -0.012 ± 0.042 mag
+# n = 1.02 +0.31 -0.53
 # ln(fp) = -0.41 ± 0.25
 # fp = 0.69 +0.13 -0.19
 #
-# Chi2 (MAP): 80.19
-# log likelihood (MAP): -170.97
-# Log evidence: -189.87
+# Chi2 (MAP): 79.80
+# log likelihood (MAP): -170.96
+# Log evidence: -190.92
 # DOF: 68
 # -------------------------------------------
 
@@ -380,6 +376,6 @@ if __name__ == "__main__":
 #
 # Chi2 (MAP): 74.47
 # log likelihood (MAP): -169.28
-# Log evidence: -190.50
+# Log evidence: -191.50
 # DOF: 67
 # -------------------------------------------

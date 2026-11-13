@@ -88,6 +88,9 @@ def get_data(split_sys=False):
 # arXiv:2608.13178v1
 # H(z=0.61) = 88.5 ± 8.1 syst +6.7 -12.6 stat
 
+# arXiv:2608.10163v2
+# H(z=0.15) = 85.0 ± 51.5 stat +10.2 −8.9 syst
+
 # THESE ARE EXCLUDED FROM THIS DATASET
 # arXiv:2511.02730v1
 # H(z=0.46) = 88.48 ± 12.32 syst ± 0.57 stat
